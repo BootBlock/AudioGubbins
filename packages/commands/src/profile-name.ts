@@ -15,6 +15,7 @@ import {
   asWrittenName,
   firstFreeCopyName,
   firstFreeName,
+  quoted,
   type NameProblem,
 } from '@audiogubbins/text';
 
@@ -94,7 +95,7 @@ export function nameInUse(holder: ShortcutProfile): DomainFailure {
   return failure(
     'shortcut-profile.name-in-use',
     FailureKind.Conflict,
-    `There is already a profile called "${holder.displayName}". Choose another name.`,
+    `There is already a profile called ${quoted(holder.displayName)}. Choose another name.`,
   );
 }
 

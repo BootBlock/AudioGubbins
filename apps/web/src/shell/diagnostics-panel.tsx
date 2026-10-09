@@ -16,6 +16,7 @@ import {
 
 import { logCategoryName } from '../log-categories.js';
 import type { LogView, LogViewStore } from '../state/log-view-store.js';
+import { timeOfDay } from '@audiogubbins/text';
 
 /**
  * The records a reader sees, given the level and the subsystem they chose.
@@ -34,12 +35,6 @@ export function recordsPassing(
       severityPasses(record.severity, threshold) &&
       (category === 'all' || record.category === category),
   );
-}
-
-/** How a record's time is written in the log. */
-function formatTime(timestamp: number): string {
-  const when = new Date(timestamp);
-  return `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}:${String(when.getSeconds()).padStart(2, '0')}`;
 }
 
 /** The recent diagnostic records, and what they cost to keep. */
@@ -140,7 +135,7 @@ export function DiagnosticsPanel({
             .reverse()
             .map((record: LogRecord, index) => (
               <li key={`${String(record.timestamp)}-${String(index)}`} className="ag-log-record">
-                <span className="ag-log-time">{formatTime(record.timestamp)}</span>
+                <span className="ag-log-time">{timeOfDay(record.timestamp)}</span>
                 <span className="ag-log-severity" data-ag-severity={record.severity}>
                   {record.severity}
                 </span>

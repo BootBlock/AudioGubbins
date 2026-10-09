@@ -9,6 +9,7 @@ import { isJsonObject, type JsonObject, type JsonValue } from './canonical-json.
 import { stateFingerprintFrom } from './content-identity.js';
 import { ExportDestinationKind, ExportStatus, type ExportRecord } from './export-provenance.js';
 import { parseJson } from './json-parsing.js';
+import { TREE_JSON_LIMITS } from './project-tree-files.js';
 import { projectTree, type ProjectTreeContent } from './project-tree-writing.js';
 import { ProvenanceLevel } from './provenance-stripping.js';
 import { nodeDigest } from './testing/node-digest.js';
@@ -116,10 +117,7 @@ const EVERY_MEMBER: ExportRecord = {
 function json(file: WrittenFile): JsonObject {
   if (file.body.kind !== 'text') throw new Error(`${file.path} is not text.`);
   const value = expectSuccess(
-    parseJson(expectSuccess(decodeUtf8(file.body.bytes)), {
-      maximumLength: 2 ** 20,
-      maximumDepth: 16,
-    }),
+    parseJson(expectSuccess(decodeUtf8(file.body.bytes)), TREE_JSON_LIMITS),
   );
   if (!isJsonObject(value)) throw new Error(`${file.path} holds no object.`);
   return value;

@@ -11,15 +11,24 @@
  * for the page to keep, drops its own copy, and keeps the source for the
  * requests that still come. One pyramid is built at a time: the job focused
  * last goes first, which bounds the work in flight to one chunk (G4).
+ *
+ * Given a port to the preview worker, it reads a racked sound's processed
+ * streams from their renders (ADR-0061), so a chunk read out of order never
+ * starts a chain again from the stream's start.
  */
 
 import {
+  PreviewClient,
   blockView,
   describedSource,
   allocateBlock,
+  previewPort,
+  ProcessedStart,
   type AudioFrameBlock,
   type CanonicalDsp,
+  type ChainProcessing,
   type PcmSource,
+  type ToPreview,
 } from '@audiogubbins/audio-engine';
 import { discreteLayout, sampleCount, type DomainResult } from '@audiogubbins/domain';
 
@@ -44,6 +53,8 @@ export interface PeakWorkerHost {
   /** Resolves after the events already queued for the worker have run. */
   readonly yieldToHost: () => Promise<void>;
   readonly dsp: CanonicalDsp;
+  /** How the chains an edited source's plan names are run: the effect rack's. */
+  readonly processing: ChainProcessing;
   /** Reports a message that could not be read, which the page sent wrongly. */
   readonly reportFault: (error: Error) => void;
   /** Milliseconds from any fixed origin, which spaces the batches of runs. */
@@ -85,6 +96,8 @@ export class PeakWorkerCore {
   #pumping = false;
   readonly #requests: PeakRequests;
   readonly #batches: RunBatches;
+  /** The preview worker's renders, once the page has given the port to them. */
+  #previews: PreviewClient | undefined;
 
   constructor(host: PeakWorkerHost) {
     this.#host = host;
@@ -129,6 +142,9 @@ export class PeakWorkerCore {
       case ToPeakWorkerKind.Close:
         this.#close(message.job);
         break;
+      case ToPeakWorkerKind.Previews:
+        this.#previews = new PreviewClient(previewPort<ToPreview>(message.port));
+        break;
     }
   }
 
@@ -156,7 +172,12 @@ export class PeakWorkerCore {
     if (this.#jobs.has(message.job)) this.#close(message.job);
     const layout = discreteLayout(message.channels);
     const source = layout.ok
-      ? describedSource(message.description, layout.value, this.#host.dsp)
+      ? describedSource(message.description, layout.value, this.#host.dsp, {
+          processing: this.#host.processing,
+          quality: message.quality.settings,
+          start: ProcessedStart.Canonical,
+          ...(this.#previews === undefined ? {} : { cached: this.#previews }),
+        })
       : layout;
     if (!source.ok) {
       this.#post({

@@ -15,8 +15,9 @@ import { useState, type ReactNode } from 'react';
 import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
-import { quoted, when } from '../../wording.js';
+import { when } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
+import { quoted } from '@audiogubbins/text';
 
 /** A deleted project, as the list holds it. */
 type Deleted = ProjectHeader & { readonly deleted: number };

@@ -22,7 +22,10 @@ class FakeWorkerScope {
   }
 }
 
-describe('the render worker’s module', () => {
+// Importing the worker's module afresh loads the engine and the effect rack
+// with every processor: about two seconds alone, and past the default budget
+// under the whole suite's load.
+describe('the render worker’s module', { timeout: 30_000 }, () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.resetModules();

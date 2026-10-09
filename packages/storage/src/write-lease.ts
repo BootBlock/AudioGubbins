@@ -175,4 +175,14 @@ export interface LeaseCoordinator {
     mode: StorageLockMode,
     options: { readonly wait: boolean; readonly signal?: AbortSignal },
   ): Promise<StorageLocking>;
+
+  /**
+   * Takes the lock on the person's library of saved chains and presets, which
+   * one window holds at a time while it changes the library, so two windows
+   * never both find a name free and both take it
+   * (`processing-library-store.ts`). Waits for it, and rejects with the
+   * signal's reason where `signal` aborts first; `unavailable` where the
+   * platform refuses it.
+   */
+  lockLibrary(options: { readonly signal?: AbortSignal }): Promise<StorageLocking>;
 }

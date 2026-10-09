@@ -135,6 +135,16 @@ describe('the delay node', () => {
     ]);
   });
 
+  it('refuses samples for its list of delays, naming how many rather than each', () => {
+    // Samples of whole numbers, which a list of them would be read as.
+    const samples = Float32Array.from([0, 12]);
+    const node = delay(StandardLayouts.stereo, { frames: 0, 'channel-delays': samples });
+    const [problem, ...others] = DELAY_NODE.check(node);
+    expect(others).toEqual([]);
+    expect(problem?.code).toBe('node-settings-invalid');
+    expect(problem?.message).toContain('setting 2 samples');
+  });
+
   for (const [name, layout] of GENERIC_LAYOUTS) {
     it(`delays each ${name} channel by the frames and its own delay, however the blocks fall`, () => {
       const channelDelays = layout.roles.map((_, index) => index * 37 + (index % 2) * 5);

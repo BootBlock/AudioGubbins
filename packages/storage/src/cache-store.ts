@@ -87,8 +87,8 @@ export type CacheScope =
   | { readonly kind: 'media'; readonly content: ContentId }
   | { readonly kind: 'project'; readonly project: ProjectId }
   /**
-   * Audio the storage does not keep, by the SHA-256 of the identity it is
-   * known by, in lower-case hexadecimal (see {@link unstoredScope}).
+   * Audio the storage does not keep, by the SHA-256 of the identity it is known
+   * by, in lower-case hexadecimal (see `unstoredScope`).
    */
   | { readonly kind: 'unstored'; readonly source: string };
 

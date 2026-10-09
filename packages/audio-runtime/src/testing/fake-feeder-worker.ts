@@ -11,20 +11,24 @@
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { PcmSource } from '@audiogubbins/audio-engine';
+import type { ChainProcessing, PcmSource } from '@audiogubbins/audio-engine';
 
 import { scopeDsp } from '../dsp/dsp-instance.js';
 import { FeederCore } from '../feeder/feeder-core.js';
 import type { ToFeeder } from '../protocol/feeder-messages.js';
 import type { FeederWorkerEvents, FeederWorkerPort } from '../playback/feeder-link.js';
 import type { Schedule } from '../schedule.js';
-import { FakeMessagePort, cloneAcross } from './fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
+import { FakeMessagePort } from './fake-message-channel.js';
+import { NO_CHAIN_PROCESSING } from '@audiogubbins/audio-engine/testing';
 
 /** What a fake feeder is made with. */
 export interface FakeFeederOptions {
   readonly schedule: Schedule;
   /** Puts a test's reads in front of each source the feeder makes. */
   readonly readThrough?: (node: NodeId, source: PcmSource) => PcmSource;
+  /** How the feeder runs an edited sound's chains; it runs none, by default. */
+  readonly processing?: ChainProcessing;
 }
 
 /** A feeder worker running the feeder's core, driven by a test. */
@@ -81,6 +85,7 @@ export class FakeFeederWorker implements FeederWorkerPort {
       },
       schedule,
       chooseDsp: scopeDsp,
+      processing: options.processing ?? NO_CHAIN_PROCESSING,
       ...(options.readThrough === undefined ? {} : { readThrough: options.readThrough }),
     });
   }
@@ -100,7 +105,7 @@ export class FakeFeederWorker implements FeederWorkerPort {
   postMessage(message: ToFeeder, transfer: Transferable[]): void {
     this.received.push(message);
     if (this.terminated) return;
-    const data = cloneAcross(message, transfer);
+    const data = crossingThreads(message, transfer);
     queueMicrotask(() => {
       if (!this.terminated) this.#core.receive(data);
     });

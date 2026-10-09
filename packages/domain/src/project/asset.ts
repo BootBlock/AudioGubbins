@@ -11,7 +11,7 @@
  * audio without an hour of audio being resident (REQ-ARCH-004.3).
  */
 
-import type { AssetId } from '../identity/branded-id.js';
+import type { AssetId, EffectChainId } from '../identity/branded-id.js';
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import type { EditOperation } from '../editing/operations.js';
@@ -74,6 +74,13 @@ export interface Asset {
    * and an undo withdraws the last.
    */
   readonly edits: readonly EditOperation[];
+
+  /**
+   * The chain that processes the whole asset as its edits leave it, where it
+   * has one (ADR-0060). It follows the asset through every later edit, and a
+   * region of the asset hears its span of what it makes.
+   */
+  readonly rack?: EffectChainId;
 }
 
 /**

@@ -12,6 +12,10 @@
  * first frame writes, so a read two hours in costs what a read at the start
  * does. Playback that seeks converts a source that starts at the seek
  * position instead (`offsetSource`), which is the conversion of that audio.
+ *
+ * The resampler's position is shared by every read, so reads take turns
+ * (`read-turns.ts`), and a read that fails or is cancelled part way leaves
+ * the position unknown, so the read after it seeks.
  */
 
 import {
@@ -33,6 +37,7 @@ import type {
 } from '../dsp/canonical-dsp.js';
 import { allocateBlock, blockView, type AudioFrameBlock } from './frame-block.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
+import { ReadTurns } from './read-turns.js';
 
 /** Frames read from the source at a time. */
 const INPUT_CHUNK = 4_096;
@@ -78,8 +83,10 @@ class Conversion {
   readonly #resampler: CanonicalResampler;
   /** The source frame the next push starts at. */
   #read = 0;
+  /** The output frame the next pull gives, or `NaN` where a read ended part way. */
   #written = 0;
   readonly #input: AudioFrameBlock;
+  readonly #turns = new ReadTurns();
 
   constructor(source: PcmSource, to: SampleRate, resampler: CanonicalResampler) {
     this.#source = source;
@@ -94,7 +101,8 @@ class Conversion {
       layout: this.#source.layout,
       sampleRate: this.#to,
       length,
-      read: (start, into, signal) => this.read(start, length, into, signal),
+      read: (start, into, signal) =>
+        this.#turns.take(() => this.read(start, length, into, signal), signal),
       release: () => {
         this.#resampler.release();
       },
@@ -108,10 +116,8 @@ class Conversion {
     signal: CancellationSignal | undefined,
   ): Promise<number> {
     assertReadableInto({ layout: this.#source.layout, sampleRate: this.#to }, into);
-    if (start !== this.#written) {
-      this.#read = this.#resampler.seek(start);
-      this.#written = start;
-    }
+    if (start !== this.#written) this.#read = this.#resampler.seek(start);
+    this.#written = Number.NaN;
     const wanted = framesAvailable(length, start, into.frames);
     let filled = 0;
     while (filled < wanted) {
@@ -119,7 +125,7 @@ class Conversion {
       filled += this.#resampler.pull(blockView(into, filled, wanted - filled).channels);
       if (filled < wanted && !(await this.#pushNextChunk(signal))) break;
     }
-    this.#written += filled;
+    this.#written = start + filled;
     return filled;
   }
 

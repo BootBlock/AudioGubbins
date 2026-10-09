@@ -10,17 +10,20 @@
  * document share.
  */
 
-import type {
-  EditPlan,
-  FadeCurve,
-  GainCurve,
-  PlanSegment,
-  PlanSource,
-  PlanStage,
-  PlanStream,
+import {
+  MAXIMUM_CHANNEL_COUNT,
+  type EditPlan,
+  type FadeCurve,
+  type GainCurve,
+  type PlanSegment,
+  type PlanSource,
+  type PlanStage,
+  type PlanStream,
+  type StreamProcessing,
 } from '@audiogubbins/domain';
 
 import type { JsonObject } from './canonical-json.js';
+import { WRITTEN_CHAIN_DEPTH, readEffectChain } from './chain-reading.js';
 import {
   anyObjectOf,
   checkMembers,
@@ -47,6 +50,14 @@ import {
 } from './value-reading.js';
 
 /**
+ * How many levels of arrays and objects a written plan takes, its own object
+ * the first: its list of streams, a stream and the stream's processing hold a
+ * chain, the deepest thing a plan holds. A stage's matrix row, the deepest
+ * thing besides, is at the ninth level, which a chain of no group passes.
+ */
+export const WRITTEN_PLAN_DEPTH = 4 + WRITTEN_CHAIN_DEPTH;
+
+/**
  * Fewer code units than any stream, segment or stage is written in: the
  * shortest, a matrix stage with an empty matrix, takes 29.
  */
@@ -63,7 +74,14 @@ const SHORTEST_PLAN_ITEM = 16;
 const MAXIMUM_PLAN_ITEMS = LONGEST_PROJECT_DOCUMENT / SHORTEST_PLAN_ITEM;
 
 const PLAN_MEMBERS: ReadonlySet<string> = new Set(['streams']);
-const STREAM_MEMBERS: ReadonlySet<string> = new Set(['sampleRate', 'layout', 'segments']);
+const STREAM_MEMBERS: ReadonlySet<string> = new Set([
+  'sampleRate',
+  'layout',
+  'segments',
+  'processing',
+]);
+const CHAIN_PROCESSING_MEMBERS: ReadonlySet<string> = new Set(['kind', 'chain', 'input']);
+const STRETCH_PROCESSING_MEMBERS: ReadonlySet<string> = new Set(['kind', 'length']);
 const SEGMENT_MEMBERS: ReadonlySet<string> = new Set([
   'source',
   'start',
@@ -73,6 +91,7 @@ const SEGMENT_MEMBERS: ReadonlySet<string> = new Set([
 ]);
 const MEDIA_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'asset']);
 const STREAM_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'stream']);
+const SILENCE_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'channels']);
 const GAIN_STAGE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'from', 'to', 'channels', 'gain']);
 const MATRIX_STAGE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'range', 'matrix']);
 const STAGE_RANGE_MEMBERS: ReadonlySet<string> = new Set(['from', 'to']);
@@ -86,12 +105,16 @@ const FADE_MEMBERS: ReadonlySet<string> = new Set([
   'rising',
 ]);
 
-const asSourceKind = oneOfConverter(['media', 'stream'] as const);
+const asSourceKind = oneOfConverter(['media', 'stream', 'silence'] as const);
 const asStageKind = oneOfConverter(['gain', 'matrix'] as const);
 const asCurveKind = oneOfConverter(['constant', 'fade'] as const);
+const asProcessingKind = oneOfConverter(['chain', 'stretch'] as const);
 
 /** A stream of the plan a segment reads, by its place among the streams. */
 const asStreamPlace = integerConverter(0, MAXIMUM_PLAN_ITEMS - 1);
+
+/** How many channels a segment of silence makes: as many as a layout may have. */
+const asSilenceChannels = integerConverter(1, MAXIMUM_CHANNEL_COUNT);
 
 /**
  * Where a fade began, in content frames. A fade made on reversed audio, or one
@@ -121,6 +144,11 @@ const readSource: Converter<PlanSource> = (reading, value, parent, key) => {
     checkMembers(reading, object, at, STREAM_SOURCE_MEMBERS);
     const stream = required(reading, object, at, 'stream', asStreamPlace);
     return stream === undefined ? undefined : { kind, stream };
+  }
+  if (kind === 'silence') {
+    checkMembers(reading, object, at, SILENCE_SOURCE_MEMBERS);
+    const channels = required(reading, object, at, 'channels', asSilenceChannels);
+    return channels === undefined ? undefined : { kind, channels };
   }
   return undefined;
 };
@@ -219,6 +247,30 @@ const readSegment: Converter<PlanSegment> = (reading, value, parent, key) => {
 
 const asSegments = listConverter(MAXIMUM_PLAN_ITEMS, readSegment);
 
+/**
+ * Reads what processes a stream. Its chain keeps its own slot identifiers: a
+ * paste carries a copy of the chain as it was, which may share them with the
+ * chain still in the project.
+ */
+const readProcessing: Converter<StreamProcessing> = (reading, value, parent, key) => {
+  const object = anyObjectOf(reading, value, parent, key);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const kind = required(reading, object, at, 'kind', asProcessingKind);
+  if (kind === 'stretch') {
+    checkMembers(reading, object, at, STRETCH_PROCESSING_MEMBERS);
+    const length = required(reading, object, at, 'length', asSampleCount);
+    return length === undefined ? undefined : { kind, length };
+  }
+  if (kind === 'chain') {
+    checkMembers(reading, object, at, CHAIN_PROCESSING_MEMBERS);
+    const chain = required(reading, object, at, 'chain', readEffectChain);
+    const input = required(reading, object, at, 'input', asChannelLayout);
+    return chain === undefined || input === undefined ? undefined : { kind, chain, input };
+  }
+  return undefined;
+};
+
 const readStream: Converter<PlanStream> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, STREAM_MEMBERS);
   if (object === undefined) return undefined;
@@ -226,9 +278,10 @@ const readStream: Converter<PlanStream> = (reading, value, parent, key) => {
   const sampleRate = required(reading, object, at, 'sampleRate', asSampleRate);
   const layout = required(reading, object, at, 'layout', asChannelLayout);
   const segments = required(reading, object, at, 'segments', asSegments);
+  const processing = optional(reading, object, at, 'processing', readProcessing);
   return sampleRate === undefined || layout === undefined || segments === undefined
     ? undefined
-    : { sampleRate, layout, segments };
+    : { sampleRate, layout, segments, ...(processing === undefined ? {} : { processing }) };
 };
 
 const asStreams = listConverter(MAXIMUM_PLAN_ITEMS, readStream);

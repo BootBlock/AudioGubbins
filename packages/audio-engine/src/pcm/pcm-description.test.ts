@@ -1,24 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, ZERO_SAMPLES, sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, ZERO_SAMPLES, readValue, sampleRate } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
+import { PLAIN_PLAN_PROCESSING } from '../testing/plan-processing.js';
 import { allocateBlock } from './frame-block.js';
 import {
   PcmDescriptionKind,
   describedBuffers,
   describedSource,
-  pcmDescription,
+  pcmDescriptionOf,
   type PcmDescription,
 } from './pcm-description.js';
 import { toneRecipe } from './signal-recipe.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
 
-function partOf(value: unknown): unknown {
+/** A description read as a message carrying it reads it. */
+function pcmDescription(value: unknown) {
+  return readValue(value, 'pcm.description-unreadable', (one) =>
+    pcmDescriptionOf(one, 'description'),
+  );
+}
+
+function fieldOf(value: unknown): unknown {
   const read = pcmDescription(value);
-  return read.ok ? undefined : read.failures[0].details?.['part'];
+  return read.ok ? undefined : read.failures[0].details?.['field'];
 }
 
 describe('reading a description', () => {
@@ -37,19 +45,23 @@ describe('reading a description', () => {
     expect(expectSuccess(pcmDescription(structuredClone(signal)))).toEqual(signal);
   });
 
-  it('names the part that is wrong', () => {
-    expect(partOf('audio')).toBe('description');
-    expect(partOf({ kind: 'pcm', sampleRate: 12.5, channels: [] })).toBe('sampleRate');
-    expect(partOf({ kind: 'file', sampleRate: 48_000 })).toBe('kind');
-    expect(partOf({ kind: 'pcm', sampleRate: 48_000, channels: [[1]] })).toBe('channels');
+  it('names the field that is wrong by its path', () => {
+    expect(fieldOf('audio')).toBe('description');
+    expect(fieldOf({ kind: 'pcm', sampleRate: 12.5, channels: [] })).toBe('description.sampleRate');
+    expect(fieldOf({ kind: 'file', sampleRate: 48_000 })).toBe('description.kind');
+    expect(fieldOf({ kind: 'pcm', sampleRate: 48_000, channels: [[1]] })).toBe(
+      'description.channels',
+    );
     expect(
-      partOf({
+      fieldOf({
         kind: 'pcm',
         sampleRate: 48_000,
         channels: [new Float32Array(2), new Float32Array(3)],
       }),
-    ).toBe('channels');
-    expect(partOf({ kind: 'signal', sampleRate: 48_000, recipe: { length: 1 } })).toBe('recipe');
+    ).toBe('description.channels');
+    expect(fieldOf({ kind: 'signal', sampleRate: 48_000, recipe: { length: 1 } })).toBe(
+      'description.recipe.channels',
+    );
   });
 });
 
@@ -60,7 +72,9 @@ describe('what a description makes', () => {
       sampleRate: RATE,
       channels: [new Float32Array([0.5, -0.5, 0.25])],
     };
-    const source = expectSuccess(describedSource(description, StandardLayouts.mono, REFERENCE_DSP));
+    const source = expectSuccess(
+      describedSource(description, StandardLayouts.mono, REFERENCE_DSP, PLAIN_PLAN_PROCESSING),
+    );
     const block = allocateBlock(StandardLayouts.mono, RATE, 3);
     expect(await source.read(ZERO_SAMPLES, block)).toBe(3);
     expect([...(block.channels[0] ?? [])]).toEqual([0.5, -0.5, 0.25]);
@@ -73,6 +87,7 @@ describe('what a description makes', () => {
           { kind: PcmDescriptionKind.Pcm, sampleRate: RATE, channels: [new Float32Array(4)] },
           StandardLayouts.stereo,
           REFERENCE_DSP,
+          PLAIN_PLAN_PROCESSING,
         ),
       ),
     ).toBe('pcm.block-channel-count-mismatch');
@@ -86,6 +101,7 @@ describe('what a description makes', () => {
           },
           StandardLayouts.stereo,
           REFERENCE_DSP,
+          PLAIN_PLAN_PROCESSING,
         ),
       ),
     ).toBe('pcm.signal-channels-mismatched');

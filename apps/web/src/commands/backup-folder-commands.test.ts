@@ -41,7 +41,7 @@ describe('the backups folder', () => {
     expect(port.folder.files.size).toBe(0);
 
     expect(await window.runAndHear('backup.allow-folder')).toBe(
-      'Backups are copied to "Backups" as the backup settings ask.',
+      'Backups are copied to “Backups” as the backup settings ask.',
     );
     await window.runAndHear('file.back-up-now');
     expect(window.projects.backups.get().copied).toEqual({ kind: 'written' });
@@ -70,10 +70,10 @@ describe('the backups folder', () => {
     const window = await copyingWindow(port);
 
     expect(await window.runAndHear('backup.allow-folder')).toBe(
-      'The browser refused to let AudioGubbins write to "Backups", so backups stay in its own storage.',
+      'The browser refused to let AudioGubbins write to “Backups”, so backups stay in its own storage.',
     );
     expect(await window.runAndHear('backup.choose-folder')).toBe(
-      'Backups are copied to "Backups" as the backup settings ask.',
+      'Backups are copied to “Backups” as the backup settings ask.',
     );
     expect(window.run('backup.allow-folder').kind).toBe('refused');
   });

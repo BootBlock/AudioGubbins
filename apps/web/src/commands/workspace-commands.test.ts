@@ -147,13 +147,13 @@ describe('making a workspace of your own', () => {
     // Counted from the list, the name could be one a workspace already had.
     run('workspace.save-as');
     expect(context.interaction.get().announcement?.text).toBe(
-      'Saved this arrangement as "My workspace".',
+      'Saved this arrangement as “My workspace”.',
     );
 
     run('workspace.save-as');
     expect(context.workspace.get().layout.displayName).toBe('My workspace 2');
     expect(context.interaction.get().announcement?.text).toBe(
-      'Saved this arrangement as "My workspace 2".',
+      'Saved this arrangement as “My workspace 2”.',
     );
   });
 
@@ -161,7 +161,7 @@ describe('making a workspace of your own', () => {
     // Two workspaces of one name were two entries the menu, the settings and
     // "Switched to …" could not tell apart. A screen reader says the two
     // alike, so a name differing only in case is the same name.
-    const IN_USE = 'There is already a workspace called "Mixing". Choose another name.';
+    const IN_USE = 'There is already a workspace called “Mixing”. Choose another name.';
     run('workspace.save-as', { displayName: 'Mixing' });
     run('workspace.save-as', { displayName: 'Mastering' });
     const before = context.workspace.get().available;
@@ -174,7 +174,7 @@ describe('making a workspace of your own', () => {
 
     // A built-in workspace is listed with its mark, so a name typed with the
     // mark would be listed as the preset is.
-    const MARKED = 'There is already a workspace called "Editing (built in)". Choose another name.';
+    const MARKED = 'There is already a workspace called “Editing (built in)”. Choose another name.';
     expect(refusalOf(run('workspace.save-as', { displayName: 'Editing (built in)' }))).toBe(MARKED);
     expect(
       refusalOf(
@@ -272,14 +272,14 @@ describe('making a workspace of your own', () => {
       return context.interaction.get().announcement?.text;
     };
 
-    expect(said('workspace.save-as')).toBe('Saved this arrangement as "Answered".');
-    expect(said('workspace.duplicate')).toBe('Copied it as "Answered".');
+    expect(said('workspace.save-as')).toBe('Saved this arrangement as “Answered”.');
+    expect(said('workspace.duplicate')).toBe('Copied it as “Answered”.');
     expect(said('workspace.rename', { displayName: 'Answered' })).toBe(
-      '"Before" is now called "Answered".',
+      '“Before” is now called “Answered”.',
     );
-    expect(said('workspace.reset')).toBe('"Answered" is back to how it ships.');
+    expect(said('workspace.reset')).toBe('“Answered” is back to how it ships.');
     expect(said('workspace.delete')).toBe(
-      '"Answered" is deleted. Restore a deleted workspace brings it back until AudioGubbins closes.',
+      '“Answered” is deleted. Restore a deleted workspace brings it back until AudioGubbins closes.',
     );
     expect(context.workspace.get().layout.displayName).toBe('Editing');
   });
@@ -291,7 +291,7 @@ describe('making a workspace of your own', () => {
     run('workspace.duplicate', { layoutId: 'editing' });
 
     expect(context.workspace.get().layout.displayName).toBe('Editing copy 2');
-    expect(context.interaction.get().announcement?.text).toBe('Copied it as "Editing copy 2".');
+    expect(context.interaction.get().announcement?.text).toBe('Copied it as “Editing copy 2”.');
     const names = context.workspace.get().available.map((one) => one.displayName);
     expect(new Set(names).size).toBe(names.length);
   });
@@ -333,7 +333,7 @@ describe('making a workspace of your own', () => {
 
     expect(context.workspace.get().layout.displayName).toBe('Mastering');
     expect(context.interaction.get().announcement?.text).toBe(
-      '"Mixing" is now called "Mastering".',
+      '“Mixing” is now called “Mastering”.',
     );
   });
 
@@ -344,7 +344,7 @@ describe('making a workspace of your own', () => {
       expect(run('workspace.rename', { displayName })).toEqual({
         kind: 'unchanged',
         code: 'workspace.already-named',
-        reason: 'That workspace is already called "Mixing".',
+        reason: 'That workspace is already called “Mixing”.',
       });
     }
   });
@@ -919,7 +919,7 @@ describe('rearranging the panels', () => {
     );
 
     expect(refusalOf(run('workspace.reset'))).toBe(
-      `"${shipped.displayName}" is already as it ships.`,
+      `“${shipped.displayName}” is already as it ships.`,
     );
   });
 
@@ -1049,7 +1049,7 @@ describe('restoring a deleted workspace', () => {
     expect(context.workspace.get().layout).toEqual(before);
     expect(stored(context)).toEqual(['Mixing']);
     expect(context.workspace.get().deleted).toEqual([]);
-    expect(said()).toBe('"Mixing" is back, on screen again.');
+    expect(said()).toBe('“Mixing” is back, on screen again.');
   });
 
   it('puts back one deleted while another was on screen, and leaves the user where they are', () => {
@@ -1062,7 +1062,7 @@ describe('restoring a deleted workspace', () => {
 
     expect(context.workspace.get().layout.id).toBe('mastering');
     expect(stored(context)).toEqual(['Mastering', 'Mixing']);
-    expect(said()).toBe('"Mixing" is back.');
+    expect(said()).toBe('“Mixing” is back.');
   });
 
   it('keeps what it puts back across a reload', () => {
@@ -1103,7 +1103,7 @@ describe('restoring a deleted workspace', () => {
 
     expect(stored(context)).toEqual(['Mixing', 'Mixing 2']);
     expect(said()).toBe(
-      '"Mixing" is back, on screen again, as "Mixing 2", since another workspace has its name now.',
+      '“Mixing” is back, on screen again, as “Mixing 2”, since another workspace has its name now.',
     );
   });
 

@@ -9,7 +9,8 @@
  * revision is a fingerprint of that plan and of the media it reads, so peaks
  * kept for one state of the chain are never drawn for another. A view opens
  * only once the page holds every file its plan reads, and until then it says
- * why.
+ * why; and one whose chains run a model this page cannot run says why too
+ * (`model-gate.ts`), the project kept as it is.
  *
  * Made again from each state of the project, but an entry whose asset, markers,
  * regions, sources and files are the ones it was made from is the entry it was,
@@ -22,22 +23,34 @@
 
 import {
   anchorResolver,
+  assetChains,
   assetPlan,
+  bypassedAssetPlan,
+  chainIdsOf,
   derivedSampleCount,
+  unrackedAssetPlan,
   placeMarkers,
   placeRegions,
   planReadsAsset,
+  regionChains,
   type AnchorResolver,
   type Asset,
   type AssetId,
+  type DomainResult,
   type EditPlan,
+  type EffectChain,
+  type EffectChainId,
   type Marker,
   type PlacedMarker,
+  type PlanContext,
   type Project,
   type Region,
 } from '@audiogubbins/domain';
+import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ProjectState } from '@audiogubbins/project-format';
 
+import { planModelRefusal, type ModelGate } from './model-gate.js';
 import { sameRecord, sameRecords } from './record-values.js';
 import {
   assetEntryId,
@@ -45,6 +58,7 @@ import {
   openedEntry,
   regionEntry,
   regionEntryId,
+  runsChains,
   type MediaAvailability,
   type ProjectEntries,
   type ProjectEntry,
@@ -58,8 +72,12 @@ interface Owned {
   readonly regions: readonly Region[];
 }
 
-/** The entries of one asset, and the asset, markers, regions and reads they were made from. */
+/**
+ * The entries of one asset, and the asset, markers, regions, reads and chains
+ * they were made from.
+ */
 export interface MadeAsset extends Owned, Reads {
+  readonly chains: readonly (EffectChain | undefined)[];
   /** The asset's entry, then its regions', by the identity a view names. */
   readonly entries: ReadonlyMap<string, ProjectEntry>;
 }
@@ -94,19 +112,22 @@ function assetsRead(state: ProjectState, plan: EditPlan): readonly Asset[] {
 }
 
 /**
- * The entries of the project in `state`, its media held as `media` says, each
- * the entry it was in `previous` where nothing it is made from changed.
+ * The entries of the project in `state`, its media held as `media` says and
+ * its models as `models` says, each the entry it was in `previous` where
+ * nothing it is made from changed; a caller whose models change passes no
+ * `previous`.
  */
 export function projectEntries(
   state: ProjectState,
   media: (asset: AssetId) => MediaAvailability,
+  models: ModelGate,
   previous: ReadonlyMap<AssetId, MadeAsset> = new Map(),
 ): { readonly entries: ProjectEntries; readonly made: ReadonlyMap<AssetId, MadeAsset> } {
   const own = owning(state.project);
   const made = new Map<AssetId, MadeAsset>();
   const entries = new Map<string, ProjectEntry>();
   for (const asset of state.project.assets.values()) {
-    const one = madeAsset(state, own(asset), media, previous.get(asset.id));
+    const one = madeAsset(state, own(asset), media, previous.get(asset.id), models);
     made.set(asset.id, one);
     for (const [id, entry] of one.entries) entries.set(id, entry);
   }
@@ -115,12 +136,14 @@ export function projectEntries(
 
 /**
  * The entry a view names `id` in the project in `state`, its media held as
- * `media` says, or `undefined` where the project has none. Only the asset it is
- * of, or whose region it is, is planned.
+ * `media` says and its models as `models` says, or `undefined` where the
+ * project has none. Only the asset it is of, or whose region it is, is
+ * planned.
  */
 export function projectEntry(
   state: ProjectState,
   media: (asset: AssetId) => MediaAvailability,
+  models: ModelGate,
   id: string,
 ): ProjectEntry | undefined {
   const { project } = state;
@@ -129,18 +152,25 @@ export function projectEntry(
     [...project.regions.values()].find((region) => regionEntryId(region.id) === id)?.assetId;
   const asset = owner === undefined ? undefined : project.assets.get(owner);
   if (asset === undefined) return undefined;
-  return madeAsset(state, owning(project)(asset), media, undefined).entries.get(id);
+  return madeAsset(state, owning(project)(asset), media, undefined, models).entries.get(id);
 }
 
-/** What an asset's entries are placed by, worked out only where one is made. */
+/**
+ * What an asset's entries are placed by, worked out only where one is made:
+ * its plan, or why it has none, where a chain it names cannot run.
+ */
 interface Placed {
   readonly resolver: AnchorResolver;
-  readonly plan: EditPlan;
+  readonly plan: DomainResult<EditPlan>;
+  /** Its plan before its rack, where it has one, which a rack edit over a range of it reads. */
+  readonly unracked: DomainResult<EditPlan> | undefined;
+  /** Its plan with every chain bypassed, where a chain processes it. */
+  readonly original: DomainResult<EditPlan> | undefined;
   readonly markers: readonly PlacedMarker[];
 }
 
 /** What `own` is placed by, worked out the first time it is asked for and held after. */
-function placing(own: Owned): () => Placed {
+function placing(own: Owned, context: PlanContext): () => Placed {
   let placed: Placed | undefined;
   return () => {
     if (placed !== undefined) return placed;
@@ -149,9 +179,29 @@ function placing(own: Owned): () => Placed {
     const markers = placeMarkers(own.asset, own.markers, resolver).toSorted(
       (one, other) => one.position - other.position,
     );
-    placed = { resolver, plan: assetPlan(own.asset), markers };
+    placed = {
+      resolver,
+      plan: assetPlan(own.asset, context),
+      unracked: own.asset.rack === undefined ? undefined : unrackedAssetPlan(own.asset, context),
+      original: runsChains(own.asset) ? bypassedAssetPlan(own.asset, context) : undefined,
+      markers,
+    };
     return placed;
   };
+}
+
+/**
+ * The chains the asset's plan and its regions' plans read, in a fixed order,
+ * so entries made from the same records and the same chains can be kept.
+ */
+function chainsNamed(
+  own: Owned,
+  chains: PlanContext['chains'],
+): readonly (EffectChain | undefined)[] {
+  const named = new Set<EffectChainId>(chainIdsOf(assetChains(own.asset)));
+  for (const region of own.regions)
+    for (const id of chainIdsOf(regionChains(region))) named.add(id);
+  return [...named].sort().map((id) => chains.get(id));
 }
 
 /**
@@ -165,12 +215,25 @@ function madeAsset(
   own: Owned,
   media: (asset: AssetId) => MediaAvailability,
   before: MadeAsset | undefined,
+  models: ModelGate,
 ): MadeAsset {
-  const place = placing(own);
-  const unchanged = before !== undefined && sameRecord(before.asset, own.asset);
+  const context: PlanContext = {
+    chains: state.project.effectChains,
+    catalogue: PROCESSOR_CATALOGUE,
+    engine: ENGINE_VERSIONS,
+  };
+  const place = placing(own, context);
+  const chains = chainsNamed(own, context.chains);
+  const unchanged =
+    before !== undefined &&
+    sameRecord(before.asset, own.asset) &&
+    sameRecords(before.chains, chains);
+  const planned = unchanged ? undefined : place().plan;
   const read = unchanged
     ? before.read.flatMap((one) => state.project.assets.get(one.id) ?? [])
-    : assetsRead(state, place().plan);
+    : planned?.ok === true
+      ? assetsRead(state, planned.value)
+      : [];
   const reads: Reads = {
     read,
     sources: read.map((one) => state.sources.get(one.id)),
@@ -187,7 +250,60 @@ function madeAsset(
     before.files.every((file, index) => file === reads.files[index])
       ? before
       : undefined;
-  return { ...own, ...reads, entries: entriesOf(own, reads, place, kept) };
+  return {
+    ...own,
+    ...reads,
+    chains,
+    entries: entriesOf(own, reads, place, kept, { context, models }),
+  };
+}
+
+/** The entry of the asset itself, or why it cannot open, where a chain it names cannot run. */
+function assetEntry(
+  own: Owned,
+  reads: Reads,
+  place: () => Placed,
+  models: ModelGate,
+): ProjectEntry {
+  const { asset } = own;
+  const id = assetEntryId(asset.id);
+  const { plan, unracked, original, markers, resolver } = place();
+  if (!plan.ok) {
+    return { kind: 'unavailable', id, name: asset.displayName, reason: plan.failures[0].summary };
+  }
+  if (unracked?.ok === false) {
+    return {
+      kind: 'unavailable',
+      id,
+      name: asset.displayName,
+      reason: unracked.failures[0].summary,
+    };
+  }
+  if (original?.ok === false) {
+    return {
+      kind: 'unavailable',
+      id,
+      name: asset.displayName,
+      reason: original.failures[0].summary,
+    };
+  }
+  const withoutModel = planModelRefusal(plan.value, models);
+  if (withoutModel !== undefined) {
+    return { kind: 'unavailable', id, name: asset.displayName, reason: withoutModel };
+  }
+  return openedEntry(
+    {
+      id,
+      name: asset.displayName,
+      description: assetSentence(asset, plan.value),
+      owner: { kind: 'project', asset, plan: plan.value, offset: derivedSampleCount(0) },
+      unracked: unracked?.value,
+      original: original?.value,
+      markers,
+      regions: placeRegions(asset, own.regions, resolver),
+    },
+    reads,
+  );
 }
 
 /** The entries of `own.asset`, each the one `kept` holds where its regions are the ones it held. */
@@ -196,25 +312,16 @@ function entriesOf(
   reads: Reads,
   place: () => Placed,
   kept: MadeAsset | undefined,
+  planning: { readonly context: PlanContext; readonly models: ModelGate },
 ): ReadonlyMap<string, ProjectEntry> {
+  const { context, models } = planning;
   const { asset } = own;
   const sameRegions = kept !== undefined && sameRecords(kept.regions, own.regions);
   const entries = new Map<string, ProjectEntry>();
   const id = assetEntryId(asset.id);
   entries.set(
     id,
-    (sameRegions ? kept.entries.get(id) : undefined) ??
-      openedEntry(
-        {
-          id,
-          name: asset.displayName,
-          description: assetSentence(asset, place().plan),
-          owner: { kind: 'project', asset, plan: place().plan, offset: derivedSampleCount(0) },
-          markers: place().markers,
-          regions: placeRegions(asset, own.regions, place().resolver),
-        },
-        reads,
-      ),
+    (sameRegions ? kept.entries.get(id) : undefined) ?? assetEntry(own, reads, place, models),
   );
   const regionsBefore = new Map(
     sameRegions ? [] : (kept?.regions.map((region) => [region.id, region] as const) ?? []),
@@ -225,7 +332,17 @@ function entriesOf(
     entries.set(
       regionId,
       (same ? kept?.entries.get(regionId) : undefined) ??
-        regionEntry({ asset, region, markers: place().markers, resolver: place().resolver }, reads),
+        regionEntry(
+          {
+            asset,
+            region,
+            markers: place().markers,
+            resolver: place().resolver,
+            context,
+            models,
+          },
+          reads,
+        ),
     );
   }
   return entries;

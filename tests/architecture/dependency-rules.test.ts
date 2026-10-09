@@ -210,9 +210,14 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/input': ['@audiogubbins/text'],
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
-  '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/audio-graph': ['@audiogubbins/domain', '@audiogubbins/text'],
   '@audiogubbins/codecs': ['@audiogubbins/domain'],
-  '@audiogubbins/clipboard': ['@audiogubbins/domain', '@audiogubbins/project-format'],
+  '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
+  '@audiogubbins/clipboard': [
+    '@audiogubbins/domain',
+    '@audiogubbins/project-format',
+    '@audiogubbins/text',
+  ],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
@@ -223,11 +228,37 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/renderer',
   ],
   '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
-  '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+  '@audiogubbins/waveform': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+    '@audiogubbins/ml-runtime',
+  ],
+  '@audiogubbins/detection-runtime': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+    '@audiogubbins/ml-runtime',
+  ],
   '@audiogubbins/audio-engine': [
     '@audiogubbins/domain',
     '@audiogubbins/audio-graph',
     '@audiogubbins/codecs',
+    '@audiogubbins/text',
+  ],
+  '@audiogubbins/processors': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/ml-runtime',
+  ],
+  '@audiogubbins/effect-rack': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/processors',
   ],
   '@audiogubbins/audio-runtime': [
     '@audiogubbins/domain',
@@ -235,6 +266,9 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/capabilities',
     '@audiogubbins/audio-graph',
     '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+    '@audiogubbins/ml-runtime',
   ],
   '@audiogubbins/commands': [
     '@audiogubbins/domain',
@@ -267,6 +301,11 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/project-format',
   ],
   '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
+  '@audiogubbins/model-packs': [
+    '@audiogubbins/domain',
+    '@audiogubbins/ml-runtime',
+    '@audiogubbins/project-format',
+  ],
   '@audiogubbins/storage': [
     '@audiogubbins/domain',
     '@audiogubbins/codecs',
@@ -274,7 +313,9 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/diagnostics',
     '@audiogubbins/history',
     '@audiogubbins/media-store',
+    '@audiogubbins/model-packs',
     '@audiogubbins/project-format',
+    '@audiogubbins/text',
     '@audiogubbins/version',
   ],
   '@audiogubbins/browser-storage': [
@@ -291,9 +332,12 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/history',
     '@audiogubbins/media-store',
+    '@audiogubbins/model-packs',
+    '@audiogubbins/processors',
     '@audiogubbins/project-commands',
     '@audiogubbins/project-format',
     '@audiogubbins/storage',
+    '@audiogubbins/text',
   ],
   '@audiogubbins/test-fixtures': ['@audiogubbins/domain'],
 };
@@ -535,8 +579,14 @@ describe('the import matcher sees every form an import can take', () => {
 const PAGE_AND_BUILD = [
   'apps/web/index.html',
   ...sourcesMatching('apps/*/*.{ts,mjs,js}'),
-  ...sourcesMatching('tools/*.{mjs,js,ts}').map((path) => forwardSlashes(path)),
+  ...sourcesMatching('tools/**/*.{mjs,js,ts}').map((path) => forwardSlashes(path)),
 ];
+
+/** The model-pack build's download, the build tooling's one network exception. */
+const PACK_BUILD_DOWNLOAD = 'tools/model-packs/source-download.mjs';
+
+/** The tests `pnpm test:ml-locality` runs among the locality checks (REQ-AUDIO-138). */
+const LOCALITY = { tags: ['ml-locality'] };
 
 describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
   /**
@@ -571,7 +621,26 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     /\binsertAdjacentHTML\s*\(/,
     /\bdangerouslySetInnerHTML\b/,
     /\bdocument\s*\.\s*write(?:ln)?\s*\(/,
+    // A request API declared by its shape, as a module compiled without the
+    // browser's definitions names a global, which it then calls by any name.
+    /\bdeclare\s+(?:const|let|var|function)\s+(?:fetch|XMLHttpRequest|WebSocket|EventSource|(?:webkit)?RTCPeerConnection|WebTransport|importScripts)\b/,
   ];
+
+  /**
+   * The first of the two modules that may reach the network: the download of
+   * a model pack's files (ADR-0062), which asks the catalogue the build
+   * configures for the pack and sends nothing else. ESLint's network rule
+   * excepts it too.
+   */
+  const DOWNLOAD = 'packages/model-packs/src/adapter/http-pack-source.ts';
+
+  /**
+   * The second: the read of the inference runtime's WebAssembly (ADR-0062),
+   * which asks the application's own origin for the file and sends nothing
+   * else, so the runtime fetches nothing itself. ESLint's network rule
+   * excepts it too.
+   */
+  const RUNTIME_FILES = 'packages/ml-runtime/src/adapter/origin-runtime-files.ts';
 
   it.each([
     ['a fetch', "await fetch('/log');"],
@@ -585,6 +654,8 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     ['an injected script', "document.createElement('script');"],
     ['markup written as text', 'panel.innerHTML = markup;'],
     ['markup handed to React', '<div dangerouslySetInnerHTML={{ __html: markup }} />'],
+    ['a request API declared by its shape', 'declare const fetch: Fetch;'],
+    ['a socket declared by its shape', 'declare function WebSocket(url: string): Socket;'],
   ])('recognises %s', (_form, code) => {
     expect(NETWORK_APIS.some((pattern) => pattern.test(code))).toBe(true);
   });
@@ -598,14 +669,28 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     expect(NETWORK_APIS.some((pattern) => pattern.test(code))).toBe(false);
   });
 
-  it('has no network call anywhere in production source', () => {
+  it('has no network call in production source but the two modules excepted', LOCALITY, () => {
     const offenders = ALL_SOURCES.filter((path) => {
       const code = readCode(path);
       return NETWORK_APIS.some((pattern) => pattern.test(code));
     });
 
-    expect(offenders).toEqual([]);
+    expect(offenders.toSorted()).toEqual([RUNTIME_FILES, DOWNLOAD]);
   });
+
+  it.each([
+    ['the download', DOWNLOAD],
+    ['the read of the runtime’s files', RUNTIME_FILES],
+  ])(
+    'lets %s reach the network by its declared fetch and by nothing else',
+    LOCALITY,
+    (_name, path) => {
+      const code = readCode(path);
+      expect(NETWORK_APIS.filter((pattern) => pattern.test(code))).toHaveLength(1);
+      expect(code).toMatch(/\bdeclare\s+const\s+fetch\b/);
+      expect(code).not.toMatch(/\bdeclare\s+(?:const|let|var|function)\s+(?!fetch\b)\w+/);
+    },
+  );
 
   it('has none in the page, the build configuration or the tools either', () => {
     expect(PAGE_AND_BUILD).toContain('apps/web/index.html');
@@ -618,7 +703,7 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
       return NETWORK_APIS.some((pattern) => pattern.test(code));
     });
 
-    expect(offenders).toEqual([]);
+    expect(offenders).toEqual([PACK_BUILD_DOWNLOAD]);
   });
 
   it('loads nothing into the page from another origin', () => {
@@ -752,11 +837,16 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'clipboard',
     'codecs',
     'commands',
+    'detection-runtime',
     'domain',
     'editor-view',
+    'effect-rack',
     'history',
     'input',
     'media-store',
+    'ml-runtime',
+    'model-packs',
+    'processors',
     'project-commands',
     'project-format',
     'renderer',
@@ -797,8 +887,9 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     // The packages are also compiled without the DOM type definitions, so this
     // would be a type error first. The rule stays because the `lib` setting is
     // one line in a generated file, and this is a test that says why it
-    // matters.
-    const forbidden = /\b(window|document|localStorage|sessionStorage|navigator)\s*\./;
+    // matters. A member of that name, such as an analysis's `window`, is not
+    // the global.
+    const forbidden = /(?<![\w$.])(window|document|localStorage|sessionStorage|navigator)\s*\./;
     expect(FRAMEWORK_FREE.filter((path) => forbidden.test(readCode(path)))).toEqual([]);
   });
 
@@ -893,6 +984,22 @@ describe('third-party libraries stay behind their adapters', () => {
       'packages/workspace/src/styles/workspace.css',
       'tests/e2e/dock.ts',
     ]);
+  });
+
+  it('imports the inference runtime only from its adapter, and there only when a session needs it', () => {
+    // ADR-0062: only the adapter knows ONNX Runtime Web, and REQ-AUDIO-139
+    // keeps the runtime out of the base bundle, so the adapter reaches it by
+    // `import()` alone, which the bundler splits into chunks of its own.
+    const runtime = /^onnxruntime-(web|common)$/;
+    const importing = ALL_SOURCES.filter((path) => importsPackage(path, runtime));
+    expect(importing).toEqual(['packages/ml-runtime/src/adapter/onnx-runtime.ts']);
+
+    const staticImports = importing.flatMap((path) =>
+      [...readCode(path).matchAll(/\b(?:from|import)\s*['"`](onnxruntime-[^'"`]+)['"`]/g)].map(
+        (match) => match[1],
+      ),
+    );
+    expect(staticImports).toEqual([]);
   });
 
   it('imports the primitive library only from the design system primitives', () => {
@@ -1771,50 +1878,57 @@ describe('one fact, held the same in every place it is written', () => {
     ).toEqual([]);
   });
 
-  it('keeps ESLint and Prettier out of every directory the cruise excludes', async () => {
-    // And the checkers are two more readers of the same directories: were one
-    // left out of either, running the development server would fail the lint
-    // gate on work nobody has done, as it would the cruise.
-    //
-    // Each tool is asked through its own API whether it reads a file there, so
-    // a pattern written in a shape the tool does not match fails as a missing
-    // one does. Prettier is asked of `.prettierignore` alone, the list kept
-    // whole for it: its command line also reads `.gitignore`, which the rule
-    // above holds, and asked of both, this rule would pass with
-    // `.prettierignore` missing an entry.
-    const eslint = new ESLint({ cwd: REPOSITORY_ROOT });
-    const ignorePath = inRepository('.prettierignore');
-    const readersOf = async (file: string): Promise<readonly string[]> => {
-      const path = inRepository(file);
-      const readers: string[] = [];
-      if (!(await eslint.isPathIgnored(path))) readers.push(`ESLint reads ${file}`);
-      if (!(await getFileInfo(path, { ignorePath })).ignored) {
-        readers.push(`Prettier reads ${file}`);
-      }
-      return readers;
-    };
-    const readersOfEach = async (files: readonly string[]): Promise<readonly string[]> => {
-      const readers: string[] = [];
-      for (const file of files) readers.push(...(await readersOf(file)));
-      return readers;
-    };
+  // It runs both checkers over the tree: about 1 s alone and several times that
+  // under the whole suite's load, so it is given a budget of its own rather
+  // than Vitest's five-second default.
+  it(
+    'keeps ESLint and Prettier out of every directory the cruise excludes',
+    { timeout: 30_000 },
+    async () => {
+      // And the checkers are two more readers of the same directories: were one
+      // left out of either, running the development server would fail the lint
+      // gate on work nobody has done, as it would the cruise.
+      //
+      // Each tool is asked through its own API whether it reads a file there,
+      // so a pattern written in a shape the tool does not match fails as a
+      // missing one does. Prettier is asked of `.prettierignore` alone, the
+      // list kept whole for it: its command line also reads `.gitignore`, which
+      // the rule above holds, and asked of both, this rule would pass with
+      // `.prettierignore` missing an entry.
+      const eslint = new ESLint({ cwd: REPOSITORY_ROOT });
+      const ignorePath = inRepository('.prettierignore');
+      const readersOf = async (file: string): Promise<readonly string[]> => {
+        const path = inRepository(file);
+        const readers: string[] = [];
+        if (!(await eslint.isPathIgnored(path))) readers.push(`ESLint reads ${file}`);
+        if (!(await getFileInfo(path, { ignorePath })).ignored) {
+          readers.push(`Prettier reads ${file}`);
+        }
+        return readers;
+      };
+      const readersOfEach = async (files: readonly string[]): Promise<readonly string[]> => {
+        const readers: string[] = [];
+        for (const file of files) readers.push(...(await readersOf(file)));
+        return readers;
+      };
 
-    // A build writes at the root, under each package and application, and
-    // under `tests/`, where the cruise excludes its output.
-    const places = ['.', 'tests', ...manifests().map((manifest) => posix.dirname(manifest))];
-    const excluded = [
-      ...BUILD_OUTPUT_DIRECTORIES.flatMap((directory) =>
-        places.map((place) => posix.join(place, directory, 'index.js')),
-      ),
-      ...EXCLUDED_AT_THE_ROOT.map((directory) => posix.join(directory, 'index.js')),
-    ];
-    expect(await readersOfEach(excluded)).toEqual([]);
+      // A build writes at the root, under each package and application, and
+      // under `tests/`, where the cruise excludes its output.
+      const places = ['.', 'tests', ...manifests().map((manifest) => posix.dirname(manifest))];
+      const excluded = [
+        ...BUILD_OUTPUT_DIRECTORIES.flatMap((directory) =>
+          places.map((place) => posix.join(place, directory, 'index.js')),
+        ),
+        ...EXCLUDED_AT_THE_ROOT.map((directory) => posix.join(directory, 'index.js')),
+      ];
+      expect(await readersOfEach(excluded)).toEqual([]);
 
-    // Both tools read a source file in each place, so neither answer passes
-    // by leaving everything unread.
-    const sources = places.map((place) => posix.join(place, 'src', 'index.js'));
-    expect(await readersOfEach(sources)).toHaveLength(sources.length * 2);
-  });
+      // Both tools read a source file in each place, so neither answer passes
+      // by leaving everything unread.
+      const sources = places.map((place) => posix.join(place, 'src', 'index.js'));
+      expect(await readersOfEach(sources)).toHaveLength(sources.length * 2);
+    },
+  );
 
   it('logs no field name redaction would take for a secret', () => {
     // The redaction rules are kept narrow to protect the vocabulary this tree
@@ -2729,6 +2843,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       328,
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
+    'packages/domain/src/index.ts': [
+      354,
+      "The domain package's public contract and nothing else: one export a line, as Prettier writes a list of named exports, grouped by the module each comes from, with no logic of its own. Its size is the size of the domain's contract, which the contract record checks name by name. Split, the package would have two entry points to one contract, and every importer would have to know which half a name is in.",
+    ],
   };
 
   /**
@@ -2934,8 +3052,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      116,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), so what is left here is the lines that hand each part its collaborators and gather what they give back.',
+      123,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), and local inference by `startModels` before the parts whose threads run chains, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
     // Components: hooks, then the tree they draw.
@@ -3008,6 +3126,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/commands/src/shortcut-transfer.ts: parseBinding': [
       65,
       'Validates one stored binding step by step, its first press on its own, since a shortcut has one; most of its lines are failure literals.',
+    ],
+    'packages/audio-engine/src/dsp/reference/logarithm.ts: lnParts': [
+      61,
+      'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
+    ],
+    'packages/model-packs/src/install-state.ts: nextInstallState': [
+      75,
+      "The install state machine's whole table, one arm for each event, each the states that take it and where they go; the switch is exhaustive over the events, so an event cannot be left without its rule. The checks of a download's numbers (`arriving`) and the states a failure leaves (`failedFrom`) are functions of their own, shared by the arms that need them; split by event, the table would be read in thirteen places to see what a state can take.",
     ],
     'packages/diagnostics/src/bundle.ts: assembleBundle': [
       60,

@@ -16,32 +16,42 @@
  * blocks and every rewind travel on. The main thread then only says where to
  * feed from and when to stop; the feeder says when the feeds hold audio to
  * start with, and when a source could not be read.
+ *
+ * The feeder is given a port to the preview worker once, which an edited
+ * sound reads the renders of the chains it cannot run as it plays from
+ * (ADR-0061); and a parameter changed while a request plays is sent to its
+ * sources, which say whether their chains took it running.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import {
+  countAt,
+  failureSummaryOf,
+  flagAt,
+  identifierAt,
+  nonEmptyObjectsAt,
+  numberAt,
+  objectsAt,
+  oneOf,
+  optionalTextAt,
+  qualityModeAt,
+  readMessage,
+  textAt,
+  type DomainResult,
+  type FailureSummary,
+  type MessageFields,
+  type QualityMode,
+} from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
-import { DspImplementation } from '@audiogubbins/audio-engine';
+import { DspImplementation, type ParameterChange } from '@audiogubbins/audio-engine';
 
 import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
-  countAt,
   dspDeliveryAt,
-  failureSummaryFrom,
-  flagAt,
   graphAt,
-  listAt,
   moduleAt,
   nodeAt,
-  nonEmptyListAt,
-  numberAt,
-  oneOf,
-  optionalTextAt,
   portAt,
-  readMessage,
   sharedMemoryAt,
-  textAt,
-  type FailureSummary,
-  type Fields,
 } from './message-reading.js';
 import { FeedTransport } from './processor-messages.js';
 import { sourceFrom, type SourceDescription } from './source-descriptions.js';
@@ -64,6 +74,8 @@ export const ToFeederKind = {
   Stop: 'stop',
   Unbind: 'unbind',
   Release: 'release',
+  Previews: 'previews',
+  Parameters: 'parameters',
 } as const;
 
 /** A message the feeder is sent. */
@@ -75,6 +87,8 @@ export type ToFeeder =
       /** The graph the sources feed, whose graph inputs give each source its layout. */
       readonly graph: GraphDescriptor;
       readonly sources: readonly SourceDescription[];
+      /** The quality a preview runs an edited sound's chains at (ADR-0061). */
+      readonly quality: QualityMode;
       /** The canonical DSP compiled on the main thread, or why it could not be. */
       readonly dsp: DspDelivery<WebAssembly.Module>;
     }
@@ -110,6 +124,21 @@ export type ToFeeder =
       /** Releases request `request`'s sources, which nothing will play again. */
       readonly kind: typeof ToFeederKind.Release;
       readonly request: number;
+    }
+  | {
+      /** The feeder's end of its channel to the preview worker, transferred, given once. */
+      readonly kind: typeof ToFeederKind.Previews;
+      readonly port: MessagePort;
+    }
+  | {
+      /**
+       * Numeric parameters changed while request `request` plays, for its
+       * sources' chains to take running, answered as `change`.
+       */
+      readonly kind: typeof ToFeederKind.Parameters;
+      readonly request: number;
+      readonly change: number;
+      readonly changes: readonly ParameterChange[];
     };
 
 /** The kinds of message the feeder sends. */
@@ -119,6 +148,7 @@ export const FromFeederKind = {
   Primed: 'primed',
   FeedFailed: 'feed-failed',
   Fault: 'fault',
+  ParametersTaken: 'parameters-taken',
 } as const;
 
 /** A message the feeder sends. */
@@ -155,16 +185,36 @@ export type FromFeeder =
       /** A message the feeder could not act on, so what it feeds is in doubt. */
       readonly kind: typeof FromFeederKind.Fault;
       readonly message: string;
+    }
+  | {
+      /**
+       * Whether the parameters of change `change` were taken running, or
+       * every reason they were not, in which case the request must be
+       * loaded again to be heard with them.
+       */
+      readonly kind: typeof FromFeederKind.ParametersTaken;
+      readonly change: number;
+      readonly refusals: readonly FailureSummary[];
     };
 
-function bindingFrom(fields: Fields): FeederBinding {
+function parameterChangeFrom(fields: MessageFields): ParameterChange {
+  const value = numberAt(fields, 'value');
+  return {
+    stream: countAt(fields, 'stream'),
+    processor: identifierAt<'ProcessorId'>(fields, 'processor'),
+    parameter: identifierAt<'ParameterId'>(fields, 'parameter'),
+    value,
+  };
+}
+
+function bindingFrom(fields: MessageFields): FeederBinding {
   const node = nodeAt(fields, 'node');
   const transport = oneOf(fields, 'transport', FeedTransport);
   if (transport === FeedTransport.Posted) return { node, transport };
   return { node, transport, ring: sharedMemoryAt(fields, 'ring') };
 }
 
-function toFeederFrom(fields: Fields): ToFeeder {
+function toFeederFrom(fields: MessageFields): ToFeeder {
   const kind = oneOf(fields, 'kind', ToFeederKind);
   switch (kind) {
     case ToFeederKind.Sources:
@@ -172,14 +222,15 @@ function toFeederFrom(fields: Fields): ToFeeder {
         kind,
         request: countAt(fields, 'request'),
         graph: graphAt(fields, 'graph'),
-        sources: listAt(fields, 'sources', sourceFrom),
+        sources: objectsAt(fields, 'sources', sourceFrom),
+        quality: qualityModeAt(fields, 'quality'),
         dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
       };
     case ToFeederKind.Bind:
       return {
         kind,
         request: countAt(fields, 'request'),
-        feeds: listAt(fields, 'feeds', bindingFrom),
+        feeds: objectsAt(fields, 'feeds', bindingFrom),
         feedAheadMilliseconds: numberAt(fields, 'feedAheadMilliseconds'),
         chunkFrames: countAt(fields, 'chunkFrames'),
         wakeMilliseconds: numberAt(fields, 'wakeMilliseconds'),
@@ -192,10 +243,19 @@ function toFeederFrom(fields: Fields): ToFeeder {
       return { kind };
     case ToFeederKind.Release:
       return { kind, request: countAt(fields, 'request') };
+    case ToFeederKind.Previews:
+      return { kind, port: portAt(fields, 'port') };
+    case ToFeederKind.Parameters:
+      return {
+        kind,
+        request: countAt(fields, 'request'),
+        change: countAt(fields, 'change'),
+        changes: objectsAt(fields, 'changes', parameterChangeFrom),
+      };
   }
 }
 
-function fromFeederFrom(fields: Fields): FromFeeder {
+function fromFeederFrom(fields: MessageFields): FromFeeder {
   const kind = oneOf(fields, 'kind', FromFeederKind);
   switch (kind) {
     case FromFeederKind.SourcesMade:
@@ -210,7 +270,7 @@ function fromFeederFrom(fields: Fields): FromFeeder {
       return {
         kind,
         request: countAt(fields, 'request'),
-        failures: nonEmptyListAt(fields, 'failures', failureSummaryFrom),
+        failures: nonEmptyObjectsAt(fields, 'failures', failureSummaryOf),
       };
     case FromFeederKind.Primed:
       return { kind, run: countAt(fields, 'run') };
@@ -223,6 +283,12 @@ function fromFeederFrom(fields: Fields): FromFeeder {
       };
     case FromFeederKind.Fault:
       return { kind, message: textAt(fields, 'message') };
+    case FromFeederKind.ParametersTaken:
+      return {
+        kind,
+        change: countAt(fields, 'change'),
+        refusals: objectsAt(fields, 'refusals', failureSummaryOf),
+      };
   }
 }
 

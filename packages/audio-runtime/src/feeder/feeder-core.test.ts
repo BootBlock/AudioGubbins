@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
+import { MAXIMUM_QUALITY, sampleRate, StandardLayouts } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
@@ -17,6 +17,7 @@ import {
   dspModuleBytes,
   graphOf,
   named,
+  NO_CHAIN_PROCESSING,
   nodeOf,
   wire,
 } from '@audiogubbins/audio-engine/testing';
@@ -79,6 +80,7 @@ function sources(
 ): ToFeeder {
   return {
     kind: ToFeederKind.Sources,
+    quality: MAXIMUM_QUALITY,
     request,
     graph: GRAPH,
     sources: [described],
@@ -133,6 +135,7 @@ function feeder(
     },
     schedule: schedule.schedule,
     chooseDsp,
+    processing: NO_CHAIN_PROCESSING,
     ...(readThrough === undefined ? {} : { readThrough }),
   });
   return { core, said, toProcessor, schedule };
@@ -321,11 +324,11 @@ describe('the feeder', () => {
     expect(
       said.map((message) => (message.kind === FromFeederKind.Fault ? message.message : '')),
     ).toEqual([
-      "A message to the feeder could not be read: The message's kind is not one of sources, bind, start, stop, unbind, release.",
+      "A message to the feeder could not be read: The message's kind is not one of sources, bind, start, stop, unbind, release, previews, parameters.",
       'A message to the feeder could not be received, so what it feeds is in doubt.',
       'A message from the audio processor could not be received by the feeder, so how much audio it holds is in doubt.',
       'The feeder was bound to request 9, whose sources it does not have.',
-      "A message from the audio processor could not be read: The message's epoch is not a finite number.",
+      "A message from the audio processor could not be read: The message's epoch is not a whole number, zero or more.",
     ]);
   });
 });

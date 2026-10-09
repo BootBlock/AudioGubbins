@@ -65,7 +65,7 @@ describe('measuring usage', () => {
     const { tree, storage } = await scannedStorage();
     const { signal, reason } = abortedAt(tree, 'read', (path) => path.includes('/journal/'));
 
-    await expect(measureUsage(storage.exporting, [], signal)).rejects.toBe(reason);
+    await expect(measureUsage(storage.measuring, [], signal)).rejects.toBe(reason);
     // At most the listing of the journal's next folder, and no read.
     expect(tree.operationsSince).toBeLessThanOrEqual(1);
   });
@@ -83,7 +83,7 @@ describe('measuring usage', () => {
     expectSuccess(await session.close());
     const before = turns.asked;
 
-    expectSuccess(await measureUsage(storage.exporting));
+    expectSuccess(await measureUsage(storage.measuring));
 
     // 301 nodes, on the line the project is on: two passes of a step each.
     expect(turns.asked - before).toBeGreaterThanOrEqual(4);

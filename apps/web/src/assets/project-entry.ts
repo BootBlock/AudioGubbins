@@ -8,26 +8,37 @@
  */
 
 import {
+  assetChains,
+  bypassedRegionPlan,
+  chainIdsOf,
   channelCount,
   derivedSampleCount,
   markersInRegion,
   placeRegion,
+  regionChains,
   regionPlan,
   streamLength,
+  unrackedRegionPlan,
   type AnchorResolver,
   type Asset,
   type AssetId,
   type EditPlan,
   type PlacedMarker,
+  type PlanContext,
   type Region,
   type RegionId,
 } from '@audiogubbins/domain';
-import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
-import type { AssetSource } from '@audiogubbins/project-format';
-import { counted } from '@audiogubbins/text';
+import {
+  PcmDescriptionKind,
+  type MediaEntry,
+  type PcmDescription,
+} from '@audiogubbins/audio-engine';
+import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/project-format';
+import { counted, quoted } from '@audiogubbins/text';
 
-import { quoted } from '../wording.js';
-import { revisionOf, type EditorAsset } from './editor-asset.js';
+import { sampleRateWords } from '../wording.js';
+import { revisionOf, type EditorAsset, type PlannedAudio } from './editor-asset.js';
+import { planModelRefusal, type ModelGate } from './model-gate.js';
 
 /** Whether the page holds the file an asset's media is kept in. */
 export type MediaAvailability =
@@ -84,6 +95,9 @@ function mediaOf(
     if (found.kind === 'unavailable') return found;
     entries.push({
       asset: asset.id,
+      // Where the project keeps the bytes, which names their content: a
+      // stored object by its content's digest, a linked file by the file.
+      identity: JSON.stringify(reads.sources[index]?.media ?? asset.storageKey),
       sampleRate: asset.sampleRate,
       channels: channelCount(asset.channelLayout),
       length: asset.length,
@@ -99,19 +113,38 @@ function mediaOf(
  */
 export function assetSentence(asset: Asset, plan: EditPlan): string {
   const [stream] = plan.streams;
-  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${String(asset.sampleRate / 1000)} kHz`;
+  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${sampleRateWords(stream.sampleRate)}`;
   return asset.edits.length === 0
     ? `Audio of the project: ${shape}.`
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
 }
 
-/** The view of `plan`, named `id`, of the asset `owner` holds, once every file `reads` names is held. */
+/**
+ * Whether a chain processes `asset`, or `region` of it where one is given:
+ * a rack of either, or a rack edit over a range of either, so its original
+ * sound is another than the one heard.
+ */
+export function runsChains(asset: Asset, region?: Region): boolean {
+  return (
+    chainIdsOf(assetChains(asset)).length > 0 ||
+    (region !== undefined && chainIdsOf(regionChains(region)).length > 0)
+  );
+}
+
+/**
+ * The view of `plan`, named `id`, of the asset `owner` holds, once every file
+ * `reads` names is held, with `unracked`, its plan before its racks, where it
+ * has any, and `original`, its plan with every chain bypassed, where a chain
+ * processes it.
+ */
 export function openedEntry(
   made: {
     readonly id: string;
     readonly name: string;
     readonly description: string;
     readonly owner: Extract<EditorAsset['owner'], { readonly kind: 'project' }>;
+    readonly unracked: EditPlan | undefined;
+    readonly original: EditPlan | undefined;
     readonly markers: readonly PlacedMarker[];
     readonly regions: EditorAsset['regions'];
   },
@@ -123,8 +156,30 @@ export function openedEntry(
     return { kind: files.kind, id: made.id, name: made.name, reason: files.reason };
   }
   const [stream] = plan.streams;
-  const sampleRate = made.owner.asset.sampleRate;
+  // The edited sound's rate, which a conversion in its chain may have changed
+  // from its source's.
+  const { sampleRate } = stream;
   const sources = reads.sources.map((source) => source?.media);
+  // Written as the project writes a plan, so every value in it counts, the
+  // parameter values of its chains among them.
+  const contentOf = (written: EditPlan): string =>
+    `${canonicalJson(writeEditPlan(written))}${JSON.stringify(sources)}`;
+  const describing = (described: EditPlan) => (): PcmDescription => ({
+    kind: PcmDescriptionKind.Edited,
+    sampleRate,
+    plan: described,
+    media: files.entries,
+  });
+  const content = contentOf(plan);
+  const planned = (other: EditPlan | undefined): PlannedAudio | undefined =>
+    other === undefined
+      ? undefined
+      : {
+          content: contentOf(other),
+          layout: other.streams[0].layout,
+          describe: describing(other),
+          plan: other,
+        };
   return {
     kind: 'open',
     asset: {
@@ -134,17 +189,43 @@ export function openedEntry(
       sampleRate,
       layout: stream.layout,
       length: derivedSampleCount(streamLength(stream)),
-      revision: revisionOf(JSON.stringify({ plan, sources })),
-      describe: () => ({
-        kind: PcmDescriptionKind.Edited,
-        sampleRate,
-        plan,
-        media: files.entries,
-      }),
+      content,
+      revision: revisionOf(content),
+      describe: describing(plan),
+      unracked: planned(made.unracked),
+      original: planned(made.original),
       owner: made.owner,
       markers: made.markers,
       regions: made.regions,
     },
+  };
+}
+
+/**
+ * The plans of `region` beside the one heard: before its racks, where either
+ * its asset or it has one, and with every chain bypassed, where a chain
+ * processes it; or why one cannot be made.
+ */
+function regionPlansBeside(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver: AnchorResolver,
+): { readonly unracked?: EditPlan; readonly original?: EditPlan } | string {
+  // Its own processing is folded in among its asset's chain, before either
+  // rack, so it has audio before its racks where either rack is named.
+  const unracked =
+    asset.rack === undefined && region.rack === undefined
+      ? undefined
+      : unrackedRegionPlan(asset, region, context, resolver);
+  if (unracked?.ok === false) return unracked.failures[0].summary;
+  const original = runsChains(asset, region)
+    ? bypassedRegionPlan(asset, region, context, resolver)
+    : undefined;
+  if (original?.ok === false) return original.failures[0].summary;
+  return {
+    ...(unracked === undefined ? {} : { unracked: unracked.value }),
+    ...(original === undefined ? {} : { original: original.value }),
   };
 }
 
@@ -161,14 +242,28 @@ export function regionEntry(
     readonly region: Region;
     readonly markers: readonly PlacedMarker[];
     readonly resolver: AnchorResolver;
+    readonly context: PlanContext;
+    readonly models: ModelGate;
   },
   reads: Reads,
 ): ProjectEntry {
-  const { asset, region, markers, resolver } = parts;
+  const { asset, region, markers, resolver, context, models } = parts;
   const id = regionEntryId(region.id);
   const placed = placeRegion(resolver, region);
   if (placed === undefined || placed.length === 0) {
     return { kind: 'unavailable', id, name: region.displayName, reason: GONE };
+  }
+  const plan = regionPlan(asset, region, context, resolver);
+  if (!plan.ok) {
+    return { kind: 'unavailable', id, name: region.displayName, reason: plan.failures[0].summary };
+  }
+  const beside = regionPlansBeside(asset, region, context, resolver);
+  if (typeof beside === 'string') {
+    return { kind: 'unavailable', id, name: region.displayName, reason: beside };
+  }
+  const withoutModel = planModelRefusal(plan.value, models);
+  if (withoutModel !== undefined) {
+    return { kind: 'unavailable', id, name: region.displayName, reason: withoutModel };
   }
   return openedEntry(
     {
@@ -179,9 +274,11 @@ export function regionEntry(
         kind: 'project',
         asset,
         region,
-        plan: regionPlan(asset, region, resolver),
+        plan: plan.value,
         offset: placed.start,
       },
+      unracked: beside.unracked,
+      original: beside.original,
       markers: markersInRegion(markers, placed),
       regions: [],
     },

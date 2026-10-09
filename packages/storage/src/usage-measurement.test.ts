@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
-import type { ContentId, MediaSource } from '@audiogubbins/project-format';
+import { refOf } from '@audiogubbins/model-packs';
+import { ANY_SHA256, sampleManifest } from '@audiogubbins/model-packs/testing';
+import type { ByteSource, ContentId, MediaSource } from '@audiogubbins/project-format';
 
 import { BackupScheduler } from './backup-scheduler.js';
 import { CacheCategory } from './cache-store.js';
+import type { ModelPackStore } from './model-pack-store.js';
 import { storageOf, storedMedia } from './testing/memory-ports.js';
 import { harness } from './testing/node-services.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
@@ -29,6 +32,42 @@ function sizeUnder(tree: MemoryStorageTree, prefix: string): number {
   return [...tree.snapshot()]
     .filter(([path]) => path.startsWith(prefix))
     .reduce((sum, [, bytes]) => sum + bytes.length, 0);
+}
+
+/** A tree that notes every read of a file's bytes, whole or through a source. */
+class ReadNotingTree extends MemoryStorageTree {
+  readonly read = new Set<string>();
+
+  override async readFile(path: string) {
+    this.read.add(path);
+    return await super.readFile(path);
+  }
+
+  override async openFile(path: string): Promise<ByteSource | undefined> {
+    const source = await super.openFile(path);
+    return source === undefined
+      ? undefined
+      : {
+          size: source.size,
+          read: async (offset, length, signal) => {
+            this.read.add(path);
+            return await source.read(offset, length, signal);
+          },
+        };
+  }
+}
+
+/** Keeps a version of pack `id` whose one file holds `size` bytes, `kept` of them, sealed where whole. */
+async function keptPack(packs: ModelPackStore, id: string, size: number, kept = size) {
+  const manifest = sampleManifest({
+    id,
+    files: [{ path: 'model.onnx', bytes: size, sha256: ANY_SHA256 }],
+  });
+  expectSuccess(await packs.stage(manifest));
+  const sink = expectSuccess(await packs.append(refOf(manifest), 0));
+  await sink.write(new Uint8Array(kept));
+  await sink.close();
+  if (kept === size) expectSuccess(await packs.seal(refOf(manifest)));
 }
 
 describe('usage by category (REQ-STOR-200)', () => {
@@ -62,7 +101,7 @@ describe('usage by category (REQ-STOR-200)', () => {
     );
 
     const open = expectSuccess(
-      await measureUsage(storage.exporting, [session.getSnapshot().model.state]),
+      await measureUsage(storage.measuring, [session.getSnapshot().model.state]),
     );
     expect(open.journal).toBeGreaterThan(0);
     expect(open.sourceMedia).toBe(1_000);
@@ -70,7 +109,7 @@ describe('usage by category (REQ-STOR-200)', () => {
     expect(open.unreferencedMedia).toBe(4_000);
 
     expectSuccess(await session.close());
-    const closed = expectSuccess(await measureUsage(storage.exporting));
+    const closed = expectSuccess(await measureUsage(storage.measuring));
     expect(closed.journal).toBe(0);
     expect(closed.retainedDeletedMedia).toEqual({
       namedSnapshots: 0,
@@ -108,18 +147,42 @@ describe('usage by category (REQ-STOR-200)', () => {
     );
     expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), added)));
 
-    const without = expectSuccess(await measureUsage(storage.exporting));
+    const without = expectSuccess(await measureUsage(storage.measuring));
     expect(without.retainedDeletedMedia).toEqual(keptElsewhere(1_500));
     const live = expectSuccess(
-      await measureUsage(storage.exporting, [session.getSnapshot().model.state]),
+      await measureUsage(storage.measuring, [session.getSnapshot().model.state]),
     );
     expect(live.sourceMedia).toBe(1_500);
 
     const scheduler = new BackupScheduler(header.id, storage.exporting);
     expectSuccess(await scheduler.tick(test.clock.now(), session.getSnapshot().model));
-    const backedUp = expectSuccess(await measureUsage(storage.exporting));
+    const backedUp = expectSuccess(await measureUsage(storage.measuring));
     expect(backedUp.backups).toBe(sizeUnder(tree, 'backups/'));
     expect(backedUp.backups).toBeGreaterThan(0);
+  });
+
+  it('counts installed model packs apart from partial downloads, by size alone', async () => {
+    const test = harness(7);
+    const tree = new ReadNotingTree();
+    const storage = storageOf(test, tree);
+    await keptPack(storage.packs, 'installed-pack', 4_000);
+    await keptPack(storage.packs, 'paused-pack', 9_000, 2_500);
+    await keptPack(storage.packs, 'torn-pack', 6_000, 1_000);
+    const torn = 'packs/torn-pack/1.0.0/manifest.json';
+    await tree.writeFile(torn, ((await tree.readFile(torn)) ?? new Uint8Array()).slice(0, 9));
+    tree.read.clear();
+
+    const usage = expectSuccess(await measureUsage(storage.measuring));
+    expect(usage.packs).toEqual({
+      installed: sizeUnder(tree, 'packs/installed-pack/'),
+      partial: sizeUnder(tree, 'packs/paused-pack/') + sizeUnder(tree, 'packs/torn-pack/'),
+    });
+    expect(usage.packs.installed).toBeGreaterThan(4_000);
+    expect(usage.packs.partial).toBeGreaterThan(3_500);
+    expect([...tree.read].filter((path) => path.startsWith('packs/'))).not.toContainEqual(
+      expect.stringContaining('/files/'),
+    );
+    expect(usage.sourceMedia + usage.unreferencedMedia + usage.backups).toBe(0);
   });
 
   it('tells apart the media a snapshot, the line and another branch alone keep, and the history of other branches', async () => {
@@ -154,7 +217,7 @@ describe('usage by category (REQ-STOR-200)', () => {
     expectSuccess(await session.run(setName('The line the project is on')));
     expectSuccess(await session.close());
 
-    const usage = expectSuccess(await measureUsage(storage.exporting));
+    const usage = expectSuccess(await measureUsage(storage.measuring));
     expect(usage.sourceMedia).toBe(1_400);
     expect(usage.alternativeBranches).toBeGreaterThan(0);
     expect(usage.retainedDeletedMedia).toEqual({

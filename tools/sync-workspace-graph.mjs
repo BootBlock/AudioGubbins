@@ -46,6 +46,9 @@ const PRODUCT_VERSION = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'),
  *   compiled a second time with no host's globals at all
  * @property {Record<string, ThreadScope>} [threads] the global scope each
  *   module under `src/threads/` runs in, by file name
+ * @property {boolean} [javascript] holds modules written in JavaScript with
+ *   their types in JSDoc, which the package's compiler checks: a grammar a
+ *   tool loads in Node, which runs no compiler, as well as the package
  */
 
 /**
@@ -153,6 +156,9 @@ const PACKAGES = [
       'The rules for text a reader is shown, from how its characters are counted to the identifier a name is held under.',
     dom: false,
     jsx: false,
+    // The engine's packages run on the audio thread and in workers, and word
+    // a count by it (ADR-0030), so it reads no host's globals.
+    portable: true,
     deps: [],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
@@ -195,7 +201,7 @@ const PACKAGES = [
     dom: false,
     jsx: false,
     portable: true,
-    deps: ['@audiogubbins/domain'],
+    deps: ['@audiogubbins/domain', '@audiogubbins/text'],
     devDeps: [],
     external: {},
     externalDev: {},
@@ -229,8 +235,81 @@ const PACKAGES = [
     dom: false,
     jsx: false,
     portable: true,
-    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph', '@audiogubbins/codecs'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/codecs',
+      '@audiogubbins/text',
+    ],
     devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // Local inference (ADR-0062): the port a machine-learning processor runs a
+    // model through, its adapter over ONNX Runtime Web, which alone names the
+    // runtime and loads it on the first session, and the worker that hosts it.
+    // The port and the worker's client know no browser, so they run in any
+    // scope; what the device offers the runtime is given, never probed. The
+    // worker reads the runtime's WebAssembly from the application's origin, in
+    // one of the two modules in the repository that reach the network.
+    dir: 'packages/ml-runtime',
+    name: '@audiogubbins/ml-runtime',
+    description:
+      'Local inference: the port a machine-learning processor runs a model through, its adapter over ONNX Runtime Web, and the worker that hosts it.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'inference-worker.ts': 'dedicated-worker' },
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    // Both MIT, and pinned exactly. A pinned render names the runtime build it
+    // ran on (REQ-AUDIO-145), so its version changes deliberately, never by a
+    // range; the hashes check its WebAssembly against that name before it runs.
+    external: { '@noble/hashes': '2.4.0', 'onnxruntime-web': '1.30.0' },
+    externalDev: {},
+  },
+  {
+    // The processor types: each one object that states its descriptor and
+    // makes its kernel on the engine (ADR-0061). No browser, so a processor
+    // runs on the feeder, the render worker and the worklet alike. A
+    // machine-learning processor runs its model through the inference port
+    // (ADR-0062), the entry of ml-runtime alone, never its adapter or worker.
+    dir: 'packages/processors',
+    name: '@audiogubbins/processors',
+    description:
+      'The processor types: each states its descriptor, parameters, layouts, latency and versions, and makes its canonical kernel on the audio engine.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/ml-runtime',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The effect rack: a chain realised as the engine's processing graph,
+    // its slots, parallel groups, bypass, solo and wet/dry aligned by the
+    // graph's own delay compensation, and run over a stream (ADR-0060).
+    dir: 'packages/effect-rack',
+    name: '@audiogubbins/effect-rack',
+    description:
+      'The effect rack: a chain of processors realised as the processing graph, with parallel groups, bypass, solo and wet/dry, run over a stream.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/processors',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
   },
@@ -249,6 +328,7 @@ const PACKAGES = [
       'engine-processor.ts': 'audio-worklet',
       'feeder-worker.ts': 'dedicated-worker',
       'render-worker.ts': 'dedicated-worker',
+      'preview-worker.ts': 'dedicated-worker',
     },
     deps: [
       '@audiogubbins/domain',
@@ -256,6 +336,9 @@ const PACKAGES = [
       '@audiogubbins/capabilities',
       '@audiogubbins/audio-graph',
       '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
+      '@audiogubbins/ml-runtime',
     ],
     devDeps: [],
     external: {},
@@ -291,7 +374,37 @@ const PACKAGES = [
     jsx: false,
     portable: true,
     threads: { 'peak-worker.ts': 'dedicated-worker' },
-    deps: ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
+      '@audiogubbins/ml-runtime',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The detection worker: a target's processed audio read through the
+    // engine, the detectors and assistants run over it in one pass, and the
+    // findings and recommendations answered as data (ADR-0061, ADR-0062).
+    // No browser: the worker's scope is declared by its shape.
+    dir: 'packages/detection-runtime',
+    name: '@audiogubbins/detection-runtime',
+    description:
+      "The detection worker: a target's processed audio read once, its detectors and assistants run over it, and the findings and recommendations answered as data.",
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'detection-worker.ts': 'dedicated-worker' },
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
+      '@audiogubbins/ml-runtime',
+    ],
     devDeps: [],
     external: {},
     externalDev: {},
@@ -461,7 +574,7 @@ const PACKAGES = [
       'Copying and pasting audio: the payload a copy takes from an edit plan, with the records of the media it reads, and how a paste fits it to its destination.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/project-format'],
+    deps: ['@audiogubbins/domain', '@audiogubbins/project-format', '@audiogubbins/text'],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
@@ -496,6 +609,31 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // Model packs (ADR-0062): the manifest and its reader, the install state
+    // machine, the integrity check and the streaming SHA-256 it runs on, the
+    // installer over a source port and a store port, and which processors a
+    // pack makes available. The download adapter is one of the two modules in
+    // the repository that reach the network. Not portable: its ports speak the
+    // project format's byte ports, which the storage packages implement, and
+    // the storage package keeps packs.
+    dir: 'packages/model-packs',
+    name: '@audiogubbins/model-packs',
+    description:
+      'Model packs: the manifest, the install state machine, the integrity check, the installer, the download adapter and which processors a pack makes available.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/ml-runtime', '@audiogubbins/project-format'],
+    devDeps: [],
+    // MIT, audited, with no dependencies: the streaming SHA-256 the integrity
+    // check runs, the same code in the browser and in Node, since Web Crypto
+    // hashes only a whole buffer. Pinned exactly, as every dependency is.
+    external: { '@noble/hashes': '2.4.0' },
+    externalDev: {},
+    // The pack path, version, tier, capability and limit grammars, which the
+    // pack build tool loads in Node and the build's configuration bundles.
+    javascript: true,
+  },
+  {
     // Keeping projects: the journal, snapshots, sessions, leases, backups and
     // cleanup, over a backend port, so no browser API is reached from here
     // (ADR-0002, ADR-0020).
@@ -512,7 +650,9 @@ const PACKAGES = [
       '@audiogubbins/diagnostics',
       '@audiogubbins/history',
       '@audiogubbins/media-store',
+      '@audiogubbins/model-packs',
       '@audiogubbins/project-format',
+      '@audiogubbins/text',
       '@audiogubbins/version',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
@@ -560,6 +700,9 @@ const PACKAGES = [
       '@audiogubbins/media-store',
       '@audiogubbins/storage',
       '@audiogubbins/browser-storage',
+      '@audiogubbins/processors',
+      '@audiogubbins/model-packs',
+      '@audiogubbins/text',
     ],
     devDeps: [],
     external: {},
@@ -615,6 +758,10 @@ const PACKAGES = [
       '@audiogubbins/editor-view',
       '@audiogubbins/video-reference',
       '@audiogubbins/clipboard',
+      '@audiogubbins/processors',
+      '@audiogubbins/detection-runtime',
+      '@audiogubbins/ml-runtime',
+      '@audiogubbins/model-packs',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },
@@ -627,6 +774,30 @@ const PACKAGES = [
 ];
 
 const DIR_BY_NAME = new Map(PACKAGES.map((p) => [p.name, p.dir]));
+
+const SPEC_BY_NAME = new Map(PACKAGES.map((p) => [p.name, p]));
+
+/**
+ * Whether a package's own modules, or a package it reaches through its
+ * dependencies, are written in JavaScript. A dependency's types reach an
+ * editor and the type-aware linter through its source, which they read with
+ * the dependent's own options, so a dependent that did not allow JavaScript
+ * would read those modules' JSDoc types as nothing and every value they type
+ * as one it cannot resolve.
+ *
+ * @param {PackageSpec} spec
+ * @param {Set<string>} [seen]
+ * @returns {boolean}
+ */
+function readsJavaScript(spec, seen = new Set()) {
+  if (spec.javascript === true) return true;
+  return [...spec.deps, ...spec.devDeps].some((name) => {
+    if (seen.has(name)) return false;
+    seen.add(name);
+    const dependency = SPEC_BY_NAME.get(name);
+    return dependency !== undefined && readsJavaScript(dependency, seen);
+  });
+}
 
 /**
  * Tooling every package needs to typecheck and test itself. REQ-REPO-186
@@ -798,7 +969,11 @@ function tsconfigFor(spec) {
       tsBuildInfoFile: `${output}/tsconfig.tsbuildinfo`,
       emitDeclarationOnly: true,
     },
-    include: ['src/**/*.ts', ...(spec.jsx ? ['src/**/*.tsx'] : [])],
+    include: [
+      'src/**/*.ts',
+      ...(spec.jsx ? ['src/**/*.tsx'] : []),
+      ...(spec.javascript === true ? ['src/**/*.js'] : []),
+    ],
     exclude: ['dist', ...(spec.bundled ? ['build'] : [])],
     references: [...spec.deps, ...spec.devDeps].map((name) => ({
       path: `${toRoot}${DIR_BY_NAME.get(name)}`,
@@ -808,6 +983,9 @@ function tsconfigFor(spec) {
   if (spec.jsx) {
     config.compilerOptions.jsx = 'react-jsx';
   }
+  if (readsJavaScript(spec)) config.compilerOptions.allowJs = true;
+  // Checked where they are written; a dependent reads them as checked.
+  if (spec.javascript === true) config.compilerOptions.checkJs = true;
   if (config.references.length === 0) delete config.references;
 
   return config;

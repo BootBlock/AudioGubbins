@@ -35,14 +35,19 @@ import type {
 
 import type { IdGenerator } from '@audiogubbins/domain';
 
+import type { DetectionControl } from '../analysis/detection-control.js';
+import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
+import type { PackManager } from '../ml/pack-manager.js';
 import type { PictureSoundDecoder } from '../picture/picture-sound.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ChosenFiles } from '../state/chosen-files.js';
 import type { ClipboardStore } from '../state/clipboard-store.js';
+import type { Observable } from '../state/observable.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
+import type { HearingStore } from '../state/hearing-store.js';
 import type { SelectionStore } from '../state/selection-store.js';
 import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
@@ -127,6 +132,9 @@ export interface ShellContext {
   /** Plays, pauses, stops and moves the transport, over an asset or the test signal. */
   readonly playback: PlaybackControl;
 
+  /** Whether an asset is heard processed or as its original, a choice of the page. */
+  readonly hearing: HearingStore;
+
   /** Renders the test signal offline. */
   readonly rendering: RenderControl;
 
@@ -154,4 +162,23 @@ export interface ShellContext {
 
   /** What the last copy or cut took, for the session. */
   readonly clipboard: ClipboardStore;
+
+  /**
+   * Why a processor cannot run for want of its model, as the page knows now
+   * (ADR-0062), which every entry of the project is made with.
+   */
+  readonly modelGate: Observable<ModelGate>;
+
+  /**
+   * What the assistants were asked to analyse this session and what they
+   * found, which only a recommendation applied through the project's
+   * commands acts on.
+   */
+  readonly detection: DetectionControl;
+
+  /**
+   * The model packs kept here and what the catalogue offers, which the
+   * installer changes as the person asks (REQ-AUDIO-139).
+   */
+  readonly packs: PackManager;
 }

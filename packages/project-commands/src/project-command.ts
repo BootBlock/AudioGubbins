@@ -51,6 +51,13 @@ export const ProjectCommandId = {
   SetRegion: commandId('project.set-region'),
   ApplyRegionEdit: commandId('project.apply-region-edit'),
   WithdrawRegionEdit: commandId('project.withdraw-region-edit'),
+  SetRack: commandId('project.set-rack'),
+  SetEditChain: commandId('project.set-edit-chain'),
+  AddSlot: commandId('project.add-slot'),
+  RemoveSlot: commandId('project.remove-slot'),
+  MoveSlot: commandId('project.move-slot'),
+  SetSlotControl: commandId('project.set-slot-control'),
+  SetProcessor: commandId('project.set-processor'),
 } as const;
 
 /** What a command declares where none of its arguments holds provenance. */
@@ -99,9 +106,4 @@ export function applied(
   description: string,
 ): AppliedOutcome<ProjectState> {
   return { kind: 'applied', next, inverse, description };
-}
-
-/** A name as the interface quotes it. */
-export function quoted(name: string): string {
-  return `“${name}”`;
 }

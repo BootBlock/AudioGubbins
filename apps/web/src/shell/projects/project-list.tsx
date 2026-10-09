@@ -14,9 +14,10 @@ import type { ProjectHeader } from '@audiogubbins/storage';
 
 import type { Observable } from '../../state/observable.js';
 import type { LibraryState } from '../../state/project-library-store.js';
-import { day, quoted } from '../../wording.js';
+import { day } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
 import { DeletedProjects } from './deleted-projects.js';
+import { quoted } from '@audiogubbins/text';
 
 /** One project and the ways to open it. */
 function ProjectRow({

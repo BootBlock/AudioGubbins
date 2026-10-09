@@ -28,6 +28,7 @@ import {
   frameBlock,
   nextTransportState,
   transportPosition,
+  type ParameterChange,
   type PerformanceSettings,
   type RenderProgress,
   type SchedulingPolicy,
@@ -52,7 +53,7 @@ import {
 
 import { vi } from 'vitest';
 
-import type { PlaybackParts, PlaybackSessionPort } from '../audio/playback-control.js';
+import type { PlaybackParts, PlaybackSessionPort } from '../audio/playback-parts.js';
 import type { RenderParts } from '../audio/render-control.js';
 import type { ChosenProfile } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
@@ -166,6 +167,16 @@ export class FakeSession implements PlaybackSessionPort {
 
   meters(): ReadonlyMap<NodeId, MeterLevels> {
     return this.levels;
+  }
+
+  /** Every running change given, in order. */
+  readonly changes: (readonly ParameterChange[])[] = [];
+  /** What the next running change answers, where a test wants it refused. */
+  changeResult: DomainResult<void> = succeed(undefined);
+
+  changeParameters(changes: readonly ParameterChange[]): Promise<DomainResult<void>> {
+    this.changes.push(changes);
+    return Promise.resolve(this.changeResult);
   }
 
   /** Plays from where the transport is, as the processor says when it starts. */

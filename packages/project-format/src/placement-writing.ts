@@ -31,6 +31,7 @@ export function writeRegion(region: Region): JsonObject {
     loop: region.loop === undefined ? undefined : writeAnchoredLoop(region.loop),
     tags: [...region.tags],
     operations: region.operations.map(writeRegionOperation),
+    rack: region.rack,
   });
 }
 

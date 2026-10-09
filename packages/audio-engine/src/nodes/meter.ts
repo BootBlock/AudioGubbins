@@ -39,7 +39,12 @@ import {
   type NodeShape,
 } from './node-shape.js';
 import { PairCorrelation } from './correlation.js';
-import { optionalSetting, refuseOtherSettings, type SettingRule } from './setting-values.js';
+import {
+  isNumberList,
+  optionalSetting,
+  refuseOtherSettings,
+  type SettingRule,
+} from './setting-values.js';
 import { ZERO_LATENCY } from './zero-latency.js';
 
 /** The setting that names the pairs of channels to correlate. */
@@ -52,7 +57,7 @@ function channelPairs(channels: number): SettingRule<readonly number[]> {
   return {
     describes: `a list of pairs of different channel indices, written one after the other, each a whole number from 0 to ${String(channels - 1)}`,
     read: (value) => {
-      if (typeof value !== 'object' || value.length % 2 !== 0) return undefined;
+      if (!isNumberList(value) || value.length % 2 !== 0) return undefined;
       const inRange = value.every(
         (index) => Number.isInteger(index) && index >= 0 && index < channels,
       );

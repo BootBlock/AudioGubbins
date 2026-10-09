@@ -490,8 +490,10 @@ describe('public contracts', () => {
 
   it('offers exactly what the record of every package says', async () => {
     const record = recordOfTheTree();
+    // A drive is one letter after no other and before one separator, so a
+    // URL's scheme, as a test origin's type is written, is not taken for one.
     expect(record, 'a type the record names is written where it is on this machine').not.toMatch(
-      /[A-Za-z]:[\\/]|\/(?:home|Users)\//,
+      /(?<![A-Za-z0-9])[A-Za-z]:[\\/](?![\\/])|\/(?:home|Users)\//,
     );
     await expect(record).toMatchFileSnapshot(inRepository(RECORD));
   });

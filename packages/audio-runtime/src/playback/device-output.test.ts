@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  ChannelRole,
-  StandardLayouts,
   channelLayout,
+  ChannelRole,
   discreteLayout,
+  MAXIMUM_QUALITY,
   sampleRate,
+  StandardLayouts,
   type ChannelLayout,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
@@ -51,6 +52,7 @@ async function playing(layout: ChannelLayout, maxChannelCount: number): Promise<
   const rig = new PlaybackRig({ context: { maxChannelCount } });
   expectSuccess(
     await rig.session.load({
+      quality: MAXIMUM_QUALITY,
       graph: straight(layout),
       sources: [recorded(layout, SOURCE_FRAMES)],
     }),
@@ -96,6 +98,7 @@ describe('the device a graph plays to', () => {
     const layout = StandardLayouts.surround5_1;
 
     const refused = await rig.session.load({
+      quality: MAXIMUM_QUALITY,
       graph: straight(layout),
       sources: [recorded(layout, 128)],
     });

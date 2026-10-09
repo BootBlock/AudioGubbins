@@ -17,7 +17,15 @@
  * described twice (ADR-0022).
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  countAt,
+  fieldsAt,
+  oneOf,
+  readMessage,
+  textAt,
+  type DomainResult,
+  type MessageFields,
+} from '@audiogubbins/domain';
 import { TreeFailureKind } from '@audiogubbins/project-format';
 
 /**
@@ -47,56 +55,6 @@ export type PortMessage =
   | { readonly type: 'answer'; readonly id: number; readonly outcome: CallOutcome }
   | { readonly type: 'event'; readonly stream: string; readonly value: unknown };
 
-/** A field of a received message that is not what the protocol says. */
-class MalformedMessage extends Error {
-  constructor(field: string, expected: string) {
-    super(`The message's ${field} is not ${expected}.`);
-    this.name = 'MalformedMessage';
-  }
-}
-
-/** A received value, read one field at a time. */
-type Fields = Readonly<Record<string, unknown>>;
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function fieldsOf(value: unknown, field: string): Fields {
-  if (!isFields(value)) throw new MalformedMessage(field, 'an object with named fields');
-  return value;
-}
-
-function textAt(fields: Fields, field: string, name = field): string {
-  const value = fields[field];
-  if (typeof value !== 'string') throw new MalformedMessage(name, 'text');
-  return value;
-}
-
-/** A call's id, a whole number zero or more. */
-function idAt(fields: Fields, field: string): number {
-  const value = fields[field];
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new MalformedMessage(field, 'a whole number, zero or more');
-  }
-  return value;
-}
-
-/** One of the values of a const object, such as a message's `type`. */
-function oneOf<TValue extends string>(
-  fields: Fields,
-  field: string,
-  values: Readonly<Record<string, TValue>>,
-  name = field,
-): TValue {
-  const value = fields[field];
-  const found = Object.values(values).find((one) => one === value);
-  if (found === undefined) {
-    throw new MalformedMessage(name, `one of ${Object.values(values).join(', ')}`);
-  }
-  return found;
-}
-
 const MESSAGE_TYPES = { call: 'call', cancel: 'cancel', answer: 'answer', event: 'event' } as const;
 
 const OUTCOME_KINDS = {
@@ -110,39 +68,44 @@ const OUTCOME_KINDS = {
  * An answer's outcome. Its own fields are read under their full names,
  * `outcome.kind` and the like, so a refusal says which was wrong.
  */
-function outcomeAt(fields: Fields): CallOutcome {
-  const outcome = fieldsOf(fields['outcome'], 'outcome');
-  const kind = oneOf(outcome, 'kind', OUTCOME_KINDS, 'outcome.kind');
+function outcomeAt(fields: MessageFields): CallOutcome {
+  const outcome = fieldsAt(fields, 'outcome');
+  const named: MessageFields = {
+    'outcome.kind': outcome['kind'],
+    'outcome.failure': outcome['failure'],
+    'outcome.message': outcome['message'],
+  };
+  const kind = oneOf(named, 'outcome.kind', OUTCOME_KINDS);
   switch (kind) {
     case 'value':
       return { kind, value: outcome['value'] };
     case 'tree-refused':
       return {
         kind,
-        failure: oneOf(outcome, 'failure', TreeFailureKind, 'outcome.failure'),
-        message: textAt(outcome, 'message', 'outcome.message'),
+        failure: oneOf(named, 'outcome.failure', TreeFailureKind),
+        message: textAt(named, 'outcome.message'),
       };
     case 'cancelled':
       return { kind };
     case 'fault':
-      return { kind, message: textAt(outcome, 'message', 'outcome.message') };
+      return { kind, message: textAt(named, 'outcome.message') };
   }
 }
 
-function portMessageFrom(fields: Fields): PortMessage {
+function portMessageFrom(fields: MessageFields): PortMessage {
   const type = oneOf(fields, 'type', MESSAGE_TYPES);
   switch (type) {
     case 'call':
       return {
         type,
-        id: idAt(fields, 'id'),
+        id: countAt(fields, 'id'),
         operation: textAt(fields, 'operation'),
         argument: fields['argument'],
       };
     case 'cancel':
-      return { type, target: idAt(fields, 'target') };
+      return { type, target: countAt(fields, 'target') };
     case 'answer':
-      return { type, id: idAt(fields, 'id'), outcome: outcomeAt(fields) };
+      return { type, id: countAt(fields, 'id'), outcome: outcomeAt(fields) };
     case 'event':
       return { type, stream: textAt(fields, 'stream'), value: fields['value'] };
   }
@@ -153,10 +116,5 @@ function portMessageFrom(fields: Fields): PortMessage {
  * but a malformed field is a fault in the reading, and propagates.
  */
 export function readPortMessage(data: unknown): DomainResult<PortMessage> {
-  try {
-    return succeed(portMessageFrom(fieldsOf(data, 'message')));
-  } catch (error) {
-    if (!(error instanceof MalformedMessage)) throw error;
-    return fail(failure('protocol.port-message-malformed', FailureKind.Rejected, error.message));
-  }
+  return readMessage(data, 'protocol.port-message-malformed', portMessageFrom);
 }

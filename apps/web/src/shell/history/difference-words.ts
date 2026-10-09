@@ -23,15 +23,17 @@ import type {
 } from '@audiogubbins/domain';
 import type {
   ChainDifference,
+  ChainOwner,
   DifferenceNames,
   EntityDifferences,
   FieldOf,
-  ProcessorDifference,
+  SlotDifference,
+  SlotField,
   StateDifference,
 } from '@audiogubbins/history';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { AssetSource } from '@audiogubbins/project-format';
-
-import { quoted } from '../../wording.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What a person calls each field of an entity. */
 type FieldWords<TEntity> = Readonly<Record<FieldOf<TEntity>, string>>;
@@ -45,6 +47,7 @@ const ASSET_WORDS: FieldWords<Asset> = {
   length: 'length',
   storageKey: 'where its audio is kept',
   edits: 'edits',
+  rack: 'rack',
 };
 
 const SOURCE_WORDS: FieldWords<AssetSource> = {
@@ -103,6 +106,7 @@ const REGION_WORDS: FieldWords<Region> = {
   loop: 'loop',
   tags: 'tags',
   operations: 'processing',
+  rack: 'rack',
 };
 
 const MARKER_WORDS: FieldWords<Marker> = {
@@ -157,35 +161,68 @@ function valueWords(value: ParameterValue | undefined): string {
   return String(value);
 }
 
-/** What differs of one processor, in a clause. */
-function processorClause(processor: ProcessorDifference): string {
-  const called = quoted(processor.typeKey);
-  if (processor.change === 'added') return `${called} is in B only`;
-  if (processor.change === 'removed') return `${called} is in A only`;
+/** What a person calls each setting of a slot. */
+const SLOT_FIELD_WORDS: Readonly<Record<SlotField, string>> = {
+  typeKey: 'its kind',
+  enabled: 'whether it is on',
+  soloed: 'its solo',
+  mix: 'its mix',
+  version: 'the version of the processing that made it',
+  state: 'what it learned',
+  summing: 'how its branches are added',
+  branches: 'its branches',
+};
+
+/** What a slot is called: its processor's label, or a parallel group. */
+function slotName(slot: SlotDifference): string {
+  if (slot.kind === 'group') return 'A parallel group';
+  const label =
+    slot.typeKey === undefined ? undefined : PROCESSOR_CATALOGUE.get(slot.typeKey)?.label;
+  return quoted(label ?? slot.typeKey ?? 'processor');
+}
+
+/** What a parameter of a slot is called, by its processor's descriptor where this build has one. */
+function parameterName(slot: SlotDifference, id: string): string {
+  const descriptor = slot.typeKey === undefined ? undefined : PROCESSOR_CATALOGUE.get(slot.typeKey);
+  const label = descriptor?.parameters.find((parameter) => parameter.id === id)?.label;
+  return label === undefined ? 'a setting' : `its ${label.toLowerCase()}`;
+}
+
+/** What differs of one slot, in a clause. */
+function slotClause(slot: SlotDifference): string {
+  const called = slotName(slot);
+  if (slot.change === 'added') return `${called} is in B only`;
+  if (slot.change === 'removed') return `${called} is in A only`;
   const parts = [
-    ...(processor.moved ? ['its place'] : []),
-    ...processor.fields.map((field) =>
-      field === 'typeKey' ? 'its kind' : field === 'enabled' ? 'whether it is on' : 'its solo',
-    ),
-    // A parameter is named by its processor's description, which the
-    // processors bring; until then it is a setting with its two values.
-    ...processor.parameters.map(
-      ({ before, after }) => `a setting (${valueWords(before)} in A, ${valueWords(after)} in B)`,
+    ...(slot.moved ? ['its place'] : []),
+    ...slot.fields.map((field) => SLOT_FIELD_WORDS[field]),
+    ...slot.parameters.map(
+      ({ id, before, after }) =>
+        `${parameterName(slot, id)} (${valueWords(before)} in A, ${valueWords(after)} in B)`,
     ),
   ];
   return `${called} differs in ${listed(parts)}`;
 }
 
+/** What an effect chain is called for what names it, and the verb it takes. */
+function chainCalled(owner: ChainOwner | undefined): {
+  readonly called: string;
+  readonly is: string;
+} {
+  if (owner === undefined) return { called: 'An effect chain', is: 'is' };
+  const of = `the ${owner.kind} ${quoted(owner.name)}`;
+  if (owner.naming === 'range') return { called: `The chain over a range of ${of}`, is: 'is' };
+  return owner.kind === 'track' || owner.kind === 'bus'
+    ? { called: `The effects of ${of}`, is: 'are' }
+    : { called: `The rack of ${of}`, is: 'is' };
+}
+
 /** What differs of one effect chain, in a line. */
 function chainLine(chain: ChainDifference, names: DifferenceNames): string {
-  const owner = names.chains.get(chain.id);
-  const called =
-    owner === undefined
-      ? 'An effect chain'
-      : `The effects of the ${owner.kind} ${quoted(owner.name)}`;
-  if (chain.change === 'added') return `${called} are in B only.`;
-  if (chain.change === 'removed') return `${called} are in A only.`;
-  return `${called}: ${chain.processors.map(processorClause).join('; ')}.`;
+  const { called, is } = chainCalled(names.chains.get(chain.id));
+  if (chain.change === 'added') return `${called} ${is} in B only.`;
+  if (chain.change === 'removed') return `${called} ${is} in A only.`;
+  return `${called}: ${chain.slots.map(slotClause).join('; ')}.`;
 }
 
 /** What differs from side A to side B, a line for each entity, or one saying nothing does. */

@@ -46,6 +46,15 @@
     },
     {
       "path": "../../../../packages/browser-storage"
+    },
+    {
+      "path": "../../../../packages/processors"
+    },
+    {
+      "path": "../../../../packages/model-packs"
+    },
+    {
+      "path": "../../../../packages/text"
     }
   ]
 }

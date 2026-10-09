@@ -18,6 +18,7 @@ const NOTHING_FOR_AUDIO: CapabilityEnvironment = {
   isCrossOriginIsolated: false,
   hasAudioWorklet: false,
   compilesWebAssembly: false,
+  validatesWebAssemblySimd: false,
   choosesAudioOutput: false,
   hasWebWorkers: false,
   hasWebGpu: false,

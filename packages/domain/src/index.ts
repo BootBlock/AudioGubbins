@@ -31,6 +31,56 @@ export {
 } from './result.js';
 
 export {
+  Malformed,
+  type MessageFields,
+  boundedItemsOf,
+  bytesAt,
+  countAt,
+  countOf,
+  countsAt,
+  fieldsAt,
+  fieldsOf,
+  flagAt,
+  flagOf,
+  floatsAt,
+  frameRangeAt,
+  identifierAt,
+  identifierOf,
+  isTagged,
+  itemsAt,
+  itemsOf,
+  nonEmptyObjectsAt,
+  numberAt,
+  numberOf,
+  numbersAt,
+  objectsAt,
+  oneOf,
+  oneOfValues,
+  optionalBytesAt,
+  optionalCountAt,
+  optionalTextAt,
+  qualityModeAt,
+  rateAt,
+  rateOf,
+  readMessage,
+  readValue,
+  sampleArraysAt,
+  sampleArraysOf,
+  sampleCountAt,
+  sampleCountOf,
+  textAt,
+  textOf,
+  textsAt,
+} from './messages/message-fields.js';
+export {
+  type FailureSummary,
+  domainFailuresAt,
+  failureSummaryAt,
+  failureSummaryOf,
+  optionalFailureSummaryAt,
+} from './messages/failure-fields.js';
+
+export {
   type CancellationSignal,
   type CancellationSource,
   Cancelled,
@@ -49,6 +99,7 @@ export {
   type EntityId,
   type MarkerId,
   type ParameterId,
+  type ProcessorGroupId,
   type ProcessorId,
   type ProjectId,
   type RegionId,
@@ -131,8 +182,10 @@ export {
   type ChannelEditOperation,
   type EditOperation,
   type EditRange,
+  type EngineVersions,
   type EditTarget,
   type LevelEdit,
+  type RackEdit,
   type RangeEdit,
   type RegionOperation,
   MAXIMUM_EDIT_GAIN,
@@ -148,8 +201,13 @@ export {
   type PlanSource,
   type PlanStage,
   type PlanStream,
+  type StreamProcessing,
   convertedFrameCount,
+  planIsSilence,
   planReadsAsset,
+  segmentsLayout,
+  segmentsLength,
+  silencePlan,
   streamLength,
 } from './editing/plan.js';
 
@@ -159,13 +217,24 @@ export { Affinity, type AnchorResolver, type Span, anchorResolver } from './edit
 
 export { type ChannelMatrix, conversionMatrix } from './editing/channel-matrices.js';
 
-export { assetPlan } from './editing/plan-building.js';
+export {
+  type PlanContext,
+  assetPlan,
+  bypassedAssetPlan,
+  unrackedAssetPlan,
+  withRack,
+} from './editing/plan-building.js';
 export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
 export { sliceSegment } from './editing/segment-list.js';
 export { slicePlan } from './editing/plan-slicing.js';
-export { type MediaShape, validatePlan } from './editing/plan-validation.js';
-export { editPlanFrom } from './editing/plan-decoding.js';
-export { validateChain, validateOperation } from './editing/operation-validation.js';
+export { type RemovalEdit, removalEdits } from './editing/removal-operations.js';
+export { type MediaShape, MAXIMUM_STRETCH_RATIO, validatePlan } from './editing/plan-validation.js';
+export { editPlanOf } from './editing/plan-decoding.js';
+export {
+  type ProjectChains,
+  validateChain,
+  validateOperation,
+} from './editing/operation-validation.js';
 export { validateMarker, validateRegion } from './editing/placement-validation.js';
 export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
 export {
@@ -173,7 +242,9 @@ export {
   placeMarkers,
   placeRegion,
   placeRegions,
+  bypassedRegionPlan,
   regionPlan,
+  unrackedRegionPlan,
 } from './editing/placement.js';
 
 export {
@@ -199,26 +270,132 @@ export {
 } from './processing/parameter.js';
 
 export {
+  type ChainBranch,
+  type ChainSettings,
+  type ChainSlot,
   type EffectChain,
-  type ProcessorDescriptor,
+  type ParallelGroup,
   type ProcessorInstance,
+  SummingLaw,
+  appliedSlots,
   chainLatency,
   instantiateProcessor,
-  processorsInSignalOrder,
+  processorsOf,
+  summingFactor,
   validateProcessorInstance,
 } from './processing/effect-chain.js';
 
+export {
+  DeterminismClass,
+  type ParameterValues,
+  ProcessorCategory,
+  type ProcessorDescriptor,
+  type StateRequirement,
+  type ProcessorSettings,
+  parameterOf,
+} from './processing/processor-descriptor.js';
+
+export {
+  type ListedFile,
+  type ModelIdentity,
+  type ProcessorState,
+  type ProcessorStateVersion,
+  type TextSha256,
+  MAXIMUM_STATE_VALUES,
+  checkStateVersion,
+  isModelIdentity,
+  modelHashOf,
+} from './processing/processor-version.js';
+
+export {
+  MAXIMUM_QUALITY,
+  NAMED_QUALITY_LEVELS,
+  type NamedQualityLevel,
+  QualityLevel,
+  type QualityMode,
+  type QualitySettingKey,
+  type QualitySettings,
+  ResamplingGrade,
+  qualityModeFrom,
+  qualityModeOf,
+  namedQualityMode,
+} from './processing/quality-mode.js';
+
+export {
+  MAXIMUM_CHAIN_SLOTS,
+  MAXIMUM_GROUP_BRANCHES,
+  MAXIMUM_GROUP_DEPTH,
+  type ProcessorCatalogue,
+  chainOutputLayout,
+  checkProcessors,
+  validateChainShape,
+} from './processing/chain-validation.js';
+
+export {
+  type FoundSlot,
+  type SlotPlace,
+  copyChain,
+  copySlot,
+  findSlot,
+  slotsAt,
+  withSlotAt,
+  withSlotMoved,
+  withSlotReplaced,
+  withoutSlot,
+} from './processing/chain-edits.js';
+
+export {
+  type ChainListening,
+  type PartWayStart,
+  appliedProcessors,
+  chainListening,
+  unheardLive,
+} from './processing/chain-listening.js';
+
+export { controlPosition, parameterAtPosition } from './processing/parameter-control.js';
+
+export { treatmentChain, treatmentValues } from './processing/treatment-chain.js';
+
+export {
+  LONGEST_SAVED_NAME,
+  type LibraryContent,
+  type LibraryEntry,
+  type LibraryEntryId,
+  type LibraryEntryKind,
+  withPreset,
+} from './processing/processing-library.js';
+
 export { type ProcessorLatency } from './processing/processor-latency.js';
+export {
+  type DetectorFinding,
+  type DetectorIdentity,
+  type DetectorValues,
+  FindingKind,
+  type FindingMeasure,
+  MeasureUnit,
+  type Recommendation,
+  type Treatment,
+  type TreatmentStep,
+} from './processing/audio-detection.js';
 
 export {
   type Project,
   type AssetUsers,
+  type ChainUsers,
   type ProjectSettings,
+  type RangeRack,
+  type TargetChains,
+  assetChains,
   assetUsers,
+  chainIdsOf,
+  chainUseCount,
+  chainUsers,
   clipsOnTrack,
   createProject,
   isAssetInUse,
+  projectChains,
   projectLength,
+  regionChains,
   tracksInOrder,
 } from './project/project.js';
 

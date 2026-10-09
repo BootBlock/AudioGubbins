@@ -19,3 +19,4 @@ export {
   steppingClock,
 } from './memory-storage.js';
 export { type HostServices } from '../host/host-services.js';
+export { type CatalogueSource } from '../host/pack-services.js';

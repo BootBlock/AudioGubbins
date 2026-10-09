@@ -1,0 +1,5 @@
+export interface ChainRequest {
+  readonly length: number;
+  /** Twice {@link length}: the window's, since the member is not in scope. */
+  readonly twice: number;
+}

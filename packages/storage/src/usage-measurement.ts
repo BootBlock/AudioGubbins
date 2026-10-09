@@ -16,6 +16,9 @@
  *   another branch, or only a backup or the journal.
  * - Unreferenced media: media nothing keeps, which a purge would free.
  * - Caches, by category, and backup generations.
+ * - Model packs: the versions installed, and apart from them every version not
+ *   installed, whose download is arriving, paused, being checked or was left
+ *   unreadable (`model-pack-store.ts`).
  *
  * Each project is measured as of its last checkpoint, whose history says which
  * state is which, and the states of open projects the caller names are taken as
@@ -23,7 +26,7 @@
  * file whose part cannot be told is reported rather than counted as nothing.
  */
 
-import { isWellFormedId, succeed, unsafeBrandId, type DomainResult } from '@audiogubbins/domain';
+import { succeed, type DomainResult } from '@audiogubbins/domain';
 import { activeLine, type History } from '@audiogubbins/history';
 import { contentReferencedBy, type MediaObjectStore } from '@audiogubbins/media-store';
 import {
@@ -39,10 +42,14 @@ import {
 import type { CacheCategory, CacheStore } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
 import { historyUsage, strongerOf, type RetainedBy } from './history-usage.js';
-import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { retainedMedia } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
+import type { ModelPackStore } from './model-pack-store.js';
 import { ProjectFiles } from './project-files.js';
+import { projectsIn } from './project-listing.js';
 import { refusalsReported } from './storage-failures.js';
 import { BACKUPS_DIRECTORY, PROJECTS_DIRECTORY } from './storage-layout.js';
+import { bytesUnder } from './tree-bytes.js';
 
 /** The bytes the storage holds in each category. */
 export interface StorageUsage {
@@ -55,6 +62,7 @@ export interface StorageUsage {
   readonly unreferencedMedia: number;
   readonly caches: ReadonlyMap<CacheCategory, number>;
   readonly backups: number;
+  readonly packs: PackUsage;
 
   /** Files whose category could not be told, and why. */
   readonly unreadable: readonly UnreadableRoot[];
@@ -75,12 +83,25 @@ export interface RetainedMediaUsage {
   readonly elsewhere: number;
 }
 
+/** The bytes of the model packs kept, installed and not. */
+export interface PackUsage {
+  /** The versions installed, which processors may use. */
+  readonly installed: number;
+
+  /**
+   * Every other version: a download arriving, paused or being checked, or one
+   * left unreadable, none of which is used.
+   */
+  readonly partial: number;
+}
+
 /** What measuring works with, each made once by the composition root. */
 export interface UsageServices {
   readonly tree: StorageTree;
   readonly digest: Digest;
   readonly store: MediaObjectStore;
   readonly caches: CacheStore;
+  readonly packs: ModelPackStore;
 
   /** Asked through the passes over histories and media held in memory. */
   readonly yieldToHost: YieldToHost;
@@ -127,22 +148,23 @@ export async function measureUsage(
       await measuring.turns.afterStep();
       for (const content of contentReferencedBy(state)) measuring.current.add(content);
     }
-    for (const entry of await tree.list(PROJECTS_DIRECTORY)) {
+    for (const project of await projectsIn(tree, PROJECTS_DIRECTORY)) {
       signal?.throwIfAborted();
-      if (entry.kind !== 'directory' || !isWellFormedId(entry.name)) continue;
-      await measureProject(
-        new ProjectFiles(records, unsafeBrandId<'ProjectId'>(entry.name)),
-        measuring,
-      );
+      await measureProject(new ProjectFiles(records, project), measuring);
     }
     const media = await mediaBytes(services, measuring);
     const caches = await services.caches.usage(signal);
     if (!caches.ok) return caches;
+    const packs = await services.packs.measured(signal);
+    if (!packs.ok) return packs;
+    const packUsage = { installed: 0, partial: 0 };
+    for (const pack of packs.value) packUsage[pack.kind] += pack.bytes;
     return succeed({
       ...measuring.bytes,
       ...media,
       caches: caches.value,
       backups: await bytesUnder(tree, BACKUPS_DIRECTORY, signal),
+      packs: packUsage,
       unreadable: dedupedByPath(measuring.unreadable),
     });
   });
@@ -237,24 +259,6 @@ async function stateKinds(
     kinds.set(snapshot.stateFingerprint, 'namedSnapshots');
   }
   return kinds;
-}
-
-/** The bytes of every file under a directory. */
-export async function bytesUnder(
-  tree: StorageTree,
-  directory: string,
-  signal?: AbortSignal,
-): Promise<number> {
-  let bytes = 0;
-  for (const entry of await tree.list(directory)) {
-    signal?.throwIfAborted();
-    const path = `${directory}/${entry.name}`;
-    bytes +=
-      entry.kind === 'directory'
-        ? await bytesUnder(tree, path, signal)
-        : ((await tree.openFile(path))?.size ?? 0);
-  }
-  return bytes;
 }
 
 function dedupedByPath(roots: readonly UnreadableRoot[]): readonly UnreadableRoot[] {

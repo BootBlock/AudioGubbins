@@ -584,7 +584,7 @@ belongs to.
 ## Commands used for verification
 
 ```
-pnpm run lint               # pnpm run version:check, pnpm run graph:check, eslint ., prettier --check .
+pnpm run lint               # pnpm run version:check, pnpm run graph:check, pnpm run notices:check, eslint ., prettier --check .
 pnpm run typecheck          # tsc --build tsconfig.build.json, then tsc -p tsconfig.json
 pnpm run typecheck:full     # tsc --build --force tsconfig.build.json, then tsc -p tsconfig.json
 pnpm run test               # vitest run --reporter=default --reporter=json --outputFile.json=node_modules/.cache/audiogubbins/vitest-report.json

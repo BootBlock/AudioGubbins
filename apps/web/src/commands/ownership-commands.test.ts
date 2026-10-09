@@ -21,7 +21,7 @@ async function twoWindows(): Promise<{
   const reader = await world.window();
   const [entry] = reader.projects.library.get().entries;
   const project = entry?.kind === 'project' ? entry.header.id : '';
-  expect(await reader.runAndHear('file.open', { project })).toBe('"Harbour" is open to read.');
+  expect(await reader.runAndHear('file.open', { project })).toBe('“Harbour” is open to read.');
   return { writer, reader };
 }
 
@@ -57,9 +57,9 @@ describe('a project another window is changing', () => {
       });
 
     expect(await writer.runAndHear('project.hand-over')).toBe(
-      '"Harbour" is handed over, and open to read here.',
+      '“Harbour” is handed over, and open to read here.',
     );
-    expect(await answered).toBe('You can change "Harbour" now.');
+    expect(await answered).toBe('You can change “Harbour” now.');
     expect(accessOf(reader)?.kind).toBe('writable');
     await expect
       .poll(() => accessOf(writer))
@@ -79,7 +79,7 @@ describe('a project another window is changing', () => {
     reader.run('project.request-control');
     await expect.poll(() => writer.run('project.keep').kind).toBe('applied');
 
-    expect(await answered).toBe('The other tab kept "Harbour".');
+    expect(await answered).toBe('The other tab kept “Harbour”.');
     expect(accessOf(writer)).toEqual({ kind: 'writable', transferRequests: [] });
     expect(accessOf(reader)?.kind).toBe('read-only');
   });
@@ -109,10 +109,10 @@ describe('a project another window is changing', () => {
     vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => AbortSignal.abort());
 
     expect(await reader.runAndHear('project.request-control')).toBe(
-      'The tab changing "Harbour" did not answer. You can take it over instead.',
+      'The tab changing “Harbour” did not answer. You can take it over instead.',
     );
     expect(await reader.runAndHear('project.take-over')).toBe(
-      '"Harbour" is yours to change. The other tab can no longer change it.',
+      '“Harbour” is yours to change. The other tab can no longer change it.',
     );
     expect(accessOf(reader)?.kind).toBe('writable');
     expect(accessOf(writer)).toEqual({
@@ -122,7 +122,7 @@ describe('a project another window is changing', () => {
     });
     expect(writer.run('file.rename-project', { name: 'Mine' }).kind).toBe('refused');
 
-    expect(await writer.runAndHear('project.open-to-read')).toBe('"Harbour" is open to read.');
+    expect(await writer.runAndHear('project.open-to-read')).toBe('“Harbour” is open to read.');
   });
 
   it('offers nothing to hand over or keep where nobody asked, and nothing to take where none holds it', async () => {
@@ -155,7 +155,7 @@ describe('a project a window holds that can no longer answer', () => {
 
     expect(reader.run('project.take-over').kind).toBe('refused');
     expect(await reader.runAndHear('project.request-control')).toBe(
-      'The tab changing "Harbour" did not answer. You can take it over instead.',
+      'The tab changing “Harbour” did not answer. You can take it over instead.',
     );
     const open = reader.projects.project.get();
     expect(open.kind === 'open' && open.request).toBe('unanswered');

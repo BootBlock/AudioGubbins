@@ -13,8 +13,8 @@ import { useEffect, useRef } from 'react';
 
 import type { Announce } from '../commands/voiced-execution.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
-import { quoted } from '../wording.js';
 import { accessSentence, recoverySentences, requestSentence } from './project-words.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What was last heard of the open project. */
 interface Heard {

@@ -40,6 +40,7 @@ import {
 import { ShortcutRecorder } from './shortcut-recorder.js';
 import { UnreadTexts } from './unread-text.js';
 import type { UnreadText } from '../../state/text-custody.js';
+import { quoted } from '@audiogubbins/text';
 
 /** One command the editor offers. */
 export interface EditableCommand {
@@ -262,7 +263,7 @@ function ProfileHeader(props: {
  * where no copy can be made, it promises none: why is said beneath it.
  */
 function profileNote(profile: ShortcutProfile, changeable: boolean): string {
-  if (!profile.builtIn) return `These are your "${profile.displayName}" shortcuts.`;
+  if (!profile.builtIn) return `These are your ${quoted(profile.displayName)} shortcuts.`;
   return changeable
     ? 'These are the shortcuts AudioGubbins ships with. Changing one keeps these as they are and makes a copy for your changes.'
     : 'These are the shortcuts AudioGubbins ships with. A copy is needed to change them, and none can be made.';

@@ -55,6 +55,17 @@ function safely(probe: () => unknown): boolean {
  */
 const EMPTY_MODULE = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
 
+/**
+ * A module of one function that returns a 128-bit vector: `i32.const 0`,
+ * `i8x16.splat`, `i8x16.popcnt`. Validated rather than compiled, so the answer
+ * is whether the engine knows fixed-width SIMD, whatever a security policy
+ * says of compiling; nothing is fetched.
+ */
+const SIMD_MODULE = new Uint8Array([
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7b, 0x03,
+  0x02, 0x01, 0x00, 0x0a, 0x0a, 0x01, 0x08, 0x00, 0x41, 0x00, 0xfd, 0x0f, 0xfd, 0x62, 0x0b,
+]);
+
 /** The media queries the operating system's appearance settings answer. */
 const APPEARANCE_QUERIES = {
   prefersDark: '(prefers-color-scheme: dark)',
@@ -97,6 +108,7 @@ export function detectBrowserEnvironment(): CapabilityEnvironment {
     compilesWebAssembly: safely(
       () => new WebAssembly.Module(EMPTY_MODULE) instanceof WebAssembly.Module,
     ),
+    validatesWebAssemblySimd: safely(() => WebAssembly.validate(SIMD_MODULE)),
     choosesAudioOutput: safely(
       () => exists(window, 'AudioContext') && 'setSinkId' in AudioContext.prototype,
     ),

@@ -2,7 +2,8 @@
  * Hearing the two states of an A/B comparison (REQ-STOR-195): the asset or
  * region in the editor in use, played as it stands in the side heard, built
  * from that side's state as the editor builds the project's own entries
- * (`projectEntry`) and played by the transport at its own rate.
+ * (`projectEntry`), a chain whose model cannot run saying so as it does there,
+ * and played by the transport at its own rate.
  *
  * Neither state changes: the side's state is worked out in the storage worker
  * and only read here. Switching sides while one is heard goes on with the
@@ -27,6 +28,7 @@ import { assetProgramme } from '../audio/asset-playback.js';
 import type { Programme } from '../audio/programme.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { projectEntry } from '../assets/project-assets.js';
+import type { Hearing } from '../state/hearing-store.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import { modeOf, needing } from './audio-commands.js';
 import { focusedEditor, parkHeld } from './editor-target.js';
@@ -35,14 +37,15 @@ import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /**
- * The programme that plays `asset` as side `side` has it, keyed apart from the
- * asset's own and the other side's, so the transport loads it afresh. The key
- * only tells programmes apart: which side it plays is held as such
+ * The programme that plays `asset` as side `side` has it, processed or as its
+ * original as `hearing` says, as the asset's own is played, keyed apart from
+ * the asset's own and the other side's, so the transport loads it afresh. The
+ * key only tells programmes apart: which side it plays is held as such
  * (`HistoryReviewStore.hearing`).
  */
-function sideProgramme(asset: EditorAsset, side: SideName): Programme {
+function sideProgramme(asset: EditorAsset, side: SideName, hearing: Hearing): Programme {
   return {
-    ...assetProgramme(asset),
+    ...assetProgramme(asset, hearing),
     key: `compared-${side}:${asset.id}`,
     playing: `${asset.name} is playing as side ${side.toUpperCase()} has it.`,
   };
@@ -69,7 +72,7 @@ async function auditioned(
 ): Promise<DomainResult<void>> {
   const state = await stores.review.sideState(side);
   if (!state.ok) return state;
-  const entry = projectEntry(state.value, stores.media.of, view.id);
+  const entry = projectEntry(state.value, stores.media.of, context.modelGate.get(), view.id);
   const named = `side ${side.toUpperCase()}`;
   if (entry === undefined) {
     return fail(
@@ -86,7 +89,7 @@ async function auditioned(
     );
   }
   const at = derivedSampleCount(Math.min(from, entry.asset.length));
-  const programme = sideProgramme(entry.asset, side);
+  const programme = sideProgramme(entry.asset, side, context.hearing.get());
   parkHeld(context);
   stores.review.hearing(programme.key, side);
   context.playback.play(programme, at);

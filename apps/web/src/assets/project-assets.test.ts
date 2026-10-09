@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   StandardLayouts,
   derivedSampleCount,
+  instantiateProcessor,
+  processorsOf,
   streamLength,
   unsafeBrandId,
   type Asset,
   type AssetId,
+  type PlanContext,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
@@ -14,8 +17,10 @@ import type { ProjectState } from '@audiogubbins/project-format';
 import { editedReferenceState } from '@audiogubbins/project-format/testing';
 import { addRegionInvocation, applyInvocation } from '@audiogubbins/project-commands';
 import { ProjectCommandId } from '@audiogubbins/project-commands';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
+import { OPEN_MODEL_GATE } from '../testing/editor-fakes.js';
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { projectEntries, projectEntry } from './project-assets.js';
 import { assetEntryId, regionEntryId, type MediaAvailability } from './project-entry.js';
@@ -27,9 +32,9 @@ vi.mock(import('@audiogubbins/domain'), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    assetPlan: (asset: Asset) => {
+    assetPlan: (asset: Asset, context: PlanContext) => {
       planned.push(asset.id);
-      return actual.assetPlan(asset);
+      return actual.assetPlan(asset, context);
     },
   };
 });
@@ -161,17 +166,18 @@ describe('an asset of the project, as a view opens it (ADR-0051)', () => {
     const audio = await windowWithAudio();
     const state = audio.session.getSnapshot().model.state;
 
-    const finding = projectEntries(state, () => ({ kind: 'finding' })).entries;
-    const missing = projectEntries(state, () => ({
-      kind: 'unavailable',
-      reason: 'The file it is linked to could not be found.',
-    })).entries;
+    const finding = projectEntries(state, () => ({ kind: 'finding' }), OPEN_MODEL_GATE).entries;
+    const missing = projectEntries(
+      state,
+      () => ({ kind: 'unavailable', reason: 'The file it is linked to could not be found.' }),
+      OPEN_MODEL_GATE,
+    ).entries;
 
     expect(finding.get(audio.entry)).toEqual({
       kind: 'finding',
       id: audio.entry,
       name: 'Loop',
-      reason: 'The audio of "Loop" is being read.',
+      reason: 'The audio of “Loop” is being read.',
     });
     expect(missing.get(audio.entry)).toMatchObject({
       kind: 'unavailable',
@@ -235,12 +241,12 @@ describe('the entries of a state the worker sends, against those of the state be
   });
 
   it('plans again only the asset a change touched, and keeps the entries of the rest', () => {
-    const before = projectEntries(state, media);
+    const before = projectEntries(state, media, OPEN_MODEL_GATE);
     const [region] = state.project.regions.values();
     if (region === undefined) throw new Error('No region.');
     planned.length = 0;
 
-    const after = projectEntries(renamedAmbience(), media, before.made);
+    const after = projectEntries(renamedAmbience(), media, OPEN_MODEL_GATE, before.made);
 
     expect(planned).toEqual([ambience.id]);
     for (const id of [assetEntryId(footstep.id), regionEntryId(region.id)]) {
@@ -252,11 +258,59 @@ describe('the entries of a state the worker sends, against those of the state be
     });
   });
 
+  it('plans a region again where only a parameter of its rack changed', () => {
+    // A chain holds its parameter values in a map, which the comparison wrote
+    // as an empty object, so a region kept playing its rack's old value.
+    const gain = PROCESSOR_CATALOGUE.get('gain');
+    const [parameter] = gain?.parameters ?? [];
+    if (gain === undefined || parameter === undefined) throw new Error('The build has a gain.');
+    const chain = unsafeBrandId<'EffectChainId'>('00000000-7ac4');
+    const racked = (decibels: number): ProjectState => {
+      const copy = structuredClone(state);
+      const regions = new Map(
+        [...copy.project.regions].map(([id, one]) => [id, { ...one, rack: chain }] as const),
+      );
+      const effectChains = new Map([
+        ...copy.project.effectChains,
+        [
+          chain,
+          {
+            id: chain,
+            slots: [
+              {
+                ...instantiateProcessor(unsafeBrandId<'ProcessorId'>('00000000-7ac5'), gain),
+                values: new Map([[parameter.id, decibels]]),
+              },
+            ],
+          },
+        ],
+      ]);
+      return { ...copy, project: { ...copy.project, regions, effectChains } };
+    };
+    const [region] = state.project.regions.values();
+    if (region === undefined) throw new Error('No region.');
+    const id = regionEntryId(region.id);
+    const before = projectEntries(racked(0), media, OPEN_MODEL_GATE);
+
+    const after = projectEntries(racked(6), media, OPEN_MODEL_GATE, before.made).entries.get(id);
+
+    if (after?.kind !== 'open' || after.asset.owner.kind !== 'project')
+      throw new Error('Not open.');
+    const values = after.asset.owner.plan.streams.flatMap((stream) =>
+      stream.processing?.kind === 'chain'
+        ? [...processorsOf(stream.processing.chain.slots)].map((one) =>
+            one.values.get(parameter.id),
+          )
+        : [],
+    );
+    expect(values).toEqual([6]);
+  });
+
   it('plans nothing again where only the files the page holds were told of again', () => {
-    const before = projectEntries(state, media);
+    const before = projectEntries(state, media, OPEN_MODEL_GATE);
     planned.length = 0;
 
-    const after = projectEntries(state, media, before.made);
+    const after = projectEntries(state, media, OPEN_MODEL_GATE, before.made);
 
     expect(planned).toEqual([]);
     expect([...after.entries.values()]).toEqual([...before.entries.values()]);
@@ -267,10 +321,10 @@ describe('the entries of a state the worker sends, against those of the state be
     const [region] = state.project.regions.values();
     if (region === undefined) throw new Error('No region.');
     const id = regionEntryId(region.id);
-    const whole = projectEntries(state, media).entries.get(id);
+    const whole = projectEntries(state, media, OPEN_MODEL_GATE).entries.get(id);
     planned.length = 0;
 
-    const one = projectEntry(state, media, id);
+    const one = projectEntry(state, media, OPEN_MODEL_GATE, id);
 
     expect(planned).toEqual([footstep.id]);
     if (one?.kind !== 'open' || whole?.kind !== 'open') throw new Error('Not opened.');
@@ -278,6 +332,6 @@ describe('the entries of a state the worker sends, against those of the state be
     const { describe: wholeHears, ...wholeShown } = whole.asset;
     expect(shown).toEqual(wholeShown);
     expect(hears()).toEqual(wholeHears());
-    expect(projectEntry(state, media, 'region:none')).toBeUndefined();
+    expect(projectEntry(state, media, OPEN_MODEL_GATE, 'region:none')).toBeUndefined();
   });
 });

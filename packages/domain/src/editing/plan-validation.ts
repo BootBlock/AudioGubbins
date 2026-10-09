@@ -9,18 +9,22 @@
  * is read (REQ-EXEC-136.12), before anything renders it.
  */
 
-import { channelCount } from '../audio/channel-layout.js';
+import { MAXIMUM_CHANNEL_COUNT, channelCount } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
 import type { Asset } from '../project/asset.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import { MAXIMUM_EDIT_GAIN } from './operations.js';
+import { validateChainShape } from '../processing/chain-validation.js';
 import {
   convertedFrameCount,
+  segmentsLayout,
+  segmentsLength,
   streamLength,
   type EditPlan,
   type GainCurve,
   type PlanSegment,
   type PlanStage,
+  type PlanStream,
 } from './plan.js';
 
 /** What a plan needs to know of an asset it reads: its rate, layout and length. */
@@ -32,6 +36,12 @@ function malformed(summary: string, at: string): DomainResult<never> {
     failure('editing.plan-malformed', FailureKind.Rejected, summary, { details: { at } }),
   );
 }
+
+/**
+ * The most a stretch may change a length by, either way: eightfold, past
+ * which a stretch no longer keeps the character of what it stretches.
+ */
+export const MAXIMUM_STRETCH_RATIO = 8;
 
 /** Whether `value` is a whole number of frames from zero. */
 function isFrame(value: number): boolean {
@@ -117,6 +127,14 @@ function segmentProblem(
     if (asset.sampleRate !== stream.sampleRate) return 'A segment reads an asset at another rate.';
     available = asset.length;
     channels = channelCount(asset.channelLayout);
+  } else if (segment.source.kind === 'silence') {
+    const { channels: count } = segment.source;
+    if (!Number.isInteger(count) || count < 1 || count > MAXIMUM_CHANNEL_COUNT) {
+      return 'A segment of silence has no channel count a layout may have.';
+    }
+    // Silence lasts as long as it is read, so only the arithmetic bounds it.
+    available = Number.MAX_SAFE_INTEGER;
+    channels = count;
   } else {
     const read = plan.streams[segment.source.stream];
     if (segment.source.stream <= place || read === undefined) {
@@ -132,9 +150,29 @@ function segmentProblem(
     if (typeof after === 'string') return after;
     channels = after;
   }
-  return channels === channelCount(stream.layout)
+  return channels === channelCount(segmentsLayout(stream))
     ? undefined
     : 'A segment does not end with its stream’s channels.';
+}
+
+/** Why a stream's processing does not hold, or `undefined` where it does. */
+function processingProblem(stream: PlanStream, place: number): string | undefined {
+  const { processing } = stream;
+  if (processing === undefined) return undefined;
+  // The first stream is what is heard; processing it would leave nothing to
+  // hold the processed audio's place, so it is only ever done by a stream
+  // the first reads.
+  if (place === 0) return 'The first stream of a plan is processed only through a stream it reads.';
+  if (processing.kind === 'chain') {
+    return validateChainShape(processing.chain).ok ? undefined : 'A stream’s chain is malformed.';
+  }
+  const before = segmentsLength(stream);
+  return isFrame(processing.length) &&
+    processing.length > 0 &&
+    processing.length <= before * MAXIMUM_STRETCH_RATIO &&
+    processing.length * MAXIMUM_STRETCH_RATIO >= before
+    ? undefined
+    : 'A stretched stream’s length lies outside what a stretch can make.';
 }
 
 /** The plan, where every stream after the first is read and every segment holds. */
@@ -148,6 +186,8 @@ export function validatePlan(
       return malformed('A stream is read by no segment.', `streams/${String(place)}`);
     if (stream.segments.length === 0)
       return malformed('A stream holds no audio.', `streams/${String(place)}`);
+    const processing = processingProblem(stream, place);
+    if (processing !== undefined) return malformed(processing, `streams/${String(place)}`);
     for (const [index, segment] of stream.segments.entries()) {
       const problem = segmentProblem(plan, place, segment, assets);
       if (problem !== undefined)

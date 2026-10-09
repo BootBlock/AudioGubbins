@@ -1,8 +1,8 @@
 /**
  * Where an edited sound's content comes from, block by block: an asset's file
- * read through the read contract, one stream of a plan read segment by segment
- * through its stages, or a later stream heard converted to another rate
- * (ADR-0051, ADR-0052).
+ * read through the read contract, generated silence, one stream of a plan read
+ * segment by segment through its stages, or a later stream heard converted to
+ * another rate (ADR-0051, ADR-0052).
  *
  * A file opens on the first read that needs it, and is refused there if it no
  * longer has the rate, channels or length its asset recorded, since that is a
@@ -38,6 +38,12 @@ import type { PcmSource } from './pcm-source.js';
 /** An asset a plan reads, as recorded in the project, and the file behind it. */
 export interface MediaEntry {
   readonly asset: AssetId;
+  /**
+   * What the file's content is known by, as the project records where it is
+   * kept: two entries of one identity hold the same audio, which is how a
+   * cached render of a sound is found again (`cached-stream-key.ts`).
+   */
+  readonly identity: string;
   readonly sampleRate: SampleRate;
   readonly channels: number;
   readonly length: SampleCount;
@@ -58,8 +64,8 @@ export class MediaReadFailure extends Error {
   }
 }
 
-/** Where a block of content comes from: an asset's file, or a converted stream. */
-export interface ContentReader {
+/** Content a stream's segment reads: a file, another stream, or either converted or processed. */
+export interface ReadableContent {
   readonly channels: number;
   read(
     start: number,
@@ -67,6 +73,10 @@ export interface ContentReader {
     into: readonly Float32Array[],
     signal?: CancellationSignal,
   ): Promise<void>;
+}
+
+/** Content that holds what it opened until it is released: a file, a conversion, a run. */
+export interface ContentReader extends ReadableContent {
   release(): void;
 }
 
@@ -142,16 +152,37 @@ export class FileContent implements ContentReader {
   }
 }
 
+/** Generated silence: digital zero on every channel, at whatever frame is read. */
+export class SilentContent implements ReadableContent {
+  readonly channels: number;
+
+  constructor(channels: number) {
+    this.channels = channels;
+  }
+
+  read(
+    _start: number,
+    frames: number,
+    into: readonly Float32Array[],
+    signal?: CancellationSignal,
+  ): Promise<void> {
+    throwIfCancelled(signal);
+    // The arrays are a stream's scratch, which holds the last segment read.
+    for (const channel of into) channel.fill(0, 0, frames);
+    return Promise.resolve();
+  }
+}
+
 /** One stream of a plan, read segment by segment. */
 export class StreamContent {
   readonly channels: number;
   readonly length: number;
   readonly #stream: PlanStream;
   readonly #starts: readonly number[];
-  readonly #sources: (source: PlanSource) => ContentReader;
+  readonly #sources: (source: PlanSource) => ReadableContent;
   readonly #scratch = new Map<number, Float32Array[]>();
 
-  constructor(stream: PlanStream, sources: (source: PlanSource) => ContentReader) {
+  constructor(stream: PlanStream, sources: (source: PlanSource) => ReadableContent) {
     this.#stream = stream;
     this.#sources = sources;
     this.channels = channelCount(stream.layout);

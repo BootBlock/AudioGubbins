@@ -5,6 +5,7 @@ import {
   StandardLayouts,
   assetPlan,
   sampleCount,
+  silencePlan,
   slicePlan,
   unsafeBrandId,
   type EditOperation,
@@ -13,7 +14,7 @@ import {
   type Region,
   type RegionOperation,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { PLAN_WITHOUT_CHAINS, expectSuccess } from '@audiogubbins/domain/testing';
 import { randomAssetRecord, seededRandom } from '@audiogubbins/project-format/testing';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { sampleProject } from '@audiogubbins/test-fixtures';
@@ -43,7 +44,7 @@ import {
   removeRegionInvocation,
   setRegionInvocation,
   withdrawRegionEditInvocation,
-} from './region-commands.js';
+} from './region-invocations.js';
 
 const bus = projectBus();
 const fixture = sampleProject();
@@ -120,6 +121,19 @@ describe('project.apply-edit', () => {
     expect(next.sources.get(footstep.id)).toEqual(state.sources.get(footstep.id));
     expect(entry.description).toBe('Delete part of “Gravel footstep”');
     expect(entry.inverse).toEqual([withdrawInvocation(footstep, operation)]);
+  });
+
+  it('inserts generated silence, called silence, which the project reads back, undone by withdrawing it', () => {
+    const operation: EditOperation = {
+      id: ids.next<'EditOperationId'>(),
+      kind: 'insert',
+      at: at(500),
+      payload: silencePlan(footstep.sampleRate, footstep.channelLayout, at(4_800)),
+    };
+    const { next, entry } = appliedAndUndone(state, applyInvocation(footstep, operation));
+
+    expect(next.project.assets.get(footstep.id)?.edits).toEqual([operation]);
+    expect(entry.description).toBe('Insert silence into “Gravel footstep”');
   });
 
   it('refuses an asset the project lacks', () => {
@@ -269,13 +283,14 @@ describe('project.add-asset and project.remove-asset with edits', () => {
       '“Forest ambience” still has 1 edit. Remove them first.',
     );
 
-    const payload = expectSuccess(slicePlan(assetPlan(forest), at(0), at(100)));
+    const payload = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(forest, PLAN_WITHOUT_CHAINS)), at(0), at(100)),
+    );
     const paste: EditOperation = {
       id: ids.next<'EditOperationId'>(),
       kind: 'insert',
       at: at(0),
       payload,
-      convertRate: false,
     };
     const pasted = bus.execute(after(state, applyInvocation(rain, paste)), removeForest);
     expect(pasted.kind === 'refused' ? pasted.failures[0].summary : '').toBe(
@@ -568,7 +583,11 @@ describe('a change to a region’s processing anywhere in its chain', () => {
     if (old === undefined) throw new Error('The region is in the project.');
     const next = groupAppliedAndUndone(
       processed,
-      changeRegionInvocations(old, { ...old, displayName: 'Walk', operations: [early, late] }),
+      changeRegionInvocations(
+        old,
+        { ...old, displayName: 'Walk', operations: [early, late] },
+        processed.project.effectChains,
+      ),
     );
 
     expect(next.project.regions.get(loop.id)).toEqual({
@@ -580,7 +599,7 @@ describe('a change to a region’s processing anywhere in its chain', () => {
 
   it('adds a region with its processing, each operation a step, removed whole by undo', () => {
     const region = { ...regionOn(footstep, 100, 900), operations: [louder(0, 10), louder(5, 50)] };
-    const invocations = addRegionWithProcessing(region);
+    const invocations = addRegionWithProcessing(region, state.project.effectChains);
     expect(invocations).toHaveLength(3);
 
     const next = groupAppliedAndUndone(state, invocations);

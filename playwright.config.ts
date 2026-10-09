@@ -155,6 +155,30 @@ export default defineConfig<SuiteOptions>({
       testMatch: /core-editing\.spec\.ts/,
     },
     {
+      // The assistants: a recording analysed by the detection worker, what it
+      // found shown in the Analysis panel, a recommendation applied and undone.
+      name: 'chromium-analysis',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /analysis\.spec\.ts/,
+    },
+    {
+      // The effect rack: a chain applied to a selection and a region given a
+      // rack, heard before and after a reload, sample for sample (the
+      // packet's `test:e2e:effect-rack`).
+      name: 'chromium-effect-rack',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /effect-rack\.spec\.ts/,
+    },
+    {
+      // Every worker under the page's security policy: the storage and
+      // inference workers each refused a fetch from another origin. The second
+      // test installs a model pack, so the build must carry the packs
+      // (AUDIOGUBBINS_PACK_CACHE and AUDIOGUBBINS_PACKS_IN_BUILD=1).
+      name: 'chromium-worker-policy',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /worker-policy\.spec\.ts/,
+    },
+    {
       // The editor's renderer losing its WebGL 2 context, where WebGPU gives
       // no adapter, as it does in the headless shell.
       name: 'chromium-renderer',
@@ -226,6 +250,29 @@ export default defineConfig<SuiteOptions>({
         launchOptions: { firefoxUserPrefs: { ...FIREFOX_MOUSE, 'ui.textScaleFactor': 100 } },
       },
       testMatch: /projects\.spec\.ts/,
+    },
+    {
+      // The machine-learning goldens in every engine: each pack's pinned
+      // render through the real inference worker, held to the digests the
+      // Node goldens hold (ADR-0062). The harness reads the built packs the
+      // cache AUDIOGUBBINS_PACK_CACHE names, from its own server below, so
+      // WebKit, which keeps no installed pack here, runs them too.
+      name: 'chromium-ml-golden',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /ml-golden\.spec\.ts/,
+    },
+    {
+      name: 'firefox-ml-golden',
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { ...FIREFOX_MOUSE, 'ui.textScaleFactor': 100 } },
+      },
+      testMatch: /ml-golden\.spec\.ts/,
+    },
+    {
+      name: 'webkit-ml-golden',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: /ml-golden\.spec\.ts/,
     },
     {
       name: 'webkit',
@@ -349,6 +396,20 @@ export default defineConfig<SuiteOptions>({
       // Playwright gives the server its own environment with these added,
       // each one here taking the place of the same name there.
       env: { AUDIOGUBBINS_BASE: PAGES_BASE, ...requestLog(4174) },
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // The machine-learning goldens' harness (`tests/e2e/ml-golden/`), on a
+      // development server of its own, which builds nothing and serves the
+      // runtime and the packs as the application's own plugins do, the packs
+      // from the cache AUDIOGUBBINS_PACK_CACHE names in this environment.
+      command:
+        'pnpm --filter @audiogubbins/web exec vite --config ml-golden.vite.config.ts --host 127.0.0.1 --port 4175 --strictPort',
+      url: 'http://127.0.0.1:4175/',
+      name: 'ml golden harness',
+      stdout: 'pipe',
+      stderr: 'pipe',
       reuseExistingServer: false,
       timeout: 120_000,
     },

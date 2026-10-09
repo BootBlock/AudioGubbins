@@ -7,13 +7,12 @@
  * is nothing to license, nothing to store, and nothing that can differ between
  * two machines.
  *
- * Beside them are two measures, which generate nothing, so a test of cost
- * holds code to what does not depend on one machine's speed:
- * {@link relativeCost} reads what one workload costs against another, as a
- * ratio, within {@link LONGEST_COST_TEST_MS}, the timeout of each test of it;
- * and {@link comparisonsIn} counts the comparisons of names a piece of work
- * makes, up to a ceiling, which {@link N_LOG_N_FOURFOLD} sets for four times
- * the names.
+ * Beside them are two measures, which generate nothing, so a test of cost holds
+ * code to what does not depend on one machine's speed: `relativeCost` reads
+ * what one workload costs against another, as a ratio, within
+ * `LONGEST_COST_TEST_MS`, the timeout of each test of it; and `comparisonsIn`
+ * counts the comparisons of names a piece of work makes, up to a ceiling, which
+ * `N_LOG_N_FOURFOLD` sets for four times the names.
  *
  * The architecture rules forbid importing this package from production code. A
  * fixture that reached a shipped build would be exactly the fabricated

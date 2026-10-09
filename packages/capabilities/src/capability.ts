@@ -38,6 +38,16 @@ export const CapabilityKey = {
    */
   WebAssembly: 'webassembly',
 
+  /**
+   * Fixed-width WebAssembly SIMD, which every build of the inference runtime
+   * needs and a pinned final render is defined on (ADR-0062).
+   *
+   * Asked by validating a module that uses a 128-bit vector instruction, which
+   * says whether the engine knows the instructions and compiles nothing; that
+   * compilation is allowed at all is the WebAssembly capability above.
+   */
+  WebAssemblySimd: 'webassembly-simd',
+
   /** Choosing which audio device playback goes to, rather than the system's. */
   AudioOutputSelection: 'audio-output-selection',
 

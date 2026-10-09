@@ -22,10 +22,10 @@ import { succeed } from '@audiogubbins/domain';
 import type { ProjectAccess, ProjectSnapshot, TransferAnswer } from '@audiogubbins/storage';
 
 import type { OpenProjectState } from '../state/open-project-store.js';
-import { quoted } from '../wording.js';
 import { readyProjects, sayWhenSettled, sessionOf } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The open project's snapshot, where one is open. */
 function openSnapshot(context: ShellContext): ProjectSnapshot | undefined {

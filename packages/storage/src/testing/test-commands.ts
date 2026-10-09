@@ -1,8 +1,9 @@
 /**
  * A command bus over project states for this package's tests: naming the
- * project, and adding and removing an asset whose bytes are managed media, each
- * undoable through an inverse invocation and deterministic over its arguments,
- * as the project commands are.
+ * project, adding and removing an asset whose bytes are managed media, and
+ * adding and removing an effect chain, each undoable through an inverse
+ * invocation and deterministic over its arguments, as the project commands
+ * are.
  *
  * The project commands are not a dependency of this package, which takes the
  * bus from its caller; these stand in for them with the same contract, so a
@@ -30,6 +31,7 @@ import {
   unsafeBrandId,
   type Asset,
   type EditOperation,
+  type EffectChain,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
@@ -41,11 +43,13 @@ import {
   parseJson,
   readAssetRecord,
   readEditOperation,
+  readEffectChain,
   readMediaSource,
   startReading,
   storageKeyOf,
   writeAssetRecord,
   writeEditOperation,
+  writeEffectChain,
   writeMediaSource,
   type ContentId,
   type InvocationProvenance,
@@ -64,6 +68,8 @@ const ADD_RECORD = commandId('test.add-record');
 const REMOVE_RECORD = commandId('test.remove-record');
 const APPLY_EDIT = commandId('test.apply-edit');
 const WITHDRAW_EDIT = commandId('test.withdraw-edit');
+const ADD_CHAIN = commandId('test.add-chain');
+const REMOVE_CHAIN = commandId('test.remove-chain');
 
 const RATE = expectSuccess(sampleRate(48_000));
 const LENGTH = expectSuccess(sampleCount(4_800));
@@ -356,6 +362,50 @@ function withdrawEditCommand(): Command<ProjectState> {
   });
 }
 
+/** Adds `chain` to the project, carried as one string of JSON as a command carries a chain. */
+export function addChain(chain: EffectChain): CommandInvocation {
+  return { commandId: ADD_CHAIN, arguments: { chain: canonicalJson(writeEffectChain(chain)) } };
+}
+
+function addChainCommand(): Command<ProjectState> {
+  return command(ADD_CHAIN, (state, invocation): CommandOutcome<ProjectState> => {
+    const text = invocation.arguments?.['chain'];
+    const parsed = typeof text === 'string' ? parseJson(text, NESTED_ARGUMENT_LIMITS) : undefined;
+    const reading = startReading();
+    const chain =
+      parsed?.ok === true
+        ? reading.outcome(readEffectChain(reading, parsed.value, '', ''))
+        : undefined;
+    if (chain?.ok !== true) return refusal('test.chain', 'A chain is needed.');
+    const effectChains = new Map(state.project.effectChains).set(chain.value.id, chain.value);
+    return {
+      kind: 'applied',
+      next: { ...state, project: { ...state.project, effectChains } },
+      inverse: { commandId: REMOVE_CHAIN, arguments: { chain: chain.value.id } },
+      description: 'Add a chain',
+    };
+  });
+}
+
+function removeChainCommand(): Command<ProjectState> {
+  return command(REMOVE_CHAIN, (state, invocation): CommandOutcome<ProjectState> => {
+    const id = invocation.arguments?.['chain'];
+    const chain =
+      typeof id === 'string'
+        ? state.project.effectChains.get(unsafeBrandId<'EffectChainId'>(id))
+        : undefined;
+    if (chain === undefined) return refusal('test.chain', 'No such chain.');
+    const effectChains = new Map(state.project.effectChains);
+    effectChains.delete(chain.id);
+    return {
+      kind: 'applied',
+      next: { ...state, project: { ...state.project, effectChains } },
+      inverse: addChain(chain),
+      description: 'Remove a chain',
+    };
+  });
+}
+
 /**
  * What the test commands declare of the provenance their arguments hold, as
  * the project commands declare theirs: only setting media carries any.
@@ -370,6 +420,8 @@ export const TEST_INVOCATION_PROVENANCE: InvocationProvenance = invocationProven
     [REMOVE_RECORD, {}],
     [APPLY_EDIT, {}],
     [WITHDRAW_EDIT, {}],
+    [ADD_CHAIN, {}],
+    [REMOVE_CHAIN, {}],
   ]),
 );
 
@@ -385,6 +437,8 @@ export function testBus(): CommandBus<ProjectState> {
     removeRecordCommand(),
     applyEditCommand(),
     withdrawEditCommand(),
+    addChainCommand(),
+    removeChainCommand(),
   ]) {
     registry.register(each);
   }

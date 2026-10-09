@@ -184,15 +184,21 @@ function exportsNoFileTakes(
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
   "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
     ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':
+    ['packages/audio-engine/src/pcm/stretched-content.ts: stretchCentre'],
+  'The most unflagged frames inside one click, which the click tests place flags either side of; the de-click and the click detector read it through `joinsClick`.':
+    ['packages/processors/src/repair/click-geometry.ts: MERGE_GAP'],
   "Carrying a position and a span through the operations after their basis, which the anchors' tests hold to the edit model's rules one operation at a time; the domain places markers and regions through the resolver they make.":
     [
       'packages/domain/src/editing/anchors.ts: carryPosition',
       'packages/domain/src/editing/anchors.ts: carrySpan',
     ],
-  "The invocations that withdraw an asset's last operation and a region's, the inverses a change records, which the command tests run on their own; the history applies the inverses it recorded.":
+  "The pack versions the chains a state runs name, which the pins' test reads of a state whose only chain is one pasted audio carries; the pins read every state through the walk of what a project keeps.":
+    ['packages/storage/src/pack-pins.ts: modelsNamedBy'],
+  'The invocations that point one range at another chain and remove one slot, the inverses of changes the rack commands make, which the command tests and the random walk run alone; the application reaches them through `independentChainInvocations` and `removeSlotsInvocations`.':
     [
-      'packages/project-commands/src/editing/edit-commands.ts: withdrawInvocation',
-      'packages/project-commands/src/editing/region-commands.ts: withdrawRegionEditInvocation',
+      'packages/project-commands/src/processing/rack-commands.ts: setEditChainInvocation',
+      'packages/project-commands/src/processing/slot-commands.ts: removeSlotInvocation',
     ],
   "Reading and writing a region's loop on its own, which the document's tests round-trip apart from the region holding it; a document reads and writes a loop with its region.":
     [
@@ -242,6 +248,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   'Whether two shortcuts are the same, asked of chords the shortcut tests build; the profile asks it of a binding.':
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
+  "The most channels an inference worker serves at once, which its core's test fills and goes past; the core refuses a connection past it itself.":
+    ['packages/ml-runtime/src/inference-worker-core.ts: MOST_CONNECTIONS'],
   'How long a resume of the audio context is waited on, which the lifecycle and session tests wait out.':
     ['packages/audio-runtime/src/context/context-resume.ts: GESTURE_WAIT_MILLISECONDS'],
   'How long a notice stays, which the announcement tests wait out.': [
@@ -290,8 +298,40 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
+  'The frame size a dereverberation transforms at and the most taps it solves for, which its tests hold to its sizes at the common rates and to the layouts it refuses; the processor sizes its own frames and refuses its own layouts.':
+    [
+      'packages/processors/src/spectral/dereverb.ts: MAXIMUM_TAPS',
+      'packages/processors/src/spectral/dereverb.ts: dereverbFrameSize',
+    ],
+  "The descriptors of the machine-learning types, which the catalogue's test holds to category order apart from the types it makes; the catalogue lists them by key.":
+    ['packages/processors/src/catalogue.ts: MODEL_PROCESSOR_DESCRIPTORS'],
+  "DeepFilterNet 3's definition, which its tests run over stand-in graphs on the fake runtime; the processor's type is made from it by `deepFilterNet3`.":
+    ['packages/processors/src/ml/deepfilternet/deepfilternet.ts: DEEPFILTERNET_3'],
+  "MossFormer2 SE 48K's definition, which its tests run over a stand-in graph on the fake runtime; the processor's type is made from it by `mossFormer2Se48k`.":
+    ['packages/processors/src/ml/mossformer2/mossformer2.ts: MOSSFORMER2_SE_48K'],
+  "MossFormer2 SE 48K's segments, which its golden render holds its signal to reach past the first join of; the stream gathers its segments by them itself.":
+    ['packages/processors/src/ml/mossformer2/mossformer2-stream.ts: MOSSFORMER2_SCHEDULE'],
+  "Spleeter's two-stem and four-stem definitions, which their tests run over stand-in graphs on the fake runtime; the processors' types are made from them by `spleeter2Stems` and `spleeter4Stems`.":
+    [
+      'packages/processors/src/ml/spleeter/spleeter.ts: SPLEETER_2_STEMS',
+      'packages/processors/src/ml/spleeter/spleeter.ts: SPLEETER_4_STEMS',
+    ],
+  "The most samples a model pass's output may hold, which its test feeds a stream one frame past; the pass refuses such a stream itself.":
+    ['packages/processors/src/ml/model-pass.ts: MOST_OUTPUT_SAMPLES'],
+  'The max-rE weights of each order, which their test holds to the closed form and to the published second-order value; the decoder takes them when it makes its matrix.':
+    ['packages/processors/src/space/ambisonic-decode.ts: maxReWeights'],
   'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
     ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
+};
+
+/**
+ * Each export only the build's configuration takes, under the reason it
+ * does: the configuration's files are no production module, so the rule
+ * cannot see them take a name.
+ */
+const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
+  "The model packs' reading of a path under the catalogue, which the development server's pack serving (`apps/web/model-pack-serving.ts`) holds every request to, by the module's path, before it touches the file system.":
+    ['packages/model-packs/src/pack-path.js: cataloguePathProblem'],
 };
 
 /**
@@ -333,7 +373,7 @@ describe('module exports (REQ-EXEC-184)', () => {
   });
 
   const files = new Map(PRODUCTION_FILES.map((path) => [path, parse(path)] as const));
-  const listed = new Set(Object.values(FOR_TESTS).flat());
+  const listed = new Set([...Object.values(FOR_TESTS), ...Object.values(FOR_THE_BUILD)].flat());
 
   it('takes every export of a production module in another, or lists it with its reason', () => {
     expect(untakenExports(files, resolveOnDisk, listed)).toEqual([]);

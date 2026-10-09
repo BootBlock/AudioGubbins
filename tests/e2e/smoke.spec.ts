@@ -194,7 +194,7 @@ test.describe('starting up', () => {
     await expect(page.getByRole('tab', { name: 'Transport' })).toBeVisible();
   });
 
-  test('says what each panel is for and which phase brings it', async ({ page }) => {
+  test('says what an empty panel waits for', async ({ page }) => {
     // REQ-EXEC-136.9 forbids a placeholder that pretends to work, and
     // REQ-UX-060 is evidenced by what these panels say. Were nothing to read
     // the text, emptying it would break no test.
@@ -208,12 +208,9 @@ test.describe('starting up', () => {
       });
 
     await expect(panel('Inspector')).toContainText(
-      'The properties of whatever you have selected, editable in place.',
+      'Open audio in an editor to see its properties here.',
     );
-    await expect(panel('Inspector')).toContainText('Arrives with core non-destructive editing.');
-    await expect(panel('Assets')).toContainText(
-      'Importing audio arrives with the import, export and codec system.',
-    );
+    await expect(panel('Assets')).toContainText('Open or create a project to keep audio in it.');
   });
 
   test('says what the browser cannot do rather than failing quietly', async ({ page }) => {
@@ -1696,9 +1693,16 @@ test.describe('the page enforces its own promises', () => {
 
 test.describe('diagnostics stay on this machine', () => {
   test('records nothing to anywhere but memory while diagnostic mode runs', async ({ page }) => {
+    // A worker starts from a blob: module of the page's own origin, which is
+    // memory, not a request to anywhere.
     const external: string[] = [];
     page.on('request', (request) => {
-      if (!request.url().startsWith('http://127.0.0.1:4173')) external.push(request.url());
+      const url = request.url();
+      if (
+        !url.startsWith('http://127.0.0.1:4173') &&
+        !url.startsWith('blob:http://127.0.0.1:4173/')
+      )
+        external.push(url);
     });
 
     await openFresh(page);
@@ -1984,12 +1988,12 @@ test.describe('one rule for when two names are one, in every engine', () => {
 
   /** What the settings say of a copy made under `name`. */
   function copied(name: string): string {
-    return `Copied it as "${name}".`;
+    return `Copied it as “${name}”.`;
   }
 
   /** What the settings say where the workspace called `holder` has the name given. */
   function held(holder: string): string {
-    return `There is already a workspace called "${holder}". Choose another name.`;
+    return `There is already a workspace called “${holder}”. Choose another name.`;
   }
 
   test('holds two names to be one where they differ in case or in how a letter is written, and two where they differ in accent, punctuation or digits', async ({
@@ -2002,7 +2006,7 @@ test.describe('one rule for when two names are one, in every engine', () => {
     // Case, through Save as, which numbers the name it gives past one in
     // capitals.
     let dialog = await workspaceSettings(page);
-    await give(dialog, 'Rename', 'MY WORKSPACE', '"My workspace" is now called "MY WORKSPACE".');
+    await give(dialog, 'Rename', 'MY WORKSPACE', '“My workspace” is now called “MY WORKSPACE”.');
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await saveAsNew(page);
@@ -2010,7 +2014,7 @@ test.describe('one rule for when two names are one, in every engine', () => {
 
     // Case, through Duplicate and Rename.
     dialog = await workspaceSettings(page);
-    await give(dialog, 'Rename', 'Mixing', '"My workspace 2" is now called "Mixing".');
+    await give(dialog, 'Rename', 'Mixing', '“My workspace 2” is now called “Mixing”.');
     await give(dialog, 'Duplicate', 'MIXING', held('Mixing'));
 
     // Punctuation, which Thai collation would ignore.
@@ -2046,7 +2050,7 @@ test.describe('one rule for when two names are one, in every engine', () => {
     await saveAsNew(page);
     await expect(nameOnScreen(page)).toHaveText('My workspace');
     const dialog = await workspaceSettings(page);
-    await give(dialog, 'Rename', 'Café', '"My workspace" is now called "Café".');
+    await give(dialog, 'Rename', 'Café', '“My workspace” is now called “Café”.');
 
     for (const name of [
       'Café copy',
@@ -2064,7 +2068,7 @@ test.describe('one rule for when two names are one, in every engine', () => {
 
     await dialog.getByRole('combobox', { name: 'Current workspace' }).click();
     await page.getByRole('option', { name: 'Café', exact: true }).click();
-    await expect(dialog.locator('.ag-dialog-notice')).toHaveText('Switched to "Café".');
+    await expect(dialog.locator('.ag-dialog-notice')).toHaveText('Switched to “Café”.');
     await expect(dialog.getByLabel('New name')).toHaveValue('');
 
     await dialog.getByRole('button', { name: 'Duplicate', exact: true }).click();

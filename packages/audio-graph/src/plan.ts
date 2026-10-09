@@ -4,10 +4,10 @@
  * A plan is the graph decided: its nodes in running order, the buffer slot each
  * port reads or writes, and the delay each input needs to stay aligned. The
  * executor runs it without deciding anything, so every decision is made once,
- * here, where it can be tested without audio. It holds only numbers, strings
- * and arrays, because it is posted to an AudioWorklet, and a plan made twice
- * from the same graph is the same value, settings in the same order included,
- * so that the same graph renders the same bits (REQ-ARCH-049).
+ * here, where it can be tested without audio. It holds only numbers, strings,
+ * arrays and typed arrays, because it is posted to an AudioWorklet, and a plan
+ * made twice from the same graph is the same value, settings in the same order
+ * included, so that the same graph renders the same bits (REQ-ARCH-049).
  */
 
 import type { ChannelLayout, SampleCount, SampleRate } from '@audiogubbins/domain';
@@ -43,6 +43,12 @@ export interface PlanStep {
   readonly settings: Readonly<Record<string, SettingValue>>;
   readonly inputs: readonly PlanInput[];
   readonly outputs: readonly PlanOutput[];
+
+  /**
+   * How late its inputs are against the graph's sources once aligned, so a
+   * kernel can tell which frame of a source its input carries.
+   */
+  readonly inputArrival: PathLatency;
 }
 
 /** A buffer slot, sized once for the plan's life. */
@@ -100,7 +106,7 @@ export function planGraph(analysis: LatencyAnalysis): ExecutionPlan {
     const { descriptor } = node;
     const reads = at(slots.inputs, step);
     const writes = at(slots.outputs, step);
-    const delays = at(analysis.nodes, step).compensation;
+    const { compensation: delays, inputArrival } = at(analysis.nodes, step);
     return {
       node: descriptor.id,
       type: descriptor.type,
@@ -116,6 +122,7 @@ export function planGraph(analysis: LatencyAnalysis): ExecutionPlan {
         layout: port.layout,
         slot: at(writes, index),
       })),
+      inputArrival,
     };
   });
   const sinks = nodes.flatMap((node, step): PlanSink[] =>

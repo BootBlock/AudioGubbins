@@ -39,6 +39,7 @@ export interface CapabilityEnvironment {
   readonly isCrossOriginIsolated: boolean;
   readonly hasAudioWorklet: boolean;
   readonly compilesWebAssembly: boolean;
+  readonly validatesWebAssemblySimd: boolean;
   readonly choosesAudioOutput: boolean;
   readonly hasWebWorkers: boolean;
 
@@ -108,6 +109,11 @@ const ABSENCE: Record<CapabilityKey, { readonly reason: string; readonly remedy?
     reason: 'This page cannot compile WebAssembly.',
     remedy:
       'A security setting or an extension that blocks WebAssembly usually causes this. Processing gives the same result without it, more slowly.',
+  },
+  [CapabilityKey.WebAssemblySimd]: {
+    reason:
+      'This browser cannot run WebAssembly SIMD, which local machine-learning processing needs.',
+    remedy: USE_A_CURRENT_BROWSER,
   },
   [CapabilityKey.AudioOutputSelection]: {
     reason: 'This browser plays audio only to the device your system chooses.',
@@ -187,6 +193,7 @@ const PROBES: Record<CapabilityKey, (environment: CapabilityEnvironment) => bool
   [CapabilityKey.CrossOriginIsolation]: (e) => e.isCrossOriginIsolated,
   [CapabilityKey.AudioWorklet]: (e) => e.hasAudioWorklet,
   [CapabilityKey.WebAssembly]: (e) => e.compilesWebAssembly,
+  [CapabilityKey.WebAssemblySimd]: (e) => e.validatesWebAssemblySimd,
   [CapabilityKey.AudioOutputSelection]: (e) => e.choosesAudioOutput,
   [CapabilityKey.WebWorkers]: (e) => e.hasWebWorkers,
   [CapabilityKey.WebGpu]: (e) => e.hasWebGpu,

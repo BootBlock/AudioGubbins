@@ -23,6 +23,8 @@ import type { Digest } from '@audiogubbins/project-format';
 import { connectStorage, type StorageClient } from '@audiogubbins/storage-runtime';
 import storageWorkerUrl from '@audiogubbins/storage-runtime/threads/storage-worker.ts?worker&url';
 
+import { moduleWorkerClass } from '../module-worker.js';
+
 /** What the project stores and the page's own ports work with. */
 export interface ProjectServices {
   /** The storage worker, as the page asks it for everything storage does. */
@@ -45,9 +47,9 @@ export type ProjectPlatform =
 const CANNOT_KEEP_PROJECTS =
   'This browser cannot keep projects, so none can be made or opened here. The Capabilities panel says why.';
 
-/** Starts the storage worker, which Vite builds as a module of its own. */
+/** Starts the storage worker, which Vite builds as a module of its own, under the page's policy. */
 function storageWorker(): Worker {
-  return new Worker(storageWorkerUrl, { type: 'module', name: 'AudioGubbins storage' });
+  return new (moduleWorkerClass())(storageWorkerUrl, 'AudioGubbins storage');
 }
 
 /**

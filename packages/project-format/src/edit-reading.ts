@@ -39,11 +39,25 @@ import {
   asFadeShape,
   asLevelGain,
 } from './edit-value-reading.js';
-import { readEditPlan } from './plan-reading.js';
-import { asBoolean, asId, oneOfConverter } from './scalar-reading.js';
-import { asChannelLayout, asSampleCount } from './value-reading.js';
+import { WRITTEN_PLAN_DEPTH, readEditPlan } from './plan-reading.js';
+import { asId, integerConverter, oneOfConverter } from './scalar-reading.js';
+import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
+
+/**
+ * How many levels of arrays and objects a written operation of an asset's
+ * chain takes, its own object the first: a paste's plan, one level down, is
+ * the deepest thing any operation holds. A region's operations hold no plan.
+ */
+export const WRITTEN_OPERATION_DEPTH = 1 + WRITTEN_PLAN_DEPTH;
 
 const RANGE_MEMBERS: ReadonlySet<string> = new Set(['start', 'end']);
+
+/**
+ * The version of the engine's algorithm a stretch or a conversion of rate was
+ * made by: a whole number from 1. Which versions this build has is the
+ * engine's to say, where a plan is built, so any is read here.
+ */
+const asAlgorithmVersion = integerConverter(1, 1_000_000);
 const REGION_OPERATION_MEMBERS: ReadonlySet<string> = new Set([
   'id',
   'basis',
@@ -61,9 +75,11 @@ const OPERATION_MEMBERS: Readonly<Record<EditOperation['kind'], ReadonlySet<stri
   delete: new Set(['id', 'kind', 'range']),
   trim: new Set(['id', 'kind', 'range']),
   reverse: new Set(['id', 'kind', 'range']),
-  insert: new Set(['id', 'kind', 'at', 'payload', 'convertRate']),
+  insert: new Set(['id', 'kind', 'at', 'payload', 'resampler']),
   process: new Set(['id', 'kind', 'range', 'channels', 'edit']),
   'convert-layout': new Set(['id', 'kind', 'layout', 'matrix']),
+  stretch: new Set(['id', 'kind', 'range', 'length', 'version']),
+  'convert-rate': new Set(['id', 'kind', 'sampleRate', 'version']),
 };
 
 /** The members of each kind of range edit, a table over every kind for the same reason. */
@@ -75,6 +91,7 @@ const RANGE_EDIT_MEMBERS: Readonly<Record<RangeEdit['kind'], ReadonlySet<string>
   'swap-channels': new Set(['kind', 'first', 'second']),
   'copy-channel': new Set(['kind', 'from', 'to']),
   'channel-gains': new Set(['kind', 'gains']),
+  rack: new Set(['kind', 'chain']),
 };
 
 /** The kinds a table names, which are its own keys. */
@@ -133,6 +150,10 @@ const readRangeEdit: Converter<RangeEdit> = (reading, value, parent, key) => {
       const gains = required(reading, object, at, 'gains', asChannelGains);
       return gains === undefined ? undefined : { kind, gains };
     }
+    case 'rack': {
+      const chain = required(reading, object, at, 'chain', asId<'EffectChainId'>);
+      return chain === undefined ? undefined : { kind, chain };
+    }
   }
 };
 
@@ -171,10 +192,10 @@ function operationBody(
     case 'insert': {
       const position = required(reading, object, at, 'at', asSampleCount);
       const payload = required(reading, object, at, 'payload', readEditPlan);
-      const convertRate = required(reading, object, at, 'convertRate', asBoolean);
-      return position === undefined || payload === undefined || convertRate === undefined
+      const resampler = optional(reading, object, at, 'resampler', asAlgorithmVersion);
+      return position === undefined || payload === undefined
         ? undefined
-        : { kind, at: position, payload, convertRate };
+        : { kind, at: position, payload, ...(resampler === undefined ? {} : { resampler }) };
     }
     case 'process': {
       const range = required(reading, object, at, 'range', readEditRange);
@@ -188,6 +209,21 @@ function operationBody(
       const layout = required(reading, object, at, 'layout', asChannelLayout);
       const matrix = required(reading, object, at, 'matrix', asChannelMatrix);
       return layout === undefined || matrix === undefined ? undefined : { kind, layout, matrix };
+    }
+    case 'stretch': {
+      const range = required(reading, object, at, 'range', readEditRange);
+      const length = required(reading, object, at, 'length', asSampleCount);
+      const version = required(reading, object, at, 'version', asAlgorithmVersion);
+      return range === undefined || length === undefined || version === undefined
+        ? undefined
+        : { kind, range, length, version };
+    }
+    case 'convert-rate': {
+      const sampleRate = required(reading, object, at, 'sampleRate', asSampleRate);
+      const version = required(reading, object, at, 'version', asAlgorithmVersion);
+      return sampleRate === undefined || version === undefined
+        ? undefined
+        : { kind, sampleRate, version };
     }
   }
 }

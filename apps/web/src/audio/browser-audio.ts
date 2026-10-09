@@ -16,27 +16,36 @@ import { mapResult, type DomainResult } from '@audiogubbins/domain';
 import { watchAudioDevices, type AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { PerformanceSettings } from '@audiogubbins/audio-engine';
-import { ContextLifecycle, browserAudioContext } from '@audiogubbins/audio-runtime';
+import {
+  ContextLifecycle,
+  browserAudioContext,
+  type PreviewHost,
+} from '@audiogubbins/audio-runtime';
 
+import type { ModelServices } from '../ml/model-services.js';
 import type { BrowserEngine } from './browser-engine.js';
 import { browserSchedule } from './browser-schedule.js';
-import type { OpenPlayback } from './playback-control.js';
+import type { OpenPlayback } from './playback-parts.js';
 import type { RenderParts } from './render-control.js';
 
 /**
  * The engine, loaded and its DSP compiled on first use and shared by every
  * session and render after it: compiling is the expensive half of WebAssembly,
  * and the compiled module is posted unchanged to the feeder worker and each
- * render worker. The AudioWorklet alone compiles its own, from the bytes.
+ * render worker. The AudioWorklet alone compiles its own, from the bytes. Each
+ * feeder reads its cached previews from `previews`, and each feeder and render
+ * worker runs a chain's models through `models`.
  */
 export function browserEngineLoader(
   capabilities: AudioRuntimeCapabilities,
+  previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
 ): () => Promise<BrowserEngine> {
   let loading: Promise<BrowserEngine> | undefined;
   return () => {
     if (loading !== undefined) return loading;
     const attempt = import('./browser-engine.js').then(({ browserEngine }) =>
-      browserEngine(capabilities),
+      browserEngine(capabilities, previews, models),
     );
     loading = attempt;
     // Whoever awaits the attempt hears its failure; this only lets the next

@@ -10,7 +10,7 @@
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
-import type { Asset, AssetId } from '@audiogubbins/domain';
+import type { Asset, AssetId, EffectChain } from '@audiogubbins/domain';
 import {
   canonicalJson,
   writeAssetRecord,
@@ -22,13 +22,24 @@ import {
   type MediaSource,
 } from '@audiogubbins/project-format';
 
+import { namingArguments } from './processing/chain-naming.js';
 import { ProjectCommandId } from './project-command.js';
 
-/** Adds an asset with its source. */
-export function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation {
+/**
+ * Adds an asset with its source, and the chain its rack names where `chain`
+ * is given whole, as undoing its removal gives the chain that went with it.
+ */
+export function addAssetInvocation(
+  asset: Asset,
+  source: AssetSource,
+  chain?: EffectChain,
+): CommandInvocation {
   return {
     commandId: ProjectCommandId.AddAsset,
-    arguments: { asset: canonicalJson(writeAssetRecord({ asset, source })) },
+    arguments: {
+      asset: canonicalJson(writeAssetRecord({ asset, source })),
+      ...namingArguments(chain),
+    },
   };
 }
 

@@ -4,5 +4,7 @@ Copyright 2026 The AudioGubbins Authors
 This product includes software developed by the AudioGubbins project
 (https://github.com/BootBlock/AudioGubbins).
 
-Third-party dependency licences and attribution are recorded in
-THIRD-PARTY-NOTICES.md, which is generated from the committed lockfiles.
+Third-party dependency licences and attribution, and those of the source code
+ported into AudioGubbins from other projects, are recorded in
+THIRD-PARTY-NOTICES.md, which is generated from the committed lockfiles and
+the committed list of ported code, tools/ported-code-notices.json.

@@ -4,7 +4,8 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import type { RetentionPolicy } from '@audiogubbins/project-format';
 
-import { planCleanup, type CleanupStep } from './cleanup-planning.js';
+import type { CleanupStep } from './cleanup-plan.js';
+import { planCleanup } from './cleanup-planning.js';
 import { runCleanup } from './cleanup-running.js';
 import { openProject } from './project-opening.js';
 import { storageOf } from './testing/memory-ports.js';

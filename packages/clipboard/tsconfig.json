@@ -23,6 +23,9 @@
       "path": "../../packages/project-format"
     },
     {
+      "path": "../../packages/text"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

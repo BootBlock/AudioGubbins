@@ -1,6 +1,10 @@
 /**
- * Quoting back a value that came from storage or from a file, in a sentence a
- * reader is shown.
+ * Quoting a name in a sentence a reader is shown, and quoting back a value that
+ * came from storage or from a file.
+ *
+ * A name is quoted one way wherever it is written, so the undo menu, a
+ * command's report and a panel name one project, region or file alike, and a
+ * reader comparing them sees the same text.
  *
  * Saying which region, panel, format or version was refused is what lets a
  * reader work out why something could not be used, so the value is quoted
@@ -14,6 +18,11 @@
  */
 
 import { cutToBound } from './cutting.js';
+
+/** A name a sentence names, between typographic quotation marks: “Take 2”. */
+export function quoted(name: string): string {
+  return `“${name}”`;
+}
 
 /** The longest a refusal quotes of a value it was given. */
 const LONGEST_QUOTED = 40;

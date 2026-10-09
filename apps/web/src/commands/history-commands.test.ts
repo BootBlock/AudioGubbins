@@ -80,7 +80,7 @@ describe('points of the history', () => {
 
     expect(
       await window.runAndHear('history.snapshot', { name: 'Before the mix', notes: 'Rough' }),
-    ).toBe('The snapshot "Before the mix" is kept.');
+    ).toBe('The snapshot “Before the mix” is kept.');
     const [snapshot] = modelOf(window).history.snapshots.values();
     expect(snapshot).toMatchObject({ name: 'Before the mix', notes: 'Rough' });
 
@@ -97,7 +97,7 @@ describe('points of the history', () => {
 
     expect(
       await window.runAndHear('history.name-branch', { node: d.id, name: 'The other take' }),
-    ).toBe('The branch is called "The other take".');
+    ).toBe('The branch is called “The other take”.');
     expect(modelOf(window).history.branchNames.get(d.id)).toBe('The other take');
     expect(await window.runAndHear('history.name-branch', { node: d.id })).toBe(
       'The branch has no name now.',

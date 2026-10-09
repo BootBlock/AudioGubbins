@@ -24,7 +24,9 @@ import {
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   BUILT_IN_NODES,
+  ProcessedStart,
   renderOffline,
+  type ChainProcessing,
   type PcmSource,
   type RenderJob,
   type RenderOptions,
@@ -58,6 +60,8 @@ export interface RenderWorkerHost {
    * awaits would reach no one, and the main thread would wait on the job.
    */
   readonly reportFault: (error: unknown) => void;
+  /** How the chains an edited source's plan names are run: the effect rack's. */
+  readonly processing: ChainProcessing;
 }
 
 /**
@@ -109,7 +113,7 @@ function renderJobOf(
     sources,
     sinks,
     range: message.range,
-    quality: { resampling: message.resamplingQuality },
+    quality: message.quality,
     chunkFrames: message.chunkFrames,
     ...(budget === undefined ? {} : { coefficientBudgetBytes: budget }),
   };
@@ -227,7 +231,11 @@ export class RenderWorkerCore {
       this.#fail(job.jobId, endpoints.failures);
       return;
     }
-    const sources = makeSources(message.sources, endpoints.value.inputs, scoped.dsp);
+    const sources = makeSources(message.sources, endpoints.value.inputs, scoped.dsp, {
+      processing: this.#host.processing,
+      quality: message.quality.settings,
+      start: ProcessedStart.Canonical,
+    });
     if (!sources.ok) {
       this.#fail(job.jobId, sources.failures);
       return;

@@ -244,6 +244,23 @@ const WAVEFORM_CACHE: FeatureRequirement = {
     'Waveforms are made again on each visit, which takes a while on long files. Nothing else is affected.',
 };
 
+/**
+ * Running machine-learning models on this device (ADR-0062).
+ *
+ * The inference runtime runs in a background thread, as WebAssembly with
+ * fixed-width SIMD on one thread, which every session's pinned path is
+ * defined on, so those are required. Nothing else serves it: no session uses
+ * shared memory or WebGPU, so lacking them reduces nothing.
+ */
+export const LOCAL_INFERENCE: FeatureRequirement = {
+  featureKey: 'local-inference',
+  label: 'Machine-learning processing',
+  required: [CapabilityKey.WebWorkers, CapabilityKey.WebAssembly, CapabilityKey.WebAssemblySimd],
+  preferred: [],
+  fallback:
+    'Without what it requires, processors that need a model pack cannot run, and projects that use them keep their settings.',
+};
+
 /** Every declared feature, for the capability surface and diagnostic bundles. */
 export const ALL_FEATURES: readonly FeatureRequirement[] = [
   SETTINGS_STORAGE,
@@ -265,4 +282,5 @@ export const ALL_FEATURES: readonly FeatureRequirement[] = [
   REFERENCE_PICTURE,
   FULL_SCREEN_PICTURE,
   WAVEFORM_CACHE,
+  LOCAL_INFERENCE,
 ];

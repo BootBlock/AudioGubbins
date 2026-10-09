@@ -22,7 +22,8 @@
     "test": "vitest run --root ../../ --project audio-graph"
   },
   "dependencies": {
-    "@audiogubbins/domain": "workspace:*"
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/text": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

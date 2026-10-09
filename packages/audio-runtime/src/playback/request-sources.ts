@@ -1,6 +1,8 @@
 /**
  * One playback request's sources, made in the feeder worker and kept there
- * until the request is replaced.
+ * until the request is replaced, which a parameter changed while the request
+ * plays is given to, for the chains of its edited sounds to take running
+ * (REQ-AUDIO-019).
  *
  * They are made once for a request, not once for each load of it, so a graph
  * loaded again on a new audio context after a loss plays the same sources:
@@ -9,19 +11,31 @@
  * the processor's is, since a worker that never started never answers.
  */
 
+import {
+  FailureKind,
+  fail,
+  failure,
+  succeed,
+  type DomainResult,
+  type FailureSummary,
+} from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
+import type { ParameterChange } from '@audiogubbins/audio-engine';
 
 import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import { FromFeederKind, ToFeederKind, type FromFeeder } from '../protocol/feeder-messages.js';
-import type { FailureSummary } from '../protocol/message-reading.js';
 import { sourceTransferables } from '../protocol/source-descriptions.js';
 import type { Schedule } from '../schedule.js';
 import type { FeederLink } from './feeder-link.js';
 import type { PlaybackRequest } from './playback-preparation.js';
 import type { DspStatus } from './playback-status.js';
 
-/** How long the feeder has to answer for a request's sources. */
+/** How long the feeder has to answer for a request's sources, or for a change to them. */
 const SOURCES_ANSWER_MILLISECONDS = 10_000;
+
+/** What the person is told when the feeder never answers for a parameter change. */
+const PARAMETERS_UNANSWERED_PROBLEM =
+  'The feeder that reads the audio for playback did not answer for the change, so it is not known to be heard.';
 
 /** How the making of a request's sources ended. */
 export type SourcesOutcome =
@@ -52,6 +66,8 @@ export class RequestSources {
   readonly made: Promise<SourcesOutcome>;
   readonly #stopListening: () => void;
   readonly #cancelWait: () => void;
+  readonly #schedule: Schedule;
+  #changes = 0;
   #settle: (outcome: SourcesOutcome) => void = () => undefined;
   #settled = false;
 
@@ -61,6 +77,7 @@ export class RequestSources {
     this.request = request;
     this.id = id;
     this.feeder = feeder;
+    this.#schedule = schedule;
     this.made = new Promise<SourcesOutcome>((resolve) => {
       this.#settle = resolve;
     });
@@ -75,10 +92,51 @@ export class RequestSources {
         request: id,
         graph: request.graph,
         sources: request.sources,
+        quality: request.quality,
         dsp: deliveredAs(dsp, (module) => module.module),
       },
       sourceTransferables(request.sources),
     );
+  }
+
+  /**
+   * Gives parameters changed while the request plays to its sources, and
+   * settles with whether their chains took them running, or every reason
+   * they did not.
+   */
+  changeParameters(changes: readonly ParameterChange[]): Promise<DomainResult<void>> {
+    this.#changes += 1;
+    const change = this.#changes;
+    const { feeder } = this;
+    return new Promise((resolve) => {
+      const settle = (outcome: DomainResult<void>): void => {
+        stopListening();
+        cancelWait();
+        resolve(outcome);
+      };
+      const stopListening = feeder.subscribe((reply) => {
+        if (reply.kind === FromFeederKind.ParametersTaken && reply.change === change) {
+          const [first, ...rest] = reply.refusals.map((one) =>
+            failure(one.code, FailureKind.Rejected, one.summary),
+          );
+          settle(first === undefined ? succeed(undefined) : fail(first, ...rest));
+        } else if (reply.kind === FromFeederKind.Fault) {
+          settle(fail(failure('playback.feeder-fault', FailureKind.Retryable, reply.message)));
+        }
+      });
+      const cancelWait = this.#schedule(() => {
+        settle(
+          fail(
+            failure(
+              'playback.parameters-unanswered',
+              FailureKind.Retryable,
+              PARAMETERS_UNANSWERED_PROBLEM,
+            ),
+          ),
+        );
+      }, SOURCES_ANSWER_MILLISECONDS);
+      feeder.send({ kind: ToFeederKind.Parameters, request: this.id, change, changes });
+    });
   }
 
   /** Lets the feeder release the sources, which nothing will play again. */
@@ -117,6 +175,7 @@ export class RequestSources {
         return;
       case FromFeederKind.Primed:
       case FromFeederKind.FeedFailed:
+      case FromFeederKind.ParametersTaken:
         return;
     }
   };

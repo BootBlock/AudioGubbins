@@ -74,7 +74,10 @@ async function mountOnDvorakAndOpenShortcuts(): Promise<void> {
   await userEvent.click(await screen.findByRole('tab', { name: 'Shortcuts' }));
 }
 
-describe('the keyboard layout, as the application is wired', () => {
+// Each test mounts the whole application and types into it: up to 2 s alone
+// and more than twice that under the whole suite's load, so they are given a
+// budget of their own rather than Vitest's five-second default.
+describe('the keyboard layout, as the application is wired', { timeout: 30_000 }, () => {
   it('reads the layout map at the start, learns a key the user types, and keeps the instruction out of the live region', async () => {
     // On Dvorak the key at K types T, so the chord prefix cannot go there, and
     // until the key that types K is known the palette has no default.

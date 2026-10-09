@@ -1,0 +1,9 @@
+export class Kernel {
+  /**
+   * Wound back to the start of the ring, the next frame read where {@link
+   * Kernel.advance} reads it.
+   */
+  rewind(): void {}
+
+  advance(): void {}
+}

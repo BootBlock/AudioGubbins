@@ -79,7 +79,7 @@ describe('the workspace settings', () => {
     const { layout, available } = context.workspace.get();
     const run = vi.fn();
     const reasons: Readonly<Record<string, string>> = {
-      'workspace.reset': '"Editing" is already as it ships.',
+      'workspace.reset': '“Editing” is already as it ships.',
       'workspace.delete': 'A built-in workspace cannot be deleted. Reset it instead.',
     };
 
@@ -97,7 +97,7 @@ describe('the workspace settings', () => {
     const reset = screen.getByRole('button', { name: 'Reset to how it ships' });
     expect(reset).toHaveAttribute('aria-disabled', 'true');
     expect(reset).not.toBeDisabled();
-    expect(reset).toHaveAccessibleDescription('"Editing" is already as it ships.');
+    expect(reset).toHaveAccessibleDescription('“Editing” is already as it ships.');
     expect(screen.getByRole('button', { name: 'Delete' })).toHaveAccessibleDescription(
       'A built-in workspace cannot be deleted. Reset it instead.',
     );
@@ -516,7 +516,7 @@ describe('the workspace settings', () => {
     };
     show();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Restore "Mastering"' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Restore “Mastering”' }));
 
     expect(context.workspace.get().available.map((one) => one.displayName)).toContain('Mastering');
     expect(context.workspace.get().deleted).toEqual([]);

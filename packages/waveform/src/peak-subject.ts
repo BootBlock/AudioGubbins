@@ -3,6 +3,7 @@
  * describe its audio to the worker.
  */
 
+import type { QualityMode } from '@audiogubbins/domain';
 import type { PcmDescription } from '@audiogubbins/audio-engine';
 
 /** A source whose peaks a view asks for. */
@@ -19,4 +20,10 @@ export interface PeakSubject {
    * transferred to the worker, so each call gives arrays the caller can lose.
    */
   readonly describe: () => PcmDescription;
+  /**
+   * The quality an edited sound's chains run at: the final render's, so the
+   * peaks draw what a render makes. It changes the sound, so `revision` names
+   * it too.
+   */
+  readonly quality: QualityMode;
 }

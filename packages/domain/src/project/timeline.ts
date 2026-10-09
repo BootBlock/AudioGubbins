@@ -14,7 +14,14 @@
  * conversion.
  */
 
-import type { AssetId, ClipId, MarkerId, RegionId, TrackId } from '../identity/branded-id.js';
+import type {
+  AssetId,
+  ClipId,
+  EffectChainId,
+  MarkerId,
+  RegionId,
+  TrackId,
+} from '../identity/branded-id.js';
 import type { RegionOperation } from '../editing/operations.js';
 import type { SampleCount } from '../time/sample-time.js';
 import type { AssetRange } from './asset.js';
@@ -105,6 +112,12 @@ export interface Region {
 
   /** The region's own processing, in the order it was made. */
   readonly operations: readonly RegionOperation[];
+
+  /**
+   * The chain that processes the whole region as it stands, after its span of
+   * its asset's processed audio, where it has one (ADR-0060).
+   */
+  readonly rack?: EffectChainId;
 }
 
 /** Which end of a region a command moves. */

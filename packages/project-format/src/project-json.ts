@@ -38,6 +38,7 @@ import { asProject } from './project-reading.js';
 import type { ProjectState } from './project-state.js';
 import { writeProject, writeSources } from './project-writing.js';
 import { sourcesConverter } from './source-reading.js';
+import { WRITTEN_ASSET_DEPTH } from './timeline-reading.js';
 import { LONGEST_PROJECT_DOCUMENT } from './value-reading.js';
 
 /** The format name a project document carries. */
@@ -47,13 +48,15 @@ export const PROJECT_DOCUMENT_FORMAT = 'audiogubbins.project';
  * The bounds a project document's text is read within.
  *
  * {@link LONGEST_PROJECT_DOCUMENT} holds a project of hundreds of thousands of
- * entities. The document nests fifteen levels deep, at a row of a channel
- * matrix in a stage of a paste in an asset's edits, and 32 leaves room without
- * letting a hostile file recurse.
+ * entities. The document nests deepest in an asset, three levels down (the
+ * document, its project and the project's list of assets), at the chain a
+ * paste in the asset's edits holds in its plan. The project's own chains are
+ * three levels down too, so nest less, and nothing else nests as deep. A
+ * hostile file is refused past that, before it can recurse.
  */
-const PROJECT_DOCUMENT_LIMITS: JsonLimits = {
+export const PROJECT_DOCUMENT_LIMITS: JsonLimits = {
   maximumLength: LONGEST_PROJECT_DOCUMENT,
-  maximumDepth: 32,
+  maximumDepth: 3 + WRITTEN_ASSET_DEPTH,
 };
 
 const DOCUMENT_MEMBERS: ReadonlySet<string> = new Set([

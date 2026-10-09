@@ -40,6 +40,10 @@ describe('the command palette', () => {
       />,
     );
 
+    // Searched for, so the row is listed however many commands sort before it.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search commands' }), {
+      target: { value: 'command palette' },
+    });
     const entry = screen.getByRole('option', { name: /^Show the command palette/ });
     expect(within(entry).getByText('Ctrl+K, Ctrl+P')).toBeInTheDocument();
   });
@@ -120,6 +124,10 @@ describe('the command palette', () => {
       />,
     );
 
+    // Searched for, so the row is listed however many commands sort before it.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search commands' }), {
+      target: { value: 'command palette' },
+    });
     const entry = screen.getByRole('option', { name: /^Show the command palette/ });
     const pressed = fireEvent.pointerDown(entry, { pointerType: 'mouse' });
     expect(onRun).not.toHaveBeenCalled();

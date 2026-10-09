@@ -1,0 +1,10 @@
+export class Kernel {
+  /** Where the ring's oldest sample is, read at {@link #position}. */
+  #position = 0;
+
+  /** Advances {@link Kernel.#position}. */
+  advance(): number {
+    this.#position += 1;
+    return this.#position;
+  }
+}

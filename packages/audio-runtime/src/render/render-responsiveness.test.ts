@@ -16,20 +16,32 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleCount, sampleRate, type ChannelLayout } from '@audiogubbins/domain';
+import {
+  MAXIMUM_QUALITY,
+  sampleCount,
+  sampleRate,
+  StandardLayouts,
+  type ChannelLayout,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import {
   BuiltInNodeType,
   DspImplementation,
   JobPriority,
-  MAXIMUM_RENDER_QUALITY,
   ResamplingQuality,
   createPriorityScheduler,
   type AudioFrameBlock,
   PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
-import { dspModuleBytes, graphOf, named, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
+import {
+  dspModuleBytes,
+  graphOf,
+  named,
+  NO_CHAIN_PROCESSING,
+  nodeOf,
+  wire,
+} from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
@@ -92,7 +104,7 @@ function representativeRender(module: WebAssembly.Module | undefined): ToRenderW
       length: expectSuccess(sampleCount(RENDER_FRAMES)),
     },
     chunkFrames: CHUNK_FRAMES,
-    resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
+    quality: MAXIMUM_QUALITY,
     sources: [
       { node: IN, kind: PcmDescriptionKind.Pcm, sampleRate: RECORDED_RATE, channels: recording() },
     ],
@@ -124,6 +136,7 @@ function workerUnderTest() {
         yields.push(resolve);
       }),
     // A fault fails the run, as an unhandled rejection, rather than a job.
+    processing: NO_CHAIN_PROCESSING,
     reportFault: (error) => {
       throw error;
     },
@@ -237,7 +250,7 @@ describe('a representative offline render leaves the interface responsive', () =
           length: expectSuccess(sampleCount(RENDER_FRAMES)),
         },
         chunkFrames: CHUNK_FRAMES,
-        quality: MAXIMUM_RENDER_QUALITY,
+        quality: MAXIMUM_QUALITY,
         sources: [
           {
             node: IN,

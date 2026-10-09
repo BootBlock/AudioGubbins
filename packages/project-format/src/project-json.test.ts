@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
@@ -16,6 +16,7 @@ import {
 import { parseJson } from './json-parsing.js';
 import {
   PROJECT_DOCUMENT_FORMAT,
+  PROJECT_DOCUMENT_LIMITS,
   parseProjectDocument,
   readProjectDocument,
   compactProjectDocument,
@@ -25,11 +26,9 @@ import {
 import type { ProjectState } from './project-state.js';
 import { edited, valueAt, withValue, without, type Step } from './testing/json-editing.js';
 import { nodeDigest } from './testing/node-digest.js';
-import { referenceState } from './testing/project-states.js';
+import { deeplyRackedState, referenceState } from './testing/project-states.js';
 import { randomState } from './testing/random-states.js';
 import { seededRandom } from './testing/random-values.js';
-
-const LIMITS = { maximumLength: 2 ** 28, maximumDepth: 32 };
 
 /** The written reference state, the document every refusal edits. */
 const REFERENCE = referenceState(sampleProject());
@@ -146,7 +145,9 @@ describe('a seeded property: every valid state survives the document', () => {
       for (let seed = block * 10 + 1; seed <= block * 10 + 10; seed += 1) {
         const state = randomState(seed);
         const compact = canonicalJson(writeProjectDocument(state));
-        const read = expectSuccess(readProjectDocument(expectSuccess(parseJson(compact, LIMITS))));
+        const read = expectSuccess(
+          readProjectDocument(expectSuccess(parseJson(compact, PROJECT_DOCUMENT_LIMITS))),
+        );
         expect(read, `seed ${String(seed)}`).toEqual(state);
         expect(canonicalJson(writeProjectDocument(read)), `seed ${String(seed)}`).toBe(compact);
 
@@ -418,13 +419,9 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'a parameter value that is an object': {
     edit: (document) =>
-      withValue(
-        document,
-        ['project', 'effectChains', 0, 'processors', 0, 'values', 0, 'value'],
-        {},
-      ),
+      withValue(document, ['project', 'effectChains', 0, 'slots', 0, 'values', 0, 'value'], {}),
     code: 'schema.unknown-value',
-    at: 'project.effectChains[0].processors[0].values[0].value',
+    at: 'project.effectChains[0].slots[0].values[0].value',
   },
   'an identifier of another shape': {
     edit: (document) => withValue(document, ['project', 'clips', 0, 'trackId'], 'Track 1'),
@@ -674,19 +671,19 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'two processors with one identifier': {
     edit: (document) =>
-      edited(document, ['project', 'effectChains', 0, 'processors'], (list) =>
+      edited(document, ['project', 'effectChains', 0, 'slots'], (list) =>
         Array.isArray(list) ? [...list, ...list] : list,
       ),
     code: 'project.duplicate-processor',
-    at: 'project.effectChains[0].processors[1].id',
+    at: 'project.effectChains[0].slots[2].id',
   },
   'two values for one parameter': {
     edit: (document) =>
-      edited(document, ['project', 'effectChains', 0, 'processors', 0, 'values'], (list) =>
+      edited(document, ['project', 'effectChains', 0, 'slots', 0, 'values'], (list) =>
         Array.isArray(list) ? [...list, withValue(list[0] ?? null, ['value'], 0.75)] : list,
       ),
     code: 'project.duplicate-parameter',
-    at: 'project.effectChains[0].processors[0].values[3].parameter',
+    at: 'project.effectChains[0].slots[0].values[3].parameter',
   },
   'a track naming an effect chain the project does not have': {
     edit: (document) => withValue(document, ['project', 'tracks', 0, 'effectChainId'], UNKNOWN_ID),
@@ -819,5 +816,27 @@ describe('the generator of random states', () => {
       expectSuccess(compactProjectDocument(randomState(77))),
     );
     expect(seededRandom(3).next()).toBe(seededRandom(3).next());
+  });
+});
+
+describe('a project whose chains nest as deep as the domain allows', () => {
+  const state = deeplyRackedState(sampleProject());
+
+  it('is saved and reopened as itself, and saved as the same text again', () => {
+    const text = expectSuccess(compactProjectDocument(state));
+    const back = expectSuccess(parseProjectDocument(text));
+
+    expect(back).toEqual(state);
+    expect(expectSuccess(compactProjectDocument(back))).toBe(text);
+  });
+
+  it('needs every level the bound allows, so the bound is the smallest that fits', () => {
+    const text = canonicalJson(writeProjectDocument(state));
+    const shallower = {
+      ...PROJECT_DOCUMENT_LIMITS,
+      maximumDepth: PROJECT_DOCUMENT_LIMITS.maximumDepth - 1,
+    };
+
+    expect(expectFailureCode(parseJson(text, shallower))).toBe('json.too-deep');
   });
 });

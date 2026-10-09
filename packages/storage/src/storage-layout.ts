@@ -25,6 +25,11 @@
  * - `cache/<category>/<scope>/<name>`: a disposable cache (`cache-store.ts`).
  * - `media/`: the media object store every project shares, which the
  *   composition root makes over this directory.
+ * - `packs/<id>/<version>/`: an installed model pack, or one being installed
+ *   (`model-pack-store.ts`).
+ * - `library/<entry>/entry-0.json` and `entry-1.json`: an entry of the
+ *   person's library of saved chains and presets, a pair rewritten by turns
+ *   (`library-entry-files.ts`).
  *
  * Epochs and sequence numbers are written as twelve decimal digits, so a
  * directory listed in name order is listed in number order.
@@ -47,6 +52,12 @@ export const CACHE_DIRECTORY = 'cache';
 
 /** The directory the shared media object store is kept under. */
 export const MEDIA_DIRECTORY = 'media';
+
+/** The directory every model pack is kept under. */
+export const PACKS_DIRECTORY = 'packs';
+
+/** The directory the person's library of saved chains and presets is kept under. */
+export const LIBRARY_DIRECTORY = 'library';
 
 /** One of the two files of a pair that is rewritten by turns. */
 export type PairSlot = 0 | 1;

@@ -35,6 +35,7 @@ import {
   textArgument,
 } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The media type of an exported profile. */
 const PROFILE_MEDIA_TYPE = 'application/json';
@@ -117,7 +118,7 @@ export function shortcutCommands(): readonly Command<ShellContext>[] {
           context,
           refusal,
           wasBuiltIn
-            ? `${described} is bound, in a copy of the defaults called "${context.shortcuts.get().profile.displayName}".`
+            ? `${described} is bound, in a copy of the defaults called ${quoted(context.shortcuts.get().profile.displayName)}.`
             : `${described} is bound.`,
         );
       },
@@ -181,7 +182,7 @@ export function shortcutCommands(): readonly Command<ShellContext>[] {
         return report(
           context,
           refusal,
-          `The "${context.shortcuts.get().profile.displayName}" shortcuts are in force.`,
+          `The ${quoted(context.shortcuts.get().profile.displayName)} shortcuts are in force.`,
         );
       },
       {
@@ -200,7 +201,7 @@ export function shortcutCommands(): readonly Command<ShellContext>[] {
       (context) => {
         const current = context.shortcuts.get().profile;
         const refusal = context.shortcuts.remove(current.id);
-        return report(context, refusal, `"${current.displayName}" is deleted.`);
+        return report(context, refusal, `${quoted(current.displayName)} is deleted.`);
       },
       {
         keywords: ['shortcut', 'profile', 'delete', 'remove'],

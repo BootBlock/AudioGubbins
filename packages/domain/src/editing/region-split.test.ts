@@ -1,3 +1,5 @@
+import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
+import { expectSuccess } from '../testing/unwrap.js';
 import { describe, expect, it } from 'vitest';
 
 import { unsafeBrandId } from '../identity/branded-id.js';
@@ -105,7 +107,9 @@ describe('splitting a region', () => {
     };
     const region = regionWith([fade]);
     const [first, second] = split(region, 500);
-    const heard = (one: Region) => [...(renderPlan(regionPlan(edited, one), ones)[0] ?? [])];
+    const heard = (one: Region) => [
+      ...(renderPlan(expectSuccess(regionPlan(edited, one, PLAN_WITHOUT_CHAINS)), ones)[0] ?? []),
+    ];
 
     expect([...heard(first), ...heard(second)]).toEqual(heard(region));
     expect(heard(region).some((sample) => sample > 0 && sample < 1)).toBe(true);

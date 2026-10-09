@@ -27,6 +27,7 @@ import {
 } from './canonical-json.js';
 import { startReading, type Converter } from './document-reading.js';
 import { parseJson } from './json-parsing.js';
+import { PROJECT_DOCUMENT_LIMITS } from './project-json.js';
 import { readTreeHeader, type TreeHeader } from './project-tree-header.js';
 import { TREE_HEADER_PATH, placeOf, type TreePlace } from './project-tree-layout.js';
 import { decodeUtf8 } from './utf8.js';
@@ -48,10 +49,14 @@ export interface ProjectTreeListing {
 /** The longest metadata file read, in bytes: the longest a project's text may be. */
 export const LONGEST_METADATA = 2 ** 28;
 
-/** The bounds a metadata file's text is read within. */
+/**
+ * The bounds a metadata file's text is read within. The deepest file is a
+ * state the history keeps whole, which is a project document; every other file
+ * holds a part of one, or nests less.
+ */
 export const TREE_JSON_LIMITS: JsonLimits = {
   maximumLength: LONGEST_METADATA,
-  maximumDepth: 32,
+  maximumDepth: PROJECT_DOCUMENT_LIMITS.maximumDepth,
 };
 
 /** An item of a list within a value: the list's path and the item's index. */

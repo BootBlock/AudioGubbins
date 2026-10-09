@@ -21,6 +21,7 @@ import {
   type ProjectState,
 } from '@audiogubbins/project-format';
 
+import { TEST_CATALOGUE } from '@audiogubbins/domain/testing';
 import { projectCommands } from '../project-commands.js';
 
 /** The compact canonical text of a state's document: equal states, equal text. */
@@ -51,7 +52,7 @@ type BusLogger = Parameters<typeof createCommandBus>[1];
 /** A bus running the project commands, with a logger that keeps nothing. */
 export function projectBus(): CommandBus<ProjectState> {
   const registry = createCommandRegistry<ProjectState>();
-  for (const command of projectCommands()) registry.register(command);
+  for (const command of projectCommands(TEST_CATALOGUE)) registry.register(command);
   return createCommandBus(registry, silentLogger());
 }
 

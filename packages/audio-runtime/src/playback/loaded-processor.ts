@@ -28,6 +28,7 @@ import {
   ToProcessorKind,
   type FromProcessor,
 } from '../protocol/processor-messages.js';
+import type { ChannelEnds } from './channel-ends.js';
 import { EngineLink } from './engine-link.js';
 import type { FeederLink } from './feeder-link.js';
 import type { PreparedPlayback } from './playback-preparation.js';
@@ -42,12 +43,6 @@ const LOAD_ANSWER_MILLISECONDS = 10_000;
  * display redraws a meter usefully and often enough to anchor the playhead.
  */
 const REPORTS_PER_SECOND = 30;
-
-/** The two ends of a message channel, as `MessageChannel` makes them. */
-export interface ChannelEnds {
-  readonly port1: MessagePort;
-  readonly port2: MessagePort;
-}
 
 /** How a load ended. */
 export type LoadOutcome =

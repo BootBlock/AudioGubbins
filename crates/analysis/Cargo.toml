@@ -1,0 +1,15 @@
+[package]
+name = "audiogubbins-analysis"
+description = "AudioGubbins' canonical audio measurement: the STFT, peak and loudness meters, and restoration detector features (REQ-REPO-154)."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+audiogubbins-dsp-core = { path = "../dsp-core" }
+
+[lints]
+workspace = true

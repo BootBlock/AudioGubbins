@@ -3,9 +3,8 @@
  * what was done and to which asset or region.
  */
 
-import type { EditOperation, RangeEdit } from '@audiogubbins/domain';
-
-import { quoted } from '../project-command.js';
+import { planIsSilence, type EditOperation, type RangeEdit } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 /** The verb phrase of a range edit. */
 function rangeEditWords(edit: RangeEdit): string {
@@ -24,6 +23,8 @@ function rangeEditWords(edit: RangeEdit): string {
       return 'Copy a channel across';
     case 'channel-gains':
       return 'Balance the channels of';
+    case 'rack':
+      return 'Apply a chain of processors to';
   }
 }
 
@@ -35,13 +36,19 @@ export function editDescription(operation: EditOperation, name: string): string 
     case 'trim':
       return `Trim ${quoted(name)}`;
     case 'insert':
-      return `Paste into ${quoted(name)}`;
+      return planIsSilence(operation.payload)
+        ? `Insert silence into ${quoted(name)}`
+        : `Paste into ${quoted(name)}`;
     case 'reverse':
       return `Reverse part of ${quoted(name)}`;
     case 'convert-layout':
       return `Convert the channels of ${quoted(name)}`;
     case 'process':
       return `${rangeEditWords(operation.edit)} ${quoted(name)}`;
+    case 'stretch':
+      return `Stretch part of ${quoted(name)}`;
+    case 'convert-rate':
+      return `Convert the sample rate of ${quoted(name)}`;
   }
 }
 

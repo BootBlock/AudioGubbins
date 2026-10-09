@@ -18,6 +18,7 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 import { createIdGenerator } from '@audiogubbins/domain';
 import { TransportMode } from '@audiogubbins/audio-engine';
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
@@ -26,6 +27,8 @@ import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
 import type { EditorPanelParts } from './editor/panel-parts.js';
 import { browserPeakWorker } from './editor/peak-threads.js';
+import type { ModelServices } from './ml/model-services.js';
+import { modelGates } from './ml/model-words.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
 import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
@@ -40,6 +43,8 @@ import { createEditorViewStore, type EditorViewStore } from './state/editor-view
 import { createRendererReports } from './state/renderer-reports.js';
 import { reconcileSelections } from './state/selection-reconciling.js';
 import { createSelectionStore } from './state/selection-store.js';
+import type { AudioSettings } from './state/audio-settings-store.js';
+import type { Observable } from './state/observable.js';
 import type { StateStorage } from './state/state-storage.js';
 import type { WorkspaceStore } from './state/workspace-store.js';
 
@@ -70,10 +75,18 @@ function followWorkspace(workspace: WorkspaceStore, editorViews: EditorViewStore
   workspace.subscribe(follow);
 }
 
-/** The one peak host, its peaks kept in `cache`. */
-function peakHost(cache: PeakCacheStore, logger: Logger): PeakHost {
+/**
+ * The one peak host, its peaks kept in `cache`, its racked sounds read from
+ * `previews`, its worker connected to the models a chain runs by `models`.
+ */
+function peakHost(
+  cache: PeakCacheStore,
+  logger: Logger,
+  previews: PreviewHost,
+  models: ModelServices,
+): PeakHost {
   return new PeakHost({
-    createWorker: browserPeakWorker,
+    createWorker: () => browserPeakWorker(previews, models),
     cache,
     report: (event) => {
       const fields = { reason: event.reason };
@@ -111,6 +124,7 @@ export function panelPartsOf(
       assets: context.assets,
       picture: context.picture,
       audio: context.audio,
+      audioSettings: context.audioSettings,
       playhead: (asset) => playheadOf(context, asset),
       playing: (asset) =>
         context.playback.programme() === asset &&
@@ -145,21 +159,28 @@ function referencePicture(
 
 /**
  * Builds the editor part, its assets following the open project of `projects`
- * where this browser keeps projects.
+ * where this browser keeps projects, and its peaks drawn at the chosen render
+ * quality of `audioSettings`, a racked sound's from the renders of `previews`.
  */
 export function startEditor(
   capabilities: CapabilityRegistry,
   storage: StateStorage,
   logger: Logger,
   workspace: WorkspaceStore,
+  audioSettings: Observable<Pick<AudioSettings, 'renderQuality'>>,
   projects: {
     readonly projects: ProjectStores | undefined;
     readonly peakCache: PeakCacheStore;
   },
+  previews: PreviewHost,
+  models: ModelServices,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
+  const modelGate = modelGates(models.availability);
   const stopFollowing =
-    projects.projects === undefined ? undefined : followProjectAssets(projects.projects, assets);
+    projects.projects === undefined
+      ? undefined
+      : followProjectAssets(projects.projects, assets, modelGate);
   const selections = createSelectionStore();
   reconcileSelections(selections, assets);
   const editorViews = createEditorViewStore(storage, logger, (write) => {
@@ -173,8 +194,8 @@ export function startEditor(
   };
   document.addEventListener('visibilitychange', flushViews);
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
-  const peaks = peakHost(projects.peakCache, logger);
-  const letShownPeaksGo = holdShownPeaks(editorViews, assets, peaks);
+  const peaks = peakHost(projects.peakCache, logger, previews, models);
+  const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
   return {
@@ -188,6 +209,7 @@ export function startEditor(
       pictureSound,
       chosenFiles: createChosenFiles(),
       clipboard: createClipboardStore(),
+      modelGate,
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>

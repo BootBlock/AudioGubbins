@@ -144,7 +144,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     control.focus();
 
     const heard = window.runAndHear('file.import-audio');
-    expect(await screen.findByText('Importing "Harbour.wav"…')).toHaveAttribute('role', 'status');
+    expect(await screen.findByText('Importing “Harbour.wav”…')).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: 'Cancel the import' })).toBe(control);
     expect(control).toHaveFocus();
     // The command it runs is held to keeping nothing by its own tests; whether

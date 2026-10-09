@@ -23,6 +23,7 @@ import {
   mapResult,
   sampleRate,
   type DomainResult,
+  type QualityMode,
 } from '@audiogubbins/domain';
 import {
   GRAPH_DESCRIPTOR_VERSION,
@@ -33,7 +34,6 @@ import {
 } from '@audiogubbins/audio-graph';
 import {
   BuiltInNodeType,
-  MAXIMUM_RENDER_QUALITY,
   toneRecipe,
   type SignalRecipe,
   PcmDescriptionKind,
@@ -114,13 +114,20 @@ function testSignalRecipe(frames: number): DomainResult<SignalRecipe> {
   return toneRecipe(channelCount(STEREO), frames, TEST_SIGNAL.frequency, TEST_SIGNAL.amplitude);
 }
 
-/** The test signal to play at `contextRate`, the context's own (REQ-ARCH-085). */
-export function testSignalPlayback(contextRate: number): DomainResult<PlaybackRequest> {
+/**
+ * The test signal to play at `contextRate`, the context's own (REQ-ARCH-085),
+ * previewing at `quality`.
+ */
+export function testSignalPlayback(
+  contextRate: number,
+  quality: QualityMode,
+): DomainResult<PlaybackRequest> {
   return flatMapResult(TEST_SIGNAL_GRAPH, ({ graph, input }) =>
     flatMapResult(sampleRate(contextRate), (rate) =>
       mapResult(testSignalRecipe(TEST_SIGNAL.seconds * contextRate), (recipe) => ({
         graph,
         sources: [{ node: input, kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }],
+        quality,
       })),
     ),
   );
@@ -141,11 +148,14 @@ export interface TestSignalRender {
 }
 
 /**
- * The whole test signal rendered at maximum quality (REQ-ARCH-081), in chunks
- * of `chunkMilliseconds`, which the profile sets and which change no bit of the
- * output.
+ * The whole test signal rendered at `quality`, the person's render quality
+ * (REQ-AUDIO-143), in chunks of `chunkMilliseconds`, which the profile sets and
+ * which change no bit of the output.
  */
-export function testSignalRender(chunkMilliseconds: number): DomainResult<TestSignalRender> {
+export function testSignalRender(
+  chunkMilliseconds: number,
+  quality: QualityMode,
+): DomainResult<TestSignalRender> {
   return flatMapResult(TEST_SIGNAL_GRAPH, ({ graph, input, output }) =>
     flatMapResult(sampleRate(RENDER_SAMPLE_RATE), (rate) =>
       mapResult(testSignalRecipe(TEST_SIGNAL.seconds * RENDER_SAMPLE_RATE), (recipe) => ({
@@ -155,7 +165,7 @@ export function testSignalRender(chunkMilliseconds: number): DomainResult<TestSi
           sampleRate: rate,
           range: { start: ZERO_SAMPLES, length: recipe.length },
           chunkFrames: Math.max(1, Math.round((chunkMilliseconds * RENDER_SAMPLE_RATE) / 1000)),
-          quality: MAXIMUM_RENDER_QUALITY,
+          quality,
           sources: [{ node: input, kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }],
         },
       })),

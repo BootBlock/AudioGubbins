@@ -29,6 +29,9 @@ export {
 
 export { type AudioRuntimeCapabilities, audioRuntimeCapabilities } from './audio-runtime.js';
 
+// What the inference runtime may use, for the application to start its worker with (ADR-0062).
+export { type LocalInferenceCapabilities, localInferenceCapabilities } from './local-inference.js';
+
 // What the machine has left, for the engine to plan work around (REQ-ARCH-087).
 export { type ResourceFigures, readResourceFigures } from './resources.js';
 
@@ -61,6 +64,7 @@ export {
   DIRECT_FILE_ACCESS,
   FULL_SCREEN_PICTURE,
   HARDWARE_CODECS,
+  LOCAL_INFERENCE,
   MULTI_THREADED_DSP,
   NAMING,
   OFFLINE_RENDERING,

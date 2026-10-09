@@ -2,10 +2,11 @@
  * The WebAssembly path allocates nothing per call once it is warm.
  *
  * An oscillator renders on the audio thread, where a collection pauses the
- * quantum that triggered it, so a view of the module's memory made per call,
- * an argument array per call into the module, or a closure per push is a
- * pause waiting to happen. Views are made again only when the memory's
- * buffer or the module buffer they look at changes.
+ * quantum that triggered it, and an FFT runs per block of a spectral processor
+ * there, so a view of the module's memory made per call, an argument array per
+ * call into the module, or a closure per push is a pause waiting to happen.
+ * Views are made again only when the memory's buffer or the module buffer they
+ * look at changes.
  *
  * How an allocation is measured, and why that way, is in
  * `testing/allocation.ts`.
@@ -75,6 +76,24 @@ describe('the WebAssembly path allocates nothing per call', () => {
 
     resampler.release();
     expect(output[1]?.[0]).toBe(-0.25);
+    expect(allocated).toBeLessThan(QUANTA);
+  });
+
+  it('transforming a block to its spectrum and back', () => {
+    const fft = expectSuccess(wasm.createFft(256));
+    const signal = new Float32Array(256).fill(0.5);
+    const real = new Float64Array(fft.bins);
+    const imaginary = new Float64Array(fft.bins);
+
+    const allocated = allocatedBy({
+      quantum: () => {
+        fft.forwardReal(signal, real, imaginary);
+        fft.inverseReal(real, imaginary, signal);
+      },
+    });
+
+    fft.release();
+    expect(real[0]).toBe(128);
     expect(allocated).toBeLessThan(QUANTA);
   });
 });

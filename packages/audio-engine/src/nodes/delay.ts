@@ -56,6 +56,7 @@ import {
 import {
   FLAG,
   FRAME_COUNT,
+  isNumberList,
   optionalSetting,
   refuseOtherSettings,
   requiredSetting,
@@ -78,7 +79,7 @@ function frameCounts(length: number): SettingRule<readonly SampleCount[]> {
   return {
     describes: `a list of ${String(length)} whole numbers of frames, zero or more, one for each channel in layout order`,
     read: (value) => {
-      if (typeof value !== 'object' || value.length !== length) return undefined;
+      if (!isNumberList(value) || value.length !== length) return undefined;
       const counts: SampleCount[] = [];
       for (const one of value) {
         const count = FRAME_COUNT.read(one);

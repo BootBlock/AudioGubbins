@@ -66,7 +66,7 @@ function saferThan(strategy: RenderStrategy): RenderStrategy | undefined {
   return strategyOf(
     {
       mode: ProcessingMode.BackgroundOffline,
-      reason: `Rendering in the background at full quality, as the warning offers. ${compute.saferStrategy}`,
+      reason: `Rendering in the background at the chosen render quality, as the warning offers. ${compute.saferStrategy}`,
       overridden: true,
     },
     strategy.plan,

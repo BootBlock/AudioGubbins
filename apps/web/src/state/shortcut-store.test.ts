@@ -479,7 +479,7 @@ describe('the names and identifiers of the profiles the user made', () => {
     const before = context.shortcuts.get();
 
     expect(context.shortcuts.duplicate('  MINE ')).toBe(
-      'There is already a profile called "Mine". Choose another name.',
+      'There is already a profile called “Mine”. Choose another name.',
     );
     expect(context.shortcuts.get().profile.id).toBe(before.profile.id);
     expect(context.shortcuts.get().available).toEqual(before.available);

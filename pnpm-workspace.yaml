@@ -1,5 +1,10 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+# Install scripts a dependency may run. protobufjs, which ONNX Runtime Web
+# reads models with, runs one that only warns about how a dependent names its
+# version; nothing is built, so it is not run.
+allowBuilds:
+  protobufjs: false
 minimumReleaseAgeExclude:
   - jsdom@30.1.0

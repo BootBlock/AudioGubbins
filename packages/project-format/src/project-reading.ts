@@ -15,7 +15,7 @@ import {
   type AssetId,
   type Project,
   type ProjectSettings,
-  type ProcessorId,
+  type ProjectChains,
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
@@ -30,7 +30,7 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
-import { effectChainConverter } from './processing-reading.js';
+import { effectChainConverter } from './chain-reading.js';
 import { readBuses, trackConverter } from './routing-reading.js';
 import { asId } from './scalar-reading.js';
 import {
@@ -105,11 +105,12 @@ function readContents(
   ): ReadonlyMap<TEntity['id'], TEntity> | undefined =>
     entitiesOf(reading, object, at, key, MAXIMUM_ENTITIES, entity);
 
-  const effectChains = entities('effectChains', effectChainConverter(new Set<ProcessorId>()));
+  const effectChains = entities('effectChains', effectChainConverter(new Set()));
   const buses = readBuses(reading, object, at, effectChains);
   const tracks = entities('tracks', trackConverter(buses, effectChains));
   const assets = entities('assets', asAsset);
-  const placement = assets === undefined ? undefined : checkChains(reading, assets, at);
+  const placement =
+    assets === undefined ? undefined : checkChains(reading, assets, effectChains ?? new Map(), at);
   const clips = entities('clips', clipConverter(tracks, assets));
   const regions = entities('regions', regionConverter(placement));
   const markers = entities('markers', markerConverter(placement));
@@ -141,11 +142,12 @@ function readContents(
 function checkChains(
   reading: Reading,
   assets: ReadonlyMap<AssetId, Asset>,
+  chains: ProjectChains,
   at: string,
 ): PlacementAssets {
   const sound = new Map<AssetId, Asset>();
   for (const asset of assets.values()) {
-    const checked = validateChain(asset, assets);
+    const checked = validateChain(asset, assets, chains);
     if (checked.ok) sound.set(asset.id, asset);
     else {
       refuseFailed(reading, checked, 'project.asset-edits-invalid', pathOf(at, 'assets'), {
@@ -153,7 +155,7 @@ function checkChains(
       });
     }
   }
-  return { all: assets, sound };
+  return { all: assets, sound, chains };
 }
 
 /** Checks that the track order names every track exactly once. */

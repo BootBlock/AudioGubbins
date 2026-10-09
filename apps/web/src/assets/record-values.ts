@@ -7,8 +7,13 @@
  * told of again, and by the text it writes where that fails. A record is a
  * value that never changes, so its text is written once for as long as it is
  * held, and a record kept from one state to compare the next with is never
- * written again.
+ * written again. The text is the engine's canonical one, which writes a map by
+ * its entries: a processor holds its parameter values in a map, which
+ * `JSON.stringify` writes as an empty object, so a chain whose values alone
+ * changed read as unchanged and the entries planned from it were kept.
  */
+
+import { canonicalText } from '@audiogubbins/audio-engine';
 
 /** Each record's text, for as long as the record is held. */
 const TEXTS = new WeakMap<object, string>();
@@ -17,7 +22,7 @@ const TEXTS = new WeakMap<object, string>();
 function textOf(record: object): string {
   const known = TEXTS.get(record);
   if (known !== undefined) return known;
-  const text = JSON.stringify(record);
+  const text = canonicalText(record);
   TEXTS.set(record, text);
   return text;
 }

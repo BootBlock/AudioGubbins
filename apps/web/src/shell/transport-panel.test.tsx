@@ -7,7 +7,7 @@ import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubb
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
-import { sampleCount, sampleRate } from '@audiogubbins/domain';
+import { QualityLevel, namedQualityMode, sampleCount, sampleRate } from '@audiogubbins/domain';
 import {
   DspImplementation,
   PRESET_SETTINGS,
@@ -33,6 +33,7 @@ import {
   type RenderStrategyStore,
 } from '../state/render-strategy-store.js';
 import { observable, type Observable } from '../state/observable.js';
+import { createHearingStore } from '../state/hearing-store.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_DEVICE, FakeSession, UNLOADED } from '../testing/audio-fakes.js';
@@ -82,6 +83,7 @@ function draw(
       run={run}
       unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
       editorViews={options.editorViews ?? observable(undefined)}
+      hearing={createHearingStore()}
     />,
   );
   return { run };
@@ -228,12 +230,12 @@ function contestedRender() {
 }
 
 describe('the Transport panel’s processing modes', () => {
-  it('shows playback as real-time processing, and says why no cached preview is used', () => {
+  it('shows playback as real-time processing, and says why it does not move to a cached preview', () => {
     draw();
 
     expect(reading('Playback')).toMatch(/^Real-time processing/);
     expect(reading('Playback')).toContain(
-      'a cached preview is not available: nothing in AudioGubbins renders a preview ahead of playback yet',
+      'a cached preview is not available: nothing measures what live processing costs yet',
     );
   });
 
@@ -242,7 +244,7 @@ describe('the Transport panel’s processing modes', () => {
 
     expect(reading('Offline render')).toBe(
       'Final offline rendering' +
-        'Rendering offline at full quality, so the file is identical on every machine.',
+        'Rendering offline at the chosen render quality, so the file is identical on every machine.',
     );
     expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
   });
@@ -281,6 +283,44 @@ describe('the Transport panel’s processing modes', () => {
 
     expect(screen.queryByRole('group', { name: 'How to render' })).not.toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'What the render was warned of' })).toBeNull();
+  });
+});
+
+describe('the Transport panel’s quality modes', () => {
+  it('shows the render and preview quality with every value each runs at, and where they differ', () => {
+    draw();
+
+    expect(reading('Render quality')).toBe(
+      'Maximum' + 'Resampling maximum, oversampling 8 times, spectral overlap 8 frames.',
+    );
+    expect(reading('Preview quality')).toBe(
+      'Standard' +
+        'Resampling high, oversampling 2 times, spectral overlap 4 frames.' +
+        ' Chosen by the performance profile.',
+    );
+    expect(
+      screen.getByText(
+        'Playback differs from a render in resampling (high, against maximum), oversampling (2 times, against 8 times) and spectral overlap (4 frames, against 8 frames), so what you hear is not exactly what a render makes.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('follows a change of either, and says so where they match', () => {
+    const settings = audioSettings();
+    draw(undefined, { settings });
+
+    act(() => {
+      settings.choosePreviewQuality(namedQualityMode(QualityLevel.Maximum));
+    });
+
+    expect(reading('Preview quality')).toBe(
+      'Maximum' + 'Resampling maximum, oversampling 8 times, spectral overlap 8 frames.',
+    );
+    expect(
+      screen.getByText(
+        'Playback previews at the values a render runs at, so what you hear is what a render makes.',
+      ),
+    ).toBeInTheDocument();
   });
 });
 

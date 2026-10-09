@@ -350,6 +350,11 @@
 .ag-switch-field,
 .ag-select-field {
   display: flex;
+
+  /* A long label, such as a rack's "Mix of" and a processor's name, cannot
+     shrink, so where a narrow panel leaves the control no room beside it the
+     control moves under it rather than being squeezed under the label. */
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--ag-space-medium);
   min-block-size: var(--ag-control-height);
@@ -358,7 +363,8 @@
 .ag-slider-label,
 .ag-switch-label,
 .ag-select-label {
-  flex: 0 0 auto;
+  /* Shrinks only where it is alone on its line, then wraps its words. */
+  flex: 0 1 auto;
   min-inline-size: 8rem;
 }
 
@@ -372,6 +378,9 @@
   position: relative;
   display: flex;
   flex: 1 1 auto;
+
+  /* Wide enough to set with a pointer; narrower, the field wraps instead. */
+  min-inline-size: 8rem;
   align-items: center;
   block-size: var(--ag-control-height);
 

@@ -104,7 +104,9 @@ describe('sampleProject', () => {
     const { loop } = fixture.regions;
     if (loop.loop === undefined) throw new Error('the loop region has no loop');
 
-    expect(validateRegion(fixture.assets.footstep, loop).ok).toBe(true);
+    expect(validateRegion(fixture.assets.footstep, loop, fixture.project.effectChains).ok).toBe(
+      true,
+    );
     expect(validateMarker(fixture.assets.footstep, fixture.markers.start).ok).toBe(true);
     expect(loop.loop.start).toBeGreaterThanOrEqual(loop.start);
     expect(loop.loop.end).toBeLessThanOrEqual(loop.end);

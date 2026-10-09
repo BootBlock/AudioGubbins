@@ -33,8 +33,10 @@ import {
 } from './engine-readouts.js';
 import { CommandButton, useCommandReasons, type PanelCommands } from './command-button.js';
 import { PerformanceChoice } from './performance-choice.js';
+import { HearingSwitch } from './rack/hearing-switch.js';
 import { ProcessingModes } from './processing-modes.js';
 import { SharedReasonNotes } from './settings/reasoned-button.js';
+import type { Hearing } from '../state/hearing-store.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
 /** What the panel reads, and how it runs a command. */
@@ -60,6 +62,8 @@ export interface TransportPanelProps {
    * use, so the button is drawn again as that changes.
    */
   readonly editorViews: Observable<unknown>;
+  /** Whether the asset is heard processed or as its original, which the panel says and switches. */
+  readonly hearing: Observable<Hearing>;
 }
 
 /** A transport position as the editor writes a clock, or the start where nothing plays. */
@@ -229,12 +233,14 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
         {`Play plays the asset in the editor in use, at its own rate. The test signal is a ${String(TEST_SIGNAL.frequency)} Hz tone through the audio engine and its processing graph.`}
       </p>
       <TransportControls view={view} playhead={playhead} commands={props} />
+      <HearingSwitch hearing={props.hearing} commands={props} />
       <PlaybackProblems problems={problems} />
       <Levels view={view} meters={meters} />
       <PerformanceChoice profile={chosen.profile} run={props.run} />
       <EngineState status={view.playback} />
       <OfflineRender view={view} framesRendered={props.framesRendered} commands={props} />
       <ProcessingModes
+        audio={props.audio}
         settings={props.audioSettings}
         strategy={props.renderStrategy}
         run={props.run}

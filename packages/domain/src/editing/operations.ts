@@ -15,8 +15,8 @@
  */
 
 import type { ChannelLayout } from '../audio/channel-layout.js';
-import type { AssetId, EditOperationId, RegionId } from '../identity/branded-id.js';
-import type { SampleCount } from '../time/sample-time.js';
+import type { AssetId, EditOperationId, EffectChainId, RegionId } from '../identity/branded-id.js';
+import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import type { FadeDirection, FadeShape } from './fades.js';
 import type { EditPlan } from './plan.js';
 
@@ -65,10 +65,22 @@ export type ChannelEdit =
   | { readonly kind: 'channel-gains'; readonly gains: readonly number[] };
 
 /**
- * A change over a range that moves nothing in time: a level change on the
- * channels an operation names, or a change between channels.
+ * A chain of processors applied over a range (ADR-0060), named by its
+ * identifier so every range and target that names one chain shares it. It
+ * acts on every channel, keeps the range's length and layout, and adds
+ * nothing past the range's end: a reverb's or a delay's tail is cut there.
  */
-export type RangeEdit = LevelEdit | ChannelEdit;
+export interface RackEdit {
+  readonly kind: 'rack';
+  readonly chain: EffectChainId;
+}
+
+/**
+ * A change over a range that moves nothing in time: a level change on the
+ * channels an operation names, a change between channels, or a chain of
+ * processors.
+ */
+export type RangeEdit = LevelEdit | ChannelEdit | RackEdit;
 
 /** One operation in an asset's chain. */
 export type EditOperation =
@@ -79,15 +91,17 @@ export type EditOperation =
   /**
    * Inserts a copied slice of a plan at a boundary. It names immutable
    * sources only, so it sounds the same whatever later happens to the asset
-   * it came from (ADR-0053). A payload at another rate is converted by the
-   * canonical resampler, and only when `convertRate` says so (REQ-ARCH-085).
+   * it came from (ADR-0053). A payload at another rate is converted only
+   * where the person asked for it (REQ-ARCH-085), by version `resampler` of
+   * the canonical resampler, which is present exactly then; a payload at the
+   * asset's rate is inserted as it is.
    */
   | {
       readonly id: EditOperationId;
       readonly kind: 'insert';
       readonly at: SampleCount;
       readonly payload: EditPlan;
-      readonly convertRate: boolean;
+      readonly resampler?: number;
     }
   /** Plays the range backwards. */
   | { readonly id: EditOperationId; readonly kind: 'reverse'; readonly range: EditRange }
@@ -113,7 +127,44 @@ export type EditOperation =
       readonly kind: 'convert-layout';
       readonly layout: ChannelLayout;
       readonly matrix: readonly (readonly number[])[];
+    }
+  /**
+   * Stretches the range to `length` frames without changing its pitch, on
+   * every channel, by version `version` of the engine's stretch. A position
+   * inside the range moves by the ratio of the two lengths, and one after it
+   * by their difference (`anchors.ts`).
+   */
+  | {
+      readonly id: EditOperationId;
+      readonly kind: 'stretch';
+      readonly range: EditRange;
+      readonly length: SampleCount;
+      readonly version: number;
+    }
+  /**
+   * Converts the whole asset to `sampleRate` by version `version` of the
+   * canonical resampler, the only way an asset's rate changes (REQ-ARCH-085).
+   * Every position moves by the ratio of the two rates.
+   */
+  | {
+      readonly id: EditOperationId;
+      readonly kind: 'convert-rate';
+      readonly sampleRate: SampleRate;
+      readonly version: number;
     };
+
+/**
+ * The versions of the engine's algorithms this build makes edits with, which
+ * the engine owns (REQ-AUDIO-145, ADR-0061): its stretch's, and its canonical
+ * resampler's. A stretch, a conversion of rate and an insertion converted to
+ * the asset's rate are made by, and persist, the version of theirs; one made
+ * by a version this build does not have is refused where its plan is built,
+ * rather than heard as another algorithm makes it.
+ */
+export interface EngineVersions {
+  readonly stretch: number;
+  readonly resampler: number;
+}
 
 /**
  * An operation on an asset's channels: a change between them over a range, or

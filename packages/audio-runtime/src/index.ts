@@ -6,7 +6,8 @@
  * through the engine's AudioWorklet processor, and offline renders in
  * workers. It is given what the device offers and never probes it; the
  * modules the browser loads by URL, the worklet processor, the feeder worker
- * that feeds it and the render worker, are its `./threads/*` entry points.
+ * that feeds it, the render worker and the preview worker that makes cached
+ * preview renders, are its `./threads/*` entry points.
  */
 
 export {
@@ -31,11 +32,11 @@ export { type CompiledDspModule, type DspDelivery, DspDeliveryKind } from './dsp
 
 export { compileDspModule } from './dsp/dsp-module.js';
 
-export { type PlaybackThreads } from './playback/graph-loader.js';
+export { type PlaybackThreads } from './playback/playback-threads.js';
 
 export { type FeederWorkerEvents, type FeederWorkerPort } from './playback/feeder-link.js';
 
-export { type ChannelEnds } from './playback/loaded-processor.js';
+export { type ChannelEnds } from './playback/channel-ends.js';
 
 export {
   type PlaybackListener,
@@ -66,3 +67,11 @@ export {
 export { type RenderWorkerPort } from './render/worker-render.js';
 
 export { type RenderHost, type RenderHostOptions, createRenderHost } from './render/render-host.js';
+
+export {
+  type PreviewConnection,
+  PreviewHost,
+  type PreviewHostOptions,
+  type PreviewRenders,
+  type PreviewWorkerPort,
+} from './preview/preview-host.js';

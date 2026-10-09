@@ -134,7 +134,7 @@ const PRESETS: readonly Preset[] = [
  *
  * A preset's panel kinds are filtered to those this build has. A group left
  * with no panels is dropped, so a preset never produces the empty group that
- * {@link readLayout} would reject.
+ * `readLayout` would reject.
  *
  * This is what lets the arrangements be decided now while the panels arrive
  * over several phases. The Multitrack preset is an arrangement of the panels

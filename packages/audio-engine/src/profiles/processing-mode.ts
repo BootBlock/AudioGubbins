@@ -14,7 +14,11 @@
  *
  * What the host can run is its own fact, not the purpose's: a host with no
  * cache to play from says so, with its reason, and the choice then never
- * claims one, whether chosen automatically or asked for.
+ * claims one, whether chosen automatically or asked for. And processing that
+ * cannot run live at all, a chain that measures its whole input first or
+ * whose kernel cannot keep to the audio thread's schedule, is heard from a
+ * cached render whatever it costs, which the choice says, with that reason
+ * (ADR-0061).
  */
 
 import { fail, failure, FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -58,6 +62,11 @@ export interface ProcessingModeRequest {
   readonly measuredCostRatio?: number;
   readonly override?: ProcessingMode;
   readonly settings: PerformanceSettings;
+  /**
+   * Why the processing cannot run live at all, worded for the person, where it
+   * cannot: listening to it is then from a cached render, whatever it costs.
+   */
+  readonly cannotRunLive?: string;
   /**
    * Modes the host cannot run, each with the reason, worded for the person.
    * None is chosen automatically, and one asked for is refused.
@@ -182,14 +191,15 @@ function automaticFinalRender(request: ProcessingModeRequest): ProcessingModeCho
     return {
       mode: ProcessingMode.BackgroundOffline,
       reason:
-        'Rendering in the background at full quality, so playback and editing come first; ' +
+        'Rendering in the background at the chosen render quality, so playback and editing come first; ' +
         `the file is identical on every machine either way. ${compute.explanation}`,
       overridden: false,
     };
   }
   return {
     mode: ProcessingMode.FinalOffline,
-    reason: 'Rendering offline at full quality, so the file is identical on every machine.',
+    reason:
+      'Rendering offline at the chosen render quality, so the file is identical on every machine.',
     overridden: false,
   };
 }
@@ -198,6 +208,13 @@ function automatic(request: ProcessingModeRequest, cost: number | undefined): Pr
   switch (request.purpose) {
     case ProcessingPurpose.Monitor:
     case ProcessingPurpose.Preview:
+      if (request.cannotRunLive !== undefined) {
+        return {
+          mode: ProcessingMode.CachedPreview,
+          reason: `Playing from a cached preview. ${request.cannotRunLive}`,
+          overridden: false,
+        };
+      }
       return automaticListening(
         cost,
         request.settings,
@@ -241,6 +258,12 @@ function withOverride(
         ? `A final render always runs offline, so the file is canonical; ${MODE_NAMES[override]} was not used.`
         : `This work cannot use ${MODE_NAMES[override]}, so that choice was not applied.`;
     return { ...chosen, reason: `${refusal} ${chosen.reason}` };
+  }
+  if (override === ProcessingMode.RealTime && request.cannotRunLive !== undefined) {
+    return {
+      ...chosen,
+      reason: `This processing cannot run live, so that choice was not applied. ${chosen.reason}`,
+    };
   }
   const missing = request.unavailable?.get(override);
   if (missing !== undefined) {

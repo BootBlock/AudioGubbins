@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — its hard dependencies, Phases 03 and 05, are `PASS`, and its readiness review on 2026-10-05 settled its scope in `ADR-0060`, `ADR-0061` and `ADR-0062`.
+`PASS` — completed on 2026-10-09; see `reviews/phase-06-evidence.md`, `reviews/phase-06-review.md` and `traceability/handoffs/phase-06.md`.
 
 ## Objective
 

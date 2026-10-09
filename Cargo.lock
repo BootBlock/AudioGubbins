@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "audiogubbins-analysis"
+version = "0.1.0"
+dependencies = [
+ "audiogubbins-dsp-core",
+]
+
+[[package]]
 name = "audiogubbins-dsp-core"
 version = "0.1.0"
 
@@ -21,6 +28,7 @@ version = "0.1.0"
 name = "audiogubbins-wasm-bindings"
 version = "0.1.0"
 dependencies = [
+ "audiogubbins-analysis",
  "audiogubbins-dsp-core",
  "audiogubbins-resampling",
 ]

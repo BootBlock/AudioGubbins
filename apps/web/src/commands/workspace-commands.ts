@@ -34,6 +34,7 @@ import {
   textArgument,
 } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The layout the user is looking at. */
 function current(context: ShellContext) {
@@ -107,7 +108,7 @@ function layoutCommands(): readonly Command<ShellContext>[] {
     (context, invocation) => {
       const source = textArgument(invocation, 'layoutId') ?? current(context).id;
       const copy = context.workspace.duplicate(source, textArgument(invocation, 'displayName'));
-      return announced(context, copy, (made) => `Copied it as "${made.displayName}".`);
+      return announced(context, copy, (made) => `Copied it as ${quoted(made.displayName)}.`);
     },
     {
       keywords: ['layout', 'workspace', 'duplicate', 'copy'],
@@ -135,7 +136,7 @@ function layoutCommands(): readonly Command<ShellContext>[] {
         return report(
           context,
           refusal,
-          `Switched to "${context.workspace.get().layout.displayName}".`,
+          `Switched to ${quoted(context.workspace.get().layout.displayName)}.`,
         );
       },
       {
@@ -159,7 +160,7 @@ function layoutCommands(): readonly Command<ShellContext>[] {
         announced(
           context,
           context.workspace.saveAs(textArgument(invocation, 'displayName')),
-          (saved) => `Saved this arrangement as "${saved.displayName}".`,
+          (saved) => `Saved this arrangement as ${quoted(saved.displayName)}.`,
         ),
       { keywords: ['layout', 'workspace', 'save', 'create', 'new'] },
     ),
@@ -187,13 +188,13 @@ function layoutCommands(): readonly Command<ShellContext>[] {
         if (after === before) {
           return unchanged(
             'workspace.already-named',
-            `That workspace is already called "${after.displayName}".`,
+            `That workspace is already called ${quoted(after.displayName)}.`,
           );
         }
         return report(
           context,
           undefined,
-          `"${before.displayName}" is now called "${after.displayName}".`,
+          `${quoted(before.displayName)} is now called ${quoted(after.displayName)}.`,
         );
       },
       {
@@ -212,7 +213,7 @@ function layoutCommands(): readonly Command<ShellContext>[] {
         return announced(
           context,
           context.workspace.resetBuiltIn(target),
-          (shipped) => `"${shipped.displayName}" is back to how it ships.`,
+          (shipped) => `${quoted(shipped.displayName)} is back to how it ships.`,
         );
       },
       {
@@ -232,7 +233,7 @@ function layoutCommands(): readonly Command<ShellContext>[] {
           context,
           context.workspace.remove(target),
           (removed) =>
-            `"${removed.displayName}" is deleted. ${RESTORE_LABEL} brings it back until AudioGubbins closes.`,
+            `${quoted(removed.displayName)} is deleted. ${RESTORE_LABEL} brings it back until AudioGubbins closes.`,
         );
       },
       {
@@ -272,8 +273,8 @@ function restoreCommand(): Command<ShellContext> {
         context,
         undefined,
         restored.displayName === deleted.displayName
-          ? `"${restored.displayName}" is back${where}.`
-          : `"${deleted.displayName}" is back${where}, as "${restored.displayName}", since another workspace has its name now.`,
+          ? `${quoted(restored.displayName)} is back${where}.`
+          : `${quoted(deleted.displayName)} is back${where}, as ${quoted(restored.displayName)}, since another workspace has its name now.`,
       );
     },
     {

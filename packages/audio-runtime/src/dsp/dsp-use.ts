@@ -35,6 +35,26 @@ export function watchDspUse(dsp: CanonicalDsp): WatchedDsp {
         used = true;
         return dsp.createResampler(settings);
       },
+      createFft: (size) => {
+        used = true;
+        return dsp.createFft(size);
+      },
+      createStft: (settings) => {
+        used = true;
+        return dsp.createStft(settings);
+      },
+      createPeakMeter: (settings) => {
+        used = true;
+        return dsp.createPeakMeter(settings);
+      },
+      createLoudnessMeter: (settings) => {
+        used = true;
+        return dsp.createLoudnessMeter(settings);
+      },
+      createDetectorFeatures: (settings) => {
+        used = true;
+        return dsp.createDetectorFeatures(settings);
+      },
     },
     used: () => used,
   };

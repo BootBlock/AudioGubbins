@@ -1,27 +1,35 @@
 /**
  * The Transport panel's account of how the engine processes: the mode
  * playback runs in and the mode the offline render runs in, each with its
- * reason (REQ-ARCH-079); the render mode the person may set over the
- * automatic choice; and what the render's resources warned of, with the
- * choice a warning asks for (REQ-ARCH-087).
+ * reason (REQ-ARCH-079), playback's being a cached preview, with how far it
+ * has been made, where what plays cannot run live (ADR-0061); the render
+ * mode the person may set over the automatic choice; the quality each runs
+ * at, with every value it stands for and where the two differ
+ * (REQ-AUDIO-080, REQ-AUDIO-086); and what the render's resources warned of,
+ * with the choice a warning asks for (REQ-ARCH-087).
  *
- * It reads the settings and the render's planning and changes neither: every
- * control runs a command (REQ-EDIT-073).
+ * It reads the settings, the render's planning and the preview renders, and
+ * changes none of them: every control runs a command (REQ-EDIT-073).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { OptionSelect } from '@audiogubbins/design-system';
+import type { QualitySettings } from '@audiogubbins/domain';
 import {
+  CachePurpose,
   JobPriority,
   ProcessingMode,
   ProcessingPurpose,
+  RenderPhase,
   selectProcessingMode,
   type LimitingResource,
   type ProcessingModeChoice,
+  type RenderReport,
   type RenderStrategy,
   type ResourceWarning,
 } from '@audiogubbins/audio-engine';
+import type { PreviewRenders } from '@audiogubbins/audio-runtime';
 
 import {
   RENDER_MODE_NAMES,
@@ -29,7 +37,9 @@ import {
   renderModeCommandId,
   renderModeSetting,
 } from '../commands/audio-settings-commands.js';
-import type { AudioSettings } from '../state/audio-settings-store.js';
+import { QUALITY_LEVEL_NAMES, previewDifferenceText, qualitySentence } from '../quality-words.js';
+import { previewQualityOf, type AudioSettings } from '../state/audio-settings-store.js';
+import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import {
   PlanningStage,
@@ -40,6 +50,8 @@ import { ReasonedButton } from './settings/reasoned-button.js';
 
 /** What the panel reads, and how it runs a command. */
 export interface ProcessingModesProps {
+  /** The engine's view, whose cached preview renders playback may be reading. */
+  readonly audio: Observable<AudioView>;
   readonly settings: Observable<AudioSettings>;
   readonly strategy: Observable<RenderStrategyView>;
   readonly run: (id: string) => void;
@@ -47,13 +59,15 @@ export interface ProcessingModesProps {
 }
 
 /**
- * The modes playback cannot run in this build, and why: nothing renders a
- * preview ahead of playback yet, so playback never claims to use one.
+ * Why playback that can run live does not move to a cached preview when it
+ * cannot keep up: nothing measures what live processing costs yet, so the
+ * choice never claims a move it will not make. Processing that cannot run
+ * live at all plays from a cached preview, which says so instead.
  */
-const PLAYBACK_UNAVAILABLE: ReadonlyMap<ProcessingMode, string> = new Map([
+const LIVE_PLAYBACK_UNAVAILABLE: ReadonlyMap<ProcessingMode, string> = new Map([
   [
     ProcessingMode.CachedPreview,
-    'nothing in AudioGubbins renders a preview ahead of playback yet, so what you hear is processed as it plays.',
+    'nothing measures what live processing costs yet, so processing that can run live plays live.',
   ],
 ]);
 
@@ -72,17 +86,62 @@ const RESOURCE_NAMES: Readonly<Record<LimitingResource, string>> = {
   compute: 'Processor',
 };
 
+/** The render playback reads now, where it reads one: the render a playback reader holds. */
+function playbackRender(previews: PreviewRenders): RenderReport | undefined {
+  return previews.renders.find((render) => render.purposes.includes(CachePurpose.Playback));
+}
+
+/** How far a cached preview has been made, as a sentence. */
+function previewProgressText(render: RenderReport): string {
+  switch (render.phase) {
+    case RenderPhase.Queued:
+      return 'It is waiting for another preview to be made first.';
+    case RenderPhase.Making:
+      return render.reached === 0
+        ? 'It is being made: anything that measures the whole sound measures it first.'
+        : `It is being made: ${String(Math.floor((render.reached / Math.max(1, render.length)) * 100))}% so far.`;
+    case RenderPhase.Made:
+      return 'It is made, and plays from memory.';
+    case RenderPhase.Failed:
+      return `It could not be made: ${render.failure ?? 'no reason was given.'}`;
+  }
+}
+
 /**
- * The mode playback runs in. Playback processes the test signal live; nothing
- * measures its cost yet, so the choice says so rather than inventing one.
+ * The mode playback runs in: from a cached preview where what plays cannot
+ * run live, and live otherwise, where nothing measures its cost yet, so the
+ * choice says so rather than inventing one.
  */
-function playbackChoice(settings: AudioSettings): ProcessingModeChoice | undefined {
+function playbackChoice(
+  settings: AudioSettings,
+  render: RenderReport | undefined,
+): ProcessingModeChoice | undefined {
   const chosen = selectProcessingMode({
     purpose: ProcessingPurpose.Monitor,
     settings: settings.chosen.settings,
-    unavailable: PLAYBACK_UNAVAILABLE,
+    ...(render?.reason === undefined
+      ? { unavailable: LIVE_PLAYBACK_UNAVAILABLE }
+      : { cannotRunLive: render.reason }),
   });
   return chosen.ok ? chosen.value : undefined;
+}
+
+/** How far the cached preview playback reads has been made, read out in tenths. */
+function PreviewProgress({ render }: { readonly render: RenderReport }): ReactNode {
+  const tenths = Math.floor((render.reached / Math.max(1, render.length)) * 10) * 10;
+  return (
+    <>
+      <progress
+        className="ag-render-progress"
+        aria-label="Cached preview made"
+        max={render.length}
+        value={render.reached}
+      />
+      <p role="status" className="ag-panel-note">
+        {render.phase === RenderPhase.Making ? `Making the preview: ${String(tenths)}%` : ''}
+      </p>
+    </>
+  );
 }
 
 /**
@@ -135,6 +194,53 @@ function ModeReading({
   );
 }
 
+/** A quality mode's level, and every value it runs at, as a reading. */
+function QualityReading({
+  term,
+  level,
+  settings,
+  after = '',
+}: {
+  readonly term: string;
+  readonly level: string;
+  readonly settings: QualitySettings;
+  readonly after?: string;
+}): ReactNode {
+  return (
+    <div className="ag-reading">
+      <dt>{term}</dt>
+      <dd>
+        {level}
+        <span className="ag-reading-note">{`${qualitySentence(settings)}${after}`}</span>
+      </dd>
+    </div>
+  );
+}
+
+/** The quality a render and playback run at, and where what plays is not what a render makes. */
+function Quality({ settings }: { readonly settings: AudioSettings }): ReactNode {
+  const render = settings.renderQuality.settings;
+  const preview = previewQualityOf(settings);
+  return (
+    <>
+      <dl className="ag-readings" aria-label="Quality">
+        <QualityReading
+          term="Render quality"
+          level={QUALITY_LEVEL_NAMES[settings.renderQuality.level]}
+          settings={render}
+        />
+        <QualityReading
+          term="Preview quality"
+          level={QUALITY_LEVEL_NAMES[preview.level]}
+          settings={preview.settings}
+          after={settings.previewQuality === undefined ? ' Chosen by the performance profile.' : ''}
+        />
+      </dl>
+      <p className="ag-panel-note">{previewDifferenceText(preview.settings, render)}</p>
+    </>
+  );
+}
+
 /** What the render's resources warned of, each naming the resource that limits it. */
 function Warnings({ warnings }: { readonly warnings: readonly ResourceWarning[] }): ReactNode {
   if (warnings.length === 0) return null;
@@ -184,6 +290,8 @@ function Decision({
 /** How the engine processes, and the choices a person has over it. */
 export function ProcessingModes(props: ProcessingModesProps): ReactNode {
   const settings = useSyncExternalStore(props.settings.subscribe, props.settings.get);
+  const { previews } = useSyncExternalStore(props.audio.subscribe, props.audio.get);
+  const cached = playbackRender(previews);
   const { planning } = useSyncExternalStore(props.strategy.subscribe, props.strategy.get);
   const render = renderChoice(settings, planning);
   const warnings =
@@ -197,13 +305,18 @@ export function ProcessingModes(props: ProcessingModesProps): ReactNode {
     <div className="ag-transport-section">
       <h3 className="ag-transport-heading">Processing</h3>
       <dl className="ag-readings">
-        <ModeReading term="Playback" choice={playbackChoice(settings)} />
+        <ModeReading
+          term="Playback"
+          choice={playbackChoice(settings, cached)}
+          after={cached === undefined ? '' : ` ${previewProgressText(cached)}`}
+        />
         <ModeReading
           term="Offline render"
           choice={render?.choice}
           after={priorityText(render?.priority)}
         />
       </dl>
+      {cached !== undefined && <PreviewProgress render={cached} />}
       <OptionSelect
         label="Render mode"
         value={setting}
@@ -216,6 +329,7 @@ export function ProcessingModes(props: ProcessingModesProps): ReactNode {
           if (chosen !== undefined && chosen !== setting) props.run(renderModeCommandId(chosen));
         }}
       />
+      <Quality settings={settings} />
       <Warnings warnings={warnings} />
       {planning.stage === PlanningStage.AwaitingDecision && (
         <Decision safer={planning.assessment.safer} commands={props} />

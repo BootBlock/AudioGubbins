@@ -1,7 +1,8 @@
 /**
  * Audio: the performance profile and the Custom profile's settings
- * (REQ-ARCH-083), how background work shares the machine (REQ-ARCH-084), and
- * the mode renders use (REQ-ARCH-079).
+ * (REQ-ARCH-083), how background work shares the machine (REQ-ARCH-084), the
+ * mode renders use (REQ-ARCH-079), and the quality a render and playback run
+ * at (REQ-AUDIO-080, REQ-AUDIO-086).
  *
  * The Custom settings are a form, because they are checked together: a person
  * sets the fields and applies them, and a refusal names every field that is
@@ -13,6 +14,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { Button, OptionSelect, TextField } from '@audiogubbins/design-system';
+import { NAMED_QUALITY_LEVELS } from '@audiogubbins/domain';
 import {
   LATENCY_CATEGORIES,
   PerformanceProfile,
@@ -30,8 +32,19 @@ import {
   renderModeCommandId,
   renderModeSetting,
 } from '../../commands/audio-settings-commands.js';
-import type { AudioSettings } from '../../state/audio-settings-store.js';
+import {
+  PREVIEW_QUALITY_NAMES,
+  PREVIEW_QUALITY_SETTINGS,
+  SET_CUSTOM_PREVIEW_QUALITY,
+  SET_CUSTOM_RENDER_QUALITY,
+  previewQualityCommandId,
+  previewQualitySetting,
+  renderQualityCommandId,
+} from '../../commands/quality-commands.js';
+import { QUALITY_LEVEL_NAMES } from '../../quality-words.js';
+import { previewQualityOf, type AudioSettings } from '../../state/audio-settings-store.js';
 import { PerformanceChoice } from '../performance-choice.js';
+import { QualityChoice, type QualityOption } from './quality-choice.js';
 import type { RunCommand } from './section.js';
 
 /** What the audio settings need. */
@@ -209,6 +222,48 @@ function CustomProfile({
   );
 }
 
+/** The render quality levels, each with the command that chooses it. */
+const RENDER_QUALITY_OPTIONS: readonly QualityOption[] = NAMED_QUALITY_LEVELS.map((level) => ({
+  value: level,
+  label: QUALITY_LEVEL_NAMES[level],
+  command: renderQualityCommandId(level),
+}));
+
+/** The preview quality settings, automatic first, each with the command that chooses it. */
+const PREVIEW_QUALITY_OPTIONS: readonly QualityOption[] = PREVIEW_QUALITY_SETTINGS.map(
+  (setting) => ({
+    value: setting,
+    label: PREVIEW_QUALITY_NAMES[setting],
+    command: previewQualityCommandId(setting),
+  }),
+);
+
+/** The quality a render and playback run at. */
+function QualitySettings({ settings, run }: AudioProps): ReactNode {
+  return (
+    <>
+      <QualityChoice
+        legend="Render quality"
+        chosen={settings.renderQuality.level}
+        options={RENDER_QUALITY_OPTIONS}
+        mode={settings.renderQuality}
+        customCommand={SET_CUSTOM_RENDER_QUALITY}
+        note="What a render is processed at, and what the waveforms draw. A model runs the same pinned way at every level, so a render sounds the same on every machine."
+        run={run}
+      />
+      <QualityChoice
+        legend="Preview quality"
+        chosen={previewQualitySetting(settings)}
+        options={PREVIEW_QUALITY_OPTIONS}
+        mode={previewQualityOf(settings)}
+        customCommand={SET_CUSTOM_PREVIEW_QUALITY}
+        note="What playback is processed at. Automatic follows the performance profile, lower where it trades margin for latency; a change is heard at once."
+        run={run}
+      />
+    </>
+  );
+}
+
 /** The audio settings. */
 export function Audio({ settings, run }: AudioProps): ReactNode {
   const renderMode = renderModeSetting(settings.renderMode);
@@ -216,7 +271,8 @@ export function Audio({ settings, run }: AudioProps): ReactNode {
     <div className="ag-settings-section">
       <p className="ag-settings-note">
         Profiles trade how soon a change is heard against how much margin the audio has before it
-        runs dry. None of these settings changes what AudioGubbins can do, or a rendered sample.
+        runs dry. No profile changes what AudioGubbins can do, or a rendered sample; the render
+        quality below is the one setting that does.
       </p>
       <PerformanceChoice
         profile={settings.chosen.profile}
@@ -252,6 +308,7 @@ export function Audio({ settings, run }: AudioProps): ReactNode {
           if (chosen !== undefined && chosen !== renderMode) run(renderModeCommandId(chosen));
         }}
       />
+      <QualitySettings settings={settings} run={run} />
     </div>
   );
 }

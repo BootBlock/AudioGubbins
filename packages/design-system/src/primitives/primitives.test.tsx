@@ -17,8 +17,8 @@ import {
   TabSet,
   TextField,
   ToggleSwitch,
-  ValueSlider,
 } from './controls.js';
+import { ValueSlider } from './value-slider.js';
 
 /**
  * Renders inside a theme and the notices, as every AudioGubbins component is.
@@ -422,6 +422,40 @@ describe('ValueSlider', () => {
     await userEvent.keyboard('{ArrowRight}');
 
     expect(onValueChange).toHaveBeenCalledWith(1);
+  });
+
+  it('moves along a scale, a keyboard step a step of the scale, settling at each', async () => {
+    // Three decades from 10 to 10,000 in thirty steps: ten to a decade.
+    const decades = {
+      steps: 30,
+      positionOf: (value: number) => Math.log10(value / 10) / 3,
+      valueAt: (position: number) => 10 * 1000 ** position,
+    };
+    const onValueChange = vi.fn();
+    const onValueCommit = vi.fn();
+    renderThemed(
+      <ValueSlider
+        label="Frequency"
+        value={100}
+        minimum={10}
+        maximum={10_000}
+        scale={decades}
+        onValueChange={onValueChange}
+        onValueCommit={onValueCommit}
+        describeValue={(value) => `${value.toFixed(0)} hertz`}
+      />,
+    );
+
+    // A tenth of a decade up from 100 Hz.
+    const slider = screen.getByRole('slider', { name: 'Frequency' });
+    expect(slider).toHaveAttribute('aria-valuenow', '10');
+    await userEvent.tab();
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(onValueChange).toHaveBeenCalledOnce();
+    expect(onValueChange.mock.calls[0]?.[0]).toBeCloseTo(125.89, 2);
+    expect(onValueCommit).toHaveBeenCalledOnce();
+    expect(onValueCommit.mock.calls[0]?.[0]).toBeCloseTo(125.89, 2);
   });
 
   it('reports its range, so a screen reader can say where the value sits', () => {

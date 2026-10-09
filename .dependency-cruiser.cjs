@@ -23,6 +23,10 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
+ *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
+ *                   Web, which alone imports the runtime and only by import(),
+ *                   and the worker that hosts it; depends on domain alone
+ *                   (ADR-0062)
  *   timeline        the time axis as values: viewport, formats, ruler, the
  *                   selection set and snapping; depends on domain alone, knows
  *                   no thread or browser (ADR-0040)
@@ -61,9 +65,15 @@
  *   project-format.
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
- * - storage: keeping projects over a backend port; depends on domain + codecs +
- *   commands + diagnostics + history + media-store + project-format + version,
- *   and on no browser API.
+ * - model-packs: model packs (ADR-0062): the manifest, the install state
+ *   machine, the integrity check, the installer over a source port and a store
+ *   port, the download over HTTP, one of the two modules that reach the
+ *   network, and the streaming SHA-256 the integrity check runs on; depends on
+ *   domain + ml-runtime + project-format.
+ * - storage: keeping projects, and the model packs installed, over a backend
+ *   port; depends on domain + codecs + commands + diagnostics + history +
+ *   media-store + model-packs + project-format + version, and on no browser
+ *   API.
  * - browser-storage: the browser beneath the storage ports; depends on
  *   diagnostics + media-store + project-format + storage.
  * - storage-runtime: the browser host of project storage, its worker, the port
@@ -149,7 +159,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -174,9 +184,9 @@ module.exports = {
         'The processing graph is a value and the decisions made from it, below the engine that ' +
         'runs it and the browser runtime that hosts it (ADR-0030). It depends on the domain alone, ' +
         'whose channel layouts and sample counts it is written in, so it can be checked and ' +
-        'planned on any thread.',
+        'planned on any thread. It words a count by the text package (ADR-0030 amended).',
       from: { path: '^packages/audio-graph/' },
-      to: { path: '^packages/(?!(audio-graph|domain)/)' },
+      to: { path: '^packages/(?!(audio-graph|domain|text)/)' },
     },
     {
       name: 'audio-engine-owns-nothing-else',
@@ -185,9 +195,9 @@ module.exports = {
         'The engine runs on the audio thread, in workers and in tests, so it may know nothing of ' +
         'the browser, the interface or storage: it depends on the domain, the graph and the read ' +
         'contract an edited source reads its files through, and the runtime that hosts it sits ' +
-        'above it (ADR-0030, ADR-0052).',
+        'above it (ADR-0030, ADR-0052). It words a count by the text package (ADR-0030 amended).',
       from: { path: '^packages/audio-engine/' },
-      to: { path: '^packages/(?!(audio-engine|audio-graph|codecs|domain)/)' },
+      to: { path: '^packages/(?!(audio-engine|audio-graph|codecs|domain|text)/)' },
     },
     {
       name: 'audio-runtime-owns-nothing-else',
@@ -196,11 +206,124 @@ module.exports = {
         'The browser host of the engine is given what the device offers and runs the engine in ' +
         'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
         'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
-        'storage or command package.',
+        'storage or command package. Its thread entries also make the effect rack its workers ' +
+        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062).',
       from: { path: '^packages/audio-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|ml-runtime|processors)/)',
       },
+    },
+    {
+      name: 'ml-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Local inference is a port, its adapter over the runtime and the worker that hosts it ' +
+        '(ADR-0062). It depends on the domain alone, whose results and cancellation it speaks, ' +
+        'so the processors that call it and the application that starts its worker sit above it.',
+      from: { path: '^packages/ml-runtime/' },
+      to: { path: '^packages/(?!(ml-runtime|domain)/)' },
+    },
+    {
+      name: 'processors-reach-inference-through-its-port',
+      severity: 'error',
+      comment:
+        'A machine-learning processor runs its model through the inference port (ADR-0062): the ' +
+        "entry of ml-runtime, and in its tests that package's test support. Its adapter, worker " +
+        "and protocol are the application's to start, so a processor runs on any thread and in " +
+        'tests with a fake runtime.',
+      from: { path: '^packages/processors/' },
+      to: {
+        path: '^packages/ml-runtime/',
+        pathNot: '^packages/ml-runtime/src/(index|testing/index)\\.ts$',
+      },
+    },
+    {
+      name: 'onnx-runtime-stays-behind-its-adapter',
+      severity: 'error',
+      comment:
+        'ADR-0062: only the adapter knows ONNX Runtime Web, so replacing the runtime is a change ' +
+        'to one module, and the port, the worker client and every processor know none of it.',
+      from: { pathNot: '^packages/ml-runtime/src/adapter/onnx-runtime\\.ts$' },
+      to: { dependencyTypes: THIRD_PARTY, path: thirdParty('onnxruntime-(web|common)') },
+    },
+    {
+      name: 'sha256-library-stays-behind-its-adapters',
+      severity: 'error',
+      comment:
+        'The hash library is named in two modules alone: the streaming SHA-256 the model packs ' +
+        "check their files with, and the adapter that checks the runtime's WebAssembly before " +
+        'the runtime has it (ADR-0062), so replacing the library is a change to those two.',
+      from: {
+        pathNot:
+          '^packages/(model-packs/src/adapter/noble-sha256|ml-runtime/src/adapter/onnx-runtime)\\.ts$',
+      },
+      to: { dependencyTypes: THIRD_PARTY, path: thirdParty('@noble/hashes') },
+    },
+    {
+      name: 'onnx-runtime-loaded-only-when-used',
+      severity: 'error',
+      comment:
+        'REQ-AUDIO-139: the base bundle carries none of the runtime. Its adapter imports it by a ' +
+        'dynamic import() on the first session, never statically, so the bundler splits it out.',
+      from: { path: '^packages/ml-runtime/src/adapter/onnx-runtime\\.ts$' },
+      to: {
+        dependencyTypes: THIRD_PARTY,
+        path: thirdParty('onnxruntime-(web|common)'),
+        dynamic: false,
+      },
+    },
+    {
+      name: 'vite-configuration-loads-in-node',
+      severity: 'error',
+      comment:
+        "Vite bundles its configuration's own files but loads a package it imports through Node, " +
+        'with no compiler, and a workspace package is TypeScript source: a value imported from ' +
+        'one stops `vite`, `vite build` and every browser test before they start. A type is ' +
+        "erased, so it may be imported. The model packs' path grammar is imported by its path, " +
+        'which Vite bundles, so the development server holds requests to the one grammar.',
+      from: { path: '^apps/web/[^/]+[.][cm]?ts$' },
+      to: {
+        path: '^packages/',
+        pathNot: '^packages/model-packs/src/pack-path[.]js$',
+        dependencyTypesNot: ['type-only'],
+      },
+    },
+    {
+      name: 'tools-load-only-javascript-grammars',
+      severity: 'error',
+      comment:
+        'A tool runs in Node with no compiler, and a workspace package is TypeScript source, so ' +
+        "a tool imports only the model packs' path, version, tier, capability and limit " +
+        'grammars, which are JavaScript for that reason: the pack build holds a definition to ' +
+        'the package’s own.',
+      from: { path: '^tools/' },
+      to: {
+        path: '^packages/',
+        pathNot: '^packages/model-packs/src/pack-(path|version|tier|capability|limits)[.]js$',
+      },
+    },
+    {
+      name: 'vite-bundled-grammar-imports-nothing-else',
+      severity: 'error',
+      comment:
+        "The model packs' path, version, tier, capability and limit grammars are loaded by the " +
+        "pack build tool in Node and bundled into Vite's configuration by their paths, so they " +
+        'import only one another: a package they named would be loaded through Node with no ' +
+        'compiler.',
+      from: { path: '^packages/model-packs/src/pack-(path|version|tier|capability|limits)[.]js$' },
+      to: { pathNot: '^packages/model-packs/src/pack-(path|version|tier|capability|limits)[.]js$' },
+    },
+    {
+      name: 'rack-made-only-in-thread-entries',
+      severity: 'error',
+      comment:
+        'A worker that reads edited sound is given the effect rack as a port (ADR-0060): only the ' +
+        'module that starts the thread, and the test support that composes it as that module ' +
+        'does, make it, so the cores that render, feed and summarise depend on the port and run ' +
+        'in tests with any processing. The same modules give the thread its model channel ' +
+        '(ADR-0062), so no core imports the inference runtime (ADR-0030, ADR-0040).',
+      from: { path: '^packages/(audio-runtime|waveform)/src/', pathNot: '/src/(threads|testing)/' },
+      to: { path: '^packages/(effect-rack|processors|ml-runtime)/' },
     },
     {
       name: 'codecs-owns-nothing-else',
@@ -219,7 +342,7 @@ module.exports = {
         'that keeps or shows a project (ADR-0053).',
       from: { path: '^packages/clipboard/' },
       to: {
-        path: '^packages/(?!(clipboard|domain|project-format)/)',
+        path: '^packages/(?!(clipboard|domain|project-format|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -238,10 +361,40 @@ module.exports = {
       severity: 'error',
       comment:
         'Peaks are derived from sources the engine reads and are drawn by the views above them ' +
-        '(ADR-0043). The package depends on the domain and the engine alone, and knows no ' +
-        'interface or storage: the cache is kept through a port the application implements.',
+        '(ADR-0043). The package depends on the domain and the engine, and its worker entry on ' +
+        'the effect rack it reads chains with; it knows no interface or storage: the cache is ' +
+        'kept through a port the application implements. Its worker entry runs models through ' +
+        'the model channel (ADR-0062).',
       from: { path: '^packages/waveform/' },
-      to: { path: '^packages/(?!(waveform|audio-engine|domain)/)' },
+      to: {
+        path: '^packages/(?!(waveform|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+      },
+    },
+    {
+      name: 'detection-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        "The detection worker reads a target's processed audio through the engine and runs the " +
+        'detectors and assistants over it (ADR-0061, ADR-0062). It depends on the domain, the ' +
+        'engine and the processors whose detectors and learners it runs, and its thread entry ' +
+        'and test support on the effect rack an edited sound is read with, and the entry on the ' +
+        'model channel its models run through (ADR-0062); it knows no interface, storage or ' +
+        'command package.',
+      from: { path: '^packages/detection-runtime/' },
+      to: {
+        path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+      },
+    },
+    {
+      name: 'detection-rack-made-only-in-thread-entries',
+      severity: 'error',
+      comment:
+        'The detection core is given the effect rack as a port (ADR-0060): only the module that ' +
+        'starts the worker, and the test support that composes it as that module does, make it, ' +
+        'so the core runs in tests with any processing. The same modules give the worker its ' +
+        'model channel (ADR-0062), so the core imports no inference runtime (ADR-0061).',
+      from: { path: '^packages/detection-runtime/src/', pathNot: '/src/(threads|testing)/' },
+      to: { path: '^packages/(effect-rack|ml-runtime)/' },
     },
     {
       name: 'renderer-owns-nothing-else',
@@ -370,15 +523,26 @@ module.exports = {
       },
     },
     {
+      name: 'model-packs-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Model packs speak the domain, the identity of the runtime a pack runs on and the ' +
+        "project format's byte ports, and keep packs through a store port that storage " +
+        'implements from above, so they know no storage, browser or interface (ADR-0062).',
+      from: { path: '^packages/model-packs/' },
+      to: { path: '^packages/(?!(domain|ml-runtime|model-packs|project-format)/)' },
+    },
+    {
       name: 'storage-owns-nothing-else',
       severity: 'error',
       comment:
         'Storage depends on domain and project-format contracts, and on the read contract an ' +
         'import opens a file with, not the interface, and on no browser adapter: the browser ' +
-        'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052).',
+        'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052). It keeps model ' +
+        "packs through the model packs' store port (ADR-0062).",
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|model-packs|project-format|storage|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -399,11 +563,12 @@ module.exports = {
       severity: 'error',
       comment:
         'The browser host of project storage composes the storage packages and their browser ' +
-        'adapters in a worker and serves them to the page (ADR-0022). It knows nothing of the ' +
-        'interface that calls it, or of the audio packages.',
+        "adapters in a worker and serves them to the page (ADR-0022), the model packs' installer " +
+        'among them (ADR-0062). It knows nothing of the interface that calls it, or of the audio ' +
+        'packages.',
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|project-commands|project-format|storage|storage-runtime)/)',
+        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|model-packs|processors|project-commands|project-format|storage|storage-runtime|text)/)',
       },
     },
     {
@@ -466,6 +631,10 @@ module.exports = {
           // A module a package declares as a thread entry point, which the
           // browser loads by URL in its own global scope (ADR-0030).
           '^packages/[^/]+/src/threads/[^/]+\\.ts$',
+
+          // The model packs' path grammar, which the build's configuration
+          // bundles by its path (rule vite-configuration-loads-in-node).
+          '^packages/model-packs/src/pack-path\\.js$',
         ],
       },
     },

@@ -9,7 +9,8 @@
     "outDir": "./dist/types",
     "rootDir": "./src",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "emitDeclarationOnly": true
+    "emitDeclarationOnly": true,
+    "allowJs": true
   },
   "include": [
     "src/**/*.ts"
@@ -47,6 +48,15 @@
     },
     {
       "path": "../../packages/browser-storage"
+    },
+    {
+      "path": "../../packages/processors"
+    },
+    {
+      "path": "../../packages/model-packs"
+    },
+    {
+      "path": "../../packages/text"
     }
   ]
 }

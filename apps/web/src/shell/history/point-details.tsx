@@ -13,9 +13,9 @@ import type { ReactNode } from 'react';
 import { Button } from '@audiogubbins/design-system';
 import { affectedEntities, type EntityReference, type HistoryRow } from '@audiogubbins/history';
 
-import { quoted } from '../../wording.js';
 import { ReasonedButton } from '../settings/reasoned-button.js';
 import { describeEntity, type EntityNames } from './entity-names.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the details read and do. */
 export interface PointDetailsProps {

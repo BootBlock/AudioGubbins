@@ -14,7 +14,12 @@ import type { Marker, Region } from '../project/timeline.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import { shapesOf, type EditShape } from './edit-shape.js';
 import type { RegionOperation } from './operations.js';
-import { rangeEditProblem, rangeProblem } from './operation-validation.js';
+import {
+  rackProblem,
+  rangeEditProblem,
+  rangeProblem,
+  type ProjectChains,
+} from './operation-validation.js';
 
 function refused(code: string, summary: string): DomainResult<never> {
   return fail(failure(`editing.${code}`, FailureKind.Rejected, summary));
@@ -41,18 +46,28 @@ export function validateMarker(asset: Asset, marker: Marker): DomainResult<Marke
 function regionOperationProblem(
   shapes: readonly EditShape[],
   operation: RegionOperation,
+  chains: ProjectChains,
 ): string | undefined {
   const shape = shapeAt(shapes, operation.basis);
   if (shape === undefined)
     return 'The region’s processing is placed on edits the asset does not have.';
   return (
     rangeProblem(operation.range, shape.length) ??
-    rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout))
+    rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout), chains)
   );
 }
 
-/** The region, where its boundaries, loop and processing lie on its asset. */
-export function validateRegion(asset: Asset, region: Region): DomainResult<Region> {
+/**
+ * The region, where its boundaries, loop and processing lie on its asset, and
+ * its processing and rack name only `chains`.
+ */
+export function validateRegion(
+  asset: Asset,
+  region: Region,
+  chains: ProjectChains,
+): DomainResult<Region> {
+  const rack = rackProblem(region.rack, chains);
+  if (rack !== undefined) return refused('rack-unknown', rack);
   const shapes = shapesOf(asset);
   const shape = shapeAt(shapes, region.basis);
   if (shape === undefined)
@@ -80,7 +95,7 @@ export function validateRegion(asset: Asset, region: Region): DomainResult<Regio
     if (seen.has(operation.id))
       return refused('duplicate-operation', 'Two of the region’s edits share an identifier.');
     seen.add(operation.id);
-    const problem = regionOperationProblem(shapes, operation);
+    const problem = regionOperationProblem(shapes, operation, chains);
     if (problem !== undefined) return refused('region-operation-invalid', problem);
   }
   return succeed(region);

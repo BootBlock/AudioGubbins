@@ -24,8 +24,8 @@ describe('the messages on the port, as either side reads them', () => {
   });
 
   it.each([
-    ['message', undefined],
-    ['message', ['call']],
+    ['body', undefined],
+    ['body', ['call']],
     ['type', { type: 'shout', id: 1 }],
     ['id', { type: 'call', operation: 'a.b', argument: 1 }],
     ['id', { type: 'call', id: -1, operation: 'a.b', argument: 1 }],

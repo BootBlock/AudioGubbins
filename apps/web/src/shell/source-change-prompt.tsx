@@ -29,9 +29,9 @@ import type { Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
 import { wantsLeave, type SourceChange, type SourceChangeState } from '../state/source-changes.js';
 import { offeredSentence } from '../commands/source-commands.js';
-import { quoted } from '../wording.js';
 import { ReasonedButton } from './settings/reasoned-button.js';
 import type { RunCommand } from './settings/section.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What became of a file, in a sentence. */
 function whatBecame(classification: SourceClassification, name: string): string {

@@ -79,8 +79,8 @@ describe('the Projects dialogue', () => {
     expect(row).toHaveAttribute('aria-current', 'true');
     expect(within(row ?? dialogue).getByText('Open now')).toBeVisible();
 
-    await userEvent.click(within(list).getByRole('button', { name: 'Open "Harbour"' }));
-    await userEvent.click(within(list).getByRole('button', { name: 'Open "Harbour" to read' }));
+    await userEvent.click(within(list).getByRole('button', { name: 'Open “Harbour”' }));
+    await userEvent.click(within(list).getByRole('button', { name: 'Open “Harbour” to read' }));
     const [entry] = window.projects.library
       .get()
       .entries.flatMap((one) =>
@@ -103,12 +103,12 @@ describe('the Projects dialogue', () => {
         one.kind === 'project' && one.header.deleted !== undefined ? [one.header] : [],
       )[0];
 
-    await userEvent.click(within(deleted).getByRole('button', { name: 'Restore "Old tide"' }));
+    await userEvent.click(within(deleted).getByRole('button', { name: 'Restore “Old tide”' }));
     expect(run).toHaveBeenLastCalledWith('file.restore-project', { project: header?.id });
 
-    await userEvent.click(within(deleted).getByRole('button', { name: 'Purge "Old tide"…' }));
+    await userEvent.click(within(deleted).getByRole('button', { name: 'Purge “Old tide”…' }));
     expect(
-      within(deleted).getByText('Purging removes "Old tide" and its backups for good.'),
+      within(deleted).getByText('Purging removes “Old tide” and its backups for good.'),
     ).toBeVisible();
     expect(run).toHaveBeenCalledTimes(1);
     await userEvent.click(within(deleted).getByRole('button', { name: 'Purge for good' }));
@@ -231,7 +231,7 @@ describe('the Projects dialogue', () => {
       name: 'The folder holds another project',
     });
     expect(question).toHaveTextContent(
-      'The folder holds another project, "Quay". Replacing it deletes its files from the folder.',
+      'The folder holds another project, “Quay”. Replacing it deletes its files from the folder.',
     );
     await userEvent.click(within(question).getByRole('button', { name: 'Replace its files' }));
     await userEvent.click(

@@ -10,12 +10,33 @@ import { mapResult, type DomainResult } from '@audiogubbins/domain';
 import {
   DspImplementation,
   type CanonicalDsp,
+  type CanonicalFft,
   type CanonicalOscillator,
   type CanonicalResampler,
   type OscillatorSettings,
   type ResamplerSettings,
 } from '../canonical-dsp.js';
-import { assertSeekFrame, checkOscillator, checkResampler, framesOfPlanar } from '../settings.js';
+import {
+  checkDetector,
+  checkLoudnessMeter,
+  checkPeakMeter,
+  checkStft,
+} from '../analysis-settings.js';
+import {
+  assertFftShape,
+  assertSeekFrame,
+  checkFftSize,
+  checkOscillator,
+  checkResampler,
+  framesOfPlanar,
+} from '../settings.js';
+import {
+  referenceDetector,
+  referenceLoudnessMeter,
+  referencePeakMeter,
+  referenceStft,
+} from './analysis/reference-analysis.js';
+import { ReferenceFft } from './fft.js';
 import { ReferenceOscillator, sineOfTurns } from './primitives.js';
 import { ReferenceResampler } from './resampling.js';
 
@@ -75,6 +96,23 @@ function resamplerFrom(settings: ResamplerSettings): CanonicalResampler {
   };
 }
 
+function fftOf(size: number): CanonicalFft {
+  const fft = new ReferenceFft(size);
+  return {
+    size,
+    bins: fft.bins,
+    forwardReal: (signal, real, imaginary) => {
+      assertFftShape(size, signal.length, real.length, imaginary.length);
+      fft.forwardReal(signal, real, imaginary);
+    },
+    inverseReal: (real, imaginary, signal) => {
+      assertFftShape(size, signal.length, real.length, imaginary.length);
+      fft.inverseReal(real, imaginary, signal);
+    },
+    release: () => undefined,
+  };
+}
+
 /** The canonical DSP in TypeScript. Holds no state of its own, so one serves every caller. */
 export const REFERENCE_DSP: CanonicalDsp = {
   implementation: DspImplementation.Reference,
@@ -83,4 +121,10 @@ export const REFERENCE_DSP: CanonicalDsp = {
     mapResult(checkOscillator(settings), oscillatorFrom),
   createResampler: (settings): DomainResult<CanonicalResampler> =>
     mapResult(checkResampler(settings), resamplerFrom),
+  createFft: (size): DomainResult<CanonicalFft> => mapResult(checkFftSize(size), fftOf),
+  createStft: (settings) => mapResult(checkStft(settings), referenceStft),
+  createPeakMeter: (settings) => mapResult(checkPeakMeter(settings), referencePeakMeter),
+  createLoudnessMeter: (settings) =>
+    mapResult(checkLoudnessMeter(settings), referenceLoudnessMeter),
+  createDetectorFeatures: (settings) => mapResult(checkDetector(settings), referenceDetector),
 };

@@ -5,15 +5,30 @@
  *
  * The bundler builds the worker's module on its own, as it does the audio
  * engine's threads, and the host makes the worker when a view first asks for
- * peaks, so a page that opens no asset starts no worker.
+ * peaks, so a page that opens no asset starts no worker. It is connected to
+ * the preview worker as it starts, so a racked sound's peaks are drawn from
+ * its render (ADR-0061).
  */
 
-import type { PeakWorkerPort } from '@audiogubbins/waveform';
+import { CachePurpose } from '@audiogubbins/audio-engine';
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
+import { ToPeakWorkerKind, type PeakWorkerPort, type ToPeakWorker } from '@audiogubbins/waveform';
 import peakWorkerUrl from '@audiogubbins/waveform/threads/peak-worker.ts?worker&url';
 
-/** A new peak worker, and the port the host talks to it through. */
-export function browserPeakWorker(): PeakWorkerPort {
-  const worker = new Worker(peakWorkerUrl, { type: 'module' });
+import type { ModelServices } from '../ml/model-services.js';
+
+/**
+ * A new peak worker connected to `previews` and to the models a chain runs by
+ * `models`, and the port the host talks to it through.
+ */
+export function browserPeakWorker(
+  previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
+): PeakWorkerPort {
+  const worker = models.startChainWorker(peakWorkerUrl);
+  const connection = previews.connect(CachePurpose.Waveform);
+  const connect: ToPeakWorker = { kind: ToPeakWorkerKind.Previews, port: connection.port };
+  worker.postMessage(connect, [connection.port]);
   return {
     post: (message, transfer) => {
       worker.postMessage(message, [...transfer]);
@@ -34,6 +49,7 @@ export function browserPeakWorker(): PeakWorkerPort {
     },
     terminate: () => {
       worker.terminate();
+      connection.disconnect();
     },
   };
 }

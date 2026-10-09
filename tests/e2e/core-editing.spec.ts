@@ -47,7 +47,7 @@ async function makeProject(page: Page, name: string): Promise<void> {
   await dialogue.getByRole('textbox', { name: 'Name' }).fill(name);
   await dialogue.getByRole('button', { name: 'Make the project' }).click();
   await expect(dialogue).toBeHidden();
-  await expect(banner(page).getByText(`"${name}"`, { exact: true })).toBeVisible();
+  await expect(banner(page).getByText(`“${name}”`, { exact: true })).toBeVisible();
 }
 
 /** The panel whose heading is `title`. */
@@ -87,7 +87,7 @@ test.describe('core non-destructive editing', () => {
     await (
       await choosing
     ).setFiles({ name: 'Harbour.wav', mimeType: 'audio/wav', buffer: Buffer.from(HARBOUR_WAV) });
-    await expect(page.getByText('"Harbour" is imported and open.').first()).toBeVisible();
+    await expect(page.getByText('“Harbour” is imported and open.').first()).toBeVisible();
 
     const editor = editorPanel(page);
     await runCommand(page, 'Add a marker at the playhead');
@@ -106,7 +106,7 @@ test.describe('core non-destructive editing', () => {
 
     await page.reload();
 
-    await expect(banner(page).getByText('"Harbour walk"', { exact: true })).toBeVisible();
+    await expect(banner(page).getByText('“Harbour walk”', { exact: true })).toBeVisible();
     await runCommand(page, 'Show the Assets panel');
     const browser = panelTitled(page, 'Assets');
     await browser.getByRole('button', { name: 'Harbour', exact: true }).click();

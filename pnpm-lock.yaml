@@ -178,6 +178,12 @@ importers:
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:packages/input
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:packages/ml-runtime
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:packages/model-packs
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
@@ -216,7 +222,7 @@ importers:
         version: 17.12.0
       jsdom:
         specifier: 30.1.0
-        version: 30.1.0
+        version: 30.1.0(@noble/hashes@2.4.0)
       lightningcss:
         specifier: 1.33.0
         version: 1.33.0
@@ -231,7 +237,7 @@ importers:
         version: 8.70.0(eslint@10.10.0(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   apps/web:
     dependencies:
@@ -259,6 +265,9 @@ importers:
       '@audiogubbins/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@audiogubbins/detection-runtime':
+        specifier: workspace:*
+        version: link:../../packages/detection-runtime
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../../packages/diagnostics
@@ -277,6 +286,15 @@ importers:
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../../packages/media-store
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../../packages/ml-runtime
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:../../packages/model-packs
+      '@audiogubbins/processors':
+        specifier: workspace:*
+        version: link:../../packages/processors
       '@audiogubbins/project-commands':
         specifier: workspace:*
         version: link:../../packages/project-commands
@@ -340,7 +358,7 @@ importers:
         version: 6.1.1(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
       jsdom:
         specifier: 30.1.0
-        version: 30.1.0
+        version: 30.1.0(@noble/hashes@2.4.0)
       vite:
         specifier: 8.3.0
         version: 8.3.0(@types/node@26.6.1)(terser@5.51.2)
@@ -349,7 +367,7 @@ importers:
         version: 1.3.0(supports-color@7.2.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))(workbox-build@7.4.1(supports-color@7.2.0))(workbox-window@7.4.1)
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/audio-engine:
     dependencies:
@@ -362,20 +380,26 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/audio-graph:
     dependencies:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/audio-runtime:
     dependencies:
@@ -394,10 +418,19 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/effect-rack':
+        specifier: workspace:*
+        version: link:../effect-rack
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
+      '@audiogubbins/processors':
+        specifier: workspace:*
+        version: link:../processors
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/browser-storage:
     dependencies:
@@ -419,7 +452,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/capabilities:
     dependencies:
@@ -432,7 +465,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/clipboard:
     dependencies:
@@ -442,13 +475,16 @@ importers:
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       '@audiogubbins/test-fixtures':
         specifier: workspace:*
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/codecs:
     dependencies:
@@ -461,7 +497,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/commands:
     dependencies:
@@ -486,7 +522,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/design-system:
     dependencies:
@@ -520,10 +556,32 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       jsdom:
         specifier: 30.1.0
-        version: 30.1.0
+        version: 30.1.0(@noble/hashes@2.4.0)
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/detection-runtime:
+    dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/effect-rack':
+        specifier: workspace:*
+        version: link:../effect-rack
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
+      '@audiogubbins/processors':
+        specifier: workspace:*
+        version: link:../processors
+    devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/diagnostics:
     dependencies:
@@ -539,13 +597,13 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/domain:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/editor-view:
     dependencies:
@@ -567,7 +625,29 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/effect-rack:
+    dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
+      '@audiogubbins/audio-graph':
+        specifier: workspace:*
+        version: link:../audio-graph
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/processors':
+        specifier: workspace:*
+        version: link:../processors
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/history:
     dependencies:
@@ -586,7 +666,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/input:
     dependencies:
@@ -596,7 +676,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/media-store:
     dependencies:
@@ -612,7 +692,64 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/ml-runtime:
+    dependencies:
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+      onnxruntime-web:
+        specifier: 1.30.0
+        version: 1.30.0
+    devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/model-packs:
+    dependencies:
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+    devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/processors:
+    dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
+      '@audiogubbins/audio-graph':
+        specifier: workspace:*
+        version: link:../audio-graph
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/project-commands:
     dependencies:
@@ -634,7 +771,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/project-format:
     dependencies:
@@ -653,7 +790,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/renderer:
     dependencies:
@@ -666,7 +803,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/storage:
     dependencies:
@@ -688,9 +825,15 @@ importers:
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:../model-packs
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
       '@audiogubbins/version':
         specifier: workspace:*
         version: link:../version
@@ -700,7 +843,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/storage-runtime:
     dependencies:
@@ -725,6 +868,12 @@ importers:
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:../model-packs
+      '@audiogubbins/processors':
+        specifier: workspace:*
+        version: link:../processors
       '@audiogubbins/project-commands':
         specifier: workspace:*
         version: link:../project-commands
@@ -734,10 +883,13 @@ importers:
       '@audiogubbins/storage':
         specifier: workspace:*
         version: link:../storage
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/test-fixtures:
     dependencies:
@@ -747,7 +899,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/text:
     devDependencies:
@@ -756,7 +908,7 @@ importers:
         version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/timeline:
     dependencies:
@@ -766,7 +918,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/version: {}
 
@@ -781,7 +933,7 @@ importers:
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/waveform:
     dependencies:
@@ -791,10 +943,19 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/effect-rack':
+        specifier: workspace:*
+        version: link:../effect-rack
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
+      '@audiogubbins/processors':
+        specifier: workspace:*
+        version: link:../processors
     devDependencies:
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   packages/workspace:
     dependencies:
@@ -840,10 +1001,10 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       jsdom:
         specifier: 30.1.0
-        version: 30.1.0
+        version: 30.1.0(@noble/hashes@2.4.0)
       vitest:
         specifier: 5.0.1
-        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
 packages:
 
@@ -1542,6 +1703,10 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
+
   '@oxc-project/types@0.150.0':
     resolution: {integrity: sha512-rDS5/31E9HfPl/CIzGrn0DOlvBbXFseQ5URJ9sYMfstbKLD/c6Gm9vmRzRGDdAXyOIL4zmO37lc9RIwYqVruZw==}
 
@@ -1549,6 +1714,33 @@ packages:
     resolution: {integrity: sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==}
     engines: {node: '>=20'}
     hasBin: true
+
+  '@protobufjs/aspromise@1.1.2':
+    resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
+
+  '@protobufjs/base64@1.1.2':
+    resolution: {integrity: sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==}
+
+  '@protobufjs/codegen@2.0.5':
+    resolution: {integrity: sha512-zgXFLzW3Ap33e6d0Wlj4MGIm6Ce8O89n/apUaGNB/jx+hw+ruWEp7EwGUshdLKVRCxZW12fp9r40E1mQrf/34g==}
+
+  '@protobufjs/eventemitter@1.1.1':
+    resolution: {integrity: sha512-vW1GmwMZNnL+gMRaovlh9yZX74kc+TTU3FObkkurpMaRtBfLP3ldjS9KQWlwZgraRE0+dheEEoAxdzcJQ8eXZg==}
+
+  '@protobufjs/fetch@1.1.1':
+    resolution: {integrity: sha512-GpptLrs57adMSuHi3VNj0mAF8dwh36LMaYF6XyJ6JMWlVsc+t42tm1HSEDmOs3A8fC9yyeisgLhsTVQokOZ0zw==}
+
+  '@protobufjs/float@1.0.2':
+    resolution: {integrity: sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==}
+
+  '@protobufjs/path@1.1.2':
+    resolution: {integrity: sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==}
+
+  '@protobufjs/pool@1.1.0':
+    resolution: {integrity: sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==}
+
+  '@protobufjs/utf8@1.1.2':
+    resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
   '@radix-ui/number@1.1.3':
     resolution: {integrity: sha512-Road2bidD0uu/1BGDOWNdPI06g0lIRy6IF9GZcIrDK2KGItfor8IQwQa+yM2ERgHM1MmHxaxpTzk0/Jp42lNfA==}
@@ -3180,6 +3372,9 @@ packages:
   flat-cache@6.1.23:
     resolution: {integrity: sha512-f++BY9pTk+983xK1FLzlLpmM0i0z+jHmx3QESGkURMXujQZz1k5wzwX6hjnQ8goaD0B+sYnDK1yZ6MTyZfUaqA==}
 
+  flatbuffers@25.9.23:
+    resolution: {integrity: sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ==}
+
   flatted@3.4.4:
     resolution: {integrity: sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q==}
 
@@ -3265,6 +3460,9 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  guid-typescript@1.0.9:
+    resolution: {integrity: sha512-Y8T4vYhEfwJOTbouREvG+3XDsjr8E3kIr7uf+JZ0BYloFsttiHU0WfvANVsR7TxNUJa/WpCnw/Ino/p+DeBhBQ==}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -3633,6 +3831,9 @@ packages:
   lodash.debounce@4.0.8:
     resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
 
+  long@5.3.2:
+    resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
+
   lru-cache@11.5.2:
     resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
     engines: {node: 20 || >=22}
@@ -3721,6 +3922,12 @@ packages:
     resolution: {integrity: sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q==}
     engines: {node: '>=12.20.0'}
 
+  onnxruntime-common@1.30.0:
+    resolution: {integrity: sha512-7fdVWjAID1dVhH/G8qK3APARunV4VkBFoCQAP7qp4Wkab0mrorvmc+sqiT+mKXOzDqdjN5j+/Z9nb4gzNPWcyA==}
+
+  onnxruntime-web@1.30.0:
+    resolution: {integrity: sha512-q0y+JrrtukXSzsBWEMccVfqX25LRmosXHF+CaRJmg8pZClzcV7svNc4rKY3jL02Vb7QmRMDs1SigqR4CXAfKYQ==}
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -3765,6 +3972,9 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  platform@1.3.6:
+    resolution: {integrity: sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==}
+
   playwright-core@1.63.0:
     resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
     engines: {node: '>=20'}
@@ -3807,6 +4017,10 @@ packages:
   prompts@2.4.2:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
+
+  protobufjs@7.6.6:
+    resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
+    engines: {node: '>=12.0.0'}
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -5243,7 +5457,9 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@exodus/bytes@1.15.1': {}
+  '@exodus/bytes@1.15.1(@noble/hashes@2.4.0)':
+    optionalDependencies:
+      '@noble/hashes': 2.4.0
 
   '@floating-ui/core@1.8.0':
     dependencies:
@@ -5315,11 +5531,33 @@ snapshots:
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
+  '@noble/hashes@2.4.0': {}
+
   '@oxc-project/types@0.150.0': {}
 
   '@playwright/test@1.63.0':
     dependencies:
       playwright: 1.63.0
+
+  '@protobufjs/aspromise@1.1.2': {}
+
+  '@protobufjs/base64@1.1.2': {}
+
+  '@protobufjs/codegen@2.0.5': {}
+
+  '@protobufjs/eventemitter@1.1.1': {}
+
+  '@protobufjs/fetch@1.1.1':
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+
+  '@protobufjs/float@1.0.2': {}
+
+  '@protobufjs/path@1.1.2': {}
+
+  '@protobufjs/pool@1.1.0': {}
+
+  '@protobufjs/utf8@1.1.2': {}
 
   '@radix-ui/number@1.1.3': {}
 
@@ -6254,7 +6492,7 @@ snapshots:
       picocolors: 1.1.1
       redent: 3.0.0
     optionalDependencies:
-      vitest: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+      vitest: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   '@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
@@ -6414,7 +6652,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+      vitest: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
   '@vitest/istanbul-lib-coverage@1.0.1': {}
 
@@ -6677,10 +6915,10 @@ snapshots:
 
   damerau-levenshtein@1.0.8: {}
 
-  data-urls@7.0.0:
+  data-urls@7.0.0(@noble/hashes@2.4.0):
     dependencies:
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1
+      whatwg-url: 16.0.1(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -7023,6 +7261,8 @@ snapshots:
       flatted: 3.4.4
       hookified: 1.15.1
 
+  flatbuffers@25.9.23: {}
+
   flatted@3.4.4: {}
 
   for-each@0.3.5:
@@ -7120,6 +7360,8 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
+  guid-typescript@1.0.9: {}
+
   has-bigints@1.1.0: {}
 
   has-flag@4.0.0: {}
@@ -7156,9 +7398,9 @@ snapshots:
 
   hookified@2.2.0: {}
 
-  html-encoding-sniffer@6.0.0:
+  html-encoding-sniffer@6.0.0(@noble/hashes@2.4.0):
     dependencies:
-      '@exodus/bytes': 1.15.1
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -7327,17 +7569,17 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  jsdom@30.1.0:
+  jsdom@30.1.0(@noble/hashes@2.4.0):
     dependencies:
       '@asamuzakjp/css-color': 7.0.0
       '@asamuzakjp/dom-selector': 9.1.4
       '@bramus/specificity': 2.4.2
       '@csstools/css-syntax-patches-for-csstree': 1.1.14(css-tree@3.2.1)
-      '@exodus/bytes': 1.15.1
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       css-tree: 3.2.1
-      data-urls: 7.0.0
+      data-urls: 7.0.0(@noble/hashes@2.4.0)
       decimal.js: 10.6.0
-      html-encoding-sniffer: 6.0.0
+      html-encoding-sniffer: 6.0.0(@noble/hashes@2.4.0)
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
       parse5: 8.0.1
@@ -7347,7 +7589,7 @@ snapshots:
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
-      whatwg-url: 17.1.1
+      whatwg-url: 17.1.1(@noble/hashes@2.4.0)
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
@@ -7451,6 +7693,8 @@ snapshots:
 
   lodash.debounce@4.0.8: {}
 
+  long@5.3.2: {}
+
   lru-cache@11.5.2: {}
 
   lru-cache@5.1.1:
@@ -7532,6 +7776,17 @@ snapshots:
 
   obug@2.2.1: {}
 
+  onnxruntime-common@1.30.0: {}
+
+  onnxruntime-web@1.30.0:
+    dependencies:
+      flatbuffers: 25.9.23
+      guid-typescript: 1.0.9
+      long: 5.3.2
+      onnxruntime-common: 1.30.0
+      platform: 1.3.6
+      protobufjs: 7.6.6
+
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -7577,6 +7832,8 @@ snapshots:
 
   picomatch@4.0.7: {}
 
+  platform@1.3.6: {}
+
   playwright-core@1.63.0: {}
 
   playwright@1.63.0:
@@ -7609,6 +7866,20 @@ snapshots:
     dependencies:
       kleur: 3.0.3
       sisteransi: 1.0.5
+
+  protobufjs@7.6.6:
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.5
+      '@protobufjs/eventemitter': 1.1.1
+      '@protobufjs/fetch': 1.1.1
+      '@protobufjs/float': 1.0.2
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.2
+      '@types/node': 26.6.1
+      long: 5.3.2
 
   punycode@2.3.1: {}
 
@@ -8206,7 +8477,7 @@ snapshots:
       fsevents: 2.3.3
       terser: 5.51.2
 
-  vitest@5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2)):
+  vitest@5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2)):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/mocker': 5.0.1(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
@@ -8225,7 +8496,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 26.6.1
       '@vitest/coverage-v8': 5.0.1(vitest@5.0.1)
-      jsdom: 30.1.0
+      jsdom: 30.1.0(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - msw
 
@@ -8239,17 +8510,17 @@ snapshots:
 
   whatwg-mimetype@5.0.0: {}
 
-  whatwg-url@16.0.1:
+  whatwg-url@16.0.1(@noble/hashes@2.4.0):
     dependencies:
-      '@exodus/bytes': 1.15.1
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       tr46: 6.0.0
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
 
-  whatwg-url@17.1.1:
+  whatwg-url@17.1.1(@noble/hashes@2.4.0):
     dependencies:
-      '@exodus/bytes': 1.15.1
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       tr46: 6.0.0
       webidl-conversions: 8.0.1
     transitivePeerDependencies:

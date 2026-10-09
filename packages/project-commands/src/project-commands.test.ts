@@ -6,7 +6,19 @@ import {
   isCommandId,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import { createDeterministicIdGenerator, type Asset, type IdGenerator } from '@audiogubbins/domain';
+import {
+  SummingLaw,
+  createDeterministicIdGenerator,
+  findSlot,
+  processorsOf,
+  type Asset,
+  type ChainSlot,
+  type EditOperationId,
+  type EffectChain,
+  type IdGenerator,
+  type SlotPlace,
+} from '@audiogubbins/domain';
+import { TEST_CATALOGUE, TEST_ENGINE } from '@audiogubbins/domain/testing';
 import {
   SourceChangePolicy,
   canonicalJson,
@@ -20,6 +32,7 @@ import {
 } from '@audiogubbins/project-format';
 import {
   randomAssetRecord,
+  randomChain,
   randomContentId,
   randomIdentity,
   randomMedia,
@@ -47,12 +60,25 @@ import {
   removeRegionInvocation,
   setRegionInvocation,
   withdrawRegionEditInvocation,
-} from './editing/region-commands.js';
+} from './editing/region-invocations.js';
 import {
   addAssetInvocation,
   adoptSourceVersionInvocation,
   relinkSourceInvocation,
 } from './project-invocations.js';
+import { setProcessorInvocation } from './processing/processor-commands.js';
+import {
+  setEditChainInvocation,
+  setRackInvocation,
+  type RackTarget,
+} from './processing/rack-commands.js';
+import {
+  addSlotInvocation,
+  moveSlotInvocation,
+  removeSlotInvocation,
+  setSlotControlInvocation,
+} from './processing/slot-commands.js';
+import type { SlotControl } from './processing/slot-arguments.js';
 import {
   appliedOf,
   assertReadsBack,
@@ -75,7 +101,7 @@ function randomInvocation(
   state: ProjectState,
 ): CommandInvocation {
   const assets = [...state.project.assets.values()];
-  const choice = random.below(21);
+  const choice = random.below(29);
   if (choice === 0)
     return { commandId: ProjectCommandId.Rename, arguments: { name: randomName(random) } };
   if (choice === 1)
@@ -87,6 +113,7 @@ function randomInvocation(
 
   const asset = random.pick(assets);
   const assetId = asset.id;
+  if (choice >= 21) return randomProcessingInvocation(random, ids, state, asset, choice);
   if (choice >= 11) return randomEditingInvocation(random, ids, state, asset, choice);
   const current = state.sources.get(assetId)?.media;
   const retained = random.chance(0.5) ? randomContentId(random) : undefined;
@@ -131,6 +158,110 @@ function randomInvocation(
   }
 }
 
+/** Every slot of `slots`, groups and what they hold, however deep. */
+function* slotsWithin(slots: readonly ChainSlot[]): Generator<ChainSlot> {
+  for (const slot of slots) {
+    yield slot;
+    if (slot.kind === 'group') for (const branch of slot.branches) yield* slotsWithin(branch.slots);
+  }
+}
+
+/** A place in `chain`: at the end of its own list, or in a branch of one of its groups. */
+function randomPlace(random: Random, chain: EffectChain): SlotPlace {
+  const groups = [...slotsWithin(chain.slots)].filter((slot) => slot.kind === 'group');
+  const group = groups.length > 0 && random.chance(0.5) ? random.pick(groups) : undefined;
+  if (group?.kind !== 'group') return { index: random.below(chain.slots.length + 1) };
+  const branch = random.below(group.branches.length);
+  const length = group.branches[branch]?.slots.length ?? 0;
+  return { group: { id: group.id, branch }, index: random.below(length + 1) };
+}
+
+/**
+ * A random invocation of a rack or slot command: a rack given to or taken
+ * from `asset` or one of its regions, a new chain given whole or one already
+ * named; one of its rack edits pointed at another chain; a slot added,
+ * removed, moved or one of its controls set; or a processor set. Each is
+ * sometimes refused or changes nothing.
+ */
+function randomProcessingInvocation(
+  random: Random,
+  ids: IdGenerator,
+  state: ProjectState,
+  asset: Asset,
+  choice: number,
+): CommandInvocation {
+  const chains = [...state.project.effectChains.values()];
+  const chain = chains.length > 0 ? random.pick(chains) : undefined;
+  const slots = chains.flatMap((one) => [...slotsWithin(one.slots)]);
+  const slot = slots.length > 0 ? random.pick(slots) : undefined;
+  const regions = [...state.project.regions.values()].filter(
+    (region) => region.assetId === asset.id,
+  );
+  const region = regions.length > 0 && random.chance(0.5) ? random.pick(regions) : undefined;
+  const target: RackTarget =
+    region === undefined ? { kind: 'asset', asset } : { kind: 'region', region, asset };
+  const named = (): EffectChain | EffectChain['id'] | undefined =>
+    random.chance(0.5) || chain === undefined ? randomChain(random, ids) : chain.id;
+  switch (choice) {
+    case 22:
+      return setRackInvocation(target, random.chance(0.3) ? undefined : chain?.id);
+    case 23: {
+      const racks: readonly { readonly id: EditOperationId }[] =
+        region === undefined
+          ? asset.edits.filter(
+              (operation) => operation.kind === 'process' && operation.edit.kind === 'rack',
+            )
+          : region.operations.filter((operation) => operation.edit.kind === 'rack');
+      const to = named();
+      if (racks.length > 0 && to !== undefined) {
+        return setEditChainInvocation(target, random.pick(racks).id, to);
+      }
+      break;
+    }
+    case 24: {
+      const [added] = randomChain(random, ids).slots;
+      if (chain !== undefined && added !== undefined) {
+        return addSlotInvocation(chain.id, randomPlace(random, chain), added);
+      }
+      break;
+    }
+    case 25:
+      if (slot !== undefined) return removeSlotInvocation(slot.id);
+      break;
+    case 26: {
+      const holder = chains.find((one) => slot !== undefined && findSlot(one, slot.id));
+      if (slot !== undefined && holder !== undefined) {
+        return moveSlotInvocation(slot.id, randomPlace(random, holder));
+      }
+      break;
+    }
+    case 27:
+      if (slot !== undefined) {
+        const controls: readonly SlotControl[] = [
+          { control: 'enabled', value: random.chance(0.5) },
+          { control: 'soloed', value: random.chance(0.5) },
+          { control: 'mix', value: random.below(5) / 4 },
+          { control: 'summing', value: random.pick(Object.values(SummingLaw)) },
+        ];
+        return setSlotControlInvocation(slot.id, random.pick(controls));
+      }
+      break;
+    case 28: {
+      const processors = chains.flatMap((one) => [...processorsOf(one.slots)]);
+      if (processors.length > 0) {
+        const processor = random.pick(processors);
+        return setProcessorInvocation({
+          ...processor,
+          enabled: random.chance(0.5),
+          mix: random.below(5) / 4,
+        });
+      }
+      break;
+    }
+  }
+  return setRackInvocation(target, named());
+}
+
 /**
  * A random invocation of an editing command on `asset`: mostly one the domain
  * accepts, sometimes one refused because something is placed on the edit it
@@ -153,10 +284,15 @@ function randomEditingInvocation(
   const marker = markers.length > 0 ? random.pick(markers) : undefined;
   const region = regions.length > 0 ? random.pick(regions) : undefined;
   const last = asset.edits.at(-1);
-  const fresh = randomRegion(random, ids, asset);
+  const context = {
+    chains: state.project.effectChains,
+    catalogue: TEST_CATALOGUE,
+    engine: TEST_ENGINE,
+  };
+  const fresh = randomRegion(random, ids, asset, context);
   switch (choice) {
     case 11: {
-      const operation = randomOperation(random, ids, asset, assets);
+      const operation = randomOperation(random, ids, asset, assets, context);
       if (operation !== undefined) return applyInvocation(asset, operation);
       break;
     }
@@ -186,7 +322,9 @@ function randomEditingInvocation(
       break;
     case 19: {
       const operation =
-        region === undefined ? undefined : randomRegionOperation(random, ids, asset, region);
+        region === undefined
+          ? undefined
+          : randomRegionOperation(random, ids, asset, region, context);
       if (region !== undefined && operation !== undefined) {
         return applyRegionEditInvocation(region, operation);
       }
@@ -236,7 +374,7 @@ function invocationsOf(journal: string): CommandInvocation[] {
 
 describe('projectCommands', () => {
   it('declares every project command once, undoable and kept out of the palette', () => {
-    const commands = projectCommands();
+    const commands = projectCommands(TEST_CATALOGUE);
     const registry = createCommandRegistry<ProjectState>();
     for (const command of commands) registry.register(command);
 
@@ -250,42 +388,49 @@ describe('projectCommands', () => {
 });
 
 describe('applying random commands to random states', () => {
-  it('keeps every state valid, and undoing in reverse gives back the state it began with', () => {
-    const appliedIds = new Set<string>();
-    let applied = 0;
+  // About 3 s alone and twice that under the whole suite's load (2,400 steps,
+  // each read back through the project format), so it is given a budget of its
+  // own rather than Vitest's five-second default; a hang still fails it.
+  it(
+    'keeps every state valid, and undoing in reverse gives back the state it began with',
+    { timeout: 30_000 },
+    () => {
+      const appliedIds = new Set<string>();
+      let applied = 0;
 
-    for (let seed = 1; seed <= SEEDS; seed += 1) {
-      const bus = projectBus();
-      const start = randomState(seed);
-      assertReadsBack(start);
-      const random = seededRandom(seed * 7_919);
-      const ids = createDeterministicIdGenerator(seed * 104_729);
+      for (let seed = 1; seed <= SEEDS; seed += 1) {
+        const bus = projectBus();
+        const start = randomState(seed);
+        assertReadsBack(start);
+        const random = seededRandom(seed * 7_919);
+        const ids = createDeterministicIdGenerator(seed * 104_729);
 
-      let state = start;
-      const inverses: CommandInvocation[] = [];
-      for (let step = 0; step < STEPS; step += 1) {
-        const invocation = randomInvocation(random, ids, state);
-        const result = bus.execute(state, invocation);
-        if (result.kind !== 'applied') continue;
-        assertReadsBack(result.next);
-        inverses.push(...entryOf(result).inverse);
-        appliedIds.add(invocation.commandId);
-        applied += 1;
-        state = result.next;
+        let state = start;
+        const inverses: CommandInvocation[] = [];
+        for (let step = 0; step < STEPS; step += 1) {
+          const invocation = randomInvocation(random, ids, state);
+          const result = bus.execute(state, invocation);
+          if (result.kind !== 'applied') continue;
+          assertReadsBack(result.next);
+          inverses.push(...entryOf(result).inverse);
+          appliedIds.add(invocation.commandId);
+          applied += 1;
+          state = result.next;
+        }
+
+        for (const inverse of inverses.reverse()) {
+          state = appliedOf(bus.execute(state, inverse)).next;
+          assertReadsBack(state);
+        }
+        expect(state).toEqual(start);
+        expect(canonicalTextOf(state)).toBe(canonicalTextOf(start));
       }
 
-      for (const inverse of inverses.reverse()) {
-        state = appliedOf(bus.execute(state, inverse)).next;
-        assertReadsBack(state);
-      }
-      expect(state).toEqual(start);
-      expect(canonicalTextOf(state)).toBe(canonicalTextOf(start));
-    }
-
-    // The property is only worth its name if the walk applied every command.
-    expect([...appliedIds].sort()).toEqual(Object.values(ProjectCommandId).sort());
-    expect(applied).toBeGreaterThan(SEEDS * STEPS * 0.4);
-  });
+      // The property is only worth its name if the walk applied every command.
+      expect([...appliedIds].sort()).toEqual(Object.values(ProjectCommandId).sort());
+      expect(applied).toBeGreaterThan(SEEDS * STEPS * 0.4);
+    },
+  );
 });
 
 describe('replaying a journal', () => {

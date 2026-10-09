@@ -1150,3 +1150,74 @@
   padding: 0;
   list-style: none;
 }
+
+/* The Analysis panel: each assistant's findings by kind, and its steps in order. */
+.ag-analysis-report {
+  margin-block-start: var(--ag-space-large);
+}
+
+.ag-analysis-heading {
+  margin-block: var(--ag-space-medium) var(--ag-space-small);
+  font-size: var(--ag-text-body);
+  font-weight: 600;
+}
+
+.ag-analysis-kind {
+  margin-block: var(--ag-space-small);
+}
+
+.ag-analysis-findings,
+.ag-analysis-steps {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+}
+
+.ag-analysis-finding {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  align-items: baseline;
+}
+
+.ag-analysis-step-name {
+  font-weight: 600;
+}
+
+/* The Effects rack: a chain's slots in signal order, a group's branches
+   nested under it, each slot set apart so its controls read as its own. */
+.ag-rack-slots,
+.ag-rack-ranges {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-rack-slot {
+  padding: var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-small);
+}
+
+.ag-rack-slot[data-ag-bypassed='true'] {
+  border-style: dashed;
+}
+
+.ag-rack-slot-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  align-items: center;
+}
+
+.ag-rack-branch {
+  margin-block-start: var(--ag-space-small);
+  padding-inline-start: var(--ag-space-medium);
+  border-inline-start: 2px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-rack-parameter {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}

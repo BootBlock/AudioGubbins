@@ -13,6 +13,7 @@
 import type { Logger } from '@audiogubbins/diagnostics';
 
 import type { BackupFolderPort } from '../io/backup-folder.js';
+import type { LibraryChanges } from '../io/library-channel.js';
 import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
@@ -34,6 +35,7 @@ import {
   type ProjectPreferencesStore,
 } from './project-preferences-store.js';
 import { ProjectTransferStore } from './project-transfer-store.js';
+import { SavedProcessingStore } from './saved-processing-store.js';
 import { SourceChangeStore } from './source-change-store.js';
 import type { StateStorage } from './state-storage.js';
 import type { StorageRootStore } from './storage-root-store.js';
@@ -60,6 +62,8 @@ export interface ProjectStores {
   readonly pastes: ProjectPastes;
   readonly preferences: ProjectPreferencesStore;
   readonly files: TransferFiles;
+  /** The person's library of saved chains and presets, kept beside the projects. */
+  readonly savedProcessing: SavedProcessingStore;
 }
 
 /** What the browser gives the stores beyond its storage. */
@@ -75,6 +79,9 @@ export interface ProjectPorts {
 
   /** The files linked assets were recorded from, found again. */
   readonly linkedFiles: LinkedFilesPort;
+
+  /** How this tab and the person's others tell each other their library changed. */
+  readonly libraryChanges: LibraryChanges;
 }
 
 /**
@@ -129,6 +136,11 @@ export function createProjectStores(
     pastes: new ProjectPastes(client.media, project, linkedFiles),
     preferences,
     files,
+    savedProcessing: new SavedProcessingStore(
+      client.processingLibrary,
+      lifetime,
+      ports.libraryChanges,
+    ),
   };
 }
 
@@ -141,6 +153,7 @@ export async function startProjects(
   const opened = await root.open();
   if (!opened.ok || !opened.value) return;
   await stores.library.refresh();
+  await stores.savedProcessing.refresh();
   const last = stores.preferences.get().lastProject;
   if (last === undefined) return;
   const reopened = await stores.project.open(last);

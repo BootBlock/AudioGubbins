@@ -34,7 +34,7 @@ const SINE_COEFFICIENTS: [f64; 12] = [
 /// 1. `r = turns − ⌊turns⌋`, in `[0, 1)`;
 /// 2. to `t` in `[−1/4, 1/4]`, by `sin(2πr) = sin(2π(1/2 − r)) = sin(2π(r − 1))`,
 ///    each subtraction exact by Sterbenz's lemma;
-/// 3. Horner's rule in `t²`, highest coefficient first, then times `t`.
+/// 3. `sine_of_reduced(t)`: Horner's rule in `t²`, then times `t`.
 #[must_use]
 pub fn sine_of_turns(turns: f64) -> f64 {
     let r = turns - turns.floor();
@@ -45,6 +45,14 @@ pub fn sine_of_turns(turns: f64) -> f64 {
     } else {
         r - 1.0
     };
+    sine_of_reduced(t)
+}
+
+/// `sin(2πt)` for `t` in `[−1/4, 1/4]`: Horner's rule in `t²`, highest
+/// coefficient first, then times `t`. The cosine reaches it too, for the
+/// octants where the cosine is a sine.
+#[must_use]
+pub(crate) fn sine_of_reduced(t: f64) -> f64 {
     let square = t * t;
     let mut sum = SINE_COEFFICIENTS[11];
     for coefficient in SINE_COEFFICIENTS[..11].iter().rev() {

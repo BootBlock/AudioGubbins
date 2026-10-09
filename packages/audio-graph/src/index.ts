@@ -9,7 +9,7 @@
  *
  * The package depends on the domain alone. It knows no thread, browser or
  * buffer, and it defines no node type: the engine supplies each type as an
- * object stating its {@link NodeContract}, which the graph checks it against.
+ * object stating its `NodeContract`, which the graph checks it against.
  */
 
 export { type NodeId, type PortReference, nodeId } from './node-id.js';

@@ -13,10 +13,21 @@
 import { Blob as PlatformBlob, File as PlatformFile } from 'node:buffer';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 
-import { sampleCount, type AssetId, type SampleCount } from '@audiogubbins/domain';
+import {
+  instantiateProcessor,
+  sampleCount,
+  type AssetId,
+  type EffectChain,
+  type SampleCount,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceHandling } from '@audiogubbins/media-store';
-import { addMarkerInvocation, addRegionInvocation } from '@audiogubbins/project-commands';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import {
+  addMarkerInvocation,
+  addRegionInvocation,
+  setRackInvocation,
+} from '@audiogubbins/project-commands';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { sine, stereo, wavFile, type SignalFixture } from '@audiogubbins/test-fixtures';
 
@@ -152,4 +163,27 @@ export async function windowWithAudio(
       return await opened(window, entry);
     },
   };
+}
+
+/** `audio`'s sound, racked with DeepFilterNet 3, on or bypassed, and the rack. */
+export async function rackedWithDeepFilterNet(
+  audio: AudioWindow,
+  options: { readonly enabled: boolean } = { enabled: true },
+): Promise<EffectChain> {
+  const descriptor = PROCESSOR_CATALOGUE.get('deepfilternet-3');
+  if (descriptor === undefined) throw new Error('The catalogue lists DeepFilterNet 3.');
+  const { context } = audio.window;
+  const rack: EffectChain = {
+    id: context.ids.next<'EffectChainId'>(),
+    slots: [
+      {
+        ...instantiateProcessor(context.ids.next<'ProcessorId'>(), descriptor),
+        enabled: options.enabled,
+      },
+    ],
+  };
+  const asset = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId);
+  if (asset === undefined) throw new Error('The sound is in the project.');
+  await audio.session.run(setRackInvocation({ kind: 'asset', asset }, rack));
+  return rack;
 }

@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { StandardLayouts, sampleCount, sampleRate, type SampleCount } from '@audiogubbins/domain';
+import {
+  MAXIMUM_QUALITY,
+  sampleCount,
+  sampleRate,
+  StandardLayouts,
+  type SampleCount,
+} from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { LogSeverity } from '@audiogubbins/diagnostics';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
@@ -228,7 +234,7 @@ async function playing(
   source: SourceDescription = recorded(),
   graph = halving(),
 ): Promise<PlaybackRig> {
-  expectSuccess(await rig.session.load({ graph, sources: [source] }));
+  expectSuccess(await rig.session.load({ quality: MAXIMUM_QUALITY, graph, sources: [source] }));
   expectSuccess(await rig.session.play());
   await rig.render(1);
   return rig;
@@ -250,7 +256,13 @@ describe('PlaybackSession', () => {
     it('makes one node of the engine processor, shaped for the sink, and binds the feeder to it', async () => {
       const rig = new PlaybackRig();
 
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       const { node } = rig;
       expect(rig.current.modules).toEqual([WORKLET_MODULE_URL]);
@@ -294,7 +306,13 @@ describe('PlaybackSession', () => {
     it('binds a shared ring where memory can be shared, to both the processor and the feeder', async () => {
       const rig = new PlaybackRig({ sharedMemory: true });
 
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       const [binding] = loadSent(rig.node).feeds;
       expect(binding?.transport).toBe(FeedTransport.SharedRing);
@@ -316,14 +334,20 @@ describe('PlaybackSession', () => {
       const rig = new PlaybackRig();
       const source = recorded();
 
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [source] }));
+      expectSuccess(
+        await rig.session.load({ quality: MAXIMUM_QUALITY, graph: halving(), sources: [source] }),
+      );
 
       expect(source.kind === PcmDescriptionKind.Pcm && source.channels[0]?.length).toBe(0);
     });
 
     it('adds the processor module to a context once, and makes the sources once, however often it loads them', async () => {
       const rig = new PlaybackRig();
-      const request = { graph: halving(), sources: [tone(SOURCE_FRAMES)] };
+      const request = {
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(SOURCE_FRAMES)],
+      };
 
       expectSuccess(await rig.session.load(request));
       const first = rig.node;
@@ -344,8 +368,20 @@ describe('PlaybackSession', () => {
     it('releases a request’s sources when another replaces it', async () => {
       const rig = new PlaybackRig();
 
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(100)] }));
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(200)] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [tone(100)],
+        }),
+      );
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [tone(200)],
+        }),
+      );
 
       expect(rig.feeder.received.map((message) => message.kind)).toEqual([
         ToFeederKind.Sources,
@@ -364,7 +400,13 @@ describe('PlaybackSession', () => {
         dsp: { kind: DspDeliveryKind.Available, module: { bytes, module } },
       });
 
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(4_800)] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [tone(4_800)],
+        }),
+      );
 
       const sent = loadSent(rig.node);
       expect(sent.dsp.kind === DspDeliveryKind.Available && sent.dsp.module).toBe(bytes);
@@ -414,7 +456,13 @@ describe('PlaybackSession', () => {
         },
       });
 
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(100)] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [tone(100)],
+        }),
+      );
 
       expect(loadSent(rig.node).dsp.kind).toBe(DspDeliveryKind.Unavailable);
       expect(rig.session.status.processorDsp?.implementation).toBe(DspImplementation.Reference);
@@ -434,7 +482,11 @@ describe('PlaybackSession', () => {
         sampleRate: RATE,
         recipe: expectSuccess(toneRecipe(2, 100, 30_000, 0.5)),
       } as const;
-      const refused = await rig.session.load({ graph: halving(), sources: [shrill] });
+      const refused = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [shrill],
+      });
 
       expect(expectFailureCode(refused)).toBe('playback.sources-refused');
       expect(rig.session.status.phase).toBe(PlaybackPhase.Refused);
@@ -447,7 +499,11 @@ describe('PlaybackSession', () => {
     it('settles a load the processor never answers after ten seconds, and says why', async () => {
       const rig = new PlaybackRig({ lost: (message) => kindOf(message) === ToProcessorKind.Load });
 
-      const loading = rig.session.load({ graph: halving(), sources: [recorded()] });
+      const loading = rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [recorded()],
+      });
       await settle();
       rig.schedule.advance(9_999);
       await settle();
@@ -466,7 +522,11 @@ describe('PlaybackSession', () => {
     it('settles a load the feeder never answers after ten seconds, and says why', async () => {
       const rig = new PlaybackRig();
       rig.lifecycle.context();
-      const loading = rig.session.load({ graph: halving(), sources: [recorded()] });
+      const loading = rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [recorded()],
+      });
       rig.feeder.terminate();
       await settle();
       rig.schedule.advance(10_000);
@@ -479,8 +539,16 @@ describe('PlaybackSession', () => {
     it('adds the module once when two loads overlap, and the first stands down', async () => {
       const rig = new PlaybackRig();
 
-      const first = rig.session.load({ graph: halving(), sources: [tone(100)] });
-      const second = rig.session.load({ graph: halving(), sources: [tone(100)] });
+      const first = rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(100)],
+      });
+      const second = rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(100)],
+      });
 
       expect(expectFailureCode(await first)).toBe('playback.superseded');
       expectSuccess(await second);
@@ -495,12 +563,22 @@ describe('PlaybackSession', () => {
         new DOMException('Unable to load a worklet’s module.', 'AbortError'),
       );
 
-      const refused = await rig.session.load({ graph: halving(), sources: [tone(100)] });
+      const refused = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(100)],
+      });
 
       expect(expectFailureCode(refused)).toBe('playback.processor-module-failed');
       expect(rig.session.status.phase).toBe(PlaybackPhase.Faulted);
       expect(rig.current.nodes).toEqual([]);
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(100)] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [tone(100)],
+        }),
+      );
       expect(rig.session.status.phase).toBe(PlaybackPhase.Ready);
     });
 
@@ -515,7 +593,11 @@ describe('PlaybackSession', () => {
         [wire('in.out', 'a.in'), wire('in.out', 'b.in')],
       );
 
-      const refused = await rig.session.load({ graph: twoOutputs, sources: [recorded()] });
+      const refused = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: twoOutputs,
+        sources: [recorded()],
+      });
 
       expect(expectFailureCode(refused)).toBe('playback.graph-sinks');
       expect(rig.current.nodes).toEqual([]);
@@ -534,7 +616,11 @@ describe('PlaybackSession', () => {
         [wire('nowhere.out', 'out.in')],
       );
 
-      const refused = await rig.session.load({ graph: dangling, sources: [] });
+      const refused = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: dangling,
+        sources: [],
+      });
 
       expect(expectFailureCode(refused)).toBe('playback.graph-invalid');
       expect(rig.current.nodes).toEqual([]);
@@ -547,6 +633,7 @@ describe('PlaybackSession', () => {
       const cd = expectSuccess(sampleRate(44_100));
 
       const refused = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
         graph: halving(),
         sources: [recorded(4_410, cd)],
       });
@@ -560,8 +647,16 @@ describe('PlaybackSession', () => {
       const rig = new PlaybackRig();
       const elsewhere: SourceDescription = { ...tone(100), node: named('elsewhere') };
 
-      const missing = await rig.session.load({ graph: halving(), sources: [elsewhere] });
-      const doubled = await rig.session.load({ graph: halving(), sources: [tone(1), tone(2)] });
+      const missing = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [elsewhere],
+      });
+      const doubled = await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(1), tone(2)],
+      });
 
       expect(!missing.ok && missing.failures.map((one) => one.code)).toEqual([
         'playback.source-missing',
@@ -577,7 +672,13 @@ describe('PlaybackSession', () => {
   describe('playing', () => {
     it('starts the context from the gesture and anchors the transport where the processor started', async () => {
       const rig = new PlaybackRig();
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
       const context = rig.current.context;
       expect(context.state).toBe(AudioContextState.Suspended);
 
@@ -611,7 +712,13 @@ describe('PlaybackSession', () => {
     it('tells the processor to start only once every feed has audio queued', async () => {
       const gated = gatedAfter(0);
       const rig = new PlaybackRig({ readThrough: gated.readThrough });
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       const started = rig.session.play();
       await settle();
@@ -626,7 +733,13 @@ describe('PlaybackSession', () => {
 
     it('says audio waits for a gesture when the browser holds the start for one', async () => {
       const rig = new PlaybackRig({ context: { allowedToStart: false } });
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       const played = rig.session.play();
       rig.schedule.advance(GESTURE_WAIT_MILLISECONDS);
@@ -780,7 +893,13 @@ describe('PlaybackSession', () => {
 
     it('seeks while stopped without starting anything', async () => {
       const rig = new PlaybackRig();
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       expectSuccess(await rig.session.seek(frames(4_000)));
 
@@ -808,7 +927,13 @@ describe('PlaybackSession', () => {
 
     it('cancels a play still on its way when paused', async () => {
       const rig = new PlaybackRig();
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
       expectSuccess(await rig.session.play());
 
       expectSuccess(rig.session.pause());
@@ -819,7 +944,13 @@ describe('PlaybackSession', () => {
 
     it('refuses to pause what is stopped', async () => {
       const rig = new PlaybackRig();
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       expect(expectFailureCode(rig.session.pause())).toBe('transport.pause-while-stopped');
     });
@@ -1001,7 +1132,9 @@ describe('PlaybackSession', () => {
         ],
         [wire('in.out', 'out.in'), ...['a', 'b', 'c'].map((name) => wire('in.out', `${name}.in`))],
       );
-      expectSuccess(await rig.session.load({ graph, sources: [tone(undefined)] }));
+      expectSuccess(
+        await rig.session.load({ quality: MAXIMUM_QUALITY, graph, sources: [tone(undefined)] }),
+      );
       expectSuccess(await rig.session.play());
       await rig.render(1);
       const heard = published(rig);
@@ -1070,7 +1203,13 @@ describe('PlaybackSession', () => {
 
     it('answers Play with the fault when a source fails before the processor starts', async () => {
       const rig = new PlaybackRig({ readThrough: failingAfter(0) });
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
 
       const played = await rig.session.play();
 
@@ -1130,7 +1269,11 @@ describe('PlaybackSession', () => {
     it('ends a load at once when the answer to it cannot be received', async () => {
       const rig = new PlaybackRig({ lost: (message) => kindOf(message) === ToProcessorKind.Load });
 
-      const loading = rig.session.load({ graph: halving(), sources: [recorded()] });
+      const loading = rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [recorded()],
+      });
       await settle();
       rig.node.replyFails();
 
@@ -1141,7 +1284,13 @@ describe('PlaybackSession', () => {
 
     it('logs a malformed reply with its failure code and acts on none of it', async () => {
       const rig = new PlaybackRig();
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
       const before = rig.session.status;
 
       rig.node.reply({ kind: 'started', run: 1 });
@@ -1151,7 +1300,7 @@ describe('PlaybackSession', () => {
       expect(records(rig, LogSeverity.Error).map((record) => record.fields)).toEqual([
         {
           code: 'protocol.processor-reply-malformed',
-          reason: "The message's contextFrame is not a finite number.",
+          reason: "The message's contextFrame is not a whole number, zero or more.",
         },
       ]);
     });
@@ -1160,7 +1309,13 @@ describe('PlaybackSession', () => {
   describe('telling runs apart', () => {
     it('ignores a started of an earlier run that arrives after a later run began', async () => {
       const rig = new PlaybackRig();
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [recorded()],
+        }),
+      );
       expectSuccess(await rig.session.play());
       expectSuccess(rig.session.pause());
       expectSuccess(await rig.session.play());
@@ -1353,7 +1508,13 @@ describe('PlaybackSession', () => {
       profile: typeof PerformanceProfile.LowLatency | typeof PerformanceProfile.MaximumStability,
     ) {
       const rig = new PlaybackRig({ profile });
-      expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(96_000)] }));
+      expectSuccess(
+        await rig.session.load({
+          quality: MAXIMUM_QUALITY,
+          graph: halving(),
+          sources: [tone(96_000)],
+        }),
+      );
       expectSuccess(await rig.session.play());
       await settle();
       const queuedAtStart = postedFrames(rig);
@@ -1409,7 +1570,13 @@ describe('what a loaded graph runs on the GPU', () => {
   it('says the browser offers none', async () => {
     const rig = new PlaybackRig();
 
-    expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(4_800)] }));
+    expectSuccess(
+      await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(4_800)],
+      }),
+    );
 
     expect(rig.session.status.gpu).toEqual({ kind: GpuUseKind.Unavailable });
   });
@@ -1417,7 +1584,13 @@ describe('what a loaded graph runs on the GPU', () => {
   it('says one is offered and no processor of the graph uses it', async () => {
     const rig = new PlaybackRig({ gpu: true });
 
-    expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(4_800)] }));
+    expectSuccess(
+      await rig.session.load({
+        quality: MAXIMUM_QUALITY,
+        graph: halving(),
+        sources: [tone(4_800)],
+      }),
+    );
 
     expect(rig.session.status.gpu).toEqual({ kind: GpuUseKind.Unused });
   });

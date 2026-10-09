@@ -271,7 +271,7 @@ describe('a name another profile has', () => {
       result.ok ? undefined : result.failures[0].summary;
 
     expect(summaryOf(duplicateProfile(SHIPPED, held, 'mine'))).toBe(
-      'There is already a profile called "Mine". Choose another name.',
+      'There is already a profile called “Mine”. Choose another name.',
     );
     expect(expectSuccess(importProfile(textNamed('mine'), held)).namesake).toBe(mine);
     expect(expectSuccess(importProfile(textNamed('Theirs'), held)).namesake).toBeUndefined();

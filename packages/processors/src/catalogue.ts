@@ -1,0 +1,121 @@
+/**
+ * Every processor type this build has (ADR-0061): the node implementations
+ * the engine runs a rack with, and their descriptors, which the domain checks
+ * every chain against. A type is listed here once, and nothing else lists
+ * processors, so the catalogue the project is checked by and the node types a
+ * render runs cannot differ.
+ *
+ * A machine-learning type runs its model through services the thread that
+ * runs it is given (ADR-0062), so it is made there, by
+ * {@link processorTypesWith}, from the functions listed here; its descriptor
+ * is a constant, listed here in the catalogue.
+ */
+
+import type { ProcessorDescriptor } from '@audiogubbins/domain';
+
+import { catalogueOf, type ProcessorType } from './framework/processor-type.js';
+import { COMPRESSOR } from './dynamics/compressor.js';
+import { EXPANDER } from './dynamics/expander.js';
+import { GATE } from './dynamics/gate.js';
+import { LIMITER } from './dynamics/limiter.js';
+import { DC_OFFSET_REMOVAL } from './filters/dc-offset-removal.js';
+import { DE_ESSER } from './filters/de-esser.js';
+import { DE_HUM } from './filters/de-hum.js';
+import { FILTER } from './filters/filter.js';
+import { PARAMETRIC_EQUALISER } from './filters/parametric-equaliser.js';
+import { DEREVERBERATION } from './spectral/dereverb.js';
+import { NOISE_REDUCTION } from './spectral/noise-reduction.js';
+import { DE_CLICK } from './repair/de-click.js';
+import { DE_POP } from './repair/de-pop.js';
+import { GAIN_PROCESSOR } from './level/gain-processor.js';
+import { LOUDNESS_NORMALISATION } from './level/loudness-normalisation.js';
+import { PEAK_NORMALISATION } from './level/peak-normalisation.js';
+import { PITCH_SHIFT } from './pitch/pitch-shift.js';
+import { AMBISONIC_DECODER } from './space/ambisonic-decode.js';
+import { AMBISONIC_ENCODER } from './space/ambisonic-encode.js';
+import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
+import { DELAY } from './space/delay.js';
+import { REVERB } from './space/reverb.js';
+import { DEEPFILTERNET_3_DESCRIPTOR, deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
+import type { ModelServices } from './ml/model-sessions.js';
+import { MOSSFORMER2_SE_48K_DESCRIPTOR, mossFormer2Se48k } from './ml/mossformer2/mossformer2.js';
+import {
+  SPLEETER_2_STEMS_DESCRIPTOR,
+  SPLEETER_4_STEMS_DESCRIPTOR,
+  spleeter2Stems,
+  spleeter4Stems,
+} from './ml/spleeter/spleeter.js';
+
+/**
+ * Every processor type, by category in the order the domain lists categories,
+ * and in the order a menu lists them within a category.
+ */
+export const PROCESSOR_TYPES: readonly ProcessorType[] = [
+  GAIN_PROCESSOR,
+  PEAK_NORMALISATION,
+  LOUDNESS_NORMALISATION,
+  PARAMETRIC_EQUALISER,
+  FILTER,
+  COMPRESSOR,
+  LIMITER,
+  GATE,
+  EXPANDER,
+  DE_ESSER,
+  DELAY,
+  PITCH_SHIFT,
+  REVERB,
+  AMBISONIC_ENCODER,
+  AMBISONIC_ROTATION,
+  AMBISONIC_DECODER,
+  DC_OFFSET_REMOVAL,
+  DE_HUM,
+  DE_CLICK,
+  DE_POP,
+  NOISE_REDUCTION,
+  DEREVERBERATION,
+];
+
+/** Every processor type by type key, as the effect rack finds a slot's type. */
+export const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType> = new Map(
+  PROCESSOR_TYPES.map((type) => [type.descriptor.typeKey, type]),
+);
+
+/**
+ * The descriptors of the machine-learning processor types, by category in the
+ * domain's order, whose types the threads make with their services.
+ */
+export const MODEL_PROCESSOR_DESCRIPTORS: readonly ProcessorDescriptor[] = [
+  DEEPFILTERNET_3_DESCRIPTOR,
+  MOSSFORMER2_SE_48K_DESCRIPTOR,
+  SPLEETER_2_STEMS_DESCRIPTOR,
+  SPLEETER_4_STEMS_DESCRIPTOR,
+];
+
+/** How each machine-learning type is made, in the order of their descriptors. */
+const MODEL_PROCESSOR_TYPES: readonly ((services: ModelServices) => ProcessorType)[] = [
+  deepFilterNet3,
+  mossFormer2Se48k,
+  spleeter2Stems,
+  spleeter4Stems,
+];
+
+/**
+ * Every processor type by type key, those that run a model made to run it
+ * through `services`: what a thread that runs chains gives the effect rack,
+ * once, as it starts.
+ */
+export function processorTypesWith(services: ModelServices): ReadonlyMap<string, ProcessorType> {
+  return new Map([
+    ...PROCESSOR_TYPES_BY_KEY,
+    ...MODEL_PROCESSOR_TYPES.map((make) => {
+      const type = make(services);
+      return [type.descriptor.typeKey, type] as const;
+    }),
+  ]);
+}
+
+/** The descriptors of every processor type, those that run a model among them, by type key. */
+export const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor> = new Map([
+  ...catalogueOf(PROCESSOR_TYPES),
+  ...MODEL_PROCESSOR_DESCRIPTORS.map((descriptor) => [descriptor.typeKey, descriptor] as const),
+]);

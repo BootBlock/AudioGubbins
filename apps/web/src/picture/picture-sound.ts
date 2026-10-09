@@ -97,6 +97,7 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
   if (!layout.ok || !rate.ok || !length.ok)
     return 'The picture’s sound has a shape AudioGubbins cannot hold.';
   const id = `picture-sound:${file.name}:${String(file.size)}:${String(file.lastModified)}`;
+  const content = `${id}:${String(frames)}:${String(sound.channels.length)}`;
   return {
     id,
     name: `Sound of ${file.name}`,
@@ -104,7 +105,8 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
     sampleRate: rate.value,
     layout: layout.value,
     length: length.value,
-    revision: revisionOf(`${id}:${String(frames)}:${String(sound.channels.length)}`),
+    content,
+    revision: revisionOf(content),
     // Copied each time: a description's arrays are transferred to the thread
     // that reads them, and the session keeps its own.
     describe: () => ({
@@ -112,6 +114,9 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
       sampleRate: rate.value,
       channels: sound.channels.map((channel) => channel.slice()),
     }),
+    // A picture's sound has no chain to run.
+    unracked: undefined,
+    original: undefined,
     owner: {
       kind: 'session',
       reason:

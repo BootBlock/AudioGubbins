@@ -170,11 +170,17 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-transport': ['transport'],
   'chromium-timeline': ['timeline'],
   'chromium-core-editing': ['core-editing'],
+  'chromium-analysis': ['analysis'],
+  'chromium-effect-rack': ['effect-rack'],
+  'chromium-worker-policy': ['worker-policy'],
   'chromium-renderer': ['renderer-loss'],
   'chromium-renderer-webgpu': ['renderer-webgpu'],
   'chromium-renderer-reduced': ['renderer-reduced'],
   'chromium-touch-pen': ['touch-pen'],
   'chromium-video-reference': ['video-reference'],
+  'chromium-ml-golden': ['ml-golden'],
+  'firefox-ml-golden': ['ml-golden'],
+  'webkit-ml-golden': ['ml-golden'],
   firefox: ['accessibility', 'smoke'],
   webkit: ['accessibility', 'smoke'],
   'chromium-scaled': ['accessibility', 'smoke'],
@@ -323,8 +329,11 @@ describe('the browser matrix', () => {
   it('reads the specs it is ruling on, so a passing rule is not passing vacuously', () => {
     expect(SPECS).toEqual([
       'tests/e2e/accessibility.spec.ts',
+      'tests/e2e/analysis.spec.ts',
       'tests/e2e/core-editing.spec.ts',
+      'tests/e2e/effect-rack.spec.ts',
       'tests/e2e/input.spec.ts',
+      'tests/e2e/ml-golden.spec.ts',
       'tests/e2e/pages.spec.ts',
       'tests/e2e/projects.spec.ts',
       'tests/e2e/renderer-loss.spec.ts',
@@ -336,6 +345,7 @@ describe('the browser matrix', () => {
       'tests/e2e/touch.spec.ts',
       'tests/e2e/transport.spec.ts',
       'tests/e2e/video-reference.spec.ts',
+      'tests/e2e/worker-policy.spec.ts',
     ]);
     expect(SPECS.flatMap((path) => tagsOf(path))).toContain('@scale');
   });

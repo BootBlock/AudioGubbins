@@ -95,7 +95,7 @@ function playAsset(): Command<ShellContext> {
       if (!holds) parkHeld(context);
       // Said by the playback once the audio is heard, or its reason if not.
       context.playback.play(
-        assetProgramme(target.asset),
+        assetProgramme(target.asset, context.hearing.get()),
         holds ? undefined : context.cues.of(target.asset.id),
       );
       return undefined;

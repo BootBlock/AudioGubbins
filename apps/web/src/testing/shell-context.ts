@@ -23,12 +23,16 @@ import {
 } from '@audiogubbins/workspace';
 
 import { KeyboardConvention } from '@audiogubbins/commands';
+import { DetectionHost } from '@audiogubbins/detection-runtime';
+import { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 
+import { DetectionControl } from '../analysis/detection-control.js';
 import { PlaybackControl } from '../audio/playback-control.js';
 import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { createAudioSettingsStore } from '../state/audio-settings-store.js';
+import { createAudioSettingsStore, previewQualityOf } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
+import { createHearingStore } from '../state/hearing-store.js';
 import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import {
@@ -48,6 +52,7 @@ import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
 import { unavailableStorageRoot } from '../state/storage-root-store.js';
 import { FakePlayback, FakeRendering } from './audio-fakes.js';
+import { noPackManager } from './pack-managers.js';
 import { fakeEditor } from './editor-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
@@ -62,6 +67,7 @@ export const CAPABLE: CapabilityEnvironment = {
   isCrossOriginIsolated: true,
   hasAudioWorklet: true,
   compilesWebAssembly: true,
+  validatesWebAssemblySimd: true,
   choosesAudioOutput: true,
   hasWebWorkers: true,
   hasWebGpu: true,
@@ -128,7 +134,7 @@ function fakeAudio(
 ): {
   readonly parts: Pick<
     ShellContext,
-    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
   readonly fakes: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
 } {
@@ -149,9 +155,11 @@ function fakeAudio(
         view: audio,
         open: fakes.playback.open,
         profile: () => audioSettings.get().chosen,
+        quality: () => previewQualityOf(audioSettings.get()),
         announce,
         logger,
       }),
+      hearing: createHearingStore(),
       rendering: new RenderControl({
         view: audio,
         settings: audioSettings,
@@ -164,6 +172,30 @@ function fakeAudio(
       }),
     },
   };
+}
+
+/**
+ * The session's detections on the real worker's core, run in the test's own
+ * thread, which reads the audio a test gives it as the browser's worker does.
+ */
+function localDetection(interaction: InteractionStore): {
+  readonly control: DetectionControl;
+  readonly workers: readonly LocalDetectionWorker[];
+} {
+  const workers: LocalDetectionWorker[] = [];
+  const control = new DetectionControl({
+    host: new DetectionHost({
+      createWorker: () => {
+        const worker = new LocalDetectionWorker();
+        workers.push(worker);
+        return worker;
+      },
+    }),
+    announce: (text) => {
+      interaction.announce(text);
+    },
+  });
+  return { control, workers };
 }
 
 /**
@@ -183,6 +215,8 @@ export function buildShellContext(
   readonly storage: StateStorage;
   /** The audio part's fakes, for a test of what the audio commands asked of them. */
   readonly audio: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
+  /** The detection workers the session made, in order, for a test of what it asked of them. */
+  readonly detectionWorkers: readonly LocalDetectionWorker[];
 } {
   const logs = createLogStore();
   const diagnostics = createDiagnosticCentre(
@@ -203,12 +237,14 @@ export function buildShellContext(
     keyboardLayout ?? createKeyboardLayoutStore(storage, logger, KeyboardConvention.Windows);
 
   const { parts, fakes } = fakeAudio(interaction, storage, logger);
+  const detection = localDetection(interaction);
 
   return {
     logs,
     files,
     storage,
     audio: fakes,
+    detectionWorkers: detection.workers,
     context: {
       preferences: createPreferencesStore(storage, logger),
       workspace: createWorkspaceStore(DESCRIPTORS, storage, logger),
@@ -231,6 +267,8 @@ export function buildShellContext(
       storageAbsences: [],
       ...parts,
       ...fakeEditor(storage, logger),
+      detection: detection.control,
+      packs: noPackManager(),
     },
   };
 }

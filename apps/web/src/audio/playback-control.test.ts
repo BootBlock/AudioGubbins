@@ -1,17 +1,30 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { FailureKind, fail, failure, sampleCount } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  QualityLevel,
+  fail,
+  failure,
+  namedQualityMode,
+  sampleCount,
+  sampleRate,
+  unsafeBrandId,
+  type EffectChain,
+  type QualityMode,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
+import { rackedPlan } from '@audiogubbins/audio-engine/testing';
 import { PlaybackPhase } from '@audiogubbins/audio-runtime';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 
-import { createAudioSettingsStore } from '../state/audio-settings-store.js';
+import { createAudioSettingsStore, previewQualityOf } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_CONTEXT_RATE, FakePlayback, playbackSettled } from '../testing/audio-fakes.js';
 import { PlaybackControl } from './playback-control.js';
+import type { Programme } from './programme.js';
 import { TEST_SIGNAL_PROGRAMME } from './test-signal.js';
 
 /** A control over fake parts, and what it reports. */
@@ -29,6 +42,7 @@ function rig() {
     view,
     open: parts.open,
     profile: () => settings.get().chosen,
+    quality: () => previewQualityOf(settings.get()),
     announce,
     logger,
   });
@@ -40,7 +54,12 @@ function rig() {
     settings.chooseProfile(profile);
     control.useProfile(settings.get().chosen);
   };
-  return { view, parts, announce, control, settled, settings, choose, logged };
+  /** Chooses a preview quality as its command does: in the settings, and then for playback. */
+  const preview = (mode: QualityMode | undefined) => {
+    settings.choosePreviewQuality(mode);
+    control.usePreviewQuality();
+  };
+  return { view, parts, announce, control, settled, settings, choose, preview, logged };
 }
 
 describe('playing the test signal', () => {
@@ -317,5 +336,189 @@ describe('changing the performance profile', () => {
     expect(parts.opened[0]?.closed).toBe(true);
     expect(parts.latest().disposed).toBe(true);
     expect(view.get().playback).toBeUndefined();
+  });
+});
+
+describe('changing the preview quality', () => {
+  const HIGH = namedQualityMode(QualityLevel.High);
+
+  /** The quality of each load of the latest session, by level. */
+  const loadedLevels = (parts: FakePlayback) =>
+    parts.latest().loads.map((request) => request.quality.level);
+
+  it('loads at the quality the profile previews at until one is chosen', async () => {
+    const { control, parts, settled } = rig();
+
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard]);
+  });
+
+  it('loads again at the new quality in the same context, and plays on from the same place', async () => {
+    const { control, parts, view, settled, preview } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    parts.latest().contextFrame = 9_600;
+
+    preview(HIGH);
+    await settled();
+
+    expect(parts.opened).toHaveLength(1);
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard, QualityLevel.High]);
+    expect(parts.latest().seeks).toEqual([9_600]);
+    expect(view.get().playback?.transport.mode).toBe(TransportMode.Playing);
+  });
+
+  it('keeps where a paused transport was, and loads at the new quality on the next Play', async () => {
+    const { control, parts, settled, preview } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    parts.latest().contextFrame = 4_800;
+    control.pause();
+
+    preview(HIGH);
+    expect(parts.latest().loads).toHaveLength(1);
+
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard, QualityLevel.High]);
+    expect(parts.latest().seeks).toEqual([4_800]);
+  });
+
+  it('loads nothing again when the quality in force has not changed', async () => {
+    const { control, parts, settled, preview } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    preview(namedQualityMode(QualityLevel.Standard));
+    preview(undefined);
+    await settled();
+
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard]);
+  });
+
+  it('follows the profile while automatic, so a new profile previews at its own quality', async () => {
+    const { control, parts, settled, choose } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    choose(PerformanceProfile.LowLatency);
+    await settled();
+
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Draft]);
+  });
+});
+
+describe('following a programme the project changed while it plays', () => {
+  const PROCESSOR = unsafeBrandId<'ProcessorId'>('00000000-9a1e');
+  const LEVEL = unsafeBrandId<'ParameterId'>('9a1e0001-0001');
+  const RATE = expectSuccess(sampleRate(48_000));
+
+  /** The asset racked with a gain at `decibels`, bypassed where `bypassed`, as a programme. */
+  function racked(decibels: number, bypassed = false): Programme {
+    const chain: EffectChain = {
+      id: unsafeBrandId<'EffectChainId'>('00000000-c4a1'),
+      slots: [
+        {
+          kind: 'processor',
+          id: PROCESSOR,
+          typeKey: 'gain',
+          enabled: !bypassed,
+          soloed: false,
+          mix: 1,
+          version: { implementation: 1, parameters: 1 },
+          values: new Map([[LEVEL, decibels]]),
+        },
+      ],
+    };
+    return {
+      ...TEST_SIGNAL_PROGRAMME,
+      key: 'asset:racked',
+      content: `gain ${String(decibels)}${bypassed ? ' bypassed' : ''}`,
+      plan: rackedPlan(chain, 48_000, RATE),
+    };
+  }
+
+  it('gives a changed level to the running chains, loading nothing again', async () => {
+    const { control, parts, settled } = rig();
+    control.play(racked(-6));
+    await settled();
+
+    control.follow(racked(-3));
+    await Promise.resolve();
+
+    expect(parts.latest().changes).toEqual([
+      [{ stream: 1, processor: PROCESSOR, parameter: LEVEL, value: -3 }],
+    ]);
+    expect(parts.latest().loads).toHaveLength(1);
+    // The next Play of the changed programme plays what is loaded.
+    control.pause();
+    control.play(racked(-3));
+    await settled();
+    expect(parts.latest().loads).toHaveLength(1);
+  });
+
+  it('loads it again where it plays, and says so, where a chain is heard from a render made before', async () => {
+    const { control, parts, settled, announce } = rig();
+    control.play(racked(-6));
+    await settled();
+    const session = parts.latest();
+    session.contextFrame = 9_600;
+    session.changeResult = fail(
+      failure('playback.parameter-rendered', FailureKind.Rejected, 'Made with the value before.'),
+    );
+
+    control.follow(racked(-3));
+    // The refusal arrives after a turn, and the load it starts after that.
+    await Promise.resolve();
+    await settled();
+
+    expect(session.loads).toHaveLength(2);
+    expect(session.seeks).toEqual([9_600]);
+    expect(announce).toHaveBeenCalledWith('The change is heard once its preview is made again.');
+  });
+
+  it('plays a programme loaded again while stopped from where the playhead was moved since', async () => {
+    // Hearing the original after playing to the end, moving the playhead to
+    // the start and pressing Play played on from the end, which is silence.
+    const { control, parts, settled } = rig();
+    control.play(racked(-6));
+    await settled();
+    parts.latest().contextFrame = 9_600;
+    control.pause();
+    control.follow(racked(-6, true));
+    await settled();
+
+    expect(control.seek('asset:racked', expectSuccess(sampleCount(0)))).toBe(true);
+    control.play(racked(-6, true));
+    await settled();
+
+    expect(parts.latest().seeks.at(-1)).toBe(0);
+  });
+
+  it('loads anything else again where it plays, and a paused programme at the next Play', async () => {
+    const { control, parts, settled } = rig();
+    control.play(racked(-6));
+    await settled();
+
+    control.follow(racked(-6, true));
+    await settled();
+    expect(parts.latest().changes).toEqual([]);
+    expect(parts.latest().loads).toHaveLength(2);
+
+    control.pause();
+    control.follow(racked(-3, true));
+    await Promise.resolve();
+    expect(parts.latest().loads).toHaveLength(2);
+    parts.latest().changeResult = fail(
+      failure('playback.parameter-rendered', FailureKind.Rejected, 'Made with the value before.'),
+    );
+    control.follow(racked(0, true));
+    await Promise.resolve();
+    await Promise.resolve();
+    control.play(racked(0, true));
+    await settled();
+    expect(parts.latest().loads).toHaveLength(3);
   });
 });

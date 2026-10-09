@@ -8,9 +8,10 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, sampleRate, type DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
+import { DetectorKind } from '../canonical-analysis.js';
 import { ResamplingQuality } from '../canonical-dsp.js';
 import { readDspExports } from './dsp-exports.js';
 import { wasmDsp } from './wasm-dsp.js';
@@ -19,7 +20,7 @@ import { wasmDsp } from './wasm-dsp.js';
  * The ABI version the engine speaks, written here rather than read from the
  * binding, so a change of version is a change this test is made to agree to.
  */
-const DSP_ABI_VERSION = 3;
+const DSP_ABI_VERSION = 6;
 
 /** Every function the engine calls, each answering 0 unless a test says otherwise. */
 const FUNCTIONS = [
@@ -27,7 +28,20 @@ const FUNCTIONS = [
   'ag_buffer_create',
   'ag_buffer_address',
   'ag_buffer_release',
+  'ag_buffer_f64_create',
+  'ag_buffer_f64_address',
+  'ag_buffer_f64_release',
   'ag_sine_of_turns',
+  'ag_cosine_of_turns',
+  'ag_tangent_of_turns',
+  'ag_arctangent_turns',
+  'ag_exp',
+  'ag_ln',
+  'ag_log2',
+  'ag_log10',
+  'ag_pow',
+  'ag_decibels_to_gain',
+  'ag_gain_to_decibels',
   'ag_oscillator_create',
   'ag_oscillator_render',
   'ag_oscillator_seek',
@@ -41,6 +55,29 @@ const FUNCTIONS = [
   'ag_resampler_seek',
   'ag_resampler_table_bytes',
   'ag_resampler_release',
+  'ag_fft_create',
+  'ag_fft_forward_real',
+  'ag_fft_inverse_real',
+  'ag_fft_release',
+  'ag_stft_create',
+  'ag_stft_push',
+  'ag_stft_pull_complex',
+  'ag_stft_pull_polar',
+  'ag_stft_release',
+  'ag_peak_meter_create',
+  'ag_peak_meter_push',
+  'ag_peak_meter_read',
+  'ag_peak_meter_release',
+  'ag_loudness_meter_create',
+  'ag_loudness_meter_push',
+  'ag_loudness_meter_pull_series',
+  'ag_loudness_meter_read',
+  'ag_loudness_meter_release',
+  'ag_detector_create',
+  'ag_detector_record_width',
+  'ag_detector_push',
+  'ag_detector_pull',
+  'ag_detector_release',
 ] as const;
 
 /** Exports that speak this engine's ABI, with `changes` laid over them. */
@@ -144,5 +181,29 @@ describe('wasmDsp over a module that refuses to make an object', () => {
     });
 
     expect(expectFailureCode(made)).toBe('dsp.module-refused');
+  });
+
+  it('reports the refusal of an FFT', () => {
+    expect(expectFailureCode(dsp.createFft(1_024))).toBe('dsp.module-refused');
+  });
+
+  it('reports the refusal of each measuring object', () => {
+    const rate = expectSuccess(sampleRate(48_000));
+    const made: readonly DomainResult<{ release(): void }>[] = [
+      dsp.createStft({ channels: 2, size: 1_024, hop: 256 }),
+      dsp.createPeakMeter({ channels: 2, sampleRate: rate }),
+      dsp.createLoudnessMeter({ sampleRate: rate, layout: StandardLayouts.stereo }),
+      dsp.createDetectorFeatures({
+        kind: DetectorKind.DcOffset,
+        channels: 2,
+        sampleRate: rate,
+        window: 480,
+        hop: 480,
+      }),
+    ];
+
+    expect(made.map((result) => expectFailureCode(result))).toEqual(
+      Array(4).fill('dsp.module-refused'),
+    );
   });
 });

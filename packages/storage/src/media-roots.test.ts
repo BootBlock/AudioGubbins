@@ -6,11 +6,14 @@ import {
   encodeUtf8,
   type ByteSink,
   type ContentId,
+  type JsonValue,
   type StorageTree,
   type TreeEntry,
 } from '@audiogubbins/project-format';
 
-import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { CheckedRecords, RECORD_LIMITS, RecordKind } from './checked-records.js';
+import { retainedMedia } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
 import { sweepCrashes } from './testing/crash-sweep.js';
 import { ProjectPaths } from './storage-layout.js';
 import { addAsset, contentOf, setName } from './testing/test-commands.js';
@@ -173,6 +176,26 @@ describe('the media every project retains (REQ-STOR-102, REQ-STOR-193)', () => {
     await tree.writeFile(record, new Uint8Array([123, 34]));
     const { unreadable } = await rootsOf(tree);
     expect(unreadable.map((problem) => problem.path)).toEqual([record]);
+  });
+
+  it('searches a record as deep as its reader reads one, the media at its bottom kept', async () => {
+    const test = harness();
+    const tree = new MemoryStorageTree();
+    const header = await madeProject(test, tree);
+    const session = await openToWrite(test, tree, header.id);
+    expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), contentOf(4))));
+    const record = tree.paths().find((path) => path.includes('/journal/'));
+    if (record === undefined) throw new Error('No journal record.');
+    // The envelope takes one level, so the deepest body is one less than the record.
+    let body: JsonValue = contentOf(9);
+    for (let level = 1; level < RECORD_LIMITS.maximumDepth; level += 1) body = [body];
+    const records = new CheckedRecords(tree, nodeDigest);
+    expectSuccess(await records.write(record, RecordKind.JournalRecord, body));
+
+    const { roots, unreadable } = await rootsOf(tree);
+
+    expect(unreadable).toEqual([]);
+    expect(roots).toContain(contentOf(9));
   });
 });
 

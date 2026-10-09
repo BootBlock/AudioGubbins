@@ -10,7 +10,8 @@
     "rootDir": "./src",
     "tsBuildInfoFile": "./build/tsconfig.tsbuildinfo",
     "emitDeclarationOnly": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "allowJs": true
   },
   "include": [
     "src/**/*.ts",
@@ -95,6 +96,18 @@
     },
     {
       "path": "../../packages/clipboard"
+    },
+    {
+      "path": "../../packages/processors"
+    },
+    {
+      "path": "../../packages/detection-runtime"
+    },
+    {
+      "path": "../../packages/ml-runtime"
+    },
+    {
+      "path": "../../packages/model-packs"
     },
     {
       "path": "../../packages/test-fixtures"

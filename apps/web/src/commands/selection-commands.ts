@@ -9,6 +9,9 @@
  * The commands that select time with the playhead are
  * `selection-playhead-commands.ts`.
  *
+ * Processors are selected in the selection of the asset whose racks run
+ * them, so the Effects rack panel and the Inspector show one selection.
+ *
  * None is undoable: a selection is not project content, and Undo is kept for
  * what is (REQ-EDIT-073).
  */
@@ -16,11 +19,16 @@
 import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
 import {
   ZERO_SAMPLES,
+  assetChains,
+  chainIdsOf,
   channelCount,
   isWellFormedId,
+  regionChains,
   sampleCount,
+  findSlot,
   unsafeBrandId,
   type MarkerId,
+  type ProcessorId,
   type RegionId,
   type SampleCount,
 } from '@audiogubbins/domain';
@@ -44,6 +52,7 @@ import {
   type EditorTarget,
 } from './editor-target.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
+import { projectTarget } from './project-edits.js';
 import { shellCommand, textArgument, type ShellCommandOptions } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -137,6 +146,75 @@ function withRegions(current: SelectionSet, ids: readonly RegionId[]): Selection
   return first === undefined
     ? withoutFacet(current, SelectionFacet.Objects)
     : withObjects(current, { kind: 'regions', ids: [first, ...rest] });
+}
+
+/** `current` with the processors `ids` selected, or no object selected where there are none. */
+function withProcessors(current: SelectionSet, ids: readonly ProcessorId[]): SelectionSet {
+  const [first, ...rest] = ids;
+  return first === undefined
+    ? withoutFacet(current, SelectionFacet.Objects)
+    : withObjects(current, { kind: 'processors', ids: [first, ...rest] });
+}
+
+function heldProcessors(current: SelectionSet): readonly ProcessorId[] {
+  return current.objects?.kind === 'processors' ? current.objects.ids : [];
+}
+
+/**
+ * The processor `named` among the chains the view's asset and its regions
+ * run, by its identifier, or why it is none of them.
+ */
+function processorOf(
+  context: ShellContext,
+  target: EditorTarget,
+  named: string | undefined,
+): { readonly id: ProcessorId } | string {
+  const project = projectTarget(context, target.asset);
+  if (typeof project === 'string') return project;
+  const { project: state } = project.state;
+  const asset = state.assets.get(project.owner.asset.id);
+  if (asset === undefined) return 'That asset is no longer in the project.';
+  const targets = [
+    assetChains(asset),
+    ...[...state.regions.values()]
+      .filter((region) => region.assetId === asset.id)
+      .map(regionChains),
+  ];
+  for (const chains of targets) {
+    for (const id of chainIdsOf(chains)) {
+      const chain = state.effectChains.get(id);
+      const found = chain === undefined || named === undefined ? undefined : findSlot(chain, named);
+      if (found?.slot.kind === 'processor') return { id: found.slot.id };
+    }
+  }
+  return `That processor is in no rack of ${target.asset.name}.`;
+}
+
+function processorSelections(): readonly Command<ShellContext>[] {
+  return [
+    selectionCommand(
+      'editor.select-processor',
+      'Select a processor',
+      (current, target, context, invocation) => {
+        const found = processorOf(context, target, textArgument(invocation, 'processorId'));
+        if (typeof found === 'string') return found;
+        // A processor is selected among the others only with `extend`, as a
+        // marker is with `add`.
+        const adding = invocation.arguments?.['extend'] === true;
+        return withProcessors(current, chosen(heldProcessors(current), found.id, adding));
+      },
+      { discoverable: false },
+    ),
+    selectionCommand(
+      'editor.deselect-processors',
+      'Select no processor',
+      (current, { asset }) =>
+        heldProcessors(current).length === 0
+          ? `No processor of ${asset.name} is selected.`
+          : withoutFacet(current, SelectionFacet.Objects),
+      { keywords: ['deselect', 'processor', 'clear', 'rack', 'none'] },
+    ),
+  ];
 }
 
 function heldMarkers(current: SelectionSet): readonly MarkerId[] {
@@ -276,6 +354,7 @@ export function selectionCommands(): readonly Command<ShellContext>[] {
   return [
     ...rangeCommands(),
     ...objectSelections(),
+    ...processorSelections(),
     stepCommand(MARKERS, Step.Next),
     stepCommand(MARKERS, Step.Previous),
     stepCommand(REGIONS, Step.Next),

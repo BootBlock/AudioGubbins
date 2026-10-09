@@ -1,17 +1,20 @@
+import { PLAN_WITHOUT_CHAINS, TEST_ENGINE } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
 import { OTHER_RATE, assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
 import { expectSuccess } from '../testing/unwrap.js';
 import { Affinity, anchorResolver, carryPosition, carrySpan } from './anchors.js';
-import { sourceShape } from './edit-shape.js';
+import { shapesOf, sourceShape } from './edit-shape.js';
 import type { EditOperation } from './operations.js';
 import { assetPlan } from './plan-building.js';
 import { slicePlan } from './plan-slicing.js';
 
 const SOURCE = assetOf('source', 1_000);
 const SHAPE = sourceShape(SOURCE);
-const TEN_FRAMES = expectSuccess(slicePlan(assetPlan(SOURCE), 0, 10));
+const TEN_FRAMES = expectSuccess(
+  slicePlan(expectSuccess(assetPlan(SOURCE, PLAN_WITHOUT_CHAINS)), 0, 10),
+);
 
 const deletion: EditOperation = {
   id: operationId('delete'),
@@ -23,7 +26,6 @@ const insertion: EditOperation = {
   kind: 'insert',
   at: frames(300),
   payload: TEN_FRAMES,
-  convertRate: false,
 };
 const reversal: EditOperation = {
   id: operationId('reverse'),
@@ -31,6 +33,20 @@ const reversal: EditOperation = {
   range: range(400, 500),
 };
 const trim: EditOperation = { id: operationId('trim'), kind: 'trim', range: range(100, 900) };
+/** A stretch of 100 frames to 133, a ratio no float multiplies exactly. */
+const stretch: EditOperation = {
+  id: operationId('stretch'),
+  kind: 'stretch',
+  range: range(100, 200),
+  length: frames(133),
+  version: TEST_ENGINE.stretch,
+};
+const conversion: EditOperation = {
+  id: operationId('convert'),
+  kind: 'convert-rate',
+  sampleRate: OTHER_RATE,
+  version: TEST_ENGINE.resampler,
+};
 const gain: EditOperation = {
   id: operationId('gain'),
   kind: 'process',
@@ -64,6 +80,36 @@ describe('carrying a position through one edit', () => {
     expect(carryPosition(trim, SHAPE, 50, Affinity.After)).toBe(0);
     expect(carryPosition(trim, SHAPE, 500, Affinity.After)).toBe(400);
     expect(carryPosition(trim, SHAPE, 950, Affinity.After)).toBe(800);
+  });
+
+  it('leaves a position at or before a stretch where it is, and moves one after it by the change of length', () => {
+    expect(carryPosition(stretch, SHAPE, 0, Affinity.After)).toBe(0);
+    expect(carryPosition(stretch, SHAPE, 100, Affinity.After)).toBe(100);
+    expect(carryPosition(stretch, SHAPE, 100, Affinity.Before)).toBe(100);
+    expect(carryPosition(stretch, SHAPE, 201, Affinity.After)).toBe(234);
+    expect(carryPosition(stretch, SHAPE, 1_000, Affinity.Before)).toBe(1_033);
+  });
+
+  it('moves a position inside a stretch by the exact ratio rounded up, as the resampler counts frames', () => {
+    // 1 · 133 / 100 is 1.33: rounding down or to nearest would give 101.
+    expect(carryPosition(stretch, SHAPE, 101, Affinity.After)).toBe(102);
+    expect(carryPosition(stretch, SHAPE, 150, Affinity.After)).toBe(167);
+    expect(carryPosition(stretch, SHAPE, 199, Affinity.After)).toBe(232);
+  });
+
+  it('lands the end of a stretched range on the stretched range’s end, whatever its affinity', () => {
+    expect(carryPosition(stretch, SHAPE, 200, Affinity.Before)).toBe(233);
+    expect(carryPosition(stretch, SHAPE, 200, Affinity.After)).toBe(233);
+    expect(carrySpan(stretch, SHAPE, { start: 100, end: 200 })).toEqual({ start: 100, end: 233 });
+  });
+
+  it('moves every position by the ratio of the rates, rounded up, and the end onto the converted end', () => {
+    expect(carryPosition(conversion, SHAPE, 0, Affinity.After)).toBe(0);
+    expect(carryPosition(conversion, SHAPE, 480, Affinity.After)).toBe(441);
+    // 44 100 / 48 000 of one frame is under one: rounding down would put it on frame 0.
+    expect(carryPosition(conversion, SHAPE, 1, Affinity.After)).toBe(1);
+    // 1 000 · 44 100 / 48 000 is 918.75.
+    expect(carryPosition(conversion, SHAPE, 1_000, Affinity.Before)).toBe(919);
   });
 
   it('carries every position through processing unchanged', () => {
@@ -103,10 +149,22 @@ describe('resolving a position stated at a basis', () => {
     expect(resolver.span(1.5, { start: 0, end: 1 })).toBeUndefined();
   });
 
+  it('carries the end of the asset onto its new end through a stretch and a conversion of rate', () => {
+    const asset = assetOf('stretched', 1_000, [stretch, conversion]);
+    const ends = shapesOf(asset).map((shape) => shape.length);
+    expect(ends).toEqual([1_000, 1_033, 950]);
+    expect(anchorResolver(asset).position(0, 1_000, Affinity.Before)).toBe(950);
+    expect(anchorResolver(asset).position(1, 1_033, Affinity.Before)).toBe(950);
+  });
+
   it('measures an insertion at another rate by its converted length', () => {
     const source = assetOf('at-44', 441, [], StandardLayouts.stereo, OTHER_RATE);
-    const payload = expectSuccess(slicePlan(assetPlan(source), 0, 441));
-    const converted = assetOf('converted', 1_000, [{ ...insertion, payload, convertRate: true }]);
+    const payload = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(source, PLAN_WITHOUT_CHAINS)), 0, 441),
+    );
+    const converted = assetOf('converted', 1_000, [
+      { ...insertion, payload, resampler: TEST_ENGINE.resampler },
+    ]);
     expect(anchorResolver(converted).position(0, 500, Affinity.After)).toBe(980);
   });
 });

@@ -15,6 +15,9 @@
       "path": "./packages/text"
     },
     {
+      "path": "./packages/text/scopes/any"
+    },
+    {
       "path": "./packages/input"
     },
     {
@@ -39,6 +42,27 @@
       "path": "./packages/audio-engine/scopes/any"
     },
     {
+      "path": "./packages/ml-runtime"
+    },
+    {
+      "path": "./packages/ml-runtime/scopes/any"
+    },
+    {
+      "path": "./packages/ml-runtime/scopes/dedicated-worker"
+    },
+    {
+      "path": "./packages/processors"
+    },
+    {
+      "path": "./packages/processors/scopes/any"
+    },
+    {
+      "path": "./packages/effect-rack"
+    },
+    {
+      "path": "./packages/effect-rack/scopes/any"
+    },
+    {
       "path": "./packages/audio-runtime"
     },
     {
@@ -61,6 +85,15 @@
     },
     {
       "path": "./packages/waveform/scopes/dedicated-worker"
+    },
+    {
+      "path": "./packages/detection-runtime"
+    },
+    {
+      "path": "./packages/detection-runtime/scopes/any"
+    },
+    {
+      "path": "./packages/detection-runtime/scopes/dedicated-worker"
     },
     {
       "path": "./packages/renderer"
@@ -100,6 +133,9 @@
     },
     {
       "path": "./packages/media-store"
+    },
+    {
+      "path": "./packages/model-packs"
     },
     {
       "path": "./packages/storage"

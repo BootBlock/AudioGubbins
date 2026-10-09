@@ -1,0 +1,2 @@
+/** Read as {@link nothingNamedThis} says. */
+export const unresolved = 0;

@@ -49,11 +49,12 @@ import {
   type ProjectState,
 } from '@audiogubbins/project-format';
 
-import type { ClipboardPayload } from './clipboard-payload.js';
+import type { AudioPayload } from './clipboard-payload.js';
+import { quoted } from '@audiogubbins/text';
 
 /** Where a paste goes, and how. */
 export interface PasteRequest {
-  readonly payload: ClipboardPayload;
+  readonly payload: AudioPayload;
 
   /** The asset pasted into. */
   readonly asset: AssetId;
@@ -64,10 +65,11 @@ export interface PasteRequest {
     | { readonly kind: 'replace'; readonly range: EditRange };
 
   /**
-   * Whether the person asked for audio at another rate to be converted. Audio
-   * at the asset's own rate is pasted as it is either way.
+   * The version of the canonical resampler, the engine's, that converts audio
+   * at another rate where the person asked for that, or `undefined` where they
+   * did not. Audio at the asset's own rate is pasted as it is either way.
    */
-  readonly convertRate: boolean;
+  readonly convertWith: number | undefined;
 }
 
 /** What a paste does, to be run as one change. */
@@ -113,14 +115,15 @@ export function planPaste(
       kind: 'delete',
       range: request.place.range,
     };
-    const valid = validateOperation(deletion, shape, assets);
+    const valid = validateOperation(deletion, shape, assets, state.project.effectChains);
     if (!valid.ok) return valid;
     operations.push(deletion);
     shape = shapeAfter(shape, deletion);
   }
 
-  const convertRate = request.convertRate && plan.value.streams[0].sampleRate !== shape.sampleRate;
-  const pieces = argumentSized(plan.value, convertRate, longestArgument);
+  const resampler =
+    plan.value.streams[0].sampleRate === shape.sampleRate ? undefined : request.convertWith;
+  const pieces = argumentSized(plan.value, resampler, longestArgument);
   if (!pieces.ok) return pieces;
   for (const piece of pieces.value) {
     const insertion: EditOperation = {
@@ -128,9 +131,9 @@ export function planPaste(
       kind: 'insert',
       at: derivedSampleCount(at),
       payload: piece,
-      convertRate,
+      ...(resampler === undefined ? {} : { resampler }),
     };
-    const valid = validateOperation(insertion, shape, assets);
+    const valid = validateOperation(insertion, shape, assets, state.project.effectChains);
     if (!valid.ok) return valid;
     operations.push(insertion);
     const after = shapeAfter(shape, insertion);
@@ -174,7 +177,7 @@ function recordsToAdd(
     if (!same) {
       return refused(
         'source-differs',
-        `The copied audio reads “${record.asset.displayName}”, which this project holds with other media.`,
+        `The copied audio reads ${quoted(record.asset.displayName)}, which this project holds with other media.`,
       );
     }
   }
@@ -207,15 +210,22 @@ function fitted(plan: EditPlan, shape: EditShape): DomainResult<EditPlan> {
   });
 }
 
-/** Whether an insertion of `plan` fits in one invocation argument. */
-function fitsOneArgument(plan: EditPlan, convertRate: boolean, longestArgument: number): boolean {
+/**
+ * Whether an insertion of `plan`, converted by version `resampler` of the
+ * resampler where one is given, fits in one invocation argument.
+ */
+function fitsOneArgument(
+  plan: EditPlan,
+  resampler: number | undefined,
+  longestArgument: number,
+): boolean {
   const probe: EditOperation = {
     // The longest identity is the one the probe is measured with.
     id: unsafeBrandId<'EditOperationId'>('ffffffff-ffff-4fff-bfff-ffffffffffff'),
     kind: 'insert',
     at: derivedSampleCount(Number.MAX_SAFE_INTEGER),
     payload: plan,
-    convertRate,
+    ...(resampler === undefined ? {} : { resampler }),
   };
   return canonicalJson(writeEditOperation(probe)).length <= longestArgument;
 }
@@ -227,11 +237,11 @@ function fitsOneArgument(plan: EditPlan, convertRate: boolean, longestArgument: 
  */
 function argumentSized(
   plan: EditPlan,
-  convertRate: boolean,
+  resampler: number | undefined,
   longestArgument: number,
 ): DomainResult<readonly EditPlan[]> {
-  if (fitsOneArgument(plan, convertRate, longestArgument)) return succeed([plan]);
-  if (convertRate) {
+  if (fitsOneArgument(plan, resampler, longestArgument)) return succeed([plan]);
+  if (resampler !== undefined) {
     return refused(
       'too-large-to-convert',
       'The copied audio is too intricate to convert to this audio’s rate in one change. Paste it into audio at its own rate, or copy less of it.',
@@ -249,7 +259,7 @@ function argumentSized(
   const pieces: EditPlan[] = [];
   for (const half of halves) {
     if (!half.ok) return half;
-    const split = argumentSized(half.value, convertRate, longestArgument);
+    const split = argumentSized(half.value, resampler, longestArgument);
     if (!split.ok) return split;
     pieces.push(...split.value);
   }

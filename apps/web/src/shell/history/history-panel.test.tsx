@@ -211,7 +211,7 @@ describe('the History panel', () => {
     const { list } = panelOver(window);
 
     const [, added, renamed] = within(list()).getAllByRole('option');
-    expect(within(added ?? list()).getByText('Changed asset "Kick"')).toBeVisible();
+    expect(within(added ?? list()).getByText('Changed asset “Kick”')).toBeVisible();
     expect(
       within(renamed ?? list()).getByText('Changed the project · The kick is too loud.'),
     ).toBeVisible();
@@ -219,14 +219,14 @@ describe('the History panel', () => {
 
     await userEvent.click(added ?? list());
     await userEvent.click(
-      screen.getByRole('button', { name: 'Show only the changes to asset "Kick"' }),
+      screen.getByRole('button', { name: 'Show only the changes to asset “Kick”' }),
     );
     expect(
       within(list())
         .getAllByRole('option')
         .map((option) => option.querySelector('.ag-history-row-description')?.textContent),
     ).toEqual(['Add asset “Kick”']);
-    expect(screen.getByText('Showing only the changes to asset "Kick".')).toBeVisible();
+    expect(screen.getByText('Showing only the changes to asset “Kick”.')).toBeVisible();
 
     await userEvent.click(screen.getByRole('button', { name: 'Show every change' }));
     expect(within(list()).getAllByRole('option')).toHaveLength(3);

@@ -9,13 +9,20 @@
  */
 
 import { channelCount, layoutsMatch, type ChannelLayout } from '../audio/channel-layout.js';
-import type { AssetId } from '../identity/branded-id.js';
+import type { AssetId, EffectChainId } from '../identity/branded-id.js';
+import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
-import { sampleCount } from '../time/sample-time.js';
+import { sampleCount, sampleRate } from '../time/sample-time.js';
 import { shapeAfter, sourceShape, type EditShape } from './edit-shape.js';
 import { isLevelEdit, type EditOperation, type EditRange, type RangeEdit } from './operations.js';
-import { isChannelMatrix, isChannelScope, isEditGain, validatePlan } from './plan-validation.js';
+import {
+  MAXIMUM_STRETCH_RATIO,
+  isChannelMatrix,
+  isChannelScope,
+  isEditGain,
+  validatePlan,
+} from './plan-validation.js';
 
 /** A refusal with a stable code and a sentence. */
 function refused(code: string, summary: string): DomainResult<never> {
@@ -31,11 +38,28 @@ export function rangeProblem(range: EditRange, length: number): string | undefin
   return range.start < range.end ? undefined : 'The range covers no audio.';
 }
 
-/** Why a range edit does not fit `count` channels with `channels` scope, or `undefined`. */
+/** The chains a project holds, which an operation or a target may name. */
+export type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>;
+
+/** Why a target's rack does not name one of the project's chains, or `undefined`. */
+export function rackProblem(
+  rack: EffectChainId | undefined,
+  chains: ProjectChains,
+): string | undefined {
+  return rack === undefined || chains.has(rack)
+    ? undefined
+    : 'The rack names a chain the project does not have.';
+}
+
+/**
+ * Why a range edit does not fit `count` channels with `channels` scope, or
+ * `undefined`. A rack edit acts on every channel and names one of `chains`.
+ */
 export function rangeEditProblem(
   edit: RangeEdit,
   channels: readonly number[] | undefined,
   count: number,
+  chains: ProjectChains,
 ): string | undefined {
   if (channels !== undefined && !isChannelScope(channels, count)) {
     return 'The channels named are not channels of this audio.';
@@ -44,6 +68,10 @@ export function rangeEditProblem(
     return edit.kind === 'gain' && (!isEditGain(edit.gain) || edit.gain < 0)
       ? 'A gain must be a factor from zero to sixty decibels.'
       : undefined;
+  }
+  if (edit.kind === 'rack') {
+    if (channels !== undefined) return 'A chain of processors acts on every channel.';
+    return chains.has(edit.chain) ? undefined : 'The edit names a chain the project does not have.';
   }
   if (channels !== undefined) return 'A change between channels names its own channels.';
   const valid = (channel: number): boolean =>
@@ -83,30 +111,78 @@ function insertionProblem(
   assets: ReadonlyMap<AssetId, Asset>,
 ): DomainResult<undefined> {
   if (!Number.isSafeInteger(operation.at) || operation.at < 0 || operation.at > shape.length) {
-    return refused('position-outside', 'The paste position lies outside the audio.');
+    return refused('position-outside', 'The insertion point lies outside the audio.');
   }
   const plan = validatePlan(operation.payload, assets);
   if (!plan.ok) return plan;
   const [stream] = operation.payload.streams;
   if (!layoutsMatch(stream.layout, shape.layout)) {
-    return refused('payload-layout', 'The pasted audio does not have this audio’s channels.');
+    return refused('payload-layout', 'The inserted audio does not have this audio’s channels.');
   }
-  if ((stream.sampleRate !== shape.sampleRate) !== operation.convertRate) {
+  const converted = operation.resampler !== undefined;
+  if ((stream.sampleRate !== shape.sampleRate) !== converted) {
     return refused(
       'payload-rate',
-      operation.convertRate
-        ? 'The pasted audio is already at this audio’s rate, so there is nothing to convert.'
-        : 'The pasted audio is at another sample rate, and is converted only when that is asked for.',
+      converted
+        ? 'The inserted audio is already at this audio’s rate, so there is nothing to convert.'
+        : 'The inserted audio is at another sample rate, and is converted only when that is asked for.',
+    );
+  }
+  if (operation.resampler !== undefined && !isVersion(operation.resampler)) {
+    return refused(
+      'conversion-version',
+      'A conversion of the inserted audio names the version of the resampler it is made by.',
     );
   }
   return succeed(undefined);
 }
 
-/** `operation`, where it may act on a timeline of `shape`. */
+/** Whether `version` is a version an algorithm may have: a whole number from 1. */
+function isVersion(version: number): boolean {
+  return Number.isSafeInteger(version) && version >= 1;
+}
+
+/** Why a stretch does not fit a timeline of `length`, or `undefined`. */
+function stretchProblem(
+  operation: Extract<EditOperation, { readonly kind: 'stretch' }>,
+  length: number,
+): string | undefined {
+  const problem = rangeProblem(operation.range, length);
+  if (problem !== undefined) return problem;
+  if (!Number.isSafeInteger(operation.length) || operation.length <= 0) {
+    return 'A stretch makes a whole number of frames.';
+  }
+  if (!isVersion(operation.version))
+    return 'A stretch names the version of the stretch it is made by.';
+  const before = operation.range.end - operation.range.start;
+  return operation.length * MAXIMUM_STRETCH_RATIO >= before &&
+    operation.length <= before * MAXIMUM_STRETCH_RATIO
+    ? undefined
+    : `A stretch changes a length by at most ${String(MAXIMUM_STRETCH_RATIO)} times either way.`;
+}
+
+/** Why a conversion of rate does not apply to a timeline of `shape`, or `undefined`. */
+function rateProblem(
+  operation: Extract<EditOperation, { readonly kind: 'convert-rate' }>,
+  shape: EditShape,
+): string | undefined {
+  if (!sampleRate(operation.sampleRate).ok) {
+    return 'The new rate is not a sample rate audio can have.';
+  }
+  if (!isVersion(operation.version)) {
+    return 'A conversion of rate names the version of the resampler it is made by.';
+  }
+  return operation.sampleRate === shape.sampleRate
+    ? 'The audio is already at that rate, so there is nothing to convert.'
+    : undefined;
+}
+
+/** `operation`, where it may act on a timeline of `shape` in a project of `assets` and `chains`. */
 export function validateOperation(
   operation: EditOperation,
   shape: EditShape,
   assets: ReadonlyMap<AssetId, Asset>,
+  chains: ProjectChains,
 ): DomainResult<EditOperation> {
   let problem: string | undefined;
   switch (operation.kind) {
@@ -118,7 +194,13 @@ export function validateOperation(
     case 'process':
       problem =
         rangeProblem(operation.range, shape.length) ??
-        rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout));
+        rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout), chains);
+      break;
+    case 'stretch':
+      problem = stretchProblem(operation, shape.length);
+      break;
+    case 'convert-rate':
+      problem = rateProblem(operation, shape);
       break;
     case 'convert-layout':
       problem = conversionProblem(shape.layout, operation.layout, operation.matrix);
@@ -137,13 +219,16 @@ export function validateOperation(
 }
 
 /**
- * The asset, where every operation of its chain is valid where it stands and
- * no two share an identifier.
+ * The asset, where every operation of its chain is valid where it stands, no
+ * two share an identifier, and its rack names one of `chains`.
  */
 export function validateChain(
   asset: Asset,
   assets: ReadonlyMap<AssetId, Asset>,
+  chains: ProjectChains,
 ): DomainResult<Asset> {
+  const rack = rackProblem(asset.rack, chains);
+  if (rack !== undefined) return refused('rack-unknown', rack);
   const seen = new Set<string>();
   let shape = sourceShape(asset);
   for (const operation of asset.edits) {
@@ -151,7 +236,7 @@ export function validateChain(
       return refused('duplicate-operation', 'Two of the asset’s edits share an identifier.');
     }
     seen.add(operation.id);
-    const valid = validateOperation(operation, shape, assets);
+    const valid = validateOperation(operation, shape, assets, chains);
     if (!valid.ok) return valid;
     shape = shapeAfter(shape, operation);
   }

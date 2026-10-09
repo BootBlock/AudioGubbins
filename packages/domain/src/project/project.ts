@@ -16,6 +16,7 @@ import type {
   AssetId,
   BusId,
   ClipId,
+  EditOperationId,
   EffectChainId,
   MarkerId,
   ProjectId,
@@ -24,6 +25,7 @@ import type {
 } from '../identity/branded-id.js';
 import type { SampleRate } from '../time/sample-time.js';
 import type { ChannelLayout } from '../audio/channel-layout.js';
+import type { EditRange, RangeEdit } from '../editing/operations.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from './asset.js';
 import type { Clip, Marker, Region } from './timeline.js';
@@ -162,4 +164,119 @@ export function assetUsers(project: Project, assetId: AssetId): AssetUsers {
 export function isAssetInUse(project: Project, assetId: AssetId): boolean {
   const users = assetUsers(project, assetId);
   return users.clips + users.regions + users.markers + users.pastes > 0;
+}
+
+/** What names a chain (ADR-0060): every rack edit and every rack, of an asset, a region, a track or a bus. */
+export interface ChainUsers {
+  /** The assets whose own edits apply it to a range. */
+  readonly assetEdits: readonly AssetId[];
+  /** The regions whose own processing applies it to a range. */
+  readonly regionEdits: readonly RegionId[];
+  readonly assetRacks: readonly AssetId[];
+  readonly regionRacks: readonly RegionId[];
+  readonly tracks: readonly TrackId[];
+  readonly buses: readonly BusId[];
+}
+
+/** A range of an asset or a region processed by a chain: one of its rack edits. */
+export interface RangeRack {
+  readonly operation: EditOperationId;
+  /** Where it lies on the asset's timeline at the place it was made. */
+  readonly range: EditRange;
+  readonly chain: EffectChainId;
+}
+
+/** Every chain an asset or a region names: its rack, and each range of it a chain processes. */
+export interface TargetChains {
+  readonly rack: EffectChainId | undefined;
+  /** In the order its edits were made. */
+  readonly ranges: readonly RangeRack[];
+}
+
+/** The rack edit `edit` makes as operation `operation` over `range`, where it is one. */
+function rangeRack(operation: EditOperationId, range: EditRange, edit: RangeEdit): RangeRack[] {
+  return edit.kind === 'rack' ? [{ operation, range, chain: edit.chain }] : [];
+}
+
+/**
+ * The chains `asset` names (ADR-0060). With {@link regionChains}, the one
+ * account of where an asset or a region names a chain, which
+ * {@link chainUsers} reads in the other direction.
+ */
+export function assetChains(asset: Asset): TargetChains {
+  return {
+    rack: asset.rack,
+    ranges: asset.edits.flatMap((operation) =>
+      operation.kind === 'process' ? rangeRack(operation.id, operation.range, operation.edit) : [],
+    ),
+  };
+}
+
+/** The chains `region` names (see {@link assetChains}). */
+export function regionChains(region: Region): TargetChains {
+  return {
+    rack: region.rack,
+    ranges: region.operations.flatMap((operation) =>
+      rangeRack(operation.id, operation.range, operation.edit),
+    ),
+  };
+}
+
+/** Every chain `named` holds, the rack first, one named twice given twice. */
+export function chainIdsOf(named: TargetChains): readonly EffectChainId[] {
+  const ranges = named.ranges.map((range) => range.chain);
+  return named.rack === undefined ? ranges : [named.rack, ...ranges];
+}
+
+/** What names the chain `chain`, so a change to it is known to reach each of them. */
+export function chainUsers(project: Project, chain: EffectChainId): ChainUsers {
+  const assets = [...project.assets.values()];
+  const regions = [...project.regions.values()];
+  const inRange = (named: TargetChains): boolean =>
+    named.ranges.some((range) => range.chain === chain);
+  return {
+    assetEdits: assets.filter((asset) => inRange(assetChains(asset))).map((asset) => asset.id),
+    regionEdits: regions
+      .filter((region) => inRange(regionChains(region)))
+      .map((region) => region.id),
+    assetRacks: assets.filter((asset) => asset.rack === chain).map((asset) => asset.id),
+    regionRacks: regions.filter((region) => region.rack === chain).map((region) => region.id),
+    tracks: [...project.tracks.values()]
+      .filter((track) => track.effectChainId === chain)
+      .map((track) => track.id),
+    buses: [...project.buses.values()]
+      .filter((bus) => bus.effectChainId === chain)
+      .map((bus) => bus.id),
+  };
+}
+
+/** How many operations and targets name the chain (`chainUsers`). */
+export function chainUseCount(users: ChainUsers): number {
+  return (
+    users.assetEdits.length +
+    users.regionEdits.length +
+    users.assetRacks.length +
+    users.regionRacks.length +
+    users.tracks.length +
+    users.buses.length
+  );
+}
+
+/**
+ * Every chain the project runs or may run: its own, and each that audio pasted
+ * into an asset carries in the plan it was pasted as (ADR-0053), which holds
+ * its chains whole rather than naming the project's. A pasted plan's streams
+ * hold every chain it reads, anything pasted into what was copied folded in
+ * with them, so one level of streams is all of them.
+ */
+export function* projectChains(project: Project): Generator<EffectChain, void, undefined> {
+  yield* project.effectChains.values();
+  for (const asset of project.assets.values()) {
+    for (const operation of asset.edits) {
+      if (operation.kind !== 'insert') continue;
+      for (const stream of operation.payload.streams) {
+        if (stream.processing?.kind === 'chain') yield stream.processing.chain;
+      }
+    }
+  }
 }

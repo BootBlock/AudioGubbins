@@ -27,6 +27,12 @@ declare module '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url'
   export default url;
 }
 
+/** Where the bundler put the preview worker, built on its own. */
+declare module '@audiogubbins/audio-runtime/threads/preview-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
 /** Where the bundler put the storage worker, built on its own. */
 declare module '@audiogubbins/storage-runtime/threads/storage-worker.ts?worker&url' {
   const url: string;
@@ -37,4 +43,34 @@ declare module '@audiogubbins/storage-runtime/threads/storage-worker.ts?worker&u
 declare module '@audiogubbins/waveform/threads/peak-worker.ts?worker&url' {
   const url: string;
   export default url;
+}
+
+/** Where the bundler put the detection worker, built on its own. */
+declare module '@audiogubbins/detection-runtime/threads/detection-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
+/** Where the bundler put the inference worker, built on its own (ADR-0062). */
+declare module '@audiogubbins/ml-runtime/threads/inference-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
+/**
+ * Where the application serves the inference runtime's WebAssembly, under its
+ * base, and its SHA-256 taken from the bytes it serves, by
+ * `inference-runtime.ts`.
+ */
+declare module 'virtual:audiogubbins/inference-runtime' {
+  export const INFERENCE_RUNTIME_PATH: string;
+  export const INFERENCE_RUNTIME_VERSION: string;
+  export const INFERENCE_RUNTIME_SHA256: string;
+}
+
+/** The model packs' catalogue as the build configures it, by `model-pack-serving.ts`. */
+declare module 'virtual:audiogubbins/model-packs' {
+  export const PACK_CATALOGUE:
+    | { readonly kind: 'own-origin'; readonly path: string }
+    | { readonly kind: 'absolute'; readonly url: string };
 }

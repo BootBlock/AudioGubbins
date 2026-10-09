@@ -18,6 +18,7 @@ import {
   type DomainResult,
   type Marker,
   type Region,
+  type ProjectChains,
 } from '@audiogubbins/domain';
 
 import { compareCodeUnits } from './canonical-json.js';
@@ -46,6 +47,7 @@ const REGION_MEMBERS: ReadonlySet<string> = new Set([
   'loop',
   'tags',
   'operations',
+  'rack',
 ]);
 const LOOP_MEMBERS: ReadonlySet<string> = new Set(['basis', 'start', 'end', 'crossfadeLength']);
 const MARKER_MEMBERS: ReadonlySet<string> = new Set([
@@ -76,6 +78,24 @@ export const readAnchoredLoop: Converter<AnchoredLoop> = (reading, value, parent
     : { basis, start, end, crossfadeLength };
 };
 
+/**
+ * Whether a region's tags are held sorted and without repeats, so equal sets
+ * compare equal, refusing them where they are not.
+ */
+function canonicalTags(reading: Reading, tags: readonly string[], at: string): boolean {
+  const sorted = tags.every(
+    (tag, index) => index === 0 || compareCodeUnits(tags[index - 1] ?? '', tag) < 0,
+  );
+  if (!sorted) {
+    reading.refuse(
+      'project.region-tags-not-canonical',
+      'A region holds its tags sorted and without repeats.',
+      pathOf(at, 'tags'),
+    );
+  }
+  return sorted;
+}
+
 /** Reads one region. */
 export const readRegion: Converter<Region> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, REGION_MEMBERS);
@@ -91,19 +111,9 @@ export const readRegion: Converter<Region> = (reading, value, parent, key) => {
   const loop = optional(reading, object, at, 'loop', readAnchoredLoop);
   const tags = required(reading, object, at, 'tags', asTags);
   const operations = required(reading, object, at, 'operations', asRegionChain);
+  const rack = optional(reading, object, at, 'rack', asId<'EffectChainId'>);
 
-  // Tags are held sorted and without repeats, so equal sets compare equal.
-  if (
-    tags?.some((tag, index) => index > 0 && compareCodeUnits(tags[index - 1] ?? '', tag) >= 0) ===
-    true
-  ) {
-    reading.refuse(
-      'project.region-tags-not-canonical',
-      'A region holds its tags sorted and without repeats.',
-      pathOf(at, 'tags'),
-    );
-    return undefined;
-  }
+  if (tags !== undefined && !canonicalTags(reading, tags, at)) return undefined;
   if (
     id === undefined ||
     assetId === undefined ||
@@ -126,6 +136,7 @@ export const readRegion: Converter<Region> = (reading, value, parent, key) => {
     ...(loop === undefined ? {} : { loop }),
     tags,
     operations,
+    ...(rack === undefined ? {} : { rack }),
   };
 };
 
@@ -170,13 +181,15 @@ export const readMarker: Converter<Marker> = (reading, value, parent, key) => {
 export interface PlacementAssets {
   readonly all: ReadonlyMap<AssetId, Asset>;
   readonly sound: ReadonlyMap<AssetId, Asset>;
+  /** The project's chains, which a region's processing and rack may name. */
+  readonly chains: ProjectChains;
 }
 
 /** A converter reading what `read` reads, checked against the asset it names. */
 function placedConverter<TValue extends { readonly assetId: AssetId }>(
   read: Converter<TValue>,
   assets: PlacementAssets | undefined,
-  validate: (asset: Asset, value: TValue) => DomainResult<TValue>,
+  validate: (asset: Asset, value: TValue, chains: ProjectChains) => DomainResult<TValue>,
   code: string,
 ): Converter<TValue> {
   return (reading, value, parent, key) => {
@@ -192,7 +205,9 @@ function placedConverter<TValue extends { readonly assetId: AssetId }>(
       return placed;
     }
     const asset = assets.sound.get(placed.assetId);
-    if (asset !== undefined) refuseFailed(reading, validate(asset, placed), code, at);
+    if (asset !== undefined) {
+      refuseFailed(reading, validate(asset, placed, assets.chains), code, at);
+    }
     return placed;
   };
 }

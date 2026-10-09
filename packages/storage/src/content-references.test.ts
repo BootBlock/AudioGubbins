@@ -5,10 +5,13 @@ import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
   ProvenanceLevel,
   canonicalJson,
+  writeAssetRecord,
   writeMediaSource,
   type ContentId,
   type MediaSource,
 } from '@audiogubbins/project-format';
+import { deeplyRackedState } from '@audiogubbins/project-format/testing';
+import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { contentIdsIn } from './content-references.js';
 import { retainedMedia } from './media-roots.js';
@@ -27,6 +30,9 @@ import { contentOf, setMedia } from './testing/test-commands.js';
  * keeping a state that refers to it could not be taken out, and a purge would
  * remove what redo needs.
  */
+
+/** Past the number of arguments a call takes in any engine this runs in. */
+const LONGER_THAN_ARGUMENTS = 1_000_000;
 
 function managed(contentId: ContentId): MediaSource {
   return { kind: 'managed', contentId, byteLength: 3_000, mediaType: 'audio/wav' };
@@ -58,6 +64,28 @@ describe('the media a change names inside a nested value (REQ-STOR-102)', () => 
     };
 
     expect([...contentIdsIn(node)]).toEqual([contentOf(7)]);
+  });
+
+  it("is found beside a list or an object longer than the engine takes as one call's arguments", () => {
+    const list = { list: new Array<number>(LONGER_THAN_ARGUMENTS).fill(0), media: contentOf(9) };
+    const wide = Object.fromEntries(
+      Array.from({ length: LONGER_THAN_ARGUMENTS }, (_, index) => [`m${index.toString()}`, index]),
+    );
+
+    expect([...contentIdsIn(list)]).toEqual([contentOf(9)]);
+    expect([...contentIdsIn({ ...wide, media: contentOf(10) })]).toEqual([contentOf(10)]);
+  });
+
+  it('is found in the deepest value an argument carries, a chain nested as deep as groups go inside it', () => {
+    const fixture = sampleProject();
+    const asset = deeplyRackedState(fixture).project.assets.get(fixture.assets.footstep.id);
+    if (asset === undefined) throw new Error('The deeply racked state has no footstep.');
+    const record = writeAssetRecord({ asset, source: { media: managed(contentOf(8)) } });
+    const node = {
+      forward: [{ commandId: 'test.add-asset', arguments: { asset: canonicalJson(record) } }],
+    };
+
+    expect([...contentIdsIn(node)]).toEqual([contentOf(8)]);
   });
 
   it('travels with a whole history whose kept state refers to it', async () => {

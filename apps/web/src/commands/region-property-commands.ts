@@ -7,12 +7,12 @@ import type { Command } from '@audiogubbins/commands';
 import { sampleCount, validateRegion, type Region } from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 
-import { quoted } from '../wording.js';
 import { RANGE_OR_WHOLE, editScope } from './edit-target.js';
 import { changeProject } from './project-edits.js';
 import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 import { oneRegion, regionCommand } from './region-target.js';
+import { quoted } from '@audiogubbins/text';
 
 function renameCommand(): Command<ShellContext> {
   return regionCommand(
@@ -54,15 +54,19 @@ function loopCommand(): Command<ShellContext> {
         given === undefined ? 0 : typeof given === 'number' ? given : Number.NaN,
       );
       if (!crossfade.ok) return crossfade.failures[0].summary;
-      const looped = validateRegion(found.asset, {
-        ...found.region,
-        loop: {
-          basis: found.asset.edits.length,
-          start: scope.target.range.start,
-          end: scope.target.range.end,
-          crossfadeLength: crossfade.value,
+      const looped = validateRegion(
+        found.asset,
+        {
+          ...found.region,
+          loop: {
+            basis: found.asset.edits.length,
+            start: scope.target.range.start,
+            end: scope.target.range.end,
+            crossfadeLength: crossfade.value,
+          },
         },
-      });
+        found.project.state.project.effectChains,
+      );
       if (!looped.ok) return looped.failures[0].summary;
       changeProject(context, found.project.session, {
         description: `Loop ${found.region.displayName}`,

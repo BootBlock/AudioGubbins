@@ -25,6 +25,33 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 import generated from './vitest.projects.json' with { type: 'json' };
 
+/** The files of the allocation tests, which run apart from the rest (see the `allocation` project). */
+const ALLOCATION_TESTS = '**/*allocation.test.ts';
+
+/** The machine-learning processors' pinned golden renders (see the `ml-golden` project). */
+const ML_GOLDEN_TESTS = '**/*.ml-golden.test.ts';
+
+/**
+ * Whether the command names the `ml-golden` project, or asks for every golden
+ * render by the filter `golden`, as the golden gate does
+ * (`pnpm test:audio-golden`). Its tests read model packs from a cache outside
+ * the repository (REQ-REPO-191) and run the real inference runtime, so it is
+ * defined only where it is asked for (`pnpm test:ml-golden` too), and
+ * `pnpm test`, which runs every project defined, never runs it.
+ */
+const ML_GOLDEN_NAMED = process.argv.some(
+  (argument) => argument.includes('ml-golden') || argument === 'golden',
+);
+
+/**
+ * The generated projects that run in a group of their own, after the rest. A
+ * processor's tests run every kernel over every layout, block size and
+ * signal the property harness names, which keeps every worker's core busy
+ * for minutes; beside them the storage round trips, which wait on many short
+ * turns, ran past their patience. Apart, each group has the cores to itself.
+ */
+const LATER_PROJECTS: ReadonlySet<string> = new Set(['processors']);
+
 /** The environment a generated project names, refusing one Vitest has no runner for. */
 function environmentOf(name: string): 'node' | 'jsdom' {
   if (name === 'node' || name === 'jsdom') return name;
@@ -33,6 +60,16 @@ function environmentOf(name: string): 'node' | 'jsdom' {
 
 export default defineConfig({
   test: {
+    // A tag marks a test a root script selects across projects by what it
+    // proves rather than by where it lives.
+    tags: [
+      {
+        name: 'ml-locality',
+        description:
+          'No audio, project data or derived content leaves the device (REQ-AUDIO-138, ADR-0062): `pnpm test:ml-locality`.',
+      },
+    ],
+
     // Builds the canonical DSP module from the crates before any test runs,
     // so no test reads a module older than its source (ADR-0031).
     globalSetup: ['./tests/setup/dsp-module.ts'],
@@ -48,8 +85,46 @@ export default defineConfig({
 
     projects: [
       ...generated.projects.map((project) => ({
-        test: { ...project, environment: environmentOf(project.environment) },
+        test: {
+          ...project,
+          environment: environmentOf(project.environment),
+          exclude: [...configDefaults.exclude, ALLOCATION_TESTS, ML_GOLDEN_TESTS],
+          ...(LATER_PROJECTS.has(project.name) ? { sequence: { groupOrder: 1 } } : {}),
+        },
       })),
+
+      {
+        // The tests that hold the audio thread's code to allocating nothing
+        // measure the optimised code V8 makes, and with every other project's
+        // workers busy its optimiser can wait longer than any patience for a
+        // core, leaving a function unoptimised and allocating. So they run in
+        // the last group, after every other project, one file at a time.
+        test: {
+          name: 'allocation',
+          root: '.',
+          environment: 'node' as const,
+          include: [`packages/*/src/${ALLOCATION_TESTS}`],
+          sequence: { groupOrder: 2 },
+          fileParallelism: false,
+        },
+      },
+
+      ...(ML_GOLDEN_NAMED
+        ? [
+            {
+              // Each golden renders seconds of audio through a model on one
+              // thread, so the files run one at a time, as a pinned render
+              // does.
+              test: {
+                name: 'ml-golden',
+                root: '.',
+                environment: 'node' as const,
+                include: [`packages/*/src/${ML_GOLDEN_TESTS}`],
+                fileParallelism: false,
+              },
+            },
+          ]
+        : []),
 
       {
         test: {

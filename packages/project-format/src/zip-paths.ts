@@ -25,8 +25,8 @@ const LONGEST_NAME_BYTES = 0xffff;
  *
  * Safe: relative, `/`-separated segments, none empty, `.` or `..`, and none
  * holding a {@link FORBIDDEN} character, in at most 65,535 bytes. Wider than
- * {@link isTreePath}, because a bundle also carries names the tree never
- * writes, such as the raw data exported before a schema reset (REQ-STOR-052).
+ * `isTreePath`, because a bundle also carries names the tree never writes, such
+ * as the raw data exported before a schema reset (REQ-STOR-052).
  */
 export function entryNameBytes(path: string): Uint8Array<ArrayBuffer> | undefined {
   if (FORBIDDEN.test(path)) return undefined;

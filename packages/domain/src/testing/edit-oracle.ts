@@ -7,13 +7,48 @@
  * two finds a fault in either. Its arithmetic is the plan's stated rule
  * (`stage-arithmetic.ts`): each result rounded to a 32-bit float, each fade
  * position `k / (n − 1)` through its range.
+ *
+ * What a chain of processors, a stretch or a conversion of rate does to audio
+ * is not the plan's to decide, so the oracle is given each as a function
+ * (`OracleWorld`): the property tests check where the plan puts processing,
+ * in what order and from what start, with any rule for the processing itself.
  */
 
 import type { FadeShape } from '../editing/fades.js';
 import type { EditOperation, LevelEdit } from '../editing/operations.js';
+import type { EffectChainId } from '../identity/branded-id.js';
+import { convertedFrameCount } from '../editing/plan.js';
 
 /** Audio as one array per channel. */
 export type Samples = readonly Float32Array[];
+
+/** What the oracle is told of what it cannot know itself. */
+export interface OracleWorld {
+  /** What an insertion inserts: what was copied. */
+  readonly inserted?: Samples;
+  /** What a chain makes of audio, the same length. */
+  readonly chain?: (chain: EffectChainId, samples: Samples) => Samples;
+  /** What a stretch makes of audio, `length` frames long. */
+  readonly stretch?: (samples: Samples, length: number) => Samples;
+  /** What a conversion makes of audio at `from`, at `to`. */
+  readonly convert?: (samples: Samples, from: number, to: number, length: number) => Samples;
+}
+
+/** The world's answer for `what`, or a fault naming what the test did not give. */
+function given<T>(answer: T | undefined, what: string): T {
+  if (answer === undefined) throw new Error(`The oracle was not told what ${what} does.`);
+  return answer;
+}
+
+/** The samples with `[start, end)` replaced by `made` of `[start, end)`. */
+function replaced(
+  samples: Samples,
+  start: number,
+  end: number,
+  make: (range: Samples) => Samples,
+): Samples {
+  return spliced(samples, start, end, make(samples.map((channel) => channel.slice(start, end))));
+}
 
 function shape(kind: FadeShape, t: number): number {
   if (kind === 'linear') return t;
@@ -75,13 +110,14 @@ function mixed(
 }
 
 /**
- * The audio after `operation`. An insertion takes the samples it inserts as
- * `inserted`, since what a payload sounds like is what was copied.
+ * The audio at `rate` after `operation`, with what the oracle cannot know
+ * itself taken from `world`.
  */
 export function applyEdit(
   samples: Samples,
   operation: EditOperation,
-  inserted: Samples = [],
+  world: OracleWorld = {},
+  rate = 0,
 ): Samples {
   switch (operation.kind) {
     case 'delete':
@@ -89,7 +125,17 @@ export function applyEdit(
     case 'trim':
       return samples.map((channel) => channel.slice(operation.range.start, operation.range.end));
     case 'insert':
-      return spliced(samples, operation.at, operation.at, inserted);
+      return spliced(samples, operation.at, operation.at, world.inserted ?? []);
+    case 'stretch': {
+      const stretch = given(world.stretch, 'a stretch');
+      return replaced(samples, operation.range.start, operation.range.end, (range) =>
+        stretch(range, operation.length),
+      );
+    }
+    case 'convert-rate': {
+      const length = convertedFrameCount(samples[0]?.length ?? 0, rate, operation.sampleRate);
+      return given(world.convert, 'a conversion')(samples, rate, operation.sampleRate, length);
+    }
     case 'reverse':
       return samples.map((channel) => {
         const out = Float32Array.from(channel);
@@ -99,18 +145,23 @@ export function applyEdit(
     case 'convert-layout':
       return mixed(samples, operation.matrix, 0, samples[0]?.length ?? 0);
     case 'process':
-      return processed(samples, operation);
+      return processed(samples, operation, world);
   }
 }
 
 function processed(
   samples: Samples,
   operation: Extract<EditOperation, { readonly kind: 'process' }>,
+  world: OracleWorld,
 ): Samples {
   const { start, end } = operation.range;
   const edit = operation.edit;
   const count = samples.length;
   switch (edit.kind) {
+    case 'rack': {
+      const chain = given(world.chain, 'a chain');
+      return replaced(samples, start, end, (range) => chain(edit.chain, range));
+    }
     case 'swap-channels':
     case 'copy-channel':
     case 'channel-gains': {

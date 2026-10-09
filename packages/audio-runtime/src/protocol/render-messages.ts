@@ -16,9 +16,26 @@
 
 import {
   FailureKind,
+  Malformed,
+  countAt,
   failure,
+  fieldsOf,
+  itemsAt,
+  nonEmptyObjectsAt,
+  objectsAt,
+  oneOf,
+  optionalCountAt,
+  optionalTextAt,
+  qualityModeAt,
+  rateAt,
+  readMessage,
+  sampleArraysAt,
+  sampleCountAt,
+  textAt,
   type DomainFailure,
   type DomainResult,
+  type MessageFields,
+  type QualityMode,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
@@ -31,27 +48,7 @@ import {
 } from '@audiogubbins/audio-engine';
 
 import type { DspDelivery } from '../dsp/dsp-delivery.js';
-import {
-  MalformedMessage,
-  channelsAt,
-  countAt,
-  dspDeliveryAt,
-  fieldsOf,
-  graphAt,
-  itemsAt,
-  listAt,
-  moduleAt,
-  nodeAt,
-  nonEmptyListAt,
-  oneOf,
-  optionalCountAt,
-  optionalTextAt,
-  rateAt,
-  readMessage,
-  samplesAt,
-  textAt,
-  type Fields,
-} from './message-reading.js';
+import { dspDeliveryAt, graphAt, moduleAt, nodeAt } from './message-reading.js';
 import { sourceFrom, type SourceDescription } from './source-descriptions.js';
 
 /** The kinds of message a render worker is sent. */
@@ -71,7 +68,8 @@ export type ToRenderWorker =
       readonly sampleRate: SampleRate;
       readonly range: RenderRange;
       readonly chunkFrames: number;
-      readonly resamplingQuality: ResamplingQuality;
+      /** The quality the render runs at (ADR-0061). */
+      readonly quality: QualityMode;
       readonly sources: readonly SourceDescription[];
       /** What the conversions' tables may hold together, or `undefined` where unmeasured. */
       readonly coefficientBudgetBytes: number | undefined;
@@ -151,21 +149,21 @@ export type FromRenderWorker =
     };
 
 /** A failure's details: named text, numbers and flags. */
-function detailsAt(fields: Fields): DomainFailure['details'] {
+function detailsAt(fields: MessageFields): DomainFailure['details'] {
   if (fields['details'] === undefined) return undefined;
   const details = fieldsOf(fields['details'], 'details');
   const isDetail = (one: unknown): one is string | number | boolean =>
     typeof one === 'string' || typeof one === 'number' || typeof one === 'boolean';
   const read: Record<string, string | number | boolean> = {};
   for (const [name, one] of Object.entries(details)) {
-    if (!isDetail(one)) throw new MalformedMessage(`details.${name}`, 'text, a number or a flag');
+    if (!isDetail(one)) throw new Malformed(`details.${name}`, 'text, a number or a flag');
     read[name] = one;
   }
   return read;
 }
 
 /** A failure as the domain states it, with the failure it arose from, if any. */
-function failureFrom(fields: Fields): DomainFailure {
+function failureFrom(fields: MessageFields): DomainFailure {
   const details = detailsAt(fields);
   const cause =
     fields['cause'] === undefined ? undefined : failureFrom(fieldsOf(fields['cause'], 'cause'));
@@ -180,24 +178,24 @@ function failureFrom(fields: Fields): DomainFailure {
   );
 }
 
-function failuresAt(fields: Fields): RenderFailures {
-  return nonEmptyListAt(fields, 'failures', failureFrom);
+function failuresAt(fields: MessageFields): RenderFailures {
+  return nonEmptyObjectsAt(fields, 'failures', failureFrom);
 }
 
-function rangeAt(fields: Fields): RenderRange {
+function rangeAt(fields: MessageFields): RenderRange {
   const range = fieldsOf(fields['range'], 'range');
-  return { start: samplesAt(range, 'start'), length: samplesAt(range, 'length') };
+  return { start: sampleCountAt(range, 'start'), length: sampleCountAt(range, 'length') };
 }
 
 function trimFrom(value: unknown, name: string): readonly [NodeId, SampleCount] {
   if (!Array.isArray(value) || value.length !== 2) {
-    throw new MalformedMessage(name, 'a node and a count of frames');
+    throw new Malformed(name, 'a node and a count of frames');
   }
-  const pair: Fields = { node: value[0], frames: value[1] };
-  return [nodeAt(pair, 'node'), samplesAt(pair, 'frames')];
+  const pair: MessageFields = { node: value[0], frames: value[1] };
+  return [nodeAt(pair, 'node'), sampleCountAt(pair, 'frames')];
 }
 
-function conversionFrom(fields: Fields): RenderConversion {
+function conversionFrom(fields: MessageFields): RenderConversion {
   return {
     node: nodeAt(fields, 'node'),
     from: rateAt(fields, 'from'),
@@ -206,7 +204,7 @@ function conversionFrom(fields: Fields): RenderConversion {
   };
 }
 
-function toRenderWorkerFrom(fields: Fields): ToRenderWorker {
+function toRenderWorkerFrom(fields: MessageFields): ToRenderWorker {
   const kind = oneOf(fields, 'kind', ToRenderWorkerKind);
   const jobId = textAt(fields, 'jobId');
   switch (kind) {
@@ -218,8 +216,8 @@ function toRenderWorkerFrom(fields: Fields): ToRenderWorker {
         sampleRate: rateAt(fields, 'sampleRate'),
         range: rangeAt(fields),
         chunkFrames: countAt(fields, 'chunkFrames'),
-        resamplingQuality: oneOf(fields, 'resamplingQuality', ResamplingQuality),
-        sources: listAt(fields, 'sources', sourceFrom),
+        quality: qualityModeAt(fields, 'quality'),
+        sources: objectsAt(fields, 'sources', sourceFrom),
         coefficientBudgetBytes: optionalCountAt(fields, 'coefficientBudgetBytes'),
         dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
       };
@@ -229,7 +227,7 @@ function toRenderWorkerFrom(fields: Fields): ToRenderWorker {
   }
 }
 
-function fromRenderWorkerFrom(fields: Fields): FromRenderWorker {
+function fromRenderWorkerFrom(fields: MessageFields): FromRenderWorker {
   const kind = oneOf(fields, 'kind', FromRenderWorkerKind);
   if (kind === FromRenderWorkerKind.Refused) return { kind, failures: failuresAt(fields) };
   const jobId = textAt(fields, 'jobId');
@@ -246,15 +244,15 @@ function fromRenderWorkerFrom(fields: Fields): FromRenderWorker {
         kind,
         jobId,
         node: nodeAt(fields, 'node'),
-        channels: channelsAt(fields, 'channels'),
+        channels: sampleArraysAt(fields, 'channels'),
       };
     case FromRenderWorkerKind.Done:
       return {
         kind,
         jobId,
-        frames: samplesAt(fields, 'frames'),
+        frames: sampleCountAt(fields, 'frames'),
         latencyTrimmed: itemsAt(fields, 'latencyTrimmed', trimFrom),
-        conversions: listAt(fields, 'conversions', conversionFrom),
+        conversions: objectsAt(fields, 'conversions', conversionFrom),
         dsp: oneOf(fields, 'dsp', DspImplementation),
         dspFallbackReason: optionalTextAt(fields, 'dspFallbackReason'),
       };

@@ -25,6 +25,7 @@ import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   PRESET_SETTINGS,
   PerformanceProfile,
+  type ChainProcessing,
   type PcmSource,
   type PresetProfile,
 } from '@audiogubbins/audio-engine';
@@ -35,6 +36,7 @@ import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from '../ds
 import type { Schedule } from '../schedule.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
 import { PlaybackSession } from '../playback/playback-session.js';
+import type { PreviewConnection } from '../preview/preview-host.js';
 import { FakeAudioContext, type FakeAudioContextSettings } from './fake-audio-context.js';
 import { FakeFeederWorker } from './fake-feeder-worker.js';
 import { fakeChannel } from './fake-message-channel.js';
@@ -176,6 +178,10 @@ export interface PlaybackRigOptions {
   readonly lost?: (message: unknown) => boolean;
   /** Puts a test's reads in front of each source the feeder makes, a read that stalls or fails. */
   readonly readThrough?: (node: NodeId, source: PcmSource) => PcmSource;
+  /** How the feeder runs an edited sound's chains; it runs none, by default. */
+  readonly processing?: ChainProcessing;
+  /** Connects each feeder to a preview worker; none, by default. */
+  readonly connectPreviews?: () => PreviewConnection;
 }
 
 /** A session and everything it runs on. */
@@ -231,11 +237,15 @@ export class PlaybackRig {
           const feeder = new FakeFeederWorker({
             schedule: this.schedule.schedule,
             ...(options.readThrough === undefined ? {} : { readThrough: options.readThrough }),
+            ...(options.processing === undefined ? {} : { processing: options.processing }),
           });
           this.feeders.push(feeder);
           return feeder;
         },
         createChannel: fakeChannel,
+        ...(options.connectPreviews === undefined
+          ? {}
+          : { connectPreviews: options.connectPreviews }),
       },
       schedule: this.schedule.schedule,
       logger,

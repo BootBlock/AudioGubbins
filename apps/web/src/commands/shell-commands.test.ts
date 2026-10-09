@@ -44,6 +44,8 @@ import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { libraryApplyCommands } from './library-apply-commands.js';
+import { libraryCommands } from './library-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
@@ -52,13 +54,19 @@ import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
 import { regionPropertyCommands } from './region-property-commands.js';
 import { splitCommands } from './split-commands.js';
+import { timeEditCommands } from './time-edit-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
+import { packCommands } from './pack-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
+import { rackBuildingCommands } from './rack-building-commands.js';
+import { rackComparisonCommands } from './rack-comparison-commands.js';
+import { rackParameterCommands } from './rack-parameter-commands.js';
+import { rackSlotCommands } from './rack-slot-commands.js';
 import { shellCommands } from './shell-commands.js';
 import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
@@ -787,6 +795,11 @@ describe('finding the shell commands in the palette', () => {
       ...projectTransferCommands(),
       ...audioImportCommands(),
       ...quickEditCommands(),
+      ...libraryCommands(),
+      ...libraryApplyCommands(),
+      // Each is a step of the storage worker's pack installer, run twice with
+      // its work awaited in `pack-commands.test.ts`.
+      ...packCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),
@@ -799,16 +812,37 @@ describe('finding the shell commands in the palette', () => {
       ...markerCommands(),
       ...markerNudgeCommands(),
       ...editCommands(),
+      ...timeEditCommands(),
       ...channelCommands(),
       ...regionCommands(),
       ...regionBoundaryCommands(),
       ...regionPropertyCommands(),
       ...splitCommands(),
       ...clipboardCommands(),
+      ...rackBuildingCommands(),
+      ...rackSlotCommands(),
+      ...rackParameterCommands(),
+      ...rackComparisonCommands(),
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')
-      .concat('picture.mark-frame'),
+      // Applying a recommendation and removing the silence found change the
+      // project, which settles after they return; each is run twice, its
+      // change awaited, in its own tests.
+      .concat('picture.mark-frame', 'analysis.apply', 'analysis.remove-silence')
+      // Analysing again needs an analysis to run again, which settles in a
+      // worker; it is run twice, the second unchanged, in its own tests.
+      .concat('analysis.analyse-again')
+      // Each needs a rack of the project, which the loop here has none of and
+      // a rack command makes only once it settles; each is run twice over a
+      // rack in `rack-commands.test.ts`.
+      .concat(
+        'rack.copy',
+        'rack.paste',
+        'editor.select-processor',
+        'editor.deselect-processors',
+        'transport.listen-original',
+      ),
   );
 
   /** What a command is given, as an invocation carries it. */
@@ -928,6 +962,8 @@ describe('finding the shell commands in the palette', () => {
    * that did not happen unseen.
    */
   const SCENARIOS: Readonly<Record<string, Scenario | readonly Scenario[]>> = {
+    'analysis.detect': inEditor(),
+    'analysis.cancel': inEditor({ before: (run) => run('analysis.detect') }),
     'view.theme-dark': { before: (run) => run('view.theme-light') },
     'view.set-brightness': {
       // Inside the range, so the second run meets the value itself rather
@@ -1052,6 +1088,11 @@ describe('finding the shell commands in the palette', () => {
     'transport.render-mode-automatic': {
       before: (run) => run('transport.render-mode-final-offline'),
     },
+    'transport.render-quality-maximum': { before: (run) => run('transport.render-quality-draft') },
+    'transport.preview-quality-automatic': {
+      before: (run) => run('transport.preview-quality-high'),
+    },
+    'transport.set-custom-render-quality': { arguments: () => ({ oversampling: 4 }) },
     // A render waits on a decision where the foreground was chosen over a
     // warning that the last render ran slower than real time.
     'transport.render-safer': { before: awaitDecision },
@@ -1117,6 +1158,11 @@ describe('finding the shell commands in the palette', () => {
       },
     },
     'editor.clear-selection': inEditor({ before: (run) => run('editor.select-all') }),
+    'transport.listen-processed': inEditor({
+      before: (_run, context) => {
+        context.hearing.choose('original');
+      },
+    }),
     'editor.scope-all-channels': inEditor({
       before: (run) => run('editor.select-time', { start: 100, end: 200, channels: '0' }),
     }),
@@ -1192,6 +1238,7 @@ describe('finding the shell commands in the palette', () => {
         assets: context.assets.get().assets.map((asset) => asset.revision),
         cues: [...context.cues.get()],
         picture: context.picture.get(),
+        detections: [...context.detection.get()].map(([target, one]) => [target, one.kind]),
       },
       (_key, value: unknown) => (value instanceof Set ? [...value] : value),
     );

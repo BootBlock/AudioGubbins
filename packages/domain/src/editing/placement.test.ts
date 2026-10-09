@@ -1,3 +1,4 @@
+import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
@@ -113,12 +114,19 @@ describe('what a region sounds like', () => {
       ],
     });
     const untouched = regionOf('untouched', 0, 400);
-    const loud = renderPlan(regionPlan(edited, untouched), ones);
-    const soft = renderPlan(regionPlan(edited, quieter), ones);
+    const loud = renderPlan(
+      expectSuccess(regionPlan(edited, untouched, PLAN_WITHOUT_CHAINS)),
+      ones,
+    );
+    const soft = renderPlan(expectSuccess(regionPlan(edited, quieter, PLAN_WITHOUT_CHAINS)), ones);
     expect(loud[0]?.length).toBe(400);
     expect([...(loud[0] ?? [])].every((sample) => sample === 1)).toBe(true);
     expect([...(soft[1] ?? [])].every((sample) => sample === 0.5)).toBe(true);
-    expect(renderPlan(assetPlan(edited), ones)[0]?.every((sample) => sample === 1)).toBe(true);
+    expect(
+      renderPlan(expectSuccess(assetPlan(edited, PLAN_WITHOUT_CHAINS)), ones)[0]?.every(
+        (sample) => sample === 1,
+      ),
+    ).toBe(true);
   });
 
   it('keeps a fade begun before the region a continuous ramp inside it', () => {
@@ -132,7 +140,10 @@ describe('what a region sounds like', () => {
         },
       ],
     });
-    const rendered = renderPlan(regionPlan(edited, fading), ones)[0];
+    const rendered = renderPlan(
+      expectSuccess(regionPlan(edited, fading, PLAN_WITHOUT_CHAINS)),
+      ones,
+    )[0];
     expect([...(rendered ?? [])]).toEqual(
       Array.from({ length: 10 }, (_, index) => Math.fround((50 + index) / 100)),
     );
@@ -152,7 +163,9 @@ describe('what a region sounds like', () => {
       edit: { kind: 'gain', gain: 0.5 },
     } as const;
     const material = assetOf('material', 10, [], StandardLayouts.mono);
-    const pasted = expectSuccess(slicePlan(assetPlan(material), 0, 3));
+    const pasted = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(material, PLAN_WITHOUT_CHAINS)), 0, 3),
+    );
     const later: readonly (readonly [string, EditOperation])[] = [
       ['a reversal', { id: operationId('turn'), kind: 'reverse', range: range(0, 10) }],
       ['a deletion inside it', { id: operationId('cut'), kind: 'delete', range: range(1, 3) }],
@@ -163,7 +176,6 @@ describe('what a region sounds like', () => {
           kind: 'insert',
           at: frames(4),
           payload: pasted,
-          convertRate: false,
         },
       ],
     ];
@@ -184,8 +196,10 @@ describe('what a region sounds like', () => {
           StandardLayouts.mono,
         );
         const sources = new Map([[asset.id, [Float32Array.from({ length: 10 }, () => 1)]]]);
-        expect(renderPlan(regionPlan(asset, region), sources)).toEqual(
-          renderPlan(assetPlan(processedFirst), sources),
+        expect(
+          renderPlan(expectSuccess(regionPlan(asset, region, PLAN_WITHOUT_CHAINS)), sources),
+        ).toEqual(
+          renderPlan(expectSuccess(assetPlan(processedFirst, PLAN_WITHOUT_CHAINS)), sources),
         );
       }
     });
@@ -204,9 +218,10 @@ describe('what a region sounds like', () => {
         operations: [fadeIn],
       };
       const sources = new Map([[asset.id, [Float32Array.from({ length: 10 }, () => 1)]]]);
-      expect([...(renderPlan(regionPlan(asset, region), sources)[0] ?? [])]).toEqual([
-        1, 1, 1, 1, 1, 1, 0.75, 0.5, 0.25, 0,
-      ]);
+      expect([
+        ...(renderPlan(expectSuccess(regionPlan(asset, region, PLAN_WITHOUT_CHAINS)), sources)[0] ??
+          []),
+      ]).toEqual([1, 1, 1, 1, 1, 1, 0.75, 0.5, 0.25, 0]);
     });
   });
 
@@ -239,13 +254,16 @@ describe('what a region sounds like', () => {
       const [[fromLeft = 0, fromRight = 0] = []] = matrix;
       const sources = new Map([[asset.id, [left, right]]]);
 
-      const rendered = renderPlan(regionPlan(asset, region), sources);
+      const rendered = renderPlan(
+        expectSuccess(regionPlan(asset, region, PLAN_WITHOUT_CHAINS)),
+        sources,
+      );
 
       expect(rendered).toHaveLength(1);
       expect([...(rendered[0] ?? [])]).toEqual(
         Array.from({ length: 10 }, () => Math.fround(fromLeft * 0.5 + fromRight * 0.25)),
       );
-      expect(validateRegion(asset, region).ok).toBe(true);
+      expect(validateRegion(asset, region, PLAN_WITHOUT_CHAINS.chains).ok).toBe(true);
     });
 
     it('swaps a region’s channels before a later remap takes them where it says', () => {
@@ -268,13 +286,16 @@ describe('what a region sounds like', () => {
       });
       const sources = new Map([[asset.id, [left, right]]]);
 
-      const [first, second] = renderPlan(regionPlan(asset, region), sources);
+      const [first, second] = renderPlan(
+        expectSuccess(regionPlan(asset, region, PLAN_WITHOUT_CHAINS)),
+        sources,
+      );
 
       // The remap's left takes the right as it stood after the swap: the
       // source's left inside the swapped range, and its right outside it.
       expect([...(first ?? [])]).toEqual([0.25, 0.25, 1, 1, 1, 1, 0.25, 0.25, 0.25, 0.25]);
       expect([...(second ?? [])].every((sample) => sample === 0)).toBe(true);
-      expect(validateRegion(asset, region).ok).toBe(true);
+      expect(validateRegion(asset, region, PLAN_WITHOUT_CHAINS.chains).ok).toBe(true);
     });
   });
 
@@ -283,7 +304,13 @@ describe('what a region sounds like', () => {
     const asset = assetOf('mono', 100, [
       { id: operationId('mono'), kind: 'convert-layout', layout: StandardLayouts.mono, matrix },
     ]);
-    const plan = regionPlan(asset, { ...regionOf('all', 0, 100), assetId: asset.id, basis: 0 });
+    const plan = expectSuccess(
+      regionPlan(
+        asset,
+        { ...regionOf('all', 0, 100), assetId: asset.id, basis: 0 },
+        PLAN_WITHOUT_CHAINS,
+      ),
+    );
     expect(plan.streams[0].layout).toEqual(StandardLayouts.mono);
   });
 });

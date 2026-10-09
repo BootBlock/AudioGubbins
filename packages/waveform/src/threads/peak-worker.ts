@@ -8,10 +8,15 @@
  * compiles it again, with everything it imports, by `scopes/dedicated-worker`,
  * against a worker's definitions. It summarises with the reference DSP, which
  * gives the canonical bits without the WebAssembly module a render worker is
- * sent.
+ * sent. A chain it runs itself rather than read from a render runs a model
+ * through the model channel the page connects it by, which its scope hands on
+ * before the core reads anything.
  */
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
+import { chainProcessing } from '@audiogubbins/effect-rack';
+import { ModelChannel, type ChannelPair } from '@audiogubbins/ml-runtime';
+import { processorTypesWith } from '@audiogubbins/processors';
 
 import type { FromPeakWorker } from '../peak-messages.js';
 import { PeakWorkerCore } from '../peak-worker-core.js';
@@ -33,7 +38,7 @@ interface TurnChannel {
 }
 
 declare const self: PeakWorkerScope;
-declare const MessageChannel: new () => TurnChannel;
+declare const MessageChannel: new () => TurnChannel & ChannelPair;
 declare const performance: { now(): number };
 
 /**
@@ -56,12 +61,15 @@ function yieldToHost(): Promise<void> {
   });
 }
 
+const models = new ModelChannel(() => new MessageChannel());
+
 const core = new PeakWorkerCore({
   post: (message, transfer) => {
     self.postMessage(message, { transfer: [...transfer] });
   },
   yieldToHost,
   dsp: REFERENCE_DSP,
+  processing: chainProcessing(processorTypesWith({ inference: models, models })),
   reportFault: (error) => {
     self.reportError(error);
   },
@@ -69,7 +77,7 @@ const core = new PeakWorkerCore({
 });
 
 self.addEventListener('message', (event) => {
-  core.receive(event.data);
+  if (!models.receive(event.data)) core.receive(event.data);
 });
 // A message that could not be deserialised arrives as this rather than as a
 // message, and the page would otherwise wait on its jobs for ever.

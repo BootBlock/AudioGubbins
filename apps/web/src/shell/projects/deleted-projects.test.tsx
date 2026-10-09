@@ -22,11 +22,11 @@ describe('a deleted project whose purge was cut short', () => {
     const run = vi.fn((_id: string, _args?: unknown) => true);
     renderInTheShell(<DeletedProjects headers={[CUT_SHORT]} run={run} />);
 
-    expect(screen.queryByRole('button', { name: 'Restore "Old tide"' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Restore “Old tide”' })).toBeNull();
     expect(
       screen.getByText('Purging was cut short, so it can no longer be restored.'),
     ).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Finish purging "Old tide"' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Finish purging “Old tide”' }));
     expect(run).toHaveBeenCalledWith('file.purge-project', {
       project: CUT_SHORT.id,
       deletedAt: CUT_SHORT.deleted,

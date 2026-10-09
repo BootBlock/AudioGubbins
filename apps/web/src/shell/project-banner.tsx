@@ -25,13 +25,13 @@ import type { Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
 import type { QuickEditSession } from '../state/quick-edit-store.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
-import { quoted } from '../wording.js';
 import { OwnershipActions } from './ownership-actions.js';
 import { accessSentence } from './project-words.js';
 import { RecoveryReportNotice } from './recovery-report-notice.js';
 import type { RunCommand } from './settings/section.js';
 import { useFocusKeptInside } from './use-focus-kept-inside.js';
 import { useOwnershipAnnouncements } from './use-ownership-announcements.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the banner reads and runs. */
 export interface ProjectBannerProps {

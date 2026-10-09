@@ -1,10 +1,21 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { checkDirectory, rootsOf } from '../tools/check-build-output.mjs';
+import {
+  RUNTIME_WEBASSEMBLY_FILE,
+  checkDirectory,
+  packProblems,
+} from '../tools/check-build-output.mjs';
+import { rootsOf } from '../tools/local-traces.mjs';
+import {
+  loadPackDefinitions,
+  type PackDefinition,
+} from '../tools/model-packs/pack-definitions.mjs';
+import { publishPack, writeCatalogue } from '../tools/model-packs/pack-output.mjs';
 import { REPOSITORY_ROOT, forwardSlashes, inRepository } from './repository.js';
 
 /**
@@ -60,6 +71,71 @@ let output: string;
 const TEXT_SIZE =
   'html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}';
 
+/** Where a build serves the inference runtime's WebAssembly. */
+const RUNTIME_FOLDER = 'inference/onnxruntime-web-1.30.0';
+
+/** A stand-in for the runtime's WebAssembly, by file name. */
+const RUNTIME_BYTES: ReadonlyMap<string, Uint8Array> = new Map([
+  [RUNTIME_WEBASSEMBLY_FILE, new Uint8Array([0, 97, 115, 109, 0])],
+]);
+
+function sha256Of(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/** Serves the runtime's file in `root`, with a script stating its digest, as a build does. */
+function servedRuntime(root: string): void {
+  mkdirSync(join(root, RUNTIME_FOLDER), { recursive: true });
+  for (const [name, bytes] of RUNTIME_BYTES) writeFileSync(join(root, RUNTIME_FOLDER, name), bytes);
+  const [digest = ''] = [...RUNTIME_BYTES.values()].map(sha256Of);
+  writeFileSync(
+    join(root, 'assets', 'runtime-abc.js'),
+    `const e="${digest}";export{e as R};`,
+    'utf8',
+  );
+}
+
+/**
+ * The committed definitions, each with its files made small stand-ins whose
+ * lengths and digests it records, so a pack can be built here byte for byte.
+ */
+const STAND_IN_PACKS: readonly (readonly [PackDefinition, ReadonlyMap<string, Uint8Array>])[] =
+  loadPackDefinitions().map((definition, pack) => {
+    const bytes = new Map(
+      definition.files.map((file, index) => [file.path, new Uint8Array([pack, index, 7, 3])]),
+    );
+    const files = definition.files.map((file) => {
+      const made = bytes.get(file.path) ?? new Uint8Array();
+      return { ...file, bytes: made.length, sha256: sha256Of(made) };
+    });
+    return [{ ...definition, files }, bytes] as const;
+  });
+
+const STAND_IN_DEFINITIONS = STAND_IN_PACKS.map(([definition]) => definition);
+
+/** Ships the packs at `indices` of the stand-ins under `packs/`, as a build copies the built ones. */
+async function shippedPacks(indices: readonly number[]): Promise<void> {
+  const out = join(output, 'packs');
+  const shipped = indices.map((index) => {
+    const pack = STAND_IN_PACKS[index];
+    if (pack === undefined) throw new Error(`No pack is defined at ${String(index)}.`);
+    return pack;
+  });
+  for (const [definition, bytes] of shipped) {
+    await publishPack(out, definition, (folder) => {
+      for (const [path, made] of bytes) {
+        mkdirSync(join(folder, path, '..'), { recursive: true });
+        writeFileSync(join(folder, path), made);
+      }
+      return Promise.resolve();
+    });
+  }
+  await writeCatalogue(
+    out,
+    shipped.map(([definition]) => definition),
+  );
+}
+
 beforeEach(() => {
   output = mkdtempSync(join(tmpdir(), 'audiogubbins-build-'));
 
@@ -69,6 +145,8 @@ beforeEach(() => {
   writeFileSync(join(output, '.nojekyll'), '', 'utf8');
   mkdirSync(join(output, 'assets'));
   writeFileSync(join(output, 'assets', 'index-abc.css'), `:root{--a:1}${TEXT_SIZE}`, 'utf8');
+  // And every one serves the inference runtime, as its scripts state it.
+  servedRuntime(output);
 });
 
 afterEach(() => {
@@ -81,6 +159,98 @@ function artefact(name: string, contents: string): void {
   mkdirSync(join(path, '..'), { recursive: true });
   writeFileSync(path, contents, 'utf8');
 }
+
+describe("the build-output gate's hold on the inference runtime (ADR-0062)", () => {
+  it('passes a runtime served whole, each file the bytes a script states the digest of', () => {
+    expect(problems()).toEqual([]);
+  });
+
+  it('fails a runtime file whose bytes are not the ones the build states', () => {
+    writeFileSync(
+      join(output, RUNTIME_FOLDER, RUNTIME_WEBASSEMBLY_FILE),
+      new Uint8Array([9, 9, 9]),
+    );
+
+    expect(problems()).toEqual([
+      expect.objectContaining({
+        file: `${RUNTIME_FOLDER}/${RUNTIME_WEBASSEMBLY_FILE}`,
+        reason: expect.stringMatching(/no script names its SHA-256/),
+      }),
+    ]);
+  });
+
+  it('fails a runtime that also serves a build no session runs, as the WebGPU build was', () => {
+    const asyncify = 'ort-wasm-simd-threaded.asyncify.wasm';
+    writeFileSync(join(output, RUNTIME_FOLDER, asyncify), new Uint8Array([0, 97, 115, 109, 1]));
+
+    expect(problems()).toEqual([
+      expect.objectContaining({
+        file: `${RUNTIME_FOLDER}/${asyncify}`,
+        reason: 'is no file of the inference runtime a session runs',
+      }),
+    ]);
+  });
+
+  it('fails a copy of the runtime’s WebAssembly among the assets, as the bundler emitted one', () => {
+    const copy = `assets/${RUNTIME_WEBASSEMBLY_FILE.replace('.wasm', '-DcHrbrbl.wasm')}`;
+    artefact(copy, 'not read');
+
+    expect(problems()).toEqual([
+      expect.objectContaining({
+        file: copy,
+        reason: 'is WebAssembly outside the inference runtime’s folder, which no session loads',
+      }),
+    ]);
+    expect(check(output).status).toBe(1);
+  });
+
+  it('fails a runtime missing its file, or none at all, and fails the build that made it', () => {
+    rmSync(join(output, RUNTIME_FOLDER, RUNTIME_WEBASSEMBLY_FILE));
+    writeFileSync(join(output, RUNTIME_FOLDER, 'placeholder.txt'), '');
+    expect(problems()).toEqual([
+      expect.objectContaining({ reason: 'is missing' }),
+      expect.objectContaining({ reason: 'is no file of the inference runtime a session runs' }),
+    ]);
+
+    rmSync(join(output, 'inference'), { recursive: true });
+    expect(problems()).toEqual([
+      expect.objectContaining({ reason: 'holds no inference runtime, so no model can run' }),
+    ]);
+    expect(check(output).status).toBe(1);
+  });
+
+  it('passes the packs the definitions record, all of them or some, with their catalogue', async () => {
+    await shippedPacks([0, 2]);
+    expect(await packProblems(output, STAND_IN_DEFINITIONS)).toEqual([]);
+
+    rmSync(join(output, 'packs'), { recursive: true });
+    await shippedPacks(STAND_IN_PACKS.map((_, index) => index));
+    expect(await packProblems(output, STAND_IN_DEFINITIONS)).toEqual([]);
+  });
+
+  it('fails a file beside the packs, which would be served unchecked', async () => {
+    await shippedPacks([0]);
+    artefact('packs/extra/1.0.0/model.onnx', 'not a pack');
+    artefact('packs/notes.txt', 'not a pack');
+
+    expect(await packProblems(output, STAND_IN_DEFINITIONS)).toEqual([
+      expect.objectContaining({
+        reason: 'extra/1.0.0/model.onnx is no file of a pack the definitions record',
+      }),
+      expect.objectContaining({ reason: 'notes.txt is no file of a pack the definitions record' }),
+    ]);
+  });
+
+  it('checks no pack where a build ships none, and fails packs that are not their definitions', async () => {
+    expect(await packProblems(output)).toEqual([]);
+    artefact('packs/catalogue.json', '{"packs":[]}');
+    expect(await packProblems(output)).toEqual([
+      expect.objectContaining({
+        reason: 'catalogue.json is not the catalogue of the packs the output holds',
+      }),
+    ]);
+  });
+});
 
 describe('the build-output gate', () => {
   it('passes a build with no local path in it', () => {
@@ -101,7 +271,7 @@ describe('the build-output gate', () => {
     const result = check(output);
 
     expect(result.status).toBe(0);
-    expect(result.output).toContain('free of local paths and analytics hosts: 3 files');
+    expect(result.output).toContain('free of local paths and analytics hosts: 5 files');
   });
 
   it('fails a source map whose source is a path on the building machine', () => {

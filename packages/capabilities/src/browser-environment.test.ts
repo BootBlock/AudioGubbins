@@ -471,6 +471,20 @@ describe('the smaller probes', () => {
     }
   });
 
+  it('reports fixed-width SIMD by validating a vector module, and its absence where the engine refuses one', () => {
+    // jsdom runs in Node, whose engine has fixed-width SIMD, so the module
+    // validates only if its bytes are a well-formed module that uses it.
+    expect(detectBrowserEnvironment().validatesWebAssemblySimd).toBe(true);
+
+    // An engine without SIMD finds the module invalid.
+    const refusing = vi.spyOn(WebAssembly, 'validate').mockReturnValue(false);
+    try {
+      expect(detectBrowserEnvironment().validatesWebAssemblySimd).toBe(false);
+    } finally {
+      refusing.mockRestore();
+    }
+  });
+
   it('reports output selection only where the audio context can choose its device', () => {
     const original = Object.getOwnPropertyDescriptor(window, 'AudioContext');
     try {

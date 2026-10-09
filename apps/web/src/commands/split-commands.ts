@@ -12,6 +12,7 @@ import {
   splitRegion,
   splitWholeAsset,
   type Asset,
+  type Project,
   type Region,
   type SampleCount,
 } from '@audiogubbins/domain';
@@ -38,14 +39,20 @@ interface SplitPlace {
  * The steps that make `region` the pair it is split into: the first part is
  * the region changed, the second a region added, each with its processing.
  */
-function splitSteps({
-  region,
-  parts: [first, second],
-}: {
-  readonly region: Region;
-  readonly parts: readonly [Region, Region];
-}): readonly [CommandInvocation, ...CommandInvocation[]] {
-  return [...changeRegionInvocations(region, first), ...addRegionWithProcessing(second)];
+function splitSteps(
+  {
+    region,
+    parts: [first, second],
+  }: {
+    readonly region: Region;
+    readonly parts: readonly [Region, Region];
+  },
+  chains: Project['effectChains'],
+): readonly [CommandInvocation, ...CommandInvocation[]] {
+  return [
+    ...changeRegionInvocations(region, first, chains),
+    ...addRegionWithProcessing(second, chains),
+  ];
 }
 
 /** Splits the regions at the place, as one change, or answers `false` where none is there. */
@@ -64,9 +71,10 @@ function splitRegions(context: ShellContext, project: ProjectTarget, place: Spli
     });
   const [split, ...rest] = splits;
   if (split === undefined) return false;
+  const chains = project.state.project.effectChains;
   changeProject(context, project.session, {
     description: 'Split',
-    invocations: [...splitSteps(split), ...rest.flatMap(splitSteps)],
+    invocations: [...splitSteps(split, chains), ...rest.flatMap((one) => splitSteps(one, chains))],
     said:
       rest.length === 0
         ? `Split ${split.region.displayName} in two.`

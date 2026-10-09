@@ -22,14 +22,19 @@ import {
   CACHE_CLEANUP_ORDER,
   type CleanupChoice,
   type CleanupSelection,
+  type PlannedPack,
 } from '@audiogubbins/storage';
 
 import { projectsAvailability, readyProjects, sayWhenSettled } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** Every kind of cleanup a person may choose besides a cache, by the name an argument gives it. */
-const CHOICES: readonly CleanupChoice['kind'][] = [
+/**
+ * Every kind of cleanup a person may choose besides a cache and a model pack,
+ * by the name an argument gives it.
+ */
+const CHOICES: readonly Exclude<CleanupChoice, { kind: 'cache' | 'model-packs' }>['kind'][] = [
+  'pack-downloads',
   'unfinished-projects',
   'expired-backups',
   'expired-history',
@@ -37,10 +42,14 @@ const CHOICES: readonly CleanupChoice['kind'][] = [
   'unreferenced-media',
 ];
 
+/** What names a model pack version among the choices, `model-pack:<id>@<version>`. */
+const PACK_CHOICE = /^model-pack:([^@]+)@([^@]+)$/u;
+
 /**
  * The cleanup the arguments choose, or why a name is none. No `choices` at all
- * asks for every step; an empty list asks for none, which is what a person
- * leaving every step out of a plan has chosen.
+ * asks for every step but the removal of installed model packs, which a person
+ * chooses by name; an empty list asks for none, which is what a person leaving
+ * every step out of a plan has chosen.
  */
 function selectionFrom(
   invocation: CommandInvocation,
@@ -50,13 +59,17 @@ function selectionFrom(
   if (typeof named !== 'string') return { refused: 'The cleanup choices are not a list of names.' };
   const chosen: CleanupChoice[] = [];
   if (named === '') return { selection: chosen };
+  const packs: PlannedPack['ref'][] = [];
   for (const name of named.split(',')) {
     const category = CACHE_CLEANUP_ORDER.find((one) => `cache:${one}` === name);
     const kind = CHOICES.find((one) => one === name);
+    const [, id, version] = PACK_CHOICE.exec(name) ?? [];
     if (category !== undefined) chosen.push({ kind: 'cache', category });
-    else if (kind !== undefined && kind !== 'cache') chosen.push({ kind });
+    else if (kind !== undefined) chosen.push({ kind });
+    else if (id !== undefined && version !== undefined) packs.push({ id, version });
     else return { refused: `There is no cleanup called ${name}.` };
   }
+  if (packs.length > 0) chosen.push({ kind: 'model-packs', packs });
   return { selection: chosen };
 }
 

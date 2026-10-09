@@ -6,7 +6,7 @@ import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { appliedOf, projectBus } from '../testing/bus-runs.js';
 import { referenceState } from '../testing/reference-state.js';
-import { addRegionInvocation } from './region-commands.js';
+import { addRegionInvocation } from './region-invocations.js';
 import { processTargetInvocation } from './target-invocations.js';
 
 const bus = projectBus();

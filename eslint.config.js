@@ -16,9 +16,12 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
  * Every browser API capable of leaving the machine. REQ-PRIV-162 prohibits
  * usage analytics outright and REQ-PRIV-161 prohibits transmitting anything
  * without express permission, so AudioGubbins has no legitimate use for any of
- * these in application code. A future consented diagnostic-submission workflow
- * will need an explicit, reviewed exemption on the single module that performs
- * the upload.
+ * these in application code. The two exemptions (ADR-0062, below) are the
+ * download of a model pack's files, which sends a request for the pack and
+ * nothing else, and the read of the inference runtime's WebAssembly from the
+ * application's own origin, which sends a request for the file and nothing
+ * else. A future consented diagnostic-submission workflow will need an
+ * explicit, reviewed exemption on the single module that performs the upload.
  */
 const NETWORK_GLOBALS = [
   {
@@ -56,6 +59,43 @@ const NETWORK_GLOBALS = [
     message: 'A worker loads only the modules the bundler resolved (REQ-PRIV-161).',
   },
 ];
+
+/**
+ * A module compiled without the browser's definitions declares a global it
+ * uses by its shape, which makes the name a binding of the module's own and so
+ * hides it from the rule above. Declaring a network API that way is reaching
+ * the network all the same, so it is refused everywhere but the two modules
+ * the network rule excepts (below).
+ */
+const NETWORK_NAME_PATTERN = NETWORK_GLOBALS.map(({ name }) => name).join('|');
+
+const NETWORK_DECLARATIONS = [
+  {
+    selector: `VariableDeclaration[declare=true] > VariableDeclarator[id.name=/^(${NETWORK_NAME_PATTERN})$/]`,
+    message: 'Declaring a network API by its shape reaches the network (REQ-PRIV-161).',
+  },
+  {
+    selector: `TSDeclareFunction[id.name=/^(${NETWORK_NAME_PATTERN})$/]`,
+    message: 'Declaring a network API by its shape reaches the network (REQ-PRIV-161).',
+  },
+];
+
+/**
+ * A worker started from its script's own URL, which takes the policy of that
+ * script's response rather than the page's, and so runs with no `connect-src`
+ * on a static host. Every worker is started by `apps/web/src/module-worker.ts`,
+ * from a `blob:` module that inherits the page's policy.
+ */
+const WORKER_CONSTRUCTIONS = [
+  'NewExpression[callee.name=/^(Worker|SharedWorker)$/]',
+  'ClassDeclaration[superClass.name=/^(Worker|SharedWorker)$/]',
+  'ClassExpression[superClass.name=/^(Worker|SharedWorker)$/]',
+].map((selector) => ({
+  selector,
+  message:
+    "A worker started from its script's URL runs outside the page's security policy. Start it " +
+    'with moduleWorkerClass from apps/web/src/module-worker.ts.',
+}));
 
 /**
  * Browser globals that domain and command code must never reach for. Platform
@@ -173,6 +213,7 @@ export default tseslint.config(
       'no-console': 'error',
       'prefer-const': 'error',
       'no-restricted-globals': ['error', ...NETWORK_GLOBALS],
+      'no-restricted-syntax': ['error', ...NETWORK_DECLARATIONS],
       'no-restricted-properties': [
         'error',
         {
@@ -187,7 +228,7 @@ export default tseslint.config(
   // Domain and command packages: framework-agnostic, platform-agnostic.
   {
     files: [
-      'packages/{audio-engine,audio-graph,clipboard,codecs,domain,commands,editor-view,input,timeline,version,video-reference,waveform,project-format,project-commands,history,media-store,storage}/**/*.ts',
+      'packages/{audio-engine,audio-graph,clipboard,codecs,detection-runtime,domain,commands,editor-view,effect-rack,input,ml-runtime,model-packs,timeline,version,video-reference,waveform,processors,project-format,project-commands,history,media-store,storage}/**/*.ts',
     ],
     languageOptions: { globals: {} },
     rules: {
@@ -197,6 +238,34 @@ export default tseslint.config(
         ...BROWSER_GLOBALS_FORBIDDEN_IN_DOMAIN,
       ],
     },
+  },
+
+  // The network rule's first exception (ADR-0062): the download of a model
+  // pack's files, which asks the catalogue the build configures for the pack
+  // and sends nothing else. It declares the platform's `fetch` by its shape;
+  // no other module may, and tests/architecture holds the same line.
+  {
+    files: ['packages/model-packs/src/adapter/http-pack-source.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+
+  // The network rule's second exception (ADR-0062): the read of the inference
+  // runtime's WebAssembly, which asks the application's own origin for the
+  // file and sends nothing else, so the runtime is given checked bytes and
+  // fetches nothing itself. It declares the platform's `fetch` by its shape;
+  // no other module may, and tests/architecture holds the same line.
+  {
+    files: ['packages/ml-runtime/src/adapter/origin-runtime-files.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+
+  // The build tooling's one network exception (ADR-0062, REQ-REPO-191): the
+  // model-pack build's download of the pinned sources a pack definition names,
+  // which sends nothing but the request for each. It runs on a developer's
+  // machine and is never shipped; no other tool may.
+  {
+    files: ['tools/model-packs/source-download.mjs'],
+    rules: { 'no-restricted-globals': 'off' },
   },
 
   // Browser-facing packages and the application shell.
@@ -209,6 +278,16 @@ export default tseslint.config(
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+  },
+
+  // Every worker under the page's security policy: one module starts them.
+  {
+    files: [
+      'apps/web/**/*.{ts,tsx}',
+      'packages/{audio-runtime,design-system,workspace,capabilities,browser-storage,storage-runtime}/**/*.{ts,tsx}',
+    ],
+    ignores: ['apps/web/src/module-worker.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...NETWORK_DECLARATIONS, ...WORKER_CONSTRUCTIONS] },
   },
 
   // The renderer draws on what it is handed, and reads nothing of the browser.

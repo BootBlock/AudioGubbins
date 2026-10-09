@@ -192,14 +192,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['ambisonicChannelCount', 'labelledLayout'],
     'The domain value model ADR-0015 gives Phase 01, for the phases that edit and play a project. Phase 02 keeps projects and edits their names, assets, sources and history, and reaches none of these: processors, clips, tracks and the arithmetic of time and ranges arrive with editing and mixing.':
       [
-        'ChoiceOption',
-        'ChoiceParameterDescriptor',
         'EntityId',
-        'NumericParameterDescriptor',
-        'ParameterDescriptor',
-        'ParameterTaper',
-        'ProcessorDescriptor',
-        'ToggleParameterDescriptor',
         'assetRangeEnd',
         'chainLatency',
         'clipAssetId',
@@ -208,20 +201,52 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'clipsOverlap',
         'containsSample',
         'convertSampleRate',
-        'defaultParameterValue',
-        'instantiateProcessor',
         'isAssetInUse',
         'isFailure',
         'isRetryable',
         'isSuccess',
         'isTrackAudible',
-        'processorsInSignalOrder',
         'projectLength',
-        'secondsToSamples',
         'tracksInOrder',
-        'validateParameterValue',
         'validateProcessorInstance',
       ],
+    "The effect rack's domain (ADR-0060, ADR-0061): chain edits, quality modes, the library and the processed stream's parts, which Phase 06's processors, rack commands and rack views take as they are built.":
+      [
+        'MAXIMUM_CHAIN_SLOTS',
+        'MAXIMUM_GROUP_BRANCHES',
+        'chainOutputLayout',
+        'checkStateVersion',
+        'segmentsLayout',
+        'segmentsLength',
+        'withRack',
+      ],
+  },
+  '@audiogubbins/processors': {
+    'The machine-learning processors one by one (ADR-0062), each made with its services: the threads that run racks make every one at once with `processorTypesWith`, and a type alone serves a tool that runs one model, such as the pinned golden renders.':
+      ['deepFilterNet3', 'mossFormer2Se48k', 'spleeter2Stems', 'spleeter4Stems'],
+    "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
+      ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
+    'Every processor type that runs no model, by key, which the tests of the packages that run chains run with; a thread runs with `processorTypesWith`, which adds the types that run a model, made with its services.':
+      ['PROCESSOR_TYPES_BY_KEY'],
+    "The build of the inference runtime every model processor is pinned to (ADR-0062), which the application's tests state the runtime in use with, as the build states it from the bytes it serves.":
+      ['PINNED_RUNTIME_SHA256'],
+    "The canonical detectors one by one (ADR-0061, ADR-0062), each an `AudioDetector` the assistants run and the detection worker reaches through them, offered alone for a model pack's detector to join or replace, as ADR-0062 has it, once one is licensed for redistribution.":
+      [
+        'CLICK_DETECTOR',
+        'CLIPPING_DETECTOR',
+        'DC_OFFSET_DETECTOR',
+        'HUM_DETECTOR',
+        'NOISE_FLOOR_DETECTOR',
+        'TRANSIENT_DETECTOR',
+      ],
+  },
+  '@audiogubbins/ml-runtime': {
+    "The runtime's WebAssembly file (ADR-0062), which the application's build configuration serves under the files base and takes the digest of; the build configuration is no package, so no import of a package reads it.":
+      ['RUNTIME_WEBASSEMBLY_FILE'],
+  },
+  '@audiogubbins/effect-rack': {
+    "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
+      ['ChainGraph', 'chainGraph'],
   },
   '@audiogubbins/storage': {
     'The journal and the store of whole states, the two contracts ADR-0020 names the storage by. The session and the backups reach both inside the package, and nothing outside it keeps a journal or a state of its own.':
@@ -235,6 +260,17 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'Converting a bundle to an unpacked tree and back without bringing the project in (REQ-STOR-103). The interface converts by importing and exporting, which keeps both directions without loss: a conversion of its own asks for a file and a folder in one gesture, and a browser opens the second chooser only in answer to a gesture of its own.':
       ['packUnpacked', 'unpackBundle'],
   },
+  '@audiogubbins/model-packs': {
+    "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, with the SHA-256 of a text that availability takes a pack's model hash with, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
+      [
+        'InstallEvent',
+        'UpdateOutcome',
+        'nextInstallState',
+        'readModelPackManifest',
+        'readPackCatalogue',
+        'updatePack',
+      ],
+  },
   '@audiogubbins/project-format': {
     "The reader and writer of a whole history record, which the unpacked tree reads a project's history with and its parts are written as; the history package's tests write and read a history back through them, as an export and import of the project would.":
       ['readHistoryRecord', 'writeHistoryRecord'],
@@ -246,6 +282,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readExternalIdentity'],
     'Stripping provenance at a level, which the unpacked tree and the bundle apply inside the package when the state alone is exported (REQ-STOR-166). Offered for an export of a state that writes no tree, such as the audio exports of the codec phase.':
       ['stripAssetProvenance', 'stripExportRecords'],
+    "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
+      ['readEditPlan'],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
@@ -289,6 +327,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'settingsFor',
         'timelineFrameAt',
       ],
+    "The canonical scalar primitives ADR-0061 admits that no processor calls yet, and the bounds of the FFT's sizes, which Phase 06's spectral processors and Phase 08's spectral analysis are the first to size a transform by. The engine's own nodes need none of them.":
+      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'log2'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':
@@ -310,7 +350,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The contrast measure the tokens are solved by, what text must reach, and the conversion back from the channels a canvas is given, which the application's test of the editor's canvas colours holds every label a frame writes to, on what the frame draws under it.":
       ['ContrastRequirement', 'contrastRatio', 'srgbToOklch'],
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
-      ['InfoPopover', 'InfoPopoverProps', 'Menu'],
+      ['InfoPopover', 'InfoPopoverProps'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
   },
   '@audiogubbins/capabilities': {

@@ -11,9 +11,11 @@ import type {
   PlanSource,
   PlanStage,
   PlanStream,
+  StreamProcessing,
 } from '@audiogubbins/domain';
 
 import type { JsonObject } from './canonical-json.js';
+import { writeEffectChain } from './chain-writing.js';
 import { presentMembers } from './document-writing.js';
 import { writeLayout } from './value-writing.js';
 
@@ -22,12 +24,23 @@ export function writeEditPlan(plan: EditPlan): JsonObject {
   return { streams: plan.streams.map(writeStream) };
 }
 
+function writeProcessing(processing: StreamProcessing): JsonObject {
+  return processing.kind === 'stretch'
+    ? { kind: 'stretch', length: processing.length }
+    : {
+        kind: 'chain',
+        chain: writeEffectChain(processing.chain),
+        input: writeLayout(processing.input),
+      };
+}
+
 function writeStream(stream: PlanStream): JsonObject {
-  return {
+  return presentMembers({
     sampleRate: stream.sampleRate,
     layout: writeLayout(stream.layout),
     segments: stream.segments.map(writeSegment),
-  };
+    processing: stream.processing === undefined ? undefined : writeProcessing(stream.processing),
+  });
 }
 
 function writeSegment(segment: PlanSegment): JsonObject {
@@ -41,9 +54,14 @@ function writeSegment(segment: PlanSegment): JsonObject {
 }
 
 function writeSource(source: PlanSource): JsonObject {
-  return source.kind === 'media'
-    ? { kind: 'media', asset: source.asset }
-    : { kind: 'stream', stream: source.stream };
+  switch (source.kind) {
+    case 'media':
+      return { kind: 'media', asset: source.asset };
+    case 'stream':
+      return { kind: 'stream', stream: source.stream };
+    case 'silence':
+      return { kind: 'silence', channels: source.channels };
+  }
 }
 
 function writeStage(stage: PlanStage): JsonObject {

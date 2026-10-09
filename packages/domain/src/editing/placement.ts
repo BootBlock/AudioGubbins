@@ -10,9 +10,16 @@
 
 import type { Asset } from '../project/asset.js';
 import type { Marker, PlacedMarker, PlacedRegion, Region } from '../project/timeline.js';
+import { mapResult, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
-import { assetPlan } from './plan-building.js';
+import {
+  assetPlan,
+  bypassedAssetPlan,
+  unrackedAssetPlan,
+  withRack,
+  type PlanContext,
+} from './plan-building.js';
 import type { EditPlan } from './plan.js';
 import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';
@@ -109,18 +116,65 @@ export function markersInRegion(
 }
 
 /**
- * What a region sounds like: its asset's edited audio between its boundaries,
- * through the region's own processing, each operation folded in on the
- * timeline of its basis (`plan-building.ts`), so it stays on the content it
- * was put on, and a fade begun outside the region keeps its ramp inside it.
+ * What a region sounds like (ADR-0060): its asset's audio through the
+ * region's own processing, each operation folded in on the timeline of its
+ * basis (`plan-building.ts`), so it stays on the content it was put on and a
+ * fade begun outside the region keeps its ramp inside it; then the asset's
+ * rack over the whole asset; then the region's span of that, so its rack
+ * reads exactly that span of its asset's processed audio; then its rack.
  */
 export function regionPlan(
   asset: Asset,
   region: Region,
+  context: PlanContext,
   resolver = anchorResolver(asset),
-): EditPlan {
-  const [stream, ...others] = assetPlan(asset, region.operations).streams;
+): DomainResult<EditPlan> {
+  const whole = assetPlan(asset, context, region.operations);
+  if (!whole.ok) return whole;
+  return mapResult(
+    withRack(regionSlice(whole.value, resolver, region), region.rack, context),
+    pruneStreams,
+  );
+}
+
+/**
+ * What a region sounds like before its asset's rack and its own: its asset's
+ * audio through the region's own processing, and the region's span of that.
+ * What a rack edit over a range of the region reads, since a rack edit is
+ * folded in among its asset's chain, before either rack (ADR-0060's order).
+ */
+export function unrackedRegionPlan(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver = anchorResolver(asset),
+): DomainResult<EditPlan> {
+  return mapResult(unrackedAssetPlan(asset, context, region.operations), (whole) =>
+    pruneStreams(regionSlice(whole, resolver, region)),
+  );
+}
+
+/**
+ * What a region sounds like with every chain it runs bypassed: its asset's
+ * audio through the region's own processing but its rack edits, and the
+ * region's span of that, with neither rack run. The original sound beside
+ * the processed one, for comparing the two (REQ-AUDIO-019).
+ */
+export function bypassedRegionPlan(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver = anchorResolver(asset),
+): DomainResult<EditPlan> {
+  return mapResult(bypassedAssetPlan(asset, context, region.operations), (whole) =>
+    pruneStreams(regionSlice(whole, resolver, region)),
+  );
+}
+
+/** `plan`'s first stream cut to the region's span of its asset. */
+function regionSlice(plan: EditPlan, resolver: AnchorResolver, region: Region): EditPlan {
+  const [stream, ...others] = plan.streams;
   const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
   const segments = sliceSegments(stream.segments, span.start, span.end);
-  return pruneStreams({ streams: [{ ...stream, segments }, ...others] });
+  return { streams: [{ ...stream, segments }, ...others] };
 }

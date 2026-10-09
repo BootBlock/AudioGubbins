@@ -46,6 +46,21 @@ export type AssetOwner =
 /** The owner of an asset of the open project. */
 export type ProjectOwner = Extract<AssetOwner, { readonly kind: 'project' }>;
 
+/**
+ * Another sound of an asset than the one heard, made by another plan of it:
+ * its audio before its racks, or its original with its processing bypassed.
+ */
+export interface PlannedAudio {
+  /** What it is made from, written out whole, as the audio heard's `content` is. */
+  readonly content: string;
+  /** Its layout, which a rack of the asset may change in the audio heard. */
+  readonly layout: ChannelLayout;
+  /** It, described as the audio heard is described. */
+  readonly describe: () => PcmDescription;
+  /** The plan it is made by, which a change heard running is worked out from. */
+  readonly plan: EditPlan;
+}
+
 /** An asset an editor view can open. */
 export interface EditorAsset {
   /** What the asset is, stable across sessions: views name it, and its peaks are kept under it. */
@@ -56,13 +71,34 @@ export interface EditorAsset {
   readonly sampleRate: SampleRate;
   readonly layout: ChannelLayout;
   readonly length: SampleCount;
-  /** Which version of its audio, so peaks kept for another are never drawn for it. */
+  /**
+   * What its audio is made from, written out whole: for an asset of the
+   * project, its plan as the project writes it and the media that plan reads.
+   * Two assets of one content sound alike, so work kept for one, such as a
+   * detection's findings, answers for the other.
+   */
+  readonly content: string;
+  /**
+   * Which version of its audio, so peaks kept for another are never drawn for
+   * it: a short fingerprint of its content, `revisionOf(content)`.
+   */
   readonly revision: string;
   /**
    * Its audio, described for the thread that reads it. Arrays in memory are
    * transferred there, so each call gives arrays the caller may lose.
    */
   readonly describe: () => PcmDescription;
+  /**
+   * Its audio before its racks, or `undefined` where it has none, so the
+   * audio heard is what a rack edit over a range of it reads.
+   */
+  readonly unracked: PlannedAudio | undefined;
+  /**
+   * Its original sound, every chain it runs bypassed and every other edit
+   * kept, for comparing with the sound processed (REQ-AUDIO-019), or
+   * `undefined` where no chain processes it, so the two are one.
+   */
+  readonly original: PlannedAudio | undefined;
   readonly owner: AssetOwner;
   /** Its markers and regions, at its own frames, in position order. */
   readonly markers: readonly PlacedMarker[];

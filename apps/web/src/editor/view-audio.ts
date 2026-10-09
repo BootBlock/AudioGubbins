@@ -15,7 +15,7 @@
  * frame (the packet's acceptance criterion).
  */
 
-import type { SampleCount } from '@audiogubbins/domain';
+import type { QualityMode, SampleCount } from '@audiogubbins/domain';
 import type { KnownAudio } from '@audiogubbins/editor-view';
 import { visibleRange, type ViewportState } from '@audiogubbins/timeline';
 import {
@@ -35,15 +35,29 @@ import {
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 
-/** The source whose peaks show `asset`, named by its identity and revision. */
-export function peakSubjectOf(asset: EditorAsset): PeakSubject {
+/**
+ * The revision of the peaks of `asset` processed at `quality`: the asset's
+ * own, and the values a final render runs at, since a change of either
+ * changes what is drawn and peaks kept for the other must not be.
+ */
+function peakRevisionOf(asset: EditorAsset, quality: QualityMode): string {
+  const { resampling, oversampling, spectralOverlap } = quality.settings;
+  return `${asset.revision}.${resampling}-${String(oversampling)}-${String(spectralOverlap)}`;
+}
+
+/**
+ * The source whose peaks show `asset` as a final render at `quality` makes it,
+ * named by its identity and revision.
+ */
+export function peakSubjectOf(asset: EditorAsset, quality: QualityMode): PeakSubject {
   return {
     identity: asset.id,
-    revision: asset.revision,
+    revision: peakRevisionOf(asset, quality),
     channels: asset.layout.roles.length,
     frames: asset.length,
     sampleRate: asset.sampleRate,
     describe: asset.describe,
+    quality,
   };
 }
 
@@ -114,6 +128,8 @@ export class ViewAudio {
   constructor(options: {
     readonly peaks: Pick<PeakHost, 'open'>;
     readonly asset: EditorAsset;
+    /** The render quality, whose sound the peaks draw. */
+    readonly quality: QualityMode;
     /** Told when a window the view asked for has come, to draw again. */
     readonly changed: () => void;
     /** Told when more of the pyramid is known, or where it is has changed. */
@@ -126,7 +142,7 @@ export class ViewAudio {
     this.#changed = options.changed;
     this.#progressed = options.progressed;
     this.#failed = options.failed;
-    this.#handle = options.peaks.open(peakSubjectOf(asset));
+    this.#handle = options.peaks.open(peakSubjectOf(asset, options.quality));
     this.#stopListening = this.#handle.subscribe(() => {
       this.#progressed();
     });

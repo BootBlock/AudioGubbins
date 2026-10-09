@@ -26,10 +26,10 @@ import type { ProjectState } from '@audiogubbins/project-format';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import type { EditorAsset, ProjectOwner } from '../assets/editor-asset.js';
-import { quoted } from '../wording.js';
 import { focusedEditor } from './editor-target.js';
 import { sayWhenSettled, sessionOf } from './project-access.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** An asset of the project a view shows, and the session that changes it. */
 export interface ProjectTarget {
@@ -101,7 +101,7 @@ export function changeProject(
  */
 export function chainInvocation(
   context: ShellContext,
-  target: EditTarget,
+  target: Pick<EditTarget, 'asset'>,
   operation: DistributiveOmit<EditOperation, 'id'>,
 ): CommandInvocation {
   return applyInvocation(

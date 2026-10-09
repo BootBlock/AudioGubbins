@@ -1,0 +1,47 @@
+/**
+ * What this package's own tests check hashes with: SHA-256 through Node's
+ * hash, which the tests hold the package's own SHA-256 to, and manifests whose
+ * hashes are those of the bytes a test gives.
+ *
+ * Kept apart from the test support other packages take, which never reaches a
+ * Node module, so that support compiles wherever the package's entry points do.
+ */
+
+import { createHash } from 'node:crypto';
+
+import type { PackFile } from '../manifest.js';
+import { sampleManifest, type SampleOptions, type TestPack } from './sample-packs.js';
+
+/** The SHA-256 of `bytes`, in lower-case hexadecimal. */
+export function sha256Hex(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/** Bytes that differ from place to place, so a misplaced run shows. */
+export function patterned(length: number, seed: number): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from({ length }, (_, index) => (index * 31 + seed * 17) % 251);
+}
+
+/**
+ * A pack of `files`, by path, whose manifest states their real lengths and
+ * hashes: by default an encoder of 10 bytes and a decoder of 7.
+ */
+export function testPack(
+  options: Omit<SampleOptions, 'files'> & {
+    readonly files?: Readonly<Record<string, Uint8Array<ArrayBuffer>>>;
+  } = {},
+): TestPack {
+  const bytes = options.files ?? {
+    'encoder.onnx': patterned(10, 1),
+    'models/decoder.onnx': patterned(7, 2),
+  };
+  const files: PackFile[] = Object.entries(bytes).map(([path, content]) => ({
+    path,
+    bytes: content.length,
+    sha256: sha256Hex(content),
+  }));
+  return {
+    manifest: sampleManifest({ ...options, files }),
+    files: new Map(Object.entries(bytes)),
+  };
+}

@@ -1,27 +1,30 @@
 /**
  * Carrying a cleanup out (REQ-STOR-106, REQ-STOR-102, REQ-STOR-027).
  *
- * A plan with any step past the caches is carried out only with the person's
- * confirmation of the bytes those steps would free, as the plan showed them;
- * without it nothing at all is removed. Each step is checked again as it runs,
- * against storage as it is by then: a project is changed only under its write
- * lease, and one another window holds is passed over and reported, while the
- * project this window writes is changed under the lease its own session holds,
- * and its history compacted through that session. Only what the plan showed is
- * removed, and only where it still is what the plan found: a project left over
- * as the plan found it; a generation the retention, under the policy the
- * project holds by then, still does not keep at the moment the plan judged, or
- * one still incomplete; the records set aside that the plan listed, not those
- * set aside since; a history compacted through a session of its project, and
- * only where its plan still fits; and media still unreachable from roots
- * gathered afresh and read whole. A project being made, a generation being
- * written and media being stored each look left over until they are whole, so
- * the steps that remove left-overs run with the storage-wide lock held alone,
- * which every such writer shares while it writes (`storage-sharing.ts`). Where
- * that lock cannot be had now, because a window is writing, the step removes
- * nothing and its outcome says why; where the platform cannot coordinate
- * windows, media is kept and says so, and the other steps are refused, as every
- * step that needs a project's lease is.
+ * A plan with any step past the caches and the partial downloads is carried out
+ * only with the person's confirmation of the bytes those steps would free, as
+ * the plan showed them; without it nothing at all is removed. Each step is
+ * checked again as it runs, against storage as it is by then: a project is
+ * changed only under its write lease, and one another window holds is passed
+ * over and reported, while the project this window writes is changed under the
+ * lease its own session holds, and its history compacted through that session.
+ * Only what the plan showed is removed, and only where it still is what the
+ * plan found: a project left over as the plan found it; a generation the
+ * retention, under the policy the project holds by then, still does not keep at
+ * the moment the plan judged, or one still incomplete; the records set aside
+ * that the plan listed, not those set aside since; a history compacted through
+ * a session of its project, and only where its plan still fits; media still
+ * unreachable from roots gathered afresh and read whole; a model pack download
+ * the plan listed that is still not installed; and an installed pack the person
+ * chose that is still installed, and that no project has come to need by then,
+ * as the pins are read again. A project being made, a generation being written,
+ * media being stored and a pack being downloaded each look left over until they
+ * are whole, so the steps that remove left-overs run with the storage-wide lock
+ * held alone, which every such writer shares while it writes
+ * (`storage-sharing.ts`). Where that lock cannot be had now, because a window
+ * is writing, the step removes nothing and its outcome says why; where the
+ * platform cannot coordinate windows, media is kept and says so, and the other
+ * steps are refused, as every step that needs a project's lease is.
  */
 
 import {
@@ -33,22 +36,20 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { collect } from '@audiogubbins/media-store';
-import type { ContentId } from '@audiogubbins/project-format';
+import type { PackInstaller } from '@audiogubbins/model-packs';
 
 import { BackupGenerations } from './backup-generations.js';
 import { CheckedRecords } from './checked-records.js';
 import {
   isDisposable,
-  leftOverBytes,
-  removableGenerations,
   type CleanupPlan,
-  type CleanupServices,
-  type CleanupStep,
   type CleanupRefusal,
-} from './cleanup-planning.js';
+  type CleanupStep,
+} from './cleanup-plan.js';
+import { leftOverBytes, removableGenerations, type CleanupServices } from './cleanup-planning.js';
 import { compactExpiredHistory } from './expired-history.js';
-import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { removeChosenPacks, removePartialPacks, type ChosenRemoval } from './pack-cleanup.js';
+import { purgeMedia } from './media-purging.js';
 import { ProjectFiles } from './project-files.js';
 import { leftOverOf, removeLeftOver, type LeftOver } from './project-leftovers.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
@@ -56,7 +57,7 @@ import { BackupPaths } from './storage-layout.js';
 import { whileAlone } from './storage-sharing.js';
 import type { OpeningServices } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
-import { bytesUnder } from './usage-measurement.js';
+import { bytesUnder } from './tree-bytes.js';
 import type { LeaseCoordinator } from './write-lease.js';
 
 /** How a cleanup is carried out in the window that runs it. */
@@ -82,6 +83,9 @@ export interface CleanupConfirmation {
  */
 export interface CleanupRunServices extends CleanupServices, OpeningServices {
   readonly coordinator?: LeaseCoordinator;
+
+  /** The installer every removal of a model pack goes through (`pack-cleanup.ts`). */
+  readonly packInstaller: PackInstaller;
 }
 
 /** What one step did. */
@@ -94,6 +98,9 @@ export interface StepOutcome {
 
   /** The projects whose history had moved on from its plan, left as they were. */
   readonly unapplied?: readonly ProjectId[];
+
+  /** The model packs chosen that a project came to need after the plan, kept. */
+  readonly needed?: NonNullable<ChosenRemoval['needed']>;
 
   /** Why the step removed nothing after all. */
   readonly refused?: CleanupRefusal;
@@ -138,9 +145,15 @@ async function runStep(
   const records = new CheckedRecords(services.tree, services.digest);
   switch (step.kind) {
     case 'cache': {
-      const freed = await services.caches.evictCategory(step.category, signal);
-      return freed.ok ? succeed({ step: step.kind, freed: freed.value, busy: [] }) : freed;
+      const evicted = await services.caches.evictCategory(step.category, signal);
+      return outcomeOf(
+        step.kind,
+        mapResult(evicted, (freed) => ({ freed })),
+      );
     }
+    case 'pack-downloads':
+    case 'model-packs':
+      return await packsRemoved(step, services, signal);
     case 'unfinished-projects':
       return await aloneFor(
         step,
@@ -161,22 +174,60 @@ async function runStep(
             expiredGenerationsRemoved(project, step, services, signal),
           ),
       );
-    case 'expired-history': {
-      const compacted = await compactExpiredHistory(step.compactions, services, held, signal);
-      return mapResult(compacted, ({ freed, busy, unapplied }) => ({
-        step: step.kind,
-        freed,
-        busy,
-        unapplied,
-      }));
-    }
+    case 'expired-history':
+      return outcomeOf(
+        step.kind,
+        await compactExpiredHistory(step.compactions, services, held, signal),
+      );
     case 'set-aside-records':
       return await eachHeld(step, [...step.records.keys()], services, options, (project) =>
         setAsideRemoved(new ProjectFiles(records, project), step.records, signal),
       );
     case 'unreferenced-media':
-      return await purgedMedia(step, services, signal);
+      return outcomeOf(step.kind, await purgeMedia(step.collection, services, signal));
   }
+}
+
+/** A step's outcome from what its work came to: no project passed over unless it says so. */
+function outcomeOf(
+  step: CleanupStep['kind'],
+  done: DomainResult<Omit<StepOutcome, 'step' | 'busy'> & Partial<Pick<StepOutcome, 'busy'>>>,
+): DomainResult<StepOutcome> {
+  return mapResult(done, (value) => ({ step, busy: [], ...value }));
+}
+
+/**
+ * Removes the packs a step planned: downloads not finished with the
+ * storage-wide lock held alone, so none is being written, and the installed
+ * packs the person chose as `pack-cleanup.ts` checks them again.
+ */
+async function packsRemoved(
+  step: Extract<CleanupStep, { kind: 'pack-downloads' | 'model-packs' }>,
+  services: CleanupRunServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<StepOutcome>> {
+  if (step.kind === 'model-packs') {
+    const removed = await removeChosenPacks(
+      step.packs,
+      services.packs,
+      services.packInstaller,
+      services.packPins,
+      signal,
+    );
+    return outcomeOf(step.kind, removed);
+  }
+  return await aloneFor(step, services, signal, async () => {
+    const removed = await removePartialPacks(
+      step.packs,
+      services.packs,
+      services.packInstaller,
+      signal,
+    );
+    return outcomeOf(
+      step.kind,
+      mapResult(removed, (freed) => ({ freed })),
+    );
+  });
 }
 
 /**
@@ -304,68 +355,4 @@ async function eachHeld(
 /** Whether a session still holds its project's write lease. */
 function writes(session: ProjectSession): boolean {
   return session.getSnapshot().access.kind === 'writable';
-}
-
-/**
- * Purges the planned media still unreachable from roots gathered afresh, and
- * none where anything that could retain media cannot be read.
- */
-async function purgedMedia(
-  step: Extract<CleanupStep, { kind: 'unreferenced-media' }>,
-  services: CleanupRunServices,
-  signal?: AbortSignal,
-): Promise<DomainResult<StepOutcome>> {
-  const refused = (reason: CleanupRefusal): DomainResult<StepOutcome> =>
-    succeed({ step: step.kind, freed: 0, busy: [], refused: reason });
-  const alone = await whileAlone(
-    services.coordinator,
-    async () => await collectedUnderLock(step, services, signal),
-    signal,
-  );
-  switch (alone.kind) {
-    case 'done':
-      return alone.value;
-    case 'busy':
-      return refused({ kind: 'storing' });
-    case 'unavailable':
-      return refused({ kind: 'no-coordination' });
-  }
-}
-
-/** Collects what is still unreachable, while no window stores media. */
-async function collectedUnderLock(
-  step: Extract<CleanupStep, { kind: 'unreferenced-media' }>,
-  services: CleanupRunServices,
-  signal?: AbortSignal,
-): Promise<DomainResult<StepOutcome>> {
-  const unreadable: UnreadableRoot[] = [];
-  const roots: ContentId[] = [];
-  for await (const root of retainedMedia(
-    services.tree,
-    services.digest,
-    (problem) => {
-      unreadable.push(problem);
-    },
-    signal,
-  )) {
-    roots.push(root);
-  }
-  if (unreadable.length > 0) {
-    return succeed({
-      step: step.kind,
-      freed: 0,
-      busy: [],
-      refused: { kind: 'unreadable', roots: unreadable },
-    });
-  }
-  const collected = await collect(
-    services.store,
-    step.collection,
-    { reclaimableBytes: step.collection.reclaimableBytes },
-    roots,
-    signal,
-  );
-  return collected.ok
-    ? succeed({ step: step.kind, freed: collected.value.reclaimedBytes, busy: [] })
-    : collected;
 }

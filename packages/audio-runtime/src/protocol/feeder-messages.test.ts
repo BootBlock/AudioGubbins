@@ -4,14 +4,19 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AssetOrigin,
-  StandardLayouts,
   assetPlan,
   derivedSampleCount,
+  MAXIMUM_QUALITY,
   sampleRate,
+  StandardLayouts,
   unsafeBrandId,
   type Asset,
 } from '@audiogubbins/domain';
-import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  PLAN_WITHOUT_CHAINS,
+  expectFailureCode,
+  expectSuccess,
+} from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
 import {
   BuiltInNodeType,
@@ -23,7 +28,8 @@ import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
-import { FakeMessagePort, cloneAcross } from '../testing/fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
+import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import {
   FromFeederKind,
   ToFeederKind,
@@ -59,10 +65,11 @@ const TAKE: Asset = {
 const EDITED = {
   kind: PcmDescriptionKind.Edited,
   sampleRate: RATE,
-  plan: assetPlan(TAKE),
+  plan: expectSuccess(assetPlan(TAKE, PLAN_WITHOUT_CHAINS)),
   media: [
     {
       asset: TAKE.id,
+      identity: 'content:take',
       sampleRate: RATE,
       channels: 2,
       length: TAKE.length,
@@ -99,6 +106,7 @@ function everyToFeeder(): readonly ToFeeder[] {
   return [
     {
       kind: ToFeederKind.Sources,
+      quality: MAXIMUM_QUALITY,
       request: 2,
       graph: GRAPH,
       sources: [
@@ -113,6 +121,7 @@ function everyToFeeder(): readonly ToFeeder[] {
     },
     {
       kind: ToFeederKind.Sources,
+      quality: MAXIMUM_QUALITY,
       request: 3,
       graph: GRAPH,
       sources: [
@@ -127,6 +136,7 @@ function everyToFeeder(): readonly ToFeeder[] {
     },
     {
       kind: ToFeederKind.Sources,
+      quality: MAXIMUM_QUALITY,
       request: 4,
       graph: GRAPH,
       sources: [{ node: IN, ...EDITED }],
@@ -152,6 +162,20 @@ function everyToFeeder(): readonly ToFeeder[] {
     { kind: ToFeederKind.Stop },
     { kind: ToFeederKind.Unbind },
     { kind: ToFeederKind.Release, request: 2 },
+    { kind: ToFeederKind.Previews, port: FakeMessagePort.pair().port1 },
+    {
+      kind: ToFeederKind.Parameters,
+      request: 2,
+      change: 3,
+      changes: [
+        {
+          stream: 1,
+          processor: unsafeBrandId<'ProcessorId'>('00000000-0e01'),
+          parameter: unsafeBrandId<'ParameterId'>('9a1e0001-0001'),
+          value: -3.5,
+        },
+      ],
+    },
   ];
 }
 
@@ -172,6 +196,12 @@ const EVERY_FROM_FEEDER: readonly FromFeeder[] = [
   { kind: FromFeederKind.Primed, run: 4 },
   { kind: FromFeederKind.FeedFailed, run: 4, node: IN, reason: 'The disk went away.' },
   { kind: FromFeederKind.Fault, message: 'A message could not be read.' },
+  { kind: FromFeederKind.ParametersTaken, change: 3, refusals: [] },
+  {
+    kind: FromFeederKind.ParametersTaken,
+    change: 4,
+    refusals: [{ code: 'playback.parameter-rendered', summary: 'Made with the value before.' }],
+  },
 ];
 
 /**
@@ -192,9 +222,11 @@ function comparable(message: ToFeeder): unknown {
   };
 }
 
-/** A message as it arrives, the processor's end of the channel transferred with it. */
+/** A message as it arrives, the end of a channel it gives transferred with it. */
 function crossed(message: ToFeeder): unknown {
-  return cloneAcross(message, message.kind === ToFeederKind.Bind ? [message.processor] : []);
+  if (message.kind === ToFeederKind.Bind) return crossingThreads(message, [message.processor]);
+  if (message.kind === ToFeederKind.Previews) return crossingThreads(message, [message.port]);
+  return crossingThreads(message, []);
 }
 
 /** The summary a malformed message is refused with. */
@@ -226,7 +258,7 @@ describe('the feeder protocol', () => {
     [
       'a source of an unknown kind',
       { kind: 'sources', request: 1, graph: GRAPH, sources: [{ node: 'in', kind: 'radio' }] },
-      'sampleRate',
+      'sources[0].sampleRate',
     ],
     [
       'a module that is not compiled',
@@ -235,9 +267,22 @@ describe('the feeder protocol', () => {
         request: 1,
         graph: GRAPH,
         sources: [],
+        quality: MAXIMUM_QUALITY,
         dsp: { kind: 'available', module: [0, 97] },
       },
       'dsp.module',
+    ],
+    [
+      'a preview quality no level offers',
+      {
+        kind: 'sources',
+        request: 1,
+        graph: GRAPH,
+        sources: [],
+        quality: { level: 'maximum', settings: { ...MAXIMUM_QUALITY.settings, oversampling: 3 } },
+        dsp: { kind: 'unavailable', reason: 'none' },
+      },
+      'quality',
     ],
     [
       'a binding without the end of a channel',

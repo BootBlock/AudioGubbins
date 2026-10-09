@@ -6,19 +6,24 @@
  * The categories are the ones a person decides what to keep by, named for what
  * they are to that person rather than for where they lie. Every step says what
  * is lost by it before anything is removed, in a sentence and then item by
- * item: each project, each backup and each part of a history it takes.
+ * item: each project, each backup, each part of a history and each model pack
+ * it takes. A model pack is offered by name and version, and one the plan
+ * keeps says why (REQ-AUDIO-139).
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
 import type {
   CacheCategory,
+  CleanupPlan,
   CleanupStep,
+  PackKept,
+  PlannedPack,
   RecoverabilityLoss,
   StorageUsage,
 } from '@audiogubbins/storage';
-import { counted } from '@audiogubbins/text';
+import { counted, quoted } from '@audiogubbins/text';
 
-import { quoted } from '../../wording.js';
+import { describeBytes } from '../../wording.js';
 import { lostSentence } from '../history/history-words.js';
 
 /** What each cache is called. */
@@ -62,6 +67,8 @@ export function partsOf(usage: StorageUsage): readonly UsagePart[] {
       bytes: usage.retainedDeletedMedia.elsewhere,
     },
     { name: 'Audio nothing uses', bytes: usage.unreferencedMedia },
+    { name: 'Model packs', bytes: usage.packs.installed },
+    { name: 'Model pack downloads not finished', bytes: usage.packs.partial },
     ...[...usage.caches].map(([category, bytes]) => ({ name: cacheName(category), bytes })),
   ];
 }
@@ -71,8 +78,12 @@ export function stepName(step: CleanupStep): string {
   switch (step.kind) {
     case 'cache':
       return cacheName(step.category);
+    case 'pack-downloads':
+      return 'Model pack downloads not finished';
     case 'unfinished-projects':
       return 'Projects whose making or purge was cut short';
+    case 'model-packs':
+      return 'Model packs you chose to remove';
     case 'expired-backups':
       return 'Backups their policy no longer keeps';
     case 'expired-history':
@@ -87,7 +98,11 @@ export function stepName(step: CleanupStep): string {
 /** What each step costs. */
 const LOSSES: Readonly<Record<RecoverabilityLoss, string>> = {
   nothing: 'Made again when it is needed, so nothing is lost.',
+  'download-progress':
+    'Nothing uses a pack until its download finishes, so nothing is lost, but downloading it again starts from the beginning.',
   'unfinished-projects': 'Nothing you kept: these were never finished, or you chose to purge them.',
+  'model-packs':
+    'The processors that need these packs cannot run until you download the packs again.',
   'backup-generations': 'You could no longer restore a project to these backups.',
   history: 'Undoing that far, and the branches and export states it takes, go for good.',
   'set-aside-changes': 'What these changes held could no longer be looked at.',
@@ -99,9 +114,72 @@ export function lossOf(step: CleanupStep): string {
   return LOSSES[step.loses];
 }
 
-/** How a step is named when it is chosen by an argument of the cleanup command. */
+/** How a step is told apart from the others of its plan, and left out by. */
 export function choiceOf(step: CleanupStep): string {
   return step.kind === 'cache' ? `cache:${step.category}` : step.kind;
+}
+
+/** How a model pack version is named when it is chosen by an argument of the cleanup command. */
+export function packChoice(pack: Pick<PlannedPack, 'ref'>): string {
+  return `model-pack:${pack.ref.id}@${pack.ref.version}`;
+}
+
+/**
+ * How a step is chosen by the arguments of the cleanup command: by its kind,
+ * or, for model packs, by each version it removes, which the person chose one
+ * by one.
+ */
+export function choicesOf(step: CleanupStep): readonly string[] {
+  return step.kind === 'model-packs' ? step.packs.map(packChoice) : [choiceOf(step)];
+}
+
+/** A model pack version, as a person knows it, and its size. */
+function packLine(pack: PlannedPack): string {
+  return `${pack.name ?? pack.ref.id} ${pack.ref.version}, ${describeBytes(pack.bytes)}`;
+}
+
+/** Why a cleanup keeps an installed pack. */
+const KEPT: Readonly<Record<PackKept, string>> = {
+  needed: 'A project needs this version, so a cleanup never removes it.',
+  'needs-unknown': 'Which packs your projects need cannot be told now, so it is kept.',
+};
+
+/** Why a cleanup keeps an installed pack, in a sentence. */
+export function keptSentence(kept: PackKept): string {
+  return KEPT[kept];
+}
+
+/**
+ * What confirming a plan removes, in a sentence, and the button that does it:
+ * what goes for good told apart from model packs, which can be downloaded
+ * again. Only for a plan that needs confirming.
+ */
+export function confirmationWords(plan: CleanupPlan): {
+  readonly sentence: string;
+  readonly button: string;
+} {
+  const total = describeBytes(plan.steps.reduce((sum, step) => sum + step.bytes, 0));
+  const packBytes = plan.steps
+    .filter((step) => step.kind === 'model-packs')
+    .reduce((sum, step) => sum + step.bytes, 0);
+  const lasting = describeBytes(plan.confirmationBytes - packBytes);
+  const packs = describeBytes(packBytes);
+  if (packBytes === 0) {
+    return {
+      sentence: `This frees ${total}, of which ${lasting} cannot be made again and goes for good.`,
+      button: `Remove ${lasting} for good`,
+    };
+  }
+  if (packBytes === plan.confirmationBytes) {
+    return {
+      sentence: `This frees ${total}, of which ${packs} is model packs you would have to download again.`,
+      button: `Remove ${packs} of model packs`,
+    };
+  }
+  return {
+    sentence: `This frees ${total}: ${lasting} cannot be made again and goes for good, and ${packs} is model packs you would have to download again.`,
+    button: `Remove ${describeBytes(plan.confirmationBytes)}, ${lasting} of it for good`,
+  };
 }
 
 /** A project as a step names it: by its name, where the library holds it. */
@@ -118,6 +196,9 @@ export function stepDetails(step: CleanupStep, nameOf: ProjectName): readonly st
   switch (step.kind) {
     case 'cache':
       return [];
+    case 'pack-downloads':
+    case 'model-packs':
+      return step.packs.map(packLine);
     case 'unfinished-projects':
       return [...step.projects].map(([project, left]) =>
         left === 'purging'

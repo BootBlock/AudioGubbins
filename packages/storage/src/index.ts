@@ -17,9 +17,11 @@
  * (REQ-STOR-105), disposable caches (REQ-STOR-027), usage by category, history
  * compaction, and a cleanup planned in the safest order and carried out only
  * with the person's confirmation (REQ-STOR-055, REQ-STOR-102, REQ-STOR-106,
- * REQ-STOR-200), forks (REQ-STOR-199) and consolidation; and the media store's
+ * REQ-STOR-200), forks (REQ-STOR-199) and consolidation; the media store's
  * sharing of the storage-wide lock, which keeps a purge from media another
- * window has stored and not yet referred to.
+ * window has stored and not yet referred to; and the model packs a person
+ * installs, kept beside the projects through the model packs' store port,
+ * counted by usage and offered by a cleanup (ADR-0062).
  *
  * The package reaches no browser or Node global: the tree, the digest, the
  * clock, the identifiers, the command bus and the lease coordination are
@@ -102,7 +104,8 @@ export {
   type TransferRequest,
 } from './write-lease.js';
 
-export { type UnreadableRoot, retainedMedia } from './media-roots.js';
+export { retainedMedia } from './media-roots.js';
+export { type UnreadableRoot } from './project-roots.js';
 export { mediaSharingOf } from './storage-sharing.js';
 
 export {
@@ -160,17 +163,29 @@ export {
   type ExternalCopy,
 } from './backup-scheduler.js';
 
-export { type StorageUsage, type UsageServices, measureUsage } from './usage-measurement.js';
+export {
+  type PackUsage,
+  type StorageUsage,
+  type UsageServices,
+  measureUsage,
+} from './usage-measurement.js';
 export {
   type CleanupChoice,
   type CleanupPlan,
   type CleanupSelection,
-  type CleanupServices,
   type CleanupStep,
   type CleanupRefusal,
+  type MediaRefusal,
   type RecoverabilityLoss,
-  planCleanup,
-} from './cleanup-planning.js';
+} from './cleanup-plan.js';
+export { type CleanupServices, planCleanup } from './cleanup-planning.js';
+export {
+  type InstalledPack,
+  type PackKept,
+  type PackPins,
+  type PlannedPack,
+} from './pack-cleanup.js';
+export { projectPackPins } from './pack-pins.js';
 export {
   type CleanupConfirmation,
   type CleanupRunOptions,
@@ -201,6 +216,10 @@ export {
   type PassedOverReason,
   consolidate,
 } from './consolidation.js';
+
+export { type MeasuredPack, ModelPackStore } from './model-pack-store.js';
+export { type ListedEntry } from './library-entry-files.js';
+export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
 export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';

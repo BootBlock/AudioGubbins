@@ -1,0 +1,16 @@
+MossFormer2 SE 48K, a model pack for AudioGubbins
+
+model.onnx holds the weights of MossFormer2 SE 48K, from last_best_checkpoint.pt
+of https://huggingface.co/alibabasglab/MossFormer2_SE_48K at revision
+eff8c97925c8bec812af707814b3e5d777fd4503, licensed under the Apache License,
+Version 2.0, as its model card (MODEL-CARD.md) states.
+
+AudioGubbins converted it to ONNX (opset 17) with
+tools/model-packs/export/mossformer2_se_48k.py (Apache-2.0), which runs the
+model code of ClearerVoice-Studio, https://github.com/modelscope/ClearerVoice-Studio
+at commit 6b3774dc79c46ae8bed2a4fa5f706f0ac8c75c61, licensed under the Apache
+License, Version 2.0 (LICENSE). The conversion changed the weights' format and
+kept the network's mask output alone; it changed no weight.
+
+The pack was assembled by the AudioGubbins pack build,
+tools/model-packs/build-packs.mjs (Apache-2.0).

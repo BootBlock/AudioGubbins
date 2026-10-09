@@ -49,6 +49,7 @@ import '@audiogubbins/design-system/styles/tokens.css';
 import '@audiogubbins/design-system/styles/components.css';
 import '@audiogubbins/workspace/styles/workspace.css';
 import './shell/shell.css';
+import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */
 function AudioGubbins({ application }: { readonly application: Application }) {
@@ -293,7 +294,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               {...(diagnosticModeEndsAt === undefined
                 ? {}
                 : {
-                    diagnosticModeEnds: new Date(diagnosticModeEndsAt).toLocaleTimeString('en-GB'),
+                    diagnosticModeEnds: timeOfDay(diagnosticModeEndsAt),
                   })}
               verbosity={verbosity}
               audio={audioSettings}

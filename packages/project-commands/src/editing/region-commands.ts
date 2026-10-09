@@ -3,13 +3,17 @@
  * region's own processing (REQ-EDIT-014, ADR-0051).
  *
  * A region's properties (its name, boundaries, loop and tags) are set whole by
- * one command whose inverse sets them back; its processing is a chain like an
- * asset's, applied at the end and withdrawn from the end. Every command keeps
- * an inverse short enough to journal whatever the region holds: a region is
- * removed only once its processing is withdrawn, which the interface does in
- * the same change, so no inverse carries a whole chain. A change to a region's
- * processing anywhere but at its end, such as a split's, is made the same way,
- * as one change of those steps (`changeRegionInvocations`).
+ * one command whose inverse sets them back; its rack is set by the rack command
+ * alone (`rack-commands.ts`); its processing is a chain like an asset's,
+ * applied at the end and withdrawn from the end. Every command keeps an inverse
+ * short enough to journal whatever the region holds: a region is removed only
+ * once its processing is withdrawn, which the interface does in the same
+ * change, so no inverse carries more than one chain, which the domain bounds. A
+ * chain a region names enters and leaves with it as `chain-naming.ts` says. A
+ * change to a region's processing anywhere but at its end, such as a split's,
+ * is made the same way, as one change of those steps (`region-invocations.ts`),
+ * each re-applied step giving its chain whole, since withdrawing it may have
+ * removed the chain.
  */
 
 import {
@@ -26,7 +30,6 @@ import {
   validateRegion,
   type DomainResult,
   type Region,
-  type RegionOperation,
 } from '@audiogubbins/domain';
 import {
   canonicalJson,
@@ -34,7 +37,6 @@ import {
   readRegion,
   readRegionOperation,
   writeRegion,
-  writeRegionOperation,
   type JsonValue,
   type ProjectState,
 } from '@audiogubbins/project-format';
@@ -45,12 +47,21 @@ import {
   ProjectCommandId,
   applied,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from '../project-command.js';
+import { rackChainOf, stateNaming, withoutUnnamed } from '../processing/chain-naming.js';
 import { idArgument, targetRegion } from './editing-arguments.js';
+import {
+  KEPT_BY_THE_REGION,
+  addRegionInvocation,
+  applyRegionEditInvocation,
+  removeRegionInvocation,
+  setRegionInvocation,
+  withdrawRegionEditInvocation,
+} from './region-invocations.js';
 import { regionEditDescription } from './edit-descriptions.js';
 import { withRegion, withoutRegion } from './editing-state.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The commands that change regions and their processing. */
 export function regionCommands(): readonly ProjectCommand[] {
@@ -102,9 +113,6 @@ export function regionCommands(): readonly ProjectCommand[] {
   ];
 }
 
-/** The members of a written region that setting its properties never changes. */
-const KEPT_BY_THE_REGION: ReadonlySet<string> = new Set(['id', 'assetId', 'operations']);
-
 function rejected(code: string, summary: string): DomainResult<never> {
   return fail(failure(code, FailureKind.Rejected, summary));
 }
@@ -114,7 +122,7 @@ function standing(state: ProjectState, region: Region): DomainResult<Region> {
   const asset = state.project.assets.get(region.assetId);
   return asset === undefined
     ? rejected('region.asset-unknown', 'The project has no asset for this region.')
-    : validateRegion(asset, region);
+    : validateRegion(asset, region, state.project.effectChains);
 }
 
 /** The region the argument `region` holds. */
@@ -128,7 +136,9 @@ function addRegion(
   invocation: CommandInvocation,
 ): CommandOutcome<ProjectState> {
   const read = regionArgument(invocation);
-  const region = read.ok ? standing(state, read.value) : read;
+  const naming = read.ok ? stateNaming(state, invocation, read.value.rack) : read;
+  if (!naming.ok) return refusedBy(naming);
+  const region = read.ok ? standing(naming.value, read.value) : read;
   if (!region.ok) return refusedBy(region);
   if (state.project.regions.has(region.value.id)) {
     return refusal('region.duplicate-id', 'The project already has a region with that identifier.');
@@ -140,7 +150,7 @@ function addRegion(
     );
   }
   return applied(
-    withRegion(state, region.value),
+    withRegion(naming.value, region.value),
     removeRegionInvocation(region.value),
     `Add region ${quoted(region.value.displayName)}`,
   );
@@ -167,7 +177,7 @@ function setRegion(
   }
   const kept = writeRegion(old.value);
   const merged: JsonValue = {
-    ...value,
+    ...Object.fromEntries(Object.entries(value).filter(([key]) => !KEPT_BY_THE_REGION.has(key))),
     ...Object.fromEntries(Object.entries(kept).filter(([key]) => KEPT_BY_THE_REGION.has(key))),
   };
   const read = readNested(readRegion, merged, '');
@@ -195,9 +205,10 @@ function removeRegion(
       `Region ${quoted(region.value.displayName)} still has processing; withdraw it before removing the region.`,
     );
   }
+  const next = withoutUnnamed(withoutRegion(state, region.value.id), region.value.rack);
   return applied(
-    withoutRegion(state, region.value.id),
-    addRegionInvocation(region.value),
+    next.state,
+    addRegionInvocation(region.value, next.removed),
     `Remove region ${quoted(region.value.displayName)}`,
   );
 }
@@ -218,13 +229,15 @@ function applyRegionEdit(
       'The region already has processing with that identifier.',
     );
   }
-  const next = standing(state, {
+  const naming = stateNaming(state, invocation, rackChainOf(operation.value));
+  if (!naming.ok) return refusedBy(naming);
+  const next = standing(naming.value, {
     ...region.value,
     operations: [...region.value.operations, operation.value],
   });
   if (!next.ok) return refusedBy(next);
   return applied(
-    withRegion(state, next.value),
+    withRegion(naming.value, next.value),
     withdrawRegionEditInvocation(region.value, operation.value),
     regionEditDescription(operation.value.edit, region.value.displayName),
   );
@@ -245,99 +258,13 @@ function withdrawRegionEdit(
       `Only the last processing of ${quoted(region.value.displayName)} can be withdrawn.`,
     );
   }
-  return applied(
+  const next = withoutUnnamed(
     withRegion(state, { ...region.value, operations: region.value.operations.slice(0, -1) }),
-    applyRegionEditInvocation(region.value, last),
+    rackChainOf(last),
+  );
+  return applied(
+    next.state,
+    applyRegionEditInvocation(region.value, last, next.removed),
     `Withdraw: ${regionEditDescription(last.edit, region.value.displayName)}`,
   );
-}
-
-/** Adds `region`, which must have no processing yet. */
-export function addRegionInvocation(region: Region): CommandInvocation {
-  return {
-    commandId: ProjectCommandId.AddRegion,
-    arguments: { region: canonicalJson(writeRegion(region)) },
-  };
-}
-
-/** Sets an existing region's properties as `region` gives them, keeping its processing. */
-export function setRegionInvocation(region: Region): CommandInvocation {
-  const properties = Object.fromEntries(
-    Object.entries(writeRegion(region)).filter(([key]) => !KEPT_BY_THE_REGION.has(key)),
-  );
-  return {
-    commandId: ProjectCommandId.SetRegion,
-    arguments: { regionId: region.id, region: canonicalJson(properties) },
-  };
-}
-
-/**
- * Adds `region` with its processing, as the steps of one change: the region
- * without processing, then each of its operations in turn.
- */
-export function addRegionWithProcessing(
-  region: Region,
-): readonly [CommandInvocation, ...CommandInvocation[]] {
-  return [
-    addRegionInvocation({ ...region, operations: [] }),
-    ...region.operations.map((operation) => applyRegionEditInvocation(region, operation)),
-  ];
-}
-
-function sameOperation(one: RegionOperation, other: RegionOperation): boolean {
-  return canonicalJson(writeRegionOperation(one)) === canonicalJson(writeRegionOperation(other));
-}
-
-/**
- * Makes region `old` what `next` gives, as the steps of one change: its
- * properties set, its processing withdrawn from the end back to the first
- * operation `next` does not keep where it stands, and the rest of `next`'s
- * applied after. The region stays `old`'s, on `old`'s asset.
- */
-export function changeRegionInvocations(
-  old: Region,
-  next: Region,
-): readonly [CommandInvocation, ...CommandInvocation[]] {
-  const into: Region = { ...next, id: old.id, assetId: old.assetId };
-  let kept = 0;
-  for (const [index, operation] of old.operations.entries()) {
-    const wanted = into.operations[index];
-    if (wanted === undefined || !sameOperation(operation, wanted)) break;
-    kept = index + 1;
-  }
-  return [
-    setRegionInvocation(into),
-    ...old.operations
-      .slice(kept)
-      .toReversed()
-      .map((operation) => withdrawRegionEditInvocation(old, operation)),
-    ...into.operations.slice(kept).map((operation) => applyRegionEditInvocation(into, operation)),
-  ];
-}
-
-/** Removes `region`. */
-export function removeRegionInvocation(region: Pick<Region, 'id'>): CommandInvocation {
-  return { commandId: ProjectCommandId.RemoveRegion, arguments: { regionId: region.id } };
-}
-
-/** Adds `operation` to the end of the region's processing. */
-export function applyRegionEditInvocation(
-  region: Pick<Region, 'id'>,
-  operation: RegionOperation,
-): CommandInvocation {
-  return {
-    commandId: ProjectCommandId.ApplyRegionEdit,
-    arguments: { regionId: region.id, operation: canonicalJson(writeRegionOperation(operation)) },
-  };
-}
-
-/** Withdraws `operation`, the last of the region's processing. */
-export function withdrawRegionEditInvocation(
-  region: Pick<Region, 'id'>,
-  operation: Pick<RegionOperation, 'id'>,
-): CommandInvocation {
-  return {
-    commandId: ProjectCommandId.WithdrawRegionEdit,
-    arguments: { regionId: region.id, operationId: operation.id },
-  };
 }

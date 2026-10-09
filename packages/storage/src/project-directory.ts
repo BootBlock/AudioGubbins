@@ -43,6 +43,7 @@ import {
 import { bytesSource, streamInto } from './byte-streams.js';
 import { refusalsReported } from './storage-failures.js';
 import type { BodyOpener, UnprovedBodies } from './tree-bodies.js';
+import { quoted } from '@audiogubbins/text';
 
 /** A file of a directory, by its path inside it with `/` between segments. */
 export interface DirectoryFile {
@@ -129,7 +130,7 @@ function holdsAnother(name: string | undefined): DomainFailure {
     FailureKind.Conflict,
     name === undefined
       ? 'The folder holds files of a project whose header cannot be read. Choose another folder, or replace them.'
-      : `The folder holds another project, "${name}". Choose another folder, or replace its files.`,
+      : `The folder holds another project, ${quoted(name)}. Choose another folder, or replace its files.`,
     name === undefined ? {} : { details: { name } },
   );
 }

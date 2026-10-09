@@ -13,7 +13,12 @@
     "**/*.ts",
     "../tools/build-wasm.mjs",
     "../tools/check-build-output.mjs",
-    "../tools/check-record-titles.mjs"
+    "../tools/check-record-titles.mjs",
+    "../tools/inference-runtime-files.mjs",
+    "../tools/local-traces.mjs",
+    "../tools/read-pnpm-lockfile.mjs",
+    "../tools/sync-third-party-notices.mjs",
+    "../tools/model-packs/*.mjs"
   ],
   "exclude": ["dist"],
   "references": [
@@ -28,6 +33,9 @@
     },
     {
       "path": "../packages/input"
+    },
+    {
+      "path": "../packages/model-packs"
     },
     {
       "path": "../apps/web"

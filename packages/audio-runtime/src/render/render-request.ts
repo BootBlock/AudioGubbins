@@ -6,13 +6,12 @@
  * with the caller, who is written each chunk as it arrives.
  */
 
-import type { CancellationSignal, SampleRate } from '@audiogubbins/domain';
+import type { CancellationSignal, QualityMode, SampleRate } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import type {
   DspImplementation,
   JobPriority,
   RenderProgress,
-  RenderQualityProfile,
   RenderRange,
   RenderSink,
   RenderSummary,
@@ -26,7 +25,8 @@ export interface RenderRequest {
   readonly sampleRate: SampleRate;
   readonly range: RenderRange;
   readonly chunkFrames: number;
-  readonly quality: RenderQualityProfile;
+  /** The quality the render runs at, `MAXIMUM_QUALITY` unless the person chose another. */
+  readonly quality: QualityMode;
   /**
    * Each graph input's audio. A recorded source's arrays are transferred to
    * the worker, not copied, so the caller loses them, and every other view of

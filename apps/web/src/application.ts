@@ -41,18 +41,16 @@ import {
   type LayoutMapPairs,
 } from '@audiogubbins/capabilities';
 import { createDiagnosticCentre, createLogStore, type Logger } from '@audiogubbins/diagnostics';
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import type { KeyboardConvention } from '@audiogubbins/commands';
-import {
-  DockRegion,
-  PanelKinds,
-  createDockMemory,
-  panelsIn,
-  type PanelDescriptor,
-  type PanelKind,
-} from '@audiogubbins/workspace';
+import type { AssetCatalogue } from './state/asset-catalogue.js';
+import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 
+import { startAnalysis } from './analysis/analysis-part.js';
 import { browserEngineLoader, browserPlayback, browserRendering } from './audio/browser-audio.js';
 import { PlaybackControl } from './audio/playback-control.js';
+import { followPlayingAsset } from './audio/playing-asset.js';
+import { browserPreviews } from './audio/preview-threads.js';
 import { RenderControl } from './audio/render-control.js';
 import { shellCommands } from './commands/shell-commands.js';
 import type { ShellContext } from './commands/shell-context.js';
@@ -60,12 +58,15 @@ import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.j
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
 import { startEditor, type PanelControls } from './editor-part.js';
-import { createAudioSettingsStore } from './state/audio-settings-store.js';
+import { startModels, type ModelServices } from './ml/model-services.js';
+import { startPackManager } from './ml/pack-manager-part.js';
+import { createAudioSettingsStore, previewQualityOf } from './state/audio-settings-store.js';
+import { createHearingStore } from './state/hearing-store.js';
 import { createAudioViewStore } from './state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
 import { startProjectSystem } from './state/project-system.js';
-import { ProjectPanelKinds } from './panel-kinds.js';
+import { PANEL_DESCRIPTORS } from './panel-descriptors.js';
 import { createLogViewStore } from './state/log-view-store.js';
 import {
   createKeyboardLayoutStore,
@@ -131,23 +132,33 @@ function startKeyboardLayout(
  * the render host are made by the first command that needs each, from the
  * person's gesture, so a page that is only looked at starts no audio and loads
  * none of the engine's threads, and one whose browser cannot play never makes
- * a context at all: the command that would is unavailable there.
+ * a context at all: the command that would is unavailable there. The preview
+ * worker that makes cached previews (ADR-0061) is shared with the peak and
+ * detection workers, started only when the first of them is, and reports here
+ * how far its renders have come; playback follows the asset it plays as the
+ * project changes it.
  */
 function startAudio(
   capabilities: CapabilityRegistry,
   interaction: InteractionStore,
   storage: StateStorage,
   logger: Logger,
+  models: ModelServices,
 ): {
   readonly parts: Pick<
     ShellContext,
-    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
+  readonly previews: PreviewHost;
+  /** Has playback follow the asset it plays in `assets`, until the part is disposed. */
+  readonly followAssets: (assets: AssetCatalogue) => void;
   readonly dispose: () => void;
 } {
-  const runtime = audioRuntimeCapabilities(capabilities);
-  const engine = browserEngineLoader(runtime);
   const audio = createAudioViewStore();
+  const previews = browserPreviews(logger, audio, models);
+  let stopFollowing = (): void => undefined;
+  const runtime = audioRuntimeCapabilities(capabilities);
+  const engine = browserEngineLoader(runtime, previews.host, models);
   const audioSettings = createAudioSettingsStore(storage, logger);
   const renderStrategy = createRenderStrategyStore();
   const announce = (text: string): void => {
@@ -157,9 +168,11 @@ function startAudio(
     view: audio,
     open: browserPlayback({ capabilities: runtime, engine, logger }),
     profile: () => audioSettings.get().chosen,
+    quality: () => previewQualityOf(audioSettings.get()),
     announce,
     logger,
   });
+  const hearing = createHearingStore();
   const rendering = new RenderControl({
     view: audio,
     settings: audioSettings,
@@ -172,10 +185,16 @@ function startAudio(
     logger,
   });
   return {
-    parts: { audio, audioSettings, renderStrategy, playback, rendering },
+    parts: { audio, audioSettings, renderStrategy, playback, hearing, rendering },
+    previews: previews.host,
+    followAssets: (assets) => {
+      stopFollowing = followPlayingAsset(assets, hearing, playback);
+    },
     dispose: () => {
+      stopFollowing();
       playback.dispose();
       rendering.dispose();
+      previews.dispose();
     },
   };
 }
@@ -210,39 +229,6 @@ function panelControls(
       ),
   };
 }
-
-/**
- * Which panels this build has.
- *
- * The workspace validates a stored layout against this, so a layout naming a
- * panel from a later version falls back to a preset rather than failing to
- * mount (REQ-UX-059).
- */
-const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
-  (
-    [
-      [PanelKinds.AssetBrowser, 'Assets', DockRegion.Left],
-      [PanelKinds.Editor, 'Editor', DockRegion.Centre],
-      [PanelKinds.Inspector, 'Inspector', DockRegion.Right],
-      [PanelKinds.Transport, 'Transport', DockRegion.Bottom],
-      [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
-      [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
-      [ProjectPanelKinds.History, 'History', DockRegion.Right],
-      [ProjectPanelKinds.Storage, 'Storage', DockRegion.Bottom],
-      [PanelKinds.Picture, 'Picture', DockRegion.Right],
-    ] as const
-  ).map(([kind, title, defaultRegion]) => [
-    kind,
-    {
-      kind,
-      title,
-      defaultRegion,
-      allowsMultiple: kind === PanelKinds.Editor,
-      closable: true,
-      minimumSize: { width: 200, height: 120 },
-    },
-  ]),
-);
 
 /**
  * Everything the application needs, built once, when it is mounted.
@@ -315,14 +301,22 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
-  const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
+  const audioLogger = diagnostics.loggerFor('audio');
+  const models = startModels(capabilities, projectSystem.storage, audioLogger);
+  const audioPart = startAudio(capabilities, interaction, storage, audioLogger, models);
+  const analysisPart = startAnalysis(interaction, audioPart.previews, models);
   const editorPart = startEditor(
     capabilities,
     storage,
     diagnostics.loggerFor('editor'),
     workspace,
+    audioPart.parts.audioSettings,
     projectSystem,
+    audioPart.previews,
+    models,
   );
+  audioPart.followAssets(editorPart.parts.assets);
+  const packsPart = startPackManager(projectSystem, models);
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
@@ -344,6 +338,8 @@ export function createApplication() {
     storageAbsences: projectSystem.storageAbsences,
     ...audioPart.parts,
     ...editorPart.parts,
+    ...analysisPart.parts,
+    packs: packsPart.manager,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -405,8 +401,11 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
+      analysisPart.dispose();
+      packsPart.dispose();
       audioPart.dispose();
       editorPart.dispose();
+      models.dispose();
       projectSystem.dispose();
     },
   };

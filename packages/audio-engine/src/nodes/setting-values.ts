@@ -48,14 +48,21 @@ export const TEXT: SettingRule<string> = {
   read: (value) => (typeof value === 'string' ? value : undefined),
 };
 
+/**
+ * Whether a setting is a list of numbers. Samples are a whole-pass
+ * processor's measurement, which no built-in node takes, so a rule for a
+ * list reads only a list.
+ */
+export function isNumberList(value: SettingValue): value is readonly number[] {
+  return Array.isArray(value);
+}
+
 /** A list of `length` finite numbers. */
 export function finiteNumbers(length: number, of: string): SettingRule<readonly number[]> {
   return {
     describes: `a list of ${String(length)} finite numbers, one for each ${of}`,
     read: (value) =>
-      typeof value === 'object' &&
-      value.length === length &&
-      value.every((one) => Number.isFinite(one))
+      isNumberList(value) && value.length === length && value.every((one) => Number.isFinite(one))
         ? value
         : undefined,
   };
@@ -64,6 +71,8 @@ export function finiteNumbers(length: number, of: string): SettingRule<readonly 
 /** A setting's value as a message shows it. */
 function shown(value: SettingValue): string {
   if (typeof value === 'string') return `"${value}"`;
+  // A stream's samples would make a message of megabytes.
+  if (value instanceof Float32Array) return `${String(value.length)} samples`;
   if (typeof value === 'object') return `[${value.join(', ')}]`;
   return String(value);
 }

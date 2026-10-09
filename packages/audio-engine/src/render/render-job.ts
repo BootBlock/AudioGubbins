@@ -4,33 +4,22 @@
  * The job is the whole of a render's input, so the same job renders the same
  * bits on the same version (REQ-ARCH-049): the graph, the audio bound to each
  * of its inputs, the span to render, the rate it is rendered at, and the
- * quality profile. It names no thread and no browser, so a render worker and
- * a test run the same job.
+ * quality mode. It names no thread and no browser, so a render worker and a
+ * test run the same job.
  */
 
-import type { CancellationSignal, SampleCount, SampleRate } from '@audiogubbins/domain';
+import type {
+  CancellationSignal,
+  QualityMode,
+  SampleCount,
+  SampleRate,
+} from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 
-import { ResamplingQuality } from '../dsp/canonical-dsp.js';
+import type { ResamplingQuality } from '../dsp/canonical-dsp.js';
 import type { MeterTarget } from '../nodes/node-implementation.js';
 import type { AudioFrameBlock } from '../pcm/frame-block.js';
 import type { PcmSource } from '../pcm/pcm-source.js';
-
-/**
- * How much a render spends on quality where quality is a choice.
- *
- * Only a conversion of rate is a choice in this phase; every other primitive
- * is canonical and has one answer.
- */
-export interface RenderQualityProfile {
-  /** The quality a source at another rate than the render's is converted at. */
-  readonly resampling: ResamplingQuality;
-}
-
-/** The profile a final render uses unless a person chooses another (REQ-ARCH-081). */
-export const MAXIMUM_RENDER_QUALITY: RenderQualityProfile = {
-  resampling: ResamplingQuality.Maximum,
-};
 
 /** Where one sink's rendered audio is written, a chunk at a time. */
 export interface RenderSink {
@@ -57,8 +46,8 @@ export interface RenderJob {
 
   /**
    * The audio each graph input reads, by node. A source at another rate is
-   * converted to the render's rate explicitly, at the profile's quality, and
-   * the render's summary says so (REQ-ARCH-085).
+   * converted to the render's rate explicitly, at the mode's resampling grade,
+   * and the render's summary says so (REQ-ARCH-085).
    */
   readonly sources: ReadonlyMap<NodeId, PcmSource>;
 
@@ -68,7 +57,13 @@ export interface RenderJob {
   /** Where each meter reports, by node; a meter left unbound measures nothing. */
   readonly meters?: ReadonlyMap<NodeId, MeterTarget>;
   readonly range: RenderRange;
-  readonly quality: RenderQualityProfile;
+
+  /**
+   * The quality the render runs at (ADR-0061), `MAXIMUM_QUALITY` unless the
+   * person chooses another (REQ-AUDIO-143). A conversion of rate takes the
+   * grade of its final-render settings.
+   */
+  readonly quality: QualityMode;
 
   /** Frames rendered at a time, which bounds memory and never changes a bit of the output. */
   readonly chunkFrames: number;

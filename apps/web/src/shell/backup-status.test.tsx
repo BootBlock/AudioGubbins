@@ -113,7 +113,7 @@ describe('whether the backups the policy asks for are made', () => {
 
     expect(
       screen.getByText(
-        'Backup not made. The state the snapshot "Before the mix" keeps cannot be read, so a backup would lack it.',
+        'Backup not made. The state the snapshot “Before the mix” keeps cannot be read, so a backup would lack it.',
       ),
     ).toBeVisible();
     expect(window.projects.backups.get().generations).toEqual([]);

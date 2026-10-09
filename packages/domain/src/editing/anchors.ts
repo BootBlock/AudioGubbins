@@ -19,12 +19,20 @@
  * - a trim keeps its range and closes both ends;
  * - a reversal reflects the boundaries inside its range, each of which then
  *   lies between the same two frames as before;
+ * - a stretch moves a position inside its range by the ratio of the new length
+ *   to the old, and one after it by the difference;
+ * - a conversion of rate moves every position by the ratio of the rates;
  * - processing and a layout conversion carry every position unchanged.
+ *
+ * A ratio is applied exactly, in integers, and rounded up, as the canonical
+ * resampler counts the frames a conversion makes (`convertedFrameCount`), so
+ * the end of a stretched range or of a converted asset lands on its new end.
  */
 
 import type { Asset } from '../project/asset.js';
 import { insertedLength, shapesOf, type EditShape } from './edit-shape.js';
 import type { EditOperation } from './operations.js';
+import { convertedFrameCount } from './plan.js';
 
 /** Which content a position at an insertion stays with. */
 export const Affinity = { Before: 'before', After: 'after' } as const;
@@ -65,6 +73,14 @@ export function carryPosition(
       const { start, end } = operation.range;
       return position > start && position < end ? start + end - position : position;
     }
+    case 'stretch': {
+      const { start, end } = operation.range;
+      if (position <= start) return position;
+      if (position >= end) return position - (end - start) + operation.length;
+      return start + convertedFrameCount(position - start, end - start, operation.length);
+    }
+    case 'convert-rate':
+      return convertedFrameCount(position, shape.sampleRate, operation.sampleRate);
     case 'process':
     case 'convert-layout':
       return position;

@@ -1,0 +1,39 @@
+{
+  "name": "@audiogubbins/detection-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The detection worker: a target's processed audio read once, its detectors and assistants run over it, and the findings and recommendations answered as data.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./threads/*": "./src/threads/*",
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project detection-runtime"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*",
+    "@audiogubbins/effect-rack": "workspace:*",
+    "@audiogubbins/processors": "workspace:*",
+    "@audiogubbins/ml-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

@@ -189,6 +189,7 @@ export const ASSET_FIELDS: FieldComparisons<Asset> = {
   length: same,
   storageKey: same,
   edits: sameEdits,
+  rack: same,
 };
 
 export const SOURCE_FIELDS: FieldComparisons<AssetSource> = {
@@ -242,6 +243,7 @@ export const REGION_FIELDS: FieldComparisons<Region> = {
   loop: optionally(sameLoop),
   tags: sameList,
   operations: sameProcessing,
+  rack: same,
 };
 
 export const MARKER_FIELDS: FieldComparisons<Marker> = {

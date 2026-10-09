@@ -66,6 +66,30 @@
       ]
     },
     {
+      "name": "ml-runtime",
+      "root": "packages/ml-runtime",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "processors",
+      "root": "packages/processors",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "effect-rack",
+      "root": "packages/effect-rack",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "audio-runtime",
       "root": "packages/audio-runtime",
       "environment": "jsdom",
@@ -87,6 +111,14 @@
     {
       "name": "waveform",
       "root": "packages/waveform",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "detection-runtime",
+      "root": "packages/detection-runtime",
       "environment": "node",
       "include": [
         "src/**/*.test.ts"
@@ -198,6 +230,14 @@
     {
       "name": "media-store",
       "root": "packages/media-store",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "model-packs",
+      "root": "packages/model-packs",
       "environment": "node",
       "include": [
         "src/**/*.test.ts"

@@ -17,20 +17,31 @@
 import { AVAILABLE, CommandCategory, unavailable, type Command } from '@audiogubbins/commands';
 import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 
+import { analysisCommands } from './analysis-commands.js';
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { libraryApplyCommands } from './library-apply-commands.js';
+import { libraryCommands } from './library-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
+import { packCommands } from './pack-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
+import { rackBuildingCommands } from './rack-building-commands.js';
+import { rackClipboardCommands } from './rack-clipboard-commands.js';
+import { rackComparisonCommands } from './rack-comparison-commands.js';
+import { rackHearingCommands } from './rack-hearing-commands.js';
+import { rackParameterCommands } from './rack-parameter-commands.js';
+import { rackSlotCommands } from './rack-slot-commands.js';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
+import { qualityCommands } from './quality-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
 import { editorAssetCommands } from './editor-asset-commands.js';
 import { editorNavigationCommands } from './editor-navigation-commands.js';
@@ -44,6 +55,7 @@ import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
 import { regionPropertyCommands } from './region-property-commands.js';
 import { splitCommands } from './split-commands.js';
+import { timeEditCommands } from './time-edit-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
@@ -177,6 +189,7 @@ export function shellCommands(
     ...projectSystemCommands(),
     ...audioCommands(),
     ...audioSettingsCommands(),
+    ...qualityCommands(),
     ...editorAssetCommands(),
     ...editorNavigationCommands(),
     ...editorPresentationCommands(),
@@ -187,11 +200,22 @@ export function shellCommands(
     ...markerNudgeCommands(),
     ...clipboardCommands(),
     ...editCommands(),
+    ...timeEditCommands(),
     ...channelCommands(),
     ...regionCommands(),
     ...regionBoundaryCommands(),
     ...regionPropertyCommands(),
     ...splitCommands(),
+    ...analysisCommands(),
+    ...rackBuildingCommands(),
+    ...rackSlotCommands(),
+    ...rackParameterCommands(),
+    ...rackClipboardCommands(),
+    ...rackComparisonCommands(),
+    ...rackHearingCommands(),
+    ...libraryCommands(),
+    ...libraryApplyCommands(),
+    ...packCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

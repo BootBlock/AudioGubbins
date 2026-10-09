@@ -13,7 +13,12 @@ import {
   type EditOperation,
   type EditPlan,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  deepestChain,
+  expectSuccess,
+  TEST_CATALOGUE,
+  TEST_ENGINE,
+} from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { readAssetRecord, writeAssetRecord, type AssetRecord } from './asset-record-json.js';
@@ -73,12 +78,14 @@ describe('every edit-model value survives being written and read alone', () => {
     for (const [index, { project }] of STATES.entries()) {
       const label = `seed ${String(index + 1)}`;
       for (const asset of project.assets.values()) {
+        if (asset.rack !== undefined) seen.add('asset rack');
         for (const operation of asset.edits) {
           seen.add(operation.kind);
           if (operation.kind === 'process') seen.add(operation.edit.kind);
           expectRoundTrip(readEditOperation, writeEditOperation, operation, label);
           if (operation.kind === 'insert') {
             for (const stream of operation.payload.streams) {
+              if (stream.processing !== undefined) seen.add(`processing ${stream.processing.kind}`);
               for (const segment of stream.segments) {
                 seen.add(`source ${segment.source.kind}`);
                 for (const stage of segment.stages) {
@@ -91,6 +98,7 @@ describe('every edit-model value survives being written and read alone', () => {
         }
       }
       for (const region of project.regions.values()) {
+        if (region.rack !== undefined) seen.add('region with a rack');
         expectRoundTrip(readRegion, writeRegion, region, label);
         if (region.loop !== undefined) {
           expectRoundTrip(readAnchoredLoop, writeAnchoredLoop, region.loop, label);
@@ -108,8 +116,10 @@ describe('every edit-model value survives being written and read alone', () => {
     // segment source and stage passed through it.
     expect([...seen].sort()).toEqual(
       [
+        'asset rack',
         'channel-gains',
         'convert-layout',
+        'convert-rate',
         'copy-channel',
         'curve constant',
         'curve fade',
@@ -120,17 +130,24 @@ describe('every edit-model value survives being written and read alone', () => {
         'invert',
         'matrix',
         'process',
+        'processing chain',
+        'processing stretch',
+        'rack',
         'region channel-gains',
         'region copy-channel',
         'region fade',
         'region gain',
         'region invert',
+        'region rack',
         'region silence',
         'region swap-channels',
+        'region with a rack',
         'reverse',
         'silence',
         'source media',
+        'source silence',
         'source stream',
+        'stretch',
         'swap-channels',
         'trim',
       ].sort(),
@@ -155,9 +172,10 @@ function assetOf(edits: readonly EditOperation[]): Asset {
 }
 
 /**
- * An asset whose chain holds the deepest value an argument carries: a paste
- * of audio already converted to stereo, so each of its segments has a matrix
- * stage, whose rows are the deepest arrays of any edit-model value.
+ * An asset whose chain holds the deepest value an argument carries: a paste of
+ * audio racked by the deepest chain the domain accepts, so the paste's plan
+ * holds that chain, and already converted to stereo, so each of its segments
+ * has a matrix stage too.
  */
 function deepestAsset(): Asset {
   const conversion: EditOperation = {
@@ -167,16 +185,24 @@ function deepestAsset(): Asset {
     matrix: [[1], [1]],
   };
   const base = assetOf([conversion]);
-  const payload: EditPlan = expectSuccess(slicePlan(assetPlan(base), 0, 1_000));
+  const rack = deepestChain(IDS);
+  const context = {
+    chains: new Map([[rack.id, rack]]),
+    catalogue: TEST_CATALOGUE,
+    engine: TEST_ENGINE,
+  };
+  const payload: EditPlan = expectSuccess(
+    slicePlan(expectSuccess(assetPlan({ ...base, rack: rack.id }, context)), 0, 1_000),
+  );
+  expect(payload.streams.some((stream) => stream.processing?.kind === 'chain')).toBe(true);
   const paste: EditOperation = {
     id: IDS.next<'EditOperationId'>(),
     kind: 'insert',
     at: derivedSampleCount(0),
     payload,
-    convertRate: false,
   };
   const asset = { ...base, edits: [conversion, paste] };
-  expectSuccess(validateChain(asset, new Map([[asset.id, asset]])));
+  expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), context.chains));
   return asset;
 }
 
@@ -231,9 +257,49 @@ describe('an edit-model value read alone refuses', () => {
       'value',
     ],
     [
+      'a stretch that names no version of the stretch it was made by',
+      readEditOperation,
+      { id: '0000aaaa', kind: 'stretch', range, length: 20 },
+      'schema.missing-member',
+      'value.version',
+    ],
+    [
+      'a conversion of rate made by version 0 of the resampler, which no build has',
+      readEditOperation,
+      { id: '0000aaaa', kind: 'convert-rate', sampleRate: 44_100, version: 0 },
+      'schema.number-out-of-range',
+      'value.version',
+    ],
+    [
+      'a paste converted by version 0 of the resampler, which no build has',
+      readEditOperation,
+      {
+        id: '0000aaaa',
+        kind: 'insert',
+        at: 0,
+        payload: planWithStage({ kind: 'matrix', matrix: [[1]] }),
+        resampler: 0,
+      },
+      'schema.number-out-of-range',
+      'value.resampler',
+    ],
+    [
+      'a paste that says it converts without naming the resampler that does',
+      readEditOperation,
+      {
+        id: '0000aaaa',
+        kind: 'insert',
+        at: 0,
+        payload: planWithStage({ kind: 'matrix', matrix: [[1]] }),
+        convertRate: true,
+      },
+      'schema.unknown-member',
+      'value',
+    ],
+    [
       'a kind the domain does not name',
       readEditOperation,
-      { id: '0000aaaa', kind: 'stretch', range },
+      { id: '0000aaaa', kind: 'time-warp', range },
       'schema.unknown-value',
       'value.kind',
     ],
@@ -290,6 +356,27 @@ describe('an edit-model value read alone refuses', () => {
       'value.streams[0].segments[0].stages[0]',
     ],
     [
+      'silence of no channels',
+      readEditPlan,
+      planReadingFrom({ kind: 'silence', channels: 0 }),
+      'schema.number-out-of-range',
+      'value.streams[0].segments[0].source.channels',
+    ],
+    [
+      'silence of more channels than a layout has',
+      readEditPlan,
+      planReadingFrom({ kind: 'silence', channels: 257 }),
+      'schema.number-out-of-range',
+      'value.streams[0].segments[0].source.channels',
+    ],
+    [
+      'silence that names an asset, as only media does',
+      readEditPlan,
+      planReadingFrom({ kind: 'silence', channels: 1, asset: '0000bbbb' }),
+      'schema.unknown-member',
+      'value.streams[0].segments[0].source',
+    ],
+    [
       'a plan of no streams',
       readEditPlan,
       { streams: [] },
@@ -342,6 +429,19 @@ describe('an edit-model value read alone refuses', () => {
     ).toEqual([]);
   });
 });
+
+/** A one-segment mono plan whose segment reads `source`. */
+function planReadingFrom(source: JsonValue): JsonValue {
+  return {
+    streams: [
+      {
+        sampleRate: 48_000,
+        layout: { roles: ['mono'] },
+        segments: [{ source, start: 0, length: 10, reversed: false, stages: [] }],
+      },
+    ],
+  };
+}
 
 /** A one-segment plan whose segment passes through `stage`. */
 function planWithStage(stage: JsonValue): JsonValue {

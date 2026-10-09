@@ -18,7 +18,6 @@ import type { DomainResult, ProjectId } from '@audiogubbins/domain';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
 import type { ProjectStores } from '../state/project-stores.js';
-import { quoted } from '../wording.js';
 import {
   idArgument,
   projectNameOf,
@@ -28,6 +27,7 @@ import {
 } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The project open here, or the one an argument names, or why there is neither. */
 function projectMeant(

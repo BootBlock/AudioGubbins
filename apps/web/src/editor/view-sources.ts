@@ -17,6 +17,7 @@ import { boundaryAt, pixelOf, type SelectionSet } from '@audiogubbins/timeline';
 import type { EditorAsset } from '../assets/editor-asset.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
+import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { Observable } from '../state/observable.js';
@@ -33,6 +34,8 @@ export interface SurfaceStores {
   readonly picture: Pick<ReferencePicture, 'get' | 'subscribe' | 'filmstrip'>;
   /** What the transport is doing, which moves the playhead. */
   readonly audio: Observable<unknown>;
+  /** The render quality, whose sound the peaks draw. */
+  readonly audioSettings: Observable<Pick<AudioSettings, 'renderQuality'>>;
   /** Where an asset's playhead is now. */
   readonly playhead: (asset: EditorAsset) => SampleCount;
   /** Whether the transport is playing asset `asset`. */

@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
+import { processorsOf } from '@audiogubbins/domain';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 
 import { playbackSettled } from '../testing/audio-fakes.js';
-import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
+import {
+  holdPlatformFiles,
+  rackedWithDeepFilterNet,
+  windowWithAudio,
+  type AudioWindow,
+} from '../testing/project-audio.js';
 
 holdPlatformFiles();
 
@@ -118,6 +124,33 @@ describe('hearing the two states of an A/B comparison (REQ-STOR-195)', () => {
     audio.window.run('history.audition');
 
     await expect.poll(() => audio.window.said).toContain('Loop is not in side A.');
+    expect(audio.window.audio.playback.opened).toEqual([]);
+  });
+
+  it('says why where a chain in the side heard runs a model this page cannot run', async () => {
+    const audio = await windowWithAudio();
+    const { context } = audio.window;
+    const unracked = audio.session.getSnapshot().model.history.cursor;
+    const rack = await rackedWithDeepFilterNet(audio);
+    const racked = audio.session.getSnapshot().model.history.cursor;
+    const [processor] = processorsOf(rack.slots);
+    if (processor === undefined) throw new Error('The rack holds DeepFilterNet 3.');
+    // Known once the page has read which packs it holds: none.
+    await expect.poll(() => context.modelGate.get()(processor)).toBeDefined();
+    // One step gave the sound its rack, with the chain in it.
+    await audio.window.runAndHear('edit.undo');
+    await expect.poll(() => context.assets.find(audio.entry)).toBeDefined();
+    context.editorViews.open('editor', audio.asset());
+    context.editorViews.focus('editor');
+    await audio.window.runAndHear('history.compare', { fromNode: racked, node: unracked });
+
+    audio.window.run('history.audition', { side: 'a' });
+
+    await expect
+      .poll(() => audio.window.said.at(-1))
+      .toMatch(
+        /^Loop cannot be heard as side A has it yet\. DeepFilterNet 3 cannot run because the model it needs is not available\. /,
+      );
     expect(audio.window.audio.playback.opened).toEqual([]);
   });
 

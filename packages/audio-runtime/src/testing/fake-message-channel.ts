@@ -3,22 +3,29 @@
  * the feeder and the processor talking to each other without a browser.
  *
  * Node has a `MessageChannel` of its own, but it delivers on its event loop's
- * schedule, which no test can order against the rig's clock. These ends
- * deliver a microtask after the post, as a port delivers a message as a task
- * of the receiving side and never inside `postMessage`, and every message
- * crosses as a structured clone with its transfers, so a message that relied
- * on sharing an object with the other end fails here as it would in a
- * browser. An end that crosses in a message is carried across as itself,
- * since a structured clone cannot copy it and a browser transfers it.
+ * schedule, which no test can order against the rig's clock. These ends deliver
+ * a microtask after the post, as a port delivers a message as a task of the
+ * receiving side and never inside `postMessage`; an end holds what arrives
+ * until it is started, by `start()` or by a message handler set, as a port's
+ * queue does, so a message sent before its receiver listens is delivered once
+ * it does rather than lost; and every message crosses as a structured clone
+ * with its transfers, so a message that relied on sharing an object with the
+ * other end fails here as it would in a browser. An end that crosses in a
+ * message is carried across as itself, since a structured clone cannot copy it
+ * and a browser transfers it.
  */
+
+import { crossingThreads } from '@audiogubbins/domain/testing';
 
 /** A message event as a port dispatches it. */
 type PortListener = ((this: MessagePort, event: MessageEvent) => unknown) | null;
 
 /** One end of a {@link fakeChannel}. */
 export class FakeMessagePort extends EventTarget implements MessagePort {
-  onmessage: PortListener = null;
   onmessageerror: PortListener = null;
+  #onmessage: PortListener = null;
+  #started = false;
+  #held: unknown[] = [];
   /** Every message posted from this end, as it crossed: a transferred buffer is not left detached here. */
   readonly posted: unknown[] = [];
   closed = false;
@@ -38,7 +45,7 @@ export class FakeMessagePort extends EventTarget implements MessagePort {
 
   postMessage(message: unknown, transfer?: Transferable[] | StructuredSerializeOptions): void {
     const list = Array.isArray(transfer) ? transfer : (transfer?.transfer ?? []);
-    const data = cloneAcross(message, list);
+    const data = crossingThreads(message, list);
     this.posted.push(data);
     const other = this.#other;
     if (this.closed || other === undefined) return;
@@ -59,8 +66,22 @@ export class FakeMessagePort extends EventTarget implements MessagePort {
     });
   }
 
+  get onmessage(): PortListener {
+    return this.#onmessage;
+  }
+
+  /** Setting a handler starts the end, as it starts a port. */
+  set onmessage(listener: PortListener) {
+    this.#onmessage = listener;
+    this.start();
+  }
+
   start(): void {
-    // Delivery is never held: the ends deliver as soon as a listener may hear.
+    if (this.#started) return;
+    this.#started = true;
+    const held = this.#held;
+    this.#held = [];
+    for (const data of held) this.#deliver(data);
   }
 
   close(): void {
@@ -69,8 +90,12 @@ export class FakeMessagePort extends EventTarget implements MessagePort {
 
   #deliver(data: unknown): void {
     if (this.closed) return;
+    if (!this.#started) {
+      this.#held.push(data);
+      return;
+    }
     const event = new MessageEvent('message', { data });
-    this.onmessage?.call(this, event);
+    this.#onmessage?.call(this, event);
     this.dispatchEvent(event);
   }
 }
@@ -78,22 +103,4 @@ export class FakeMessagePort extends EventTarget implements MessagePort {
 /** Two joined ends. */
 export function fakeChannel(): { readonly port1: MessagePort; readonly port2: MessagePort } {
   return FakeMessagePort.pair();
-}
-
-/**
- * `message` as a structured clone arrives, with `transfer` transferred, and
- * each fake end among the message's fields carried across as itself.
- */
-export function cloneAcross(message: unknown, transfer: readonly unknown[]): unknown {
-  const buffers = transfer.filter((one): one is ArrayBuffer => one instanceof ArrayBuffer);
-  if (typeof message !== 'object' || message === null) {
-    return structuredClone(message, { transfer: buffers });
-  }
-  const ports = Object.entries(message).filter(
-    (entry): entry is [string, FakeMessagePort] => entry[1] instanceof FakeMessagePort,
-  );
-  const bare = Object.fromEntries(
-    Object.entries(message).filter(([, value]) => !(value instanceof FakeMessagePort)),
-  );
-  return { ...structuredClone(bare, { transfer: buffers }), ...Object.fromEntries(ports) };
 }

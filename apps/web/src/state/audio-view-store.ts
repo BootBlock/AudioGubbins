@@ -4,15 +4,15 @@
  *
  * REQ-ARCH-153 gives audio state its own partition, apart from the interface's
  * and the preferences', so this holds only the engine's view: the playback
- * session's last status, whether a Play is on its way, and the latest offline
- * render. It owns no audio: the session and the render host are the audio
- * part's, which report here. The performance profile is the person's
- * preference, and is kept with the other audio settings
- * (`audio-settings-store.ts`).
+ * session's last status, whether a Play is on its way, the latest offline
+ * render, and how far the cached preview renders have come. It owns no audio:
+ * the session, the render host and the preview worker are the audio part's,
+ * which report here. The performance profile is the person's preference, and
+ * is kept with the other audio settings (`audio-settings-store.ts`).
  */
 
 import type { DspImplementation } from '@audiogubbins/audio-engine';
-import type { PlaybackStatus } from '@audiogubbins/audio-runtime';
+import type { PlaybackStatus, PreviewRenders } from '@audiogubbins/audio-runtime';
 
 import { observable, type Observable } from './observable.js';
 import type { Reasons } from './reasons.js';
@@ -74,6 +74,9 @@ export interface AudioView {
   readonly problems: readonly string[];
 
   readonly render: RenderView;
+
+  /** How far each cached preview render has come, as the preview worker last said (ADR-0061). */
+  readonly previews: PreviewRenders;
 }
 
 /** The engine's view, and how the audio part reports to it. */
@@ -87,9 +90,14 @@ export interface AudioViewStore extends Observable<AudioView> {
   readonly renderStarted: (framesTotal: number) => void;
   readonly renderFinished: (result: RenderResult) => void;
   readonly renderFailed: (reasons: Reasons) => void;
+  /** The preview worker said how far its renders have come. */
+  readonly showPreviews: (previews: PreviewRenders) => void;
 }
 
 const NOTHING_RENDERED: RenderView = { stage: RenderStage.Idle };
+
+/** No cached preview made or asked for. */
+const NO_PREVIEWS: PreviewRenders = { renders: [], begun: 0 };
 
 /** Creates the engine's view, with nothing played and nothing rendered. */
 export function createAudioViewStore(): AudioViewStore {
@@ -98,6 +106,7 @@ export function createAudioViewStore(): AudioViewStore {
     starting: false,
     problems: [],
     render: NOTHING_RENDERED,
+    previews: NO_PREVIEWS,
   });
 
   return {
@@ -128,6 +137,10 @@ export function createAudioViewStore(): AudioViewStore {
 
     renderFailed: (reasons) => {
       state.update((view) => ({ ...view, render: { stage: RenderStage.Failed, reasons } }));
+    },
+
+    showPreviews: (previews) => {
+      state.update((view) => ({ ...view, previews }));
     },
   };
 }

@@ -19,6 +19,7 @@ import {
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
+  type QualityMode,
   type SampleRate,
 } from '@audiogubbins/domain';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
@@ -46,6 +47,8 @@ export interface PlaybackRequest {
    * transferred to the feeder, and so detached here, when the request loads.
    */
   readonly sources: readonly SourceDescription[];
+  /** The quality a preview runs an edited sound's chains at (ADR-0061, REQ-AUDIO-080). */
+  readonly quality: QualityMode;
 }
 
 /** A graph that can play here, and what playing it needs. */

@@ -90,6 +90,17 @@ function readPorts(
 
 function readSetting(value: unknown, path: string, problems: Problems): SettingValue | undefined {
   if (typeof value === 'boolean' || typeof value === 'string') return value;
+  // A structured clone keeps a typed array, but samples are what a graph
+  // makes as it runs, never what a description of one states.
+  if (ArrayBuffer.isView(value)) {
+    report(
+      problems,
+      'setting-in-memory',
+      path,
+      'holds samples, which only a running graph carries; a descriptor states numbers, text, true or false, or a list of numbers.',
+    );
+    return undefined;
+  }
   if (Array.isArray(value)) {
     return readEach(value, path, problems, (element, elementPath) =>
       readFiniteNumber(element, elementPath, problems),

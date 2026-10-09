@@ -130,7 +130,7 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
     window.files.mediaFiles.push(chosen(HARBOUR_WAV));
 
     expect(await window.runAndHear('file.quick-edit')).toBe(
-      '"Harbour" is imported and open. It is kept in a project of its own, "Harbour".',
+      '“Harbour” is imported and open. It is kept in a project of its own, “Harbour”.',
     );
 
     const state = stateOf(window);
@@ -252,7 +252,7 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
     cancelOnStart(window);
 
     expect(await window.runAndHear('file.quick-edit')).toBe(
-      'The Quick Edit of "Harbour.wav" was cancelled, and nothing was kept.',
+      'The Quick Edit of “Harbour.wav” was cancelled, and nothing was kept.',
     );
     expect(await projectNames(window)).toEqual([]);
     expect(window.projects.project.get().kind).toBe('none');

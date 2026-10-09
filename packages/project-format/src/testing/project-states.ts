@@ -31,7 +31,13 @@ import {
   type RegionOperation,
   type Track,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  deepestChain,
+  expectSuccess,
+  PLAN_WITHOUT_CHAINS,
+  TEST_CATALOGUE,
+  TEST_ENGINE,
+} from '@audiogubbins/domain/testing';
 
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import {
@@ -82,17 +88,46 @@ export function referenceState(fixture: SampleProject): ProjectState {
 
   const chain: EffectChain = {
     id: ids.next<'EffectChainId'>(),
-    processors: [
+    slots: [
       {
+        kind: 'processor',
         id: ids.next<'ProcessorId'>(),
         typeKey: 'parametric-eq',
         enabled: true,
         soloed: false,
+        mix: 1,
+        version: { implementation: 1, parameters: 1 },
         values: new Map<ParameterId, ParameterValue>([
           [ids.next<'ParameterId'>(), 0.5],
           [ids.next<'ParameterId'>(), 'low-shelf'],
           [ids.next<'ParameterId'>(), true],
         ]),
+      },
+      {
+        kind: 'group',
+        id: ids.next<'ProcessorGroupId'>(),
+        enabled: true,
+        soloed: false,
+        mix: 0.5,
+        summing: 'equal-power',
+        branches: [
+          { slots: [] },
+          {
+            slots: [
+              {
+                kind: 'processor',
+                id: ids.next<'ProcessorId'>(),
+                typeKey: 'plate-reverb',
+                enabled: false,
+                soloed: false,
+                mix: 0.25,
+                version: { implementation: 2, parameters: 1, resampler: 1 },
+                values: new Map<ParameterId, ParameterValue>([[ids.next<'ParameterId'>(), 1.5]]),
+                state: { kind: 'impulse', values: [0.5, -0.25, 1e-7] },
+              },
+            ],
+          },
+        ],
       },
     ],
   };
@@ -195,7 +230,11 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
     channels: [0],
     edit: { kind: 'gain', gain: 0.5 },
   };
-  const copied = slicePlan(assetPlan({ ...footstep, edits: [louder] }), 6_000, 18_000);
+  const copied = slicePlan(
+    expectSuccess(assetPlan({ ...footstep, edits: [louder] }, PLAN_WITHOUT_CHAINS)),
+    6_000,
+    18_000,
+  );
   if (!copied.ok) throw new Error('The footstep could not be copied.');
   const edits: EditOperation[] = [
     louder,
@@ -204,7 +243,6 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
       kind: 'insert',
       at: derivedSampleCount(24_000),
       payload: copied.value,
-      convertRate: false,
     },
     {
       id: ids.next<'EditOperationId'>(),
@@ -262,6 +300,46 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
       ...state.project,
       assets: new Map([...state.project.assets, [footstep.id, edited]]),
       regions,
+    },
+  };
+}
+
+/**
+ * The reference state with the deepest chain the domain accepts in each place
+ * a project keeps one: among the project's chains, as the footstep's rack, and
+ * in the plan of a paste of the footstep's racked audio into the footstep,
+ * which nests the chain deepest of all. Every reader of a whole project is
+ * pinned with it, so a depth bound picked by hand rather than derived from the
+ * domain's is found.
+ */
+export function deeplyRackedState(fixture: SampleProject): ProjectState {
+  const state = referenceState(fixture);
+  const { ids } = fixture;
+  const footstep = state.project.assets.get(fixture.assets.footstep.id);
+  if (footstep === undefined) throw new Error('The reference state has no footstep.');
+
+  const chain = deepestChain(ids);
+  const chains = new Map([...state.project.effectChains, [chain.id, chain]]);
+  const racked: Asset = { ...footstep, rack: chain.id };
+  const copied = expectSuccess(
+    slicePlan(
+      expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE })),
+      6_000,
+      18_000,
+    ),
+  );
+  const paste: EditOperation = {
+    id: ids.next<'EditOperationId'>(),
+    kind: 'insert',
+    at: derivedSampleCount(24_000),
+    payload: copied,
+  };
+  return {
+    ...state,
+    project: {
+      ...state.project,
+      assets: new Map([...state.project.assets, [footstep.id, { ...racked, edits: [paste] }]]),
+      effectChains: chains,
     },
   };
 }

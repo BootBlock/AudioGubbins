@@ -6,6 +6,11 @@
  * the normal long-file processing model"). A source may be unbounded, like a
  * generator. Reading is asynchronous, because a later phase's sources read
  * from storage and decoders, and cancellable (`CLAUDE.md` G4).
+ *
+ * A source may be read again before an earlier read has settled, since two
+ * readers can share one (the peak worker's build and a view's request), and
+ * answers each read as it would alone. A source that keeps state between
+ * reads, a cursor, a run or scratch, takes them in turn (`read-turns.ts`).
  */
 
 import {

@@ -1,0 +1,38 @@
+{
+  "name": "@audiogubbins/processors",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The processor types: each states its descriptor, parameters, layouts, latency and versions, and makes its canonical kernel on the audio engine.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project processors"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/audio-graph": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*",
+    "@audiogubbins/ml-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}

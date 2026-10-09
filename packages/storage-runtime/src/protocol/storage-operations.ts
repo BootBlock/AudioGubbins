@@ -7,16 +7,25 @@
  * storage takes and gives, so a failure the storage answers crosses as the
  * `DomainResult` it is, and a refusal of the tree crosses as its kind. Each is
  * grouped by the area of the page's client that calls it: the library of
- * projects, the projects open (`project-operations.ts`), taking projects out
- * and bringing them in (`transfer-operations.ts`), their backup generations
- * (`backup-operations.ts`), audio files (`media-operations.ts`), the storage
- * root, the caches, the usage and its cleanup, who writes each project, and the
- * files linked assets were recorded from. The values all clone: none is a class
- * with behaviour, and a cache's bytes are moved rather than copied.
+ * projects, the person's library of saved chains and presets, the projects open
+ * (`project-operations.ts`), taking projects out and bringing them in
+ * (`transfer-operations.ts`), their backup generations
+ * (`backup-operations.ts`), audio files (`media-operations.ts`), model packs
+ * (`pack-operations.ts`), the storage root, the caches, the usage and its
+ * cleanup, who writes each project, and the files linked assets were recorded
+ * from. The values all clone: none is a class with behaviour, and a cache's
+ * bytes are moved rather than copied.
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';
-import type { AssetId, DomainResult, ProjectId } from '@audiogubbins/domain';
+import type {
+  AssetId,
+  DomainResult,
+  LibraryContent,
+  LibraryEntry,
+  LibraryEntryId,
+  ProjectId,
+} from '@audiogubbins/domain';
 import type { HistoryDelta } from '@audiogubbins/history';
 import type { ExternalSourceIdentity, ZipWritten } from '@audiogubbins/project-format';
 import type {
@@ -30,6 +39,7 @@ import type {
   CleanupSelection,
   ForkRequest,
   LeaseOwner,
+  ListedEntry,
   NewProject,
   OwnershipEvent,
   PressureRelief,
@@ -45,6 +55,7 @@ import type {
 import type { BackupOperations } from './backup-operations.js';
 import type { MediaOperations } from './media-operations.js';
 import type { Handlers, Operation, Stream } from './operations.js';
+import type { PackChange, PackOperations } from './pack-operations.js';
 import type { CrossingFile, PageOperations, PagePort } from './page-operations.js';
 import type { PortChannel } from './port-channel.js';
 import type {
@@ -60,7 +71,8 @@ import type { TransferOperations } from './transfer-operations.js';
 export type StorageOperations = ProjectOperations &
   TransferOperations &
   BackupOperations &
-  MediaOperations & {
+  MediaOperations &
+  PackOperations & {
     /** Every project, deleted ones among them, in the order of their identifiers. */
     'library.list': Operation<undefined, readonly CatalogueEntry[]>;
     'library.create': Operation<NewProject, DomainResult<ProjectHeader>>;
@@ -71,6 +83,23 @@ export type StorageOperations = ProjectOperations &
       DomainResult<void>
     >;
     'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>;
+
+    /** Every saved chain and preset, usable or not, in the order of their identifiers. */
+    'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>;
+    'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>;
+    'processingLibrary.save': Operation<
+      { readonly name: string; readonly content: LibraryContent },
+      DomainResult<LibraryEntry>
+    >;
+    'processingLibrary.replace': Operation<
+      { readonly entry: LibraryEntryId; readonly content: LibraryContent },
+      DomainResult<LibraryEntry>
+    >;
+    'processingLibrary.rename': Operation<
+      { readonly entry: LibraryEntryId; readonly name: string },
+      DomainResult<LibraryEntry>
+    >;
+    'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>;
 
     'root.open': Operation<undefined, DomainResult<StorageRootOpening>>;
     'root.wipe': Operation<WipeConfirmation, DomainResult<void>>;
@@ -168,6 +197,9 @@ export type StorageWorkerSide = {
   readonly streams: {
     /** Every record the worker's loggers make, for the page's diagnostics to admit. */
     readonly log: Stream<LogEntry>;
+
+    /** Each state a model pack version's installation enters, in order. */
+    readonly packs: Stream<PackChange>;
     readonly [project: OwnershipStream]: Stream<OwnershipEvent>;
 
     /** Each change of a project open in the worker, by its handle. */

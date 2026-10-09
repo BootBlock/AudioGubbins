@@ -1,0 +1,8 @@
+export function sourceOf(identity: string): string {
+  return identity;
+}
+
+export type Scope =
+  | { readonly kind: 'media' }
+  /** Audio the storage does not keep, by {@link sourceOf}. */
+  | { readonly kind: 'unstored'; readonly source: string };

@@ -46,6 +46,9 @@ export type BusId = Branded<'BusId'>;
 /** Identifies a processor instance within an effect chain. */
 export type ProcessorId = Branded<'ProcessorId'>;
 
+/** Identifies a parallel group of processors within an effect chain. */
+export type ProcessorGroupId = Branded<'ProcessorGroupId'>;
+
 /** Identifies an effect chain. */
 export type EffectChainId = Branded<'EffectChainId'>;
 
@@ -63,6 +66,7 @@ export type EntityId =
   | TrackId
   | BusId
   | ProcessorId
+  | ProcessorGroupId
   | EffectChainId
   | ParameterId;
 

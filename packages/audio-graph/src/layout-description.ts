@@ -6,6 +6,7 @@
  */
 
 import { channelCount, type ChannelLayout } from '@audiogubbins/domain';
+import { counted } from '@audiogubbins/text';
 
 /** The layout in words, such as `2 channels (left, right)`. */
 export function describeLayout(layout: ChannelLayout): string {
@@ -15,5 +16,5 @@ export function describeLayout(layout: ChannelLayout): string {
   }
   const count = channelCount(layout);
   const names = (layout.labels ?? layout.roles).join(', ');
-  return `${String(count)} ${count === 1 ? 'channel' : 'channels'} (${names})`;
+  return `${counted(count, 'channel', 'channels')} (${names})`;
 }

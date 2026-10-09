@@ -7,13 +7,25 @@ import {
   ProcessingMode,
   SchedulingPolicy,
 } from '@audiogubbins/audio-engine';
+import {
+  MAXIMUM_QUALITY,
+  QualityLevel,
+  ResamplingGrade,
+  namedQualityMode,
+} from '@audiogubbins/domain';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
-import { AUDIO_SETTINGS_KEY, createAudioSettingsStore } from './audio-settings-store.js';
+import {
+  AUDIO_SETTINGS_KEY,
+  createAudioSettingsStore,
+  previewQualityOf,
+} from './audio-settings-store.js';
 import { PersistedPart, createStateStorage, type KeyValueStorage } from './state-storage.js';
 
 const BALANCED = PRESET_SETTINGS[PerformanceProfile.Balanced];
+const DRAFT = namedQualityMode(QualityLevel.Draft);
+const HIGH = namedQualityMode(QualityLevel.High);
 const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
 
 function stored(fields: Record<string, unknown>): string {
@@ -33,12 +45,14 @@ function readAudioSettings(text: string | null) {
 }
 
 describe('reading stored audio settings', () => {
-  it('starts Balanced, interactive work first, choosing render modes automatically', () => {
+  it('starts Balanced, interactive work first, choosing render modes automatically, rendering at the highest quality and previewing at the profile’s', () => {
     expect(readAudioSettings(null)).toEqual({
       chosen: { profile: PerformanceProfile.Balanced, settings: BALANCED },
       custom: BALANCED,
       priorityPolicy: SchedulingPolicy.InteractiveFirst,
       renderMode: undefined,
+      renderQuality: MAXIMUM_QUALITY,
+      previewQuality: undefined,
     });
   });
 
@@ -55,6 +69,8 @@ describe('reading stored audio settings', () => {
         custom,
         priorityPolicy: 'throughput',
         renderMode: 'background-offline',
+        renderQuality: DRAFT.settings,
+        previewQuality: HIGH.settings,
       }),
     );
     expect(read).toEqual({
@@ -62,7 +78,47 @@ describe('reading stored audio settings', () => {
       custom,
       priorityPolicy: SchedulingPolicy.Throughput,
       renderMode: ProcessingMode.BackgroundOffline,
+      renderQuality: DRAFT,
+      previewQuality: HIGH,
     });
+  });
+
+  it('keeps each valid quality setting, and takes only a spoiled one from the default', () => {
+    const read = readAudioSettings(
+      stored({
+        profile: 'low-latency',
+        // A setting no build reads any longer is left aside, not a spoiled record.
+        renderQuality: {
+          resampling: ResamplingGrade.Draft,
+          oversampling: 3,
+          spectralOverlap: 2,
+          inference: 'pinned',
+        },
+        previewQuality: { ...HIGH.settings, spectralOverlap: 'many' },
+      }),
+    );
+    // The render's spoiled oversampling is the highest quality's, and the
+    // preview's spoiled settings are those the profile previews at.
+    expect(read.renderQuality).toEqual({
+      level: QualityLevel.Custom,
+      settings: {
+        resampling: ResamplingGrade.Draft,
+        oversampling: 8,
+        spectralOverlap: 2,
+      },
+    });
+    expect(read.previewQuality).toEqual({
+      level: QualityLevel.Custom,
+      settings: { ...HIGH.settings, spectralOverlap: 2 },
+    });
+  });
+
+  it('follows the profile where no preview quality was stored, or what was is not settings', () => {
+    expect(readAudioSettings(stored({})).previewQuality).toBeUndefined();
+    expect(readAudioSettings(stored({ previewQuality: 'high' })).previewQuality).toBeUndefined();
+    expect(readAudioSettings(stored({ renderQuality: 'draft' })).renderQuality).toBe(
+      MAXIMUM_QUALITY,
+    );
   });
 
   it('keeps each valid field and replaces only the invalid ones with the default', () => {
@@ -97,6 +153,11 @@ describe('reading stored audio settings', () => {
     ['text that is not JSON', '{"schemaVersion":'],
     ['JSON that is not settings', '[1, 2]'],
     ['settings of another version', JSON.stringify({ schemaVersion: 99, profile: 'custom' })],
+    // Before 1.0 a stored format of another version is not migrated (REQ-STOR-052).
+    [
+      'settings from before the quality modes',
+      JSON.stringify({ schemaVersion: 1, profile: 'custom' }),
+    ],
     ['an unknown profile', stored({ profile: 'turbo' })],
   ])('falls back to the defaults for %s', (_case, text) => {
     const read = readAudioSettings(text);
@@ -115,6 +176,57 @@ describe('the audio settings store', () => {
     expect(again.chosen.profile).toBe(PerformanceProfile.LowLatency);
     expect(again.priorityPolicy).toBe(SchedulingPolicy.Throughput);
     expect(again.renderMode).toBe(ProcessingMode.FinalOffline);
+  });
+
+  it('writes the quality modes as their settings, and reads them back', () => {
+    const { store, raw } = storeOver();
+    const custom = {
+      level: QualityLevel.Custom,
+      settings: { ...HIGH.settings, oversampling: 8 as const },
+    };
+    store.chooseRenderQuality(DRAFT);
+    store.choosePreviewQuality(custom);
+
+    const again = storeOver(raw).store.get();
+    expect(again.renderQuality).toEqual(DRAFT);
+    expect(again.previewQuality).toEqual(custom);
+    expect(raw.read(AUDIO_SETTINGS_KEY)).toContain(
+      '"previewQuality":{"resampling":"high","oversampling":8,"spectralOverlap":4}',
+    );
+    expect(raw.read(AUDIO_SETTINGS_KEY)).toContain(
+      `"schemaVersion":${String(SCHEMA_VERSIONS.audioSettings)}`,
+    );
+  });
+
+  it('previews at the profile’s quality until one is chosen, and at the one chosen after', () => {
+    const { store } = storeOver();
+    expect(previewQualityOf(store.get()).level).toBe(QualityLevel.Standard);
+    store.chooseProfile(PerformanceProfile.LowLatency);
+    expect(previewQualityOf(store.get()).level).toBe(QualityLevel.Draft);
+
+    store.choosePreviewQuality(HIGH);
+    store.chooseProfile(PerformanceProfile.MaximumStability);
+    expect(previewQualityOf(store.get()).level).toBe(QualityLevel.High);
+
+    store.choosePreviewQuality(undefined);
+    expect(previewQualityOf(store.get()).level).toBe(QualityLevel.High);
+    expect(store.get().previewQuality).toBeUndefined();
+  });
+
+  it('makes a new quality mode only when its settings change', () => {
+    const { store } = storeOver();
+    store.choosePreviewQuality(HIGH);
+    const render = store.get().renderQuality;
+    const preview = store.get().previewQuality;
+    const automatic = previewQualityOf({ ...store.get(), previewQuality: undefined });
+
+    store.chooseRenderQuality(namedQualityMode(QualityLevel.Maximum));
+    store.choosePreviewQuality(namedQualityMode(QualityLevel.High));
+    expect(store.get().renderQuality).toBe(render);
+    expect(store.get().previewQuality).toBe(preview);
+
+    store.choosePreviewQuality(undefined);
+    expect(previewQualityOf(store.get())).toBe(automatic);
   });
 
   it('keeps the Custom settings while a preset is in force, and restores them with Custom', () => {
@@ -175,6 +287,8 @@ describe('the audio settings store', () => {
     store.choosePriorityPolicy(SchedulingPolicy.InteractiveFirst);
     store.chooseRenderMode(undefined);
     store.setCustom({ ...BALANCED });
+    store.chooseRenderQuality(namedQualityMode(QualityLevel.Maximum));
+    store.choosePreviewQuality(undefined);
 
     expect(heard).not.toHaveBeenCalled();
     expect(write).not.toHaveBeenCalled();

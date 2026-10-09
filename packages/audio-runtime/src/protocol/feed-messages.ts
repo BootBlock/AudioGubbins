@@ -12,10 +12,17 @@
  * from being heard at the new one.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import {
+  countAt,
+  oneOf,
+  readMessage,
+  sampleArraysAt,
+  type DomainResult,
+  type MessageFields,
+} from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
 
-import { channelsAt, countAt, nodeAt, oneOf, readMessage, type Fields } from './message-reading.js';
+import { nodeAt } from './message-reading.js';
 
 /** The kinds of message the feeder sends the processor. */
 export const ToProcessorFeedKind = {
@@ -66,19 +73,19 @@ export type FromProcessorFeed = {
   readonly frames: number;
 };
 
-function toProcessorFeedFrom(fields: Fields): ToProcessorFeed {
+function toProcessorFeedFrom(fields: MessageFields): ToProcessorFeed {
   const kind = oneOf(fields, 'kind', ToProcessorFeedKind);
   switch (kind) {
     case ToProcessorFeedKind.Rewind:
       return { kind, epoch: countAt(fields, 'epoch') };
     case ToProcessorFeedKind.Block:
-      return { kind, node: nodeAt(fields, 'node'), channels: channelsAt(fields, 'channels') };
+      return { kind, node: nodeAt(fields, 'node'), channels: sampleArraysAt(fields, 'channels') };
     case ToProcessorFeedKind.End:
       return { kind, node: nodeAt(fields, 'node') };
   }
 }
 
-function fromProcessorFeedFrom(fields: Fields): FromProcessorFeed {
+function fromProcessorFeedFrom(fields: MessageFields): FromProcessorFeed {
   return {
     kind: oneOf(fields, 'kind', FromProcessorFeedKind),
     epoch: countAt(fields, 'epoch'),

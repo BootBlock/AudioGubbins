@@ -249,7 +249,7 @@
     "06": {
       "phase": 6,
       "name": "Effect Rack and Core DSP",
-      "status": "READY",
+      "status": "PASS",
       "hard_dependencies": [
         3,
         5
@@ -270,8 +270,11 @@
       ],
       "open_verified_findings": [],
       "commits": [],
-      "evidence": [],
-      "handoff": null
+      "evidence": [
+        "reviews/phase-06-evidence.md",
+        "reviews/phase-06-review.md"
+      ],
+      "handoff": "traceability/handoffs/phase-06.md"
     },
     "07": {
       "phase": 7,

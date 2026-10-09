@@ -14,7 +14,20 @@
   "files": [
     "tools/build-wasm.mjs",
     "tools/check-build-output.mjs",
-    "tools/check-record-titles.mjs"
+    "tools/check-record-titles.mjs",
+    "tools/inference-runtime-files.mjs",
+    "tools/local-traces.mjs",
+    "tools/read-pnpm-lockfile.mjs",
+    "tools/sync-third-party-notices.mjs",
+    "tools/model-packs/build-packs.mjs",
+    "tools/model-packs/file-digest.mjs",
+    "tools/model-packs/pack-definitions.mjs",
+    "tools/model-packs/pack-making.mjs",
+    "tools/model-packs/pack-output.mjs",
+    "tools/model-packs/python-environment.mjs",
+    "tools/model-packs/source-cache.mjs",
+    "tools/model-packs/source-download.mjs",
+    "tools/model-packs/tar-members.mjs"
   ],
   "include": ["*.ts", "apps/*/*.ts"]
 }

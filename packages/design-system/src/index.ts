@@ -139,7 +139,7 @@ export {
   type TextFieldProps,
   ToggleSwitch,
   type ToggleSwitchProps,
-  ValueSlider,
-  type ValueSliderProps,
   VisuallyHidden,
 } from './primitives/controls.js';
+
+export { type SliderScale, ValueSlider, type ValueSliderProps } from './primitives/value-slider.js';

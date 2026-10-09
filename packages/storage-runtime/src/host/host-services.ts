@@ -4,12 +4,13 @@
  *
  * The parts are what differ between the browser and a test: the tree, the
  * digest, the clock, identifiers and tokens, the window as others are told of
- * it, the leases, the turns and the loggers. Everything made from them is made
- * here alone, for both, so a test runs the worker's own composition over parts
- * in memory. Every storage path works through a tree that takes turns
- * (`host-turns.ts`).
+ * it, the leases, the turns, the loggers and where a catalogue's packs are
+ * downloaded from. Everything made from them is made here alone, for both, so
+ * a test runs the worker's own composition over parts in memory. Every storage
+ * path works through a tree that takes turns (`host-turns.ts`).
  */
 
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
@@ -25,6 +26,7 @@ import type {
 import {
   CacheStore,
   MEDIA_DIRECTORY,
+  ProcessingLibraryStore,
   ProjectRepository,
   mediaSharingOf,
   type CleanupRunServices,
@@ -34,6 +36,7 @@ import {
 } from '@audiogubbins/storage';
 
 import { TurnTakingTree } from './host-turns.js';
+import { packServices, type CatalogueSource, type PackServices } from './pack-services.js';
 
 /** Where the worker's loggers come from: a logger for each subsystem. */
 export interface HostLogs {
@@ -64,10 +67,13 @@ export interface HostParts {
    * stored object through.
    */
   readonly fileAt: (path: string) => Promise<Blob | undefined>;
+
+  /** Where a catalogue's packs are downloaded from: over HTTP in the browser. */
+  readonly packSource: CatalogueSource;
 }
 
 /** Everything the areas serving the page work with, each made once. */
-export interface HostServices extends OpeningServices, CleanupRunServices {
+export interface HostServices extends OpeningServices, CleanupRunServices, PackServices {
   readonly repository: ProjectRepository;
 
   /**
@@ -79,6 +85,9 @@ export interface HostServices extends OpeningServices, CleanupRunServices {
 
   /** The file at a path of the tree (see {@link HostParts.fileAt}). */
   readonly fileAt: HostParts['fileAt'];
+
+  /** The person's library of saved chains and presets. */
+  readonly processingLibrary: ProcessingLibraryStore;
 }
 
 /** The services made from their parts (see the module comment). */
@@ -87,7 +96,7 @@ export function hostServices(parts: HostParts): HostServices {
   const tree = new TurnTakingTree(parts.tree, parts.yieldToHost);
   const coordinated = coordinator === undefined ? {} : { coordinator };
   const registry = createCommandRegistry<ProjectState>();
-  const commands = projectCommands();
+  const commands = projectCommands(PROCESSOR_CATALOGUE);
   for (const command of commands) registry.register(command);
   return {
     tree,
@@ -106,6 +115,7 @@ export function hostServices(parts: HostParts): HostServices {
       sharing: mediaSharingOf(coordinator),
     }),
     caches: new CacheStore(tree, digest),
+    ...packServices(tree, digest, coordinator, parts.packSource),
     repository: new ProjectRepository({
       tree,
       digest,
@@ -117,6 +127,14 @@ export function hostServices(parts: HostParts): HostServices {
     }),
     yieldToHost: parts.yieldToHost,
     fileAt: parts.fileAt,
+    processingLibrary: new ProcessingLibraryStore({
+      tree,
+      digest,
+      clock,
+      ids,
+      catalogue: PROCESSOR_CATALOGUE,
+      ...coordinated,
+    }),
     ...coordinated,
   };
 }

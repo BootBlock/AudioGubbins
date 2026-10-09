@@ -51,18 +51,27 @@ export {
 export { createSnapshot, deleteSnapshot } from './snapshots.js';
 
 export { type FieldOf } from './entity-fields.js';
-export { type ChainOwner, type DifferenceNames, differenceNames } from './difference-names.js';
+export {
+  type ChainOwner,
+  type DifferenceNames,
+  chainOwner,
+  differenceNames,
+} from './difference-names.js';
 
 export {
-  type ChainDifference,
   type EntityChange,
   type EntityDifferences,
-  type ParameterChange,
-  type ProcessorDifference,
   type ProjectField,
   type StateDifference,
   diffStates,
 } from './state-diff.js';
+export {
+  type ChainDifference,
+  type ParameterChange,
+  type SlotDifference,
+  type SlotField,
+  type SlotPosition,
+} from './chain-differences.js';
 export { affectedBy } from './affected-entities.js';
 
 export {

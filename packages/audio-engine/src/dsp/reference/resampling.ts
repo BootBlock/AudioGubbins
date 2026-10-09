@@ -15,6 +15,15 @@ import {
 } from '../canonical-dsp.js';
 import { besselI0, kaiser, sineOfTurns } from './primitives.js';
 
+/**
+ * Where a tap is worked out and the window handed through. V8 boxes a double
+ * passed to or returned from a call it does not inline, and a tap computed
+ * for each output sample is on the audio thread, so the tap's method and the
+ * window return nothing and hand their doubles through here. Each core reads
+ * its arguments as it starts and writes its answer as it ends.
+ */
+const SLOT = new Float64Array(3);
+
 /** Each quality's passband edge and design attenuation; see `quality.rs`. */
 const QUALITY_SHAPES: Readonly<
   Record<ResamplingQuality, { passbandEdge: number; designAttenuation: number }>
@@ -120,13 +129,20 @@ class Kernel {
         };
   }
 
-  #coefficient(n: number, phase: number): number {
+  /** Puts the tap `n` of `phase` in {@link SLOT}. */
+  #coefficient(n: number, phase: number): void {
     const t = (n * this.outputStep + phase) / this.outputStep;
-    if (Math.abs(t) >= this.#halfWidth) return 0;
+    if (Math.abs(t) >= this.#halfWidth) {
+      SLOT[0] = 0;
+      return;
+    }
     const x = this.#cutoff * t;
     const sinc = x === 0 ? 1 : sineOfTurns(x / 2) / (Math.PI * x);
-    const window = kaiser(t / this.#halfWidth, this.#beta, this.#besselOfBeta);
-    return this.#cutoff * sinc * window;
+    SLOT[0] = t / this.#halfWidth;
+    SLOT[1] = this.#beta;
+    SLOT[2] = this.#besselOfBeta;
+    kaiser(SLOT);
+    SLOT[0] = this.#cutoff * sinc * SLOT[0];
   }
 
   /** Writes the taps of `phase` from `start`, for `n` from `-K` to `K`, scaled to sum to one. */
@@ -134,7 +150,8 @@ class Kernel {
     const table = this.coefficients;
     let sum = 0;
     for (let index = 0; index < this.taps; index += 1) {
-      const tap = this.#coefficient(index - this.half, phase);
+      this.#coefficient(index - this.half, phase);
+      const tap = SLOT[0] ?? 0;
       table[start + index] = tap;
       sum += tap;
     }
@@ -165,16 +182,23 @@ class Kernel {
 /**
  * One channel's input from an absolute index on, in a typed array that grows
  * by doubling and compacts when its front is forgotten, so a long stream costs
- * a copy now and then rather than a boxed number per sample.
+ * a copy now and then rather than a boxed number per sample. The convolution
+ * reads the array itself: a sample returned from a call per tap would be a
+ * heap number wherever the call was not inlined.
  */
 class SampleHistory {
   #samples = new Float32Array(1024);
   #start = 0;
   #length = 0;
 
-  /** The sample `offset` frames after the first one kept. */
-  at(offset: number): number {
-    return this.#samples[this.#start + offset] ?? 0;
+  /** The samples kept, the first at {@link start}; replaced as it grows. */
+  get samples(): Float32Array {
+    return this.#samples;
+  }
+
+  /** Where the first sample kept is in {@link samples}. */
+  get start(): number {
+    return this.#start;
   }
 
   append(arriving: Float32Array): void {
@@ -318,11 +342,13 @@ export class ReferenceResampler {
       const channel = this.#history[index];
       const target = output[index];
       if (channel === undefined || target === undefined) continue;
+      const samples = channel.samples;
+      const shift = channel.start - base;
       let sum = 0;
       for (let tap = 0; tap < kernel.taps; tap += 1) {
         const source = centre - (tap - half);
         if (source >= 0 && source < received) {
-          sum += channel.at(source - base) * (table[offset + tap] ?? 0);
+          sum += (samples[source + shift] ?? 0) * (table[offset + tap] ?? 0);
         }
       }
       target[at] = sum;

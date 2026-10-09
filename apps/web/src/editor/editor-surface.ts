@@ -20,6 +20,7 @@
  */
 
 import type { GraphicsPlatform } from '@audiogubbins/capabilities';
+import type { QualityMode } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { FrameComposer, FollowMode, type ToolPreview } from '@audiogubbins/editor-view';
 import { Renderer, browserBackends, type RendererReport } from '@audiogubbins/renderer';
@@ -63,7 +64,18 @@ export class EditorSurface {
   readonly #renderer: Renderer;
   readonly #composer = new FrameComposer();
   readonly #stops: (() => void)[] = [];
-  #audio: { readonly asset: string; readonly view: ViewAudio } | undefined;
+  /**
+   * The audio of the asset shown, held for its revision and the render
+   * quality, a change of either of which changes the peaks it draws.
+   */
+  #audio:
+    | {
+        readonly asset: string;
+        readonly revision: string;
+        readonly quality: QualityMode;
+        readonly view: ViewAudio;
+      }
+    | undefined;
   #size = { width: 0, height: 0 };
   #frame: number | undefined;
   #preview: ToolPreview | undefined;
@@ -128,6 +140,7 @@ export class EditorSurface {
       stores.cues,
       stores.picture,
       stores.audio,
+      stores.audioSettings,
     ]) {
       this.#stops.push(store.subscribe(this.redraw));
     }
@@ -245,11 +258,15 @@ export class EditorSurface {
       this.#releaseAudio();
       return undefined;
     }
-    if (this.#audio?.asset !== sources.asset.id) {
+    const quality = stores.audioSettings.get().renderQuality;
+    const { id: asset, revision } = sources.asset;
+    let held = this.#audio;
+    if (held?.asset !== asset || held.revision !== revision || held.quality !== quality) {
       this.#releaseAudio();
       const view: ViewAudio = new ViewAudio({
         peaks,
         asset: sources.asset,
+        quality,
         changed: this.redraw,
         progressed: () => {
           this.#tellPeaks(view.status);
@@ -260,13 +277,14 @@ export class EditorSurface {
           logger.warning('Samples for the editor could not be read.', { reason });
         },
       });
-      this.#audio = { asset: sources.asset.id, view };
+      held = { asset, revision, quality, view };
+      this.#audio = held;
       this.#tellPeaks(view.status);
     }
     const ratio = this.#options.graphics.pixelRatio();
     return {
       ...sources,
-      audio: this.#audio.view.known(sources.state.viewport, ratio),
+      audio: held.view.known(sources.state.viewport, ratio),
       preview: this.#preview,
       snap: this.#snap,
     };

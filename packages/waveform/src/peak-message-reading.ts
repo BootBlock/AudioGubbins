@@ -4,8 +4,29 @@
  * protocol's `read` function turns into a failure naming it.
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
-import { pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
+import {
+  Malformed,
+  bytesAt,
+  countAt,
+  countsAt,
+  fieldsOf,
+  frameRangeAt,
+  isTagged,
+  itemsAt,
+  itemsOf,
+  optionalBytesAt,
+  qualityModeAt,
+  readMessage,
+  sampleArraysAt,
+  textAt,
+  type DomainResult,
+  type MessageFields,
+} from '@audiogubbins/domain';
+import {
+  isMessagePortLike,
+  pcmDescriptionOf,
+  type PcmDescription,
+} from '@audiogubbins/audio-engine';
 
 import {
   FromPeakWorkerKind,
@@ -16,90 +37,13 @@ import {
 } from './peak-messages.js';
 import type { PeakChannel, PeakRun } from './peak-pyramid.js';
 
-/** A field of a received message that is not what the protocol says. */
-class Malformed extends Error {
-  readonly field: string;
-
-  constructor(field: string, expected: string) {
-    super(`The message's ${field} is not ${expected}.`);
-    this.name = 'Malformed';
-    this.field = field;
-  }
+function optionalRangeAt(fields: MessageFields, field: string): FrameRange | undefined {
+  return fields[field] === undefined ? undefined : frameRangeAt(fields, field);
 }
 
-type Fields = Readonly<Record<string, unknown>>;
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function fieldsOf(value: unknown, field: string): Fields {
-  if (!isFields(value)) throw new Malformed(field, 'an object with named fields');
-  return value;
-}
-
-function textAt(fields: Fields, field: string): string {
-  const value = fields[field];
-  if (typeof value !== 'string') throw new Malformed(field, 'text');
-  return value;
-}
-
-function countAt(fields: Fields, field: string): number {
-  const value = fields[field];
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new Malformed(field, 'a whole number, zero or more');
-  }
-  return value;
-}
-
-function rangeAt(fields: Fields, field: string): FrameRange {
-  const range = fieldsOf(fields[field], field);
-  const start = countAt(range, 'start');
-  const end = countAt(range, 'end');
-  if (end < start) throw new Malformed(field, 'a range that ends at or after its start');
-  return { start, end };
-}
-
-function optionalRangeAt(fields: Fields, field: string): FrameRange | undefined {
-  return fields[field] === undefined ? undefined : rangeAt(fields, field);
-}
-
-function tagged(value: unknown, tag: string): boolean {
-  return Object.prototype.toString.call(value) === `[object ${tag}]`;
-}
-
-function isBytes(value: unknown): value is Uint8Array<ArrayBuffer> {
-  return isUint8(value) && tagged(value.buffer, 'ArrayBuffer');
-}
-
-function bytesAt(fields: Fields, field: string): Uint8Array<ArrayBuffer> {
-  const value = fields[field];
-  if (!isBytes(value)) throw new Malformed(field, 'bytes');
-  return value;
-}
-
-function optionalBytesAt(fields: Fields, field: string): Uint8Array<ArrayBuffer> | undefined {
-  return fields[field] === undefined ? undefined : bytesAt(fields, field);
-}
-
-function countsAt(fields: Fields, field: string): readonly number[] {
-  const value = fields[field];
-  if (
-    !Array.isArray(value) ||
-    !value.every((one) => Number.isSafeInteger(one) && Number(one) >= 0)
-  ) {
-    throw new Malformed(field, 'a list of whole numbers');
-  }
-  return value.map(Number);
-}
-
-/**
- * Whether a value is of a typed array class, by its tag: a structured clone is
- * made in the receiving realm, whose class `instanceof` would not know.
- */
-const isInt16 = (value: unknown): value is Int16Array => tagged(value, 'Int16Array');
-const isUint8 = (value: unknown): value is Uint8Array => tagged(value, 'Uint8Array');
-const isFloat32 = (value: unknown): value is Float32Array => tagged(value, 'Float32Array');
+/** Whether a value is a typed array of a class, by its tag, as a clone is made. */
+const isInt16 = (value: unknown): value is Int16Array => isTagged(value, 'Int16Array');
+const isUint8 = (value: unknown): value is Uint8Array => isTagged(value, 'Uint8Array');
 
 function arrayOf<T>(value: unknown, field: string, is: (one: unknown) => one is T): T {
   if (!is(value)) throw new Malformed(field, 'a typed array of the kind the protocol names');
@@ -123,42 +67,30 @@ function channelOf(value: unknown, field: string): PeakChannel {
 
 function runOf(value: unknown, field: string): PeakRun {
   const fields = fieldsOf(value, field);
-  const channels = fields['channels'];
-  if (!Array.isArray(channels)) throw new Malformed(`${field}.channels`, 'a list');
   return {
     level: countAt(fields, 'level'),
     first: countAt(fields, 'first'),
-    channels: channels.map((channel: unknown, index) =>
-      channelOf(channel, `${field}.channels[${String(index)}]`),
-    ),
+    channels: itemsOf(fields['channels'], `${field}.channels`, channelOf),
   };
 }
 
-function runsAt(fields: Fields, field: string): readonly PeakRun[] {
-  const value = fields[field];
-  if (!Array.isArray(value)) throw new Malformed(field, 'a list');
-  return value.map((run: unknown, index) => runOf(run, `${field}[${String(index)}]`));
+function descriptionAt(fields: MessageFields, field: string): PcmDescription {
+  return pcmDescriptionOf(fields[field], field);
 }
 
-function peakChannelsAt(fields: Fields, field: string): readonly PeakChannel[] {
-  const value = fields[field];
-  if (!Array.isArray(value)) throw new Malformed(field, 'a list');
-  return value.map((channel: unknown, index) => channelOf(channel, `${field}[${String(index)}]`));
+/** The port to the preview worker, the one message that names no job. */
+function previewsFrom(fields: MessageFields): ToPeakWorker {
+  const port = fields['port'];
+  if (!isMessagePortLike(port)) throw new Malformed('port', 'the end of a message channel');
+  return { kind: ToPeakWorkerKind.Previews, port };
 }
 
-function samplesAt(fields: Fields, field: string): readonly Float32Array[] {
-  const value = fields[field];
-  if (!Array.isArray(value)) throw new Malformed(field, 'a list');
-  return value.map((one: unknown, index) => arrayOf(one, `${field}[${String(index)}]`, isFloat32));
+function readToWorker(fields: MessageFields): ToPeakWorker {
+  return fields['kind'] === ToPeakWorkerKind.Previews ? previewsFrom(fields) : readJob(fields);
 }
 
-function descriptionAt(fields: Fields, field: string): PcmDescription {
-  const read = pcmDescription(fields[field]);
-  if (!read.ok) throw new Malformed(field, `a description of audio (${read.failures[0].summary})`);
-  return read.value;
-}
-
-function readToWorker(fields: Fields): ToPeakWorker {
+/** A message about one job. */
+function readJob(fields: MessageFields): ToPeakWorker {
   const job = textAt(fields, 'job');
   switch (fields['kind']) {
     case ToPeakWorkerKind.Open:
@@ -169,24 +101,25 @@ function readToWorker(fields: Fields): ToPeakWorker {
         revision: textAt(fields, 'revision'),
         channels: countAt(fields, 'channels'),
         description: descriptionAt(fields, 'description'),
+        quality: qualityModeAt(fields, 'quality'),
         cached: optionalBytesAt(fields, 'cached'),
         focus: optionalRangeAt(fields, 'focus'),
       };
     case ToPeakWorkerKind.Focus:
-      return { kind: ToPeakWorkerKind.Focus, job, range: rangeAt(fields, 'range') };
+      return { kind: ToPeakWorkerKind.Focus, job, range: frameRangeAt(fields, 'range') };
     case ToPeakWorkerKind.Samples:
       return {
         kind: ToPeakWorkerKind.Samples,
         job,
         request: countAt(fields, 'request'),
-        range: rangeAt(fields, 'range'),
+        range: frameRangeAt(fields, 'range'),
       };
     case ToPeakWorkerKind.Buckets:
       return {
         kind: ToPeakWorkerKind.Buckets,
         job,
         request: countAt(fields, 'request'),
-        range: rangeAt(fields, 'range'),
+        range: frameRangeAt(fields, 'range'),
       };
     case ToPeakWorkerKind.Cancel:
       return { kind: ToPeakWorkerKind.Cancel, job, request: countAt(fields, 'request') };
@@ -207,7 +140,7 @@ function readToWorker(fields: Fields): ToPeakWorker {
 }
 
 /** The worker's answer to a request of a view's. */
-function readAnswer(fields: Fields, job: string): FromPeakWorker {
+function readAnswer(fields: MessageFields, job: string): FromPeakWorker {
   switch (fields['kind']) {
     case FromPeakWorkerKind.Samples:
       return {
@@ -215,7 +148,7 @@ function readAnswer(fields: Fields, job: string): FromPeakWorker {
         job,
         request: countAt(fields, 'request'),
         start: countAt(fields, 'start'),
-        channels: samplesAt(fields, 'channels'),
+        channels: sampleArraysAt(fields, 'channels'),
       };
     case FromPeakWorkerKind.Buckets:
       return {
@@ -225,7 +158,7 @@ function readAnswer(fields: Fields, job: string): FromPeakWorker {
         start: countAt(fields, 'start'),
         frames: countAt(fields, 'frames'),
         bucketFrames: countAt(fields, 'bucketFrames'),
-        channels: peakChannelsAt(fields, 'channels'),
+        channels: itemsAt(fields, 'channels', channelOf),
       };
     case FromPeakWorkerKind.ZeroCrossing:
       return {
@@ -239,13 +172,13 @@ function readAnswer(fields: Fields, job: string): FromPeakWorker {
   }
 }
 
-function readFromWorker(fields: Fields): FromPeakWorker {
+function readFromWorker(fields: MessageFields): FromPeakWorker {
   const job = textAt(fields, 'job');
   switch (fields['kind']) {
     case FromPeakWorkerKind.Adopted:
       return { kind: FromPeakWorkerKind.Adopted, job, bytes: bytesAt(fields, 'bytes') };
     case FromPeakWorkerKind.Runs:
-      return { kind: FromPeakWorkerKind.Runs, job, runs: runsAt(fields, 'runs') };
+      return { kind: FromPeakWorkerKind.Runs, job, runs: itemsAt(fields, 'runs', runOf) };
     case FromPeakWorkerKind.Complete: {
       const refusedCache = fields['refusedCache'];
       if (refusedCache !== undefined && typeof refusedCache !== 'string') {
@@ -269,23 +202,12 @@ function readFromWorker(fields: Fields): FromPeakWorker {
   }
 }
 
-function read<T>(value: unknown, code: string, reader: (fields: Fields) => T): DomainResult<T> {
-  try {
-    return succeed(reader(fieldsOf(value, 'body')));
-  } catch (error) {
-    if (!(error instanceof Malformed)) throw error;
-    return fail(
-      failure(code, FailureKind.Rejected, error.message, { details: { field: error.field } }),
-    );
-  }
-}
-
 /** A message to the worker, read from its structured clone. */
 export function readToPeakWorker(value: unknown): DomainResult<ToPeakWorker> {
-  return read(value, 'waveform.message-to-worker-malformed', readToWorker);
+  return readMessage(value, 'waveform.message-to-worker-malformed', readToWorker);
 }
 
 /** A message from the worker, read from its structured clone. */
 export function readFromPeakWorker(value: unknown): DomainResult<FromPeakWorker> {
-  return read(value, 'waveform.message-from-worker-malformed', readFromWorker);
+  return readMessage(value, 'waveform.message-from-worker-malformed', readFromWorker);
 }

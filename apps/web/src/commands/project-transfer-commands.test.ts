@@ -76,7 +76,7 @@ describe('taking a project out as a bundle and bringing it back', () => {
     const { window } = await withProject();
 
     expect(await window.runAndHear('file.export-bundle')).toBe(
-      '"Harbour at dusk" is exported as a bundle.',
+      '“Harbour at dusk” is exported as a bundle.',
     );
     const [saved] = window.files.saved;
     expect(saved).toMatchObject({
@@ -95,7 +95,7 @@ describe('taking a project out as a bundle and bringing it back', () => {
     if (saved !== undefined) elsewhere.files.bundles.push(bundleFrom(saved));
 
     expect(await elsewhere.runAndHear('file.import-bundle')).toBe(
-      '"Harbour at dusk" is brought in.',
+      '“Harbour at dusk” is brought in.',
     );
     expect(names(elsewhere)).toEqual(['Harbour at dusk']);
 
@@ -113,7 +113,7 @@ describe('taking a project out as a bundle and bringing it back', () => {
     if (saved !== undefined) window.files.bundles.push(bundleFrom(saved));
 
     expect(await window.runAndHear('file.import-bundle')).toBe(
-      '"Harbour at dusk" is brought in as a copy, since this browser already keeps that project.',
+      '“Harbour at dusk” is brought in as a copy, since this browser already keeps that project.',
     );
     expect(names(window)).toEqual(['Harbour at dusk', 'Harbour at dusk']);
   });
@@ -197,14 +197,14 @@ describe('taking a project out as a folder and bringing it back', () => {
     window.files.foldersToWrite.push(folder);
 
     expect(await window.runAndHear('file.export-folder')).toBe(
-      '"Harbour at dusk" is exported to the folder.',
+      '“Harbour at dusk” is exported to the folder.',
     );
     expect([...folder.files.keys()]).toContain('audiogubbins-project.json');
 
     const elsewhere = await projectWorld().window();
     elsewhere.files.foldersToRead.push(folder);
     expect(await elsewhere.runAndHear('file.import-folder')).toBe(
-      '"Harbour at dusk" is brought in.',
+      '“Harbour at dusk” is brought in.',
     );
   });
 
@@ -219,7 +219,7 @@ describe('taking a project out as a folder and bringing it back', () => {
 
     window.files.foldersToWrite.push(folder);
     expect(await window.runAndHear('file.export-folder')).toBe(
-      'The folder holds another project, "Quay". Choose another folder, or replace its files.',
+      'The folder holds another project, “Quay”. Choose another folder, or replace its files.',
     );
     expect(folder.files).toEqual(before);
     expect(window.projects.transfer.get().replacing).toEqual({ name: 'Quay' });
@@ -233,7 +233,7 @@ describe('taking a project out as a folder and bringing it back', () => {
     window.files.foldersToWrite.push(folder);
     await window.runAndHear('file.export-folder');
     expect(await window.runAndHear('file.export-folder-replace')).toBe(
-      '"Harbour at dusk" is exported to the folder, in place of the project it held.',
+      '“Harbour at dusk” is exported to the folder, in place of the project it held.',
     );
     expect(window.projects.transfer.get().replacing).toBeUndefined();
     const header = new TextDecoder().decode(folder.files.get('audiogubbins-project.json'));
@@ -325,7 +325,7 @@ describe('backups of the open project', () => {
         generation: generation?.number ?? 0,
         as: 'new-project',
       }),
-    ).toBe('"Harbour at dusk" is restored as a new project.');
+    ).toBe('“Harbour at dusk” is restored as a new project.');
     expect(names(window)).toEqual(['Harbour at dusk', 'Harbour at dusk']);
   });
 
@@ -470,7 +470,7 @@ describe('an export, recorded in its project’s history (REQ-STOR-197, REQ-STOR
     await reader.runAndHear('file.open', { project });
 
     expect(await reader.runAndHear('file.export-bundle')).toBe(
-      '"Harbour at dusk" is exported as a bundle. Its history does not record the export, because this tab cannot change the project.',
+      '“Harbour at dusk” is exported as a bundle. Its history does not record the export, because this tab cannot change the project.',
     );
     expect(reader.files.saved[0]?.finished).toBe(true);
     expect(exportsOf(window)).toEqual([]);

@@ -31,6 +31,7 @@ import type { ConsolidationServices } from './consolidation.js';
 import { runHolding } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
 import type { ChangeOutcome } from './session-contracts.js';
+import { quoted } from '@audiogubbins/text';
 
 /** A planned paste, as the clipboard planned it. */
 export interface AudioPaste {
@@ -59,7 +60,7 @@ function mediaGone(record: AssetRecord, why: string): DomainFailure {
   return failure(
     'paste.media-unavailable',
     FailureKind.Conflict,
-    `The copied audio reads “${record.asset.displayName}”, ${why}, so nothing was pasted.`,
+    `The copied audio reads ${quoted(record.asset.displayName)}, ${why}, so nothing was pasted.`,
   );
 }
 

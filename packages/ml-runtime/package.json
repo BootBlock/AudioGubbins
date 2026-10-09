@@ -1,0 +1,37 @@
+{
+  "name": "@audiogubbins/ml-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local inference: the port a machine-learning processor runs a model through, its adapter over ONNX Runtime Web, and the worker that hosts it.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./threads/*": "./src/threads/*",
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project ml-runtime"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@noble/hashes": "2.4.0",
+    "onnxruntime-web": "1.30.0"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

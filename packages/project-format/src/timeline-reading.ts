@@ -23,8 +23,15 @@ import {
   type TrackId,
 } from '@audiogubbins/domain';
 
-import { objectOf, pathOf, required, type Converter, type Reading } from './document-reading.js';
-import { asEditChain } from './edit-reading.js';
+import {
+  objectOf,
+  optional,
+  pathOf,
+  required,
+  type Converter,
+  type Reading,
+} from './document-reading.js';
+import { WRITTEN_OPERATION_DEPTH, asEditChain } from './edit-reading.js';
 import { asAssetName } from './given-names.js';
 import { asBoolean, asId, oneOfConverter, textConverter } from './scalar-reading.js';
 import { asChannelLayout, asGain, asName, asSampleCount, asSampleRate } from './value-reading.js';
@@ -38,6 +45,7 @@ const ASSET_MEMBERS: ReadonlySet<string> = new Set([
   'length',
   'storageKey',
   'edits',
+  'rack',
 ]);
 const CLIP_MEMBERS: ReadonlySet<string> = new Set([
   'id',
@@ -53,6 +61,13 @@ const CLIP_MEMBERS: ReadonlySet<string> = new Set([
 ]);
 const RANGE_MEMBERS: ReadonlySet<string> = new Set(['assetId', 'start', 'length']);
 const asOrigin = oneOfConverter(Object.values(AssetOrigin));
+
+/**
+ * How many levels of arrays and objects a written asset takes, its own object
+ * the first: its list of edits and an operation in it, the deepest thing an
+ * asset holds. Its rack is named, not held.
+ */
+export const WRITTEN_ASSET_DEPTH = 2 + WRITTEN_OPERATION_DEPTH;
 
 /**
  * A storage key as the document holds it. Its value is checked against the
@@ -74,6 +89,7 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
   const length = required(reading, object, at, 'length', asSampleCount);
   const storageKey = required(reading, object, at, 'storageKey', asStorageKey);
   const edits = required(reading, object, at, 'edits', asEditChain);
+  const rack = optional(reading, object, at, 'rack', asId<'EffectChainId'>);
 
   if (
     id === undefined ||
@@ -87,7 +103,17 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
   ) {
     return undefined;
   }
-  return { id, displayName, origin, sampleRate, channelLayout, length, storageKey, edits };
+  return {
+    id,
+    displayName,
+    origin,
+    sampleRate,
+    channelLayout,
+    length,
+    storageKey,
+    edits,
+    ...(rack === undefined ? {} : { rack }),
+  };
 };
 
 /**

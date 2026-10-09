@@ -44,4 +44,26 @@ describe('what a cleanup came to, in words', () => {
       'Something is being saved now, so backups the policy no longer keeps were kept. Try again shortly.',
     ]);
   });
+
+  it('says which model packs were kept, and why', () => {
+    const pack = { id: 'spare-pack', version: '1.0.0' };
+    expect(
+      cleanedSentences([
+        { step: 'pack-downloads', freed: 0, busy: [], refused: { kind: 'storing' } },
+        { step: 'model-packs', freed: 0, busy: [], needed: [pack] },
+      ]),
+    ).toEqual([
+      'The cleanup freed 0 bytes.',
+      '1 model pack a project came to need after the cleanup was planned was kept.',
+      'Something is being saved now, so model pack downloads not finished were kept. Try again shortly.',
+    ]);
+    expect(
+      cleanedSentences([
+        { step: 'model-packs', freed: 0, busy: [], refused: { kind: 'needs-unknown' } },
+      ]),
+    ).toEqual([
+      'The cleanup freed 0 bytes.',
+      'No model pack was removed, because which ones your projects need cannot be told now.',
+    ]);
+  });
 });

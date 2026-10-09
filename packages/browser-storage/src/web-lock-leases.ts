@@ -52,7 +52,7 @@ import { ownershipEventOf, type LeaseMessage } from './lease-messages.js';
 import { ProjectChannels, type OpenLeaseChannel } from './project-channels.js';
 import type { LeaseLocks } from './lock-manager.js';
 import { askOwner, type OwnerAsking } from './owner-questions.js';
-import { lockStorage } from './storage-lock.js';
+import { LIBRARY_LOCK, STORAGE_LOCK, takeLock } from './storage-lock.js';
 
 /** What a window coordinates its leases with, each made once by the composition root. */
 export interface WebLeaseServices {
@@ -220,7 +220,17 @@ class WebLockLeases implements LeaseCoordinator {
     mode: StorageLockMode,
     options: { readonly wait: boolean; readonly signal?: AbortSignal },
   ): Promise<StorageLocking> {
-    return lockStorage(this.#locks, mode, options, this.#services.logger);
+    return takeLock(this.#locks, STORAGE_LOCK, mode, options, this.#services.logger);
+  }
+
+  lockLibrary(options: { readonly signal?: AbortSignal }): Promise<StorageLocking> {
+    return takeLock(
+      this.#locks,
+      LIBRARY_LOCK,
+      'exclusive',
+      { wait: true, ...options },
+      this.#services.logger,
+    );
   }
 
   /** Tells the watchers of this window and of every other of a change to a project. */

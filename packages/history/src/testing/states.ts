@@ -42,10 +42,13 @@ export function processor(
   values: readonly (readonly [ParameterId, ParameterValue])[] = [],
 ): ProcessorInstance {
   return {
+    kind: 'processor',
     id: fixture.ids.next<'ProcessorId'>(),
     typeKey,
     enabled: true,
     soloed: false,
+    mix: 1,
+    version: { implementation: 1, parameters: 1 },
     values: new Map(values),
   };
 }
@@ -58,7 +61,7 @@ export function fixtureState<TFixture extends StateFixture>(
   readonly state: ProjectState;
   readonly chain: EffectChain;
 } {
-  const chain: EffectChain = { id: fixture.ids.next<'EffectChainId'>(), processors: [] };
+  const chain: EffectChain = { id: fixture.ids.next<'EffectChainId'>(), slots: [] };
   const sources = new Map<AssetId, AssetSource>();
   let digit = 0;
   for (const asset of fixture.project.assets.values()) {

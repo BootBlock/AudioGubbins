@@ -6,18 +6,19 @@
  * A change can have affected an entity the project no longer holds, which is
  * said to be gone rather than named, since the panel names only what the
  * state it reads holds. An effect chain has no name of its own, and is called
- * by the track or bus it belongs to.
+ * by what names it (`chainOwner`): the track or bus it belongs to, the asset
+ * or region whose rack it is, or the one a range of which it processes.
  */
 
 import {
   affectedEntities,
+  chainOwner,
   type EntityKind,
   type EntityReference,
   type HistoryNode,
 } from '@audiogubbins/history';
 import type { ProjectState } from '@audiogubbins/project-format';
-
-import { quoted } from '../../wording.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The name of an entity in a state, where the state holds it. */
 export type EntityNames = (entity: EntityReference) => string | undefined;
@@ -42,8 +43,9 @@ export function entityNamesOf({ project }: ProjectState): EntityNames {
   for (const held of [project.regions, project.markers]) {
     for (const [id, entity] of held) names.set(id, entity.displayName);
   }
-  for (const owner of [...project.tracks.values(), ...project.buses.values()]) {
-    if (owner.effectChainId !== undefined) names.set(owner.effectChainId, owner.displayName);
+  for (const chain of project.effectChains.keys()) {
+    const owner = chainOwner(project, chain);
+    if (owner !== undefined) names.set(chain, owner.name);
   }
   return (entity) => names.get(entity.id);
 }

@@ -35,6 +35,7 @@ import {
   parseJson,
   startReading,
   DIGEST_HEX,
+  LIBRARY_ENTRY_DEPTH,
   type Converter,
   type Digest,
   type JsonLimits,
@@ -56,6 +57,9 @@ export const RecordKind = {
   Lease: 'lease',
   CacheSeal: 'cache-seal',
   BackupGeneration: 'backup-generation',
+  PackManifest: 'pack-manifest',
+  PackSeal: 'pack-seal',
+  LibraryEntry: 'library-entry',
 } as const;
 
 /** What a record is, written in its envelope. */
@@ -84,11 +88,25 @@ export type CheckedReading<TValue> =
   | { readonly kind: 'invalid'; readonly fault: RecordFault };
 
 /**
- * The bounds a record's text is read within: the project document's, since a
- * journal record can carry a change whose arguments are as long as a document
- * may be, and a checkpoint a whole history.
+ * The depth every record but a library entry's is read within. None holds a
+ * chain or anything else whose depth the domain sets: a change's arguments,
+ * which may hold one, are carried as text.
  */
-const RECORD_LIMITS: JsonLimits = { maximumLength: 2 ** 28, maximumDepth: 32 };
+const SHALLOW_RECORD_DEPTH = 32;
+
+/**
+ * The bounds a record's text is read within, by the reader and by anything
+ * else that reads a record's text: the project document's length, since a
+ * journal record can carry a change whose arguments are as long as a document
+ * may be, and a checkpoint a whole history; and a depth that holds an entry of
+ * the library, whose chain nests as deep as the domain lets groups nest,
+ * within the envelope and the pair record of its generation
+ * (`library-entry-files.ts`).
+ */
+export const RECORD_LIMITS: JsonLimits = {
+  maximumLength: 2 ** 28,
+  maximumDepth: Math.max(SHALLOW_RECORD_DEPTH, 2 + LIBRARY_ENTRY_DEPTH),
+};
 
 /** A checksum's text, standing in for one when an envelope is measured. */
 const ANY_CHECKSUM = '0'.repeat(64);
