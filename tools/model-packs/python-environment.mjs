@@ -20,11 +20,12 @@ import { join } from 'node:path';
 export const PYTHON_VARIABLE = 'AUDIOGUBBINS_PACK_PYTHON';
 
 /**
- * The Python release the requirements are pinned for: torch 2.9.1 and
- * tensorflow-cpu 2.21.0 publish wheels for it, and the recorded exports were
- * made with it.
+ * The Python release the requirements are pinned for: keras, which
+ * tensorflow-cpu brings, fixes its known advisories from 3.15, which needs
+ * Python 3.11 or later; torch 2.14.1 and tensorflow-cpu 2.21.0 publish wheels
+ * for it; and every recorded export reproduces with it.
  */
-export const PYTHON_RELEASE = '3.10';
+export const PYTHON_RELEASE = '3.11';
 
 /** Written last, so an environment whose install stopped is made again. */
 const READY = 'ready';

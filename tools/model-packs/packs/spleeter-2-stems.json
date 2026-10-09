@@ -1,6 +1,6 @@
 {
   "id": "spleeter-2-stems",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Spleeter, two stems",
   "purpose": "Separates a music mix into vocals and accompaniment at 44.1 kHz.",
   "licence": {
@@ -43,8 +43,8 @@
   "files": [
     {
       "path": "model.onnx",
-      "bytes": 78641977,
-      "sha256": "abdcd3b1074399e55b48f88bab2ba01c17d9a31049abf9a1cc062ca94914507d",
+      "bytes": 78641978,
+      "sha256": "6059919bb51cf53e12ebe732aeca45de99190f90bd2ec46b1e9e6328a3b051df",
       "make": {
         "export": {
           "script": "spleeter.py",

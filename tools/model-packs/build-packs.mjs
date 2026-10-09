@@ -17,7 +17,7 @@
  * platform's per-user cache folder: `%LOCALAPPDATA%\AudioGubbins\pack-cache`
  * on Windows, `~/Library/Caches/AudioGubbins/packs` on macOS and
  * `$XDG_CACHE_HOME/audiogubbins/packs` (`~/.cache/...`) elsewhere. The exports
- * need Python 3.10, named by `AUDIOGUBBINS_PACK_PYTHON` where `python` is
+ * need Python 3.11, named by `AUDIOGUBBINS_PACK_PYTHON` where `python` is
  * another. Neither the cache nor the output may lie inside the repository.
  *
  * Usage:

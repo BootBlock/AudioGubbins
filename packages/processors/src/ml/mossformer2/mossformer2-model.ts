@@ -20,7 +20,7 @@ import { PINNED_RUNTIME_SHA256, modelRate, type ModelDefinition } from '../model
 export const MOSSFORMER2_GRAPH = 'model.onnx';
 
 /**
- * The model this build runs: version 1.0.0 of the pack `mossformer2-se-48k`,
+ * The model this build runs: version 1.0.1 of the pack `mossformer2-se-48k`,
  * named by the listing of every file of
  * `tools/model-packs/packs/mossformer2-se-48k.json`, its licence, model card
  * and notice with its graph, which is the file it runs (a test holds both to
@@ -38,14 +38,14 @@ export const MOSSFORMER2_GRAPH = 'model.onnx';
 export const MOSSFORMER2_SE_48K_MODEL: ModelDefinition = {
   identity: {
     pack: 'mossformer2-se-48k',
-    version: '1.0.0',
-    modelHash: '2a8430b232ed702ec63df6060467a5a3c61f4af74beebb637c01469283934e3c',
+    version: '1.0.1',
+    modelHash: '0e6ca55f694ee668783a95cd421574e7bece2ae9dcdaf8dc8e396daf1151773c',
     runtimeHash: PINNED_RUNTIME_SHA256,
   },
   files: [
     {
       path: MOSSFORMER2_GRAPH,
-      sha256: '9f83b49bb27c08ab6d6a2ba83d7aeca08f90945b7b1dce5e157003f733918989',
+      sha256: '23a6bed254565a206047876607c226657fad5f1a7e2d463a62bd04facfc74f59',
     },
   ],
   // The only rate the model was trained at (`sampling_rate`).

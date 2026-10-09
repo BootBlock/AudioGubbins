@@ -1,6 +1,6 @@
 {
   "id": "spleeter-4-stems",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Spleeter, four stems",
   "purpose": "Separates a music mix into vocals, drums, bass and other at 44.1 kHz.",
   "licence": {
@@ -43,8 +43,8 @@
   "files": [
     {
       "path": "model.onnx",
-      "bytes": 157278319,
-      "sha256": "55a61b1f9cd20cad644c789a3d82bec1ab3f760fc04aff785ee9f6a81292adad",
+      "bytes": 157278320,
+      "sha256": "0a67e86b287b682fd71f8f1f2cceaa09d099ed1276c826e53c9c3183f54f0b68",
       "make": {
         "export": {
           "script": "spleeter.py",
