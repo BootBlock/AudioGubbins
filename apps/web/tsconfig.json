@@ -110,6 +110,9 @@
       "path": "../../packages/model-packs"
     },
     {
+      "path": "../../packages/recording"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

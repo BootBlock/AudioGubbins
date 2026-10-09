@@ -301,6 +301,9 @@ importers:
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../../packages/project-format
+      '@audiogubbins/recording':
+        specifier: workspace:*
+        version: link:../../packages/recording
       '@audiogubbins/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
@@ -866,6 +869,9 @@ importers:
 
   packages/storage-runtime:
     dependencies:
+      '@audiogubbins/audio-runtime':
+        specifier: workspace:*
+        version: link:../audio-runtime
       '@audiogubbins/browser-storage':
         specifier: workspace:*
         version: link:../browser-storage
@@ -899,6 +905,9 @@ importers:
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/recording':
+        specifier: workspace:*
+        version: link:../recording
       '@audiogubbins/storage':
         specifier: workspace:*
         version: link:../storage

@@ -4,7 +4,9 @@
  * background work shares the machine with interactive work (REQ-ARCH-084), the
  * processing mode renders use over the automatic choice (REQ-ARCH-079), and the
  * quality a final render and a preview run their processing at (REQ-AUDIO-080,
- * REQ-AUDIO-086, REQ-AUDIO-143).
+ * REQ-AUDIO-086, REQ-AUDIO-143), and how the person records: capture profiles,
+ * monitoring preferences and latency calibrations (`ADR-0070`,
+ * `recording-settings.ts`).
  *
  * The user's preferences for audio, which REQ-ARCH-153 keeps apart from what
  * the engine is doing now (`audio-view-store.ts`): written to their own key,
@@ -16,7 +18,12 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
-import { MAXIMUM_QUALITY, type QualityMode } from '@audiogubbins/domain';
+import {
+  MAXIMUM_QUALITY,
+  succeed,
+  type DomainResult,
+  type QualityMode,
+} from '@audiogubbins/domain';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import {
   PerformanceProfile,
@@ -35,6 +42,12 @@ import {
 
 import { observable, type Observable } from './observable.js';
 import { reasonsOf, type Reasons } from './reasons.js';
+import {
+  DEFAULT_RECORDING_SETTINGS,
+  type RecordingRevision,
+  type RecordingSettings,
+} from './recording-settings.js';
+import { readRecordingSettings, storedRecordingSettings } from './stored-recording-settings.js';
 import { isMemberOf, isRecord, versionFound } from './stored-value.js';
 import { PersistedPart, type StateStorage } from './state-storage.js';
 import { canonicalQuality, readStoredQuality, sameQuality } from './stored-quality.js';
@@ -81,6 +94,9 @@ export interface AudioSettings {
    * settings change.
    */
   readonly previewQuality: QualityMode | undefined;
+
+  /** How the person records: profiles, input, buffer, monitoring and calibrations. */
+  readonly recording: RecordingSettings;
 }
 
 /** Custom settings start as Balanced's, the default, for the person to adjust from. */
@@ -114,6 +130,7 @@ const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   renderMode: undefined,
   renderQuality: MAXIMUM_QUALITY,
   previewQuality: undefined,
+  recording: DEFAULT_RECORDING_SETTINGS,
 };
 
 /** The quality each profile previews at, made once so that each is the same object every time. */
@@ -233,6 +250,7 @@ function readAudioSettings(stored: string | null, logger: Logger): AudioSettings
     previewQuality: isRecord(preview)
       ? readStoredQuality(preview, PROFILE_PREVIEWS[chosen.profile])
       : undefined,
+    recording: readRecordingSettings(parsed['recording']),
   };
 }
 
@@ -257,6 +275,12 @@ export interface AudioSettingsStore extends Observable<AudioSettings> {
 
   /** Sets the quality playback previews at, or `undefined` to follow the profile. */
   readonly choosePreviewQuality: (mode: QualityMode | undefined) => void;
+
+  /**
+   * Revises the recording settings, or answers why the revision refused and
+   * changes nothing. A revision that answers what is there writes nothing.
+   */
+  readonly reviseRecording: (revise: RecordingRevision) => DomainResult<RecordingSettings>;
 }
 
 /** The settings as they are written to storage. */
@@ -271,6 +295,7 @@ function serialised(settings: AudioSettings): string {
     ...(settings.previewQuality === undefined
       ? {}
       : { previewQuality: settings.previewQuality.settings }),
+    recording: storedRecordingSettings(settings.recording),
   });
 }
 
@@ -350,6 +375,14 @@ export function createAudioSettingsStore(
       const previewQuality =
         mode === undefined ? undefined : keptQuality(current.previewQuality, mode);
       if (previewQuality !== current.previewQuality) adopt({ ...current, previewQuality });
+    },
+
+    reviseRecording: (revise) => {
+      const current = state.get();
+      const recording = revise(current.recording);
+      if (!recording.ok) return recording;
+      if (recording.value !== current.recording) adopt({ ...current, recording: recording.value });
+      return succeed(recording.value);
     },
   };
 }

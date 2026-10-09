@@ -330,6 +330,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/storage',
   ],
   '@audiogubbins/storage-runtime': [
+    '@audiogubbins/audio-runtime',
     '@audiogubbins/browser-storage',
     '@audiogubbins/capabilities',
     '@audiogubbins/commands',
@@ -341,6 +342,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/processors',
     '@audiogubbins/project-commands',
     '@audiogubbins/project-format',
+    '@audiogubbins/recording',
     '@audiogubbins/storage',
     '@audiogubbins/text',
   ],
@@ -2818,6 +2820,30 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * destroy what they are for.
    */
   const REVIEWED_IN_BAND: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'apps/web/src/recording/input-control.ts': [
+      393,
+      "The recording session's one driver: arming, disarming, Record and Stop as the session machine allows, and the opening and closing of the input that keeps it in step with the session. What it reads of the settings and the list of inputs is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",
+    ],
+    'apps/web/src/app.tsx': [
+      302,
+      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
+    ],
+    'apps/web/src/application.ts': [
+      349,
+      'The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back.',
+    ],
+    'apps/web/src/commands/recording-settings-commands.ts': [
+      320,
+      "Every command that changes the recording settings, as three tables, the profiles, the buffer and count-in, and the preferences and latency, each command a few lines over the store's revisions in `recording-settings.ts`; split by table, the shared `revised` and argument readers would move to a fourth file.",
+    ],
+    'apps/web/src/shell/menus.ts': [
+      302,
+      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command.",
+    ],
+    'apps/web/src/shell/panels.tsx': [
+      321,
+      'The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own; each panel lives in its own module, so what grows this is one arm per panel kind.',
+    ],
     'apps/web/src/commands/panel-commands.ts': [
       314,
       "Every command that acts on the panels on screen, each a small builder over one list: opening a panel per kind, closing the one in use, the arrangement the dock reports, and the four families that stand in for the engine's pointer gestures \u2014 moving a panel to a region, sizing its group, nudging a floating group and moving a panel along its group's tabs. The four share one builder, so what is left of each family is a table: an identifier, a label, keywords, the store method it calls and the sentence it says. Split by family, the four files would each hold one table and the shared builder and helpers would move to a fifth.",
@@ -2983,6 +3009,74 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * go stale.
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'apps/web/src/application.ts: startAudio': [
+      52,
+      "The audio part's composition: the view, the previews, the engine loader, the one context host that playback and the inputs share, the settings, and the playback and render controls, each made once with what it needs; what remains are the lines that hand each its collaborators and the dispose that ends them in order.",
+    ],
+    'apps/web/src/commands/recording-commands.ts: inputCommands': [
+      109,
+      'A list of independent input commands, arm, disarm, say the levels and choose the input, each self-contained, sharing only the command builder and the availability helpers.',
+    ],
+    'apps/web/src/commands/recording-commands.ts: monitoringCommands': [
+      99,
+      'A list of independent monitoring commands, the one toggle, the confirmation of a feedback risk and the two choices of what is monitored through, each self-contained, sharing only the command builder.',
+    ],
+    'apps/web/src/commands/recording-settings-commands.ts: bufferCommands': [
+      64,
+      'A list of three independent commands, the retrospective buffer on and off and the count-in, each self-contained, sharing only the command builder and `revised`.',
+    ],
+    'apps/web/src/commands/recording-settings-commands.ts: preferenceCommands': [
+      65,
+      'A list of three independent commands, the monitoring preference, the manual offset and forgetting a calibration, each self-contained, sharing only the command builder, `revised` and `currentPath`.',
+    ],
+    'apps/web/src/commands/recording-settings-commands.ts: profileCommands': [
+      102,
+      'A list of independent capture profile commands, the two built-in choices from one builder, the named choice, saving, removing and marking for headphones, each self-contained, sharing only the command builder and `revised`.',
+    ],
+    'apps/web/src/recording/calibration-control.ts: #measure': [
+      54,
+      'One sequence of awaited steps, open the input, capture the burst, measure in a worker, keep the calibration, each ending the run with its own reason where it refuses; the capture and the anchor it waits for are methods of their own, so what remains is the order of the steps and the check after each await that the run was not given up.',
+    ],
+    'apps/web/src/recording/input-opener.ts: openInput': [
+      66,
+      'One sequence of steps that each make something, the plan, the opened input, the layout, the capture session, its start, and each step that refuses lets go of everything made before it, in reverse; split, the letting go would be spread across functions that each hold part of what was made.',
+    ],
+    'apps/web/src/recording/recording-part.ts: startRecording': [
+      75,
+      "The recording part's composition: the opening shared by arming and calibrating, the monitoring, input and calibration controls, the Inspector's focus and the storage estimate, each made once with what it needs, and the dispose that ends them; the controls are classes of their own, so what remains is wiring.",
+    ],
+    'apps/web/src/shell/panels.tsx: editingPanel': [
+      52,
+      'An exhaustive switch over the editing panels, one arm per kind, each handing a panel only the parts it reads.',
+    ],
+    'apps/web/src/shell/panels.tsx: renderPanel': [
+      61,
+      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own.',
+    ],
+    'apps/web/src/shell/recording/latency-section.tsx: Figures': [
+      52,
+      'One list of four readings, the output, the input, the round trip and what a take is placed by, each worded where it is shown so a figure and what it rests on are read together.',
+    ],
+    'apps/web/src/shell/recording/recording-configuration.tsx: RecordingConfiguration': [
+      58,
+      "One list of readings of the recording configuration, each a line of the settings or the input, with the grant's disclosure, which is a component of its own, beneath it.",
+    ],
+    'apps/web/src/shell/settings/audio.tsx: Audio': [
+      53,
+      'One settings section of parts that are components of their own, the profile choice, the Custom form, the quality settings and the recording input; what remains are the two selects that run one command each.',
+    ],
+    'apps/web/src/shell/settings/capture-profile-form.tsx: CaptureProfileForm': [
+      67,
+      'One form over one draft: the name, a switch per processing control the browser lets a page set, the headphones mark, and the save and remove buttons that run the commands; split, the draft would be handed between components that each change part of it.',
+    ],
+    'apps/web/src/shell/settings/latency-settings.tsx: LatencySettings': [
+      62,
+      "One fieldset: the calibrations kept, the guidance, the manual offset's field and the three buttons that run the calibration's commands, with the offset's typed text held in one piece of state.",
+    ],
+    'apps/web/src/state/audio-settings-store.ts: createAudioSettingsStore': [
+      54,
+      "A table of the store's methods, each a few lines over one `adopt`, which keeps the value and writes it; the recording settings' revisions are their own module, so this holds only the call that adopts what a revision answers.",
+    ],
     // Tables: a list of independent definitions, each whole in itself.
     'apps/web/src/editor/intent-commands.ts: commandsOf': [
       57,
@@ -3059,7 +3153,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      123,
+      153,
       'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), and local inference by `startModels` before the parts whose threads run chains, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
@@ -3093,7 +3187,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "A strip of short independent statements, with one focus effect for a dismissed notice. The bar's own height is published through the hook the notice surface publishes its height with, rather than by an effect written out here as well.",
     ],
     'apps/web/src/shell/settings-dialog.tsx: SettingsDialog': [
-      75,
+      82,
       "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, and the project system's tabs, which `projectTabs` builds.",
     ],
     'apps/web/src/shell/settings/appearance.tsx: Appearance': [

@@ -55,6 +55,7 @@ export function partsOf(usage: StorageUsage): readonly UsagePart[] {
     { name: 'Other branches of the history', bytes: usage.alternativeBranches },
     { name: 'Save points and recovery records', bytes: usage.recoveryCheckpoints },
     { name: 'Recent changes not yet in a save point', bytes: usage.journal },
+    { name: 'Recordings not yet made into audio', bytes: usage.recordings },
     { name: 'Backups', bytes: usage.backups },
     { name: 'Audio kept for snapshots', bytes: usage.retainedDeletedMedia.namedSnapshots },
     { name: 'Audio kept for undo', bytes: usage.retainedDeletedMedia.undo },

@@ -54,6 +54,7 @@ import { unavailableStorageRoot } from '../state/storage-root-store.js';
 import { FakePlayback, FakeRendering } from './audio-fakes.js';
 import { noPackManager } from './pack-managers.js';
 import { fakeEditor } from './editor-fakes.js';
+import { fakeRecording, type RecordingFakes } from './recording-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
 /**
@@ -116,6 +117,7 @@ export const DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
       [PanelKinds.Picture, 'Picture', DockRegion.Right],
+      [PanelKinds.Recording, 'Recording', DockRegion.Bottom],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
@@ -217,6 +219,8 @@ export function buildShellContext(
   readonly audio: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
   /** The detection workers the session made, in order, for a test of what it asked of them. */
   readonly detectionWorkers: readonly LocalDetectionWorker[];
+  /** The recording part's fakes, for a test of the input, monitoring and the calibration. */
+  readonly recording: RecordingFakes;
 } {
   const logs = createLogStore();
   const diagnostics = createDiagnosticCentre(
@@ -238,6 +242,17 @@ export function buildShellContext(
 
   const { parts, fakes } = fakeAudio(interaction, storage, logger);
   const detection = localDetection(interaction);
+  const workspace = createWorkspaceStore(DESCRIPTORS, storage, logger);
+  const recording = fakeRecording({
+    settings: parts.audioSettings,
+    playback: parts.playback,
+    audio: parts.audio,
+    workspace,
+    announce: (text) => {
+      interaction.announce(text);
+    },
+    logger,
+  });
 
   return {
     logs,
@@ -245,9 +260,10 @@ export function buildShellContext(
     storage,
     audio: fakes,
     detectionWorkers: detection.workers,
+    recording: recording.fakes,
     context: {
       preferences: createPreferencesStore(storage, logger),
-      workspace: createWorkspaceStore(DESCRIPTORS, storage, logger),
+      workspace,
       interaction,
       logViews: createLogViewStore(),
       capabilities: createCapabilityRegistry(CAPABLE, logger),
@@ -269,6 +285,7 @@ export function buildShellContext(
       ...fakeEditor(storage, logger),
       detection: detection.control,
       packs: noPackManager(),
+      recording: recording.parts,
     },
   };
 }

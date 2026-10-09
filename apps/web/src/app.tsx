@@ -37,6 +37,7 @@ import { ProjectSurfaces } from './shell/project-surfaces.js';
 import { BackupStatus } from './shell/backup-status.js';
 import { SaveStatus } from './shell/save-status.js';
 import { SettingsDialog } from './shell/settings-dialog.js';
+import { InputStatus } from './shell/recording/input-status.js';
 import { StatusBar } from './shell/status-bar.js';
 import { TooNarrowNotice } from './shell/too-narrow.js';
 import { useRecoveryAnnouncement } from './shell/use-recovery-announcement.js';
@@ -242,6 +243,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                   )}
                 </>
               }
+              input={<InputStatus recording={context.recording} announce={announce} />}
               run={run}
             />
 
@@ -298,6 +300,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                   })}
               verbosity={verbosity}
               audio={audioSettings}
+              recording={context.recording}
               logCategories={logCategories}
               layout={workspace.layout}
               available={workspace.available}

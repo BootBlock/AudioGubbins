@@ -46,6 +46,10 @@ const FINDERS: Finders = {
     fenced.length > 0 ? { kind: 'fenced', changes: fenced.length } : undefined,
   missingStates: ({ missingStates }) =>
     missingStates.length > 0 ? { kind: 'missing-states', states: missingStates.length } : undefined,
+  // An interrupted recording is offered to be recovered or discarded by the
+  // recording views, which ask the person; it is not a finding said of the
+  // project's recovery.
+  interruptedRecordings: () => undefined,
 };
 
 /** What recovery found that the person should hear of, in the order they hear it. */

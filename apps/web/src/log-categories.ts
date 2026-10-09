@@ -32,6 +32,8 @@ const KNOWN_LOG_CATEGORIES = [
   'projects',
   'project-commands',
   'storage',
+  // The input, monitoring and the latency calibration (ADR-0070).
+  'recording',
 ] as const;
 
 /** One of the categories above. */
@@ -55,6 +57,7 @@ const LOG_CATEGORY_NAMES: Readonly<Record<KnownLogCategory, CategoryNames>> = {
   projects: { alone: 'Projects', inSentence: 'projects' },
   'project-commands': { alone: 'Project changes', inSentence: 'changes to projects' },
   storage: { alone: 'Storage', inSentence: 'storage' },
+  recording: { alone: 'Recording', inSentence: 'recording' },
 };
 
 /** The same names, looked up by whatever a record carries. */

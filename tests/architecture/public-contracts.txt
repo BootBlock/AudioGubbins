@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27234: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27239: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1173,7 +1173,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27234: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27239: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -4356,12 +4356,16 @@ Published paths
   readonly RecordedDevice.label?: string
   readonly RecordedDevice.group?: string
   readonly RecordedDevice.channelCount?: number
+  interface RecordedGaps
+  readonly RecordedGaps.count: number
+  readonly RecordedGaps.frames: SampleCount
   interface RecordedProfile
   readonly RecordedProfile.kind: CaptureProfileKind
   readonly RecordedProfile.name: string
   interface RecordedProvenance extends RecordingStart
   readonly RecordedProvenance.length: SampleCount
   readonly RecordedProvenance.ending: RecordingEnding
+  readonly RecordedProvenance.gaps?: RecordedGaps
   readonly RecordedProvenance.recordedAt: number
   readonly RecordedProvenance.device: RecordedDevice
   readonly RecordedProvenance.profile: RecordedProfile
@@ -4369,6 +4373,9 @@ Published paths
   readonly RecordedProvenance.granted: CaptureSettings
   readonly RecordedProvenance.sampleRate: SampleRate
   readonly RecordedProvenance.layout: ChannelLayout
+  interface RecordingEnd
+  readonly RecordingEnd.ending: RecordingEnding
+  readonly RecordingEnd.asset: AssetId
   const RecordingEnding: { readonly Stopped: "stopped"; readonly Timed: "timed"; readonly DeviceLost: "device-lost"; readonly PermissionRevoked: "permission-revoked"; readonly StorageFull: "storage-full"; readonly Suspended: "suspended"; readonly Failed: "failed"; readonly Interrupted: "interrupted"; }
   type RecordingEnding = "device-lost" | "failed" | "interrupted" | "permission-revoked" | "stopped" | "storage-full" | "suspended" | "timed"
   type RecordingPurpose = { readonly kind: "punch"; readonly asset: AssetId; readonly basis: number; readonly range: EditRange; readonly punch: PunchRange; } | { readonly kind: "stack"; } | { readonly kind: "take"; readonly stack: TakeStackId; }
@@ -4388,6 +4395,7 @@ Published paths
   readonly RecoveryChunkManifest.start: RecordingStart
   readonly RecoveryChunkManifest.transportFrame: SampleCount
   readonly RecoveryChunkManifest.purpose: RecordingPurpose
+  readonly RecoveryChunkManifest.end?: RecordingEnd
   type RetentionPolicy = { readonly kind: "budget"; readonly bytes: number; } | { readonly kind: "rules"; readonly rules: readonly [RetentionRule, ...RetentionRule[]]; } | { readonly kind: "unlimited"; }
   type RetentionRule = { readonly kind: "recent-changes"; readonly count: number; } | { readonly kind: "recent-days"; readonly days: number; }
   const SOURCE_CONTAINERS: readonly ["wav", "rf64", "bw64", "aiff", "aifc"]
@@ -4971,6 +4979,7 @@ Published paths
   function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
 
 @audiogubbins/storage
+  type Alone<TValue> = { readonly kind: "busy"; } | { readonly kind: "done"; readonly value: TValue; } | { readonly kind: "unavailable"; }
   interface AnotherProject
   readonly AnotherProject.name: string | undefined
   type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
@@ -5070,6 +5079,14 @@ Published paths
   CacheStore.path: (key: CacheKey) => string
   CacheStore.whole: (path: string, signal?: AbortSignal) => Promise<WholeCache | undefined>
   CacheStore.filesOf: (category: CacheCategory, signal?: AbortSignal) => AsyncGenerator<string, void, undefined>
+  interface CaptureEnded
+  readonly CaptureEnded.ending: RecordingEnding
+  readonly CaptureEnded.problem?: string
+  readonly CaptureEnded.progress: RecordingProgress
+  interface CaptureStream
+  CaptureStream.next: () => Promise<CapturedEvent | undefined>
+  CaptureStream.close: () => void
+  type CapturedEvent = { readonly kind: "block"; readonly frame: number; readonly channels: readonly Float32Array[]; } | { readonly kind: "end"; readonly ending: RecordingEnding; readonly problem?: string; } | { readonly kind: "gap"; readonly frame: number; readonly frames: number; }
   type CatalogueEntry = { readonly kind: "project"; readonly header: ProjectHeader; } | { readonly kind: "unreadable"; readonly name: string; readonly faults: readonly RecordFault[]; }
   interface CatalogueServices
   readonly CatalogueServices.tree: StorageTree
@@ -5190,6 +5207,19 @@ Published paths
   interface ExternalBackupTarget
   ExternalBackupTarget.create: (generation: { readonly project: ProjectId; readonly name: string; readonly number: number; readonly at: number; }) => Promise<ByteSink>
   type ExternalCopy = { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "not-asked"; } | { readonly kind: "written"; }
+  interface FinishedRecording
+  readonly FinishedRecording.outcome: ChangeOutcome
+  readonly FinishedRecording.asset: Asset
+  readonly FinishedRecording.take: Take
+  readonly FinishedRecording.stack: TakeStackId
+  readonly FinishedRecording.recording: RecordedProvenance
+  interface FinishingServices extends RecordingServices
+  readonly FinishingServices.store: MediaObjectStore
+  readonly FinishingServices.clock: Clock
+  readonly FinishingServices.commands: RecordingCommands
+  readonly FinishingServices.tree: import("packages/project-format/src/storage-tree").StorageTree
+  readonly FinishingServices.digest: import("packages/project-format/src/byte-ports").Digest
+  readonly FinishingServices.ids: import("packages/domain/src/index").IdGenerator
   type ForkPoint = { readonly kind: "node"; readonly node: HistoryNodeId; } | { readonly kind: "snapshot"; readonly snapshot: SnapshotId; }
   interface ForkRequest
   readonly ForkRequest.source: ProjectId
@@ -5238,6 +5268,17 @@ Published paths
   readonly InstalledPack.name: string
   readonly InstalledPack.bytes: number
   readonly InstalledPack.kept?: PackKept
+  interface InterruptedRecording
+  readonly InterruptedRecording.session: RecordingSessionId
+  readonly InterruptedRecording.frames: SampleCount
+  readonly InterruptedRecording.recordedAt: number
+  readonly InterruptedRecording.sampleRate: number
+  readonly InterruptedRecording.channels: number
+  readonly InterruptedRecording.device: RecordedDevice
+  readonly InterruptedRecording.purpose: RecordingPurpose
+  readonly InterruptedRecording.ending: RecordingEnding
+  readonly InterruptedRecording.gaps?: RecordedGaps
+  readonly InterruptedRecording.missing: number
   interface JournalBreak
   readonly JournalBreak.at: JournalPosition
   readonly JournalBreak.reason: BreakReason
@@ -5267,6 +5308,9 @@ Published paths
   readonly LibraryServices.coordinator?: LeaseCoordinator
   type ListedEntry = { readonly kind: "unusable"; readonly id: LibraryEntryId; readonly reason: DomainFailure; readonly entry?: LibraryEntry; } | { readonly kind: "usable"; readonly entry: LibraryEntry; }
   type LocatedFile = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: ExternalFile; }
+  interface LostFrames
+  readonly LostFrames.count: number
+  readonly LostFrames.frames: number
   const MEDIA_DIRECTORY: "media"
   type MeasuredPack = { readonly ref: PackRef; readonly bytes: number; } & ({ readonly kind: "installed"; readonly name: string; } | { readonly kind: "partial"; readonly name?: string; })
   type MediaRefusal = { readonly kind: "no-coordination"; } | { readonly kind: "storing"; } | { readonly kind: "unreadable"; readonly roots: readonly UnreadableRoot[]; }
@@ -5365,6 +5409,7 @@ Published paths
   readonly ProjectRecoveryReport.fenced: readonly JournalPosition[]
   readonly ProjectRecoveryReport.rebuiltCursorState?: DomainFailure
   readonly ProjectRecoveryReport.missingStates: readonly StateFingerprint[]
+  readonly ProjectRecoveryReport.interruptedRecordings: readonly InterruptedRecording[]
   class ProjectRepository
   new ProjectRepository(services: CatalogueServices): ProjectRepository
   readonly ProjectRepository.services: CatalogueServices
@@ -5467,6 +5512,27 @@ Published paths
   readonly ReadOnlyServices.logger: Logger
   readonly ReadOnlyServices.reload: (signal: AbortSignal) => Promise<DomainResult<ProjectModel>>
   type RecordFault = { readonly kind: "checksum-mismatch"; } | { readonly kind: "damaged"; readonly cause: DomainFailure; } | { readonly kind: "foreign"; readonly found: string; } | { readonly kind: "incompatible"; readonly found: number; readonly current: number; } | { readonly kind: "malformed"; readonly failures: readonly DomainFailure[]; }
+  interface RecordingCommands
+  readonly RecordingCommands.addAsset: (asset: Asset, source: AssetSource) => CommandInvocation
+  readonly RecordingCommands.createStack: (stack: TakeStack) => CommandInvocation
+  readonly RecordingCommands.addTake: (stack: Pick<TakeStack, "id">, take: Take, choose: boolean) => CommandInvocation
+  readonly RecordingCommands.addPunch: (asset: Pick<Asset, "id">, operation: EditOperation, stack: TakeStack) => CommandInvocation
+  interface RecordingFiles
+  readonly RecordingFiles.manifest: RecoveryChunkManifest
+  readonly RecordingFiles.paths: RecordingPaths
+  readonly RecordingFiles.records: CheckedRecords
+  readonly RecordingFiles.pair: PairReading<ManifestRecord>
+  interface RecordingProgress
+  readonly RecordingProgress.committed: number
+  readonly RecordingProgress.lost: LostFrames
+  interface RecordingServices
+  readonly RecordingServices.tree: StorageTree
+  readonly RecordingServices.digest: Digest
+  readonly RecordingServices.ids: IdGenerator
+  interface RecordingSetUp
+  readonly RecordingSetUp.start: RecordingStart
+  readonly RecordingSetUp.transportFrame: SampleCount
+  readonly RecordingSetUp.purpose: RecordingPurpose
   type RecoverabilityLoss = "backup-generations" | "download-progress" | "history" | "model-packs" | "nothing" | "set-aside-changes" | "unfinished-projects" | "unreferenced-media"
   interface RestoreServices extends OpeningServices
   readonly RestoreServices.clock: Clock
@@ -5517,6 +5583,7 @@ Published paths
   readonly StorageUsage.namedSnapshots: number
   readonly StorageUsage.alternativeBranches: number
   readonly StorageUsage.recoveryCheckpoints: number
+  readonly StorageUsage.recordings: number
   readonly StorageUsage.sourceMedia: number
   readonly StorageUsage.retainedDeletedMedia: RetainedMediaUsage
   readonly StorageUsage.unreferencedMedia: number
@@ -5525,6 +5592,10 @@ Published paths
   readonly StorageUsage.packs: PackUsage
   readonly StorageUsage.unreadable: readonly UnreadableRoot[]
   type StoredSchema = "projectDocument" | "projectStorage"
+  interface TakeRequest
+  readonly TakeRequest.name: string
+  readonly TakeRequest.stackName?: string
+  readonly TakeRequest.compensation: number
   type TransferAnswer = "declined" | "granted"
   type TransferOutcome = "unreachable" | TransferAnswer
   interface TransferRequest
@@ -5554,15 +5625,19 @@ Published paths
   type WipeConfirmation = { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; } | { readonly kind: "unreadable"; }
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
+  function captureInto(started: RecordingFiles, stream: CaptureStream, observe: (progress: RecordingProgress) => void): Promise<CaptureEnded>
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
+  function discardRecording(session: ProjectSession, id: RecordingSessionId, services: RecordingServices): Promise<DomainResult<void>>
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
+  function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, request: TakeRequest, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importAudio(session: ProjectSession, request: AudioImport, services: AudioImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedAudio>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
+  function interruptedRecordings(session: ProjectSession, services: RecordingServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly InterruptedRecording[]>>
   function isStorageFull(cause: DomainFailure): boolean
   function measureUsage(services: UsageServices, live?: Iterable<ProjectState>, signal?: AbortSignal | undefined): Promise<DomainResult<StorageUsage>>
   function mediaSharingOf(coordinator: LeaseCoordinator | undefined): MediaSharing
@@ -5573,10 +5648,14 @@ Published paths
   function planBackupPruning(generations: readonly BackupGeneration[], retention: BackupRetention, now: number): BackupPruning
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
   function projectPackPins(tree: StorageTree, digest: Digest): PackPins
+  function recordingInProgress(session: RecordingSessionId): DomainFailure
+  function recoverMediaStore(store: MediaObjectStore, coordinator: LeaseCoordinator | undefined): Promise<Alone<DomainResult<RecoveryReport>>>
+  function recoverRecording(session: ProjectSession, id: RecordingSessionId, request: TakeRequest, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
+  function startRecording(session: ProjectSession, id: RecordingSessionId, setUp: RecordingSetUp, services: RecordingServices, signal?: AbortSignal | undefined): Promise<DomainResult<RecordingFiles>>
   function storageRefusalOf(cause: DomainFailure): StorageRefusal | undefined
   function takeSourceVersion(session: ProjectSession, version: SourceVersion, services: SourceVersionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, services: BundleServices, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
@@ -5660,6 +5739,20 @@ Published paths
   ProcessingLibraryClient.remove: (id: LibraryEntryId, signal?: AbortSignal) => Promise<DomainResult<void>>
   interface ProjectsClient
   ProjectsClient.open: (request: OpeningRequest) => Promise<DomainResult<RemoteOpenedProject>>
+  interface RecordingBegin
+  readonly RecordingBegin.session: RecordingSessionId
+  readonly RecordingBegin.capture: MessagePort
+  readonly RecordingBegin.setUp: RecordingSetUp
+  readonly RecordingBegin.take: TakeRequest
+  interface RecordingClient
+  RecordingClient.timeLeft: (sampleRate: SampleRate, channels: number, signal?: AbortSignal) => Promise<StorageTimeLeft>
+  RecordingClient.begin: (project: RemoteProjectSession, request: RecordingBegin, signal?: AbortSignal) => Promise<DomainResult<void>>
+  RecordingClient.status: (session: RecordingSessionId, listener: (status: RecordingStatus) => void) => () => void
+  RecordingClient.stop: (session: RecordingSessionId, ending: RecordingEnding, signal?: AbortSignal) => Promise<DomainResult<FinishedRecording>>
+  RecordingClient.interrupted: (project: RemoteProjectSession, signal?: AbortSignal) => Promise<DomainResult<readonly InterruptedRecording[]>>
+  RecordingClient.recover: (project: RemoteProjectSession, session: RecordingSessionId, take: TakeRequest, signal?: AbortSignal) => Promise<DomainResult<FinishedRecording>>
+  RecordingClient.discard: (project: RemoteProjectSession, session: RecordingSessionId, signal?: AbortSignal) => Promise<DomainResult<void>>
+  type RecordingStatus = { readonly kind: "ended"; readonly ending: RecordingEnding; readonly problem?: string; readonly committed: number; readonly lost: LostFrames; readonly named: boolean; } | { readonly kind: "finished"; readonly recording: FinishedRecording; } | { readonly kind: "kept"; readonly failure: DomainFailure; } | { readonly kind: "recording"; readonly committed: number; readonly lost: LostFrames; readonly timeLeft: StorageTimeLeft; }
   type RemoteOpenedProject = { readonly kind: "read-only"; readonly view: RemoteReadOnlyProject; readonly report: ProjectRecoveryReport; } | { readonly kind: "writable"; readonly session: RemoteProjectSession; readonly report: ProjectRecoveryReport; }
   class RemoteProjectSession
   new RemoteProjectSession(parts: RemoteParts): RemoteProjectSession
@@ -5720,6 +5813,7 @@ Published paths
   readonly StorageClient.root: RootClient
   readonly StorageClient.sources: SourcesClient
   readonly StorageClient.media: MediaClient
+  readonly StorageClient.recording: RecordingClient
   readonly StorageClient.caches: CacheClient
   readonly StorageClient.packs: PacksClient
   readonly StorageClient.usage: UsageClient
@@ -5745,6 +5839,7 @@ Published paths
   readonly HostServices.invocationProvenance: InvocationProvenance
   readonly HostServices.fileAt: (path: string) => Promise<Blob | undefined>
   readonly HostServices.processingLibrary: ProcessingLibraryStore
+  readonly HostServices.estimate: () => Promise<StorageEstimate | undefined>
   readonly HostServices.tree: StorageTree
   readonly HostServices.digest: Digest
   readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
@@ -5769,6 +5864,7 @@ Published paths
   readonly MemoryStorageOptions.tab?: { readonly name: string; readonly seed: number; readonly label?: string; }
   readonly MemoryStorageOptions.clock?: Clock
   readonly MemoryStorageOptions.packSource?: CatalogueSource
+  readonly MemoryStorageOptions.estimate?: () => Promise<import("packages/recording/src/storage-time").StorageEstimate | undefined>
   interface MemoryWorker
   readonly MemoryWorker.coordinator: MemoryLeaseCoordinator
   readonly MemoryWorker.hostLogs: HostLogs
@@ -6053,7 +6149,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 7; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 7; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -6281,7 +6377,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]
@@ -7428,13 +7524,17 @@ packages/storage-runtime/src/protocol/project-operations.ts
   readonly ProjectUpdate.comparison?: ComparisonUpdate
   type Written<TArgument = unknown> = Operation<{ readonly handle: ProjectHandle; } & TArgument, DomainResult<WriteOutcome>>
 
+packages/storage-runtime/src/protocol/recording-operations.ts
+  type RecordingOperations = { 'recording.timeLeft': Operation<{ readonly sampleRate: SampleRate; readonly channels: number; }, StorageTimeLeft>; 'recording.begin': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; readonly capture: MessagePort; readonly setUp: RecordingSetUp; readonly take: TakeRequest; }, DomainResult<void>>; 'recording.stop': Operation<{ readonly session: RecordingSessionId; readonly ending: RecordingEnding; }, DomainResult<FinishedRecording>>; 'recording.interrupted': Operation<{ readonly handle: ProjectHandle; }, DomainResult<readonly InterruptedRecording[]>>; 'recording.recover': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; readonly take: TakeRequest; }, DomainResult<FinishedRecording>>; 'recording.discard': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; }, DomainResult<void>>; }
+  type RecordingStream = `recording:${string}`
+
 packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & RecordingOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
-  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly packs: Stream<PackChange>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
+  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly packs: Stream<PackChange>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; readonly [session: RecordingStream]: Stream<RecordingStatus>; }; }
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>
@@ -7482,8 +7582,8 @@ packages/storage/src/checked-records.ts
   readonly CheckedRecords.digest: Digest
   CheckedRecords.write: (path: string, kind: RecordKind, body: JsonValue, signal?: AbortSignal) => Promise<DomainResult<void>>
   CheckedRecords.read: <TValue>(path: string, kind: RecordKind, convert: Converter<TValue>, signal?: AbortSignal) => Promise<CheckedReading<TValue>>
-  const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly HistorySegment: "history-segment"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; readonly PackManifest: "pack-manifest"; readonly PackSeal: "pack-seal"; readonly LibraryEntry: "library-entry"; }
-  type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "history-segment" | "journal-record" | "lease" | "library-entry" | "pack-manifest" | "pack-seal" | "project-head" | "project-header" | "storage-root"
+  const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly HistorySegment: "history-segment"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; readonly PackManifest: "pack-manifest"; readonly PackSeal: "pack-seal"; readonly LibraryEntry: "library-entry"; readonly RecordingManifest: "recording-manifest"; }
+  type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "history-segment" | "journal-record" | "lease" | "library-entry" | "pack-manifest" | "pack-seal" | "project-head" | "project-header" | "recording-manifest" | "storage-root"
 
 packages/storage/src/checkpoint-files.ts
   class CheckpointFiles
@@ -7649,6 +7749,7 @@ packages/storage/src/project-recovery.ts
   readonly RecoveredProject.keptStates: ReadonlySet<StateFingerprint>
   readonly RecoveredProject.unwritten: ReadonlyMap<StateFingerprint, ProjectState>
   readonly RecoveredProject.segments: SegmentLedger
+  readonly RecoveredProject.recordings: RecordingListing
   readonly RecoveredProject.report: ProjectRecoveryReport
   interface RecoveryServices
   readonly RecoveryServices.bus: CommandBus<ProjectState>
@@ -7663,6 +7764,16 @@ packages/storage/src/project-snapshot.ts
   readonly SnapshotPublisher.subscribe: (listener: () => void) => (() => void)
   readonly SnapshotPublisher.getSnapshot: () => ProjectSnapshot
   SnapshotPublisher.publish: (next: ProjectSnapshot) => void
+
+packages/storage/src/recording-manifests.ts
+  interface ManifestRecord extends Generational
+  readonly ManifestRecord.manifest: RecoveryChunkManifest
+  readonly ManifestRecord.generation: number
+
+packages/storage/src/recording-sessions.ts
+  interface RecordingListing
+  readonly RecordingListing.interrupted: readonly InterruptedRecording[]
+  readonly RecordingListing.leftOver: readonly RecordingSessionId[]
 
 packages/storage/src/segment-ledger.ts
   interface FreshSegment
@@ -7805,6 +7916,7 @@ packages/storage/src/storage-layout.ts
   readonly ProjectPaths.quarantine: string
   readonly ProjectPaths.leases: string
   readonly ProjectPaths.unfinished: string
+  readonly ProjectPaths.recordings: string
   ProjectPaths.header: (slot: PairSlot) => string
   ProjectPaths.head: (epoch: number, generation: number) => string
   ProjectPaths.checkpoint: (epoch: number, id: CheckpointId) => string
@@ -7813,6 +7925,14 @@ packages/storage/src/storage-layout.ts
   ProjectPaths.record: (epoch: number, sequence: number) => string
   ProjectPaths.quarantined: (epoch: number, sequence: number) => string
   ProjectPaths.lease: (epoch: number) => string
+  class RecordingPaths
+  new RecordingPaths(paths: ProjectPaths, session: RecordingSessionId): RecordingPaths
+  readonly RecordingPaths.directory: string
+  readonly RecordingPaths.chunks: string
+  readonly RecordingPaths.gaps: string
+  RecordingPaths.manifest: (slot: PairSlot) => string
+  RecordingPaths.chunk: (frame: number) => string
+  RecordingPaths.gap: (frame: number, frames: number) => string
 
 packages/storage/src/testing/memory-leases.ts
   interface Holding

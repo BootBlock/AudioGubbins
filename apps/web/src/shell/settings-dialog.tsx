@@ -18,6 +18,7 @@ import { ModalDialog, TabSet, type ThemePreferences } from '@audiogubbins/design
 import type { VerbosityConfiguration } from '@audiogubbins/diagnostics';
 import type { WorkspaceLayout } from '@audiogubbins/workspace';
 
+import type { RecordingParts } from '../recording/recording-part.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
 import { Accessibility, Appearance } from './settings/appearance.js';
 import { Audio } from './settings/audio.js';
@@ -57,6 +58,8 @@ export interface SettingsDialogProps {
 
   /** The performance profile, the Custom profile's settings, the background priority and the render mode. */
   readonly audio: AudioSettings;
+  /** The input, for the Audio settings' input section. */
+  readonly recording: RecordingParts;
 
   /** How much the log records, and which subsystems write to it. */
   readonly verbosity: VerbosityConfiguration;
@@ -153,7 +156,14 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
           {
             value: 'audio',
             label: 'Audio',
-            content: <Audio settings={props.audio} run={props.run} />,
+            content: (
+              <Audio
+                settings={props.audio}
+                run={props.run}
+                recording={props.recording}
+                unavailableReason={props.unavailableReason}
+              />
+            ),
           },
           {
             value: 'diagnostics',

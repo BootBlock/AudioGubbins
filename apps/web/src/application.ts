@@ -33,10 +33,13 @@ import {
   detectBrowserEnvironment,
   operatingSystemOf,
   readLayoutMap,
+  readMediaInput,
+  readPageVisibility,
   readPlatformSignals,
   readResourceFigures,
   readStoragePlatform,
   watchAppearanceSettings,
+  watchPageVisibility,
   type CapabilityRegistry,
   type LayoutMapPairs,
 } from '@audiogubbins/capabilities';
@@ -47,11 +50,23 @@ import type { AssetCatalogue } from './state/asset-catalogue.js';
 import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 
 import { startAnalysis } from './analysis/analysis-part.js';
-import { browserEngineLoader, browserPlayback, browserRendering } from './audio/browser-audio.js';
+import {
+  browserCapture,
+  browserContextHost,
+  browserEngineLoader,
+  browserPlayback,
+  browserRendering,
+} from './audio/browser-audio.js';
+import { browserSchedule } from './audio/browser-schedule.js';
+import type { OpenCapture } from './audio/capture-parts.js';
+import type { AudioContextHost } from './audio/context-host.js';
 import { PlaybackControl } from './audio/playback-control.js';
 import { followPlayingAsset } from './audio/playing-asset.js';
 import { browserPreviews } from './audio/preview-threads.js';
 import { RenderControl } from './audio/render-control.js';
+import { measureInWorker } from './recording/browser-loopback.js';
+import { suspendsCapture } from './recording/input-diagnostics.js';
+import { startRecording } from './recording/recording-part.js';
 import { shellCommands } from './commands/shell-commands.js';
 import type { ShellContext } from './commands/shell-context.js';
 import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
@@ -136,7 +151,8 @@ function startKeyboardLayout(
  * worker that makes cached previews (ADR-0061) is shared with the peak and
  * detection workers, started only when the first of them is, and reports here
  * how far its renders have come; playback follows the asset it plays as the
- * project changes it.
+ * project changes it. The page's one audio context is held for playback and
+ * the recording part's inputs alike (`audio/context-host.ts`).
  */
 function startAudio(
   capabilities: CapabilityRegistry,
@@ -150,6 +166,10 @@ function startAudio(
     'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
   readonly previews: PreviewHost;
+  /** The page's one audio context, which an input joins. */
+  readonly host: AudioContextHost;
+  /** Makes a capture session over the context, once the engine is loaded. */
+  readonly openCapture: OpenCapture;
   /** Has playback follow the asset it plays in `assets`, until the part is disposed. */
   readonly followAssets: (assets: AssetCatalogue) => void;
   readonly dispose: () => void;
@@ -159,6 +179,7 @@ function startAudio(
   let stopFollowing = (): void => undefined;
   const runtime = audioRuntimeCapabilities(capabilities);
   const engine = browserEngineLoader(runtime, previews.host, models);
+  const host = browserContextHost(runtime, logger);
   const audioSettings = createAudioSettingsStore(storage, logger);
   const renderStrategy = createRenderStrategyStore();
   const announce = (text: string): void => {
@@ -166,7 +187,7 @@ function startAudio(
   };
   const playback = new PlaybackControl({
     view: audio,
-    open: browserPlayback({ capabilities: runtime, engine, logger }),
+    open: browserPlayback({ host, engine, logger }),
     profile: () => audioSettings.get().chosen,
     quality: () => previewQualityOf(audioSettings.get()),
     announce,
@@ -187,6 +208,8 @@ function startAudio(
   return {
     parts: { audio, audioSettings, renderStrategy, playback, hearing, rendering },
     previews: previews.host,
+    host,
+    openCapture: browserCapture(engine, logger),
     followAssets: (assets) => {
       stopFollowing = followPlayingAsset(assets, hearing, playback);
     },
@@ -195,6 +218,11 @@ function startAudio(
       playback.dispose();
       rendering.dispose();
       previews.dispose();
+      void host.close().catch((error: unknown) => {
+        logger.error('The audio context could not be closed.', {
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      });
     },
   };
 }
@@ -286,7 +314,8 @@ export function createApplication() {
 
   // Read once, beside every other question put to the browser, and started
   // before anything else reads project storage (REQ-STOR-052).
-  const projectSystem = startProjectSystem(readStoragePlatform(navigator, globalThis), {
+  const storagePlatform = readStoragePlatform(navigator, globalThis);
+  const projectSystem = startProjectSystem(storagePlatform, {
     diagnostics,
     storage,
     page: browserVisibility(),
@@ -317,6 +346,29 @@ export function createApplication() {
   );
   audioPart.followAssets(editorPart.parts.assets);
   const packsPart = startPackManager(projectSystem, models);
+  const recordingPart = startRecording({
+    // Read once, as the storage platform is; asks the browser nothing yet.
+    media: readMediaInput(navigator, globalThis),
+    host: audioPart.host,
+    openCapture: audioPart.openCapture,
+    settings: audioPart.parts.audioSettings,
+    playback: audioPart.parts.playback,
+    audio: audioPart.parts.audio,
+    workspace,
+    measure: measureInWorker,
+    page: {
+      visibility: () => readPageVisibility(document),
+      watch: (changed) => watchPageVisibility(document, changed),
+    },
+    estimate: storagePlatform.estimate,
+    suspensionRisk: suspendsCapture(operatingSystemOf(platform)),
+    schedule: browserSchedule,
+    now: () => Date.now(),
+    announce: (text) => {
+      interaction.announce(text);
+    },
+    logger: diagnostics.loggerFor('recording'),
+  });
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
@@ -340,6 +392,7 @@ export function createApplication() {
     ...editorPart.parts,
     ...analysisPart.parts,
     packs: packsPart.manager,
+    recording: recordingPart.parts,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -401,6 +454,7 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
+      recordingPart.dispose();
       analysisPart.dispose();
       packsPart.dispose();
       audioPart.dispose();

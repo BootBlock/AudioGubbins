@@ -97,6 +97,12 @@ const NO_METERS = new Map();
  * each get their region back unseen.
  */
 
+/** The recording part and the audio settings of a shell built for the test. */
+function recordingParts() {
+  const { recording, audioSettings } = buildShellContext().context;
+  return { recording, audioSettings };
+}
+
 describe('what a panel is given', () => {
   it('reads the audio stores and cannot write them, changing them only by a command', () => {
     // Compared exactly, so a store's setter added back to a panel's view of it
@@ -152,6 +158,7 @@ describe('every panel', () => {
           packs: shell.packs,
           modelGate: shell.modelGate,
           hearing: shell.hearing,
+          recording: shell.recording,
         })}
       </>,
     );
@@ -311,6 +318,7 @@ describe('the capability panel', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={[]}
+        {...recordingParts()}
       />,
     );
 
@@ -346,6 +354,7 @@ describe('the capability panel', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={[]}
+        {...recordingParts()}
       />,
     );
 
@@ -381,6 +390,7 @@ describe('the capability panel', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={[]}
+        {...recordingParts()}
       />,
     );
 
@@ -460,6 +470,7 @@ describe('what the browser lacks for keeping projects', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={absences}
+        {...recordingParts()}
       />,
     );
 

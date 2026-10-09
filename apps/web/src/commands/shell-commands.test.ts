@@ -67,10 +67,12 @@ import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
 import { rackParameterCommands } from './rack-parameter-commands.js';
 import { rackSlotCommands } from './rack-slot-commands.js';
+import { recordingCommands } from './recording-commands.js';
 import { shellCommands } from './shell-commands.js';
 import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
+import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 holdPlatformFiles();
 
@@ -658,7 +660,8 @@ describe('the default shortcut profile', () => {
     );
 
     // The editor's defaults are keys pressed alone or with the usual
-    // modifier, placed without the prefix, as are its edits.
+    // modifier, placed without the prefix, as are its edits and the toggle of
+    // input monitoring.
     expect(bound.filter((id) => !id.startsWith('editor.'))).toEqual([
       commandId('settings.open'),
       commandId('edit.undo'),
@@ -667,6 +670,7 @@ describe('the default shortcut profile', () => {
       commandId('edit.cut'),
       commandId('edit.copy'),
       commandId('edit.paste'),
+      commandId('recording.toggle-monitoring'),
     ]);
   });
 
@@ -845,6 +849,19 @@ describe('finding the shell commands in the palette', () => {
       ),
   );
 
+  /**
+   * The input's commands, whose work settles after they return, as an input
+   * opens once the browser answers and a calibration once its signal is heard
+   * back, or which need an input open to act on. Each is run twice, its work
+   * awaited, over a fake input in `recording-commands.test.ts`, and refused or
+   * unchanged there where it would change nothing.
+   */
+  const RECORDING_INPUT: ReadonlySet<string> = new Set([
+    ...recordingCommands().map((command): string => command.id),
+    'recording.set-manual-offset',
+    'recording.forget-calibration',
+  ]);
+
   /** What a command is given, as an invocation carries it. */
   type Arguments = Readonly<Record<string, string | number | boolean>>;
 
@@ -886,6 +903,16 @@ describe('finding the shell commands in the palette', () => {
      */
     readonly inProject?: true;
   }
+
+  /** A Custom capture profile, as the settings' form saves one. */
+  const CLOSE_MIC: Arguments = {
+    name: 'Close mic',
+    echoCancellation: false,
+    noiseSuppression: true,
+    autoGainControl: false,
+    voiceIsolation: false,
+    headphones: true,
+  };
 
   /** A first group given a new proportion, as the dock reports a dragged edge. */
   function resizedArrangement(context: ShellContext): string {
@@ -1005,6 +1032,33 @@ describe('finding the shell commands in the palette', () => {
     },
     'workspace.rearrange': {
       arguments: (context) => ({ arrangement: resizedArrangement(context) }),
+    },
+    'recording.profile-raw-studio': { before: (run) => run('recording.profile-voice') },
+    'recording.choose-profile': { arguments: () => ({ profile: 'Voice' }) },
+    'recording.save-custom-profile': { arguments: () => CLOSE_MIC },
+    'recording.remove-custom-profile': {
+      before: (run) => run('recording.save-custom-profile', CLOSE_MIC),
+      arguments: () => ({ profile: 'Close mic' }),
+    },
+    'recording.mark-headphones': { arguments: () => ({ profile: 'Raw/Studio', headphones: true }) },
+    'recording.set-retrospective': { arguments: () => ({ seconds: 10 }) },
+    'recording.retrospective-off': {
+      before: (run) => run('recording.set-retrospective', { seconds: 10 }),
+    },
+    'recording.set-count-in': { arguments: () => ({ seconds: 3 }) },
+    'recording.monitor-automatically': {
+      storage: () => {
+        const raw = ephemeralStorage();
+        raw.write(
+          'audiogubbins.audio-settings',
+          JSON.stringify({
+            schemaVersion: SCHEMA_VERSIONS.audioSettings,
+            recording: { input: { id: 'interface', label: 'Studio interface' } },
+          }),
+        );
+        return raw;
+      },
+      arguments: () => ({ on: true }),
     },
     'workspace.move-panel-centre': { before: (run) => run('workspace.move-panel-left') },
 
@@ -1247,7 +1301,7 @@ describe('finding the shell commands in the palette', () => {
   /** Each command run twice, once for each of its forms. */
   const RUNS: readonly (readonly [label: string, id: string, scenario: Scenario])[] = commands
     .map((command) => command.id)
-    .filter((id) => !REPEATABLE.has(id) && !PROJECT_SYSTEM.has(id))
+    .filter((id) => !REPEATABLE.has(id) && !PROJECT_SYSTEM.has(id) && !RECORDING_INPUT.has(id))
     .flatMap((id) => {
       const given = SCENARIOS[id] ?? defaultScenario(id);
       const forms: readonly Scenario[] = Array.isArray(given) ? given : [given];

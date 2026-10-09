@@ -21,6 +21,7 @@ const CLEAN: ProjectRecoveryReport = {
   replayed: 4,
   fenced: [],
   missingStates: [],
+  interruptedRecordings: [],
 };
 
 const POSITION = { epoch: 1, sequence: 7 };

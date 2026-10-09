@@ -726,6 +726,9 @@ const PACKAGES = [
       '@audiogubbins/processors',
       '@audiogubbins/model-packs',
       '@audiogubbins/text',
+      '@audiogubbins/recording',
+      // The capture channel's reader alone (ADR-0070): the cruise holds it to that entry.
+      '@audiogubbins/audio-runtime',
     ],
     devDeps: [],
     external: {},
@@ -785,6 +788,7 @@ const PACKAGES = [
       '@audiogubbins/detection-runtime',
       '@audiogubbins/ml-runtime',
       '@audiogubbins/model-packs',
+      '@audiogubbins/recording',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

@@ -39,6 +39,7 @@ import type { DetectionControl } from '../analysis/detection-control.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { PackManager } from '../ml/pack-manager.js';
+import type { RecordingParts } from '../recording/recording-part.js';
 import type { PictureSoundDecoder } from '../picture/picture-sound.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
@@ -181,4 +182,11 @@ export interface ShellContext {
    * installer changes as the person asks (REQ-AUDIO-139).
    */
   readonly packs: PackManager;
+
+  /**
+   * The input, monitoring and the latency calibration (ADR-0070): what the
+   * recording commands drive and the recording views read. Nothing in it is
+   * project state; a take reaches a project only through its commands.
+   */
+  readonly recording: RecordingParts;
 }

@@ -1,8 +1,9 @@
 /**
  * Audio: the performance profile and the Custom profile's settings
  * (REQ-ARCH-083), how background work shares the machine (REQ-ARCH-084), the
- * mode renders use (REQ-ARCH-079), and the quality a render and playback run
- * at (REQ-AUDIO-080, REQ-AUDIO-086).
+ * mode renders use (REQ-ARCH-079), the quality a render and playback run
+ * at (REQ-AUDIO-080, REQ-AUDIO-086), and the recording input
+ * (`recording-input.tsx`).
  *
  * The Custom settings are a form, because they are checked together: a person
  * sets the fields and applies them, and a refusal names every field that is
@@ -44,13 +45,22 @@ import {
 import { QUALITY_LEVEL_NAMES } from '../../quality-words.js';
 import { previewQualityOf, type AudioSettings } from '../../state/audio-settings-store.js';
 import { PerformanceChoice } from '../performance-choice.js';
+import type { RecordingParts } from '../../recording/recording-part.js';
 import { QualityChoice, type QualityOption } from './quality-choice.js';
+import { RecordingInput } from './recording-input.js';
 import type { RunCommand } from './section.js';
 
 /** What the audio settings need. */
 export interface AudioProps {
   readonly settings: AudioSettings;
   readonly run: RunCommand;
+}
+
+/** What the audio settings need for their input section besides. */
+export interface AudioInputProps {
+  /** The input, which the section lists the inputs and the calibration of. */
+  readonly recording: RecordingParts;
+  readonly unavailableReason: (id: string) => string | undefined;
 }
 
 /** A latency hint as the form offers it: a category, or a latency the person types. */
@@ -265,7 +275,12 @@ function QualitySettings({ settings, run }: AudioProps): ReactNode {
 }
 
 /** The audio settings. */
-export function Audio({ settings, run }: AudioProps): ReactNode {
+export function Audio({
+  settings,
+  run,
+  recording,
+  unavailableReason,
+}: AudioProps & AudioInputProps): ReactNode {
   const renderMode = renderModeSetting(settings.renderMode);
   return (
     <div className="ag-settings-section">
@@ -309,6 +324,12 @@ export function Audio({ settings, run }: AudioProps): ReactNode {
         }}
       />
       <QualitySettings settings={settings} run={run} />
+      <RecordingInput
+        settings={settings.recording}
+        recording={recording}
+        run={run}
+        unavailableReason={unavailableReason}
+      />
     </div>
   );
 }

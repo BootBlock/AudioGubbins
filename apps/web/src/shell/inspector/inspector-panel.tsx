@@ -38,16 +38,26 @@ import { LevelControls } from './level-controls.js';
 import { RegionProperties } from './region-properties.js';
 import { sourceFacts } from './source-words.js';
 import { TimeControls } from './time-controls.js';
+import type { RecordingParts } from '../../recording/recording-part.js';
+import type { AudioSettings } from '../../state/audio-settings-store.js';
+import type { Observable } from '../../state/observable.js';
+import { RecordingConfiguration } from '../recording/recording-configuration.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
-/** What the Inspector reads: the editor's views, their selections and assets, and command labels. */
+/**
+ * What the Inspector reads: the editor's views, their selections and assets,
+ * command labels, and the recording part and settings for the recording
+ * configuration it shows while recording is the subject.
+ */
 export interface InspectorParts {
   readonly editorViews: EditorPanelParts['stores']['editorViews'];
   readonly selections: EditorPanelParts['stores']['selections'];
   readonly assets: Pick<AssetCatalogue, 'get' | 'subscribe' | 'find'>;
   readonly labelFor: (id: string) => string;
+  readonly recording: RecordingParts;
+  readonly audioSettings: Observable<AudioSettings>;
 }
 
 /**
@@ -278,6 +288,22 @@ export function InspectorPanel({
   readonly commands: PanelCommands;
 }): ReactNode {
   const { subject, state } = useInspected(parts, projects);
+  const recordingInFocus = useSyncExternalStore(
+    parts.recording.focus.subscribe,
+    parts.recording.focus.get,
+  );
+  if (recordingInFocus) {
+    return (
+      <section className="ag-panel ag-inspector">
+        <h2 className="ag-panel-title">{title}</h2>
+        <RecordingConfiguration
+          recording={parts.recording}
+          audioSettings={parts.audioSettings}
+          commands={commands}
+        />
+      </section>
+    );
+  }
   return (
     <section className="ag-panel ag-inspector">
       <h2 className="ag-panel-title">{title}</h2>

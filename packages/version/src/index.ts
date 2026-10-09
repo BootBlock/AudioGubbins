@@ -20,7 +20,7 @@ export const SCHEMA_VERSIONS = {
   shortcutProfile: 1,
   logVerbosity: 1,
   keyboardLayout: 1,
-  audioSettings: 2,
+  audioSettings: 3,
   editorViews: 1,
   diagnosticBundle: 1,
   projectDocument: 7,

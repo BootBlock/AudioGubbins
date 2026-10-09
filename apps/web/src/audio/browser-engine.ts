@@ -24,6 +24,7 @@ import {
   type PerformanceSettings,
 } from '@audiogubbins/audio-engine';
 import {
+  CaptureSession,
   PlaybackSession,
   compileDspModule,
   createRenderHost,
@@ -31,6 +32,7 @@ import {
   type PlaybackThreads,
   type PreviewHost,
 } from '@audiogubbins/audio-runtime';
+import captureProcessorUrl from '@audiogubbins/audio-runtime/threads/capture-processor.ts?worker&url';
 import engineProcessorUrl from '@audiogubbins/audio-runtime/threads/engine-processor.ts?worker&url';
 import feederWorkerUrl from '@audiogubbins/audio-runtime/threads/feeder-worker.ts?worker&url';
 import renderWorkerUrl from '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url';
@@ -39,6 +41,7 @@ import { DSP_MODULE_BYTES } from 'virtual:audiogubbins/dsp-module';
 import type { ModelServices } from '../ml/model-services.js';
 import type { ChosenProfile } from '../state/audio-settings-store.js';
 import { browserSchedule } from './browser-schedule.js';
+import type { CapturePort } from './capture-parts.js';
 import type { PlaybackSessionPort } from './playback-parts.js';
 import type { RenderParts } from './render-control.js';
 
@@ -73,9 +76,17 @@ export interface SessionOptions {
   readonly logger: Logger;
 }
 
+/** What a capture session is made with, beside what the engine brings. */
+export interface CaptureOptions {
+  readonly lifecycle: ContextLifecycle;
+  readonly logger: Logger;
+}
+
 /** The engine, loaded, with its DSP compiled: what every session and render of the page shares. */
 export interface BrowserEngine {
   readonly openSession: (options: SessionOptions) => PlaybackSessionPort;
+  /** A capture session in the playback context, whose meter and monitoring chain run the same DSP. */
+  readonly openCapture: (options: CaptureOptions) => CapturePort;
   readonly openRendering: (settings: PerformanceSettings) => DomainResult<RenderParts>;
 }
 
@@ -97,6 +108,16 @@ export async function browserEngine(
         settings: profile.settings,
         workletModuleUrl: engineProcessorUrl,
         threads,
+        schedule: browserSchedule,
+        logger,
+      }),
+    openCapture: ({ lifecycle, logger }) =>
+      new CaptureSession({
+        lifecycle,
+        capabilities,
+        dsp: dspModule,
+        workletModuleUrl: captureProcessorUrl,
+        createChannel: () => new MessageChannel(),
         schedule: browserSchedule,
         logger,
       }),

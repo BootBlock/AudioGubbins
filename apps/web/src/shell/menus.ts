@@ -167,6 +167,20 @@ const EDITOR_GROUPS: readonly {
     ],
   },
   {
+    key: 'recording',
+    label: 'Recording',
+    ids: [
+      'recording.arm',
+      'recording.disarm',
+      'recording.say-levels',
+      'recording.toggle-monitoring',
+      'recording.confirm-monitoring',
+      'recording.monitor-dry',
+      'recording.calibrate',
+      'recording.cancel-calibration',
+    ],
+  },
+  {
     key: 'analysis',
     label: 'Analysis',
     ids: ['analysis.detect', 'analysis.cancel'],

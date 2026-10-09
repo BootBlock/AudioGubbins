@@ -22,6 +22,7 @@ import {
   previewQualityOf,
 } from './audio-settings-store.js';
 import { PersistedPart, createStateStorage, type KeyValueStorage } from './state-storage.js';
+import { DEFAULT_RECORDING_SETTINGS } from './recording-settings.js';
 
 const BALANCED = PRESET_SETTINGS[PerformanceProfile.Balanced];
 const DRAFT = namedQualityMode(QualityLevel.Draft);
@@ -53,6 +54,7 @@ describe('reading stored audio settings', () => {
       renderMode: undefined,
       renderQuality: MAXIMUM_QUALITY,
       previewQuality: undefined,
+      recording: DEFAULT_RECORDING_SETTINGS,
     });
   });
 
@@ -80,6 +82,7 @@ describe('reading stored audio settings', () => {
       renderMode: ProcessingMode.BackgroundOffline,
       renderQuality: DRAFT,
       previewQuality: HIGH,
+      recording: DEFAULT_RECORDING_SETTINGS,
     });
   });
 

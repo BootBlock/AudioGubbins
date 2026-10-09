@@ -9,8 +9,9 @@
  * Analysis panel (`analysis/analysis-panel.tsx`), the saved chains and presets
  * in the Library (`library/library-panel.tsx`), the rack of what the editor
  * acts on in the Effects rack (`rack/rack-panel.tsx`), the model packs in the
- * Model packs panel (`packs/pack-manager-panel.tsx`), and the project system's
- * History and Storage panels (`project-panels.tsx`).
+ * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring
+ * and latency in the Recording panel (`recording/recording-panel.tsx`), and
+ * the project system's History and Storage panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -30,6 +31,7 @@ import type { MeterLevels } from '@audiogubbins/audio-runtime';
 import type { Detections } from '../analysis/detection-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import type { PackManagerView } from '../ml/pack-manager.js';
+import type { RecordingParts } from '../recording/recording-part.js';
 import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
@@ -49,10 +51,35 @@ import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-pa
 import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
 import { RackPanel } from './rack/rack-panel.js';
+import { RecordingDiagnosticsList } from './recording/recording-diagnostics-list.js';
+import { RecordingPanel } from './recording/recording-panel.js';
+import { useRecordingDiagnostics, useWatchedInputs } from './recording/use-recording.js';
 import { RendererReportList } from './renderer-report-list.js';
 import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
 import { TransportPanel } from './transport-panel.js';
+
+/**
+ * What the browser and the hardware can do for a recording, found by asking
+ * them while the panel is shown (`REQ-PWA-077`): the inputs and the
+ * permission are watched, and no input is opened.
+ */
+function RecordingCapability({
+  recording,
+  audioSettings,
+}: {
+  readonly recording: RecordingParts;
+  readonly audioSettings: Observable<AudioSettings>;
+}): ReactNode {
+  useWatchedInputs(recording);
+  const entries = useRecordingDiagnostics(recording, audioSettings);
+  return (
+    <div>
+      <h3>Recording with this browser and hardware</h3>
+      <RecordingDiagnosticsList entries={entries} />
+    </div>
+  );
+}
 
 /** What this browser offers, and what is reduced because of it. */
 export function CapabilitiesPanel({
@@ -60,6 +87,8 @@ export function CapabilitiesPanel({
   capabilities,
   renderers,
   storageAbsences,
+  recording,
+  audioSettings,
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
@@ -67,6 +96,9 @@ export function CapabilitiesPanel({
   readonly renderers: EditorPanelParts['rendererReports'];
   /** What this browser lacks for keeping projects, and what that costs. */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
+  /** The input, for what recording can do here. */
+  readonly recording: RecordingParts;
+  readonly audioSettings: Observable<AudioSettings>;
 }): ReactNode {
   // Subscribed, so an answer the browser gives late redraws the panel.
   useSyncExternalStore(capabilities.subscribe, capabilities.all);
@@ -103,6 +135,7 @@ export function CapabilitiesPanel({
         </ul>
       )}
       <StorageAbsences absences={storageAbsences} />
+      <RecordingCapability recording={recording} audioSettings={audioSettings} />
       <RendererReportList reports={renderers} />
     </section>
   );
@@ -153,6 +186,9 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** Whether an asset is heard processed or as its original, which the rack and transport show. */
   readonly hearing: Observable<Hearing>;
+
+  /** The input, monitoring and latency calibration, which the Recording panel shows. */
+  readonly recording: RecordingParts;
 }
 
 /**
@@ -187,6 +223,7 @@ export function panelContextOf(
     packs: context.packs,
     modelGate: context.modelGate,
     hearing: context.hearing,
+    recording: context.recording,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
@@ -231,6 +268,8 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
           capabilities={context.capabilities}
           renderers={context.editor.rendererReports}
           storageAbsences={context.storageAbsences}
+          recording={context.recording}
+          audioSettings={context.audioSettings}
         />
       );
     case ProjectPanelKinds.History:
@@ -262,6 +301,8 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             selections: context.editor.stores.selections,
             assets: context.editor.assets,
             labelFor: context.editor.labelFor,
+            recording: context.recording,
+            audioSettings: context.audioSettings,
           }}
           commands={context}
         />
@@ -309,6 +350,19 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;
+
+    case PanelKinds.Recording:
+      return (
+        <RecordingPanel
+          title={title}
+          parts={{
+            recording: context.recording,
+            audioSettings: context.audioSettings,
+            projects: context.projects,
+          }}
+          commands={context}
+        />
+      );
 
     case PanelKinds.Diagnostics:
       return (
