@@ -152,10 +152,6 @@ function unreached(pkg: Package): readonly string[] {
  * loses its last importer has to be written into it or removed.
  */
 const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
-  '@audiogubbins/audio-runtime': {
-    "Capture through the capture processor (ADR-0070), built ahead of the application's recording workspace in this phase, which opens an input through the capabilities adapter and hands it to the session, and of the storage worker's recording area, which reads each take's capture channel with the reader.":
-      ['RETROSPECTIVE_SECONDS'],
-  },
   '@audiogubbins/test-fixtures': {
     'The two measures of cost the tests share (ADR-0019): the processor time one workload takes against another, for the text, diagnostics and application packages, with the longest a test of it takes, its timeout; and the comparisons of names a piece of work makes, for the commands and workspace packages, with the growth four times the names are held to, the ceiling of the larger count. Tests alone take them, as they take every fixture.':
       ['LONGEST_COST_TEST_MS', 'N_LOG_N_FOURFOLD', 'comparisonsIn', 'relativeCost'],
@@ -305,25 +301,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['viewportAtStart'],
     "The spectral facet's builder, which the spectral marquee and lasso of Phase 08's spectral editing make a selection with (ADR-0042); this phase draws and keeps the facet and has no tool that makes one.":
       ['withSpectralArea'],
-  },
-  '@audiogubbins/recording': {
-    "Recording as values (ADR-0070), built ahead of the application's recording workspace in this phase, which composes them with the capabilities adapter, the audio runtime and the storage client: the session and monitoring machines, the capture profiles and their comparison with the grant, the loopback calibration and the take's compensation, the retrospective buffer, the storage time left, the controlled recording's schedule and the diagnostics.":
-      [
-        'CALIBRATION_SIGNAL_LENGTH',
-        'CALIBRATION_SIGNAL_PEAK',
-        'HIGH_LATENCY_SECONDS',
-        'InputIndicator',
-        'MAXIMUM_ROUND_TRIP_SECONDS',
-        'MINIMUM_PEAK_RATIO',
-        'PROFILE_NAME_CHARACTERS',
-        'PunchWindow',
-        'STORAGE_WARNING_SECONDS',
-        'inputIndicator',
-        'punchWindow',
-        'recordingBlocked',
-        'retrospectiveMemory',
-        'stoppedUnexpectedly',
-      ],
   },
   '@audiogubbins/waveform': {
     "The shape of a source's pyramid, which the editor view's and the application's tests make an empty or a filled pyramid with; the page is handed pyramids whole.":

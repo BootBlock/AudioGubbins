@@ -134,15 +134,18 @@ describe('the capture processor’s messages (ADR-0070)', () => {
     expect(expectFailureCode(read)).toBe('protocol.capture-reply-malformed');
   });
 
-  it('keeps a retrospective buffer of none or 5 to 60 seconds', () => {
-    expect([0, 5, 30, 60].map(retrospectiveRefusal)).toEqual([
+  it('keeps a retrospective buffer of any length a buffer can have, and none at zero', () => {
+    expect([0, 0.5, 5, 60, 90].map(retrospectiveRefusal)).toEqual([
+      undefined,
       undefined,
       undefined,
       undefined,
       undefined,
     ]);
     expect(
-      [4.9, 60.1, -5, Number.NaN].map((seconds) => typeof retrospectiveRefusal(seconds)),
-    ).toEqual(['string', 'string', 'string', 'string']);
+      [-5, Number.NaN, Number.POSITIVE_INFINITY].map(
+        (seconds) => typeof retrospectiveRefusal(seconds),
+      ),
+    ).toEqual(['string', 'string', 'string']);
   });
 });

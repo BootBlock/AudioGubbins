@@ -7,11 +7,7 @@ import { RAW_STUDIO_PROFILE, capturePlan } from './capture-profile.js';
 import { UNKNOWN_OUTPUT } from './device-identity.js';
 import { DiagnosticSeverity, type RecordingFacts } from './diagnostic-facts.js';
 import { HIGH_LATENCY_SECONDS } from './latency-diagnostics.js';
-import {
-  browserDiagnostics,
-  recordingBlocked,
-  recordingDiagnostics,
-} from './recording-diagnostics.js';
+import { browserDiagnostics, recordingDiagnostics } from './recording-diagnostics.js';
 
 function valueOf<T>(result: DomainResult<T>): T {
   if (!result.ok) throw new Error(result.failures[0].summary);
@@ -42,6 +38,9 @@ const HEALTHY: RecordingFacts = {
 const kindsOf = (facts: RecordingFacts): readonly string[] =>
   recordingDiagnostics(facts).map((entry) => entry.kind);
 
+const severitiesOf = (facts: RecordingFacts): readonly DiagnosticSeverity[] =>
+  recordingDiagnostics(facts).map((entry) => entry.severity);
+
 describe('the recording diagnostics (REQ-REC-094, REQ-REC-097)', () => {
   it('say nothing of a healthy setup', () => {
     expect(recordingDiagnostics(HEALTHY)).toEqual([]);
@@ -58,7 +57,9 @@ describe('the recording diagnostics (REQ-REC-094, REQ-REC-097)', () => {
       ['permission-denied'],
       ['no-input'],
     ]);
-    for (const facts of blocking) expect(recordingBlocked(recordingDiagnostics(facts))).toBe(true);
+    for (const facts of blocking) {
+      expect(severitiesOf(facts)).toEqual([DiagnosticSeverity.Blocking]);
+    }
 
     // Every degradation short of those leaves recording available.
     const degraded: RecordingFacts = {
@@ -70,7 +71,8 @@ describe('the recording diagnostics (REQ-REC-094, REQ-REC-097)', () => {
       storage: { kind: 'exhausted' },
       suspensionRisk: true,
     };
-    expect(recordingBlocked(recordingDiagnostics(degraded))).toBe(false);
+    expect(severitiesOf(degraded).length).toBeGreaterThan(0);
+    expect(severitiesOf(degraded)).not.toContain(DiagnosticSeverity.Blocking);
   });
 
   it('do not count inputs before the permission lets the browser list them', () => {
@@ -169,7 +171,6 @@ describe('the recording diagnostics (REQ-REC-094, REQ-REC-097)', () => {
     expect(entries.map((entry) => [entry.kind, entry.severity])).toEqual([
       ['input-gone', 'warning'],
     ]);
-    expect(recordingBlocked(entries)).toBe(false);
   });
 
   it('give what rests on the browser alone before a context or the storage reports', () => {

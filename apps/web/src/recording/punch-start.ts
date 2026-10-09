@@ -24,6 +24,7 @@ import {
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
+import { punchWindow } from '@audiogubbins/recording';
 
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { Programme } from '../audio/programme.js';
@@ -46,7 +47,7 @@ export interface PunchFrames {
 /** Where playback of a punch's audio starts: a lead before its pre-roll, or the audio's start. */
 export function punchPlayFrom(place: PunchPlace, rate: SampleRate): SampleCount {
   const lead = Math.round(PUNCH_LEAD_SECONDS * rate);
-  return derivedSampleCount(Math.max(0, place.start - place.preRoll - lead));
+  return derivedSampleCount(Math.max(0, punchWindow(place).from - lead));
 }
 
 /**
@@ -64,6 +65,7 @@ export function startPunch(
   rate: SampleRate,
   signal: AbortSignal,
 ): Promise<DomainResult<PunchFrames>> {
+  const span = punchWindow(place);
   const from = punchPlayFrom(place, rate);
   return new Promise((resolve) => {
     const settle = (result: DomainResult<PunchFrames>): void => {
@@ -82,8 +84,8 @@ export function startPunch(
         const started = transport.anchor.contextFrame - from;
         settle(
           succeed({
-            recordAt: derivedSampleCount(Math.max(0, started + place.start - place.preRoll)),
-            stopAt: derivedSampleCount(started + place.start + place.length + place.postRoll),
+            recordAt: derivedSampleCount(Math.max(0, started + span.from)),
+            stopAt: derivedSampleCount(started + span.from + span.length),
           }),
         );
       } else if (!view.starting && view.problems.length > 0) {

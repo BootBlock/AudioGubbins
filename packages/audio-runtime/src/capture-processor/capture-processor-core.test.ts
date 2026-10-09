@@ -265,9 +265,9 @@ describe('the retrospective buffer (REQ-REC-090)', () => {
     }
   });
 
-  it('refuses a length outside 5 to 60 seconds, keeping the input as it was', () => {
+  it('refuses a length no buffer could have, keeping the input as it was', () => {
     rig = new CoreRig();
-    rig.send({ kind: ToCaptureKind.Arm, retrospectiveSeconds: 61 });
+    rig.send({ kind: ToCaptureKind.Arm, retrospectiveSeconds: -1 });
 
     expect(rig.repliesOf(FromCaptureKind.Refused)[0]).toMatchObject({ command: ToCaptureKind.Arm });
     expect(rig.core.retrospective).toBeUndefined();

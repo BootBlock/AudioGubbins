@@ -4,8 +4,8 @@ import { derivedSampleCount, sampleRate, type DomainResult } from '@audiogubbins
 
 import {
   RETROSPECTIVE_OFF,
+  retrospectiveFit,
   retrospectiveFrames,
-  retrospectiveMemory,
   retrospectiveOn,
   retrospectiveStart,
 } from './retrospective-buffer.js';
@@ -17,6 +17,9 @@ function valueOf<T>(result: DomainResult<T>): T {
 
 const RATE = valueOf(sampleRate(48_000));
 const frames = derivedSampleCount;
+
+/** The bytes a second of stereo at 48 kHz takes in the buffer, in 32-bit samples. */
+const STEREO_SECOND = 48_000 * 2 * 4;
 
 describe('the retrospective buffer (REQ-REC-090)', () => {
   it('keeps between five and sixty seconds', () => {
@@ -30,11 +33,45 @@ describe('the retrospective buffer (REQ-REC-090)', () => {
     }
   });
 
-  it('holds a whole frame for any part of one, and costs four bytes a sample', () => {
+  it('holds a whole frame for any part of one', () => {
     expect(retrospectiveFrames(10, RATE)).toBe(480_000);
     expect(retrospectiveFrames(5, valueOf(sampleRate(44_101)))).toBe(220_505);
     expect(retrospectiveFrames(5.00001, valueOf(sampleRate(8_000)))).toBe(40_001);
-    expect(retrospectiveMemory(60, RATE, 2)).toBe(60 * 48_000 * 2 * 4);
+  });
+
+  it('keeps the whole interval where the browser says nothing of its memory', () => {
+    expect(retrospectiveFit(60, RATE, 2, undefined)).toEqual({ kind: 'whole', seconds: 60 });
+  });
+
+  it('keeps the whole interval while it takes no more than an eighth of the memory left', () => {
+    const bytes = 60 * STEREO_SECOND;
+    expect(retrospectiveFit(60, RATE, 2, bytes * 8)).toEqual({ kind: 'whole', seconds: 60 });
+    expect(retrospectiveFit(60, RATE, 2, (bytes - 1) * 8)).toMatchObject({
+      kind: 'shortened',
+      seconds: 59,
+    });
+  });
+
+  it('shortens the interval to the whole seconds that fit in its share of the memory left', () => {
+    // A byte short of 30 seconds' worth: 29 whole seconds fit.
+    const allowed = 30 * STEREO_SECOND - 1;
+    expect(retrospectiveFit(60, RATE, 2, allowed * 8)).toEqual({
+      kind: 'shortened',
+      seconds: 29,
+      asked: 60,
+      bytes: 60 * STEREO_SECOND,
+      allowed,
+    });
+  });
+
+  it('keeps nothing where not even the shortest interval fits', () => {
+    const allowed = 4 * STEREO_SECOND;
+    expect(retrospectiveFit(60, RATE, 2, allowed * 8)).toEqual({
+      kind: 'none',
+      asked: 60,
+      bytes: 60 * STEREO_SECOND,
+      allowed,
+    });
   });
 
   it('begins a take with every frame held, up to the capacity, and never before the clock', () => {

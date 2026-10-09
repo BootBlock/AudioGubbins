@@ -4,8 +4,8 @@
  * While an input is armed with the buffer on, the capture worklet keeps the
  * last few seconds in its own memory, and nothing of it is written until the
  * person records: then the interval becomes the take's first frames. This is
- * the setting the person chooses, what it costs in memory, and how much of what
- * the worklet holds a take begins with.
+ * the setting the person chooses, how much of it the memory the page has left
+ * allows, and how much of what the worklet holds a take begins with.
  */
 
 import {
@@ -64,8 +64,61 @@ export function retrospectiveFrames(seconds: number, rate: SampleRate): SampleCo
 }
 
 /** The bytes a buffer of `seconds` holds at `rate` over `channels` channels. */
-export function retrospectiveMemory(seconds: number, rate: SampleRate, channels: number): number {
+function retrospectiveMemory(seconds: number, rate: SampleRate, channels: number): number {
   return retrospectiveFrames(seconds, rate) * channels * BYTES_PER_SAMPLE;
+}
+
+/**
+ * The share of the memory the page says it has left that the buffer may take:
+ * an eighth. The buffer is held for as long as the input is armed, which may
+ * be the whole session, beside the take's own capture queue, the project's
+ * decoded audio and the editor, so it takes half the quarter a one-off
+ * allocation such as extracting a picture's sound may take.
+ */
+const RETROSPECTIVE_MEMORY_SHARE = 1 / 8;
+
+/**
+ * What of the buffer's setting the memory the page has left allows
+ * (`REQ-REC-090`): the whole of it; a shorter interval, in whole seconds, where
+ * the whole would take more than its share; or none, where not even the
+ * shortest interval would fit. `bytes` is what the interval asked for takes.
+ */
+export type RetrospectiveFit =
+  | { readonly kind: 'whole'; readonly seconds: number }
+  | {
+      readonly kind: 'shortened';
+      readonly seconds: number;
+      readonly asked: number;
+      readonly bytes: number;
+      readonly allowed: number;
+    }
+  | {
+      readonly kind: 'none';
+      readonly asked: number;
+      readonly bytes: number;
+      readonly allowed: number;
+    };
+
+/**
+ * How much of a buffer of `seconds` may be kept at `rate` over `channels`
+ * channels, given `availableBytes`, the memory the page says it has left.
+ * Where the browser says nothing, nothing is assumed and the whole interval
+ * is kept: the setting's own maximum already bounds it.
+ */
+export function retrospectiveFit(
+  seconds: number,
+  rate: SampleRate,
+  channels: number,
+  availableBytes: number | undefined,
+): RetrospectiveFit {
+  if (availableBytes === undefined) return { kind: 'whole', seconds };
+  const bytes = retrospectiveMemory(seconds, rate, channels);
+  const allowed = Math.floor(availableBytes * RETROSPECTIVE_MEMORY_SHARE);
+  if (bytes <= allowed) return { kind: 'whole', seconds };
+  const fitting = Math.floor(allowed / (rate * channels * BYTES_PER_SAMPLE));
+  return fitting < MINIMUM_RETROSPECTIVE_SECONDS
+    ? { kind: 'none', asked: seconds, bytes, allowed }
+    : { kind: 'shortened', seconds: fitting, asked: seconds, bytes, allowed };
 }
 
 /** Where a take begins on the media clock, and how many of its first frames came from the buffer. */

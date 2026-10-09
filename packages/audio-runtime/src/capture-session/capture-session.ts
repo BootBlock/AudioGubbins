@@ -226,14 +226,15 @@ export class CaptureSession {
   }
 
   /**
-   * Arms the input, keeping its last `retrospectiveSeconds` seconds, from 5 to
-   * 60, or none at zero. Arming never turns monitoring on (REQ-REC-091).
+   * Arms the input, keeping its last `retrospectiveSeconds` seconds, or none
+   * at zero, as the recording package's setting allows. Arming never turns
+   * monitoring on (REQ-REC-091).
    */
   arm(retrospectiveSeconds: number): DomainResult<void> {
     const open = this.#current();
     if (!open.ok) return open;
     const refusal = retrospectiveRefusal(retrospectiveSeconds);
-    if (refusal !== undefined) return refused('retrospective-out-of-range', refusal);
+    if (refusal !== undefined) return refused('retrospective-unkeepable', refusal);
     open.value.node.send({ kind: ToCaptureKind.Arm, retrospectiveSeconds });
     return succeed(undefined);
   }

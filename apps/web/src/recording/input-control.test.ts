@@ -121,6 +121,47 @@ describe('arming the input', () => {
     });
   });
 
+  it("keeps a minute's buffer at the input's channels where the browser says nothing of its memory", async () => {
+    const built = shell();
+    built.context.audioSettings.reviseRecording(
+      setRetrospective(expectSuccess(retrospectiveOn(60))),
+    );
+    const { capture } = await armed(built);
+    expect(capture.arms).toEqual([60]);
+    expect(built.input.view.get().buffer).toEqual({ kind: 'whole', seconds: 60 });
+    expect(inputStatus(built.input.view.get(), undefined)?.kind).toBe('buffering');
+  });
+
+  it('keeps the seconds that fit in its share of the memory left, and says why (REQ-REC-090)', async () => {
+    const built = shell();
+    built.context.audioSettings.reviseRecording(
+      setRetrospective(expectSuccess(retrospectiveOn(60))),
+    );
+    // Twenty seconds of two channels at 48 kHz, in 32-bit samples, is the share.
+    const share = 20 * 48_000 * 2 * 4;
+    built.fakes.resources.availableMemoryBytes = share * 8;
+    const { capture } = await armed(built);
+    expect(capture.arms).toEqual([20]);
+    expect(built.said).toContain(
+      'The retrospective buffer keeps the last 20 seconds, not 60: 60 seconds would take 22 MB, more than the 7.3 MB the buffer may use of the memory this page has left.',
+    );
+    expect(inputStatus(built.input.view.get(), undefined)?.kind).toBe('buffering');
+  });
+
+  it('keeps nothing, says why, and shows no buffering where not even five seconds fit', async () => {
+    const built = shell();
+    built.context.audioSettings.reviseRecording(
+      setRetrospective(expectSuccess(retrospectiveOn(10))),
+    );
+    built.fakes.resources.availableMemoryBytes = 4 * 48_000 * 2 * 4 * 8;
+    const { capture } = await armed(built);
+    expect(capture.arms).toEqual([0]);
+    expect(built.said.some((text) => text.startsWith('The retrospective buffer is off'))).toBe(
+      true,
+    );
+    expect(inputStatus(built.input.view.get(), undefined)?.kind).toBe('armed');
+  });
+
   it('tells a tab without the write lease why, before the browser is asked anything', () => {
     const built = shell();
     const refused = built.input.arm({ purpose: NEW_STACK, holdsWriteLease: () => false });

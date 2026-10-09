@@ -362,6 +362,8 @@ export function createApplication() {
     },
     estimate: storagePlatform.estimate,
     suspensionRisk: suspendsCapture(operatingSystemOf(platform)),
+    // Measured each time the retrospective buffer is armed, since what the page holds moves.
+    resources: () => readResourceFigures(performance),
     schedule: browserSchedule,
     now: () => Date.now(),
     ids: editorPart.parts.ids,

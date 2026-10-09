@@ -3,7 +3,8 @@
  * permission, the inputs the browser lists, the output the page plays through
  * where the browser says which it is, the recording session as its state
  * machine says, the input open now and what the browser granted it, how much
- * the retrospective buffer holds, and why the input last closed unasked.
+ * of the retrospective buffer's setting the memory left allows and how much it
+ * holds, and why the input last closed unasked.
  *
  * Monitoring is not here: it is a second machine with a view of its own
  * (`monitoring-control.ts`), so arming can never be read as monitoring. The
@@ -22,6 +23,7 @@ import {
   type GrantedCapture,
   type OutputIdentity,
   type RecordingSession,
+  type RetrospectiveFit,
   UNKNOWN_OUTPUT,
 } from '@audiogubbins/recording';
 
@@ -55,6 +57,12 @@ export interface InputView {
   readonly session: RecordingSession;
   /** The input open now for recording, where one is. */
   readonly opened: OpenedFacts | undefined;
+  /**
+   * How much of the retrospective buffer's setting the capture keeps, as the
+   * memory the page had left allowed when it was armed: none while no input is
+   * armed and open with the buffer on.
+   */
+  readonly buffer: RetrospectiveFit | undefined;
   /** Whole seconds the retrospective buffer holds now, while it is on. */
   readonly bufferedSeconds: number;
   /** What the context reports of the output, once there is a context. */
@@ -71,6 +79,7 @@ export const NOTHING_ASKED: InputView = {
   output: UNKNOWN_OUTPUT,
   session: CLOSED_SESSION,
   opened: undefined,
+  buffer: undefined,
   bufferedSeconds: 0,
   context: undefined,
   problem: undefined,
@@ -104,7 +113,8 @@ export function inputStatus(
   switch (session.kind) {
     case 'armed':
       if (session.input.kind === 'opening') return { kind: 'opening', device: session.device };
-      return session.retrospective.on
+      // A buffer the memory left had no room for keeps nothing, so nothing is buffering.
+      return session.retrospective.on && view.buffer?.kind !== 'none'
         ? { kind: 'buffering', device: opened ?? session.device, seconds: view.bufferedSeconds }
         : { kind: 'armed', device: opened ?? session.device };
     case 'counting-in':

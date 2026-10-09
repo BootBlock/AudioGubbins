@@ -12,7 +12,11 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
-import type { MediaInput, SupportedCaptureConstraints } from '@audiogubbins/capabilities';
+import type {
+  MediaInput,
+  ResourceFigures,
+  SupportedCaptureConstraints,
+} from '@audiogubbins/capabilities';
 
 import type { OpenCapture } from '../audio/capture-parts.js';
 import type { AudioContextHost } from '../audio/context-host.js';
@@ -78,6 +82,8 @@ export interface RecordingPartOptions {
   readonly estimate:
     (() => Promise<{ readonly quota?: number; readonly usage?: number }>) | undefined;
   readonly suspensionRisk: boolean;
+  /** What the machine has left, read afresh each time it is asked. */
+  readonly resources: () => ResourceFigures;
   /** Calls a callback after a delay, and answers how to cancel it. */
   readonly schedule: (callback: () => void, milliseconds: number) => () => void;
   readonly now: () => number;
@@ -110,6 +116,7 @@ export function startRecording(options: RecordingPartOptions): {
     monitoring,
     page: options.page,
     suspensionRisk: options.suspensionRisk,
+    resources: options.resources,
     announce,
     logger,
   });

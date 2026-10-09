@@ -267,6 +267,32 @@ describe('the Recording panel', () => {
       screen.getByText('This input, output and sample rate have not been calibrated.'),
     ).toBeInTheDocument();
   });
+
+  it('shows the retrospective buffer kept shorter, and why, where the memory left is short', async () => {
+    const { context, recording } = buildShellContext();
+    context.audioSettings.reviseRecording(setRetrospective(expectSuccess(retrospectiveOn(60))));
+    // An eighth of this is twenty seconds of stereo at 48 kHz.
+    recording.resources.availableMemoryBytes = 20 * 48_000 * 2 * 4 * 8;
+    panelOver(context);
+    await arm(context);
+    expect(
+      screen.getByText(
+        /^The retrospective buffer keeps the last 20 seconds, not 60: .* It holds 0 seconds now\.$/u,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the retrospective buffer off, and why, where not even five seconds fit', async () => {
+    const { context, recording } = buildShellContext();
+    context.audioSettings.reviseRecording(setRetrospective(expectSuccess(retrospectiveOn(10))));
+    recording.resources.availableMemoryBytes = 1_000_000;
+    panelOver(context);
+    await arm(context);
+    expect(
+      screen.getByText(/^The retrospective buffer is off while this input is armed/u),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/kept in memory while the input is armed/u)).toBeNull();
+  });
 });
 
 describe("the Inspector's recording configuration", () => {

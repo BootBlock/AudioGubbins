@@ -28,7 +28,6 @@ export {
   CaptureProfileKind,
   type CaptureRequest,
   PROCESSING_CONTROLS,
-  PROFILE_NAME_CHARACTERS,
   type ProcessingChoice,
   ProcessingControl,
   RAW_STUDIO_PROFILE,
@@ -52,15 +51,12 @@ export {
   type ArmedInput,
   type ArmedPurpose,
   CLOSED_SESSION,
-  type InputIndicator,
   type OpenInput,
   type RecordingSession,
   type RecordingStart,
   type SessionSetup,
   type StopReason,
-  inputIndicator,
   inputIsOpen,
-  stoppedUnexpectedly,
 } from './session-state.js';
 
 export { type SessionEvent } from './session-events.js';
@@ -82,16 +78,10 @@ export {
   nextMonitoring,
 } from './monitoring.js';
 
-export {
-  CALIBRATION_SIGNAL_LENGTH,
-  CALIBRATION_SIGNAL_PEAK,
-  calibrationSignal,
-} from './calibration-signal.js';
+export { calibrationSignal } from './calibration-signal.js';
 
 export {
   type LoopbackMeasurement,
-  MAXIMUM_ROUND_TRIP_SECONDS,
-  MINIMUM_PEAK_RATIO,
   loopbackCaptureLength,
   measureRoundTrip,
 } from './loopback-analysis.js';
@@ -116,14 +106,14 @@ export {
   MAXIMUM_RETROSPECTIVE_SECONDS,
   MINIMUM_RETROSPECTIVE_SECONDS,
   RETROSPECTIVE_OFF,
+  type RetrospectiveFit,
   type RetrospectiveSetting,
+  retrospectiveFit,
   retrospectiveFrames,
-  retrospectiveMemory,
   retrospectiveOn,
 } from './retrospective-buffer.js';
 
 export {
-  STORAGE_WARNING_SECONDS,
   type StorageEstimate,
   type StorageTimeLeft,
   recordingBytesPerSecond,
@@ -132,7 +122,6 @@ export {
 
 export {
   type ControlledRecording,
-  type PunchWindow,
   type RecordingSchedule,
   SUSPENSION_CAUTION,
   type ScheduleFacts,
@@ -152,10 +141,6 @@ export {
   type RecordingFacts,
 } from './diagnostic-facts.js';
 
-export { HIGH_LATENCY_SECONDS, pathChangesText } from './latency-diagnostics.js';
+export { pathChangesText } from './latency-diagnostics.js';
 
-export {
-  browserDiagnostics,
-  recordingBlocked,
-  recordingDiagnostics,
-} from './recording-diagnostics.js';
+export { browserDiagnostics, recordingDiagnostics } from './recording-diagnostics.js';

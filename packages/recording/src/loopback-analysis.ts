@@ -35,7 +35,7 @@ import { CALIBRATION_SIGNAL_LENGTH, calibrationSequence } from './calibration-si
  * tens of milliseconds, and Bluetooth paths a few hundred; a second covers the
  * slowest with room, and bounds the search to a second of lags.
  */
-export const MAXIMUM_ROUND_TRIP_SECONDS = 1;
+const MAXIMUM_ROUND_TRIP_SECONDS = 1;
 
 /**
  * How far the peak must stand above the correlation's root mean square away

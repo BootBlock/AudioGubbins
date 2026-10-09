@@ -71,11 +71,6 @@ function browserEntries(facts: BrowserFacts): readonly RecordingDiagnostic[] {
   ];
 }
 
-/** Whether `diagnostics` hold an entry that stops recording. */
-export function recordingBlocked(diagnostics: readonly RecordingDiagnostic[]): boolean {
-  return diagnostics.some((entry) => entry.severity === DiagnosticSeverity.Blocking);
-}
-
 function access(facts: BrowserFacts): readonly RecordingDiagnostic[] {
   if (!facts.secureContext) {
     return [

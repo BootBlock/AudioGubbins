@@ -141,40 +141,6 @@ export function inputIsOpen(session: RecordingSession): boolean {
   }
 }
 
-/**
- * What the status bar and its live region say of the input, for as long as an
- * input is armed (`REQ-REC-090`): the device, whether it is buffering and for
- * how long, and whether it is recording, as distinct states. None while no
- * input is armed.
- */
-export type InputIndicator =
-  | { readonly kind: 'armed'; readonly device: DeviceIdentity; readonly bufferingSeconds?: number }
-  | { readonly kind: 'recording'; readonly device: DeviceIdentity };
-
-/** The input's indicator in `session`, or none while no input is armed. */
-export function inputIndicator(session: RecordingSession): InputIndicator | undefined {
-  switch (session.kind) {
-    case 'armed':
-    case 'counting-in':
-      return session.input.kind === 'open' && session.retrospective.on
-        ? { kind: 'armed', device: session.device, bufferingSeconds: session.retrospective.seconds }
-        : { kind: 'armed', device: session.device };
-    case 'recording':
-    case 'stopping':
-      return { kind: 'recording', device: session.device };
-    case 'closed':
-    case 'asking':
-    case 'ready':
-    case 'failed':
-      return undefined;
-  }
-}
-
-/** Whether a recording that stopped for `reason` ended unexpectedly, as its provenance says (ADR-0071). */
-export function stoppedUnexpectedly(reason: StopReason): boolean {
-  return reason.kind !== 'person' && reason.kind !== 'timed';
-}
-
 /** The setup of `session`, with `device` as its input. */
 export function setupOf(session: SessionSetup, device: DeviceIdentity | undefined): SessionSetup {
   return {

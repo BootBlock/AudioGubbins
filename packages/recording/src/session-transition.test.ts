@@ -14,9 +14,7 @@ import { RAW_STUDIO_PROFILE, VOICE_PROFILE } from './capture-profile.js';
 import { RETROSPECTIVE_OFF } from './retrospective-buffer.js';
 import {
   CLOSED_SESSION,
-  inputIndicator,
   inputIsOpen,
-  stoppedUnexpectedly,
   type ArmedPurpose,
   type OpenInput,
   type RecordingSession,
@@ -353,48 +351,15 @@ describe('the recording session (REQ-ARCH-153, ADR-0070)', () => {
       if (inputIsOpen(state)) {
         expect(['armed', 'counting-in', 'recording', 'stopping']).toContain(state.kind);
       }
-      if (state.kind === 'closed' || state.kind === 'asking' || state.kind === 'ready') {
-        expect(inputIndicator(state)).toBeUndefined();
-      }
     }
   });
 });
 
-describe('the input indicator (REQ-REC-090)', () => {
-  it('says an input is armed, buffering for how long, or recording, and nothing while none is armed', () => {
-    expect(inputIndicator(ARMED_OPEN)).toEqual({
-      kind: 'armed',
-      device: DEVICE,
-      bufferingSeconds: 10,
-    });
-    expect(inputIndicator(ARMED_OPENING)).toEqual({ kind: 'armed', device: DEVICE });
-    expect(inputIndicator({ ...ARMED_OPEN, retrospective: RETROSPECTIVE_OFF })).toEqual({
-      kind: 'armed',
-      device: DEVICE,
-    });
-    expect(inputIndicator(RECORDING)).toEqual({ kind: 'recording', device: DEVICE });
-    expect(inputIndicator(STATES.ready)).toBeUndefined();
-  });
-
+describe('an open input (REQ-REC-090)', () => {
   it('holds an input open only while armed and open, counting in, recording or stopping', () => {
     const open = Object.entries(STATES)
       .filter(([, state]) => inputIsOpen(state))
       .map(([name]) => name);
     expect(open).toEqual(['armed-open', 'counting-in', 'recording', 'stopping']);
-  });
-});
-
-describe('an unexpected end (ADR-0071)', () => {
-  it("is every end but the person's and the timed stop", () => {
-    const reasons: StopReason[] = [
-      { kind: 'person' },
-      { kind: 'timed' },
-      { kind: 'device-lost' },
-      { kind: 'permission-revoked' },
-      { kind: 'background-suspended' },
-      { kind: 'quota' },
-      { kind: 'failure', failure: BROKEN },
-    ];
-    expect(reasons.map(stoppedUnexpectedly)).toEqual([false, false, true, true, true, true, true]);
   });
 });

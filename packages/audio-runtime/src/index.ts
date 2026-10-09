@@ -94,7 +94,6 @@ export {
   FromCaptureKind,
   type FromCapture,
   type InputMeterReport,
-  RETROSPECTIVE_SECONDS,
   ToCaptureKind,
 } from './protocol/capture-messages.js';
 

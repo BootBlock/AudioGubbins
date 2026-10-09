@@ -3062,7 +3062,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One sequence of steps that each make something, the plan, the opened input, the layout, the capture session, its start, and each step that refuses lets go of everything made before it, in reverse; split, the letting go would be spread across functions that each hold part of what was made.',
     ],
     'apps/web/src/recording/recording-part.ts: startRecording': [
-      93,
+      99,
       "The recording part's composition: the opening shared by arming and calibrating, the monitoring, input and calibration controls, the arming for a take and the recording flow, the Inspector's focus and the storage estimate, each made once with what it needs, and the dispose that ends them; the controls are classes of their own, so what remains is wiring.",
     ],
     'apps/web/src/shell/panels.tsx: editingPanel': [

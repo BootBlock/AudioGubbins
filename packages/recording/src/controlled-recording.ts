@@ -155,17 +155,31 @@ export function scheduleStep(
   }
 }
 
-/** Where on the asset a punch's recording runs: from its pre-roll to the end of its post-roll. */
+/**
+ * Where on the asset a punch's recording runs: from its pre-roll to the end of
+ * its post-roll, and never from before the asset's first frame.
+ */
 export interface PunchWindow {
   readonly from: SampleCount;
   readonly length: SampleCount;
 }
 
-/** The window `punch` records over, the pre-roll and post-roll around its range. */
-export function punchWindow(punch: Extract<ArmedPurpose, { kind: 'punch' }>): PunchWindow {
+/**
+ * The window a punch over `punch`'s range records over, the pre-roll and
+ * post-roll around it. A range nearer the asset's start than its pre-roll,
+ * which an edit before it can make it, has the window begin at the asset's
+ * start: there is nothing earlier to play or record against.
+ */
+export function punchWindow(
+  punch: Pick<
+    Extract<ArmedPurpose, { kind: 'punch' }>,
+    'start' | 'length' | 'preRoll' | 'postRoll'
+  >,
+): PunchWindow {
+  const from = Math.max(0, punch.start - punch.preRoll);
   return {
-    from: derivedSampleCount(punch.start - punch.preRoll),
-    length: derivedSampleCount(punch.preRoll + punch.length + punch.postRoll),
+    from: derivedSampleCount(from),
+    length: derivedSampleCount(punch.start + punch.length + punch.postRoll - from),
   };
 }
 

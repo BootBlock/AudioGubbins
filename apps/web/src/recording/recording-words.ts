@@ -8,9 +8,10 @@
  */
 
 import type { MicrophonePermission } from '@audiogubbins/capabilities';
-import type { DeviceIdentity, ProcessingControl } from '@audiogubbins/recording';
+import type { DeviceIdentity, ProcessingControl, RetrospectiveFit } from '@audiogubbins/recording';
 
 import type { ContextReplacement } from '../audio/context-host.js';
+import { describeBytes } from '../wording.js';
 import type { InputStatus } from './input-view.js';
 import type { MonitoringView } from './monitoring-control.js';
 
@@ -98,4 +99,17 @@ export function contextReplacedText(why: ContextReplacement): string {
   return why.kind === 'playback'
     ? 'The input closed because playback needed the audio context made again, for another sample rate or performance profile. Arm it again to go on.'
     : `The audio engine was restarted at ${HERTZ.format(why.rate)} Hz, so the input closed. Arm it again to record at that rate.`;
+}
+
+/**
+ * Why the retrospective buffer keeps less than its setting asks, as the person
+ * is told it: the memory the interval would take beside the share of the
+ * memory left the buffer may use. Nothing where it keeps the whole, or is off.
+ */
+export function bufferShortfallText(fit: RetrospectiveFit | undefined): string | undefined {
+  if (fit === undefined || fit.kind === 'whole') return undefined;
+  const why = `${String(fit.asked)} seconds would take ${describeBytes(fit.bytes)}, more than the ${describeBytes(fit.allowed)} the buffer may use of the memory this page has left`;
+  return fit.kind === 'shortened'
+    ? `The retrospective buffer keeps the last ${String(fit.seconds)} seconds, not ${String(fit.asked)}: ${why}.`
+    : `The retrospective buffer is off while this input is armed, and nothing is kept from before Record: ${why}.`;
 }

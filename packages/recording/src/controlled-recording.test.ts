@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { derivedSampleCount, unsafeBrandId } from '@audiogubbins/domain';
+import { derivedSampleCount } from '@audiogubbins/domain';
 
 import {
   SUSPENSION_CAUTION,
@@ -132,13 +132,22 @@ describe("a punch's window (ADR-0072)", () => {
   it('runs from the pre-roll before the range to the end of the post-roll after it', () => {
     expect(
       punchWindow({
-        kind: 'punch',
-        asset: unsafeBrandId<'AssetId'>('asset-1'),
         start: frames(96_000),
         length: frames(48_000),
         preRoll: frames(24_000),
         postRoll: frames(12_000),
       }),
     ).toEqual({ from: 72_000, length: 84_000 });
+  });
+
+  it("begins at the asset's start where the range is nearer it than the pre-roll", () => {
+    expect(
+      punchWindow({
+        start: frames(10_000),
+        length: frames(48_000),
+        preRoll: frames(24_000),
+        postRoll: frames(12_000),
+      }),
+    ).toEqual({ from: 0, length: 70_000 });
   });
 });

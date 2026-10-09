@@ -13,8 +13,9 @@
 
 import { CommandCategory, type Command } from '@audiogubbins/commands';
 import { AUDIO_PLAYBACK } from '@audiogubbins/capabilities';
-import { derivedSampleCount, type Take, type TakeStack } from '@audiogubbins/domain';
+import type { Take, TakeStack } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
+import { punchWindow } from '@audiogubbins/recording';
 import { quoted } from '@audiogubbins/text';
 
 import { assetProgramme } from '../audio/asset-playback.js';
@@ -68,7 +69,7 @@ function audition(
       key: `take:${stack.id}:${take.id}`,
       playing: `${quoted(asset.displayName)} is playing with ${quoted(take.name)} chosen.`,
     },
-    derivedSampleCount(place.value.start - Math.min(place.value.start, place.value.preRoll)),
+    punchWindow(place.value).from,
   );
   return undefined;
 }

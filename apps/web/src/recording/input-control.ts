@@ -30,7 +30,7 @@ import {
 } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { CaptureSessionEvent, InputMeterReport } from '@audiogubbins/audio-runtime';
-import type { MicrophonePermission } from '@audiogubbins/capabilities';
+import type { MicrophonePermission, ResourceFigures } from '@audiogubbins/capabilities';
 import {
   inputIsOpen,
   nextSession,
@@ -44,6 +44,7 @@ import {
 import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import { chosenProfileOf, rememberInput } from '../state/recording-settings.js';
+import { armBuffer } from './buffer-arming.js';
 import { DeviceWatch } from './device-watch.js';
 import {
   joinContext,
@@ -84,6 +85,8 @@ export interface InputControlOptions {
   readonly page: PageWatch;
   /** Whether this platform may suspend capture in the background or under a screen lock. */
   readonly suspensionRisk: boolean;
+  /** What the machine has left, read afresh each time the retrospective buffer is armed. */
+  readonly resources: () => ResourceFigures;
   readonly announce: (text: string) => void;
   readonly logger: Logger;
 }
@@ -399,15 +402,17 @@ export class InputControl {
     this.#update({ context: opened.lifecycle.report });
   }
 
-  /** Arms the capture with the retrospective buffer the session has, or none. */
+  /**
+   * Arms the capture with the retrospective buffer the session has, as much of
+   * it as the memory the page has left allows (`buffer-arming.ts`), or none.
+   */
   #armCapture(): void {
     const { session } = this.#view.get();
     const open = this.#open;
     if (open === undefined || session.kind !== 'armed') return;
-    const seconds = session.retrospective.on ? session.retrospective.seconds : 0;
-    const armed = open.opened.capture.arm(seconds);
-    if (!armed.ok)
-      this.#lost({ kind: 'failed', failure: armed.failures[0] }, armed.failures[0].summary);
+    const armed = armBuffer(open.opened, session.retrospective, this.#options);
+    if (armed.ok) this.#update({ buffer: armed.value });
+    else this.#lost({ kind: 'failed', failure: armed.failures[0] }, armed.failures[0].summary);
   }
 
   /** Moves the session by `event`, and closes the input where the session no longer holds one. */
@@ -456,7 +461,7 @@ export class InputControl {
     this.#options.monitoring.inputClosed();
     open.stopWatching();
     open.opened.close();
-    this.#update({ opened: undefined, bufferedSeconds: 0 });
+    this.#update({ opened: undefined, bufferedSeconds: 0, buffer: undefined });
   }
 
   /** The input or what carries it was lost: the session hears it, and the person is told why. */

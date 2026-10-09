@@ -46,14 +46,16 @@ import { CaptureEndReason } from '../capture/capture-wire.js';
 import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import { dspDeliveryAt, portAt, sharedMemoryAt } from './message-reading.js';
 
-/** The fewest and most seconds a retrospective buffer keeps (REQ-REC-090). */
-export const RETROSPECTIVE_SECONDS = { least: 5, most: 60 } as const;
-
-/** Why a retrospective buffer of `seconds` cannot be kept, or nothing where it can; zero is none. */
+/**
+ * Why a retrospective buffer of `seconds` cannot be kept, or nothing where it
+ * can; zero is none. The span a person may choose, and how much of it the
+ * page's memory allows, are the recording package's to decide (REQ-REC-090),
+ * and the application asks for nothing else; the processor refuses only a
+ * length no buffer could have.
+ */
 export function retrospectiveRefusal(seconds: number): string | undefined {
-  const { least, most } = RETROSPECTIVE_SECONDS;
-  if (seconds === 0 || (seconds >= least && seconds <= most)) return undefined;
-  return `A retrospective buffer keeps from ${String(least)} to ${String(most)} seconds, not ${String(seconds)}.`;
+  if (Number.isFinite(seconds) && seconds >= 0) return undefined;
+  return `A retrospective buffer cannot keep ${String(seconds)} seconds.`;
 }
 
 /** The kinds of message the capture processor is sent. */

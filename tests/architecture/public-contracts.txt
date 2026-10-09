@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27322: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1106,7 +1106,6 @@ Published paths
   PreviewWorkerPort.postMessage: (message: ToPreviewWorker, transfer: Transferable[]) => void
   PreviewWorkerPort.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "messageerror", listener: () => void): void; (type: "error", listener: (event: ErrorEvent) => void): void; }
   PreviewWorkerPort.terminate: () => void
-  const RETROSPECTIVE_SECONDS: { readonly least: 5; readonly most: 60; }
   interface RenderHost
   RenderHost.render: (request: RenderRequest, options: RenderRunOptions) => Promise<DomainResult<WorkerRenderSummary>>
   interface RenderHostOptions
@@ -1173,7 +1172,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27322: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -4700,8 +4699,6 @@ Published paths
   readonly BrowserFacts.inputs: number | undefined
   readonly BrowserFacts.chosenInputGone: boolean
   readonly BrowserFacts.suspensionRisk: boolean
-  const CALIBRATION_SIGNAL_LENGTH: number
-  const CALIBRATION_SIGNAL_PEAK: 0.25
   const CLOSED_SESSION: RecordingSession
   interface CalibrationPath
   readonly CalibrationPath.input: DeviceIdentity
@@ -4748,8 +4745,6 @@ Published paths
   readonly GrantedCapture.channelCount?: number
   readonly GrantedCapture.sampleRate?: number
   readonly GrantedCapture.latency?: number
-  const HIGH_LATENCY_SECONDS: 0.03
-  type InputIndicator = { readonly kind: "armed"; readonly device: DeviceIdentity; readonly bufferingSeconds?: number; } | { readonly kind: "recording"; readonly device: DeviceIdentity; }
   interface LatencyCalibration extends CalibrationPath
   readonly LatencyCalibration.measured?: MeasuredLatency
   readonly LatencyCalibration.manualOffset: number
@@ -4760,8 +4755,6 @@ Published paths
   readonly LoopbackMeasurement.roundTrip: SampleCount
   readonly LoopbackMeasurement.peakRatio: number
   const MAXIMUM_RETROSPECTIVE_SECONDS: 60
-  const MAXIMUM_ROUND_TRIP_SECONDS: 1
-  const MINIMUM_PEAK_RATIO: 9
   const MINIMUM_RETROSPECTIVE_SECONDS: 5
   const MONITORING_UNAVAILABLE: Monitoring
   interface MeasuredLatency
@@ -4792,14 +4785,10 @@ Published paths
   readonly OpenInput.channels: number
   type OutputIdentity = { readonly kind: "known"; readonly device: DeviceIdentity; } | { readonly kind: "unknown"; }
   const PROCESSING_CONTROLS: readonly ProcessingControl[]
-  const PROFILE_NAME_CHARACTERS: 48
   type PathChange = "input" | "output" | "rate"
   type ProcessingChoice = { readonly echoCancellation: boolean; readonly noiseSuppression: boolean; readonly autoGainControl: boolean; readonly voiceIsolation: boolean; }
   const ProcessingControl: { readonly EchoCancellation: "echoCancellation"; readonly NoiseSuppression: "noiseSuppression"; readonly AutoGainControl: "autoGainControl"; readonly VoiceIsolation: "voiceIsolation"; }
   type ProcessingControl = "autoGainControl" | "echoCancellation" | "noiseSuppression" | "voiceIsolation"
-  interface PunchWindow
-  readonly PunchWindow.from: SampleCount
-  readonly PunchWindow.length: SampleCount
   const RAW_STUDIO_PROFILE: CaptureProfile
   const RETROSPECTIVE_OFF: RetrospectiveSetting
   interface RecordingDiagnostic
@@ -4836,8 +4825,8 @@ Published paths
   interface ReportedLatency
   readonly ReportedLatency.output: number
   readonly ReportedLatency.input?: number
+  type RetrospectiveFit = { readonly kind: "none"; readonly asked: number; readonly bytes: number; readonly allowed: number; } | { readonly kind: "shortened"; readonly seconds: number; readonly asked: number; readonly bytes: number; readonly allowed: number; } | { readonly kind: "whole"; readonly seconds: number; }
   type RetrospectiveSetting = { readonly on: false; } | { readonly on: true; readonly seconds: number; }
-  const STORAGE_WARNING_SECONDS: 300
   const SUSPENSION_CAUTION: "This browser may pause recording while the page is in the background or the screen is locked, so keep this page open and in view until the recording ends."
   interface ScheduleFacts
   readonly ScheduleFacts.now: SampleCount
@@ -4873,7 +4862,6 @@ Published paths
   function compareCapture(plan: CapturePlan, granted: GrantedCapture): CaptureComparison
   function customProfile(name: unknown, processing: Readonly<Record<ProcessingControl, boolean>>, headphones: boolean): DomainResult<CaptureProfile>
   function feedbackRisk(input: DeviceIdentity, output: OutputIdentity): FeedbackRisk
-  function inputIndicator(session: RecordingSession): InputIndicator | undefined
   function inputIsOpen(session: RecordingSession): boolean
   function isSameDevice(remembered: DeviceIdentity, current: DeviceIdentity): boolean
   function loopbackCaptureLength(rate: SampleRate): SampleCount
@@ -4886,16 +4874,14 @@ Published paths
   function pathChanges(calibration: CalibrationPath, current: CalibrationPath): readonly PathChange[]
   function pathChangesText(changes: readonly PathChange[]): string
   function processingOf(profile: CaptureProfile): Readonly<Record<ProcessingControl, boolean>>
-  function punchWindow(punch: { readonly kind: "punch"; readonly asset: import("packages/domain/src/index").AssetId; readonly start: SampleCount; readonly length: SampleCount; readonly preRoll: SampleCount; readonly postRoll: SampleCount; }): PunchWindow
-  function recordingBlocked(diagnostics: readonly RecordingDiagnostic[]): boolean
+  function punchWindow(punch: Pick<{ readonly kind: "punch"; readonly asset: import("packages/domain/src/index").AssetId; readonly start: SampleCount; readonly length: SampleCount; readonly preRoll: SampleCount; readonly postRoll: SampleCount; }, "length" | "postRoll" | "preRoll" | "start">): PunchWindow
   function recordingBytesPerSecond(rate: SampleRate, channels: number): number
   function recordingDiagnostics(facts: RecordingFacts): readonly RecordingDiagnostic[]
+  function retrospectiveFit(seconds: number, rate: SampleRate, channels: number, availableBytes: number | undefined): RetrospectiveFit
   function retrospectiveFrames(seconds: number, rate: SampleRate): SampleCount
-  function retrospectiveMemory(seconds: number, rate: SampleRate, channels: number): number
   function retrospectiveOn(seconds: number): DomainResult<RetrospectiveSetting>
   function scheduleRecording(plan: ControlledRecording, facts: ScheduleFacts): DomainResult<RecordingSchedule>
   function scheduleStep(schedule: RecordingSchedule, phase: SchedulePhase, now: SampleCount, pageVisible: boolean): ScheduleStep
-  function stoppedUnexpectedly(reason: StopReason): boolean
   function storageTimeLeft(estimate: StorageEstimate | undefined, rate: SampleRate, channels: number, recorded?: number): StorageTimeLeft
   function takeCompensation(kept: readonly LatencyCalibration[], current: CalibrationPath, reported: ReportedLatency): TakeCompensation
   function withHeadphones(profile: CaptureProfile, headphones: boolean): CaptureProfile
@@ -7390,6 +7376,11 @@ packages/project-commands/src/takes/take-invocations.ts
 
 packages/project-format/src/given-names.ts
   type NamedSubject = "asset" | "project" | "take stack" | "take"
+
+packages/recording/src/controlled-recording.ts
+  interface PunchWindow
+  readonly PunchWindow.from: SampleCount
+  readonly PunchWindow.length: SampleCount
 
 packages/renderer/src/renderer-backend.ts
   type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }

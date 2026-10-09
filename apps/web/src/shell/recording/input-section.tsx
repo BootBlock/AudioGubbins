@@ -18,7 +18,11 @@ import { CHOOSE_INPUT } from '../../commands/recording-commands.js';
 import { identityOfDevice } from '../../recording/capture-facts.js';
 import type { InputView } from '../../recording/input-view.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
-import { deviceName, permissionText } from '../../recording/recording-words.js';
+import {
+  deviceName,
+  permissionText,
+  bufferShortfallText,
+} from '../../recording/recording-words.js';
 import type { RecordingSettings } from '../../state/recording-settings.js';
 import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
 import { LevelGroup } from '../engine-readouts.js';
@@ -48,10 +52,14 @@ function sessionText(view: InputView): string {
   }
 }
 
-/** The retrospective buffer, as set and as it holds now. */
+/** The retrospective buffer, as set, as the memory left allows it, and as it holds now. */
 function bufferText(settings: RecordingSettings, view: InputView): string {
   if (!settings.retrospective.on) return 'Nothing is kept from before Record.';
-  const kept = `The last ${String(settings.retrospective.seconds)} seconds are kept in memory while the input is armed, and written nowhere until you record.`;
+  const shortfall = bufferShortfallText(view.buffer);
+  if (view.buffer?.kind === 'none' && shortfall !== undefined) return shortfall;
+  const kept =
+    shortfall ??
+    `The last ${String(settings.retrospective.seconds)} seconds are kept in memory while the input is armed, and written nowhere until you record.`;
   return view.opened === undefined
     ? kept
     : `${kept} It holds ${String(view.bufferedSeconds)} seconds now.`;

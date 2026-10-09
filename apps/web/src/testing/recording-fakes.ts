@@ -520,6 +520,8 @@ export interface RecordingFakes {
   readonly page: FakePage;
   readonly measure: FakeMeasure;
   readonly host: AudioContextHost;
+  /** What the machine has left, as a test sets it: by default the browser says nothing. */
+  readonly resources: { availableMemoryBytes: number | undefined };
 }
 
 /** What a fake recording part is made over: the shell's own stores. */
@@ -548,6 +550,7 @@ export function fakeRecording(options: FakeRecordingOptions): {
     page: new FakePage(),
     measure: new FakeMeasure(),
     host,
+    resources: { availableMemoryBytes: undefined },
   };
   const { parts, dispose } = startRecording({
     media: fakes.media,
@@ -565,6 +568,7 @@ export function fakeRecording(options: FakeRecordingOptions): {
     page: fakes.page,
     estimate: () => Promise.resolve({ quota: 10_000_000_000, usage: 1_000_000 }),
     suspensionRisk: options.suspensionRisk ?? false,
+    resources: () => ({ ...fakes.resources }),
     schedule: (callback, milliseconds) => {
       const timer = setTimeout(callback, milliseconds);
       return () => {
