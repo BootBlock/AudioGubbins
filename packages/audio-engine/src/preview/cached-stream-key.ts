@@ -7,14 +7,14 @@
  * chain with every parameter value, its learned state and each processor's
  * versions, a model's identity among them (ADR-0062), but not the identifiers
  * of the chain and its slots, which a copy changes and the sound does not; each
- * later stream a segment reads, written once and named by its index among them
- * rather than by its place in the plan, since a rack edit renumbers streams
- * without changing what they sound like; each file by what its content is known
- * by, its rate, channels and length, rather than by the asset that names it;
- * the quality the chains run at; and the version of the render itself, raised
- * when the engine's rendering changes. Nothing else is in it, so a change
- * anywhere else in the project finds the render again, and a change to any of
- * these makes another.
+ * later stream a segment reads, alone or summed in a mix in the order the mix
+ * states, written once and named by its index among them rather than by its
+ * place in the plan, since a rack edit renumbers streams without changing what
+ * they sound like; each file by what its content is known by, its rate,
+ * channels and length, rather than by the asset that names it; the quality the
+ * chains run at; and the version of the render itself, raised when the engine's
+ * rendering changes. Nothing else is in it, so a change anywhere else in the
+ * project finds the render again, and a change to any of these makes another.
  */
 
 import type {
@@ -99,6 +99,8 @@ class StreamValues {
         return { ...segment, source: { stream: this.indexOf(source.stream) } };
       case 'silence':
         return { ...segment, start: 0, source: { silence: source.channels } };
+      case 'mix':
+        return { ...segment, source: { mix: source.streams.map((place) => this.indexOf(place)) } };
     }
   }
 }

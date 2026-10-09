@@ -2,7 +2,8 @@
  * The Asset Browser panel: the open project's audio, each asset with its
  * regions under it in the project's order, any of them opened in the editor in
  * use with a press, and the control that imports a file or calls an import off
- * (REQ-STOR-025, REQ-EDIT-014).
+ * (REQ-STOR-025, REQ-EDIT-014). An asset that is a take's recording says so,
+ * naming its take and stack (ADR-0072).
  *
  * An entry the page cannot open yet says why, as the editor view of it would.
  * The list follows the project and the catalogue, whose entries keep their
@@ -37,6 +38,19 @@ interface BrowserEntry {
   readonly shown: EditorAsset | UnopenedEntry;
   /** The regions of an asset, in the project's order; none for a region. */
   readonly regions: readonly BrowserEntry[];
+  /** Which takes an asset is the recording of, where it is a take's (ADR-0072). */
+  readonly takes?: string;
+}
+
+/** Which takes of `state` record `asset`, in a sentence, or nothing where none does. */
+function takesOf(state: ProjectState, asset: AssetId): string | undefined {
+  const named: string[] = [];
+  for (const stack of state.project.takeStacks.values()) {
+    for (const take of stack.takes) {
+      if (take.asset === asset) named.push(`${quoted(take.name)} in ${quoted(stack.name)}`);
+    }
+  }
+  return named.length === 0 ? undefined : `A recorded take: ${named.join(', ')}.`;
 }
 
 /**
@@ -65,7 +79,8 @@ function browserEntries(state: ProjectState, shown: AssetCatalogueState): readon
       if (regionShown !== undefined)
         regions.push({ id: regionId, shown: regionShown, regions: [] });
     }
-    entries.push({ id, shown: entry, regions });
+    const takes = takesOf(state, asset.id);
+    entries.push({ id, shown: entry, regions, ...(takes === undefined ? {} : { takes }) });
   }
   return entries;
 }
@@ -105,6 +120,7 @@ function EntryItem({
             {shown.name}
           </Button>
           <p className="ag-panel-note">{shown.description}</p>
+          {entry.takes !== undefined && <p className="ag-panel-note">{entry.takes}</p>}
         </>
       )}
       {entry.regions.length > 0 && (

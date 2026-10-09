@@ -6,7 +6,14 @@ import { unsafeBrandId, type EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import { SummingLaw } from '../processing/effect-chain.js';
 import type { Marker, Region } from '../project/timeline.js';
-import { OTHER_RATE, assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
+import {
+  assetOf,
+  editingEntities,
+  frames,
+  operationId,
+  OTHER_RATE,
+  range,
+} from '../testing/editing-fixtures.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
 import { sourceShape } from './edit-shape.js';
 import { validateChain, validateOperation } from './operation-validation.js';
@@ -23,7 +30,7 @@ const SHAPE = sourceShape(ASSET);
 const id = operationId('one');
 
 function refusedFor(operation: EditOperation): string {
-  const result = validateOperation(operation, SHAPE, ASSETS, PLAN_WITHOUT_CHAINS.chains);
+  const result = validateOperation(operation, SHAPE, editingEntities(ASSETS));
   if (result.ok) throw new Error('Expected a refusal.');
   return result.failures[0].summary;
 }
@@ -34,8 +41,7 @@ describe('validating an edit operation where it stands', () => {
       validateOperation(
         { id, kind: 'delete', range: range(0, 1_000) },
         SHAPE,
-        ASSETS,
-        PLAN_WITHOUT_CHAINS.chains,
+        editingEntities(ASSETS),
       ),
     );
   });
@@ -97,15 +103,14 @@ describe('validating an edit operation where it stands', () => {
       slicePlan(expectSuccess(assetPlan(other, PLAN_WITHOUT_CHAINS)), 0, 441),
     );
     const paste = { id, kind: 'insert', at: frames(0), payload } as const;
-    expect(
-      expectFailureCode(validateOperation(paste, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains)),
-    ).toBe('editing.payload-rate');
+    expect(expectFailureCode(validateOperation(paste, SHAPE, editingEntities(assets)))).toBe(
+      'editing.payload-rate',
+    );
     expectSuccess(
       validateOperation(
         { ...paste, resampler: TEST_ENGINE.resampler },
         SHAPE,
-        assets,
-        PLAN_WITHOUT_CHAINS.chains,
+        editingEntities(assets),
       ),
     );
     const same = expectSuccess(
@@ -116,15 +121,14 @@ describe('validating an edit operation where it stands', () => {
         validateOperation(
           { ...paste, payload: same, resampler: TEST_ENGINE.resampler },
           SHAPE,
-          ASSETS,
-          PLAN_WITHOUT_CHAINS.chains,
+          editingEntities(ASSETS),
         ),
       ),
     ).toBe('editing.payload-rate');
     for (const resampler of [0, 1.5, -1]) {
       expect(
         expectFailureCode(
-          validateOperation({ ...paste, resampler }, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains),
+          validateOperation({ ...paste, resampler }, SHAPE, editingEntities(assets)),
         ),
       ).toBe('editing.conversion-version');
     }
@@ -139,8 +143,7 @@ describe('validating an edit operation where it stands', () => {
         validateOperation(
           { id, kind: 'insert', at: frames(0), payload },
           SHAPE,
-          ASSETS,
-          PLAN_WITHOUT_CHAINS.chains,
+          editingEntities(ASSETS),
         ),
       ),
     ).toBe('editing.payload-layout');
@@ -156,9 +159,7 @@ describe('validating an edit operation where it stands', () => {
     });
     expect(MAXIMUM_STRETCH_RATIO).toBe(8);
     for (const length of [13, 100, 800]) {
-      expectSuccess(
-        validateOperation(stretchTo(length), SHAPE, ASSETS, PLAN_WITHOUT_CHAINS.chains),
-      );
+      expectSuccess(validateOperation(stretchTo(length), SHAPE, editingEntities(ASSETS)));
     }
     expect(refusedFor(stretchTo(801))).toMatch(/at most 8 times/);
     expect(refusedFor(stretchTo(12))).toMatch(/at most 8 times/);
@@ -180,8 +181,7 @@ describe('validating an edit operation where it stands', () => {
       validateOperation(
         { id, kind: 'convert-rate', sampleRate: OTHER_RATE, version: TEST_ENGINE.resampler },
         SHAPE,
-        ASSETS,
-        PLAN_WITHOUT_CHAINS.chains,
+        editingEntities(ASSETS),
       ),
     );
     expect(
@@ -212,15 +212,13 @@ describe('validating an edit operation where it stands', () => {
       validateOperation(
         { id, kind: 'process', range: range(0, 10), edit: rack },
         SHAPE,
-        ASSETS,
-        chains,
+        editingEntities(ASSETS, chains),
       ),
     );
     const scoped = validateOperation(
       { id, kind: 'process', range: range(0, 10), channels: [0], edit: rack },
       SHAPE,
-      ASSETS,
-      chains,
+      editingEntities(ASSETS, chains),
     );
     expect(scoped.ok ? '' : scoped.failures[0].summary).toMatch(/acts on every channel/);
     expect(refusedFor({ id, kind: 'process', range: range(0, 10), edit: rack })).toMatch(
@@ -233,7 +231,7 @@ describe('validating an edit operation where it stands', () => {
       { id, kind: 'reverse', range: range(0, 10) },
       { id, kind: 'reverse', range: range(0, 10) },
     ]);
-    expect(expectFailureCode(validateChain(twice, ASSETS, PLAN_WITHOUT_CHAINS.chains))).toBe(
+    expect(expectFailureCode(validateChain(twice, editingEntities(ASSETS)))).toBe(
       'editing.duplicate-operation',
     );
   });
@@ -243,7 +241,7 @@ describe('validating an edit operation where it stands', () => {
       { id: operationId('cut'), kind: 'delete', range: range(0, 50) },
       { id, kind: 'reverse', range: range(40, 60) },
     ]);
-    expect(expectFailureCode(validateChain(shortened, ASSETS, PLAN_WITHOUT_CHAINS.chains))).toBe(
+    expect(expectFailureCode(validateChain(shortened, editingEntities(ASSETS)))).toBe(
       'editing.operation-invalid',
     );
   });

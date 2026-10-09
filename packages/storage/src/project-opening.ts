@@ -10,7 +10,8 @@
  * another window holds opens read-only with that window's description, and so
  * does every project on a platform that cannot coordinate writers or refuses
  * the lock, with the reason (REQ-STOR-098: fail safely). Whichever way it
- * opens, the recovery report says what was found and done.
+ * opens, the recovery report says what was found and done, and offers every
+ * recording a crash cut short, before anything is cleaned (ADR-0071).
  */
 
 import type { CommandBus } from '@audiogubbins/commands';
@@ -44,6 +45,7 @@ import {
   type RecoveredProject,
 } from './project-recovery.js';
 import { ProjectSession } from './project-session.js';
+import { removeRecording } from './recording-sessions.js';
 import { DEFAULT_CADENCE, type SessionCadence } from './session-contracts.js';
 import type { ReadOnlyReason } from './project-snapshot.js';
 import { ReadOnlyProject } from './read-only-project.js';
@@ -208,6 +210,11 @@ async function openToWrite(
     signal,
   );
   if (!sealed.ok) return sealed;
+  // A recording session whose asset the project holds, or that holds
+  // nothing, is the writer's to remove (`recording-sessions.ts`).
+  for (const session of recovered.value.recordings.leftOver) {
+    await removeRecording(services.tree, files.project, session);
+  }
 
   const session = new ProjectSession(
     {

@@ -9,6 +9,8 @@
  *   on, and the share of the history's segments that holds those nodes.
  * - Recovery checkpoints: every other state kept, the rest of the segments, the
  *   checkpoints, the heads, the headers and the lease records.
+ * - Recordings: every recording session not yet an asset, in progress or
+ *   interrupted, which only the person ends (ADR-0071).
  * - Source media in use: media the state a project is in holds.
  * - Retained deleted media: media no project's current state holds that the
  *   history, a snapshot, the journal or a backup still keeps, split by what
@@ -57,6 +59,7 @@ export interface StorageUsage {
   readonly namedSnapshots: number;
   readonly alternativeBranches: number;
   readonly recoveryCheckpoints: number;
+  readonly recordings: number;
   readonly sourceMedia: number;
   readonly retainedDeletedMedia: RetainedMediaUsage;
   readonly unreferencedMedia: number;
@@ -113,6 +116,7 @@ interface ProjectBytes {
   namedSnapshots: number;
   alternativeBranches: number;
   recoveryCheckpoints: number;
+  recordings: number;
 }
 
 /** What measuring the projects gathers as it goes. */
@@ -138,7 +142,13 @@ export async function measureUsage(
     const { tree, digest } = services;
     const records = new CheckedRecords(tree, digest);
     const measuring: Measuring = {
-      bytes: { journal: 0, namedSnapshots: 0, alternativeBranches: 0, recoveryCheckpoints: 0 },
+      bytes: {
+        journal: 0,
+        namedSnapshots: 0,
+        alternativeBranches: 0,
+        recoveryCheckpoints: 0,
+        recordings: 0,
+      },
       current: new Set(),
       retainedBy: new Map(),
       unreadable: [],
@@ -203,10 +213,14 @@ async function measureProject(files: ProjectFiles, measuring: Measuring): Promis
   const { bytes, current, unreadable, turns } = measuring;
   const tree = files.records.tree;
   const { signal } = turns;
-  bytes.journal += await bytesUnder(tree, files.paths.journal, signal);
+  const journal = await bytesUnder(tree, files.paths.journal, signal);
+  const recordings = await bytesUnder(tree, files.paths.recordings, signal);
+  bytes.journal += journal;
+  bytes.recordings += recordings;
   bytes.recoveryCheckpoints +=
     (await bytesUnder(tree, files.paths.directory, signal)) -
-    (await bytesUnder(tree, files.paths.journal, signal)) -
+    journal -
+    recordings -
     (await bytesUnder(tree, files.paths.states, signal));
 
   const checkpoint = await files.newestCheckpoint(signal);

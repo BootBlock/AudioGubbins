@@ -11,6 +11,10 @@
       "default": "./src/index.ts"
     },
     "./threads/*": "./src/threads/*",
+    "./capture-channel": {
+      "types": "./src/capture/capture-reader.ts",
+      "default": "./src/capture/capture-reader.ts"
+    },
     "./testing": {
       "types": "./src/testing/index.ts",
       "default": "./src/testing/index.ts"

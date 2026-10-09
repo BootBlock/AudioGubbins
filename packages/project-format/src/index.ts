@@ -106,6 +106,28 @@ export {
   stripAssetProvenance,
   stripExportRecords,
 } from './provenance-stripping.js';
+
+export {
+  type CaptureSettings,
+  CaptureProfileKind,
+  type RecordedDevice,
+  type RecordedGaps,
+  type RecordedProfile,
+  type RecordedProvenance,
+  RecordingEnding,
+  type RecordingStart,
+  endedUnexpectedly,
+} from './recorded-provenance.js';
+export {
+  CHUNK_SAMPLE_FORMAT,
+  type RecordingEnd,
+  type RecordingPurpose,
+  type RecordingSessionId,
+  type RecoveryChunkManifest,
+  type TakeRequest,
+  readRecoveryManifest,
+  writeRecoveryManifest,
+} from './recovery-manifest.js';
 export {
   NESTED_ARGUMENT_LIMITS,
   type InvocationProvenance,
@@ -172,6 +194,8 @@ export { FOLDER_KEY_PREFIX, isFileName, isHandleKey, isRelativePath } from './so
 export { readEditOperation, readRegionOperation } from './edit-reading.js';
 export { writeEditOperation, writeRegionOperation } from './edit-writing.js';
 export { readMarker, readRegion } from './placement-reading.js';
+export { LONGEST_TAKE_NOTE, readTake, readTakeStack } from './take-stack-reading.js';
+export { writePunchRange, writeTake, writeTakeStack } from './take-stack-writing.js';
 export { writeMarker, writeRegion } from './placement-writing.js';
 export { readEditPlan } from './plan-reading.js';
 export { writeEditPlan } from './plan-writing.js';

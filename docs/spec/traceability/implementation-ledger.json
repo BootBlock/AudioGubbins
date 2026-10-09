@@ -279,7 +279,7 @@
     "07": {
       "phase": 7,
       "name": "Recording",
-      "status": "READY",
+      "status": "PASS",
       "hard_dependencies": [
         2,
         3,
@@ -301,8 +301,11 @@
       ],
       "open_verified_findings": [],
       "commits": [],
-      "evidence": [],
-      "handoff": null
+      "evidence": [
+        "reviews/phase-07-evidence.md",
+        "reviews/phase-07-review.md"
+      ],
+      "handoff": "traceability/handoffs/phase-07.md"
     },
     "08": {
       "phase": 8,

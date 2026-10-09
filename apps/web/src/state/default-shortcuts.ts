@@ -315,7 +315,9 @@ export function placeDefaults(
  * as in most editors. The brackets select the next and previous marker, and
  * with Shift the next and previous region, so either is reached without a
  * pointer. Delete deletes what the selection holds, and the usual modifier with
- * X, C and V cuts, copies and pastes, as everywhere.
+ * X, C and V cuts, copies and pastes, as everywhere. Shift with I turns input
+ * monitoring on or off, and Shift with A, P, R and S arms, arms a punch,
+ * records and stops.
  */
 function editorBindings(
   of: (
@@ -388,6 +390,16 @@ function editorBindings(
     bind('editor.toggle-snapping', of(alone('s'))),
     bind('editor.next-display-mode', of(alone('d'))),
     bind('editor.show-all-channels', of(alone('l'))),
+    // Input monitoring, one press on or off, as a recording application's input
+    // monitoring is: I for input, with Shift, since I alone starts a selection.
+    bind('recording.toggle-monitoring', of(alone('i', true))),
+    // Recording, each with Shift on the letter its action begins with, since
+    // R, S and P alone are the editor's: A arms, P arms a punch over the
+    // selection, R records and S stops.
+    bind('recording.arm', of(alone('a', true))),
+    bind('recording.arm-punch', of(alone('p', true))),
+    bind('recording.record', of(alone('r', true))),
+    bind('recording.stop', of(alone('s', true))),
   ];
 }
 

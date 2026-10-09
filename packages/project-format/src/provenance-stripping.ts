@@ -12,9 +12,10 @@
  * - `full` keeps everything.
  * - `minimal` keeps what identifies content and when it arrived: the import
  *   time, the source's content identity and fingerprint, its length, media
- *   type and audio shape, and the originating project. It drops the original
- *   file name, and from an external source's identity the kept handle, the
- *   file name and the relative path.
+ *   type and audio shape, the originating project, and how a recording was
+ *   made. It drops the original file name, the label and group of the device
+ *   a recording was made on, and from an external source's identity the kept
+ *   handle, the file name and the relative path.
  * - `none` drops each asset's provenance whole, and strips external identity
  *   as `minimal` does. What an external source needs to be recognised again
  *   (its length, time, type, signature, fingerprint and content identity) is
@@ -49,6 +50,7 @@ import type {
   ProjectState,
 } from './project-state.js';
 import { PlaceholderKind, type Placeholders } from './provenance-placeholders.js';
+import type { RecordedProvenance } from './recorded-provenance.js';
 
 /** How much provenance a project or an export keeps. */
 export const ProvenanceLevel = {
@@ -131,16 +133,30 @@ const KEEP_EVERYTHING: SourceRewrite = {
   identity: (identity) => identity,
 };
 
-/** A source's provenance at a level below `full`. */
+/**
+ * A source's provenance at a level below `full`: without the file's name, and
+ * without the label and group of the device it was recorded on, which name
+ * the person's own as a file's name does.
+ */
 function strippedProvenance(
   source: AssetSource,
   level: 'minimal' | 'none',
 ): AssetSource['provenance'] {
   const { provenance } = source;
   if (provenance === undefined || level === ProvenanceLevel.None) return undefined;
-  if (provenance.originalFileName === undefined) return provenance;
-  const { originalFileName: _originalFileName, ...kept } = provenance;
-  return kept;
+  const recording =
+    provenance.recording === undefined ? undefined : withoutDevice(provenance.recording);
+  if (provenance.originalFileName === undefined && recording === provenance.recording) {
+    return provenance;
+  }
+  const { originalFileName: _originalFileName, recording: _recording, ...kept } = provenance;
+  return { ...kept, ...(recording === undefined ? {} : { recording }) };
+}
+
+/** A recording's provenance without what names the device it was made on. */
+function withoutDevice(recording: RecordedProvenance): RecordedProvenance {
+  const { label, group, ...kept } = recording.device;
+  return label === undefined && group === undefined ? recording : { ...recording, device: kept };
 }
 
 /** An external identity without what names or reaches the user's file. */

@@ -354,6 +354,8 @@ function heard(audio: AudioWindow, media: readonly MediaEntry[]): PcmDescription
   const plan = expectSuccess(
     assetPlan(asset, {
       chains: state.project.effectChains,
+      takeStacks: state.project.takeStacks,
+      assets: state.project.assets,
       catalogue: PROCESSOR_CATALOGUE,
       engine: ENGINE_VERSIONS,
     }),

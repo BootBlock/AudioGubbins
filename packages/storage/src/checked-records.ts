@@ -60,6 +60,7 @@ export const RecordKind = {
   PackManifest: 'pack-manifest',
   PackSeal: 'pack-seal',
   LibraryEntry: 'library-entry',
+  RecordingManifest: 'recording-manifest',
 } as const;
 
 /** What a record is, written in its envelope. */

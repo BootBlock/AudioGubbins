@@ -30,6 +30,7 @@ import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testi
 import type { DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
 import { MemoryLeaseCoordinator, memorySink, type MemorySink } from '@audiogubbins/storage/testing';
 import { connectStorage, type PageFile } from '@audiogubbins/storage-runtime';
+import type { StorageEstimate } from '@audiogubbins/recording';
 import {
   memoryHostServices,
   portPair,
@@ -53,6 +54,7 @@ import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testi
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
 
 import type { FakePlayback } from './audio-fakes.js';
+import type { RecordingFakes } from './recording-fakes.js';
 import { libraryChannel } from '../io/library-channel.js';
 import type { PackManager } from '../ml/pack-manager.js';
 import { packManagerOver } from './pack-managers.js';
@@ -149,6 +151,9 @@ export interface ProjectWindow {
   /** The audio engine the window plays through, which a test reads what it was given from. */
   readonly audio: { readonly playback: FakePlayback };
 
+  /** The browser's input and the capture behind the window's recording part. */
+  readonly recording: RecordingFakes;
+
   /** The detection workers the window made, in order, which a test reads what it asked of. */
   readonly detectionWorkers: readonly LocalDetectionWorker[];
 
@@ -202,6 +207,8 @@ export interface ProjectWorld {
     readonly canWriteFolders?: boolean;
     readonly backupFolder?: BackupFolderPort;
     readonly linkedFiles?: ScriptedLinkedFiles;
+    /** The storage estimate the window's storage worker reads: none where not given. */
+    readonly estimate?: () => Promise<StorageEstimate | undefined>;
   }): Promise<ProjectWindow>;
 }
 
@@ -234,10 +241,12 @@ function pageOf(
   context: ShellContext,
   number: number,
   packSource: CatalogueSource | undefined,
+  estimate?: () => Promise<StorageEstimate | undefined>,
 ): ProjectServices {
   const pair = portPair();
   serveMemoryStorage(pair.worker, {
     ...(packSource === undefined ? {} : { packSource }),
+    ...(estimate === undefined ? {} : { estimate }),
     tree: world.tree,
     coordinator: world.coordinator,
     clock,
@@ -274,9 +283,12 @@ export function projectWorld(
     tab: { name: 'the test', seed: 7 },
   });
   let windows = 0;
-  const page = (context: ShellContext): ProjectServices => {
+  const page = (
+    context: ShellContext,
+    estimate?: () => Promise<StorageEstimate | undefined>,
+  ): ProjectServices => {
     windows += 1;
-    return pageOf(world, clock, context, windows, packSource);
+    return pageOf(world, clock, context, windows, packSource, estimate);
   };
   const world: ProjectWorld = {
     tree,
@@ -286,7 +298,7 @@ export function projectWorld(
     page,
     window: async (options = {}) => {
       const built = buildShellContext();
-      const services = page(built.context);
+      const services = page(built.context, options.estimate);
       const files = scriptedFiles(options.canWriteFolders);
       const lifetime = new AbortController();
       const root = new StorageRoot(services.client.root, lifetime.signal);
@@ -319,6 +331,7 @@ export function projectWorld(
           files,
           takeDown,
           audio: built.audio,
+          recording: built.recording,
           detectionWorkers: built.detectionWorkers,
         },
         lifetime.signal,
@@ -355,6 +368,7 @@ async function windowOver(
     | 'files'
     | 'takeDown'
     | 'audio'
+    | 'recording'
     | 'detectionWorkers'
   >,
   lifetime: AbortSignal,

@@ -186,6 +186,7 @@ export {
   type ChainRequest,
   type ChainRun,
   type ListeningRequest,
+  type LiveChainRequest,
   type MeasurementRequest,
   type StreamReader,
 } from './pcm/chain-processing.js';

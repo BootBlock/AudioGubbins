@@ -214,12 +214,13 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [
         'MAXIMUM_CHAIN_SLOTS',
         'MAXIMUM_GROUP_BRANCHES',
-        'chainOutputLayout',
         'checkStateVersion',
         'segmentsLayout',
         'segmentsLength',
         'withRack',
       ],
+    "How many frames of a take a punch reads, which the project commands' test support makes takes long enough with; that support may take no other package's test support, so it is offered here, as the identity generator is.":
+      ['punchTakeFrames'],
   },
   '@audiogubbins/processors': {
     'The machine-learning processors one by one (ADR-0062), each made with its services: the threads that run racks make every one at once with `processorTypesWith`, and a type alone serves a tool that runs one model, such as the pinned golden renders.':
@@ -285,6 +286,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
   },
+  '@audiogubbins/project-commands': {},
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
@@ -365,10 +367,11 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'OFFLINE_USE',
         'PRESSURE_SENSITIVE_TOOLS',
         'PROJECT_STORAGE',
-        'RECORDING',
         'SETTINGS_STORAGE',
         'SYSTEM_APPEARANCE',
       ],
+    "The media input adapter ADR-0070 puts here, the one place the browser's audio input is reached, with the values it answers, which Phase 07's application composes with the recording session and the audio runtime as the recording views are built.":
+      [],
   },
 };
 

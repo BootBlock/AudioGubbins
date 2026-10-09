@@ -1,7 +1,8 @@
 /**
  * The audio part's real collaborators, each made when a command first needs
- * it: the browser's audio context here, and the engine, from the module the
- * page loads only then.
+ * it: the browser's audio context here, held for playback and the inputs alike
+ * by `context-host.ts`, and the engine, from the module the page loads only
+ * then.
  *
  * The context is made by this module, which the page carries from the start,
  * because it is made and started inside the person's gesture, before anything
@@ -25,6 +26,8 @@ import {
 import type { ModelServices } from '../ml/model-services.js';
 import type { BrowserEngine } from './browser-engine.js';
 import { browserSchedule } from './browser-schedule.js';
+import type { OpenCapture } from './capture-parts.js';
+import { AudioContextHost } from './context-host.js';
 import type { OpenPlayback } from './playback-parts.js';
 import type { RenderParts } from './render-control.js';
 
@@ -57,28 +60,40 @@ export function browserEngineLoader(
   };
 }
 
+/** The host of the page's one audio context, each made in the browser when first asked for. */
+export function browserContextHost(
+  capabilities: AudioRuntimeCapabilities,
+  logger: Logger,
+): AudioContextHost {
+  return new AudioContextHost(
+    (latencyHint, rate) =>
+      new ContextLifecycle({
+        createContext: browserAudioContext(capabilities),
+        watchDevices: watchAudioDevices,
+        latencyHint,
+        ...(rate === undefined ? {} : { sampleRate: rate }),
+        schedule: browserSchedule,
+        logger,
+      }),
+    logger,
+  );
+}
+
 /** What the browser's audio parts are made from. */
 export interface BrowserAudioOptions {
-  readonly capabilities: AudioRuntimeCapabilities;
+  readonly host: AudioContextHost;
   readonly engine: () => Promise<BrowserEngine>;
   readonly logger: Logger;
 }
 
 /**
- * A context's life and a session over it, for a profile, the context made when
- * first asked for, at the programme's rate where it has one.
+ * A hold on the page's context and a session over it, for a profile, the
+ * context made when first asked for, at the programme's rate where it has one.
  */
 export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
-  const { capabilities, engine, logger } = options;
+  const { host, engine, logger } = options;
   return (profile, rate) => {
-    const lifecycle = new ContextLifecycle({
-      createContext: browserAudioContext(capabilities),
-      watchDevices: watchAudioDevices,
-      latencyHint: profile.settings.latencyHint,
-      ...(rate === undefined ? {} : { sampleRate: rate }),
-      schedule: browserSchedule,
-      logger,
-    });
+    const { lifecycle, release } = host.own(profile.settings.latencyHint, rate);
     return {
       // The session's Play asks the context to run again, and says why where
       // it would not, so this first request, made inside the gesture, has no
@@ -95,9 +110,17 @@ export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
       // Play that reads the rate hears that reason rather than a second try.
       contextRate: () => mapResult(lifecycle.context(), (context) => context.sampleRate),
       session: engine().then((loaded) => loaded.openSession({ lifecycle, profile, logger })),
-      close: () => lifecycle.close(),
+      close: () => {
+        release();
+        return Promise.resolve();
+      },
     };
   };
+}
+
+/** A capture session in the context `lifecycle` runs, once the engine's DSP is compiled. */
+export function browserCapture(engine: () => Promise<BrowserEngine>, logger: Logger): OpenCapture {
+  return async (lifecycle) => (await engine()).openCapture({ lifecycle, logger });
 }
 
 /** The render host and its scheduler, starting from `settings`' share for background work. */

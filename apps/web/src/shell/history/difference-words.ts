@@ -1,8 +1,8 @@
 /**
  * What differs between the two sides of an A/B comparison, said entity by
- * entity: each track, bus, clip, region, marker and asset only one side holds,
- * each one both hold and what of it differs, and each effect chain processor
- * by processor (REQ-STOR-195).
+ * entity: each track, bus, clip, region, marker, asset and take stack only
+ * one side holds, each one both hold and what of it differs, and each effect
+ * chain processor by processor (REQ-STOR-195).
  *
  * Plain language and nothing of the data model: an entity is called by its
  * name and a field by what a person calls it, from tables whose types demand
@@ -19,6 +19,7 @@ import type {
   Marker,
   ParameterValue,
   Region,
+  TakeStack,
   Track,
 } from '@audiogubbins/domain';
 import type {
@@ -116,6 +117,18 @@ const MARKER_WORDS: FieldWords<Marker> = {
   basis: 'position',
   position: 'position',
   paletteKey: 'colour',
+};
+
+/**
+ * A stack's takes are compared as a list, so naming, noting, rejecting or
+ * removing any one of them is a difference in its takes.
+ */
+const TAKE_STACK_WORDS: FieldWords<TakeStack> = {
+  id: 'identity',
+  name: 'name',
+  takes: 'takes',
+  chosen: 'chosen take',
+  punch: 'punch',
 };
 
 /** The project's own fields, as a person calls them. */
@@ -246,6 +259,7 @@ export function differenceLines(
       SOURCE_WORDS,
       names,
     ),
+    ...entityLines(difference.takeStacks, 'take stack', TAKE_STACK_WORDS, names),
     ...difference.effectChains.map((chain) => chainLine(chain, names)),
   ];
   return lines.length === 0 ? ['The two states are the same.'] : lines;

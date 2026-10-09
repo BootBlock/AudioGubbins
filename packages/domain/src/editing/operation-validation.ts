@@ -12,10 +12,12 @@ import { channelCount, layoutsMatch, type ChannelLayout } from '../audio/channel
 import type { AssetId, EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
+import type { Project } from '../project/project.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import { sampleCount, sampleRate } from '../time/sample-time.js';
 import { shapeAfter, sourceShape, type EditShape } from './edit-shape.js';
 import { isLevelEdit, type EditOperation, type EditRange, type RangeEdit } from './operations.js';
+import { punchProblem } from './punch-validation.js';
 import {
   MAXIMUM_STRETCH_RATIO,
   isChannelMatrix,
@@ -41,6 +43,13 @@ export function rangeProblem(range: EditRange, length: number): string | undefin
 /** The chains a project holds, which an operation or a target may name. */
 export type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>;
 
+/**
+ * What an asset's operations may name besides the asset: the project's
+ * assets, which a paste reads, its chains, which a rack edit names, and its
+ * take stacks, which a punch names (ADR-0051, ADR-0060, ADR-0072).
+ */
+export type EditingEntities = Pick<Project, 'assets' | 'effectChains' | 'takeStacks'>;
+
 /** Why a target's rack does not name one of the project's chains, or `undefined`. */
 export function rackProblem(
   rack: EffectChainId | undefined,
@@ -54,6 +63,8 @@ export function rackProblem(
 /**
  * Why a range edit does not fit `count` channels with `channels` scope, or
  * `undefined`. A rack edit acts on every channel and names one of `chains`.
+ * A punch is checked by `punchProblem` where an asset's chain holds it, and
+ * refused here, where a region's processing would.
  */
 export function rangeEditProblem(
   edit: RangeEdit,
@@ -72,6 +83,9 @@ export function rangeEditProblem(
   if (edit.kind === 'rack') {
     if (channels !== undefined) return 'A chain of processors acts on every channel.';
     return chains.has(edit.chain) ? undefined : 'The edit names a chain the project does not have.';
+  }
+  if (edit.kind === 'punch') {
+    return 'A punch replaces part of an asset, so it is made on the asset, never in a region’s processing.';
   }
   if (channels !== undefined) return 'A change between channels names its own channels.';
   const valid = (channel: number): boolean =>
@@ -138,7 +152,7 @@ function insertionProblem(
 }
 
 /** Whether `version` is a version an algorithm may have: a whole number from 1. */
-function isVersion(version: number): boolean {
+export function isVersion(version: number): boolean {
   return Number.isSafeInteger(version) && version >= 1;
 }
 
@@ -177,12 +191,11 @@ function rateProblem(
     : undefined;
 }
 
-/** `operation`, where it may act on a timeline of `shape` in a project of `assets` and `chains`. */
+/** `operation`, where it may act on a timeline of `shape` in a project of `entities`. */
 export function validateOperation(
   operation: EditOperation,
   shape: EditShape,
-  assets: ReadonlyMap<AssetId, Asset>,
-  chains: ProjectChains,
+  entities: EditingEntities,
 ): DomainResult<EditOperation> {
   let problem: string | undefined;
   switch (operation.kind) {
@@ -191,11 +204,15 @@ export function validateOperation(
     case 'reverse':
       problem = rangeProblem(operation.range, shape.length);
       break;
-    case 'process':
+    case 'process': {
+      const { edit, range, channels } = operation;
       problem =
-        rangeProblem(operation.range, shape.length) ??
-        rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout), chains);
+        rangeProblem(range, shape.length) ??
+        (edit.kind === 'punch'
+          ? punchProblem(edit, range, channels, shape, entities)
+          : rangeEditProblem(edit, channels, channelCount(shape.layout), entities.effectChains));
       break;
+    }
     case 'stretch':
       problem = stretchProblem(operation, shape.length);
       break;
@@ -206,7 +223,7 @@ export function validateOperation(
       problem = conversionProblem(shape.layout, operation.layout, operation.matrix);
       break;
     case 'insert': {
-      const inserted = insertionProblem(operation, shape, assets);
+      const inserted = insertionProblem(operation, shape, entities.assets);
       if (!inserted.ok) return inserted;
       break;
     }
@@ -219,15 +236,12 @@ export function validateOperation(
 }
 
 /**
- * The asset, where every operation of its chain is valid where it stands, no
- * two share an identifier, and its rack names one of `chains`.
+ * The asset, where every operation of its chain is valid where it stands in a
+ * project of `entities`, no two share an identifier, and its rack names one of
+ * the project's chains.
  */
-export function validateChain(
-  asset: Asset,
-  assets: ReadonlyMap<AssetId, Asset>,
-  chains: ProjectChains,
-): DomainResult<Asset> {
-  const rack = rackProblem(asset.rack, chains);
+export function validateChain(asset: Asset, entities: EditingEntities): DomainResult<Asset> {
+  const rack = rackProblem(asset.rack, entities.effectChains);
   if (rack !== undefined) return refused('rack-unknown', rack);
   const seen = new Set<string>();
   let shape = sourceShape(asset);
@@ -236,7 +250,7 @@ export function validateChain(
       return refused('duplicate-operation', 'Two of the asset’s edits share an identifier.');
     }
     seen.add(operation.id);
-    const valid = validateOperation(operation, shape, assets, chains);
+    const valid = validateOperation(operation, shape, entities);
     if (!valid.ok) return valid;
     shape = shapeAfter(shape, operation);
   }

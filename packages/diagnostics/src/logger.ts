@@ -22,6 +22,7 @@ import {
   type PerformanceRecord,
   type SanitisedStackTrace,
 } from './log-record.js';
+import { withoutDeviceLabels } from './device-labels.js';
 import type { LogSink } from './log-store.js';
 
 /** Supplies the current time. */
@@ -186,7 +187,7 @@ function createLogger(category: string, writer: LogWriter, correlationId?: Corre
       severity,
       category,
       message,
-      fields,
+      fields: withoutDeviceLabels(fields),
       ...(correlationId === undefined ? {} : { correlationId }),
       ...(stack === undefined ? {} : { stack }),
     };
@@ -220,7 +221,7 @@ function createLogger(category: string, writer: LogWriter, correlationId?: Corre
         category,
         operation,
         durationMs,
-        fields,
+        fields: withoutDeviceLabels(fields),
         ...(correlationId === undefined ? {} : { correlationId }),
       };
       writer.sink.writePerformance(record);

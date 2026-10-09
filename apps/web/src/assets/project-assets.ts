@@ -32,6 +32,7 @@ import {
   placeMarkers,
   placeRegions,
   planReadsAsset,
+  punchStackOf,
   regionChains,
   type AnchorResolver,
   type Asset,
@@ -45,6 +46,7 @@ import {
   type PlanContext,
   type Project,
   type Region,
+  type TakeStack,
 } from '@audiogubbins/domain';
 import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
@@ -78,6 +80,8 @@ interface Owned {
  */
 export interface MadeAsset extends Owned, Reads {
   readonly chains: readonly (EffectChain | undefined)[];
+  /** The take stacks its punches play, in its chain's order (ADR-0072). */
+  readonly stacks: readonly (TakeStack | undefined)[];
   /** The asset's entry, then its regions', by the identity a view names. */
   readonly entries: ReadonlyMap<string, ProjectEntry>;
 }
@@ -219,15 +223,24 @@ function madeAsset(
 ): MadeAsset {
   const context: PlanContext = {
     chains: state.project.effectChains,
+    takeStacks: state.project.takeStacks,
+    assets: state.project.assets,
     catalogue: PROCESSOR_CATALOGUE,
     engine: ENGINE_VERSIONS,
   };
   const place = placing(own, context);
   const chains = chainsNamed(own, context.chains);
+  // A choice of another take changes what a punch plays without changing the
+  // asset, so the stacks its punches name are compared too.
+  const stacks = own.asset.edits.flatMap((operation) => {
+    const stack = punchStackOf(operation);
+    return stack === undefined ? [] : [state.project.takeStacks.get(stack)];
+  });
   const unchanged =
     before !== undefined &&
     sameRecord(before.asset, own.asset) &&
-    sameRecords(before.chains, chains);
+    sameRecords(before.chains, chains) &&
+    sameRecords(before.stacks, stacks);
   const planned = unchanged ? undefined : place().plan;
   const read = unchanged
     ? before.read.flatMap((one) => state.project.assets.get(one.id) ?? [])
@@ -254,6 +267,7 @@ function madeAsset(
     ...own,
     ...reads,
     chains,
+    stacks,
     entries: entriesOf(own, reads, place, kept, { context, models }),
   };
 }

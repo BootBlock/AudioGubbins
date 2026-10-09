@@ -178,6 +178,9 @@ describe('a seeded property: every valid state survives the document', () => {
       conversions: 0,
       regionProcessing: 0,
       audioShapes: 0,
+      takeStacks: 0,
+      punches: 0,
+      recordings: 0,
     };
     for (let seed = 1; seed <= 400; seed += 1) {
       const { project, sources } = randomState(seed);
@@ -188,6 +191,7 @@ describe('a seeded property: every valid state survives the document', () => {
       totals.regions += project.regions.size;
       totals.markers += project.markers.size;
       totals.chains += project.effectChains.size;
+      totals.takeStacks += project.takeStacks.size;
       totals.loops += [...project.regions.values()].filter(
         (region) => region.loop !== undefined,
       ).length;
@@ -197,11 +201,15 @@ describe('a seeded property: every valid state survives the document', () => {
       for (const source of sources.values()) {
         totals[source.media.kind] += 1;
         if (source.provenance?.audio !== undefined) totals.audioShapes += 1;
+        if (source.provenance?.recording !== undefined) totals.recordings += 1;
       }
       for (const asset of project.assets.values()) {
         totals.edits += asset.edits.length;
         totals.pastes += asset.edits.filter((edit) => edit.kind === 'insert').length;
         totals.conversions += asset.edits.filter((edit) => edit.kind === 'convert-layout').length;
+        totals.punches += asset.edits.filter(
+          (edit) => edit.kind === 'process' && edit.edit.kind === 'punch',
+        ).length;
       }
       for (const region of project.regions.values()) {
         totals.regionProcessing += region.operations.length;

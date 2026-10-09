@@ -280,11 +280,24 @@ export function LevelMeters({
     return <p className="ag-panel-note">No levels until something plays.</p>;
   }
   return [...meters].map(([node, levels]) => (
-    <div key={node} className="ag-meters" role="group" aria-label={`Levels at ${node}`}>
+    <LevelGroup key={node} label={`Levels at ${node}`} levels={levels} />
+  ));
+}
+
+/** One meter's channels and correlated pairs, as a group named `label`: a graph's, or an input's. */
+export function LevelGroup({
+  label,
+  levels,
+}: {
+  readonly label: string;
+  readonly levels: MeterLevels;
+}): ReactNode {
+  return (
+    <div className="ag-meters" role="group" aria-label={label}>
       <ChannelPeaks levels={levels} />
       <PairCorrelations levels={levels} />
     </div>
-  ));
+  );
 }
 
 /** Each audio feature this browser reduces or cannot run, with its reason. */

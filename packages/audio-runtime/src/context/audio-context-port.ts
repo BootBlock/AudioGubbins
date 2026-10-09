@@ -5,7 +5,8 @@
  * one, so its lifecycle is tested against a fake that suspends, resumes and
  * closes on the test's word: jsdom has no `AudioContext`, and a real one would
  * answer to the machine's devices rather than to the test. The browser's
- * adapter below is the one place a real context and worklet node are made.
+ * adapter below is the one place a real context, worklet node and media stream
+ * source are made.
  */
 
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
@@ -55,7 +56,10 @@ export interface WorkletMessagePort {
   start(): void;
 }
 
-/** A node running a worklet processor: a source with one output and no input. */
+/**
+ * A node running a worklet processor: one output, and the input its shape
+ * gives it, which a media stream source feeds.
+ */
 export interface WorkletNodePort {
   readonly port: WorkletMessagePort;
   /**
@@ -69,13 +73,31 @@ export interface WorkletNodePort {
 
 /**
  * How a worklet node is shaped. The engine renders its own graph and hands
- * the context finished channels, so the node has no inputs and one output of
- * the channel count the plan asks for.
+ * the context finished channels, so its node has no input. The capture
+ * processor has one, of the input's own channel count, taken channel by
+ * channel: the browser neither mixes the input up or down to another count
+ * nor reads its channels as speakers, so what the processor is given is what
+ * the device captured (REQ-ARCH-157, ADR-0070).
  */
-export interface WorkletNodeShape {
-  readonly outputChannelCount: readonly number[];
-  readonly numberOfInputs: 0;
-  readonly numberOfOutputs: 1;
+export type WorkletNodeShape =
+  | {
+      readonly outputChannelCount: readonly number[];
+      readonly numberOfInputs: 0;
+      readonly numberOfOutputs: 1;
+    }
+  | {
+      readonly outputChannelCount: readonly number[];
+      readonly numberOfInputs: 1;
+      readonly numberOfOutputs: 1;
+      /** The input's channels, exactly as many as the source captures. */
+      readonly inputChannelCount: number;
+    };
+
+/** An input the application opened, as a source node of the context. */
+export interface MediaStreamSourcePort {
+  /** Feeds the input of `node`, a node of the same context with one input. */
+  connect(node: WorkletNodePort): void;
+  disconnect(): void;
 }
 
 /** The members of an audio context the runtime uses. */
@@ -103,6 +125,13 @@ export interface AudioContextPort {
 
   readonly audioWorklet: { addModule(url: string): Promise<void> };
   createWorkletNode(processorName: string, shape: WorkletNodeShape): WorkletNodePort;
+
+  /**
+   * A source of the input `stream` carries, which the application opened
+   * through the capabilities' media input adapter and gave the runtime: the
+   * runtime opens no input of its own (ADR-0070).
+   */
+  createMediaStreamSource(stream: MediaStream): MediaStreamSourcePort;
 
   /** Sends the output to another device; present only where output selection is a capability. */
   readonly setSinkId?: (deviceId: string) => Promise<void>;
@@ -143,34 +172,75 @@ function outputLatencyOf(context: AudioContext): number | undefined {
   return typeof latency === 'number' ? latency : undefined;
 }
 
-function workletNodeOf(
-  context: AudioContext,
-  processorName: string,
-  shape: WorkletNodeShape,
-): WorkletNodePort {
-  const node = new AudioWorkletNode(context, processorName, {
-    numberOfInputs: shape.numberOfInputs,
+/** The options a node of `shape` is made with. */
+function workletOptions(shape: WorkletNodeShape): AudioWorkletNodeOptions {
+  const outputs = {
     numberOfOutputs: shape.numberOfOutputs,
     outputChannelCount: [...shape.outputChannelCount],
-  });
-  let unroute = (): void => {
-    node.disconnect();
   };
+  if (shape.numberOfInputs === 0) return { ...outputs, numberOfInputs: 0 };
   return {
-    port: node.port,
-    connect: (destination, outputChannelOf) => {
-      // The port's destination is the context's own node, handed out below,
-      // so anything else is a node from another context, which the browser
-      // would refuse less clearly.
-      if (destination !== context.destination) {
-        throw new Error('A worklet node plays only to the destination of its own context.');
-      }
-      unroute = routeToDevice(context, node, outputChannelOf);
-    },
-    disconnect: () => {
-      unroute();
-    },
+    ...outputs,
+    numberOfInputs: 1,
+    channelCount: shape.inputChannelCount,
+    channelCountMode: 'explicit',
+    channelInterpretation: 'discrete',
   };
+}
+
+/**
+ * The context's worklet nodes and sources, as ports. Each port it hands out is
+ * remembered with the node behind it, so a source connects only to a node of
+ * its own context, which is the one kind of node the port names.
+ */
+class ContextNodes {
+  readonly #context: AudioContext;
+  readonly #nodes = new WeakMap<WorkletNodePort, AudioWorkletNode>();
+
+  constructor(context: AudioContext) {
+    this.#context = context;
+  }
+
+  workletNode(processorName: string, shape: WorkletNodeShape): WorkletNodePort {
+    const context = this.#context;
+    const node = new AudioWorkletNode(context, processorName, workletOptions(shape));
+    let unroute = (): void => {
+      node.disconnect();
+    };
+    const port: WorkletNodePort = {
+      port: node.port,
+      connect: (destination, outputChannelOf) => {
+        // The port's destination is the context's own node, handed out below,
+        // so anything else is a node from another context, which the browser
+        // would refuse less clearly.
+        if (destination !== context.destination) {
+          throw new Error('A worklet node plays only to the destination of its own context.');
+        }
+        unroute = routeToDevice(context, node, outputChannelOf);
+      },
+      disconnect: () => {
+        unroute();
+      },
+    };
+    this.#nodes.set(port, node);
+    return port;
+  }
+
+  mediaStreamSource(stream: MediaStream): MediaStreamSourcePort {
+    const source = this.#context.createMediaStreamSource(stream);
+    return {
+      connect: (port) => {
+        const node = this.#nodes.get(port);
+        if (node === undefined) {
+          throw new Error('A media stream source feeds only a worklet node of its own context.');
+        }
+        source.connect(node);
+      },
+      disconnect: () => {
+        source.disconnect();
+      },
+    };
+  }
 }
 
 /**
@@ -186,6 +256,7 @@ export function browserAudioContext(capabilities: AudioRuntimeCapabilities): Cre
       latencyHint: options.latencyHint,
       ...(options.sampleRate === undefined ? {} : { sampleRate: options.sampleRate }),
     });
+    const nodes = new ContextNodes(context);
     const sinkSelection =
       capabilities.outputSelection && selectsSink(context)
         ? { setSinkId: (deviceId: string) => context.setSinkId(deviceId) }
@@ -217,7 +288,8 @@ export function browserAudioContext(capabilities: AudioRuntimeCapabilities): Cre
         context.removeEventListener(type, listener);
       },
       audioWorklet: { addModule: (url) => context.audioWorklet.addModule(url) },
-      createWorkletNode: (processorName, shape) => workletNodeOf(context, processorName, shape),
+      createWorkletNode: (processorName, shape) => nodes.workletNode(processorName, shape),
+      createMediaStreamSource: (stream) => nodes.mediaStreamSource(stream),
       ...sinkSelection,
     };
   };

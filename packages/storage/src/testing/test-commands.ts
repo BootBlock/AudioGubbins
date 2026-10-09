@@ -59,6 +59,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { silentLogger } from './silent-logger.js';
+import { takeCommands } from './take-commands.js';
 
 const SET_NAME = commandId('test.set-name');
 const ADD_ASSET = commandId('test.add-asset');
@@ -439,6 +440,7 @@ export function testBus(): CommandBus<ProjectState> {
     withdrawEditCommand(),
     addChainCommand(),
     removeChainCommand(),
+    ...takeCommands(),
   ]) {
     registry.register(each);
   }

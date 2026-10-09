@@ -145,6 +145,7 @@ async function setAsideOne(tree: MemoryStorageTree, project: ProjectId, seed: nu
       regions: [],
       markers: [],
       effectChains: [],
+      takeStacks: [],
       project: true,
     },
     stateFingerprint: await files.states.fingerprint(model.state),

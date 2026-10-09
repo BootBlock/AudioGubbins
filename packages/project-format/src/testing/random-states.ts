@@ -5,8 +5,9 @@
  * again by its seed. Every entity kind appears in random numbers with valid
  * references, numbers range from the tiny to the huge, and each asset comes
  * with a source from `random-values.ts`, so the aggregate's invariants hold.
- * Assets carry small chains of edits, and regions and markers are anchored on
- * them, from `random-edits.ts`.
+ * Assets carry small chains of edits, punches among them over take stacks of
+ * the recorded assets, and regions and markers are anchored on them, from
+ * `random-edits.ts` and `random-recordings.ts`.
  */
 
 import {
@@ -33,6 +34,8 @@ import {
   type PlanContext,
   type ProcessorInstance,
   type ProjectId,
+  type TakeStack,
+  type TakeStackId,
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
@@ -40,6 +43,7 @@ import { expectSuccess, TEST_CATALOGUE, TEST_ENGINE } from '@audiogubbins/domain
 
 import type { AssetSource, ProjectState } from '../project-state.js';
 import { randomMarker, randomRegion, withRandomEdits } from './random-edits.js';
+import { randomTakeStacks } from './random-recordings.js';
 import {
   RATES,
   maybe,
@@ -84,8 +88,14 @@ class StateBuilder {
     const buses = this.buses(chainIds);
     const busIds = [...buses.keys()];
     const tracks = this.entities(5, () => this.track(busIds, chainIds));
-    const context = { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE };
-    const { assets, sources } = this.assets(projectId, context);
+    const { assets, sources, takeStacks } = this.assets(projectId, chains);
+    const context: PlanContext = {
+      chains,
+      takeStacks,
+      assets,
+      catalogue: TEST_CATALOGUE,
+      engine: TEST_ENGINE,
+    };
     const placedOn = [...assets.values()];
     const trackIds = [...tracks.keys()];
     const clips =
@@ -107,18 +117,24 @@ class StateBuilder {
       ),
       markers: this.placed(placedOn, 4, randomMarker),
       effectChains: chains,
+      takeStacks,
       trackOrder: this.shuffled(trackIds),
     };
     return { project, sources };
   }
 
-  /** Up to five assets, each with its source and a small chain of edits. */
+  /**
+   * Up to five assets, each with its source and a small chain of edits, and
+   * take stacks over those that were recorded, which a punch among the edits
+   * may name.
+   */
   private assets(
     projectId: ProjectId,
-    context: PlanContext,
+    chains: ReadonlyMap<EffectChainId, EffectChain>,
   ): {
     readonly assets: Map<AssetId, Asset>;
     readonly sources: Map<AssetId, AssetSource>;
+    readonly takeStacks: Map<TakeStackId, TakeStack>;
   } {
     const assets = new Map<AssetId, Asset>();
     const sources = new Map<AssetId, AssetSource>();
@@ -127,7 +143,19 @@ class StateBuilder {
       assets.set(asset.id, asset);
       sources.set(asset.id, source);
     }
-    return { assets: withRandomEdits(this.random, this.ids, assets, context), sources };
+    const takeStacks = randomTakeStacks(this.random, this.ids, assets);
+    const context: PlanContext = {
+      chains,
+      takeStacks,
+      assets,
+      catalogue: TEST_CATALOGUE,
+      engine: TEST_ENGINE,
+    };
+    return {
+      assets: withRandomEdits(this.random, this.ids, assets, context),
+      sources,
+      takeStacks,
+    };
   }
 
   private entities<TEntity extends { readonly id: string }>(

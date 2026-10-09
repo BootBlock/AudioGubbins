@@ -80,6 +80,7 @@ function counted(): { readonly processing: ChainProcessing; readonly prepared: (
     processing: {
       listening: (request) => rack.listening(request),
       measurementBytes: (request) => rack.measurementBytes(request),
+      prepareLive: (request) => rack.prepareLive(request),
       prepare: (...args) => {
         prepared += 1;
         return rack.prepare(...args);

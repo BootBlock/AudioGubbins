@@ -28,6 +28,7 @@ import {
   type MarkerId,
   type ProjectId,
   type RegionId,
+  type TakeStackId,
   type TrackId,
 } from '@audiogubbins/domain';
 
@@ -81,6 +82,7 @@ export interface AffectedEntities {
   readonly regions: readonly RegionId[];
   readonly markers: readonly MarkerId[];
   readonly effectChains: readonly EffectChainId[];
+  readonly takeStacks: readonly TakeStackId[];
   readonly project: boolean;
 }
 

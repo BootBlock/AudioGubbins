@@ -14,7 +14,7 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
 import type { ProjectState } from '@audiogubbins/project-format';
-import { editedReferenceState } from '@audiogubbins/project-format/testing';
+import { editedReferenceState, punchedState } from '@audiogubbins/project-format/testing';
 import { addRegionInvocation, applyInvocation } from '@audiogubbins/project-commands';
 import { ProjectCommandId } from '@audiogubbins/project-commands';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
@@ -256,6 +256,37 @@ describe('the entries of a state the worker sends, against those of the state be
       kind: 'open',
       asset: { name: 'Rain' },
     });
+  });
+
+  it('plans an asset again where only the take its punch plays changed (ADR-0072)', () => {
+    const punchedFixture = sampleProject();
+    const punched = punchedState(punchedFixture);
+    const [stack] = punched.project.takeStacks.values();
+    const [early] = stack?.takes ?? [];
+    if (stack === undefined || early === undefined) throw new Error('The state is punched.');
+    // One value for every file the page has yet to find, so an unchanged asset compares equal.
+    const finding: MediaAvailability = { kind: 'finding' };
+    const files = (asset: AssetId): MediaAvailability => held.get(asset) ?? finding;
+    const before = projectEntries(punched, files, OPEN_MODEL_GATE);
+    planned.length = 0;
+    expect(projectEntries(punched, files, OPEN_MODEL_GATE, before.made).entries).toEqual(
+      before.entries,
+    );
+    expect(planned).toEqual([]);
+
+    const chosen = {
+      ...stack,
+      takes: stack.takes.map((take) =>
+        take.id === early.id ? { ...take, state: 'kept' as const } : take,
+      ),
+      chosen: early.id,
+    };
+    const rechosen: ProjectState = {
+      ...punched,
+      project: { ...punched.project, takeStacks: new Map([[stack.id, chosen]]) },
+    };
+    projectEntries(rechosen, files, OPEN_MODEL_GATE, before.made);
+    expect(planned).toEqual([punchedFixture.assets.footstep.id]);
   });
 
   it('plans a region again where only a parameter of its rack changed', () => {

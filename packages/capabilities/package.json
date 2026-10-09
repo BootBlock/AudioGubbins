@@ -21,6 +21,7 @@
     "test": "vitest run --root ../../ --project capabilities"
   },
   "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/diagnostics": "workspace:*",
     "@audiogubbins/text": "workspace:*"
   },

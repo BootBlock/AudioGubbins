@@ -78,6 +78,12 @@
       "path": "./packages/timeline/scopes/any"
     },
     {
+      "path": "./packages/recording"
+    },
+    {
+      "path": "./packages/recording/scopes/any"
+    },
+    {
       "path": "./packages/waveform"
     },
     {

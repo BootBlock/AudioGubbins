@@ -213,6 +213,14 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/storage-runtime/src/client/storage-client.ts: storageClientOver'],
   "The length a segment of history is filled to, which the ledger's tests size their nodes against to make it cut, merge or keep segments.":
     ['packages/storage/src/segment-ledger.ts: SEGMENT_LENGTH'],
+  'The recording thresholds its tests hold each decision to at its edge (ADR-0070): the level the calibration signal plays at and the ratio its correlation peak must clear, the latency past which a path is called high, the longest name a capture profile takes, and the storage time left that is warned of. The package decides by each where it is declared, and nothing outside it states the same number.':
+    [
+      'packages/recording/src/calibration-signal.ts: CALIBRATION_SIGNAL_PEAK',
+      'packages/recording/src/capture-profile.ts: PROFILE_NAME_CHARACTERS',
+      'packages/recording/src/latency-diagnostics.ts: HIGH_LATENCY_SECONDS',
+      'packages/recording/src/loopback-analysis.ts: MINIMUM_PEAK_RATIO',
+      'packages/recording/src/storage-time.ts: STORAGE_WARNING_SECONDS',
+    ],
   "What a spectrogram lane says until spectral analysis draws it, which the composer's test finds in the lane.":
     ['packages/editor-view/src/frame-composer.ts: SPECTROGRAM_SHELL_NOTE'],
   "The time axis's bounds and rounding, which its conversions use and its tests hold to ADR-0041's exactness: the zoom's limits and single-sample step, the zoom showing a span, rounding half away from zero, the unclamped nearest boundary and the view kept within the timeline, and the order snap targets win in.":

@@ -141,7 +141,7 @@ function importedAsset(
 }
 
 /** The audio shape the reader found, as the provenance records it. */
-function audioShape(format: AudioFormatDescriptor): SourceAudioShape {
+export function audioShape(format: AudioFormatDescriptor): SourceAudioShape {
   const { encoding } = format;
   return {
     container: format.container,

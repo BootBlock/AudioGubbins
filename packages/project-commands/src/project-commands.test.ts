@@ -79,6 +79,7 @@ import {
   setSlotControlInvocation,
 } from './processing/slot-commands.js';
 import type { SlotControl } from './processing/slot-arguments.js';
+import { TAKE_CHOICES, randomTakeInvocation } from './testing/random-takes.js';
 import {
   appliedOf,
   assertReadsBack,
@@ -101,6 +102,9 @@ function randomInvocation(
   state: ProjectState,
 ): CommandInvocation {
   const assets = [...state.project.assets.values()];
+  if (random.chance(0.3)) {
+    return randomTakeInvocation(random, ids, state, random.below(TAKE_CHOICES));
+  }
   const choice = random.below(29);
   if (choice === 0)
     return { commandId: ProjectCommandId.Rename, arguments: { name: randomName(random) } };
@@ -286,6 +290,8 @@ function randomEditingInvocation(
   const last = asset.edits.at(-1);
   const context = {
     chains: state.project.effectChains,
+    takeStacks: state.project.takeStacks,
+    assets: state.project.assets,
     catalogue: TEST_CATALOGUE,
     engine: TEST_ENGINE,
   };

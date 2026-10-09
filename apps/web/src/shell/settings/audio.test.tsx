@@ -28,7 +28,14 @@ function runnerFor(context: ShellContext): RunCommand {
 /** The section over the context's settings, drawn again as they change, as the dialogue draws it. */
 function Section({ context }: { readonly context: ShellContext }): ReactNode {
   const settings = useSyncExternalStore(context.audioSettings.subscribe, context.audioSettings.get);
-  return <Audio settings={settings} run={runnerFor(context)} />;
+  return (
+    <Audio
+      settings={settings}
+      run={runnerFor(context)}
+      recording={context.recording}
+      unavailableReason={() => undefined}
+    />
+  );
 }
 
 function field(name: string): HTMLElement {

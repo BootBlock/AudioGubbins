@@ -15,6 +15,7 @@ const USAGE: StorageUsage = {
   namedSnapshots: 0,
   alternativeBranches: 1_024,
   recoveryCheckpoints: 4_096,
+  recordings: 6_144,
   sourceMedia: 3 * 2 ** 20,
   retainedDeletedMedia: {
     namedSnapshots: 2 ** 20,
@@ -173,6 +174,7 @@ describe('the Storage panel', () => {
       .map((term) => [term.textContent, term.nextSibling?.textContent]);
     expect(parts).toContainEqual(['Audio in use', '3 MB']);
     expect(parts).toContainEqual(['Recent changes not yet in a save point', '2 kB']);
+    expect(parts).toContainEqual(['Recordings not yet made into audio', '6 kB']);
     expect(parts).toContainEqual(['Audio nothing uses', '512 bytes']);
     expect(parts).toContainEqual(['Waveforms', '10 kB']);
     expect(parts).toContainEqual(['Audio kept for snapshots', '1 MB']);

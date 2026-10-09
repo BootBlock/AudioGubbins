@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RegionId } from '@audiogubbins/domain';
+import type { RegionId, TakeStackId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
   ExportDestinationKind,
@@ -11,7 +11,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { changeNodeOf, nameBranch, recordChange, type History } from './history.js';
-import type { HistoryRow } from './history-rows.js';
+import { affectedEntities, type HistoryRow } from './history-rows.js';
 import { createSnapshot } from './snapshots.js';
 import {
   EPOCH,
@@ -156,6 +156,33 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
       rowsOf(history, { affecting: { kind: 'region', id: region } }).map((row) => row.node.id),
     ).toEqual([node.b]);
     expect(rowsOf(history, { affecting: { kind: 'clip', id: region } })).toEqual([]);
+  });
+
+  it('are filtered to the changes that affected a take stack, which each names', () => {
+    const generator = testIds(53);
+    const stack: TakeStackId = generator.next<'TakeStackId'>();
+    const chosen = generator.next<'HistoryNodeId'>();
+    let history = grown(newHistory(generator), generator.next<'HistoryNodeId'>(), 'Trim start');
+    history = expectSuccess(
+      recordChange(
+        history,
+        changeNodeOf(history, {
+          id: chosen,
+          at: EPOCH + 10,
+          entry: {
+            description: 'Choose take',
+            forward: [invocation('choose', 'take')],
+            inverse: [invocation('choose-back', 'take')],
+          },
+          affects: { ...NOTHING_AFFECTED, takeStacks: [stack] },
+        }),
+      ),
+    );
+    const rows = rowsOf(history, { affecting: { kind: 'take-stack', id: stack } });
+    expect(rows.map((row) => row.node.id)).toEqual([chosen]);
+    const [row] = rows;
+    if (row === undefined) throw new Error('One change affected the stack.');
+    expect([...affectedEntities(row.node)]).toEqual([{ kind: 'take-stack', id: stack }]);
   });
 
   it('list a history ten thousand changes long without indenting it', () => {

@@ -11,10 +11,10 @@
  * (`project-operations.ts`), taking projects out and bringing them in
  * (`transfer-operations.ts`), their backup generations
  * (`backup-operations.ts`), audio files (`media-operations.ts`), model packs
- * (`pack-operations.ts`), the storage root, the caches, the usage and its
- * cleanup, who writes each project, and the files linked assets were recorded
- * from. The values all clone: none is a class with behaviour, and a cache's
- * bytes are moved rather than copied.
+ * (`pack-operations.ts`), recordings (`recording-operations.ts`), the storage
+ * root, the caches, the usage and its cleanup, who writes each project, and the
+ * files linked assets were recorded from. The values all clone: none is a class
+ * with behaviour, and a cache's bytes are moved rather than copied.
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';
@@ -56,6 +56,11 @@ import type { BackupOperations } from './backup-operations.js';
 import type { MediaOperations } from './media-operations.js';
 import type { Handlers, Operation, Stream } from './operations.js';
 import type { PackChange, PackOperations } from './pack-operations.js';
+import type {
+  RecordingOperations,
+  RecordingStatus,
+  RecordingStream,
+} from './recording-operations.js';
 import type { CrossingFile, PageOperations, PagePort } from './page-operations.js';
 import type { PortChannel } from './port-channel.js';
 import type {
@@ -72,6 +77,7 @@ export type StorageOperations = ProjectOperations &
   TransferOperations &
   BackupOperations &
   MediaOperations &
+  RecordingOperations &
   PackOperations & {
     /** Every project, deleted ones among them, in the order of their identifiers. */
     'library.list': Operation<undefined, readonly CatalogueEntry[]>;
@@ -207,6 +213,9 @@ export type StorageWorkerSide = {
 
     /** The leading slices of the history of a project opening, by its handle. */
     readonly [handle: OpeningStream]: Stream<HistoryDelta>;
+
+    /** Each change of a recording's status, by its session. */
+    readonly [session: RecordingStream]: Stream<RecordingStatus>;
   };
 };
 

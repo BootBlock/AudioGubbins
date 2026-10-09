@@ -136,3 +136,24 @@ export function applyStages(
   }
   return current;
 }
+
+/**
+ * Adds `addend` into `sum`, frame by frame over `frames`, in place: the rule
+ * a mix source is summed by (`plan.ts`). The streams are added in the order
+ * the mix states, starting from the first's samples as they are, each
+ * addition made in 64-bit arithmetic and rounded to a 32-bit float, so a mix
+ * gives the same bits on every machine (ADR-0032).
+ */
+export function sumInto(
+  sum: readonly Float32Array[],
+  addend: readonly Float32Array[],
+  frames: number,
+): void {
+  sum.forEach((channel, which) => {
+    const added = addend[which];
+    if (added === undefined) return;
+    for (let index = 0; index < frames; index += 1) {
+      channel[index] = Math.fround((channel[index] ?? 0) + (added[index] ?? 0));
+    }
+  });
+}

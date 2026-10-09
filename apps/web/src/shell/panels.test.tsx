@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { FailureKind, failure } from '@audiogubbins/domain';
 import {
   ALL_FEATURES,
   createCapabilityRegistry,
@@ -26,7 +27,9 @@ import {
 } from '../state/render-strategy-store.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { createRendererReports } from '../state/renderer-reports.js';
+import { panelCommandsOver } from '../testing/command-availability.js';
 import { fakePanelParts } from '../testing/editor-fakes.js';
+import type { RecordingFakes } from '../testing/recording-fakes.js';
 import { buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { DiagnosticsPanel, recordsPassing } from './diagnostics-panel.js';
@@ -97,6 +100,17 @@ const NO_METERS = new Map();
  * each get their region back unseen.
  */
 
+/**
+ * The recording part, the audio settings and the commands of a shell built for
+ * the test, over a fake browser `prepare` may set up first.
+ */
+function recordingParts(prepare: (fakes: RecordingFakes) => void = () => undefined) {
+  const built = buildShellContext();
+  prepare(built.recording);
+  const { recording, audioSettings } = built.context;
+  return { recording, audioSettings, commands: panelCommandsOver(built.context) };
+}
+
 describe('what a panel is given', () => {
   it('reads the audio stores and cannot write them, changing them only by a command', () => {
     // Compared exactly, so a store's setter added back to a panel's view of it
@@ -152,6 +166,7 @@ describe('every panel', () => {
           packs: shell.packs,
           modelGate: shell.modelGate,
           hearing: shell.hearing,
+          recording: shell.recording,
         })}
       </>,
     );
@@ -311,6 +326,7 @@ describe('the capability panel', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={[]}
+        {...recordingParts()}
       />,
     );
 
@@ -346,6 +362,7 @@ describe('the capability panel', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={[]}
+        {...recordingParts()}
       />,
     );
 
@@ -381,6 +398,7 @@ describe('the capability panel', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={[]}
+        {...recordingParts()}
       />,
     );
 
@@ -388,6 +406,68 @@ describe('the capability panel', () => {
     expect(statuses.map((status) => status.getAttribute('data-ag-status'))).toEqual(
       registry.degradedFeatures(ALL_FEATURES).map((feature) => feature.status),
     );
+  });
+});
+
+describe("the capability panel's recording diagnostics", () => {
+  it('says at once that the page is not secure, before any audio context or storage reports', async () => {
+    const registry = createCapabilityRegistry(
+      bareEnvironment(),
+      createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+    );
+    const parts = recordingParts((fakes) => {
+      fakes.media.listingRefusal = failure(
+        'media-input.insecure-context',
+        FailureKind.Unrecoverable,
+        'Recording needs a secure page, served over HTTPS or from this computer, and this page is not one.',
+      );
+    });
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        renderers={createRendererReports()}
+        storageAbsences={[]}
+        {...parts}
+      />,
+    );
+
+    const list = await screen.findByRole('list', { name: 'Recording diagnostics' });
+    expect(
+      within(list).getByText(
+        'The page is not served from a secure origin, and browsers offer a microphone only to one.',
+      ),
+    ).toBeVisible();
+    expect(within(list).getByText('Needs you')).toBeVisible();
+    // Nothing has made an audio context, so what rests on one is still to come.
+    expect(parts.recording.input.view.get().context).toBeUndefined();
+    expect(
+      screen.getByText(/checked once an input is armed or something plays/u),
+    ).toBeInTheDocument();
+  });
+
+  it('says at once that the microphone is refused', async () => {
+    const registry = createCapabilityRegistry(
+      bareEnvironment(),
+      createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+    );
+    const parts = recordingParts((fakes) => {
+      fakes.media.permissionState = 'denied';
+    });
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        renderers={createRendererReports()}
+        storageAbsences={[]}
+        {...parts}
+      />,
+    );
+
+    const list = await screen.findByRole('list', { name: 'Recording diagnostics' });
+    expect(
+      within(list).getByText('The microphone permission was refused for this site.'),
+    ).toBeVisible();
   });
 });
 
@@ -460,6 +540,7 @@ describe('what the browser lacks for keeping projects', () => {
         capabilities={registry}
         renderers={createRendererReports()}
         storageAbsences={absences}
+        {...recordingParts()}
       />,
     );
 

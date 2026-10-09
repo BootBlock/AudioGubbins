@@ -87,6 +87,8 @@ const ASSET: Asset = {
 const PLAN = expectSuccess(
   assetPlan(ASSET, {
     chains: new Map([[CHAIN.id, CHAIN]]),
+    takeStacks: new Map(),
+    assets: new Map(),
     catalogue: PROCESSOR_CATALOGUE,
     engine: ENGINE_VERSIONS,
   }),

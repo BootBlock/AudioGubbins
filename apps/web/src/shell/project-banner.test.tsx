@@ -39,6 +39,7 @@ function banner(
       root={observable(root)}
       project={project}
       quickEdit={quickEdit}
+      interrupted={undefined}
       run={run}
       announce={announce}
     />,
@@ -268,6 +269,7 @@ describe('the project strip, with projects to reach', () => {
       replayed: 4,
       fenced: [],
       missingStates: [],
+      interruptedRecordings: [],
     };
     const { run, announce, strip } = banner(
       { kind: 'ready' },

@@ -61,6 +61,8 @@ function writeSource(source: PlanSource): JsonObject {
       return { kind: 'stream', stream: source.stream };
     case 'silence':
       return { kind: 'silence', channels: source.channels };
+    case 'mix':
+      return { kind: 'mix', streams: [...source.streams] };
   }
 }
 

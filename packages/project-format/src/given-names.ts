@@ -30,15 +30,16 @@ import { pathOf, type Converter } from './document-reading.js';
 import { textConverter } from './scalar-reading.js';
 import { LONGEST_NAME } from './value-reading.js';
 
-/** What a name is the name of, which its refusal codes begin with. */
-export type NamedSubject = 'project' | 'asset';
+/** What a name is the name of, which its refusal codes begin with, hyphenated. */
+export type NamedSubject = 'project' | 'asset' | 'take' | 'take stack';
 
 /** The refusal of a name by the part of the rule that refused it. */
 function refusal(subject: NamedSubject, problem: NameProblem): DomainFailure {
+  const code = subject.replaceAll(' ', '-');
   return problem.kind === 'blank'
-    ? failure(`${subject}.name-blank`, FailureKind.Rejected, `A ${subject} needs a name.`)
+    ? failure(`${code}.name-blank`, FailureKind.Rejected, `A ${subject} needs a name.`)
     : failure(
-        `${subject}.name-too-long`,
+        `${code}.name-too-long`,
         FailureKind.Rejected,
         `A ${subject} name can be at most ${String(LONGEST_NAME)} characters long.`,
       );
@@ -96,3 +97,9 @@ export const asProjectName = nameConverter('project');
 
 /** Reads an asset's name from a document. */
 export const asAssetName = nameConverter('asset');
+
+/** Reads a take's name from a document. */
+export const asTakeName = nameConverter('take');
+
+/** Reads a take stack's name from a document. */
+export const asTakeStackName = nameConverter('take stack');

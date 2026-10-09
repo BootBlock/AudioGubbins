@@ -13,13 +13,8 @@ import type { Marker, PlacedMarker, PlacedRegion, Region } from '../project/time
 import { mapResult, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
-import {
-  assetPlan,
-  bypassedAssetPlan,
-  unrackedAssetPlan,
-  withRack,
-  type PlanContext,
-} from './plan-building.js';
+import { assetPlan, bypassedAssetPlan, unrackedAssetPlan, withRack } from './plan-building.js';
+import type { PlanContext } from './plan-context.js';
 import type { EditPlan } from './plan.js';
 import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';

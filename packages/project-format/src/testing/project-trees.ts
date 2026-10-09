@@ -46,6 +46,7 @@ const NO_EFFECT = {
   regions: [],
   markers: [],
   effectChains: [],
+  takeStacks: [],
   project: true,
 };
 

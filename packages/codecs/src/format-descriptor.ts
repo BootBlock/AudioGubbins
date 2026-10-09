@@ -179,6 +179,19 @@ function defaultLayout(channelCount: number): DomainResult<ChannelLayout> {
 }
 
 /**
+ * The layout a file of `channelCount` channels is read with: the one its header
+ * states, or the format's default where it states none. The one rule both the
+ * readers and the recorded-media writer, which must write a header read back as
+ * the layout it was given, take it by.
+ */
+export function layoutRead(
+  stated: ChannelLayout | undefined,
+  channelCount: number,
+): DomainResult<ChannelLayout> {
+  return stated === undefined ? defaultLayout(channelCount) : succeed(stated);
+}
+
+/**
  * Checks a header's facts and makes them a descriptor. `statedLayout` is asked
  * only once the channel count is known to be one a layout can have.
  */
@@ -192,24 +205,22 @@ export function describeAudio(
   if (!rate.ok) return fail(unsupportedSampleRate(String(facts.sampleRate), rate.failures[0]));
   const stated = statedLayout(facts.channelCount);
   const present = Math.min(facts.declaredFrames, Math.floor(facts.presentBytes / facts.blockAlign));
-  return flatMapResult(
-    stated === undefined ? defaultLayout(facts.channelCount) : succeed(stated),
-    (layout) =>
-      flatMapResult(sampleCount(present), (frames) =>
-        flatMapResult(sampleCount(facts.declaredFrames), (declaredFrames) =>
-          succeed({
-            container: facts.container,
-            sampleRate: rate.value,
-            encoding: facts.encoding,
-            channelCount: facts.channelCount,
-            statedLayout: stated,
-            layout,
-            frames,
-            declaredFrames,
-            dataOffset: facts.dataOffset,
-            blockAlign: facts.blockAlign,
-          }),
-        ),
+  return flatMapResult(layoutRead(stated, facts.channelCount), (layout) =>
+    flatMapResult(sampleCount(present), (frames) =>
+      flatMapResult(sampleCount(facts.declaredFrames), (declaredFrames) =>
+        succeed({
+          container: facts.container,
+          sampleRate: rate.value,
+          encoding: facts.encoding,
+          channelCount: facts.channelCount,
+          statedLayout: stated,
+          layout,
+          frames,
+          declaredFrames,
+          dataOffset: facts.dataOffset,
+          blockAlign: facts.blockAlign,
+        }),
       ),
+    ),
   );
 }

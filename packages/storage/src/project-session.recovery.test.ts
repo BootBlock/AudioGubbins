@@ -40,6 +40,7 @@ const PROJECT_ONLY: AffectedEntities = {
   regions: [],
   markers: [],
   effectChains: [],
+  takeStacks: [],
   project: true,
 };
 

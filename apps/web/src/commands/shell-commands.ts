@@ -42,6 +42,12 @@ import { rackSlotCommands } from './rack-slot-commands.js';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
 import { qualityCommands } from './quality-commands.js';
+import { recordingCommands } from './recording-commands.js';
+import { recordingSettingsCommands } from './recording-settings-commands.js';
+import { takeRecordingCommands } from './take-recording-commands.js';
+import { takeStackCommands } from './take-commands.js';
+import { takeAuditionCommands } from './take-audition-commands.js';
+import { interruptedRecordingCommands } from './interrupted-recording-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
 import { editorAssetCommands } from './editor-asset-commands.js';
 import { editorNavigationCommands } from './editor-navigation-commands.js';
@@ -190,6 +196,12 @@ export function shellCommands(
     ...audioCommands(),
     ...audioSettingsCommands(),
     ...qualityCommands(),
+    ...recordingCommands(),
+    ...recordingSettingsCommands(),
+    ...takeRecordingCommands(),
+    ...takeStackCommands(),
+    ...takeAuditionCommands(),
+    ...interruptedRecordingCommands(),
     ...editorAssetCommands(),
     ...editorNavigationCommands(),
     ...editorPresentationCommands(),

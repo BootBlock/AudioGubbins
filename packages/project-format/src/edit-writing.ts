@@ -34,6 +34,8 @@ function writeRangeEdit(edit: RangeEdit): JsonObject {
       return { kind: edit.kind, gains: [...edit.gains] };
     case 'rack':
       return { kind: edit.kind, chain: edit.chain };
+    case 'punch':
+      return { kind: edit.kind, stack: edit.stack };
   }
 }
 

@@ -23,6 +23,12 @@
  * installs, kept beside the projects through the model packs' store port,
  * counted by usage and offered by a cleanup (ADR-0062).
  *
+ * Recording into a project (ADR-0071): a session's audio, arriving through the
+ * `CaptureStream` port, committed in chunks as it is made, the session made
+ * into an asset and its take when capture ends, every session a crash cut
+ * short offered when the project opens and ended only by the person, and the
+ * media store's own recovery run apart from them.
+ *
  * The package reaches no browser or Node global: the tree, the digest, the
  * clock, the identifiers, the command bus and the lease coordination are
  * injected, so every rule here is tested without a browser. Everything absent
@@ -224,3 +230,26 @@ export { type LibraryServices, ProcessingLibraryStore } from './processing-libra
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
 export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';
 export { type AudioPaste, pasteAudio } from './audio-paste.js';
+
+export { type CaptureStream, type CapturedEvent } from './capture-stream.js';
+export { type RecordingFiles } from './recording-manifests.js';
+export {
+  type CaptureEnded,
+  type LostFrames,
+  type RecordingProgress,
+  type RecordingServices,
+  type RecordingSetUp,
+  captureInto,
+  startRecording,
+} from './recording-capture.js';
+export {
+  type FinishedRecording,
+  type FinishingServices,
+  finishRecording,
+} from './recording-finishing.js';
+export { type RecordingCommands } from './recording-takes.js';
+export { type InterruptedRecording } from './recording-sessions.js';
+export { recordingInProgress } from './recording-failures.js';
+export { discardRecording, interruptedRecordings, recoverRecording } from './recording-recovery.js';
+export { recoverMediaStore } from './media-recovery.js';
+export { type Alone } from './storage-sharing.js';

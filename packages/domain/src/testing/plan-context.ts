@@ -1,11 +1,12 @@
 /**
  * Plan contexts for tests: the versions of the engine's algorithms a test's
  * edits are made by, and a context for audio that names no chain of
- * processors, with no project chains and no processor types, so a rack edit
- * or a rack in the test is refused rather than heard as nothing.
+ * processors and no take stack, with no project chains, stacks or assets and
+ * no processor types, so a rack edit, a rack or a punch in the test is
+ * refused rather than heard as nothing.
  */
 
-import type { PlanContext } from '../editing/plan-building.js';
+import type { PlanContext } from '../editing/plan-context.js';
 import type { EngineVersions } from '../editing/operations.js';
 
 /**
@@ -18,6 +19,8 @@ export const TEST_ENGINE: EngineVersions = { stretch: 1, resampler: 1 };
 
 export const PLAN_WITHOUT_CHAINS: PlanContext = {
   chains: new Map(),
+  takeStacks: new Map(),
+  assets: new Map(),
   catalogue: new Map(),
   engine: TEST_ENGINE,
 };

@@ -15,6 +15,18 @@ declare module '@audiogubbins/audio-runtime/threads/engine-processor.ts?worker&u
   export default url;
 }
 
+/** Where the bundler put the capture processor, built on its own (ADR-0070). */
+declare module '@audiogubbins/audio-runtime/threads/capture-processor.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
+/** Where the bundler put the loopback calibration's worker, built on its own. */
+declare module '*/loopback-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
 /** Where the bundler put the feeder worker, built on its own. */
 declare module '@audiogubbins/audio-runtime/threads/feeder-worker.ts?worker&url' {
   const url: string;

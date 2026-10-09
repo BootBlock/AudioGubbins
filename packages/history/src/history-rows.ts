@@ -23,7 +23,8 @@ import type { HistoryRowOrder } from './history-row-order.js';
 import { snapshotsByNode } from './snapshots.js';
 
 /** The kinds of entity a change can affect, as the panel names them. */
-export type EntityKind = 'asset' | 'track' | 'bus' | 'clip' | 'region' | 'marker' | 'effect-chain';
+export type EntityKind =
+  'asset' | 'track' | 'bus' | 'clip' | 'region' | 'marker' | 'effect-chain' | 'take-stack';
 
 /** One entity of the project. */
 export interface EntityReference {
@@ -92,6 +93,7 @@ const AFFECTED_LISTS = [
   ['region', 'regions'],
   ['marker', 'markers'],
   ['effect-chain', 'effectChains'],
+  ['take-stack', 'takeStacks'],
 ] as const;
 
 /** Text as it is searched: compatibility-composed and in lower case. */

@@ -72,6 +72,7 @@ function counted(): { readonly processing: ChainProcessing; readonly starts: num
     processing: {
       listening: (request) => rack.listening(request),
       measurementBytes: (request) => rack.measurementBytes(request),
+      prepareLive: (request) => rack.prepareLive(request),
       prepare: (request, read, signal) => {
         starts.push(request.start);
         return rack.prepare(request, read, signal);

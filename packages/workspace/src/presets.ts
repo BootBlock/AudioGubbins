@@ -39,6 +39,9 @@ export const PanelKinds = {
 
   /** Reference picture beside the audio (REQ-AUDIO-156). */
   Picture: 'picture',
+
+  /** The input, its meters, monitoring and latency, armed for recording (ADR-0070). */
+  Recording: 'recording',
 } as const;
 
 /** One group of a preset, before the unavailable kinds are removed. */
@@ -91,8 +94,13 @@ const PRESETS: readonly Preset[] = [
     groups: [
       { region: DockRegion.Centre, proportion: 1, kinds: [PanelKinds.Editor] },
       { region: DockRegion.Right, proportion: 0.24, kinds: [PanelKinds.Inspector] },
-      // Levels matter most while recording, so the transport is given height.
-      { region: DockRegion.Bottom, proportion: 0.28, kinds: [PanelKinds.Transport] },
+      // Levels matter most while recording, so the input and the transport
+      // are given height, the input in front.
+      {
+        region: DockRegion.Bottom,
+        proportion: 0.28,
+        kinds: [PanelKinds.Recording, PanelKinds.Transport],
+      },
     ],
   },
   {

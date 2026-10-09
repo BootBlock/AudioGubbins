@@ -170,6 +170,21 @@ export default defineConfig<SuiteOptions>({
       testMatch: /effect-rack\.spec\.ts/,
     },
     {
+      // Recording with Chromium's fake input device and the microphone
+      // granted: a take recorded, punched into, a take chosen and undone,
+      // heard again after a reload, and a recording cut short by a reload
+      // recovered (the packet's `test:e2e:recording`).
+      name: 'chromium-recording',
+      use: {
+        ...devices['Desktop Chrome'],
+        permissions: ['microphone'],
+        launchOptions: {
+          args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+        },
+      },
+      testMatch: /recording\.spec\.ts/,
+    },
+    {
       // Every worker under the page's security policy: the storage and
       // inference workers each refused a fetch from another origin. The second
       // test installs a model pack, so the build must carry the packs

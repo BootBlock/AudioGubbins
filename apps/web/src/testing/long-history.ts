@@ -36,6 +36,7 @@ export function longHistory(changes: number): History {
         regions: [],
         markers: [],
         effectChains: [],
+        takeStacks: [],
         project: true,
       },
     });

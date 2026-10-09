@@ -20,13 +20,13 @@ import { floatEncoding, integerEncoding, type SampleEncoding } from './format-de
 import type { CompressedWaveFormat, RiffContainer } from './recognised-format.js';
 
 const WAVE_FORMAT_PCM = 0x0001;
-const WAVE_FORMAT_IEEE_FLOAT = 0x0003;
-const WAVE_FORMAT_EXTENSIBLE = 0xfffe;
+export const WAVE_FORMAT_IEEE_FLOAT = 0x0003;
+export const WAVE_FORMAT_EXTENSIBLE = 0xfffe;
 
 /** The bytes every format chunk holds, and those the extensible form adds. */
 const PLAIN_FORMAT_BYTES = 16;
 export const EXTENSIBLE_FORMAT_BYTES = 40;
-const EXTENSION_BYTES = 22;
+export const EXTENSION_BYTES = 22;
 
 /**
  * The last twelve bytes of the GUID family KSDATAFORMAT_SUBTYPE_PCM and
@@ -34,7 +34,7 @@ const EXTENSION_BYTES = 22;
  * `xxxxxxxx-0000-0010-8000-00aa00389b71`, whose first four bytes are the format
  * code.
  */
-const STANDARD_SUBTYPE_TAIL: readonly number[] = [
+export const STANDARD_SUBTYPE_TAIL: readonly number[] = [
   0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71,
 ];
 

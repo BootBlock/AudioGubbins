@@ -30,7 +30,10 @@
  *   timeline        the time axis as values: viewport, formats, ruler, the
  *                   selection set and snapping; depends on domain alone, knows
  *                   no thread or browser (ADR-0040)
- *   waveform        the peak pyramid, its worker, cache format and column
+ *   recording       the session and monitoring states, capture profiles,
+ *                   calibration and diagnostics; depends on domain + text,
+ *                   knows no browser, storage or audio host (ADR-0070)
+ *   waveform       the peak pyramid, its worker, cache format and column
  *                   reads; depends on domain + audio-engine, knows no browser
  *                   (ADR-0043)
  *   renderer        frames as values and the WebGPU, WebGL2 and Canvas 2D
@@ -43,6 +46,7 @@
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
+ *                   domain, whose results the media input answers in, and
  *                   diagnostics + text, whose check of how names compare it
  *                   probes
  *   design-system   React/Radix presentation; depends on version, knows nothing
@@ -79,7 +83,8 @@
  * - storage-runtime: the browser host of project storage, its worker, the port
  *   to the page and the page's client (ADR-0022); depends on browser-storage,
  *   capabilities, commands, diagnostics, domain, history, media-store,
- *   project-commands, project-format and storage.
+ *   project-commands, project-format, recording and storage, and on
+ *   audio-runtime's capture channel reader alone (ADR-0070).
  *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,
  * may take the fixtures package, which their own rules below leave out of what
@@ -159,7 +164,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -355,6 +360,19 @@ module.exports = {
         'sample counts and identifiers it is written in, so it runs in any scope.',
       from: { path: '^packages/timeline/' },
       to: { path: '^packages/(?!(timeline|domain)/)' },
+    },
+    {
+      name: 'recording-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Recording as values: the session and monitoring states, capture profiles, the ' +
+        "calibration's analysis and the diagnostics (ADR-0070). It depends on the domain and text " +
+        'alone and knows no browser, storage or audio host; the application composes it with them.',
+      from: { path: '^packages/recording/' },
+      to: {
+        path: '^packages/(?!(recording|domain|text)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
     },
     {
       name: 'waveform-owns-nothing-else',
@@ -564,11 +582,25 @@ module.exports = {
       comment:
         'The browser host of project storage composes the storage packages and their browser ' +
         "adapters in a worker and serves them to the page (ADR-0022), the model packs' installer " +
-        'among them (ADR-0062). It knows nothing of the interface that calls it, or of the audio ' +
-        'packages.',
+        'among them (ADR-0062), and records what the capture worklet sends it (ADR-0071). It ' +
+        'knows nothing of the interface that calls it, nor of the audio packages beyond the ' +
+        "capture channel's reader (ADR-0070).",
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|model-packs|processors|project-commands|project-format|storage|storage-runtime|text)/)',
+        path: '^packages/(?!(audio-runtime|browser-storage|capabilities|commands|diagnostics|domain|history|media-store|model-packs|processors|project-commands|project-format|recording|storage|storage-runtime|text)/)',
+      },
+    },
+    {
+      name: 'storage-runtime-reads-only-the-capture-channel',
+      severity: 'error',
+      comment:
+        "The storage worker reads the capture worklet's channel with the audio runtime's reader " +
+        '(ADR-0070, ADR-0071), its `./capture-channel` entry, which compiles in a worker; the ' +
+        'rest of the audio runtime makes audio nodes and runs on the page.',
+      from: { path: '^packages/storage-runtime/' },
+      to: {
+        path: '^packages/audio-runtime/',
+        pathNot: '^packages/audio-runtime/src/capture/capture-reader\\.ts$',
       },
     },
     {
@@ -635,6 +667,10 @@ module.exports = {
           // The model packs' path grammar, which the build's configuration
           // bundles by its path (rule vite-configuration-loads-in-node).
           '^packages/model-packs/src/pack-path\\.js$',
+
+          // The audio runtime's capture channel reader, its `./capture-channel`
+          // entry, which the storage worker reads a take with (ADR-0070).
+          '^packages/audio-runtime/src/capture/capture-reader\\.ts$',
         ],
       },
     },

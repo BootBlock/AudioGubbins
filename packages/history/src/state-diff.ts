@@ -4,6 +4,9 @@
  * chains, each slot's placement, switches and parameter values
  * (`chain-differences.ts`, REQ-STOR-195).
  *
+ * A take stack's takes are compared as a list, so naming, choosing, rejecting
+ * or removing a take is a difference of its stack.
+ *
  * A difference is a value the History panel and the A/B comparison show, and
  * the source of the entities a change affects. Everything is in a fixed order,
  * identifiers by code unit, so the same two states always give the same
@@ -23,6 +26,8 @@ import type {
   MarkerId,
   Region,
   RegionId,
+  TakeStack,
+  TakeStackId,
   Track,
   TrackId,
 } from '@audiogubbins/domain';
@@ -39,6 +44,7 @@ import {
   MARKER_FIELDS,
   REGION_FIELDS,
   SOURCE_FIELDS,
+  TAKE_STACK_FIELDS,
   TRACK_FIELDS,
   changedFields,
   sameLayout,
@@ -77,6 +83,9 @@ export interface StateDifference {
   readonly regions: EntityDifferences<RegionId, Region>;
   readonly markers: EntityDifferences<MarkerId, Marker>;
   readonly effectChains: readonly ChainDifference[];
+
+  /** The stacks of recorded takes, and the punch of each that has one. */
+  readonly takeStacks: EntityDifferences<TakeStackId, TakeStack>;
 }
 
 /** The difference from state `before` to state `after`. */
@@ -93,6 +102,7 @@ export function diffStates(before: ProjectState, after: ProjectState): StateDiff
     regions: entityDifferences(was.regions, is.regions, REGION_FIELDS),
     markers: entityDifferences(was.markers, is.markers, MARKER_FIELDS),
     effectChains: chainDifferences(was.effectChains, is.effectChains),
+    takeStacks: entityDifferences(was.takeStacks, is.takeStacks, TAKE_STACK_FIELDS),
   };
 }
 

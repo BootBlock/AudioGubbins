@@ -43,6 +43,7 @@ const EMPTY_AFFECTS = {
   regions: [],
   markers: [],
   effectChains: [],
+  takeStacks: [],
   project: false,
 };
 
@@ -169,6 +170,7 @@ function randomRecord(seed: number): HistoryRecord {
         ...EMPTY_AFFECTS,
         clips: random.chance(0.5) ? [ids.next<'ClipId'>()] : [],
         regions: random.chance(0.3) ? [ids.next<'RegionId'>(), ids.next<'RegionId'>()] : [],
+        takeStacks: random.chance(0.3) ? [ids.next<'TakeStackId'>()] : [],
         project: random.chance(0.2),
       },
       ...(random.chance(0.3) ? { stateFingerprint: fingerprint(index) } : {}),

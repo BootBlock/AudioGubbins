@@ -18,9 +18,13 @@ import {
   type Clip,
   type EditOperation,
   type Marker,
+  type PunchCrossfade,
+  type PunchRange,
   type Region,
   type RegionOperation,
   type RoutingTarget,
+  type Take,
+  type TakeStack,
   type Track,
 } from '@audiogubbins/domain';
 import {
@@ -29,9 +33,14 @@ import {
   writeRegionOperation,
   type AssetProvenance,
   type AssetSource,
+  type CaptureSettings,
   type ExternalSourceIdentity,
   type JsonValue,
   type MediaSource,
+  type RecordedDevice,
+  type RecordedGaps,
+  type RecordedProfile,
+  type RecordedProvenance,
   type SourceAudioShape,
 } from '@audiogubbins/project-format';
 
@@ -106,6 +115,17 @@ const sameLoop = whole<AnchoredLoop>({
   crossfadeLength: same,
 });
 
+/** Two lists the same item by item, each pair of items compared with `compare`. */
+function sameItems<TValue>(compare: Comparison<TValue>): Comparison<readonly TValue[]> {
+  return (before, after) =>
+    before === after ||
+    (before.length === after.length &&
+      before.every((value, index) => {
+        const other = after[index];
+        return other !== undefined && compare(value, other);
+      }));
+}
+
 /**
  * Two lists of values the same item by item, where an item is the same value
  * or written alike: an edit is a deep value, and the project format's writer
@@ -114,16 +134,10 @@ const sameLoop = whole<AnchoredLoop>({
  * made are written.
  */
 function sameWritten<TValue>(write: (value: TValue) => JsonValue): Comparison<readonly TValue[]> {
-  return (before, after) =>
-    before === after ||
-    (before.length === after.length &&
-      before.every((value, index) => {
-        const other = after[index];
-        return (
-          other !== undefined &&
-          (value === other || canonicalJson(write(value)) === canonicalJson(write(other)))
-        );
-      }));
+  return sameItems(
+    (value, other) =>
+      value === other || canonicalJson(write(value)) === canonicalJson(write(other)),
+  );
 }
 
 const sameEdits = sameWritten<EditOperation>(writeEditOperation);
@@ -158,6 +172,30 @@ const sameMedia: Comparison<MediaSource> = (before, after) => {
   );
 };
 
+const sameSettings = whole<CaptureSettings>({
+  echoCancellation: same,
+  noiseSuppression: same,
+  autoGainControl: same,
+  voiceIsolation: same,
+  channelCount: same,
+  sampleRate: same,
+  sampleSize: same,
+  latency: same,
+});
+
+const sameRecording = whole<RecordedProvenance>({
+  recordedAt: same,
+  device: whole<RecordedDevice>({ label: same, group: same, channelCount: same }),
+  profile: whole<RecordedProfile>({ kind: same, name: same }),
+  requested: sameSettings,
+  granted: sameSettings,
+  sampleRate: same,
+  layout: sameLayout,
+  length: same,
+  ending: same,
+  gaps: optionally(whole<RecordedGaps>({ count: same, frames: same })),
+});
+
 const sameProvenance = whole<AssetProvenance>({
   originalFileName: same,
   importedAt: same,
@@ -178,6 +216,7 @@ const sameProvenance = whole<AssetProvenance>({
       declaredFrames: same,
     }),
   ),
+  recording: optionally(sameRecording),
 });
 
 export const ASSET_FIELDS: FieldComparisons<Asset> = {
@@ -253,4 +292,37 @@ export const MARKER_FIELDS: FieldComparisons<Marker> = {
   basis: same,
   position: same,
   paletteKey: same,
+};
+
+/**
+ * A stack's takes compared take by take, in the order they were made: naming,
+ * noting, rejecting or removing one, or placing it by another latency, is a
+ * difference of the stack that holds it.
+ */
+const sameTakes = sameItems(
+  whole<Take>({
+    id: same,
+    asset: same,
+    name: same,
+    note: same,
+    state: same,
+    compensation: same,
+  }),
+);
+
+const samePunch = whole<PunchRange>({
+  length: same,
+  preRoll: same,
+  postRoll: same,
+  crossfade: whole<PunchCrossfade>({ length: same, shape: same }),
+  resampler: same,
+});
+
+/** A take stack's fields, its takes compared as a list and its punch whole. */
+export const TAKE_STACK_FIELDS: FieldComparisons<TakeStack> = {
+  id: same,
+  name: same,
+  takes: sameTakes,
+  chosen: same,
+  punch: optionally(samePunch),
 };

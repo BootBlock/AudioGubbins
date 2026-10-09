@@ -55,6 +55,12 @@ export type EffectChainId = Branded<'EffectChainId'>;
 /** Identifies an automatable parameter on a processor. */
 export type ParameterId = Branded<'ParameterId'>;
 
+/** Identifies a take stack: the takes of one piece of material (ADR-0072). */
+export type TakeStackId = Branded<'TakeStackId'>;
+
+/** Identifies one take in a take stack (ADR-0072). */
+export type TakeId = Branded<'TakeId'>;
+
 /** Every entity identifier the domain defines. */
 export type EntityId =
   | ProjectId
@@ -68,7 +74,9 @@ export type EntityId =
   | ProcessorId
   | ProcessorGroupId
   | EffectChainId
-  | ParameterId;
+  | ParameterId
+  | TakeStackId
+  | TakeId;
 
 /**
  * The shape an AudioGubbins identifier must have.

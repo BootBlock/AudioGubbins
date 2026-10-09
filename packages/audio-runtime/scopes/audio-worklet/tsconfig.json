@@ -13,6 +13,7 @@
     "tsBuildInfoFile": "../../dist/scope-audio-worklet.tsbuildinfo"
   },
   "files": [
+    "../../src/threads/capture-processor.ts",
     "../../src/threads/engine-processor.ts",
     "audio-worklet-global-scope.d.ts"
   ],

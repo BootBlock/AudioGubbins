@@ -18,6 +18,7 @@
 import {
   AudioContextState,
   type AudioContextPort,
+  type MediaStreamSourcePort,
   type WorkletNodePort,
 } from '../context/audio-context-port.js';
 
@@ -154,5 +155,9 @@ export class FakeAudioContext implements AudioContextPort {
 
   createWorkletNode(): WorkletNodePort {
     throw new Error('This fake context makes no worklet nodes.');
+  }
+
+  createMediaStreamSource(): MediaStreamSourcePort {
+    throw new Error('This fake context opens no input.');
   }
 }

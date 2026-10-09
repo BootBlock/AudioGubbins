@@ -9,7 +9,7 @@
  * is read (REQ-EXEC-136.12), before anything renders it.
  */
 
-import { MAXIMUM_CHANNEL_COUNT, channelCount } from '../audio/channel-layout.js';
+import { MAXIMUM_CHANNEL_COUNT, channelCount, layoutsMatch } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
 import type { Asset } from '../project/asset.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
@@ -19,10 +19,12 @@ import {
   convertedFrameCount,
   segmentsLayout,
   segmentsLength,
+  sourceStreams,
   streamLength,
   type EditPlan,
   type GainCurve,
   type PlanSegment,
+  type PlanSource,
   type PlanStage,
   type PlanStream,
 } from './plan.js';
@@ -107,6 +109,81 @@ function stageChannels(stage: PlanStage, count: number): number | string {
   return stage.matrix.length === count ? count : 'A matrix over a range changes the channel count.';
 }
 
+/** How much a source holds and of how many channels, as a segment reads it. */
+interface SourceRead {
+  readonly available: number;
+  readonly channels: number;
+}
+
+/** What a segment of `stream`, at `place`, reads of `source`, or why it cannot read it. */
+function sourceRead(
+  plan: EditPlan,
+  place: number,
+  stream: PlanStream,
+  source: PlanSource,
+  assets: ReadonlyMap<AssetId, MediaShape>,
+): SourceRead | string {
+  switch (source.kind) {
+    case 'media': {
+      const asset = assets.get(source.asset);
+      if (asset === undefined) return 'A segment reads an asset the project does not have.';
+      if (asset.sampleRate !== stream.sampleRate)
+        return 'A segment reads an asset at another rate.';
+      return { available: asset.length, channels: channelCount(asset.channelLayout) };
+    }
+    case 'silence': {
+      const { channels } = source;
+      if (!Number.isInteger(channels) || channels < 1 || channels > MAXIMUM_CHANNEL_COUNT) {
+        return 'A segment of silence has no channel count a layout may have.';
+      }
+      // Silence lasts as long as it is read, so only the arithmetic bounds it.
+      return { available: Number.MAX_SAFE_INTEGER, channels };
+    }
+    case 'stream': {
+      const read = plan.streams[source.stream];
+      if (source.stream <= place || read === undefined) {
+        return 'A segment reads a stream that does not follow its own.';
+      }
+      return {
+        available: convertedFrameCount(streamLength(read), read.sampleRate, stream.sampleRate),
+        channels: channelCount(read.layout),
+      };
+    }
+    case 'mix':
+      return mixRead(plan, place, stream, source.streams);
+  }
+}
+
+/**
+ * What a mix of `streams` gives a segment of stream `place`: as many frames
+ * as the shortest holds, of their one layout's channels. Each is a later
+ * stream at the reader's rate, since a mix sums frame by frame and converts
+ * nothing.
+ */
+function mixRead(
+  plan: EditPlan,
+  place: number,
+  reader: PlanStream,
+  streams: readonly number[],
+): SourceRead | string {
+  const [first] = streams;
+  const layout = first === undefined ? undefined : plan.streams[first]?.layout;
+  if (streams.length < 2 || layout === undefined) {
+    return 'A mix sums two or more streams.';
+  }
+  let available = Number.MAX_SAFE_INTEGER;
+  for (const mixed of streams) {
+    const read = plan.streams[mixed];
+    if (!Number.isInteger(mixed) || mixed <= place || read === undefined) {
+      return 'A mix reads a stream that does not follow its own.';
+    }
+    if (read.sampleRate !== reader.sampleRate) return 'A mix reads a stream at another rate.';
+    if (!layoutsMatch(read.layout, layout)) return 'A mix sums streams of different layouts.';
+    available = Math.min(available, streamLength(read));
+  }
+  return { available, channels: channelCount(layout) };
+}
+
 /** Why a segment of stream `place` does not hold, or `undefined` where it does. */
 function segmentProblem(
   plan: EditPlan,
@@ -119,31 +196,10 @@ function segmentProblem(
   if (!isFrame(segment.start) || !isFrame(segment.length) || segment.length === 0) {
     return 'A segment covers no frames.';
   }
-  let available: number;
-  let channels: number;
-  if (segment.source.kind === 'media') {
-    const asset = assets.get(segment.source.asset);
-    if (asset === undefined) return 'A segment reads an asset the project does not have.';
-    if (asset.sampleRate !== stream.sampleRate) return 'A segment reads an asset at another rate.';
-    available = asset.length;
-    channels = channelCount(asset.channelLayout);
-  } else if (segment.source.kind === 'silence') {
-    const { channels: count } = segment.source;
-    if (!Number.isInteger(count) || count < 1 || count > MAXIMUM_CHANNEL_COUNT) {
-      return 'A segment of silence has no channel count a layout may have.';
-    }
-    // Silence lasts as long as it is read, so only the arithmetic bounds it.
-    available = Number.MAX_SAFE_INTEGER;
-    channels = count;
-  } else {
-    const read = plan.streams[segment.source.stream];
-    if (segment.source.stream <= place || read === undefined) {
-      return 'A segment reads a stream that does not follow its own.';
-    }
-    available = convertedFrameCount(streamLength(read), read.sampleRate, stream.sampleRate);
-    channels = channelCount(read.layout);
-  }
-  if (segment.start + segment.length > available)
+  const read = sourceRead(plan, place, stream, segment.source, assets);
+  if (typeof read === 'string') return read;
+  let { channels } = read;
+  if (segment.start + segment.length > read.available)
     return 'A segment reads past the end of its source.';
   for (const stage of segment.stages) {
     const after = stageChannels(stage, channels);
@@ -180,9 +236,9 @@ export function validatePlan(
   plan: EditPlan,
   assets: ReadonlyMap<AssetId, MediaShape>,
 ): DomainResult<EditPlan> {
-  const read = new Set<number>([0]);
+  const reached = new Set<number>([0]);
   for (const [place, stream] of plan.streams.entries()) {
-    if (!read.has(place))
+    if (!reached.has(place))
       return malformed('A stream is read by no segment.', `streams/${String(place)}`);
     if (stream.segments.length === 0)
       return malformed('A stream holds no audio.', `streams/${String(place)}`);
@@ -192,7 +248,7 @@ export function validatePlan(
       const problem = segmentProblem(plan, place, segment, assets);
       if (problem !== undefined)
         return malformed(problem, `streams/${String(place)}/segments/${String(index)}`);
-      if (segment.source.kind === 'stream') read.add(segment.source.stream);
+      for (const read of sourceStreams(segment.source)) reached.add(read);
     }
   }
   return succeed(plan);

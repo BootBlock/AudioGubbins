@@ -25,6 +25,7 @@ import {
   derivedSampleCount,
   fail,
   failure,
+  sourceStreams,
   streamLength,
   succeed,
   throwIfCancelled,
@@ -274,9 +275,11 @@ export class PreviewProducer {
         bytes += held.value;
       }
       for (const segment of stream.segments) {
-        if (segment.source.kind !== 'stream' || seen.has(segment.source.stream)) continue;
-        seen.add(segment.source.stream);
-        waiting.push(segment.source.stream);
+        for (const read of sourceStreams(segment.source)) {
+          if (seen.has(read)) continue;
+          seen.add(read);
+          waiting.push(read);
+        }
       }
     }
     return succeed(bytes);

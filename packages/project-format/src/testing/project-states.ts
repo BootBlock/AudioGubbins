@@ -323,7 +323,15 @@ export function deeplyRackedState(fixture: SampleProject): ProjectState {
   const racked: Asset = { ...footstep, rack: chain.id };
   const copied = expectSuccess(
     slicePlan(
-      expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE })),
+      expectSuccess(
+        assetPlan(racked, {
+          chains,
+          takeStacks: state.project.takeStacks,
+          assets: state.project.assets,
+          catalogue: TEST_CATALOGUE,
+          engine: TEST_ENGINE,
+        }),
+      ),
       6_000,
       18_000,
     ),

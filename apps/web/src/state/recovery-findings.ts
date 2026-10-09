@@ -13,6 +13,7 @@ import type { ProjectRecoveryReport } from '@audiogubbins/storage';
 
 /** One thing recovery found that the person should hear of. */
 export type RecoveryFinding =
+  | { readonly kind: 'interrupted-recordings'; readonly recordings: number }
   | { readonly kind: 'fallback' }
   | { readonly kind: 'rebuilt-cursor-state' }
   | { readonly kind: 'journal-break'; readonly discarded: number }
@@ -35,6 +36,12 @@ type Finders = Readonly<
 
 /** Each field's finding, in the order the person is told of them. */
 const FINDERS: Finders = {
+  // First: a recording cut short is offered to be recovered or discarded
+  // before anything else is said or done with the project (ADR-0071).
+  interruptedRecordings: ({ interruptedRecordings }) =>
+    interruptedRecordings.length > 0
+      ? { kind: 'interrupted-recordings', recordings: interruptedRecordings.length }
+      : undefined,
   fallbacks: ({ fallbacks }) => (fallbacks.length > 0 ? { kind: 'fallback' } : undefined),
   rebuiltCursorState: ({ rebuiltCursorState }) =>
     rebuiltCursorState === undefined ? undefined : { kind: 'rebuilt-cursor-state' },

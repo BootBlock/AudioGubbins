@@ -28,6 +28,7 @@ import {
   type ProcessingLibraryClient,
 } from './processing-library-client.js';
 import { handleCounter, projectsClient, type ProjectsClient } from './projects-client.js';
+import { recordingClient, type RecordingClient } from './recording-client.js';
 import { rootClient, type RootClient } from './root-client.js';
 import { sourcesClient, type SourcesClient } from './sources-client.js';
 import { transfersClient, type TransfersClient } from './transfers-client.js';
@@ -45,6 +46,9 @@ export interface StorageClient {
   readonly root: RootClient;
   readonly sources: SourcesClient;
   readonly media: MediaClient;
+
+  /** Recording into a project, from a capture channel, and what a crash cut short. */
+  readonly recording: RecordingClient;
   readonly caches: CacheClient;
 
   /** The model packs a person has installed, their installation and their files. */
@@ -89,6 +93,7 @@ export function storageClientOver(
     root: rootClient(channel, lending),
     sources: sourcesClient(lending),
     media: mediaClient(channel, lending),
+    recording: recordingClient(channel),
     caches: cacheClient(channel),
     packs: packsClient(channel, lending),
     usage: usageClient(channel),

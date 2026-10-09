@@ -24,13 +24,13 @@
 
 import { channelCount, layoutsMatch } from '../audio/channel-layout.js';
 import type { EffectChainId } from '../identity/branded-id.js';
-import { chainOutputLayout, type ProcessorCatalogue } from '../processing/chain-validation.js';
+import { chainOutputLayout } from '../processing/chain-validation.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
 import { FailureKind, fail, failure, mapResult, succeed, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
+import { versionKnown } from './algorithm-version.js';
 import { insertedLength } from './edit-shape.js';
-import type { ProjectChains } from './operation-validation.js';
 import type { EditOperation, EngineVersions, RangeEdit, RegionOperation } from './operations.js';
 import type { EditPlan, PlanSegment } from './plan.js';
 import {
@@ -41,22 +41,11 @@ import {
   stretchRange,
   type Folding,
 } from './processed-streams.js';
+import type { PlanContext } from './plan-context.js';
+import { punchRange } from './punch-fold.js';
 import { rangeEditStage } from './range-stages.js';
 import { changeRange, reverseRange, sliceSegments } from './segment-list.js';
 import { pruneStreams, shiftStreams } from './stream-tables.js';
-
-/**
- * What a plan is built with besides its asset: the project's chains, which
- * rack edits and racks name, the processor types this build has, which say
- * what layout a chain makes, and the versions of the engine's algorithms it
- * has, which a stretch, a conversion of rate or a converted insertion must
- * have been made by.
- */
-export interface PlanContext {
-  readonly chains: ProjectChains;
-  readonly catalogue: ProcessorCatalogue;
-  readonly engine: EngineVersions;
-}
 
 /** A range edit on the first stream: the asset's own processing, or a region's. */
 type Processing = Pick<RegionOperation, 'range' | 'channels' | 'edit'>;
@@ -69,32 +58,6 @@ type Processing = Pick<RegionOperation, 'range' | 'channels' | 'edit'>;
 interface RangeRacks {
   readonly kind: 'run' | 'bypassed';
   readonly context: PlanContext;
-}
-
-/**
- * Nothing, where an edit made by version `found` of the engine's `algorithm`
- * is made by the version this build has, `implemented`, or why it is not: an
- * edit another version made would be heard otherwise (REQ-AUDIO-145). An
- * edit that names no version, `found` absent, is refused the same way.
- */
-function versionKnown(
-  algorithm: 'stretch' | 'resampler',
-  found: number | undefined,
-  implemented: number,
-): DomainResult<void> {
-  if (found === implemented) return succeed(undefined);
-  const made =
-    found === undefined
-      ? `The edit names no version of the ${algorithm} it was made with`
-      : `This build does not have version ${String(found)} of the ${algorithm} the edit was made with`;
-  return fail(
-    failure(
-      'edit.algorithm-version-unknown',
-      FailureKind.Unrecoverable,
-      `${made}, but version ${String(implemented)}.`,
-      { details: { algorithm, ...(found === undefined ? {} : { found }), implemented } },
-    ),
-  );
 }
 
 /** The chain an edit or a rack names, or why the project does not have it. */
@@ -121,6 +84,7 @@ function processRange(
   const { stream } = folding;
   const { range } = processing;
   const edit: RangeEdit = processing.edit;
+  if (edit.kind === 'punch') return punchRange(folding, range, edit, racks.context);
   if (edit.kind !== 'rack') {
     const stage = rangeEditStage(edit, range, processing.channels, channelCount(stream.layout));
     return succeed({

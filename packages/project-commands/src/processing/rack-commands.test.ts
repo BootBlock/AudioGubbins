@@ -342,6 +342,8 @@ describe('a chain through the rack commands', () => {
     const plan = expectSuccess(
       assetPlan(asset, {
         chains: next.project.effectChains,
+        takeStacks: next.project.takeStacks,
+        assets: next.project.assets,
         catalogue: TEST_CATALOGUE,
         engine: TEST_ENGINE,
       }),
@@ -365,6 +367,8 @@ describe('a chain through the rack commands', () => {
     if (asset === undefined) throw new Error('The asset is still in the project.');
     const context = {
       chains: upmixing.project.effectChains,
+      takeStacks: upmixing.project.takeStacks,
+      assets: upmixing.project.assets,
       catalogue: TEST_CATALOGUE,
       engine: TEST_ENGINE,
     };

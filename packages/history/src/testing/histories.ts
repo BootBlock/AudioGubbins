@@ -46,6 +46,7 @@ export const NOTHING_AFFECTED: AffectedEntities = {
   regions: [],
   markers: [],
   effectChains: [],
+  takeStacks: [],
   project: false,
 };
 

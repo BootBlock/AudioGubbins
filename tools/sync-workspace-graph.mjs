@@ -46,6 +46,9 @@ const PRODUCT_VERSION = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'),
  *   compiled a second time with no host's globals at all
  * @property {Record<string, ThreadScope>} [threads] the global scope each
  *   module under `src/threads/` runs in, by file name
+ * @property {Record<string, string>} [entries] further entry points, by
+ *   subpath, each one module that another package's thread imports without the
+ *   main entry, whose page-only modules that thread's scope could not compile
  * @property {boolean} [javascript] holds modules written in JavaScript with
  *   their types in JSDoc, which the package's compiler checks: a grammar a
  *   tool loads in Node, which runs no compiler, as well as the package
@@ -326,10 +329,12 @@ const PACKAGES = [
     jsx: false,
     threads: {
       'engine-processor.ts': 'audio-worklet',
+      'capture-processor.ts': 'audio-worklet',
       'feeder-worker.ts': 'dedicated-worker',
       'render-worker.ts': 'dedicated-worker',
       'preview-worker.ts': 'dedicated-worker',
     },
+    entries: { './capture-channel': './src/capture/capture-reader.ts' },
     deps: [
       '@audiogubbins/domain',
       '@audiogubbins/diagnostics',
@@ -358,6 +363,24 @@ const PACKAGES = [
     portable: true,
     deps: ['@audiogubbins/domain'],
     devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The recording session and monitoring as state machines, capture
+    // profiles and their comparison with what the browser granted, the
+    // latency calibration's analysis, the recording diagnostics and the
+    // scheduling of a controlled recording (ADR-0070). It knows no browser,
+    // storage or audio host: the application composes it with them.
+    dir: 'packages/recording',
+    name: '@audiogubbins/recording',
+    description:
+      'Recording as values: the session and monitoring state machines, capture profiles, latency calibration, diagnostics and controlled recording.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/text'],
+    devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
   },
@@ -488,7 +511,7 @@ const PACKAGES = [
       'Runtime capability detection and degradation descriptors. The only package that probes the browser directly.',
     dom: true,
     jsx: false,
-    deps: ['@audiogubbins/diagnostics', '@audiogubbins/text'],
+    deps: ['@audiogubbins/domain', '@audiogubbins/diagnostics', '@audiogubbins/text'],
     devDeps: [],
     external: {},
     externalDev: {},
@@ -703,6 +726,9 @@ const PACKAGES = [
       '@audiogubbins/processors',
       '@audiogubbins/model-packs',
       '@audiogubbins/text',
+      '@audiogubbins/recording',
+      // The capture channel's reader alone (ADR-0070): the cruise holds it to that entry.
+      '@audiogubbins/audio-runtime',
     ],
     devDeps: [],
     external: {},
@@ -762,6 +788,7 @@ const PACKAGES = [
       '@audiogubbins/detection-runtime',
       '@audiogubbins/ml-runtime',
       '@audiogubbins/model-packs',
+      '@audiogubbins/recording',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },
@@ -849,6 +876,14 @@ function manifestFor(spec) {
 
       // Modules the browser loads as a worklet or a worker, by URL.
       ...(hasThreadEntries(spec) ? { './threads/*': './src/threads/*' } : {}),
+
+      // Modules another package's thread imports on their own.
+      ...Object.fromEntries(
+        Object.entries(spec.entries ?? {}).map(([path, module]) => [
+          path,
+          { types: module, default: module },
+        ]),
+      ),
 
       // Test support another package's tests take, where there is any. No
       // production module may import it, whatever path it uses, which an

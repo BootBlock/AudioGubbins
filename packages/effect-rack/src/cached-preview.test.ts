@@ -136,6 +136,7 @@ describe('a waveform of racked audio drawn out of order', () => {
     const counted: ChainProcessing = {
       listening: (request) => rack.listening(request),
       measurementBytes: (request) => rack.measurementBytes(request),
+      prepareLive: (request) => rack.prepareLive(request),
       prepare: (...args: Parameters<typeof rack.prepare>) => {
         prepared += 1;
         return rack.prepare(...args);

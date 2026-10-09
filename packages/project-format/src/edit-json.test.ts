@@ -35,8 +35,13 @@ import { writeAnchoredLoop, writeMarker, writeRegion } from './placement-writing
 import { readProjectDocument, writeProjectDocument } from './project-json.js';
 import { storageKeyOf } from './project-state.js';
 import { valueAt, withValue, type Step } from './testing/json-editing.js';
-import { contentIdOfDigit, editedReferenceState } from './testing/project-states.js';
+import {
+  contentIdOfDigit,
+  deeplyRackedState,
+  editedReferenceState,
+} from './testing/project-states.js';
 import { randomState } from './testing/random-states.js';
+import { pastedPunchState } from './testing/recorded-states.js';
 
 /** A value read alone at the place `at`, as a command reads its argument. */
 function readAlone<TValue>(read: Converter<TValue>, value: JsonValue, at = 'value') {
@@ -70,13 +75,21 @@ function expectRoundTrip<TValue>(
   expect(canonicalJson(write(back)), label).toBe(text);
 }
 
-const STATES = Array.from({ length: 200 }, (_, index) => randomState(index + 1));
+/**
+ * Random states, and fixed ones whose pastes carry a processed stream and a
+ * mix, which random chains make only rarely, so the property hangs on no seed.
+ */
+const STATES = [
+  deeplyRackedState(sampleProject()),
+  pastedPunchState(sampleProject()),
+  ...Array.from({ length: 200 }, (_, index) => randomState(index + 1)),
+];
 
 describe('every edit-model value survives being written and read alone', () => {
   it('an asset’s operations, the plans its pastes carry, and every value placed on it', () => {
     const seen = new Set<string>();
     for (const [index, { project }] of STATES.entries()) {
-      const label = `seed ${String(index + 1)}`;
+      const label = `state ${String(index)}`;
       for (const asset of project.assets.values()) {
         if (asset.rack !== undefined) seen.add('asset rack');
         for (const operation of asset.edits) {
@@ -132,6 +145,7 @@ describe('every edit-model value survives being written and read alone', () => {
         'process',
         'processing chain',
         'processing stretch',
+        'punch',
         'rack',
         'region channel-gains',
         'region copy-channel',
@@ -145,6 +159,7 @@ describe('every edit-model value survives being written and read alone', () => {
         'reverse',
         'silence',
         'source media',
+        'source mix',
         'source silence',
         'source stream',
         'stretch',
@@ -188,6 +203,8 @@ function deepestAsset(): Asset {
   const rack = deepestChain(IDS);
   const context = {
     chains: new Map([[rack.id, rack]]),
+    takeStacks: new Map(),
+    assets: new Map(),
     catalogue: TEST_CATALOGUE,
     engine: TEST_ENGINE,
   };
@@ -202,7 +219,13 @@ function deepestAsset(): Asset {
     payload,
   };
   const asset = { ...base, edits: [conversion, paste] };
-  expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), context.chains));
+  expectSuccess(
+    validateChain(asset, {
+      assets: new Map([[asset.id, asset]]),
+      effectChains: context.chains,
+      takeStacks: new Map(),
+    }),
+  );
   return asset;
 }
 

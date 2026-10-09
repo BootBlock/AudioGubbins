@@ -1,4 +1,3 @@
-import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts, layoutsMatch, type ChannelLayout } from '../audio/channel-layout.js';
@@ -8,6 +7,8 @@ import type { Region } from '../project/timeline.js';
 import { derivedSampleCount, sampleRate } from '../time/sample-time.js';
 import { applyEdit, type Samples } from '../testing/edit-oracle.js';
 import { renderPlan } from '../testing/plan-render.js';
+import { PunchWorld } from '../testing/punch-world.js';
+import { editingEntities } from '../testing/editing-fixtures.js';
 import { expectSuccess } from '../testing/unwrap.js';
 import { Affinity, anchorResolver } from './anchors.js';
 import { conversionMatrix } from './channel-matrices.js';
@@ -100,18 +101,23 @@ function rangeEdit(
   };
 }
 
-/** One random step: an operation, and for an insertion the samples it was copied as. */
+/**
+ * One random step: an operation, and for an insertion the samples it was
+ * copied as. A punch's stack and takes join `world`.
+ */
 function step(
   next: () => number,
+  world: PunchWorld,
   asset: Asset,
   samples: Samples,
   id: EditOperationId,
 ): { operation: EditOperation; inserted: Samples } {
+  world.assets.set(asset.id, asset);
   const length = samples[0]?.length ?? 0;
   const count = samples.length;
   const pick = next();
   if (length < 4 || pick < 0.2) {
-    const plan = expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS));
+    const plan = expectSuccess(assetPlan(asset, world.context));
     const copied = length === 0 ? { start: 0, end: 0 } : rangeIn(next, length);
     const at = Math.floor(next() * (length + 1));
     if (copied.end > copied.start) {
@@ -127,7 +133,7 @@ function step(
   if (pick < 0.35) return { operation: { id, kind: 'delete', range: edges }, inserted: [] };
   if (pick < 0.4) return { operation: { id, kind: 'trim', range: edges }, inserted: [] };
   if (pick < 0.55) return { operation: { id, kind: 'reverse', range: edges }, inserted: [] };
-  if (pick < 0.62) {
+  if (pick < 0.6) {
     const layout = LAYOUTS[Math.floor(next() * LAYOUTS.length)] ?? StandardLayouts.mono;
     const current = shapesOf(asset).at(-1)?.layout ?? asset.channelLayout;
     const matrix = conversionMatrix(current, layout);
@@ -137,6 +143,15 @@ function step(
         inserted: [],
       };
     }
+  }
+  if (pick < 0.7) {
+    const shape = shapesOf(asset).at(-1);
+    if (shape === undefined) throw new Error('A chain always has a shape.');
+    const stack = world.stack(shape, range.end - range.start);
+    return {
+      operation: { id, kind: 'process', range: edges, edit: { kind: 'punch', stack } },
+      inserted: [],
+    };
   }
   return {
     operation: { id, kind: 'process', range: edges, ...rangeEdit(next, count) },
@@ -164,6 +179,8 @@ describe('the edit plan, against each edit applied to the samples one at a time'
       const next = random(run + 1);
       const id = unsafeBrandId<'AssetId'>(`00000000-asset-${run.toString(16).padStart(4, '0')}`);
       const source = sourceOf(next, id);
+      const world = new PunchWorld(next, [RATE]);
+      world.sources.set(id, source.samples);
       let asset = source.asset;
       let expected = source.samples;
       for (let index = 0; index < 25; index += 1) {
@@ -172,29 +189,30 @@ describe('the edit plan, against each edit applied to the samples one at a time'
         const operationId = unsafeBrandId<'EditOperationId'>(
           `0000${index.toString(16).padStart(4, '0')}-edit`,
         );
-        const { operation, inserted } = step(next, asset, expected, operationId);
+        const { operation, inserted } = step(next, world, asset, expected, operationId);
         const shape = shapesOf(asset).at(-1);
         if (shape === undefined) throw new Error('A chain always has a shape.');
         expectSuccess(
           validateOperation(
             operation,
             shape,
-            new Map([[asset.id, asset]]),
-            PLAN_WITHOUT_CHAINS.chains,
+            editingEntities(world.assets, new Map(), world.stacks),
           ),
         );
         asset = { ...asset, edits: [...asset.edits, operation] };
-        expected = applyEdit(expected, operation, { inserted: inserted });
+        expected = applyEdit(expected, operation, world.oracle(inserted), RATE);
         const rendered = renderPlan(
-          expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS)),
-          new Map([[asset.id, source.samples]]),
+          expectSuccess(assetPlan(asset, world.context)),
+          world.sources,
+          world.oracle([]),
         );
         expect(
           sameBits(rendered, expected),
           `run ${String(run)}, edit ${String(index)} (${operation.kind})`,
         ).toBe(true);
       }
-      expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), PLAN_WITHOUT_CHAINS.chains));
+      world.assets.set(asset.id, asset);
+      expectSuccess(validateChain(asset, editingEntities(world.assets, new Map(), world.stacks)));
     }
   });
 
@@ -203,6 +221,8 @@ describe('the edit plan, against each edit applied to the samples one at a time'
       const next = random(10_000 + run);
       const id = unsafeBrandId<'AssetId'>(`00000000-asset-${run.toString(16).padStart(4, '0')}`);
       const source = sourceOf(next, id);
+      const world = new PunchWorld(next, [RATE]);
+      world.sources.set(id, source.samples);
       let asset = source.asset;
       let expected = source.samples;
       for (let index = 0; index < 12; index += 1) {
@@ -210,18 +230,18 @@ describe('the edit plan, against each edit applied to the samples one at a time'
         const operationId = unsafeBrandId<'EditOperationId'>(
           `0000${index.toString(16).padStart(4, '0')}-edit`,
         );
-        const { operation, inserted } = step(next, asset, expected, operationId);
+        const { operation, inserted } = step(next, world, asset, expected, operationId);
         const position = Math.floor(next() * ((expected[0]?.length ?? 0) + 1));
         const before = anchorResolver(asset).position(asset.edits.length, position, Affinity.After);
-        const plan = expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS));
+        const plan = expectSuccess(assetPlan(asset, world.context));
         const edited: Asset = { ...asset, edits: [...asset.edits, operation] };
         const withdrawn: Asset = { ...edited, edits: edited.edits.slice(0, -1) };
-        expect(expectSuccess(assetPlan(withdrawn, PLAN_WITHOUT_CHAINS))).toEqual(plan);
+        expect(expectSuccess(assetPlan(withdrawn, world.context))).toEqual(plan);
         expect(
           anchorResolver(withdrawn).position(asset.edits.length, position, Affinity.After),
         ).toBe(before);
         asset = edited;
-        expected = applyEdit(expected, operation, { inserted: inserted });
+        expected = applyEdit(expected, operation, world.oracle(inserted), RATE);
       }
     }
   });
@@ -233,6 +253,8 @@ describe('a region’s processing, against the same processing applied at its ba
       const next = random(20_000 + run);
       const id = unsafeBrandId<'AssetId'>(`00000000-asset-${run.toString(16).padStart(4, '0')}`);
       const source = sourceOf(next, id);
+      const world = new PunchWorld(next, [RATE]);
+      world.sources.set(id, source.samples);
       let asset = source.asset;
       const sounds: Samples[] = [source.samples];
       const steps: { operation: EditOperation; inserted: Samples }[] = [];
@@ -242,10 +264,10 @@ describe('a region’s processing, against the same processing applied at its ba
         const operationId = unsafeBrandId<'EditOperationId'>(
           `0000${index.toString(16).padStart(4, '0')}-edit`,
         );
-        const made = step(next, asset, current, operationId);
+        const made = step(next, world, asset, current, operationId);
         steps.push(made);
         asset = { ...asset, edits: [...asset.edits, made.operation] };
-        sounds.push(applyEdit(current, made.operation, { inserted: made.inserted }));
+        sounds.push(applyEdit(current, made.operation, world.oracle(made.inserted), RATE));
       }
 
       const basis = Math.floor(next() * sounds.length);
@@ -270,17 +292,24 @@ describe('a region’s processing, against the same processing applied at its ba
         tags: [],
         operations: [processing],
       };
-      expectSuccess(validateRegion(asset, region, PLAN_WITHOUT_CHAINS.chains));
+      expectSuccess(validateRegion(asset, region, new Map()));
 
-      let expected = applyEdit(placedOn, { ...processing, kind: 'process' }, { inserted: [] });
+      let expected = applyEdit(
+        placedOn,
+        { ...processing, kind: 'process' },
+        world.oracle([]),
+        RATE,
+      );
       for (const later of steps.slice(basis)) {
-        expected = applyEdit(expected, later.operation, { inserted: later.inserted });
+        expected = applyEdit(expected, later.operation, world.oracle(later.inserted), RATE);
       }
       const span = anchorResolver(asset).span(0, { start: 0, end: source.asset.length });
       if (span === undefined) throw new Error('A region at the first basis resolves.');
+      world.assets.set(asset.id, asset);
       const rendered = renderPlan(
-        expectSuccess(regionPlan(asset, region, PLAN_WITHOUT_CHAINS)),
-        new Map([[id, source.samples]]),
+        expectSuccess(regionPlan(asset, region, world.context)),
+        world.sources,
+        world.oracle([]),
       );
       expect(
         sameBits(

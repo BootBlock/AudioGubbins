@@ -25,6 +25,8 @@ function rangeEditWords(edit: RangeEdit): string {
       return 'Balance the channels of';
     case 'rack':
       return 'Apply a chain of processors to';
+    case 'punch':
+      return 'Punch in on';
   }
 }
 

@@ -3,17 +3,22 @@
  *
  * The browser host of the audio engine (ADR-0030): the audio context and its
  * lifecycle, the compilation of the canonical DSP module, real-time playback
- * through the engine's AudioWorklet processor, and offline renders in
- * workers. It is given what the device offers and never probes it; the
- * modules the browser loads by URL, the worklet processor, the feeder worker
- * that feeds it, the render worker and the preview worker that makes cached
- * preview renders, are its `./threads/*` entry points.
+ * through the engine's AudioWorklet processor, and offline renders in workers,
+ * and capture from an input the application opened, through the capture
+ * processor (ADR-0070). It is given what the device offers and never probes it;
+ * the modules the browser loads by URL, the worklet processor, the capture
+ * processor, the feeder worker that feeds the first, the render worker and the
+ * preview worker that makes cached preview renders, are its `./threads/*` entry
+ * points. The reader of a take's capture channel, which the storage worker
+ * uses, is offered here and, on its own, as the `./capture-channel` entry
+ * point, which a worker's scope can compile without the page's modules.
  */
 
 export {
   AudioContextState,
   type AudioContextPort,
   type CreateAudioContext,
+  type MediaStreamSourcePort,
   browserAudioContext,
 } from './context/audio-context-port.js';
 
@@ -75,3 +80,25 @@ export {
   type PreviewRenders,
   type PreviewWorkerPort,
 } from './preview/preview-host.js';
+
+export {
+  type CaptureListener,
+  CaptureSession,
+  type CaptureSessionEvent,
+  type CaptureSessionOptions,
+  type CaptureSource,
+  type MonitoringLatency,
+} from './capture-session/capture-session.js';
+
+export {
+  FromCaptureKind,
+  type FromCapture,
+  type InputMeterReport,
+  ToCaptureKind,
+} from './protocol/capture-messages.js';
+
+export {
+  type CaptureEvent,
+  CaptureReader,
+  type CaptureReaderOptions,
+} from './capture/capture-reader.js';

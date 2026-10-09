@@ -29,10 +29,10 @@ import { EXTENSIBLE_FORMAT_BYTES, readWaveFormat, type WaveShape } from './wave-
 const FIRST_CHUNK = 12;
 
 /** The 32-bit size that sends a reader to the ds64 chunk for the real one. */
-const SIZE_IN_DS64 = 0xffffffff;
+export const SIZE_IN_DS64 = 0xffffffff;
 
 /** The ds64 chunk's three 64-bit sizes and its table's length. */
-const DS64_FIXED_BYTES = 28;
+export const DS64_FIXED_BYTES = 28;
 const DS64_ENTRY_BYTES = 12;
 
 /** The most ds64 table entries read: far more than the chunks any file needs sized so. */

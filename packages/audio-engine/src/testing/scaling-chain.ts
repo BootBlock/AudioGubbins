@@ -8,7 +8,14 @@
  * test may give it.
  */
 
-import { StandardLayouts, succeed, type CancellationSignal } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  StandardLayouts,
+  fail,
+  failure,
+  succeed,
+  type CancellationSignal,
+} from '@audiogubbins/domain';
 
 import type { ChainProcessing, ChainRun } from '../pcm/chain-processing.js';
 
@@ -23,6 +30,27 @@ export interface ScalingRuns {
 
 /** Why a chain that cannot run live is heard from a render, as the rack would word it. */
 export const SCALING_REASON = 'It measures the whole of its input before it plays anything.';
+
+/** A mono run that scales by `factor`, which a running change of any parameter sets. */
+function scalingRun(initial: number): ChainRun {
+  let factor = initial;
+  return {
+    latency: 0,
+    layout: StandardLayouts.mono,
+    process: (input, output, frames) => {
+      const from = input[0];
+      const into = output[0];
+      for (let frame = 0; frame < frames; frame += 1) {
+        if (into !== undefined) into[frame] = factor * (from?.[frame] ?? 0);
+      }
+    },
+    setParameter: (_processor, _parameter, value) => {
+      factor = value;
+      return succeed(undefined);
+    },
+    release: () => undefined,
+  };
+}
 
 /**
  * Mono chains that scale by `factor`, heard live, or from a render where
@@ -52,25 +80,13 @@ export function scalingChain(
       starts.push(request.start);
       signals.push(signal);
       await options.gate;
-      let factor = options.factor ?? 2;
-      const run: ChainRun = {
-        latency: 0,
-        layout: StandardLayouts.mono,
-        process: (input, output, frames) => {
-          const from = input[0];
-          const into = output[0];
-          for (let frame = 0; frame < frames; frame += 1) {
-            if (into !== undefined) into[frame] = factor * (from?.[frame] ?? 0);
-          }
-        },
-        setParameter: (_processor, _parameter, value) => {
-          factor = value;
-          return succeed(undefined);
-        },
-        release: () => undefined,
-      };
-      return succeed(run);
+      return succeed(scalingRun(options.factor ?? 2));
     },
+    // Refused as the rack refuses a chain heard from a render: with its reason.
+    prepareLive: () =>
+      options.rendered === true
+        ? fail(failure('effect-rack.chain-not-live', FailureKind.Rejected, SCALING_REASON))
+        : succeed(scalingRun(options.factor ?? 2)),
   };
   return { processing, starts, signals };
 }

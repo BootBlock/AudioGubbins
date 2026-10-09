@@ -73,6 +73,27 @@ export function speakerMaskLayout(mask: number, channelCount: number): ChannelLa
 }
 
 /**
+ * The speaker mask naming every speaker a layout's roles place, mono as the
+ * front centre, or `undefined` where a role is one no speaker bit names.
+ * Discrete channels place none. A mask names speakers, not their order, so
+ * whether it states this layout is asked of {@link speakerMaskLayout}.
+ */
+export function speakerMaskOf(layout: ChannelLayout): number | undefined {
+  let mask = 0;
+  for (const role of layout.roles) {
+    if (role === ChannelRole.Discrete) continue;
+    if (role === ChannelRole.Mono) {
+      mask |= CENTRE_ONLY;
+      continue;
+    }
+    const bit = SPEAKER_ROLES.indexOf(role);
+    if (bit === -1) return undefined;
+    mask |= 1 << bit;
+  }
+  return mask;
+}
+
+/**
  * The layout CoreAudio channel labels state, one for each channel: a label from
  * 1 to 18 names a speaker, and any other names none the domain places.
  */

@@ -7,11 +7,11 @@
     "shortcutProfile": 1,
     "logVerbosity": 1,
     "keyboardLayout": 1,
-    "audioSettings": 2,
+    "audioSettings": 3,
     "editorViews": 1,
     "diagnosticBundle": 1,
-    "projectDocument": 6,
-    "projectStorage": 10,
+    "projectDocument": 7,
+    "projectStorage": 11,
     "processingLibrary": 1,
     "portableBundle": 2
   }

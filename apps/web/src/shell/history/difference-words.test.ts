@@ -17,6 +17,7 @@ const SAME: StateDifference = {
   regions: NONE,
   markers: NONE,
   effectChains: [],
+  takeStacks: NONE,
 };
 
 const DRUMS = unsafeBrandId<'TrackId'>('00000000-0000-4000-8000-000000000001');
@@ -125,6 +126,31 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
     expect(differenceLines(difference, names)).toEqual([
       'The region “Walk loop” differs in its boundaries and processing.',
       'The asset “Gravel” differs in its edits.',
+    ]);
+  });
+
+  it('says a take stack by name, and its takes, chosen take and punch', () => {
+    const punch = unsafeBrandId<'TakeStackId'>('00000000-0000-4000-8000-00000000000b');
+    const verse = unsafeBrandId<'TakeStackId'>('00000000-0000-4000-8000-00000000000c');
+    const difference: StateDifference = {
+      ...SAME,
+      takeStacks: {
+        added: [verse],
+        removed: [],
+        changed: [{ id: punch, fields: ['takes', 'chosen', 'punch'] }],
+      },
+    };
+    const names: DifferenceNames = {
+      entities: new Map<string, string>([
+        [punch, 'Footstep punch'],
+        [verse, 'Verse'],
+      ]),
+      chains: new Map(),
+    };
+
+    expect(differenceLines(difference, names)).toEqual([
+      'The take stack “Verse” is in B only.',
+      'The take stack “Footstep punch” differs in its takes, chosen take and punch.',
     ]);
   });
 

@@ -78,7 +78,7 @@ export function editCommands(): readonly ProjectCommand[] {
 }
 
 /** Whether anything is placed on the timeline the asset's last edit made. */
-function placedOnLast(state: ProjectState, asset: Asset): boolean {
+export function placedOnLast(state: ProjectState, asset: Asset): boolean {
   const last = asset.edits.length;
   const regions = [...state.project.regions.values()].filter(
     (region) => region.assetId === asset.id,
@@ -117,12 +117,7 @@ function applyEdit(
   if (!naming.ok) return refusedBy(naming);
   const shape = shapesOf(asset).at(-1);
   if (shape === undefined) throw new Error('A chain always has a shape.');
-  const valid = validateOperation(
-    operation.value,
-    shape,
-    naming.value.project.assets,
-    naming.value.project.effectChains,
-  );
+  const valid = validateOperation(operation.value, shape, naming.value.project);
   if (!valid.ok) return refusedBy(valid);
   return applied(
     withAssetEdits(naming.value, asset, [...asset.edits, operation.value]),

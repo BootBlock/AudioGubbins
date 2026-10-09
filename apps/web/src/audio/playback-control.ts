@@ -20,6 +20,9 @@
  */
 
 import {
+  FailureKind,
+  fail,
+  failure,
   flatMapResult,
   succeed,
   type DomainResult,
@@ -130,6 +133,42 @@ export class PlaybackControl {
   }
 
   /**
+   * Holds `programme` ready at `from` without playing it, making whatever is
+   * not made yet: the context is made at its rate now, so an input that joins
+   * it, as a punch's does, records on the clock the programme then plays on.
+   */
+  cue(programme: Programme, from: SampleCount): void {
+    this.#resumeFrom = undefined;
+    let current = this.#opened;
+    if (current !== undefined && programme.rate !== undefined && current.rate !== programme.rate) {
+      this.#close(current);
+      current = undefined;
+    }
+    this.#start(current ?? this.#openFor(this.#profile(), programme.rate), programme, from, false);
+  }
+
+  /**
+   * The transport frame that context frame `at`, of a context at
+   * `contextRate`, plays: before the transport's start, and so below zero,
+   * where `at` is before the frame playback started on. Where the transport
+   * is not playing, the frame it stands at; `undefined` where it holds no
+   * programme.
+   */
+  transportAt(at: number, contextRate: number): number | undefined {
+    const current = this.#opened;
+    const session = current?.session;
+    const loaded = current?.loaded;
+    if (session === undefined || loaded === undefined) return undefined;
+    const { transport } = session.status;
+    if (transport.mode !== TransportMode.Playing) return transport.position;
+    const timelineRate = loaded.rate ?? contextRate;
+    return (
+      transport.anchor.timelineFrame +
+      Math.floor(((at - transport.anchor.contextFrame) * timelineRate) / contextRate)
+    );
+  }
+
+  /**
    * Moves the transport to `to` where it holds programme `key`, answering
    * whether it did; playback that was running goes on from there.
    */
@@ -191,24 +230,65 @@ export class PlaybackControl {
   useProfile(profile: ChosenProfile): void {
     const current = this.#opened;
     if (current === undefined || current.profile === profile) return;
-    const mode = current.session?.status.transport.mode;
-    const playing =
-      this.#view.get().starting ||
-      mode === TransportMode.Playing ||
-      mode === TransportMode.Suspended;
-    const position = current.session?.position();
-    const from = position?.ok === true ? position.value : undefined;
+    const playing = this.#playing(current);
     const programme = current.loaded;
-    this.#close(current);
+    const from = this.#closeKeepingPause(current);
     // Chosen from a gesture, as every command is, so a context made now
     // starts as the first one did. A Play still on its way goes on too, since
     // the one it was waiting for has been closed under it. Paused, the new
     // context waits for Play, which goes on from where the old one paused.
-    if (programme === undefined) return;
-    if (playing) this.#start(this.#openFor(profile, current.rate), programme, from);
-    else if (mode === TransportMode.Paused && from !== undefined) {
+    if (programme !== undefined && playing) {
+      this.#start(this.#openFor(profile, current.rate), programme, from);
+    }
+  }
+
+  /**
+   * Lets go of the context, so it can be made again at another rate, or says
+   * why not: what plays, or is starting, would be cut off. A paused programme
+   * goes on from where it paused at the next Play, which makes a context at
+   * the programme's own rate where it has one.
+   */
+  releaseContext(): DomainResult<void> {
+    const current = this.#opened;
+    if (current === undefined) return succeed(undefined);
+    if (this.#playing(current)) {
+      return fail(
+        failure(
+          'playback.playing',
+          FailureKind.Rejected,
+          'Stop playback first: making the audio engine again would cut it off.',
+        ),
+      );
+    }
+    this.#closeKeepingPause(current);
+    return succeed(undefined);
+  }
+
+  /** Whether `current` plays, or is starting to. */
+  #playing(current: Opened): boolean {
+    const mode = current.session?.status.transport.mode;
+    return (
+      this.#view.get().starting ||
+      mode === TransportMode.Playing ||
+      mode === TransportMode.Suspended
+    );
+  }
+
+  /**
+   * Closes `current`, remembering where a paused programme paused for its next
+   * Play, and answers where the programme was.
+   */
+  #closeKeepingPause(current: Opened): SampleCount | undefined {
+    const paused =
+      !this.#playing(current) && current.session?.status.transport.mode === TransportMode.Paused;
+    const position = current.session?.position();
+    const from = position?.ok === true ? position.value : undefined;
+    const programme = current.loaded;
+    this.#close(current);
+    if (programme !== undefined && paused && from !== undefined) {
       this.#resumeFrom = { key: programme.key, at: from };
     }
+    return from;
   }
 
   /**
@@ -333,20 +413,30 @@ export class PlaybackControl {
     };
   }
 
-  #start(current: Opened, programme: Programme, from: SampleCount | undefined): void {
+  #start(
+    current: Opened,
+    programme: Programme,
+    from: SampleCount | undefined,
+    andPlay = true,
+  ): void {
     current.parts.startContext();
     this.#view.playbackStarting();
     // The Play the person pressed is waiting on this, so a fault in it ends
     // that Play with the reason and is recorded, rather than leaving the
     // transport starting for ever.
-    void this.#run(current, programme, from).catch((error: unknown) => {
+    void this.#run(current, programme, from, andPlay).catch((error: unknown) => {
       this.#logger.error('Playback stopped on a fault.', { reason: messageOf(error) });
       if (this.#opened === current) this.#close(current);
       this.#refused([`Playback stopped on a fault: ${messageOf(error)}`]);
     });
   }
 
-  async #run(current: Opened, programme: Programme, from: SampleCount | undefined): Promise<void> {
+  async #run(
+    current: Opened,
+    programme: Programme,
+    from: SampleCount | undefined,
+    andPlay: boolean,
+  ): Promise<void> {
     let session: PlaybackSessionPort;
     try {
       session = await current.parts.session;
@@ -364,7 +454,9 @@ export class PlaybackControl {
     // Closed while it loaded, by a change of profile whose own Play reports.
     if (this.#opened !== current) return;
     const moved = !ready.ok || from === undefined ? ready : await session.seek(from);
-    this.#settle(moved.ok ? await session.play() : moved, programme);
+    if (andPlay) this.#settle(moved.ok ? await session.play() : moved, programme);
+    else if (moved.ok) this.#view.playbackSettled([]);
+    else this.#settle(moved, programme);
   }
 
   /** Takes the session into use, or disposes of it where its parts were closed meanwhile. */

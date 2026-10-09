@@ -11,6 +11,7 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
+import type { RecordingClient } from '@audiogubbins/storage-runtime';
 
 import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { LibraryChanges } from '../io/library-channel.js';
@@ -24,6 +25,7 @@ import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
 import { HistoryRowOrders } from './history-row-orders.js';
+import { InterruptedRecordings } from './interrupted-recordings.js';
 import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
 import { checkSourcesOnOpening, keepListInStep } from './project-follow-ups.js';
@@ -64,6 +66,10 @@ export interface ProjectStores {
   readonly files: TransferFiles;
   /** The person's library of saved chains and presets, kept beside the projects. */
   readonly savedProcessing: SavedProcessingStore;
+  /** The storage worker's recordings, which the recording flow begins and stops takes through. */
+  readonly recordings: RecordingClient;
+  /** The recordings the open project holds cut short, each offered to be recovered or discarded. */
+  readonly interrupted: InterruptedRecordings;
 }
 
 /** What the browser gives the stores beyond its storage. */
@@ -141,6 +147,8 @@ export function createProjectStores(
       lifetime,
       ports.libraryChanges,
     ),
+    recordings: client.recording,
+    interrupted: new InterruptedRecordings(client.recording, project, logger),
   };
 }
 

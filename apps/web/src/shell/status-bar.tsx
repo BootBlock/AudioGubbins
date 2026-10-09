@@ -52,6 +52,9 @@ export interface StatusBarProps {
   /** Whether the open project's changes are saved, where one is open. */
   readonly saving?: ReactNode;
 
+  /** The input's state, for as long as an input is armed or open (`REQ-REC-090`). */
+  readonly input?: ReactNode;
+
   readonly run: (id: CommandId, args?: Readonly<Record<string, string>>) => void;
 }
 
@@ -170,6 +173,7 @@ export function StatusBar({
   recovery,
   missingCapabilities,
   saving,
+  input,
   run,
 }: StatusBarProps): ReactNode {
   const bar = useRef<HTMLElement>(null);
@@ -186,6 +190,7 @@ export function StatusBar({
     <footer className="ag-status-bar" ref={bar} tabIndex={focus.tabIndex} aria-label="Status">
       <span className="ag-status-item">{workspaceName}</span>
       {saving}
+      {input}
 
       {pendingChord !== undefined && (
         <span className="ag-status-item" data-ag-status="reduced">

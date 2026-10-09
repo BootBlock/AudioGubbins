@@ -15,7 +15,13 @@
  */
 
 import type { ChannelLayout } from '../audio/channel-layout.js';
-import type { AssetId, EditOperationId, EffectChainId, RegionId } from '../identity/branded-id.js';
+import type {
+  AssetId,
+  EditOperationId,
+  EffectChainId,
+  RegionId,
+  TakeStackId,
+} from '../identity/branded-id.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import type { FadeDirection, FadeShape } from './fades.js';
 import type { EditPlan } from './plan.js';
@@ -76,11 +82,24 @@ export interface RackEdit {
 }
 
 /**
- * A change over a range that moves nothing in time: a level change on the
- * channels an operation names, a change between channels, or a chain of
- * processors.
+ * The range replaced by the chosen take of the take stack `stack` names
+ * (ADR-0072), crossing into it and back as the stack's `PunchRange` says. It
+ * keeps the range's length and the layout, so it moves nothing in time; it
+ * acts on every channel, and only on an asset's own chain, since what it
+ * replaces is the asset's audio. A stack with no chosen take leaves the range
+ * as it was.
  */
-export type RangeEdit = LevelEdit | ChannelEdit | RackEdit;
+export interface PunchEdit {
+  readonly kind: 'punch';
+  readonly stack: TakeStackId;
+}
+
+/**
+ * A change over a range that moves nothing in time: a level change on the
+ * channels an operation names, a change between channels, a chain of
+ * processors, or a punch.
+ */
+export type RangeEdit = LevelEdit | ChannelEdit | RackEdit | PunchEdit;
 
 /** One operation in an asset's chain. */
 export type EditOperation =

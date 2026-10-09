@@ -103,6 +103,8 @@ export {
   type ProcessorId,
   type ProjectId,
   type RegionId,
+  type TakeId,
+  type TakeStackId,
   type TrackId,
   isWellFormedId,
   unsafeBrandId,
@@ -185,6 +187,7 @@ export {
   type EngineVersions,
   type EditTarget,
   type LevelEdit,
+  type PunchEdit,
   type RackEdit,
   type RangeEdit,
   type RegionOperation,
@@ -208,6 +211,7 @@ export {
   segmentsLayout,
   segmentsLength,
   silencePlan,
+  sourceStreams,
   streamLength,
 } from './editing/plan.js';
 
@@ -217,24 +221,28 @@ export { Affinity, type AnchorResolver, type Span, anchorResolver } from './edit
 
 export { type ChannelMatrix, conversionMatrix } from './editing/channel-matrices.js';
 
+export { type PlanContext } from './editing/plan-context.js';
 export {
-  type PlanContext,
   assetPlan,
   bypassedAssetPlan,
   unrackedAssetPlan,
   withRack,
 } from './editing/plan-building.js';
-export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
+export { type BlockPlace, applyStages, placeOf, sumInto } from './editing/stage-arithmetic.js';
 export { sliceSegment } from './editing/segment-list.js';
 export { slicePlan } from './editing/plan-slicing.js';
 export { type RemovalEdit, removalEdits } from './editing/removal-operations.js';
 export { type MediaShape, MAXIMUM_STRETCH_RATIO, validatePlan } from './editing/plan-validation.js';
-export { editPlanOf } from './editing/plan-decoding.js';
+export { editPlanOf, layoutOf } from './editing/plan-decoding.js';
+export { effectChainOf } from './processing/chain-decoding.js';
 export {
+  type EditingEntities,
   type ProjectChains,
   validateChain,
   validateOperation,
 } from './editing/operation-validation.js';
+export { punchTakeFrames, punchTakeProblem } from './editing/punch-validation.js';
+export { validateTakeStack, validateTakeStackInProject } from './editing/take-stack-validation.js';
 export { validateMarker, validateRegion } from './editing/placement-validation.js';
 export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
 export {
@@ -398,5 +406,17 @@ export {
   regionChains,
   tracksInOrder,
 } from './project/project.js';
+
+export {
+  type PunchCrossfade,
+  type PunchRange,
+  type Take,
+  type TakeStack,
+  TakeState,
+  chosenTake,
+  defaultPunchCrossfade,
+  takeOf,
+} from './project/take-stack.js';
+export { type StackUse, punchStackOf, stackUsers } from './project/take-users.js';
 
 export { crc32 } from './integrity/crc32.js';

@@ -1,7 +1,8 @@
 /**
  * What playing with one profile is made of, as the playback control drives
- * it: the audio context's life and a session over it, made from the person's
- * gesture by the page's real collaborators and by a test's fakes alike.
+ * it: a hold on the page's audio context and a session over it, made from the
+ * person's gesture by the page's real collaborators and by a test's fakes
+ * alike.
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
@@ -42,7 +43,10 @@ export interface PlaybackParts {
   readonly contextRate: () => DomainResult<number>;
   /** The session, once the DSP module it runs has been loaded and compiled. */
   readonly session: Promise<PlaybackSessionPort>;
-  /** Closes the context, for good. */
+  /**
+   * Lets go of the context, which closes once an open input does not hold it
+   * too (`context-host.ts`).
+   */
   readonly close: () => Promise<void>;
 }
 
