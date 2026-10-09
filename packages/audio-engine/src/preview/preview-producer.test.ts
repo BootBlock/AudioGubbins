@@ -7,6 +7,7 @@ import {
   sampleRate,
   succeed,
   unsafeBrandId,
+  type EditPlan,
   type EffectChain,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -177,6 +178,28 @@ describe('the cached preview producer', () => {
     // chain's passes, which hold as much again while it is made.
     const { producer, starts } = opened(LENGTH * 4 * 1.5, undefined, 4);
     const declined = await producer.streams(CachePurpose.Playback).open(request()).ready;
+    expect(declined.ok).toBe(false);
+    if (!declined.ok) expect(declined.failures[0].code).toBe('preview.render-too-long');
+    expect(starts).toEqual([]);
+  });
+
+  it('counts the passes of every stream a mix it reads sums (ADR-0072)', async () => {
+    // Stream 1 is rendered, and reads the mix of streams 2 and 3, each run
+    // through a chain of its own while it is made: three passes in all.
+    const [heard, racked] = rackedPlan(CHAIN, LENGTH, RATE).streams;
+    if (racked === undefined) throw new Error('A racked plan has two streams.');
+    const [whole] = racked.segments;
+    if (whole === undefined) throw new Error('A racked stream reads the file.');
+    const mixing = {
+      ...racked,
+      segments: [{ ...whole, source: { kind: 'mix' as const, streams: [2, 3] } }],
+    };
+    const plan: EditPlan = { streams: [heard, mixing, racked, racked] };
+    // Room for the render's samples, 4 bytes a frame, and two passes of as
+    // much again, but not for the third.
+    const { producer, starts } = opened(LENGTH * 4 * 3.5, undefined, 4);
+    const declined = await producer.streams(CachePurpose.Playback).open({ ...request(), plan })
+      .ready;
     expect(declined.ok).toBe(false);
     if (!declined.ok) expect(declined.failures[0].code).toBe('preview.render-too-long');
     expect(starts).toEqual([]);

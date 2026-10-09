@@ -39,6 +39,7 @@ const PROJECT_AFFECTED: AffectedEntities = {
   regions: [],
   markers: [],
   effectChains: [],
+  takeStacks: [],
   project: true,
 };
 

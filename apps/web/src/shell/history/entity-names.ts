@@ -32,6 +32,7 @@ const KINDS: Readonly<Record<EntityKind, { readonly one: string; readonly some: 
   region: { one: 'region', some: 'a region' },
   marker: { one: 'marker', some: 'a marker' },
   'effect-chain': { one: 'effects of', some: 'effects' },
+  'take-stack': { one: 'take stack', some: 'a take stack' },
 };
 
 /** The names of the entities `state` holds, an effect chain by its owner's. */
@@ -43,6 +44,7 @@ export function entityNamesOf({ project }: ProjectState): EntityNames {
   for (const held of [project.regions, project.markers]) {
     for (const [id, entity] of held) names.set(id, entity.displayName);
   }
+  for (const [id, stack] of project.takeStacks) names.set(id, stack.name);
   for (const chain of project.effectChains.keys()) {
     const owner = chainOwner(project, chain);
     if (owner !== undefined) names.set(chain, owner.name);

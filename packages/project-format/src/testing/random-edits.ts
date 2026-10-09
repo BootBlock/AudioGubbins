@@ -7,8 +7,8 @@
  * have made, and the round trips exercise every kind of operation, every kind
  * of range edit, inserted silence, pastes whose plans carry fades, matrices,
  * reversed segments, generated silence, converted, stretched and processed
- * streams, rack edits naming the project's chains, and positions stated at
- * every basis of a chain.
+ * streams, rack edits naming the project's chains, punches naming its take
+ * stacks, and positions stated at every basis of a chain.
  */
 
 import {
@@ -32,7 +32,9 @@ import {
   type Asset,
   type AssetId,
   type EditOperation,
+  type EditOperationId,
   type EditRange,
+  type EditingEntities,
   type EditShape,
   type IdGenerator,
   type Marker,
@@ -78,7 +80,7 @@ export function withRandomEdits(
       const operation = proposeOperation(random, ids, shape, current, edited, context);
       if (
         operation === undefined ||
-        !validateOperation(operation, shape, edited, context.chains).ok
+        !validateOperation(operation, shape, entitiesOf(edited, context)).ok
       ) {
         continue;
       }
@@ -105,9 +107,43 @@ export function randomOperation(
   const shape = shapesOf(asset).at(-1);
   if (shape === undefined) return undefined;
   const operation = proposeOperation(random, ids, shape, asset, assets, context);
-  return operation !== undefined && validateOperation(operation, shape, assets, context.chains).ok
+  return operation !== undefined &&
+    validateOperation(operation, shape, entitiesOf(assets, context)).ok
     ? operation
     : undefined;
+}
+
+/** What an operation of `assets` may name, as `context` holds it. */
+function entitiesOf(assets: ReadonlyMap<AssetId, Asset>, context: PlanContext): EditingEntities {
+  return { assets, effectChains: context.chains, takeStacks: context.takeStacks };
+}
+
+/**
+ * A punch over a range of a timeline of `shape` the length of one of the
+ * context's punch stacks, where it has one that fits.
+ */
+function proposePunch(
+  random: Random,
+  id: EditOperationId,
+  shape: EditShape,
+  context: PlanContext,
+): EditOperation | undefined {
+  const fitting = [...context.takeStacks.values()].filter(
+    (stack) => stack.punch !== undefined && stack.punch.length <= shape.length,
+  );
+  if (fitting.length === 0) return undefined;
+  const stack = random.pick(fitting);
+  const length = stack.punch?.length ?? 0;
+  const start = random.below(shape.length - length + 1);
+  return {
+    id,
+    kind: 'process',
+    range: {
+      start: expectSuccess(sampleCount(start)),
+      end: expectSuccess(sampleCount(start + length)),
+    },
+    edit: { kind: 'punch', stack: stack.id },
+  };
 }
 
 /** One of the project's chains, now and then, as a target's rack. */
@@ -220,7 +256,9 @@ function proposeOperation(
 ): EditOperation | undefined {
   const id = ids.next<'EditOperationId'>();
   const count = channelCount(shape.layout);
-  switch (random.below(8)) {
+  switch (random.below(9)) {
+    case 8:
+      return proposePunch(random, id, shape, context);
     case 0:
     case 1: {
       const range = randomRange(random, shape.length);

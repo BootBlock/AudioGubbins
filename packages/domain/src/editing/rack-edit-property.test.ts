@@ -14,6 +14,7 @@ import { derivedSampleCount, sampleRate, type SampleRate } from '../time/sample-
 import { applyEdit, type OracleWorld, type Samples } from '../testing/edit-oracle.js';
 import { renderPlan } from '../testing/plan-render.js';
 import { TEST_CATALOGUE } from '../testing/test-processors.js';
+import { editingEntities } from '../testing/editing-fixtures.js';
 import { expectSuccess } from '../testing/unwrap.js';
 import { anchorResolver } from './anchors.js';
 import { shapesOf } from './edit-shape.js';
@@ -21,12 +22,8 @@ import { validateChain, validateOperation } from './operation-validation.js';
 import type { EditOperation } from './operations.js';
 import { bypassedRegionPlan, regionPlan, unrackedRegionPlan } from './placement.js';
 import { validateRegion } from './placement-validation.js';
-import {
-  assetPlan,
-  bypassedAssetPlan,
-  unrackedAssetPlan,
-  type PlanContext,
-} from './plan-building.js';
+import { assetPlan, bypassedAssetPlan, unrackedAssetPlan } from './plan-building.js';
+import type { PlanContext } from './plan-context.js';
 import { slicePlan } from './plan-slicing.js';
 import { validatePlan } from './plan-validation.js';
 import { TEST_ENGINE } from '../testing/plan-context.js';
@@ -55,6 +52,8 @@ const CHAINS: readonly EffectChainId[] = ['a', 'b', 'c'].map((name) =>
 /** Every chain of the test, empty, so each keeps its layout. */
 const CONTEXT: PlanContext = {
   chains: new Map(CHAINS.map((id): [EffectChainId, EffectChain] => [id, { id, slots: [] }])),
+  takeStacks: new Map(),
+  assets: new Map(),
   catalogue: TEST_CATALOGUE,
   engine: TEST_ENGINE,
 };
@@ -222,7 +221,11 @@ function randomChain(seed: number, steps: number) {
     const shape = shapesOf(asset).at(-1);
     if (shape === undefined) throw new Error('A chain always has a shape.');
     expectSuccess(
-      validateOperation(one.operation, shape, new Map([[asset.id, asset]]), CONTEXT.chains),
+      validateOperation(
+        one.operation,
+        shape,
+        editingEntities(new Map([[asset.id, asset]]), CONTEXT.chains),
+      ),
     );
     sounds.push(
       applyEdit(current, one.operation, { ...WORLD, inserted: one.inserted }, shape.sampleRate),
@@ -262,7 +265,9 @@ describe('the edit plan with racks, stretches and conversions, against the same 
   it('renders every random chain to the bits of each edit applied to the samples in turn', () => {
     for (let run = 0; run < 120; run += 1) {
       const { source, asset, sounds } = randomChain(run + 1, 14);
-      expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), CONTEXT.chains));
+      expectSuccess(
+        validateChain(asset, editingEntities(new Map([[asset.id, asset]]), CONTEXT.chains)),
+      );
       const plan = expectSuccess(assetPlan(asset, CONTEXT));
       // A chain that deleted everything leaves a plan of no audio, which no
       // reader is given.
@@ -426,8 +431,10 @@ describe('the edit plan with racks, stretches and conversions, against the same 
       edit: { kind: 'rack', chain: missing },
     };
     const assets = new Map([[asset.id, asset]]);
-    expect(validateOperation(edit, shape, assets, CONTEXT.chains).ok).toBe(false);
-    expect(validateChain({ ...asset, rack: missing }, assets, CONTEXT.chains).ok).toBe(false);
+    expect(validateOperation(edit, shape, editingEntities(assets, CONTEXT.chains)).ok).toBe(false);
+    expect(
+      validateChain({ ...asset, rack: missing }, editingEntities(assets, CONTEXT.chains)).ok,
+    ).toBe(false);
     expect(assetPlan({ ...asset, rack: missing }, CONTEXT).ok).toBe(false);
   });
 });

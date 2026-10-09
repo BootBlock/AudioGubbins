@@ -73,7 +73,8 @@ function ambisonicOf(value: unknown, field: string): ChannelLayout {
   return layout.value;
 }
 
-function layoutOf(value: unknown, field: string): ChannelLayout {
+/** The channel layout `value` holds, named `field`, read member by member. */
+export function layoutOf(value: unknown, field: string): ChannelLayout {
   const read = fieldsOf(value, field);
   if (read['ambisonic'] !== undefined) return ambisonicOf(read['ambisonic'], `${field}.ambisonic`);
   const roles = boundedItemsOf(read['roles'], `${field}.roles`, LIMITS.channels, (role, name) =>
@@ -153,7 +154,15 @@ function sourceOf(value: unknown, field: string): PlanSource {
   if (read['kind'] === 'silence') {
     return { kind: 'silence', channels: integerOf(read['channels'], `${field}.channels`) };
   }
-  if (read['kind'] !== 'stream') throw new Malformed(`${field}.kind`, 'media, stream or silence');
+  if (read['kind'] === 'mix') {
+    return {
+      kind: 'mix',
+      streams: boundedItemsOf(read['streams'], `${field}.streams`, LIMITS.streams, integerOf),
+    };
+  }
+  if (read['kind'] !== 'stream') {
+    throw new Malformed(`${field}.kind`, 'media, stream, silence or mix');
+  }
   return { kind: 'stream', stream: integerOf(read['stream'], `${field}.stream`) };
 }
 

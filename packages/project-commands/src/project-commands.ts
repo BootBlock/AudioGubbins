@@ -25,6 +25,10 @@ import { slotCommands } from './processing/slot-commands.js';
 import type { ProjectCommand } from './project-command.js';
 import { projectNameCommands } from './project-name-commands.js';
 import { sourceCommands } from './source-commands.js';
+import { punchCommands } from './takes/punch-commands.js';
+import { stackCommands } from './takes/stack-commands.js';
+import { takeChangeCommands } from './takes/take-change-commands.js';
+import { takeMembershipCommands } from './takes/take-membership-commands.js';
 
 /**
  * The project commands, for a registry the command bus runs them through. The
@@ -41,6 +45,10 @@ export function projectCommands(catalogue: ProcessorCatalogue): readonly Project
     ...rackCommands(),
     ...slotCommands(catalogue),
     ...processorCommands(catalogue),
+    ...stackCommands(),
+    ...takeMembershipCommands(),
+    ...takeChangeCommands(),
+    ...punchCommands(),
   ];
 }
 

@@ -92,6 +92,7 @@ const SEGMENT_MEMBERS: ReadonlySet<string> = new Set([
 const MEDIA_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'asset']);
 const STREAM_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'stream']);
 const SILENCE_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'channels']);
+const MIX_SOURCE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'streams']);
 const GAIN_STAGE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'from', 'to', 'channels', 'gain']);
 const MATRIX_STAGE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'range', 'matrix']);
 const STAGE_RANGE_MEMBERS: ReadonlySet<string> = new Set(['from', 'to']);
@@ -105,13 +106,16 @@ const FADE_MEMBERS: ReadonlySet<string> = new Set([
   'rising',
 ]);
 
-const asSourceKind = oneOfConverter(['media', 'stream', 'silence'] as const);
+const asSourceKind = oneOfConverter(['media', 'stream', 'silence', 'mix'] as const);
 const asStageKind = oneOfConverter(['gain', 'matrix'] as const);
 const asCurveKind = oneOfConverter(['constant', 'fade'] as const);
 const asProcessingKind = oneOfConverter(['chain', 'stretch'] as const);
 
 /** A stream of the plan a segment reads, by its place among the streams. */
 const asStreamPlace = integerConverter(0, MAXIMUM_PLAN_ITEMS - 1);
+
+/** The streams a mix sums, in the order it sums them. */
+const asMixedStreams = listConverter(MAXIMUM_PLAN_ITEMS, asStreamPlace);
 
 /** How many channels a segment of silence makes: as many as a layout may have. */
 const asSilenceChannels = integerConverter(1, MAXIMUM_CHANNEL_COUNT);
@@ -149,6 +153,11 @@ const readSource: Converter<PlanSource> = (reading, value, parent, key) => {
     checkMembers(reading, object, at, SILENCE_SOURCE_MEMBERS);
     const channels = required(reading, object, at, 'channels', asSilenceChannels);
     return channels === undefined ? undefined : { kind, channels };
+  }
+  if (kind === 'mix') {
+    checkMembers(reading, object, at, MIX_SOURCE_MEMBERS);
+    const streams = required(reading, object, at, 'streams', asMixedStreams);
+    return streams === undefined ? undefined : { kind, streams };
   }
   return undefined;
 };

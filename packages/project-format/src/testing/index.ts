@@ -19,9 +19,12 @@ export {
   withSources,
 } from './project-states.js';
 
+export { pastedPunchState, punchedState } from './recorded-states.js';
+
 export { type CountedTurns, countedTurns, immediateTurns } from './host-turns.js';
 
 export { randomChain, randomState } from './random-states.js';
+export { randomTakeStacks } from './random-recordings.js';
 
 export { CHAIN_SHAPES_CATALOGUE, everyChainShape, fullySetProcessor } from './chain-shapes.js';
 
@@ -39,5 +42,7 @@ export {
   randomIdentity,
   randomMedia,
   randomName,
+  randomRecording,
+  randomRecordingStart,
   seededRandom,
 } from './random-values.js';

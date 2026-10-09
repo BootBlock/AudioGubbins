@@ -12,11 +12,15 @@
  * is not the plan's to decide, so the oracle is given each as a function
  * (`OracleWorld`): the property tests check where the plan puts processing,
  * in what order and from what start, with any rule for the processing itself.
+ * A punch is stated here whole (ADR-0072): the chosen take's recording, read
+ * from the end of its pre-roll shifted by its compensation, converted where
+ * its rate differs, and crossed into at each boundary by the stack's fades.
  */
 
 import type { FadeShape } from '../editing/fades.js';
 import type { EditOperation, LevelEdit } from '../editing/operations.js';
-import type { EffectChainId } from '../identity/branded-id.js';
+import type { AssetId, EffectChainId, TakeStackId } from '../identity/branded-id.js';
+import type { TakeStack } from '../project/take-stack.js';
 import { convertedFrameCount } from '../editing/plan.js';
 
 /** Audio as one array per channel. */
@@ -32,6 +36,11 @@ export interface OracleWorld {
   readonly stretch?: (samples: Samples, length: number) => Samples;
   /** What a conversion makes of audio at `from`, at `to`. */
   readonly convert?: (samples: Samples, from: number, to: number, length: number) => Samples;
+  /** The take stacks a punch names, and each recording a take is, at its rate. */
+  readonly takes?: {
+    readonly stacks: ReadonlyMap<TakeStackId, TakeStack>;
+    readonly recordings: ReadonlyMap<AssetId, { readonly samples: Samples; readonly rate: number }>;
+  };
 }
 
 /** The world's answer for `what`, or a fault naming what the test did not give. */
@@ -145,19 +154,85 @@ export function applyEdit(
     case 'convert-layout':
       return mixed(samples, operation.matrix, 0, samples[0]?.length ?? 0);
     case 'process':
-      return processed(samples, operation, world);
+      return processed(samples, operation, world, rate);
   }
+}
+
+/** The take a punch of `length` frames at `rate` plays, from its recording. */
+function takeSamples(
+  recording: { readonly samples: Samples; readonly rate: number },
+  from: number,
+  length: number,
+  rate: number,
+  world: OracleWorld,
+): Samples {
+  if (recording.rate === rate) {
+    return recording.samples.map((channel) => channel.slice(from, from + length));
+  }
+  const frames = Math.ceil((length * recording.rate) / rate);
+  const read = recording.samples.map((channel) => channel.slice(from, from + frames));
+  const converted = given(world.convert, 'a conversion')(
+    read,
+    recording.rate,
+    rate,
+    convertedFrameCount(frames, recording.rate, rate),
+  );
+  return converted.map((channel) => channel.slice(0, length));
+}
+
+/** The samples with `range` replaced by the chosen take of `stack`, crossed into and out of. */
+function punched(
+  samples: Samples,
+  range: { readonly start: number; readonly end: number },
+  stack: TakeStackId,
+  world: OracleWorld,
+  rate: number,
+): Samples {
+  const takes = given(world.takes, 'a take stack');
+  const named = takes.stacks.get(stack);
+  const punch = given(named?.punch, 'the punch of a take stack');
+  const chosen = named?.takes.find((take) => take.id === named.chosen);
+  if (chosen === undefined) return samples;
+  const recording = given(takes.recordings.get(chosen.asset), 'a take’s recording');
+  const length = range.end - range.start;
+  const take = takeSamples(recording, punch.preRoll + chosen.compensation, length, rate, world);
+  const { length: fade, shape: kind } = punch.crossfade;
+  const position = (k: number): number => (fade > 1 ? k / (fade - 1) : 1);
+  return samples.map((channel, index) => {
+    const out = Float32Array.from(channel);
+    const own = take[index] ?? new Float32Array(length);
+    for (let k = 0; k < length; k += 1) {
+      const earlier = out[range.start + k] ?? 0;
+      const taken = own[k] ?? 0;
+      const tail = k - (length - fade);
+      let value = taken;
+      if (k < fade) {
+        value =
+          Math.fround(earlier * shape(kind, 1 - position(k))) +
+          Math.fround(taken * shape(kind, position(k)));
+      } else if (tail >= 0) {
+        value =
+          Math.fround(earlier * shape(kind, position(tail))) +
+          Math.fround(taken * shape(kind, 1 - position(tail)));
+      }
+      out[range.start + k] = Math.fround(value);
+    }
+    return out;
+  });
 }
 
 function processed(
   samples: Samples,
   operation: Extract<EditOperation, { readonly kind: 'process' }>,
   world: OracleWorld,
+  rate: number,
 ): Samples {
   const { start, end } = operation.range;
   const edit = operation.edit;
   const count = samples.length;
   switch (edit.kind) {
+    case 'punch':
+      return punched(samples, operation.range, edit.stack, world, rate);
     case 'rack': {
       const chain = given(world.chain, 'a chain');
       return replaced(samples, start, end, (range) => chain(edit.chain, range));

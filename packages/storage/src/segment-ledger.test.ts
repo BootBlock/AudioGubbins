@@ -60,6 +60,7 @@ function grownBy(history: History, count: number): History {
         regions: [],
         markers: [],
         effectChains: [],
+        takeStacks: [],
         project: true,
       },
     });

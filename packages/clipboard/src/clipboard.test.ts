@@ -461,7 +461,13 @@ describe('a copy of a chain whose groups nest as deep as the domain allows', () 
       },
     };
     const plan = expectSuccess(
-      assetPlan(racked, { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE }),
+      assetPlan(racked, {
+        chains,
+        takeStacks: into.project.takeStacks,
+        assets: into.project.assets,
+        catalogue: TEST_CATALOGUE,
+        engine: TEST_ENGINE,
+      }),
     );
     const copy = expectSuccess(copyAudio(into, plan, { start: at(1_000), end: at(3_000) }));
     expect(copy.plan.streams.some((stream) => stream.processing?.kind === 'chain')).toBe(true);

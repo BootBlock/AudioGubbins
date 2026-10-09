@@ -14,6 +14,11 @@ import {
   type Asset,
   type ChannelLayout,
   type EditOperation,
+  type EditPlan,
+  type PlanSegment,
+  type PlanSource,
+  type PlanStage,
+  type PlanStream,
   type SampleRate,
 } from '@audiogubbins/domain';
 import {
@@ -581,5 +586,96 @@ describe('an edited source of the edits that change time and rate (REQ-AUDIO-018
 
     expect(made[0]?.length).toBe(4_594);
     expect(bitsOf(made)).toEqual(bitsOf(await readAll(converted, 1_000)));
+  });
+});
+
+describe('an edited source of a mix of streams (ADR-0072)', () => {
+  const first = assetOf('first', 5_000, RATE, StandardLayouts.stereo);
+  const second = assetOf('second', 5_000, RATE, StandardLayouts.stereo);
+  const firstSamples = samplesOf(5_000, 2, 3);
+  const secondSamples = samplesOf(5_000, 2, 11);
+
+  function segment(
+    source: PlanSource,
+    start: number,
+    length: number,
+    reversed = false,
+    stages: readonly PlanStage[] = [],
+  ): PlanSegment {
+    return {
+      source,
+      start: derivedSampleCount(start),
+      length: derivedSampleCount(length),
+      reversed,
+      stages,
+    };
+  }
+
+  function stream(...segments: PlanSegment[]): PlanStream {
+    return { sampleRate: RATE, layout: StandardLayouts.stereo, segments };
+  }
+
+  // Three mixed streams, so a sum taken out of its stated order rounds to
+  // other bits; each two thousand frames, read in more than one segment so a
+  // mix's read crosses their joins.
+  const fromFirst: PlanSource = { kind: 'media', asset: first.id };
+  const fromSecond: PlanSource = { kind: 'media', asset: second.id };
+  const plan: EditPlan = {
+    streams: [
+      stream(
+        segment(fromFirst, 0, 300),
+        segment({ kind: 'mix', streams: [1, 2] }, 100, 600),
+        segment({ kind: 'mix', streams: [1, 2] }, 800, 700, true),
+        segment({ kind: 'mix', streams: [3, 1, 2] }, 50, 1_500, false, [
+          {
+            kind: 'gain',
+            from: 200,
+            to: 1_200,
+            channels: [0],
+            gain: { kind: 'constant', gain: 0.3 },
+          },
+          { kind: 'gain', from: 50, to: 1_550, gain: { kind: 'constant', gain: 0.7 } },
+        ]),
+      ),
+      stream(segment(fromFirst, 0, 1_000), segment(fromSecond, 500, 1_000, true)),
+      stream(segment(fromSecond, 0, 1_500), segment({ kind: 'silence', channels: 2 }, 0, 500)),
+      stream(segment(fromFirst, 2_000, 2_000, true)),
+    ],
+  };
+  const sources = new Map([
+    [first.id, firstSamples],
+    [second.id, secondSamples],
+  ]);
+
+  function made(): PcmSource {
+    return expectSuccess(
+      editedSource(
+        plan,
+        [entryOf(first, firstSamples), entryOf(second, secondSamples)],
+        StandardLayouts.stereo,
+        REFERENCE_DSP,
+        PLAIN_PLAN_PROCESSING,
+      ),
+    );
+  }
+
+  it('reads the same bits as the plan rendered whole, whatever the block size', async () => {
+    const expected = bitsOf(renderPlan(plan, sources));
+    for (const size of [1, 97, 1_024, 10_000]) {
+      expect(bitsOf(await readAll(made(), size)), `blocks of ${String(size)}`).toEqual(expected);
+    }
+  });
+
+  it('reads a block that starts part way into a mix as the whole plan has it there', async () => {
+    const whole = renderPlan(plan, sources);
+    const block = allocateBlock(StandardLayouts.stereo, RATE, 333);
+    // Frame 450 is 150 frames into the first mix, and frame 1_050 is 50 into the reversed one.
+    for (const start of [450, 1_050]) {
+      const read = await made().read(derivedSampleCount(start), block);
+      expect(read).toBe(333);
+      expect(bitsOf(block.channels), `from ${String(start)}`).toEqual(
+        bitsOf(whole.map((channel) => channel.subarray(start, start + 333))),
+      );
+    }
   });
 });

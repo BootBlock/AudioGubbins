@@ -100,6 +100,8 @@ function rangeEditWords(
       return `Channel gains of ${edit.gains.map(decibelsOf).join(', ')}`;
     case 'rack':
       return `Processed through ${words.chain(edit.chain)}`;
+    case 'punch':
+      return 'Punched in from the chosen take of a take stack';
     default:
       return `${levelWords(edit)}${scopeWords(channels, names)}`;
   }

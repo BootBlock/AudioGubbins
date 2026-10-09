@@ -36,6 +36,7 @@ export function affectedBy(before: ProjectState, after: ProjectState): AffectedE
     regions: settled(touched(difference.regions)),
     markers: settled(touched(difference.markers)),
     effectChains: settled(difference.effectChains.map(({ id }) => id)),
+    takeStacks: settled(touched(difference.takeStacks)),
     project: difference.project.length > 0,
   };
 }

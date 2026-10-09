@@ -42,6 +42,7 @@ import {
   type MediaSource,
 } from './project-state.js';
 import { checkAudioAgainstAsset, readSourceAudioShape } from './source-audio-reading.js';
+import { checkRecordingAgainstAsset, readRecordedProvenance } from './recorded-provenance-json.js';
 import { asFileName, asHandleKey, asRelativePath } from './source-rules.js';
 import { MAXIMUM_ENTITIES, asMediaType, asWholeQuantity } from './value-reading.js';
 
@@ -78,6 +79,7 @@ const PROVENANCE_MEMBERS: ReadonlySet<string> = new Set([
   'mediaType',
   'originProjectId',
   'audio',
+  'recording',
 ]);
 
 const asMediaKind = oneOfConverter(['managed', 'external'] as const);
@@ -143,9 +145,9 @@ export function sourcesConverter(
 /**
  * Checks a source at `at` against the asset it belongs to, among `assets`: the
  * asset must be there, its storage key must be the one the source gives, and
- * the audio shape its provenance keeps must agree with it. True where the
- * source passed; false where it was refused, or where `assets` could not be
- * read and nothing was checked.
+ * the audio shape and the recording its provenance keeps must agree with it.
+ * True where the source passed; false where it was refused, or where `assets`
+ * could not be read and nothing was checked.
  */
 export function checkAgainstAsset(
   reading: Reading,
@@ -175,11 +177,16 @@ export function checkAgainstAsset(
     );
     return false;
   }
+  const provenanceAt = pathOf(at, 'provenance');
   const audio = source.provenance?.audio;
-  return (
+  const recording = source.provenance?.recording;
+  const audioAgrees =
     audio === undefined ||
-    checkAudioAgainstAsset(reading, audio, asset, pathOf(pathOf(at, 'provenance'), 'audio'))
-  );
+    checkAudioAgainstAsset(reading, audio, asset, pathOf(provenanceAt, 'audio'));
+  const recordingAgrees =
+    recording === undefined ||
+    checkRecordingAgainstAsset(reading, recording, asset, pathOf(provenanceAt, 'recording'));
+  return audioAgrees && recordingAgrees;
 }
 
 /** Reads one source entry: an asset's source and the asset it belongs to. */
@@ -304,6 +311,7 @@ const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) =
   const mediaType = required(reading, object, at, 'mediaType', asMediaType);
   const originProjectId = required(reading, object, at, 'originProjectId', asId<'ProjectId'>);
   const audio = optional(reading, object, at, 'audio', readSourceAudioShape);
+  const recording = optional(reading, object, at, 'recording', readRecordedProvenance);
 
   if (
     importedAt === undefined ||
@@ -322,5 +330,6 @@ const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) =
     mediaType,
     originProjectId,
     ...(audio === undefined ? {} : { audio }),
+    ...(recording === undefined ? {} : { recording }),
   };
 };

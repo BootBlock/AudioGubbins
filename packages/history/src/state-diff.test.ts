@@ -47,6 +47,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       regions: empty,
       markers: empty,
       effectChains: [],
+      takeStacks: empty,
     };
     expect(diffStates(state, state)).toEqual(expected);
     expect(diffStates(state, fixtureState(sampleProject()).state)).toEqual(expected);
@@ -434,6 +435,7 @@ describe('the entities a change affected', () => {
       regions: [],
       markers: [fixture.markers.start.id],
       effectChains: [chain.id],
+      takeStacks: [],
       project: true,
     });
   });

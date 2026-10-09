@@ -6,7 +6,8 @@
  * again by its seed. Names mix scripts, escapes, padding and a lone surrogate,
  * because a document may hold any of them and every reader and command must
  * give each back exactly. Sources are managed and external with every optional
- * member sometimes present, and each asset is keyed as its source gives.
+ * member sometimes present, a recorded asset's sometimes saying how it was
+ * recorded, and each asset is keyed as its source gives.
  */
 
 import {
@@ -28,6 +29,13 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { AssetRecord } from '../asset-record-json.js';
+import {
+  CaptureProfileKind,
+  RecordingEnding,
+  type CaptureSettings,
+  type RecordedProvenance,
+  type RecordingStart,
+} from '../recorded-provenance.js';
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import { writtenName } from '../given-names.js';
 import {
@@ -269,6 +277,10 @@ function randomProvenance(
   const sourceContentId = maybe(random, () => randomContentId(random));
   const sourceFingerprint = maybe(random, () => randomHex(random, 64));
   const audio = maybe(random, () => randomAudioShape(random, asset));
+  const recording =
+    asset.origin === AssetOrigin.Recorded
+      ? maybe(random, () => randomRecording(random, asset))
+      : undefined;
   return {
     ...(originalFileName === undefined ? {} : { originalFileName }),
     importedAt: random.below(2 ** 42),
@@ -278,6 +290,7 @@ function randomProvenance(
     mediaType: random.pick(MEDIA_TYPES),
     originProjectId: random.chance(0.7) ? projectId : ids.next<'ProjectId'>(),
     ...(audio === undefined ? {} : { audio }),
+    ...(recording === undefined ? {} : { recording }),
   };
 }
 
@@ -299,5 +312,67 @@ function randomAudioShape(random: Random, asset: Asset): SourceAudioShape {
     declaredFrames: random.chance(0.8)
       ? asset.length
       : expectSuccess(sampleCount(asset.length + 1 + random.below(10_000))),
+  };
+}
+
+/** Labels a browser may give a device, any script among them. */
+const LABELS = ['Built-in Microphone', 'USB Audio Interface (2-ch)', 'Mikrofon „Ü“', '麦克风'];
+
+/** Random capture settings, each member sometimes present. */
+function randomSettings(random: Random): CaptureSettings {
+  const some = <TValue>(make: () => TValue): TValue | undefined =>
+    random.chance(0.5) ? make() : undefined;
+  const echoCancellation = some(() => random.chance(0.5));
+  const noiseSuppression = some(() => random.chance(0.5));
+  const autoGainControl = some(() => random.chance(0.5));
+  const voiceIsolation = some(() => random.chance(0.5));
+  const channelCount = some(() => 1 + random.below(8));
+  const sampleRate = some(() => random.pick([44_100, 48_000, 96_000]));
+  const sampleSize = some(() => random.pick([16, 24, 32]));
+  const latency = some(() => random.pick([0, 0.01, 0.1 + 0.2, 0.25]));
+  return {
+    ...(echoCancellation === undefined ? {} : { echoCancellation }),
+    ...(noiseSuppression === undefined ? {} : { noiseSuppression }),
+    ...(autoGainControl === undefined ? {} : { autoGainControl }),
+    ...(voiceIsolation === undefined ? {} : { voiceIsolation }),
+    ...(channelCount === undefined ? {} : { channelCount }),
+    ...(sampleRate === undefined ? {} : { sampleRate }),
+    ...(sampleSize === undefined ? {} : { sampleSize }),
+    ...(latency === undefined ? {} : { latency }),
+  };
+}
+
+/** What is known of a recording of `asset`'s rate and layout as it starts. */
+export function randomRecordingStart(
+  random: Random,
+  asset: Pick<Asset, 'sampleRate' | 'channelLayout'>,
+): RecordingStart {
+  const label = random.chance(0.6) ? random.pick(LABELS) : undefined;
+  const group = random.chance(0.5) ? `group-${String(random.below(1_000))}` : undefined;
+  const channelCount = random.chance(0.5) ? 1 + random.below(8) : undefined;
+  return {
+    recordedAt: random.below(2 ** 42),
+    device: {
+      ...(label === undefined ? {} : { label }),
+      ...(group === undefined ? {} : { group }),
+      ...(channelCount === undefined ? {} : { channelCount }),
+    },
+    profile: {
+      kind: random.pick(Object.values(CaptureProfileKind)),
+      name: random.pick(['Raw/Studio', 'Voice', 'My booth']),
+    },
+    requested: randomSettings(random),
+    granted: randomSettings(random),
+    sampleRate: asset.sampleRate,
+    layout: asset.channelLayout,
+  };
+}
+
+/** How `asset` was recorded: at its rate and in its layout, as long as it is. */
+export function randomRecording(random: Random, asset: Asset): RecordedProvenance {
+  return {
+    ...randomRecordingStart(random, asset),
+    length: asset.length,
+    ending: random.pick(Object.values(RecordingEnding)),
   };
 }

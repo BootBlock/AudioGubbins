@@ -10,6 +10,7 @@ import {
   type EditPlan,
   type EffectChain,
   type ParameterId,
+  type PlanSource,
   type ProcessorInstance,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -233,5 +234,74 @@ describe('the key of a processed stream that holds generated silence', () => {
     expect(key).not.toBe(BASE);
     expect(cachedStreamKey(request(withSilence(300, 4_096)))).toBe(key);
     expect(cachedStreamKey(request(withSilence(301, 0)))).not.toBe(key);
+  });
+});
+
+describe('the key of a stream that reads a mix of streams (ADR-0072)', () => {
+  /** A stream reading the file's frames from `start`, forwards or backwards. */
+  function filePart(start: number, reversed: boolean): EditPlan['streams'][number] {
+    return {
+      sampleRate: RATE,
+      layout: StandardLayouts.mono,
+      segments: [
+        {
+          source: { kind: 'media', asset: RACKED_ASSET },
+          start: derivedSampleCount(start),
+          length: derivedSampleCount(LENGTH / 2),
+          reversed,
+          stages: [],
+        },
+      ],
+    };
+  }
+
+  const EARLY = filePart(0, false);
+  const LATE = filePart(LENGTH / 2, false);
+  const TURNED = filePart(LENGTH / 2, true);
+
+  /** A segment of the heard stream's first half, reading `source`. */
+  function reading(source: PlanSource) {
+    return {
+      source,
+      start: derivedSampleCount(0),
+      length: derivedSampleCount(LENGTH / 2),
+      reversed: false,
+      stages: [],
+    };
+  }
+
+  /**
+   * A heard stream that reads the mix of `mixed`, after the stream `alone`
+   * where one is given, followed by `streams`.
+   */
+  function mixing(
+    mixed: readonly number[],
+    streams: readonly EditPlan['streams'][number][],
+    alone?: number,
+  ): EditPlan {
+    const mix = reading({ kind: 'mix', streams: mixed });
+    const heard = {
+      sampleRate: RATE,
+      layout: StandardLayouts.mono,
+      segments: alone === undefined ? [mix] : [reading({ kind: 'stream', stream: alone }), mix],
+    };
+    return { streams: [heard, ...streams] };
+  }
+
+  const KEY = cachedStreamKey(request(mixing([1, 2], [EARLY, LATE, TURNED]), 0));
+
+  it('changes with the streams the mix sums, and the order it sums them in', () => {
+    expect(cachedStreamKey(request(mixing([1, 3], [EARLY, LATE, TURNED]), 0))).not.toBe(KEY);
+    expect(cachedStreamKey(request(mixing([2, 3], [EARLY, LATE, TURNED]), 0))).not.toBe(KEY);
+    // A stream read before the mix is numbered first, so the mix's own order is what tells these apart.
+    const after = (mixed: readonly number[]) =>
+      cachedStreamKey(request(mixing(mixed, [EARLY, LATE, TURNED], 2), 0));
+    expect(after([2, 1])).not.toBe(after([1, 2]));
+  });
+
+  it('does not change when the streams it sums are renumbered', () => {
+    // The same two streams in the same order, at other places beside one nothing reads.
+    expect(cachedStreamKey(request(mixing([3, 1], [LATE, TURNED, EARLY]), 0))).toBe(KEY);
+    expect(cachedStreamKey(request(mixing([2, 3], [TURNED, EARLY, LATE]), 0))).toBe(KEY);
   });
 });

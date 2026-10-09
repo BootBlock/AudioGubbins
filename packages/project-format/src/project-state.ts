@@ -25,6 +25,7 @@ import type {
 } from '@audiogubbins/domain';
 
 import type { ContentId } from './content-identity.js';
+import type { RecordedProvenance } from './recorded-provenance.js';
 
 /** A project and the source of each of its assets. */
 export interface ProjectState {
@@ -175,6 +176,9 @@ export interface AssetProvenance {
    * its header states and how much of it was there (REQ-AUDIO-220).
    */
   readonly audio?: SourceAudioShape;
+
+  /** How it was recorded, where it is a recording (ADR-0071). */
+  readonly recording?: RecordedProvenance;
 }
 
 /**

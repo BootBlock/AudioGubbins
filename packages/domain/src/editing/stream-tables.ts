@@ -8,13 +8,20 @@
  * stream that nothing reads, the stream is dropped and the rest renumbered.
  */
 
-import type { EditPlan, PlanSegment, PlanStream } from './plan.js';
+import { sourceStreams, type EditPlan, type PlanSegment, type PlanStream } from './plan.js';
 
-/** A segment's source renumbered by `renumber`, where it reads a stream. */
+/** A segment's source renumbered by `renumber`, where it reads a stream or mixes some. */
 function renumbered(segment: PlanSegment, renumber: (stream: number) => number): PlanSegment {
-  return segment.source.kind === 'stream'
-    ? { ...segment, source: { kind: 'stream', stream: renumber(segment.source.stream) } }
-    : segment;
+  const { source } = segment;
+  switch (source.kind) {
+    case 'stream':
+      return { ...segment, source: { kind: 'stream', stream: renumber(source.stream) } };
+    case 'mix':
+      return { ...segment, source: { kind: 'mix', streams: source.streams.map(renumber) } };
+    case 'media':
+    case 'silence':
+      return segment;
+  }
 }
 
 /** The streams with every stream a segment reads moved `by` places on. */
@@ -37,7 +44,7 @@ export function pruneStreams(plan: EditPlan): EditPlan {
   plan.streams.forEach((stream, place) => {
     if (!read.has(place)) return;
     for (const segment of stream.segments) {
-      if (segment.source.kind === 'stream') read.add(segment.source.stream);
+      for (const place of sourceStreams(segment.source)) read.add(place);
     }
   });
   if (read.size === plan.streams.length) return plan;

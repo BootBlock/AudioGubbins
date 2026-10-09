@@ -92,6 +92,7 @@ const RANGE_EDIT_MEMBERS: Readonly<Record<RangeEdit['kind'], ReadonlySet<string>
   'copy-channel': new Set(['kind', 'from', 'to']),
   'channel-gains': new Set(['kind', 'gains']),
   rack: new Set(['kind', 'chain']),
+  punch: new Set(['kind', 'stack']),
 };
 
 /** The kinds a table names, which are its own keys. */
@@ -104,7 +105,7 @@ const asRangeEditKind = oneOfConverter(kindsOf(RANGE_EDIT_MEMBERS));
 const asFadeDirection = oneOfConverter(Object.values(FadeDirection));
 
 /** Reads a span between two sample boundaries. */
-const readEditRange: Converter<EditRange> = (reading, value, parent, key) => {
+export const readEditRange: Converter<EditRange> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, RANGE_MEMBERS);
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);
@@ -153,6 +154,10 @@ const readRangeEdit: Converter<RangeEdit> = (reading, value, parent, key) => {
     case 'rack': {
       const chain = required(reading, object, at, 'chain', asId<'EffectChainId'>);
       return chain === undefined ? undefined : { kind, chain };
+    }
+    case 'punch': {
+      const stack = required(reading, object, at, 'stack', asId<'TakeStackId'>);
+      return stack === undefined ? undefined : { kind, stack };
     }
   }
 };

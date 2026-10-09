@@ -4,18 +4,19 @@
  * REQ-EXEC-136.12).
  *
  * Chains are read first, since tracks and buses name them; then buses, whose
- * routing is checked once all are known; then tracks and assets, each asset's
- * edits checked once every asset a paste may read is known; then the clips,
- * regions and markers that refer to them; and the track order last.
+ * routing is checked once all are known; then tracks and assets; then the take
+ * stacks, whose takes name assets; then each asset's edits, checked once every
+ * asset a paste may read and every stack a punch may name is known; then the
+ * clips, regions and markers that refer to them; and the track order last.
  */
 
 import {
   validateChain,
   type Asset,
   type AssetId,
+  type EditingEntities,
   type Project,
   type ProjectSettings,
-  type ProjectChains,
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
@@ -41,6 +42,7 @@ import {
 } from './placement-reading.js';
 import { asAsset, clipConverter } from './timeline-reading.js';
 import { asProjectName } from './given-names.js';
+import { takeStackConverter } from './take-stack-reading.js';
 import { MAXIMUM_ENTITIES, asChannelLayout, asSampleRate } from './value-reading.js';
 
 const PROJECT_MEMBERS: ReadonlySet<string> = new Set([
@@ -54,6 +56,7 @@ const PROJECT_MEMBERS: ReadonlySet<string> = new Set([
   'regions',
   'markers',
   'effectChains',
+  'takeStacks',
   'trackOrder',
 ]);
 const SETTINGS_MEMBERS: ReadonlySet<string> = new Set(['sampleRate', 'channelLayout']);
@@ -109,8 +112,19 @@ function readContents(
   const buses = readBuses(reading, object, at, effectChains);
   const tracks = entities('tracks', trackConverter(buses, effectChains));
   const assets = entities('assets', asAsset);
+  const takeStacks = entities('takeStacks', takeStackConverter(assets));
   const placement =
-    assets === undefined ? undefined : checkChains(reading, assets, effectChains ?? new Map(), at);
+    assets === undefined
+      ? undefined
+      : checkChains(
+          reading,
+          {
+            assets,
+            effectChains: effectChains ?? new Map(),
+            takeStacks: takeStacks ?? new Map(),
+          },
+          at,
+        );
   const clips = entities('clips', clipConverter(tracks, assets));
   const regions = entities('regions', regionConverter(placement));
   const markers = entities('markers', markerConverter(placement));
@@ -127,27 +141,25 @@ function readContents(
     clips === undefined ||
     regions === undefined ||
     markers === undefined ||
+    takeStacks === undefined ||
     trackOrder === undefined
   ) {
     return undefined;
   }
-  return { assets, tracks, buses, clips, regions, markers, effectChains, trackOrder };
+  return { assets, tracks, buses, clips, regions, markers, effectChains, takeStacks, trackOrder };
 }
 
 /**
  * Checks each asset's chain of edits by the domain's own rule, against every
- * asset a paste in it may read (ADR-0051), so nothing a document holds reaches
- * outside its asset. Gives every asset, and those whose chains hold.
+ * asset a paste in it may read and every stack a punch may name (ADR-0051,
+ * ADR-0072), so nothing a document holds reaches outside its asset. Gives
+ * every asset, and those whose chains hold.
  */
-function checkChains(
-  reading: Reading,
-  assets: ReadonlyMap<AssetId, Asset>,
-  chains: ProjectChains,
-  at: string,
-): PlacementAssets {
+function checkChains(reading: Reading, entities: EditingEntities, at: string): PlacementAssets {
+  const { assets } = entities;
   const sound = new Map<AssetId, Asset>();
   for (const asset of assets.values()) {
-    const checked = validateChain(asset, assets, chains);
+    const checked = validateChain(asset, entities);
     if (checked.ok) sound.set(asset.id, asset);
     else {
       refuseFailed(reading, checked, 'project.asset-edits-invalid', pathOf(at, 'assets'), {
@@ -155,7 +167,7 @@ function checkChains(
       });
     }
   }
-  return { all: assets, sound, chains };
+  return { all: assets, sound, chains: entities.effectChains };
 }
 
 /** Checks that the track order names every track exactly once. */

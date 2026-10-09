@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
 import { readValue } from '../messages/message-fields.js';
-import { OTHER_RATE, assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
+import {
+  assetOf,
+  editingEntities,
+  frames,
+  operationId,
+  OTHER_RATE,
+  range,
+} from '../testing/editing-fixtures.js';
 import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
 import { renderPlan } from '../testing/plan-render.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
@@ -58,7 +65,7 @@ function planReading(source: unknown): unknown {
 describe('generated silence in a plan (REQ-AUDIO-018)', () => {
   it('inserts digital zero of the stated length, and moves what follows on by it', () => {
     const asset = { ...SOURCE, edits: [inserting(400, 250)] };
-    expectSuccess(validateChain(asset, new Map([[SOURCE.id, SOURCE]]), new Map()));
+    expectSuccess(validateChain(asset, editingEntities(new Map([[SOURCE.id, SOURCE]]))));
 
     const heard = renderPlan(
       expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS)),
@@ -156,13 +163,15 @@ describe('generated silence in a plan (REQ-AUDIO-018)', () => {
       payload: silencePlan(OTHER_RATE, StandardLayouts.stereo, frames(10)),
     };
     expect(
-      expectFailureCode(validateChain({ ...SOURCE, edits: [elsewhere] }, new Map(), new Map())),
+      expectFailureCode(
+        validateChain({ ...SOURCE, edits: [elsewhere] }, editingEntities(new Map())),
+      ),
     ).toBe('editing.payload-rate');
   });
 
   it('is refused in words that suit any insertion, not a paste’s alone', () => {
     const past: EditOperation = inserting(1_001, 10);
-    const outside = validateChain({ ...SOURCE, edits: [past] }, new Map(), new Map());
+    const outside = validateChain({ ...SOURCE, edits: [past] }, editingEntities(new Map()));
     expect(outside.ok ? [] : outside.failures.map((failure) => failure.summary)).toEqual([
       'The insertion point lies outside the audio.',
     ]);
@@ -170,7 +179,7 @@ describe('generated silence in a plan (REQ-AUDIO-018)', () => {
       ...inserting(0, 10),
       payload: silencePlan(OTHER_RATE, StandardLayouts.stereo, frames(10)),
     };
-    const rate = validateChain({ ...SOURCE, edits: [elsewhere] }, new Map(), new Map());
+    const rate = validateChain({ ...SOURCE, edits: [elsewhere] }, editingEntities(new Map()));
     expect(rate.ok ? [] : rate.failures.map((failure) => failure.summary)).toEqual([
       'The inserted audio is at another sample rate, and is converted only when that is asked for.',
     ]);

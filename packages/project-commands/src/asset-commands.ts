@@ -190,6 +190,7 @@ function usersOf(state: ProjectState, asset: Asset): string | undefined {
       [users.regions, 'region', 'regions'],
       [users.markers, 'marker', 'markers'],
       [users.pastes, 'asset with audio pasted from it', 'assets with audio pasted from it'],
+      [users.takes, 'take that is its recording', 'takes that are its recording'],
       [asset.edits.length, 'edit', 'edits'],
     ] as const
   )

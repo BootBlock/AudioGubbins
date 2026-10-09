@@ -1,8 +1,9 @@
 /**
  * The readers one edited source makes of its plan (ADR-0051, ADR-0052): each
  * stream's content, an asset's file, generated silence, a later stream
- * converted to another rate, and a stream's processing, each made once, on
- * the first read that needs it, and released with the source.
+ * converted to another rate, a mix of later streams (ADR-0072) and a
+ * stream's processing, each made once, on the first read that needs it, and
+ * released with the source.
  *
  * A processed stream is read from its render where the reading has a cache
  * of renders and the stream is one it would otherwise run from its start, or
@@ -37,6 +38,7 @@ import {
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
 import { resamplingQualityOf } from '../dsp/resampling-grade.js';
 import { CachedContent } from './cached-content.js';
+import { MixedContent } from './mixed-content.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 import {
   ConvertedContent,
@@ -98,8 +100,8 @@ function withChange(chain: EffectChain, change: ParameterChange): EffectChain {
 
 /**
  * The readers one edited source makes, each made once on the first read that
- * needs it and released with the source: a stream's content, an asset's file
- * and a converted stream, by where the plan names them.
+ * needs it and released with the source: a stream's content, an asset's file,
+ * a converted stream and a mix, by where the plan names them.
  */
 export class PlanReaders implements ParameterTarget {
   readonly #plan: EditPlan;
@@ -117,6 +119,11 @@ export class PlanReaders implements ParameterTarget {
   /** Generated silence, by its channel count; it holds nothing, so nothing releases it. */
   readonly #silences = new Map<number, SilentContent>();
   readonly #converted = new Map<number, ConvertedContent>();
+  /**
+   * Each distinct mix, by the places it sums in their order; it holds only the
+   * streams' outputs, which are released as streams, so nothing releases it.
+   */
+  readonly #mixes = new Map<string, MixedContent>();
   readonly #made: ContentReader[] = [];
 
   constructor(
@@ -207,6 +214,7 @@ export class PlanReaders implements ParameterTarget {
   #reader(source: PlanSource, rate: SampleRate): ReadableContent {
     if (source.kind === 'media') return this.#file(source.asset);
     if (source.kind === 'silence') return this.#silence(source.channels);
+    if (source.kind === 'mix') return this.#mix(source.streams);
     return this.#streamAt(source.stream).sampleRate === rate
       ? this.output(source.stream)
       : this.#convert(source.stream, rate);
@@ -308,6 +316,21 @@ export class PlanReaders implements ParameterTarget {
     const silence = new SilentContent(channels);
     this.#silences.set(channels, silence);
     return silence;
+  }
+
+  /**
+   * The streams at `places` summed in their order. Validation made each one
+   * of the reading stream's rate, so each is read as its own output.
+   */
+  #mix(places: readonly number[]): MixedContent {
+    const key = places.join(',');
+    const known = this.#mixes.get(key);
+    if (known !== undefined) return known;
+    const [first, ...rest] = places.map((place) => this.output(place));
+    if (first === undefined) throw new Error('A validated mix sums two or more streams.');
+    const mix = new MixedContent(first, rest);
+    this.#mixes.set(key, mix);
+    return mix;
   }
 
   /** The stream's segments made `length` frames long (`stretched-content.ts`). */

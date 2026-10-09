@@ -44,7 +44,8 @@ import { isTreePath } from './storage-tree.js';
 export const TREE_HEADER_PATH = 'audiogubbins-project.json';
 
 /** A list of entities the project holds, as the project's own member names it. */
-type EntityList = 'assets' | 'tracks' | 'buses' | 'clips' | 'regions' | 'markers' | 'effectChains';
+type EntityList =
+  'assets' | 'tracks' | 'buses' | 'clips' | 'regions' | 'markers' | 'effectChains' | 'takeStacks';
 
 /** Each list of entities and the directory its files lie in. */
 export const ENTITY_DIRECTORIES: ReadonlyMap<EntityList, string> = new Map([
@@ -55,6 +56,7 @@ export const ENTITY_DIRECTORIES: ReadonlyMap<EntityList, string> = new Map([
   ['regions', 'regions'],
   ['markers', 'markers'],
   ['effectChains', 'effect-chains'],
+  ['takeStacks', 'take-stacks'],
 ]);
 
 const LISTS_BY_DIRECTORY: ReadonlyMap<string, EntityList> = new Map(

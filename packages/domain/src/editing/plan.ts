@@ -30,18 +30,39 @@ import { FadeShape } from './fades.js';
 
 /**
  * What a segment reads: an asset's unchanged source, a later stream of the
- * plan, or generated silence of `channels` channels at its stream's rate.
+ * plan, generated silence of `channels` channels at its stream's rate, or a
+ * mix of later streams.
  *
  * Silence is a source of its own, rather than a range of some asset with its
  * gain at zero, so inserted silence reads no file, is as long as it is asked
  * to be whatever the asset holds, and is digital zero whatever stages it
  * meets. It is the same at every frame, so a segment's `start` on it moves
  * nothing it makes.
+ *
+ * A mix is the sample-wise sum, in the order `streams` states, of the same
+ * frames of two or more later streams, each at the reading stream's rate and
+ * all of one layout (`sumInto` in `stage-arithmetic.ts`). It is how a punch
+ * crosses from the earlier audio into its take (ADR-0072): each boundary
+ * reads the two faded, summed.
  */
 export type PlanSource =
   | { readonly kind: 'media'; readonly asset: AssetId }
   | { readonly kind: 'stream'; readonly stream: number }
-  | { readonly kind: 'silence'; readonly channels: number };
+  | { readonly kind: 'silence'; readonly channels: number }
+  | { readonly kind: 'mix'; readonly streams: readonly number[] };
+
+/** The later streams `source` reads: one, those it mixes, or none. */
+export function sourceStreams(source: PlanSource): readonly number[] {
+  switch (source.kind) {
+    case 'stream':
+      return [source.stream];
+    case 'mix':
+      return source.streams;
+    case 'media':
+    case 'silence':
+      return [];
+  }
+}
 
 /**
  * A fade's gain over its content: zero to one when `rising`, one to zero

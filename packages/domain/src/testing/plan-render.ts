@@ -18,7 +18,7 @@ import {
   type EditPlan,
   type PlanStream,
 } from '../editing/plan.js';
-import { applyStages, placeOf } from '../editing/stage-arithmetic.js';
+import { applyStages, placeOf, sumInto } from '../editing/stage-arithmetic.js';
 import type { OracleWorld, Samples } from './edit-oracle.js';
 
 /** One stream of the plan, rendered whole, before any conversion to its reader's rate. */
@@ -44,6 +44,8 @@ function renderStream(
       const source = sources.get(segment.source.asset);
       if (source === undefined) throw new Error(`No samples for ${segment.source.asset}.`);
       content = source;
+    } else if (segment.source.kind === 'mix') {
+      content = mixedContent(plan, segment.source.streams, sources, world);
     } else {
       const read = plan.streams[segment.source.stream];
       content = renderStream(plan, segment.source.stream, sources, world);
@@ -73,6 +75,21 @@ function renderStream(
     return (world.stretch ?? missing('a stretch'))(out, processing.length);
   }
   return (world.chain ?? missing('a chain'))(processing.chain.id, out);
+}
+
+/** The streams `places` names, each rendered whole, summed in order by the plan's rule. */
+function mixedContent(
+  plan: EditPlan,
+  places: readonly number[],
+  sources: ReadonlyMap<AssetId, Samples>,
+  world: OracleWorld,
+): Samples {
+  const [first, ...rest] = places.map((place) => renderStream(plan, place, sources, world));
+  if (first === undefined) throw new Error('A mix sums two or more streams.');
+  const sum = first.map((channel) => Float32Array.from(channel));
+  for (const addend of rest)
+    sumInto(sum, addend, Math.min(sum[0]?.length ?? 0, addend[0]?.length ?? 0));
+  return sum;
 }
 
 function missing(what: string): never {

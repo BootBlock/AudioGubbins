@@ -56,6 +56,7 @@ const AFFECTS = {
   regions: [],
   markers: [],
   effectChains: [],
+  takeStacks: [],
   project: false,
 };
 

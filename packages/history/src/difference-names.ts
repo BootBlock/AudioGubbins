@@ -5,15 +5,16 @@
  *
  * A difference names its entities by identifier, and an entity is named from
  * whichever state holds it: one added from the later state, one removed from
- * the earlier, one changed from the later. An effect chain has no name of its
- * own, so it is named for what names it, by the domain's one account of that
- * (`chainUsers`): a track's or a bus's effects, an asset's or a region's rack,
- * or a range of one. Only the entities the difference holds are looked up, and
- * the owners only of an effect chain that differs, so naming never walks the
- * clips of a large project.
+ * the earlier, one changed from the later. A take stack is known by its own
+ * name, as every other entity is by its display name. An effect chain has no
+ * name of its own, so it is named for what names it, by the domain's one
+ * account of that (`chainUsers`): a track's or a bus's effects, an asset's or a
+ * region's rack, or a range of one. Only the entities the difference holds are
+ * looked up, and the owners only of an effect chain that differs, so naming
+ * never walks the clips of a large project.
  */
 
-import { chainUsers, type EffectChainId, type Project } from '@audiogubbins/domain';
+import { chainUsers, type EffectChainId, type Project, type TakeStack } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import type { EntityDifferences, StateDifference } from './state-diff.js';
@@ -55,7 +56,7 @@ export function chainOwner(project: Project, chain: EffectChainId): ChainOwner |
 
 /** The name of each entity a difference holds, by identifier. */
 export interface DifferenceNames {
-  /** Assets, tracks, buses, clips, regions and markers, by identifier. */
+  /** Assets, tracks, buses, clips, regions, markers and take stacks, by identifier. */
   readonly entities: ReadonlyMap<string, string>;
 
   /** The owner of each effect chain, where one holds it. */
@@ -71,31 +72,33 @@ export function differenceNames(
   const was = before.project;
   const is = after.project;
   const entities = new Map<string, string>();
-  const name = (id: string, ...holders: readonly (ReadonlyMap<string, Named> | undefined)[]) => {
-    for (const holder of holders) {
-      const found = holder?.get(id);
-      if (found !== undefined) {
-        entities.set(id, found.displayName);
+  // A source differs as its own entity and is named for its asset.
+  const nameAll = <TId extends string, TDiffered, TEntity>(
+    differences: EntityDifferences<TId, TDiffered>,
+    later: ReadonlyMap<TId, TEntity>,
+    earlier: ReadonlyMap<TId, TEntity>,
+    nameOf: (entity: TEntity) => string,
+  ): void => {
+    const name = (id: TId, ...holders: readonly ReadonlyMap<TId, TEntity>[]): void => {
+      for (const holder of holders) {
+        const found = holder.get(id);
+        if (found === undefined) continue;
+        entities.set(id, nameOf(found));
         return;
       }
-    }
-  };
-  const nameAll = <TId extends string, TEntity>(
-    differences: EntityDifferences<TId, TEntity>,
-    later: ReadonlyMap<TId, Named>,
-    earlier: ReadonlyMap<TId, Named>,
-  ): void => {
+    };
     for (const id of differences.added) name(id, later);
     for (const id of differences.removed) name(id, earlier);
     for (const { id } of differences.changed) name(id, later, earlier);
   };
-  nameAll(difference.assets, is.assets, was.assets);
-  nameAll(difference.sources, is.assets, was.assets);
-  nameAll(difference.tracks, is.tracks, was.tracks);
-  nameAll(difference.buses, is.buses, was.buses);
-  nameAll(difference.clips, is.clips, was.clips);
-  nameAll(difference.regions, is.regions, was.regions);
-  nameAll(difference.markers, is.markers, was.markers);
+  nameAll(difference.assets, is.assets, was.assets, displayed);
+  nameAll(difference.sources, is.assets, was.assets, displayed);
+  nameAll(difference.tracks, is.tracks, was.tracks, displayed);
+  nameAll(difference.buses, is.buses, was.buses, displayed);
+  nameAll(difference.clips, is.clips, was.clips, displayed);
+  nameAll(difference.regions, is.regions, was.regions, displayed);
+  nameAll(difference.markers, is.markers, was.markers, displayed);
+  nameAll(difference.takeStacks, is.takeStacks, was.takeStacks, stackName);
   return { entities, chains: chainOwners(difference, is, was) };
 }
 
@@ -103,6 +106,10 @@ export function differenceNames(
 interface Named {
   readonly displayName: string;
 }
+
+const displayed = ({ displayName }: Named): string => displayName;
+
+const stackName = ({ name }: TakeStack): string => name;
 
 /** The owner of each effect chain that differs, from the later project, then the earlier. */
 function chainOwners(

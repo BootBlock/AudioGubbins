@@ -21,8 +21,11 @@ import {
   type RangeEdit,
 } from './operations.js';
 
-/** A range edit that a stage carries: every kind but a rack edit, which a stream does. */
-export type StageEdit = Exclude<RangeEdit, { readonly kind: 'rack' }>;
+/**
+ * A range edit that a stage carries: every kind but a rack edit and a punch,
+ * which streams of their own carry.
+ */
+export type StageEdit = Exclude<RangeEdit, { readonly kind: 'rack' | 'punch' }>;
 
 /** The gain a level edit puts on a segment that begins at `segmentStart` in its stream. */
 function levelStage(

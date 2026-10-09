@@ -32,6 +32,8 @@ import type {
   MediaSource,
   SourceAudioShape,
 } from './project-state.js';
+import { writeRecordedProvenance } from './recorded-provenance-json.js';
+import { writeTakeStack } from './take-stack-writing.js';
 import { writeLayout } from './value-writing.js';
 
 /** Writes the domain project. */
@@ -51,6 +53,7 @@ export function writeProject(project: Project): JsonObject {
     regions: sortedBy(project.regions.values(), byId, writeRegion),
     markers: sortedBy(project.markers.values(), byId, writeMarker),
     effectChains: sortedBy(project.effectChains.values(), byId, writeEffectChain),
+    takeStacks: sortedBy(project.takeStacks.values(), byId, writeTakeStack),
     trackOrder: [...project.trackOrder],
   };
 }
@@ -177,6 +180,10 @@ function writeProvenance(provenance: AssetProvenance): JsonObject {
     mediaType: provenance.mediaType,
     originProjectId: provenance.originProjectId,
     audio: provenance.audio === undefined ? undefined : writeSourceAudioShape(provenance.audio),
+    recording:
+      provenance.recording === undefined
+        ? undefined
+        : writeRecordedProvenance(provenance.recording),
   });
 }
 

@@ -21,6 +21,7 @@ import type {
   MarkerId,
   ProjectId,
   RegionId,
+  TakeStackId,
   TrackId,
 } from '../identity/branded-id.js';
 import type { SampleRate } from '../time/sample-time.js';
@@ -32,6 +33,7 @@ import type { Clip, Marker, Region } from './timeline.js';
 import { clipEnd } from './timeline.js';
 import { planReadsAsset } from '../editing/plan.js';
 import type { Bus, Track } from './routing.js';
+import type { TakeStack } from './take-stack.js';
 
 /**
  * Project-wide settings that are not themselves edits.
@@ -69,6 +71,9 @@ export interface Project {
   readonly markers: ReadonlyMap<MarkerId, Marker>;
   readonly effectChains: ReadonlyMap<EffectChainId, EffectChain>;
 
+  /** The take stacks, each grouping the recorded takes of one piece of material (ADR-0072). */
+  readonly takeStacks: ReadonlyMap<TakeStackId, TakeStack>;
+
   /**
    * The order tracks appear in, which a map cannot express.
    *
@@ -96,6 +101,7 @@ export function createProject(
     regions: new Map(),
     markers: new Map(),
     effectChains: new Map(),
+    takeStacks: new Map(),
     trackOrder: [],
   };
 }
@@ -136,9 +142,15 @@ export interface AssetUsers {
 
   /** Other assets whose pasted audio reads it. */
   readonly pastes: number;
+
+  /** Takes, in any stack and of any state, whose recording it is (ADR-0072). */
+  readonly takes: number;
 }
 
-/** What names the asset: clips that read it, its regions and markers, and pastes of it elsewhere. */
+/**
+ * What names the asset: clips that read it, its regions and markers, pastes
+ * of it elsewhere, and takes that are its recording.
+ */
 export function assetUsers(project: Project, assetId: AssetId): AssetUsers {
   const count = <T>(values: Iterable<T>, uses: (value: T) => boolean): number => {
     let total = 0;
@@ -157,13 +169,17 @@ export function assetUsers(project: Project, assetId: AssetId): AssetUsers {
           (operation) => operation.kind === 'insert' && planReadsAsset(operation.payload, assetId),
         ),
     ),
+    takes: [...project.takeStacks.values()].reduce(
+      (total, stack) => total + count(stack.takes, (take) => take.asset === assetId),
+      0,
+    ),
   };
 }
 
 /** Whether anything names the asset (`assetUsers`). */
 export function isAssetInUse(project: Project, assetId: AssetId): boolean {
   const users = assetUsers(project, assetId);
-  return users.clips + users.regions + users.markers + users.pastes > 0;
+  return users.clips + users.regions + users.markers + users.pastes + users.takes > 0;
 }
 
 /** What names a chain (ADR-0060): every rack edit and every rack, of an asset, a region, a track or a bus. */

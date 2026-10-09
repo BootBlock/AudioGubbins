@@ -33,6 +33,7 @@ import {
   type Asset,
   type AssetId,
   type DomainResult,
+  type EditingEntities,
   type EditOperation,
   type EditPlan,
   type EditRange,
@@ -100,49 +101,101 @@ export function planPaste(
   if (asset === undefined) return refused('asset-unknown', 'The project has no such asset.');
   const records = recordsToAdd(state, request.payload.records);
   if (!records.ok) return records;
-  const assets = new Map(state.project.assets);
-  for (const record of records.value) assets.set(record.asset.id, record.asset);
-
-  let shape = currentShape(asset);
+  const shape = currentShape(asset);
   const plan = fitted(request.payload.plan, shape);
   if (!plan.ok) return plan;
+  const operations = pasteEdits(request, plan.value, shape, {
+    entities: entitiesWith(state, records.value),
+    ids,
+    longestArgument,
+  });
+  if (!operations.ok) return operations;
+  return succeed({ records: records.value, operations: operations.value });
+}
 
+/**
+ * The entities a paste's edits are validated against: the project as it will
+ * be, with the copied recordings added beside its own.
+ */
+function entitiesWith(state: ProjectState, records: readonly AssetRecord[]): EditingEntities {
+  const assets = new Map(state.project.assets);
+  for (const record of records) assets.set(record.asset.id, record.asset);
+  return {
+    assets,
+    effectChains: state.project.effectChains,
+    takeStacks: state.project.takeStacks,
+  };
+}
+
+/** What a paste's edits are made with and checked against, beside the timeline. */
+interface EditContext {
+  readonly entities: EditingEntities;
+  readonly ids: IdGenerator;
+  readonly longestArgument: number;
+}
+
+/**
+ * The edits that put `plan` where `request` says on the timeline `start`: the
+ * replaced range deleted, where one is, then the plan inserted in as many
+ * pieces as the argument length needs. Each is checked against the timeline
+ * the edits before it leave, as the commands will check it.
+ */
+function pasteEdits(
+  request: PasteRequest,
+  plan: EditPlan,
+  start: EditShape,
+  context: EditContext,
+): DomainResult<readonly [EditOperation, ...EditOperation[]]> {
   const operations: EditOperation[] = [];
+  let shape = start;
   let at: number = request.place.kind === 'at' ? request.place.at : request.place.range.start;
   if (request.place.kind === 'replace') {
     const deletion: EditOperation = {
-      id: ids.next<'EditOperationId'>(),
+      id: context.ids.next<'EditOperationId'>(),
       kind: 'delete',
       range: request.place.range,
     };
-    const valid = validateOperation(deletion, shape, assets, state.project.effectChains);
-    if (!valid.ok) return valid;
-    operations.push(deletion);
-    shape = shapeAfter(shape, deletion);
+    const after = appended(operations, deletion, shape, context.entities);
+    if (!after.ok) return after;
+    shape = after.value;
   }
 
   const resampler =
-    plan.value.streams[0].sampleRate === shape.sampleRate ? undefined : request.convertWith;
-  const pieces = argumentSized(plan.value, resampler, longestArgument);
+    plan.streams[0].sampleRate === shape.sampleRate ? undefined : request.convertWith;
+  const pieces = argumentSized(plan, resampler, context.longestArgument);
   if (!pieces.ok) return pieces;
   for (const piece of pieces.value) {
     const insertion: EditOperation = {
-      id: ids.next<'EditOperationId'>(),
+      id: context.ids.next<'EditOperationId'>(),
       kind: 'insert',
       at: derivedSampleCount(at),
       payload: piece,
       ...(resampler === undefined ? {} : { resampler }),
     };
-    const valid = validateOperation(insertion, shape, assets, state.project.effectChains);
-    if (!valid.ok) return valid;
-    operations.push(insertion);
-    const after = shapeAfter(shape, insertion);
-    at += after.length - shape.length;
-    shape = after;
+    const after = appended(operations, insertion, shape, context.entities);
+    if (!after.ok) return after;
+    at += after.value.length - shape.length;
+    shape = after.value;
   }
   const [first, ...rest] = operations;
   if (first === undefined) throw new Error('A paste inserts at least one piece.');
-  return succeed({ records: records.value, operations: [first, ...rest] });
+  return succeed([first, ...rest]);
+}
+
+/**
+ * `operation` checked by the domain's rule against `shape` and appended to
+ * `operations`, with the timeline it leaves; or why the rule refuses it.
+ */
+function appended(
+  operations: EditOperation[],
+  operation: EditOperation,
+  shape: EditShape,
+  entities: EditingEntities,
+): DomainResult<EditShape> {
+  const valid = validateOperation(operation, shape, entities);
+  if (!valid.ok) return valid;
+  operations.push(operation);
+  return succeed(shapeAfter(shape, operation));
 }
 
 /** The timeline an asset's next edit acts on. */
