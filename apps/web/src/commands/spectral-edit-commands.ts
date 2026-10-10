@@ -60,10 +60,10 @@ const SPECTRAL_AREA: TargetRequest = {
 };
 
 /** How far an attenuation lowers the area where the person names no gain, in decibels. */
-const DEFAULT_ATTENUATION_DECIBELS = -12;
+export const DEFAULT_ATTENUATION_DECIBELS = -12;
 
 /** The processors a spectral clean-up runs: restoration, by signal processing or a model. */
-const CLEANUP_PROCESSORS = [...PROCESSOR_CATALOGUE.values()].filter(
+export const CLEANUP_PROCESSORS = [...PROCESSOR_CATALOGUE.values()].filter(
   (descriptor) => descriptor.category === ProcessorCategory.Restoration,
 );
 

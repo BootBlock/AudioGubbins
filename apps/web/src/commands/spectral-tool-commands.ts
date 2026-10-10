@@ -41,7 +41,7 @@ function withTools(state: EditorViewState, tools: SpectralToolSettings): EditorV
 }
 
 /** The hardness as a reader is told it: a percentage, as its control shows it. */
-function hardnessWords(hardness: number): string {
+export function hardnessWords(hardness: number): string {
   return `${String(Math.round(hardness * 100))}%`;
 }
 
