@@ -263,10 +263,16 @@ export class PreviewProducer {
       const stream = plan.streams[place];
       if (stream === undefined) continue;
       const { processing } = stream;
-      if (processing?.kind === 'chain') {
+      const chain =
+        processing?.kind === 'chain'
+          ? processing
+          : processing?.kind === 'spectral' && processing.edit.operation.kind === 'process'
+            ? processing.edit.operation
+            : undefined;
+      if (chain !== undefined) {
         const held = this.#options.processing.measurementBytes({
-          chain: processing.chain,
-          input: processing.input,
+          chain: chain.chain,
+          input: chain.input,
           sampleRate: stream.sampleRate,
           quality,
           length: streamLength(stream),

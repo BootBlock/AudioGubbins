@@ -8,7 +8,8 @@
  * A processed stream is read from its render where the reading has a cache
  * of renders and the stream is one it would otherwise run from its start, or
  * one a preview cannot run as it is heard (`cached-streams.ts`), and through
- * a run of its own otherwise (`processed-content.ts`). The chains are kept
+ * a run of its own otherwise (`processed-content.ts`); a stream a spectral
+ * edit changes likewise (`spectral-content.ts`). The chains are kept
  * as they stand, so a numeric parameter changed while the sound plays
  * reaches the run of the stream it names, and every run made after it
  * (`running-parameters.ts`).
@@ -32,6 +33,7 @@ import {
   type EffectChain,
   type PlanSource,
   type PlanStream,
+  type PlannedSpectralEdit,
   type SampleRate,
 } from '@audiogubbins/domain';
 
@@ -53,7 +55,9 @@ import {
 import { ProcessedContent, ProcessedStart, type PlanProcessing } from './processed-content.js';
 import { resampledSource } from './resampled-source.js';
 import type { ParameterChange, ParameterTarget } from './running-parameters.js';
+import { SpectralContent } from './spectral-content.js';
 import { StretchedContent } from './stretched-content.js';
+import type { WindowSource } from '../spectral/forward-window.js';
 
 /** What a stream of the plan makes, at its own rate and in its own layout. */
 export interface StreamOutput extends ReadableContent {
@@ -169,6 +173,8 @@ export class PlanReaders implements ParameterTarget {
       output = content;
     } else if (processing.kind === 'chain') {
       output = this.#processed(place, stream, processing.input, content);
+    } else if (processing.kind === 'spectral') {
+      output = this.#spectral(place, stream, processing.edit, content);
     } else {
       output = this.#stretched(content, stream, processing.length);
     }
@@ -331,6 +337,87 @@ export class PlanReaders implements ParameterTarget {
     const mix = new MixedContent(first, rest);
     this.#mixes.set(key, mix);
     return mix;
+  }
+
+  /**
+   * The stream changed by a spectral edit (`spectral-content.ts`), from a
+   * render where the reading would hear it so, and through a realisation of
+   * its own otherwise. A `process` edit's chain is run over the stream's
+   * segments inside it, as its plan states the chain, so a parameter changed
+   * while the sound plays is heard once the project's plan is read again.
+   */
+  #spectral(
+    place: number,
+    stream: PlanStream,
+    edit: PlannedSpectralEdit,
+    content: StreamContent,
+  ): StreamOutput {
+    const settings = { quality: this.#processing.quality, dsp: this.#dsp };
+    const { operation } = edit;
+    const wet =
+      operation.kind === 'process'
+        ? (input: WindowSource & { readonly length: number }) =>
+            new ProcessedContent(
+              operation.chain,
+              {
+                layout: operation.input,
+                sampleRate: stream.sampleRate,
+                length: input.length,
+                read: (start, frames, into, signal) => input.read(start, frames, into, signal),
+              },
+              stream.layout,
+              { ...this.#processing, dsp: this.#dsp },
+            )
+        : undefined;
+    const own = (): SpectralContent =>
+      new SpectralContent(content, stream, content.length, edit, settings, wet);
+    const { cached, quality } = this.#processing;
+    const heard = this.#spectralHeard(stream, edit);
+    if (cached === undefined || heard.kind === 'run') {
+      const run = own();
+      this.#made.push(run);
+      return run;
+    }
+    const rendered = new CachedContent(
+      cached.open({
+        plan: this.#plan,
+        place,
+        media: this.#media,
+        quality,
+        ...(heard.reason === undefined ? {} : { reason: heard.reason }),
+      }),
+      { channels: channelCount(stream.layout), length: content.length },
+      own,
+    );
+    this.#made.push(rendered);
+    return rendered;
+  }
+
+  /**
+   * Whether a spectral stream is heard from a render, as a chain's is
+   * (`#rendered`): from the stream's start wherever a cache is kept; for a
+   * preview, only where its `process` chain cannot run as it is heard, since
+   * every other operation is realised from any point at any time.
+   */
+  #spectralHeard(
+    stream: PlanStream,
+    edit: PlannedSpectralEdit,
+  ): { readonly kind: 'run' } | { readonly kind: 'rendered'; readonly reason?: string } {
+    const { start, cached, processing, quality } = this.#processing;
+    if (start === ProcessedStart.Canonical) {
+      return cached === undefined ? { kind: 'run' } : { kind: 'rendered' };
+    }
+    const { operation } = edit;
+    if (operation.kind !== 'process') return { kind: 'run' };
+    const listening = processing.listening({
+      chain: operation.chain,
+      input: operation.input,
+      sampleRate: stream.sampleRate,
+      quality,
+    });
+    return listening.ok && listening.value.kind === 'rendered'
+      ? { kind: 'rendered', reason: listening.value.reason }
+      : { kind: 'run' };
   }
 
   /** The stream's segments made `length` frames long (`stretched-content.ts`). */
