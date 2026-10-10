@@ -144,22 +144,26 @@ function beforeNul(bytes: Uint8Array): Uint8Array {
   return terminator === -1 ? bytes : bytes.subarray(0, terminator);
 }
 
+/** A UTF-8 sequence a lead byte begins. */
+interface Utf8Sequence {
+  /** The continuation bytes it needs. */
+  readonly needed: number;
+
+  /** The lead byte's bits of the character. */
+  readonly bits: number;
+
+  /** The range its first continuation byte must lie in. */
+  readonly lower: number;
+  readonly upper: number;
+}
+
 /**
  * What a UTF-8 lead byte begins: the continuation bytes it needs, its bits of
  * the character, and the range its first continuation must lie in, which
  * refuses overlong forms, surrogates and characters past U+10FFFF; or
  * `undefined` for a byte that begins no sequence.
  */
-function sequenceOf(
-  lead: number,
-):
-  | {
-      readonly needed: number;
-      readonly bits: number;
-      readonly lower: number;
-      readonly upper: number;
-    }
-  | undefined {
+function sequenceOf(lead: number): Utf8Sequence | undefined {
   if (lead >= 0xc2 && lead <= 0xdf)
     return { needed: 1, bits: lead & 0x1f, lower: 0x80, upper: 0xbf };
   if (lead >= 0xe0 && lead <= 0xef) {
@@ -180,9 +184,6 @@ function sequenceOf(
   }
   return undefined;
 }
-
-/** What a lead byte begins, as {@link sequenceOf} answers it. */
-type Utf8Sequence = NonNullable<ReturnType<typeof sequenceOf>>;
 
 /**
  * The character a sequence's continuation bytes from `offset` complete, and
