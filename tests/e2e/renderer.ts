@@ -66,10 +66,10 @@ export async function webglLoss(page: Page, what: 'loseContext' | 'restoreContex
 }
 
 /** A colour as the page shows it, red, green and blue from 0 to 255. */
-type Rgb = readonly [number, number, number];
+export type Rgb = readonly [number, number, number];
 
 /** What the page shows over a surface, canvases and all, as rows of RGBA. */
-interface Shown {
+export interface Shown {
   readonly width: number;
   readonly height: number;
   /** Where the picture's first pixel is on the page, and pixels to a CSS pixel. */
@@ -80,7 +80,7 @@ interface Shown {
 }
 
 /** The pixel at page coordinates `x`, `y` of `shown`. */
-function pixelOf(shown: Shown, x: number, y: number): Rgb {
+export function pixelOf(shown: Shown, x: number, y: number): Rgb {
   const column = Math.floor((x - shown.left) * shown.scale);
   const row = Math.floor((y - shown.top) * shown.scale);
   const at = (row * shown.width + column) * 4;
@@ -88,7 +88,7 @@ function pixelOf(shown: Shown, x: number, y: number): Rgb {
 }
 
 /** Whether two colours are the same to within what compositing rounds. */
-function alike(one: Rgb, other: Rgb): boolean {
+export function alike(one: Rgb, other: Rgb): boolean {
   return one.every((channel, index) => Math.abs(channel - (other[index] ?? 0)) <= 3);
 }
 
@@ -110,13 +110,12 @@ async function themeColour(page: Page, property: string): Promise<Rgb> {
 }
 
 /**
- * What the page shows over `panel`'s surface: a screenshot, which is what a
- * person sees, decoded by the page. Read back from the canvas instead, a GPU
+ * What the page shows over `surface`: a screenshot, which is what a person
+ * sees, decoded by the page. Read back from the canvas instead, a GPU
  * backend's picture is gone once the page has shown it, since neither GPU
  * backend keeps its drawing buffer, and keeping it would cost every frame.
  */
-async function shownOver(page: Page, panel: Locator): Promise<Shown> {
-  const surface = surfaceOf(panel);
+export async function shownOver(page: Page, surface: Locator): Promise<Shown> {
   const box = await surface.boundingBox();
   if (box === null) throw new Error('The surface is not on screen.');
   const png = await surface.screenshot({ animations: 'disabled', caret: 'hide' });
@@ -192,7 +191,7 @@ export async function expectDrawnAsShown(page: Page, panel: Locator): Promise<vo
   const peak = await themeColour(page, '--ag-waveform-peak');
   const clear = await themeColour(page, '--ag-waveform-background');
   await expect(async () => {
-    const shown = await shownOver(page, panel);
+    const shown = await shownOver(page, surfaceOf(panel));
     const { start } = await shownOf(panel);
     const perPixel = await samplesInPixelOf(panel);
     const origin = await pointAt(panel, start, 0.5 + READ_AT / 2);
@@ -228,7 +227,7 @@ export async function expectDrawnAsShown(page: Page, panel: Locator): Promise<vo
 export async function expectLabelled(page: Page, panel: Locator): Promise<void> {
   const label = await themeColour(page, '--ag-waveform-label-secondary');
   await expect(async () => {
-    const shown = await shownOver(page, panel);
+    const shown = await shownOver(page, surfaceOf(panel));
     const { start } = await shownOf(panel);
     const corner = await pointAt(panel, start, 0);
     let written = 0;
@@ -239,6 +238,28 @@ export async function expectLabelled(page: Page, panel: Locator): Promise<void> 
     }
     expect(written, `pixels of the channel's name, in ${label.join(',')}`).toBeGreaterThan(3);
   }).toPass({ timeout: 10_000 });
+}
+
+/**
+ * Destroys the WebGPU device the geometry canvas draws with, as a device lost
+ * to the browser is: the canvas's context names it in its configuration.
+ */
+export async function destroyWebGpuDevice(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    // Read without the WebGPU type definitions, which the suites are not
+    // compiled with.
+    const canvas = document.querySelector<HTMLCanvasElement>('.ag-editor-canvas-geometry');
+    const context: unknown = canvas?.getContext('webgpu');
+    const member = (host: unknown, name: string): unknown =>
+      typeof host === 'object' && host !== null ? Reflect.get(host, name) : undefined;
+    const configuration = member(context, 'getConfiguration');
+    if (typeof configuration !== 'function')
+      throw new Error('The view draws with no WebGPU context.');
+    const device = member(Reflect.apply(configuration, context, []), 'device');
+    const destroy = member(device, 'destroy');
+    if (typeof destroy !== 'function') throw new Error('The WebGPU context names no device.');
+    Reflect.apply(destroy, device, []);
+  });
 }
 
 /**
