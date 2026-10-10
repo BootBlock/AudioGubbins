@@ -192,6 +192,14 @@ function setMedia(
   const { asset, source } = target.value;
   const media = readNested(readMediaSource, value.value, 'media');
   if (!media.ok) return refusedBy(media);
+  // A rendition is the audio decoded from a compressed file, which only the
+  // media store keeps; the file itself is linked or copied apart (ADR-0090).
+  if (source.provenance?.rendition !== undefined && media.value.kind !== 'managed') {
+    return refusal(
+      'source.rendition-kept-in-store',
+      `${quoted(asset.displayName)} is audio decoded from a compressed file, which is kept in the project and cannot be linked to a file.`,
+    );
+  }
   if (sameMedia(source.media, media.value)) {
     return unchanged(
       'source.media-unchanged',

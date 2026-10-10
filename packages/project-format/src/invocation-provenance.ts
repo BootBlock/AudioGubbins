@@ -34,9 +34,10 @@ import { startReading, type Converter } from './document-reading.js';
 import type { InvocationRecord } from './history-record.js';
 import { LONGEST_ARGUMENT_TEXT } from './invocation-json.js';
 import { parseJson } from './json-parsing.js';
-import { writeExternalIdentity, writeMediaSource } from './project-writing.js';
+import { readExternalIdentity, writeExternalIdentity } from './external-identity-json.js';
+import { writeMediaSource } from './project-writing.js';
 import type { SourceRewrite } from './provenance-stripping.js';
-import { readExternalIdentity, readMediaSource } from './source-reading.js';
+import { readMediaSource } from './source-reading.js';
 
 /**
  * The bounds a nested argument's text is read within.

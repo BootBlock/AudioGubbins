@@ -34,6 +34,7 @@ import {
   randomAssetRecord,
   randomChain,
   randomContentId,
+  randomExportSettings,
   randomIdentity,
   randomMedia,
   randomMarker,
@@ -46,6 +47,7 @@ import {
   type Random,
 } from '@audiogubbins/project-format/testing';
 
+import { setExportSettingsInvocation } from './export-settings-commands.js';
 import { ProjectCommandId } from './project-command.js';
 import { projectCommands } from './project-commands.js';
 import { applyInvocation, withdrawInvocation } from './editing/edit-commands.js';
@@ -89,7 +91,7 @@ import {
   runAll,
 } from './testing/bus-runs.js';
 
-const SEEDS = 80;
+const SEEDS = 90;
 const STEPS = 30;
 
 /**
@@ -105,7 +107,12 @@ function randomInvocation(
   if (random.chance(0.3)) {
     return randomTakeInvocation(random, ids, state, random.below(TAKE_CHOICES));
   }
-  const choice = random.below(29);
+  const choice = random.below(30);
+  if (choice === 29) {
+    return setExportSettingsInvocation(
+      random.chance(0.2) ? undefined : randomExportSettings(random),
+    );
+  }
   if (choice === 0)
     return { commandId: ProjectCommandId.Rename, arguments: { name: randomName(random) } };
   if (choice === 1)
@@ -394,7 +401,7 @@ describe('projectCommands', () => {
 });
 
 describe('applying random commands to random states', () => {
-  // About 3 s alone and twice that under the whole suite's load (2,400 steps,
+  // About 3 s alone and twice that under the whole suite's load (2,700 steps,
   // each read back through the project format), so it is given a budget of its
   // own rather than Vitest's five-second default; a hang still fails it.
   it(

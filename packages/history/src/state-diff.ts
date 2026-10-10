@@ -32,7 +32,9 @@ import type {
   TrackId,
 } from '@audiogubbins/domain';
 import {
+  canonicalJson,
   compareCodeUnits,
+  writeExportSettings,
   type AssetSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
@@ -68,7 +70,8 @@ export interface EntityDifferences<TId extends string, TEntity> {
 }
 
 /** A field of the project itself. */
-export type ProjectField = 'displayName' | 'sampleRate' | 'channelLayout' | 'trackOrder';
+export type ProjectField =
+  'displayName' | 'sampleRate' | 'channelLayout' | 'trackOrder' | 'exportSettings';
 
 /** How two project states differ. */
 export interface StateDifference {
@@ -116,7 +119,20 @@ function projectFields(before: ProjectState, after: ProjectState): readonly Proj
     fields.push('channelLayout');
   }
   if (!sameList(was.trackOrder, is.trackOrder)) fields.push('trackOrder');
+  if (!sameExportSettings(before.exportSettings, after.exportSettings)) {
+    fields.push('exportSettings');
+  }
   return fields;
+}
+
+/** Whether two states keep the same last export settings, compared by their written form. */
+function sameExportSettings(
+  before: ProjectState['exportSettings'],
+  after: ProjectState['exportSettings'],
+): boolean {
+  if (before === after) return true;
+  if (before === undefined || after === undefined) return false;
+  return canonicalJson(writeExportSettings(before)) === canonicalJson(writeExportSettings(after));
 }
 
 const NO_DIFFERENCES = { added: [], removed: [], changed: [] } as const;

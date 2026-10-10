@@ -8,7 +8,9 @@
  * what happened; it never claims the write can be undone.
  */
 
+import type { CodecId, CodecImplementation } from '@audiogubbins/codecs';
 import type { Branded } from '@audiogubbins/domain';
+import type { ExportSettings } from '@audiogubbins/import-export';
 
 import type { ContentId, StateFingerprint } from './content-identity.js';
 
@@ -30,7 +32,13 @@ export type ExportStatus = (typeof ExportStatus)[keyof typeof ExportStatus];
 /** What kind of place an export wrote to. */
 export const ExportDestinationKind = {
   Download: 'download',
+
+  /** A file the person chose in a save dialog. */
+  File: 'file',
   Directory: 'directory',
+
+  /** A kept folder the person marked trusted (ADR-0092). */
+  TrustedDirectory: 'trusted-directory',
   GodotProject: 'godot-project',
   Bundle: 'bundle',
 } as const;
@@ -64,6 +72,9 @@ export interface ExportRecord {
   /** The identity of the bytes written, where there was one output to hash. */
   readonly outputContentId?: ContentId;
 
+  /** The audio file written, where the export was one (ADR-0092). */
+  readonly file?: ExportedAudioFile;
+
   /** The Godot project written into, where the destination was one. */
   readonly godot?: GodotLinkage;
 
@@ -71,6 +82,35 @@ export interface ExportRecord {
 
   /** What went wrong, for a failed or partial export, in the order it happened. */
   readonly problems: readonly string[];
+}
+
+/**
+ * An audio file an export wrote: the settings it was made with, what it was
+ * named and is, the codec that encoded it, and whether the same project and
+ * settings give the same bytes on every machine (REQ-ARCH-049, REQ-AUDIO-145).
+ */
+export interface ExportedAudioFile {
+  readonly settings: ExportSettings;
+
+  /**
+   * The name it was written under in its destination, never a path, where
+   * provenance keeps it; stripping provenance removes it, since a person's
+   * file names may say what they work on.
+   */
+  readonly fileName?: string;
+  readonly byteLength: number;
+
+  /** The SHA-256 of its bytes, in lower-case hexadecimal. */
+  readonly sha256: string;
+  readonly codec: ExportCodec;
+  readonly reproducible: boolean;
+}
+
+/** The codec an export was encoded with, what served it, and its version. */
+export interface ExportCodec {
+  readonly id: CodecId;
+  readonly implementation: CodecImplementation;
+  readonly version: string;
 }
 
 /** A recipe and its version. */

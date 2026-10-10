@@ -70,9 +70,7 @@ export function referenceState(fixture: SampleProject): {
           audio: {
             container: 'wav',
             sampleRate: fixture.assets.footstep.sampleRate,
-            encoding: 'integer',
-            bitDepth: 16,
-            byteOrder: 'little',
+            encoding: { kind: 'integer', bits: 16, byteOrder: 'little' },
             frames: fixture.assets.footstep.length,
             declaredFrames: fixture.assets.footstep.length,
           },

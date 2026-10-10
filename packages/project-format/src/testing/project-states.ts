@@ -171,9 +171,7 @@ export function referenceState(fixture: SampleProject): ProjectState {
               audio: {
                 container: 'wav',
                 sampleRate: asset.sampleRate,
-                encoding: 'integer',
-                bitDepth: 16,
-                byteOrder: 'little',
+                encoding: { kind: 'integer', bits: 16, byteOrder: 'little' },
                 frames: asset.length,
                 declaredFrames: asset.length,
               },

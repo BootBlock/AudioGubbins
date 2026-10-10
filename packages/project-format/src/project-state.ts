@@ -24,13 +24,23 @@ import type {
   SampleRate,
 } from '@audiogubbins/domain';
 
+import type { ExportSettings } from '@audiogubbins/import-export';
+
 import type { ContentId } from './content-identity.js';
+import type { DecodedRendition } from './decoded-rendition.js';
+import type { KeptMetadata } from './kept-metadata.js';
 import type { RecordedProvenance } from './recorded-provenance.js';
 
 /** A project and the source of each of its assets. */
 export interface ProjectState {
   readonly project: Project;
   readonly sources: ReadonlyMap<AssetId, AssetSource>;
+
+  /**
+   * The settings the project was last exported with, which the Export dialog
+   * opens with, or absent where it has never been exported (ADR-0092).
+   */
+  readonly exportSettings?: ExportSettings;
 }
 
 /** Where one asset's bytes come from, and how it came into the project. */
@@ -172,10 +182,20 @@ export interface AssetProvenance {
   readonly originProjectId: ProjectId;
 
   /**
-   * The audio shape of the file imported, where it was read from one: what
-   * its header states and how much of it was there (REQ-AUDIO-220).
+   * The audio shape of the file imported, where its audio is read where it
+   * lies: what its header states and how much of it was there (REQ-AUDIO-220).
    */
   readonly audio?: SourceAudioShape;
+
+  /**
+   * The compressed file the asset's media was decoded from, where its media
+   * is a decoded rendition of one (ADR-0090): what the file is, the decoder
+   * that made the rendition, and how the file itself is kept.
+   */
+  readonly rendition?: DecodedRendition;
+
+  /** The file's metadata, as the file states it, in the file's frames (ADR-0093). */
+  readonly metadata?: KeptMetadata;
 
   /** How it was recorded, where it is a recording (ADR-0071). */
   readonly recording?: RecordedProvenance;
@@ -193,11 +213,7 @@ export interface AssetProvenance {
 export interface SourceAudioShape {
   readonly container: SourceContainer;
   readonly sampleRate: SampleRate;
-  readonly encoding: 'integer' | 'float';
-
-  /** Bits per sample, as the file states them. */
-  readonly bitDepth: number;
-  readonly byteOrder: 'little' | 'big';
+  readonly encoding: SourceEncoding;
 
   /** The layout the file states, or absent where it states none. */
   readonly statedLayout?: ChannelLayout;
@@ -208,6 +224,25 @@ export interface SourceAudioShape {
   /** The frames the header declared, more than `frames` where the file was cut short. */
   readonly declaredFrames: SampleCount;
 }
+
+/**
+ * How an imported file stores its samples where they are read in place
+ * (ADR-0052, ADR-0090): uncompressed PCM, with its bits and byte order as
+ * the file states them, or one of the codes WAV and AIFF-C carry that decode
+ * in independent blocks, each kind named as the codec registry names it.
+ */
+export type SourceEncoding =
+  | {
+      readonly kind: 'integer' | 'float';
+
+      /** Bits per sample, as the file states them. */
+      readonly bits: number;
+      readonly byteOrder: 'little' | 'big';
+    }
+  /** ITU-T G.711, a companded byte a sample. */
+  | { readonly kind: 'g711-alaw' | 'g711-ulaw' }
+  /** IMA or Microsoft ADPCM, four bits a sample in blocks of `framesPerBlock` frames. */
+  | { readonly kind: 'ima-adpcm' | 'ms-adpcm'; readonly framesPerBlock: number };
 
 /** The containers an imported file's audio is read from (ADR-0052). */
 export const SOURCE_CONTAINERS = ['wav', 'rf64', 'bw64', 'aiff', 'aifc'] as const;

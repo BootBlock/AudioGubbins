@@ -116,9 +116,7 @@ describe('importing an audio file (ADR-0052)', () => {
     expect(source?.provenance?.audio).toEqual({
       container: 'wav',
       sampleRate: 44_100,
-      encoding: 'integer',
-      bitDepth: 24,
-      byteOrder: 'little',
+      encoding: { kind: 'integer', bits: 24, byteOrder: 'little' },
       frames: 1_000,
       declaredFrames: 1_000,
     });
@@ -155,8 +153,7 @@ describe('importing an audio file (ADR-0052)', () => {
     expect(source?.media.kind).toBe('external');
     expect(source?.provenance?.audio).toMatchObject({
       container: 'aiff',
-      byteOrder: 'big',
-      bitDepth: 16,
+      encoding: { kind: 'integer', bits: 16, byteOrder: 'big' },
       frames: 480,
     });
     expect(await storedObjects(scene)).toEqual([]);
@@ -183,7 +180,7 @@ describe('importing an audio file (ADR-0052)', () => {
     expect(scene.session.getSnapshot().model.state.project.assets.size).toBe(0);
   });
 
-  it('refuses a file of compressed samples the provenance cannot record, before storing anything', async () => {
+  it('imports a file of block-coded samples in place, recording the code they are stored in', async () => {
     const scene = await setUp();
     const alaw = writeCompressedWav({
       sampleRate: 8_000,
@@ -191,20 +188,27 @@ describe('importing an audio file (ADR-0052)', () => {
       coding: { kind: 'g711-alaw' },
       data: new Uint8Array(800).fill(0xd5),
     });
-    const result = await importAudio(
-      scene.session,
-      {
-        file: fileOf(memorySource(Uint8Array.from(alaw)), 'Phone line.wav'),
-        choice: { mode: SourceHandling.Copy },
-        assetId: scene.assetId,
-        importedAt: IMPORTED_AT,
-      },
-      scene.services,
+    const imported = expectSuccess(
+      await importAudio(
+        scene.session,
+        {
+          file: fileOf(memorySource(Uint8Array.from(alaw)), 'Phone line.wav'),
+          choice: { mode: SourceHandling.Copy },
+          assetId: scene.assetId,
+          importedAt: IMPORTED_AT,
+        },
+        scene.services,
+      ),
     );
 
-    expect(expectFailureCode(result)).toBe('storage.source-codec-unrecorded');
-    expect(await storedObjects(scene)).toEqual([]);
-    expect(scene.session.getSnapshot().model.state.project.assets.size).toBe(0);
+    expect(imported.asset.length).toBe(800);
+    const source = scene.session.getSnapshot().model.state.sources.get(scene.assetId);
+    expect(source?.provenance?.audio).toMatchObject({
+      container: 'wav',
+      encoding: { kind: 'g711-alaw' },
+      frames: 800,
+    });
+    expect(source?.provenance?.rendition).toBeUndefined();
   });
 
   it('reads a file cut short to its last whole frame and says how far short it fell', async () => {

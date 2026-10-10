@@ -34,6 +34,7 @@ import type { ProjectState } from './project-state.js';
 import { writeTreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
+  EXPORT_SETTINGS_PATH,
   BRANCH_NAMES_PATH,
   CACHE_INDEX_PATH,
   COMPARISON_PATH,
@@ -175,6 +176,8 @@ function addProject(files: TreeFiles, state: ProjectState): void {
   const project = objectIn(document, 'project');
   files.text(SETTINGS_PATH, () => valueIn(project, 'settings'));
   files.text(TRACK_ORDER_PATH, () => valueIn(project, 'trackOrder'));
+  const exportSettings = memberOf(document, 'exportSettings');
+  if (exportSettings !== undefined) files.text(EXPORT_SETTINGS_PATH, () => exportSettings);
   for (const list of ENTITY_DIRECTORIES.keys()) {
     for (const entity of objectsIn(project, list)) {
       files.text(entityPath(list, textIn(entity, 'id')), () => entity);

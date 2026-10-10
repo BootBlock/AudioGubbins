@@ -176,6 +176,17 @@ export function oneOfConverter<TValue extends string>(
   };
 }
 
+/**
+ * A converter reading one of the values a record names, each once: a record
+ * typed over a union names every member of it, so a value added to the union
+ * and left out here fails to compile rather than to read.
+ */
+export function namedValueConverter<TValue extends string>(
+  named: Readonly<Record<TValue, true>>,
+): Converter<TValue> {
+  return oneOfConverter(Object.keys(named).filter((value): value is TValue => value in named));
+}
+
 /** A converter reading a number with a domain constructor, keeping its refusals. */
 export function domainNumberConverter<TValue>(
   construct: (value: number) => DomainResult<TValue>,

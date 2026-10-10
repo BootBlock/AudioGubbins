@@ -29,7 +29,9 @@ import {
 } from '@audiogubbins/domain';
 import {
   canonicalJson,
+  writeDecodedRendition,
   writeEditOperation,
+  writeKeptMetadata,
   writeRegionOperation,
   type AssetProvenance,
   type AssetSource,
@@ -42,6 +44,7 @@ import {
   type RecordedProfile,
   type RecordedProvenance,
   type SourceAudioShape,
+  type SourceEncoding,
 } from '@audiogubbins/project-format';
 
 /** Whether two values of a field are the same. */
@@ -196,6 +199,17 @@ const sameRecording = whole<RecordedProvenance>({
   gaps: optionally(whole<RecordedGaps>({ count: same, frames: same })),
 });
 
+const sameEncoding: Comparison<SourceEncoding> = (before, after) => {
+  if (before.kind !== after.kind) return false;
+  if ('bits' in before) {
+    return 'bits' in after && before.bits === after.bits && before.byteOrder === after.byteOrder;
+  }
+  if ('framesPerBlock' in before) {
+    return 'framesPerBlock' in after && before.framesPerBlock === after.framesPerBlock;
+  }
+  return true;
+};
+
 const sameProvenance = whole<AssetProvenance>({
   originalFileName: same,
   importedAt: same,
@@ -208,13 +222,21 @@ const sameProvenance = whole<AssetProvenance>({
     whole<SourceAudioShape>({
       container: same,
       sampleRate: same,
-      encoding: same,
-      bitDepth: same,
-      byteOrder: same,
+      encoding: sameEncoding,
       statedLayout: optionally(sameLayout),
       frames: same,
       declaredFrames: same,
     }),
+  ),
+  // A rendition's record and a file's metadata are nested values read whole,
+  // so each is the same where its written form is.
+  rendition: optionally(
+    (before, after) =>
+      canonicalJson(writeDecodedRendition(before)) === canonicalJson(writeDecodedRendition(after)),
+  ),
+  metadata: optionally(
+    (before, after) =>
+      canonicalJson(writeKeptMetadata(before)) === canonicalJson(writeKeptMetadata(after)),
   ),
   recording: optionally(sameRecording),
 });

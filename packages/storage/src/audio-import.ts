@@ -19,12 +19,9 @@
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
-import { openAudio, type AudioFormatDescriptor } from '@audiogubbins/codecs';
+import { openAudio, type AudioFormatDescriptor, type SampleEncoding } from '@audiogubbins/codecs';
 import {
   AssetOrigin,
-  FailureKind,
-  fail,
-  failure,
   succeed,
   type Asset,
   type AssetId,
@@ -41,6 +38,7 @@ import {
   storageKeyOf,
   type AssetSource,
   type SourceAudioShape,
+  type SourceEncoding,
 } from '@audiogubbins/project-format';
 
 import { runHolding } from './media-holds.js';
@@ -90,7 +88,6 @@ export async function importAudio(
   if (!opened.ok) return opened;
   const { format } = opened.value;
   const audio = audioShape(format);
-  if (!audio.ok) return audio;
   const name = nameFromFile('asset', file.fileName);
   if (!name.ok) return name;
 
@@ -100,7 +97,7 @@ export async function importAudio(
       choice: request.choice,
       projectId: session.getSnapshot().model.state.project.id,
       importedAt: request.importedAt,
-      audio: audio.value,
+      audio,
     },
     services,
     signal === undefined ? {} : { signal },
@@ -146,33 +143,33 @@ function importedAsset(
 }
 
 /**
- * The audio shape the reader found, as the provenance records it, or why the
- * provenance cannot record it. The read contract reads G.711 and ADPCM in place
- * (ADR-0090), but the provenance's shape holds only an uncompressed encoding:
- * the source's codec joins it when the provenance gains the compressed source,
- * and until then such a file is refused before anything is stored rather than
- * recorded as a PCM file it is not.
+ * The audio shape the reader found, as the provenance records it: the
+ * container, the rate, the stated layout and the frames, with the encoding its
+ * samples are stored in, uncompressed or one of the block codes the read
+ * contract reads in place (ADR-0090).
  */
-export function audioShape(format: AudioFormatDescriptor): DomainResult<SourceAudioShape> {
-  const { encoding } = format;
-  if (encoding.kind !== 'integer' && encoding.kind !== 'float') {
-    return fail(
-      failure(
-        'storage.source-codec-unrecorded',
-        FailureKind.Rejected,
-        "This file's samples are compressed, and a project cannot yet record a compressed source, so it is not imported.",
-        { details: { encoding: encoding.kind } },
-      ),
-    );
-  }
-  return succeed({
+export function audioShape(format: AudioFormatDescriptor): SourceAudioShape {
+  return {
     container: format.container,
     sampleRate: format.sampleRate,
-    encoding: encoding.kind,
-    bitDepth: encoding.bits,
-    byteOrder: encoding.byteOrder,
+    encoding: sourceEncoding(format.encoding),
     ...(format.statedLayout === undefined ? {} : { statedLayout: format.statedLayout }),
     frames: format.frames,
     declaredFrames: format.declaredFrames,
-  });
+  };
+}
+
+/** How a file stores its samples, as the provenance records it. */
+function sourceEncoding(encoding: SampleEncoding): SourceEncoding {
+  switch (encoding.kind) {
+    case 'integer':
+    case 'float':
+      return { kind: encoding.kind, bits: encoding.bits, byteOrder: encoding.byteOrder };
+    case 'g711-alaw':
+    case 'g711-ulaw':
+      return { kind: encoding.kind };
+    case 'ima-adpcm':
+    case 'ms-adpcm':
+      return { kind: encoding.kind, framesPerBlock: encoding.framesPerBlock };
+  }
 }

@@ -195,7 +195,6 @@ async function added(
 ): Promise<DomainResult<FinishedRecording>> {
   const { contentId, byteLength } = stored.identity;
   const audio = audioShape(stored.format);
-  if (!audio.ok) return audio;
   const media = { kind: 'managed', contentId, byteLength, mediaType: RECORDED_MEDIA_TYPE } as const;
   const asset: Asset = {
     id,
@@ -214,7 +213,7 @@ async function added(
       byteLength,
       mediaType: RECORDED_MEDIA_TYPE,
       originProjectId: session.project,
-      audio: audio.value,
+      audio,
       recording,
     },
   };

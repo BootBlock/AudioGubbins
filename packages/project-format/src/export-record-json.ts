@@ -18,7 +18,12 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
+import { asCodec, asImplementation } from './codec-names-reading.js';
+import { DIGEST_HEX } from './content-identity.js';
+import { readExportSettings, writeExportSettings } from './export-settings-json.js';
+import { asFileName } from './source-rules.js';
 import {
+  asBoolean,
   asContentId,
   asId,
   asStateFingerprint,
@@ -32,8 +37,10 @@ import {
   ExportStatus,
   type ExportDestination,
   type ExportOutput,
+  type ExportCodec,
   type ExportRecipeReference,
   type ExportRecord,
+  type ExportedAudioFile,
   type GodotLinkage,
 } from './export-provenance.js';
 import {
@@ -54,6 +61,7 @@ const RECORD_MEMBERS: ReadonlySet<string> = new Set([
   'output',
   'destination',
   'outputContentId',
+  'file',
   'godot',
   'status',
   'problems',
@@ -62,6 +70,20 @@ const RECIPE_MEMBERS: ReadonlySet<string> = new Set(['id', 'version']);
 const OUTPUT_MEMBERS: ReadonlySet<string> = new Set(['container', 'settings']);
 const DESTINATION_MEMBERS: ReadonlySet<string> = new Set(['kind', 'label']);
 const GODOT_MEMBERS: ReadonlySet<string> = new Set(['projectLabel', 'resources']);
+const FILE_MEMBERS: ReadonlySet<string> = new Set([
+  'settings',
+  'fileName',
+  'byteLength',
+  'sha256',
+  'codec',
+  'reproducible',
+]);
+const CODEC_MEMBERS: ReadonlySet<string> = new Set(['id', 'implementation', 'version']);
+const asSha256 = textConverter({
+  maximumLength: 64,
+  pattern: DIGEST_HEX,
+  shape: '64 lower-case hexadecimal digits',
+});
 const ENGINE_MEMBERS: ReadonlySet<string> = new Set(['name', 'version']);
 const SETTING_MEMBERS: ReadonlySet<string> = new Set(['name', 'value']);
 
@@ -105,6 +127,7 @@ export function writeExportRecord(record: ExportRecord): JsonObject {
     },
     destination: presentMembers({ kind: record.destination.kind, label: record.destination.label }),
     outputContentId: record.outputContentId,
+    file: record.file === undefined ? undefined : writeExportedFile(record.file),
     godot:
       record.godot === undefined
         ? undefined
@@ -129,6 +152,7 @@ export const readExportRecord: Converter<ExportRecord> = (reading, value, parent
   const output = required(reading, object, at, 'output', asOutput);
   const destination = required(reading, object, at, 'destination', asDestination);
   const outputContentId = optional(reading, object, at, 'outputContentId', asContentId);
+  const file = optional(reading, object, at, 'file', asExportedFile);
   const godot = optional(reading, object, at, 'godot', asGodot);
   const status = required(reading, object, at, 'status', asStatus);
   const problems = required(reading, object, at, 'problems', asProblems);
@@ -155,6 +179,7 @@ export const readExportRecord: Converter<ExportRecord> = (reading, value, parent
     output,
     destination,
     ...(outputContentId === undefined ? {} : { outputContentId }),
+    ...(file === undefined ? {} : { file }),
     ...(godot === undefined ? {} : { godot }),
     status,
     problems,
@@ -256,3 +281,61 @@ const asGodot: Converter<GodotLinkage> = (reading, value, parent, key) => {
     ? undefined
     : { projectLabel, resources };
 };
+
+const asCodecVersion = textConverter({ maximumLength: 256 });
+
+const asExportCodec: Converter<ExportCodec> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, CODEC_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const id = required(reading, object, at, 'id', asCodec);
+  const implementation = required(reading, object, at, 'implementation', asImplementation);
+  const version = required(reading, object, at, 'version', asCodecVersion);
+  return id === undefined || implementation === undefined || version === undefined
+    ? undefined
+    : { id, implementation, version };
+};
+
+const asExportedFile: Converter<ExportedAudioFile> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, FILE_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const settings = required(reading, object, at, 'settings', readExportSettings);
+  const fileName = optional(reading, object, at, 'fileName', asFileName);
+  const byteLength = required(reading, object, at, 'byteLength', asWholeQuantity);
+  const sha256 = required(reading, object, at, 'sha256', asSha256);
+  const codec = required(reading, object, at, 'codec', asExportCodec);
+  const reproducible = required(reading, object, at, 'reproducible', asBoolean);
+  if (
+    settings === undefined ||
+    byteLength === undefined ||
+    sha256 === undefined ||
+    codec === undefined ||
+    reproducible === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    settings,
+    ...(fileName === undefined ? {} : { fileName }),
+    byteLength,
+    sha256,
+    codec,
+    reproducible,
+  };
+};
+
+function writeExportedFile(file: ExportedAudioFile): JsonObject {
+  return presentMembers({
+    settings: writeExportSettings(file.settings),
+    fileName: file.fileName,
+    byteLength: file.byteLength,
+    sha256: file.sha256,
+    codec: {
+      id: file.codec.id,
+      implementation: file.codec.implementation,
+      version: file.codec.version,
+    },
+    reproducible: file.reproducible,
+  });
+}

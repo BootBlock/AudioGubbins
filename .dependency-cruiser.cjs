@@ -70,7 +70,9 @@
  * Phase 02's packages sit between the domain and the application (ADR-0020):
  *
  * - project-format: the authoritative, versioned project and the forms it is
- *   written in; depends on domain + text + version.
+ *   written in; depends on domain + text + version, on the codecs' names and
+ *   metadata map a compressed source's provenance records, and on the export
+ *   settings a project and an export record keep (ADR-0090, ADR-0092).
  * - project-commands: the commands that change a project; depends on domain +
  *   commands + project-format + text.
  * - history: branching history as values; depends on domain + commands +
@@ -84,14 +86,15 @@
  *   domain + ml-runtime + project-format.
  * - storage: keeping projects, and the model packs installed, over a backend
  *   port; depends on domain + codecs + commands + diagnostics + history +
- *   media-store + model-packs + project-format + version, and on no browser
- *   API.
+ *   import-export + media-store + model-packs + project-format + version, and
+ *   on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
  *   diagnostics + media-store + project-format + storage.
  * - storage-runtime: the browser host of project storage, its worker, the port
  *   to the page and the page's client (ADR-0022); depends on browser-storage,
- *   capabilities, commands, diagnostics, domain, history, media-store,
- *   project-commands, project-format, recording and storage, and on
+ *   capabilities, codecs, commands, diagnostics, domain, history,
+ *   import-export, media-store, project-commands, project-format, recording
+ *   and storage, and on
  *   audio-runtime's capture channel reader alone (ADR-0070).
  *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,
@@ -398,7 +401,7 @@ module.exports = {
       severity: 'error',
       comment:
         'Import and export as values: the settings and their validation against a codec ' +
-        "descriptor, the presets, dither, naming, collision rules and the job machines, and the " +
+        'descriptor, the presets, dither, naming, collision rules and the job machines, and the ' +
         'graph an export renders through (ADR-0090, ADR-0092). It depends on the domain, the ' +
         "codecs' contracts and the engine's and graph's, and knows no browser, storage or worker; " +
         'the codec and storage workers run its jobs.',
@@ -527,10 +530,12 @@ module.exports = {
       comment:
         'The project format sits just above the domain it writes, so every Phase 02 package ' +
         'can read it and it can read none of them (ADR-0020); it reads the text leaf for the ' +
-        'rule a given name is held to. Its tests may take the fixtures package.',
+        'rule a given name is held to, and the codecs and the export settings, portable values ' +
+        'below every Phase 02 package, for the provenance and the export settings it keeps ' +
+        '(ADR-0090, ADR-0092). Its tests may take the fixtures package.',
       from: { path: '^packages/project-format/' },
       to: {
-        path: '^packages/(?!(domain|project-format|text|version)/)',
+        path: '^packages/(?!(codecs|domain|import-export|project-format|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -591,7 +596,7 @@ module.exports = {
         "packs through the model packs' store port (ADR-0062).",
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|model-packs|project-format|storage|text|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|import-export|media-store|model-packs|project-format|storage|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -618,7 +623,7 @@ module.exports = {
         "capture channel's reader (ADR-0070).",
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|browser-storage|capabilities|commands|diagnostics|domain|history|media-store|model-packs|processors|project-commands|project-format|recording|storage|storage-runtime|text)/)',
+        path: '^packages/(?!(audio-runtime|browser-storage|capabilities|codecs|commands|diagnostics|domain|history|import-export|media-store|model-packs|processors|project-commands|project-format|recording|storage|storage-runtime|text)/)',
       },
     },
     {

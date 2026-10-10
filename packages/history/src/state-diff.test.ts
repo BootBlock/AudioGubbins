@@ -12,6 +12,7 @@ import {
   type RegionOperation,
 } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
+import { randomExportSettings, seededRandom } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { affectedBy } from './affected-entities.js';
@@ -69,6 +70,21 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       'channelLayout',
       'trackOrder',
     ]);
+  });
+
+  it('names the export settings among the project fields where they changed (ADR-0092)', () => {
+    const { state } = fixtureState(sampleProject());
+    const exported: ProjectState = {
+      ...state,
+      exportSettings: randomExportSettings(seededRandom(5)),
+    };
+    expect(diffStates(state, exported).project).toEqual(['exportSettings']);
+    const rebuilt: ProjectState = {
+      ...state,
+      exportSettings: randomExportSettings(seededRandom(5)),
+    };
+    expect(diffStates(exported, rebuilt).project).toEqual([]);
+    expect(diffStates(exported, state).project).toEqual(['exportSettings']);
   });
 
   it('lists entities added, removed and changed, each sorted, with the fields that changed', () => {
@@ -215,9 +231,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
               audio: {
                 container: 'wav',
                 sampleRate: footstep.sampleRate,
-                encoding: 'integer',
-                bitDepth: 24,
-                byteOrder: 'little',
+                encoding: { kind: 'integer', bits: 24, byteOrder: 'little' },
                 frames: footstep.length,
                 declaredFrames: derivedSampleCount(declared),
               },

@@ -33,6 +33,12 @@
       "path": "../../../../packages/history"
     },
     {
+      "path": "../../../../packages/codecs"
+    },
+    {
+      "path": "../../../../packages/import-export"
+    },
+    {
       "path": "../../../../packages/project-format"
     },
     {
