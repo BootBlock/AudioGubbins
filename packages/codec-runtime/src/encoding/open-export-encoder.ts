@@ -6,17 +6,19 @@
  *
  * The request's target must be the one its format and encoding make, as the
  * plan made it, or the request is refused rather than written as a file other
- * than the one planned. Its layout is refused here as validation refused it,
- * should a request reach the worker unvalidated (`writtenChannelOrder`). An
- * integer target is dithered and quantised by one `Quantiser` for the file,
- * seeded by the planned file's dither key, before the writer takes a block.
- * Each format is a row of the table below, which loads only what its format
- * needs: the codec module for FLAC and Opus, LAME for MP3, libvorbis for
- * Vorbis, and the browser's encoder for AAC; and names the encoder it opened,
- * which the export's record keeps.
+ * than the one planned. Its layout and its encoding's values are refused here
+ * by the rules validation refused them by, should a request reach the worker
+ * unvalidated (`writtenChannelOrder`, `encodingProblems`), so no encoder is
+ * asked for what it would replace or refuse. An integer target is dithered and
+ * quantised by one `Quantiser` for the file, seeded by the planned file's
+ * dither key, before the writer takes a block. Each format is a row of the
+ * table below, which loads only what its format needs: the codec module for
+ * FLAC and Opus, LAME for MP3, libvorbis for Vorbis, and the browser's encoder
+ * for AAC; and names the encoder it opened, which the export's record keeps.
  */
 
 import {
+  codecDescriptor,
   writtenChannelOrder,
   type AudioFileWriter,
   type WrittenChannelOrder,
@@ -31,6 +33,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   Quantiser,
+  encodingProblems,
   exportTarget,
   type ExportFormat,
   type ExportTarget,
@@ -38,7 +41,7 @@ import {
   type FormatEncodings,
 } from '@audiogubbins/import-export';
 
-import type { ExportEncodeRequest, PrebuiltEncoder } from '../worker/codec-worker-messages.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 import type {
   ExportEncoderServices,
   OpenExportEncoder,
@@ -56,10 +59,11 @@ import {
   type EncoderIdentity,
 } from './encoder-identity.js';
 import { openFlacWriter } from './flac-file-encoder.js';
+import { LameModule } from './lame-module.js';
+import { LibvorbisModule } from './libvorbis-module.js';
 import { openMp3Writer } from './mp3-file-encoder.js';
 import { openOpusWriter } from './opus-file-encoder.js';
 import { openAiffWriter, openWavWriter } from './pcm-file-encoder.js';
-import { PrebuiltModule } from './prebuilt-encoder.js';
 import { quantisingWriter } from './quantising-writer.js';
 import { openVorbisWriter } from './vorbis-file-encoder.js';
 
@@ -87,13 +91,16 @@ function by(
 /** The depths `flacenc` encodes; the codec module's own encoder serves the rest. */
 const FLACENC_DEPTHS: ReadonlySet<number> = new Set([8, 12, 16, 20, 24]);
 
-/** A prebuilt encoder's module, loaded once by the worker and instantiated for this export. */
-async function prebuilt(
-  name: PrebuiltEncoder,
-  { services }: OpenContext,
-): Promise<DomainResult<PrebuiltModule>> {
-  const code = await services.prebuiltModule(name);
-  return code.ok ? await PrebuiltModule.instantiate(name, code.value) : code;
+/** LAME's module, loaded once by the worker and instantiated for this export. */
+async function lame({ services }: OpenContext): Promise<DomainResult<LameModule>> {
+  const code = await services.encoderModule('mp3');
+  return code.ok ? await LameModule.instantiate(code.value) : code;
+}
+
+/** libvorbis's module, loaded once by the worker and instantiated for this export. */
+async function libvorbis({ services }: OpenContext): Promise<DomainResult<LibvorbisModule>> {
+  const code = await services.encoderModule('vorbis');
+  return code.ok ? await LibvorbisModule.instantiate(code.value) : code;
 }
 
 const OPENERS: { readonly [F in ExportFormat]: Opener<F> } = {
@@ -120,15 +127,15 @@ const OPENERS: { readonly [F in ExportFormat]: Opener<F> } = {
   mp3: async (encoding, context) =>
     by(
       LAME_ENCODER,
-      flatMapResult(await prebuilt('mp3', context), (lame) =>
-        openMp3Writer(context.request, encoding, lame, context.order),
+      flatMapResult(await lame(context), (module) =>
+        openMp3Writer(context.request, encoding, module, context.order),
       ),
     ),
   'ogg-vorbis': async (encoding, context) =>
     by(
       LIBVORBIS_ENCODER,
-      flatMapResult(await prebuilt('vorbis', context), (libvorbis) =>
-        openVorbisWriter(context.request, encoding, libvorbis, context.order),
+      flatMapResult(await libvorbis(context), (module) =>
+        openVorbisWriter(context.request, encoding, module, context.order),
       ),
     ),
   aac: (encoding, context) =>
@@ -176,6 +183,12 @@ export const openExportEncoder: OpenExportEncoder = async (request, services) =>
   const { codec, container, depth } = request.target;
   const order = writtenChannelOrder(codec, container, request.layout);
   if (!order.ok) return order;
+  const [problem, ...others] = encodingProblems(request.encoding, {
+    sampleRate: request.sampleRate,
+    channels: order.value.length,
+    write: codecDescriptor(codec).write,
+  });
+  if (problem !== undefined) return fail(problem, ...others);
   const opened = await openFormat(request.encoding, { request, services, order: order.value });
   if (depth === undefined) return opened;
   const channels = request.layout.roles.length;

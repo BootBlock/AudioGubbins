@@ -43,7 +43,8 @@ function audioProblems(
   const fits = writing === undefined ? [] : channelProblems(writing, channels);
   // A layout of more channels than the codec holds is refused for its count alone.
   const stated = fits.length === 0 ? layoutProblems(target, layout, codecs) : [];
-  return [...fits, ...stated, ...encodingProblems(settings, channels)];
+  const facts = { sampleRate: settings.sampleRate, channels, write: writing?.write };
+  return [...fits, ...stated, ...encodingProblems(settings, facts)];
 }
 
 /** Each failure once, by its code and sentence, in the order found. */

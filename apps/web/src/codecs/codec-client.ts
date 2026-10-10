@@ -22,7 +22,7 @@ import {
   type FromCodecWorker,
   type ImportAnalysis,
   type ModuleSource,
-  type PrebuiltEncoder,
+  type EncoderModuleName,
   type ToCodecWorker,
 } from '@audiogubbins/codec-runtime';
 import {
@@ -121,9 +121,9 @@ export class CodecClient {
   /** Gives the worker its modules, once, before any request. */
   configure(
     codecModule: ModuleSource,
-    prebuiltEncoders: Readonly<Record<PrebuiltEncoder, ModuleSource>>,
+    encoderModules: Readonly<Record<EncoderModuleName, ModuleSource>>,
   ): void {
-    this.#port.post({ kind: ToCodecWorkerKind.Configure, codecModule, prebuiltEncoders }, []);
+    this.#port.post({ kind: ToCodecWorkerKind.Configure, codecModule, encoderModules }, []);
   }
 
   /** Has the worker serve another context's requests over `port`, such as the storage worker's. */

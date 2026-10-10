@@ -10,6 +10,7 @@ import type { OpenExportEncoder } from '@audiogubbins/codec-runtime';
 import {
   codecModule,
   codecModuleBytes,
+  encoderModuleBytes,
   flacFile,
   pageWorker,
   type PageWorker,
@@ -32,15 +33,14 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 
 import { PROMPTLY } from '../testing/waiting.js';
-import { CodecThread, type BundledModule, type CodecThreadParts } from './codec-thread.js';
+import { CodecThread, type CodecThreadParts } from './codec-thread.js';
 
 const TONE = Int32Array.from({ length: 4_800 }, (_, frame) =>
   Math.round(Math.sin(frame / 10) * 10_000),
 );
 
-/** Why this copy has no MP3 encoder. */
-const ABSENT_REASON = 'The MP3 encoder was not built into this copy of AudioGubbins.';
-const ABSENT: BundledModule = { kind: 'absent', reason: ABSENT_REASON };
+/** Why the MP3 encoder's chunk could not be had, as a browser says so. */
+const UNLOADED = 'Failed to fetch dynamically imported module';
 
 interface Scene {
   readonly codecs: CodecThread;
@@ -65,9 +65,10 @@ function scene(
       return started;
     },
     modules: {
-      codec: () => Promise.resolve({ kind: 'bundled', bytes: codecModuleBytes() }),
-      mp3: () => Promise.resolve(ABSENT),
-      vorbis: () => Promise.resolve({ kind: 'bundled', bytes: Uint8Array.of(0, 1, 2, 3) }),
+      codec: () => Promise.resolve(codecModuleBytes()),
+      mp3: () => Promise.reject(new TypeError(UNLOADED)),
+      // Bytes no browser compiles.
+      vorbis: () => Promise.resolve(Uint8Array.of(0, 1, 2, 3)),
     },
     compile: (bytes) => WebAssembly.compile(bytes),
     join: (port) => {
@@ -115,15 +116,15 @@ describe('the page’s codecs', () => {
     expect(workers).toHaveLength(1);
   });
 
-  it('make the formats of a module it has none of unavailable, with the reason, and keep the rest', async () => {
+  it('make the formats of a module they could not compile or load unavailable, with the reason, and keep the rest', async () => {
     const { codecs, workers, logs } = scene();
 
     expect((await codecs.ready()).ok).toBe(true);
 
     const configure = workers[0]?.sent[0];
     expect(configure?.kind === 'configure' && configure.codecModule.kind).toBe('compiled');
-    expect(configure?.kind === 'configure' && configure.prebuiltEncoders).toEqual({
-      mp3: { kind: 'unavailable', reason: ABSENT_REASON },
+    expect(configure?.kind === 'configure' && configure.encoderModules).toEqual({
+      mp3: { kind: 'unavailable', reason: UNLOADED },
       vorbis: { kind: 'unavailable', reason: expect.any(String) as unknown },
     });
     expect(codecs.capability('mp3', 'write')).toMatchObject({
@@ -138,6 +139,30 @@ describe('the page’s codecs', () => {
       'The MP3 encoder could not be loaded.',
       'The Vorbis encoder could not be loaded.',
     ]);
+  });
+
+  it('hand the worker every module the build carries, compiled, each format available', async () => {
+    const { codecs, workers } = scene({
+      modules: {
+        codec: () => Promise.resolve(codecModuleBytes()),
+        mp3: () => Promise.resolve(encoderModuleBytes('mp3')),
+        vorbis: () => Promise.resolve(encoderModuleBytes('vorbis')),
+      },
+    });
+
+    expect((await codecs.ready()).ok).toBe(true);
+
+    const configure = workers[0]?.sent[0];
+    expect(
+      configure?.kind === 'configure' && [
+        configure.codecModule.kind,
+        configure.encoderModules.mp3.kind,
+        configure.encoderModules.vorbis.kind,
+      ],
+    ).toEqual(['compiled', 'compiled', 'compiled']);
+    for (const codec of ['flac', 'opus', 'mp3', 'vorbis'] as const) {
+      expect(codecs.capability(codec, 'write')).toMatchObject({ kind: 'available' });
+    }
   });
 
   it('analyse a file in the worker, its channels read from its headers', async () => {

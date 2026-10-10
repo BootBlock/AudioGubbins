@@ -34,7 +34,7 @@ function unstartedEnvironment(webAssembly: boolean): CodecEnvironment {
   return {
     webAssembly,
     codecModule: 'not-loaded',
-    prebuiltModules: new Map(),
+    encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(),
   };

@@ -46,8 +46,8 @@ describe('the registry', () => {
     ['ms-adpcm', 'application', 'application'],
     ['flac', 'codec-module', 'codec-module'],
     ['alac', 'codec-module', '-'],
-    ['mp3', 'codec-module', 'prebuilt-module'],
-    ['vorbis', 'codec-module', 'prebuilt-module'],
+    ['mp3', 'codec-module', 'encoder-module'],
+    ['vorbis', 'codec-module', 'encoder-module'],
     ['opus', 'codec-module', 'codec-module'],
     ['aac-lc', 'codec-module', 'browser'],
     ['he-aac', 'browser', '-'],
@@ -88,8 +88,8 @@ describe('the registry', () => {
     });
     expect(codecDescriptor('mp3').write?.sampleRates).toMatchObject({ kind: 'listed' });
     expect(codecDescriptor('mp3').write?.maximumChannels).toBe(2);
-    // The prebuilt libvorbis encodes one or two channels, though Vorbis reads up to 255.
-    expect(codecDescriptor('vorbis').write?.maximumChannels).toBe(2);
+    // libvorbis encodes the one to eight channels Vorbis I orders, though Vorbis reads up to 255.
+    expect(codecDescriptor('vorbis').write?.maximumChannels).toBe(8);
     expect(codecDescriptor('vorbis').read?.maximumChannels).toBe(255);
     expect(codecDescriptor('pcm').write?.sampleRates).toEqual({
       kind: 'any',
@@ -127,7 +127,7 @@ describe('the registry', () => {
 const EVERYTHING: CodecEnvironment = {
   webAssembly: true,
   codecModule: 'loaded',
-  prebuiltModules: new Map([
+  encoderModules: new Map([
     ['mp3', 'loaded'],
     ['vorbis', 'loaded'],
   ]),
@@ -139,7 +139,7 @@ const EVERYTHING: CodecEnvironment = {
 const BARE: CodecEnvironment = {
   webAssembly: false,
   codecModule: 'not-loaded',
-  prebuiltModules: new Map(),
+  encoderModules: new Map(),
   browserDecoders: new Set(),
   browserEncoders: new Set(),
 };
@@ -163,7 +163,7 @@ describe('a codec’s capability', () => {
     expect(codecCapability(fresh, 'flac', 'read').kind).toBe('available');
     expect(codecCapability(fresh, 'mp3', 'write')).toMatchObject({
       kind: 'available',
-      implementation: 'prebuilt-module',
+      implementation: 'encoder-module',
     });
     expect(codecCapability(EVERYTHING, 'opus', 'write')).toMatchObject({
       kind: 'available',
@@ -194,7 +194,7 @@ describe('a codec’s capability', () => {
   it('refuses MP3 export when its encoder failed to load, offering the other lossy codecs first', () => {
     const failed: CodecEnvironment = {
       ...EVERYTHING,
-      prebuiltModules: new Map([
+      encoderModules: new Map([
         ['mp3', 'failed'],
         ['vorbis', 'loaded'],
       ]),

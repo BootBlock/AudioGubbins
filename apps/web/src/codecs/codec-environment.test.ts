@@ -8,7 +8,7 @@ function unstartedEnvironment(webAssembly: boolean): CodecEnvironment {
   return {
     webAssembly,
     codecModule: 'not-loaded',
-    prebuiltModules: new Map(),
+    encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(),
   };
@@ -36,7 +36,7 @@ describe('the codecs’ environment as the page holds it', () => {
 
     store.adopt({
       ...unstartedEnvironment(true),
-      prebuiltModules: new Map([['mp3', 'failed']]),
+      encoderModules: new Map([['mp3', 'failed']]),
       browserEncoders: new Set(['aac-lc']),
     });
 

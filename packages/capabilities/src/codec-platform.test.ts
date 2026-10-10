@@ -109,7 +109,7 @@ describe('probeCodecs', () => {
     const environment: CodecEnvironment = {
       ...probes,
       codecModule: 'loaded',
-      prebuiltModules: new Map(),
+      encoderModules: new Map(),
     };
     expect(codecCapability(environment, 'he-aac', 'read')).toMatchObject({
       kind: 'available',
@@ -128,7 +128,7 @@ describe('probeCodecs', () => {
     const environment: CodecEnvironment = {
       ...probes,
       codecModule: 'loaded',
-      prebuiltModules: new Map(),
+      encoderModules: new Map(),
     };
     const capability = codecCapability(environment, 'he-aac', 'read');
     expect(capability.kind).toBe('unavailable');

@@ -1,7 +1,7 @@
 /**
  * The modules the codec worker loads, each once, on the first request that
- * needs it (ADR-0090, ADR-0091): the codec module, and the prebuilt MP3 and
- * Vorbis encoders. The page compiles each from the bytes it bundles and hands
+ * needs it (ADR-0090, ADR-0091): the codec module, and the MP3 and Vorbis
+ * encoder modules. The page compiles each from the bytes it bundles and hands
  * it over (`ModuleSource`); the worker instantiates the codec module and
  * hands the encoders' modules to the encoders that instantiate them.
  *
@@ -80,8 +80,8 @@ export function codecModuleLoad(
   return new OnceLoaded(() => instantiateCodecModule(compiled.value), changed);
 }
 
-/** A prebuilt encoder's module `source` names, compiled, loaded once. */
-export function prebuiltModuleLoad(
+/** An encoder module `source` names, compiled, loaded once. */
+export function encoderModuleLoad(
   name: string,
   source: ModuleSource,
   changed: () => void,

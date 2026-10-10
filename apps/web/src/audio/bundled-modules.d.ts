@@ -14,21 +14,14 @@ declare module 'virtual:audiogubbins/codec-module' {
   export const CODEC_MODULE_BYTES: Uint8Array<ArrayBuffer>;
 }
 
-/**
- * The MP3 encoder module's bytes, where the build tool wrote the module, or
- * why this copy carries none (ADR-0091).
- */
+/** The MP3 encoder module's bytes, built from its vendored source by `vite.config.ts` (ADR-0091). */
 declare module 'virtual:audiogubbins/mp3-encoder-module' {
-  export const ENCODER_MODULE:
-    | { readonly kind: 'bundled'; readonly bytes: Uint8Array<ArrayBuffer> }
-    | { readonly kind: 'absent'; readonly reason: string };
+  export const ENCODER_MODULE_BYTES: Uint8Array<ArrayBuffer>;
 }
 
-/** The Vorbis encoder module's bytes, or why this copy carries none (ADR-0091). */
+/** The Vorbis encoder module's bytes, built from its vendored source by `vite.config.ts` (ADR-0091). */
 declare module 'virtual:audiogubbins/vorbis-encoder-module' {
-  export const ENCODER_MODULE:
-    | { readonly kind: 'bundled'; readonly bytes: Uint8Array<ArrayBuffer> }
-    | { readonly kind: 'absent'; readonly reason: string };
+  export const ENCODER_MODULE_BYTES: Uint8Array<ArrayBuffer>;
 }
 
 /** Where the bundler put the codec worker, built on its own (ADR-0090). */

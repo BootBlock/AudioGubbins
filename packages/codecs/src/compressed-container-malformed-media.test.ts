@@ -29,15 +29,18 @@ import { Mp3StreamWriter } from './mp3-stream-writer.js';
 import { readOggMetadata } from './ogg-metadata-reader.js';
 import { OggOpusWriter } from './ogg-opus-writer.js';
 import { OggPageWriter } from './ogg-page-writer.js';
-import { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
+import { OggVorbisWriter } from './ogg-vorbis-writer.js';
 import {
   frames,
   fullMetadata,
   memoryBytes,
   mutations,
   oggFlacFile as oggFlacStream,
+  vorbisAudioPacket,
+  vorbisComment,
+  vorbisIdentification,
+  vorbisSetup,
 } from './testing/index.js';
-import { encodeVorbisComment } from './vorbis-comment.js';
 
 /** How many damaged copies of each header are read. */
 const MUTATIONS = 300;
@@ -87,23 +90,17 @@ const opusFile = () =>
     { inputFrames: 2_000 },
   );
 
-/** A Vorbis stream as libvorbis lays it out, given the metadata by the rewriter. */
-function vorbisFile(): Uint8Array {
-  const pages = new OggPageWriter(5);
-  const header = (type: number, body: Uint8Array) =>
-    concatenate([Uint8Array.of(type, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73), body]);
-  const comment = encodeVorbisComment({}, { vendor: 'libVorbis', pictureField: false }).bytes;
-  const stream = concatenate([
-    ...pages.addPacket(header(1, new Uint8Array(23)), 0),
-    ...pages.flush(),
-    ...pages.addPacket(header(3, concatenate([comment, Uint8Array.of(1)])), 0),
-    ...pages.addPacket(header(5, new Uint8Array(200)), 0),
-    ...pages.flush(),
-    ...pages.addPacket(new Uint8Array(100), 1_024),
-    ...pages.flush(true),
-  ]);
-  return written(new OggVorbisCommentRewriter(METADATA), [stream], undefined);
-}
+/** The packets of a Vorbis stream as libvorbis answers them: three headers and the audio. */
+const vorbisPackets = (): readonly Uint8Array[] => [
+  vorbisIdentification(2),
+  vorbisComment('libVorbis'),
+  vorbisSetup([false, true]),
+  ...[0, 1, 1, 0].map((mode, index) => vorbisAudioPacket(mode, 2, 100, index)),
+];
+
+/** A Vorbis stream framed by the Ogg Vorbis writer, given the metadata. */
+const vorbisFile = () =>
+  written(new OggVorbisWriter(METADATA), vorbisPackets(), { inputFrames: 2_000 });
 
 const crc8 = (bytes: Uint8Array) => {
   let crc = 0;
@@ -347,7 +344,7 @@ describe('damaged encoder output', () => {
         [Uint8Array.of(31 << 3, 1), Uint8Array.of(3, 2, 1)],
         { inputFrames: 100 },
       );
-      framed(() => new OggVorbisCommentRewriter({}), [vorbisFile()], undefined);
+      framed(() => new OggVorbisWriter({}), vorbisPackets(), { inputFrames: 2_000 });
     }).not.toThrow();
     expect(performance.now() - started).toBeLessThan(READ_TIME_MS);
   });

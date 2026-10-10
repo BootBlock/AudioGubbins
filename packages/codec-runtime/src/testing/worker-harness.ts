@@ -134,7 +134,7 @@ export async function workerHarness(options: HarnessOptions = {}): Promise<Harne
   core.receive({
     kind: 'configure',
     codecModule: module,
-    prebuiltEncoders: {
+    encoderModules: {
       mp3: { kind: 'unavailable', reason: 'No MP3 encoder in this test.' },
       vorbis: { kind: 'unavailable', reason: 'No Vorbis encoder in this test.' },
     },

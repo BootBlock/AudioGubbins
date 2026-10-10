@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -210,61 +210,58 @@ function bytesModule(name: string, file: string): string {
 
 /** What the application imports the codec module's bytes as, and the same marked as no file. */
 const CODEC_MODULE_ID = 'virtual:audiogubbins/codec-module';
-const RESOLVED_CODEC_MODULE_ID = `\0${CODEC_MODULE_ID}`;
+const RESOLVED_CODEC_MODULE_ID = ` ${CODEC_MODULE_ID}`;
 
-/**
- * What the application imports each encoder module as, marked as no file, by
- * the encoder's name as the build tool names it, and the format it encodes.
- */
-interface EncoderModule {
-  readonly encoder: 'mp3' | 'vorbis';
-  readonly format: string;
-}
-const ENCODER_MODULES: ReadonlyMap<string, EncoderModule> = new Map([
-  ['virtual:audiogubbins/mp3-encoder-module', { encoder: 'mp3', format: 'MP3' }],
-  ['virtual:audiogubbins/vorbis-encoder-module', { encoder: 'vorbis', format: 'Vorbis' }],
+/** What the application imports each encoder module's bytes as, by the encoder's name. */
+const ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map([
+  ['virtual:audiogubbins/mp3-encoder-module', 'mp3'],
+  ['virtual:audiogubbins/vorbis-encoder-module', 'vorbis'],
 ]);
-const RESOLVED_ENCODER_MODULES: ReadonlyMap<string, EncoderModule> = new Map(
-  [...ENCODER_MODULES].map(([id, encoder]) => [`\0${id}`, encoder]),
+
+/** The same, marked as no file on disk. */
+const RESOLVED_ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map(
+  [...ENCODER_MODULES].map(([id, encoder]) => [` ${id}`, encoder]),
 );
+
+/** The encoders' sources, their interfaces and the vendored libraries, each of which can change a module. */
+function encoderSources(): readonly string[] {
+  return ['native', 'third_party'].flatMap((directory) => {
+    const root = join(REPOSITORY_ROOT, directory);
+    return readdirSync(root, { recursive: true, encoding: 'utf8', withFileTypes: false }).map(
+      (path) => join(root, path),
+    );
+  });
+}
 
 /**
  * The codec module and the MP3 and Vorbis encoder modules, carried in the
  * bundle as the DSP module is (ADR-0090, ADR-0091): the page makes no request,
  * so each reaches it as a module of the bundle whose text is its bytes in
- * base64, a chunk of its own that the page imports only when the codec worker
- * is first needed, and compiles before it hands the worker the compiled module.
+ * base64, in a chunk that the page imports only when the codec worker is first
+ * needed, and compiles before it hands the worker the compiled module.
  *
- * The codec module is built from the crates, and a build that fails fails the
- * application's build, as the DSP module's does. An encoder module the build
- * tool did not write is carried as absent, with the reason, so the page
- * offers its format as unavailable and every other format still works: the
- * answer the page gives an encoder whose bytes will not compile.
+ * Each is built by `tools/build-wasm.mjs`, the codec module from the crates and
+ * the encoders from their vendored sources, and a module that cannot be built
+ * fails the application's build, as the DSP module's does: a build always
+ * carries all three. One whose bytes this browser will not compile is the
+ * page's to say, and its formats are then unavailable here with the reason.
  */
 function codecModules(): Plugin {
   return {
     name: 'audiogubbins:codec-modules',
     resolveId: (id) => {
       if (id === CODEC_MODULE_ID) return RESOLVED_CODEC_MODULE_ID;
-      return ENCODER_MODULES.has(id) ? `\0${id}` : undefined;
+      return ENCODER_MODULES.has(id) ? ` ${id}` : undefined;
     },
     async load(id) {
       if (id === RESOLVED_CODEC_MODULE_ID) {
         for (const source of crateSources()) this.addWatchFile(source);
         return bytesModule('CODEC_MODULE_BYTES', buildCodecModule());
       }
-      const module = RESOLVED_ENCODER_MODULES.get(id);
-      if (module === undefined) return undefined;
-      const file = (await buildEncoders())[module.encoder];
-      this.addWatchFile(file);
-      if (existsSync(file)) {
-        return [
-          bytesModule('ENCODER_BYTES', file),
-          "export const ENCODER_MODULE = { kind: 'bundled', bytes: ENCODER_BYTES };",
-        ].join('\n');
-      }
-      const reason = `The ${module.format} encoder was not built into this copy of AudioGubbins.`;
-      return `export const ENCODER_MODULE = { kind: 'absent', reason: ${JSON.stringify(reason)} };`;
+      const encoder = RESOLVED_ENCODER_MODULES.get(id);
+      if (encoder === undefined) return undefined;
+      for (const source of encoderSources()) this.addWatchFile(source);
+      return bytesModule('ENCODER_MODULE_BYTES', (await buildEncoders())[encoder]);
     },
   };
 }

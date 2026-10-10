@@ -155,7 +155,7 @@ describe('the codec worker analysing a file', () => {
       {
         kind: 'configure',
         codecModule: { kind: 'unavailable', reason: 'None.' },
-        prebuiltEncoders: {
+        encoderModules: {
           mp3: { kind: 'unavailable', reason: 'None.' },
           vorbis: { kind: 'unavailable', reason: 'None.' },
         },
@@ -171,7 +171,7 @@ describe('the codec worker analysing a file', () => {
           browserDecoders: new Set(),
           browserEncoders: new Set(),
           codecModule: 'failed',
-          prebuiltModules: new Map([
+          encoderModules: new Map([
             ['mp3', 'failed'],
             ['vorbis', 'failed'],
           ]),
@@ -190,7 +190,7 @@ describe('the codec worker analysing a file', () => {
     );
     expect(environments.at(-1)).toMatchObject({
       codecModule: 'not-loaded',
-      prebuiltModules: new Map([
+      encoderModules: new Map([
         ['mp3', 'failed'],
         ['vorbis', 'failed'],
       ]),
@@ -310,7 +310,7 @@ function heAacServices(probed: boolean, released: { count: number }): ImportServ
     environment: () => ({
       webAssembly: true,
       codecModule: 'loaded',
-      prebuiltModules: new Map(),
+      encoderModules: new Map(),
       browserDecoders: new Set(probed ? (['he-aac'] as const) : []),
       browserEncoders: new Set(),
     }),

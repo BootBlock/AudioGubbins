@@ -231,10 +231,10 @@ const PACKAGES = [
     // The codec module's host: its typed loader, the decode sessions, FLAC
     // frame and Opus encoders over its narrow ABI, and the synchronous read
     // its one import makes of a file (ADR-0090, ADR-0091); and every export's
-    // encoder, composed from those, the prebuilt LAME and libvorbis modules of
-    // `wasm-media-encoders`, each its own file, and the browser's AAC encoder,
-    // quantising through the export's dither, fed the rendered blocks the
-    // engine's channel brings. Compiled with the DOM's definitions for the
+    // encoder, composed from those, the LAME and libvorbis encoder modules
+    // built from vendored source, each its own file, and the browser's AAC
+    // encoder, quantising through the export's dither, fed the rendered blocks
+    // the engine's channel brings. Compiled with the DOM's definitions for the
     // codec worker it serves and the browser's codecs it reaches.
     dir: 'packages/codec-runtime',
     name: '@audiogubbins/codec-runtime',
@@ -254,10 +254,7 @@ const PACKAGES = [
     ],
     devDeps: [],
     external: {},
-    // The prebuilt encoders' modules, read by the tests from the files the
-    // package installs; the application that bundles the codec worker takes
-    // their files by URL, and declares the package where it imports them.
-    externalDev: { 'wasm-media-encoders': '0.7.0' },
+    externalDev: {},
   },
   {
     // The audio core that runs on any thread: blocks and sources, the canonical

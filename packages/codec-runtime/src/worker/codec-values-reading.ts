@@ -65,7 +65,7 @@ const MODULE_LOADS: Readonly<Record<ModuleLoad, ModuleLoad>> = {
 const IMPLEMENTATIONS: Readonly<Record<CodecImplementation, CodecImplementation>> = {
   application: 'application',
   'codec-module': 'codec-module',
-  'prebuilt-module': 'prebuilt-module',
+  'encoder-module': 'encoder-module',
   browser: 'browser',
 };
 
@@ -100,7 +100,7 @@ function codecSetOf(value: unknown, field: string): ReadonlySet<CodecId> {
   );
 }
 
-/** The load of each prebuilt module, by the codec it encodes. */
+/** The load of each encoder module, by the codec it encodes. */
 function moduleLoadsOf(value: unknown, field: string): ReadonlyMap<CodecId, ModuleLoad> {
   const entries = membersOf(value, field, 'Map');
   return new Map(
@@ -119,7 +119,7 @@ export function codecEnvironmentOf(value: unknown, field: string): CodecEnvironm
   return {
     webAssembly: flagOf(fields['webAssembly'], `${field}.webAssembly`),
     codecModule: oneOfValues(fields['codecModule'], `${field}.codecModule`, MODULE_LOADS),
-    prebuiltModules: moduleLoadsOf(fields['prebuiltModules'], `${field}.prebuiltModules`),
+    encoderModules: moduleLoadsOf(fields['encoderModules'], `${field}.encoderModules`),
     browserDecoders: codecSetOf(fields['browserDecoders'], `${field}.browserDecoders`),
     browserEncoders: codecSetOf(fields['browserEncoders'], `${field}.browserEncoders`),
   };

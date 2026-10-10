@@ -10,7 +10,7 @@ import type { Logger } from '@audiogubbins/diagnostics';
 
 import { moduleWorkerClass } from '../module-worker.js';
 import type { CodecWorkerPort } from './codec-client.js';
-import { CodecThread, type BundledModule, type BundledModules } from './codec-thread.js';
+import { CodecThread, type BundledModules } from './codec-thread.js';
 
 /** The codec worker, its errors handled by the client rather than reported again by the page. */
 function codecWorker(): CodecWorkerPort {
@@ -39,22 +39,15 @@ function codecWorker(): CodecWorkerPort {
   };
 }
 
-/** The modules the build carries, as `bundled-codec-modules.ts` gives them. */
-interface Bundled {
-  readonly CODEC_MODULE: BundledModule;
-  readonly MP3_MODULE: BundledModule;
-  readonly VORBIS_MODULE: BundledModule;
-}
-
-/** The modules the build carries, loaded together when the worker is first needed. */
-function bundled(): Promise<Bundled> {
-  return import('./bundled-codec-modules.js');
+/** The modules' bytes, loaded together when the worker is first needed. */
+async function bundled(): Promise<Readonly<Record<keyof BundledModules, Uint8Array<ArrayBuffer>>>> {
+  return (await import('./bundled-codec-modules.js')).BUNDLED_MODULE_BYTES;
 }
 
 const BUNDLED_MODULES: BundledModules = {
-  codec: async () => (await bundled()).CODEC_MODULE,
-  mp3: async () => (await bundled()).MP3_MODULE,
-  vorbis: async () => (await bundled()).VORBIS_MODULE,
+  codec: async () => (await bundled()).codec,
+  mp3: async () => (await bundled()).mp3,
+  vorbis: async () => (await bundled()).vorbis,
 };
 
 /**

@@ -34,13 +34,13 @@ import { CreditedReceiver } from '../streams/credited-receiver.js';
 import { CreditedSender } from '../streams/credited-sender.js';
 import type { MessagePortLike } from '../streams/stream-port.js';
 import { WORK_CANCELLED } from '../work-cancelled.js';
-import type { ExportEncodeRequest, PrebuiltEncoder } from './codec-worker-messages.js';
+import type { ExportEncodeRequest, EncoderModuleName } from './codec-worker-messages.js';
 import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
 
 /** What an export's encoder may use, each loaded on first use. */
 export interface ExportEncoderServices {
   readonly codecModule: () => Promise<DomainResult<CodecModule>>;
-  readonly prebuiltModule: (encoder: PrebuiltEncoder) => Promise<DomainResult<WebAssembly.Module>>;
+  readonly encoderModule: (encoder: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>;
   /** The browser's encoding classes, where the scope has them; AAC-LC is encoded by them alone. */
   readonly encoding: BrowserAudioEncoding | undefined;
   /** The browser's family and major version, which names its encoder's version. */

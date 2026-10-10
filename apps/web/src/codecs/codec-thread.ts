@@ -3,13 +3,12 @@
  * that needs it, with every module the page bundles compiled and handed to it,
  * and joined to the storage worker, so imports decode through it.
  *
- * Each module is a chunk of the bundle that is loaded and compiled only when
- * the worker is first needed, and the three are loaded and compiled together
- * while the worker starts. A module that cannot be had, one this copy was not
- * built with, a chunk that would not load or bytes that would not compile, is
- * handed to the worker as unavailable, with why: its formats are then
- * unavailable here and say so, and every other format works. The reason is
- * logged where the person's diagnostics can show it.
+ * The modules are a chunk of the bundle that is loaded only when the worker is
+ * first needed, and the three are compiled together while the worker starts. A
+ * module that cannot be had, its chunk not loaded or its bytes not compiled by
+ * this browser, is handed to the worker as unavailable, with why: its formats
+ * are then unavailable here and say so, and every other format works. The
+ * reason is logged where the person's diagnostics can show it.
  *
  * The worker is configured before it is joined to storage, since it refuses
  * every request before it is configured, and the storage worker sends its
@@ -37,16 +36,14 @@ import { CodecClient, type CodecWorkerPort } from './codec-client.js';
 import { createCodecEnvironmentStore, type CodecEnvironmentStore } from './codec-environment.js';
 import type { CodecServices, EncodedFile } from './codec-services.js';
 
-/** A module's bytes, as the bundle carries them, or why this copy carries none. */
-export type BundledModule =
-  | { readonly kind: 'bundled'; readonly bytes: Uint8Array<ArrayBuffer> }
-  | { readonly kind: 'absent'; readonly reason: string };
+/** The bytes of a module the page bundles, loaded when asked for. */
+type LoadModule = () => Promise<Uint8Array<ArrayBuffer>>;
 
-/** Each module the page bundles, loaded when asked for. */
+/** Each module the page bundles. */
 export interface BundledModules {
-  readonly codec: () => Promise<BundledModule>;
-  readonly mp3: () => Promise<BundledModule>;
-  readonly vorbis: () => Promise<BundledModule>;
+  readonly codec: LoadModule;
+  readonly mp3: LoadModule;
+  readonly vorbis: LoadModule;
 }
 
 /** What the codecs are made with: the parts of the browser they use, given rather than reached for. */
@@ -205,18 +202,13 @@ export class CodecThread implements CodecServices {
   }
 
   /** The module `load` gives, compiled, or why there is none. */
-  async #source(
-    module: keyof BundledModules,
-    load: () => Promise<BundledModule>,
-  ): Promise<ModuleSource> {
+  async #source(module: keyof BundledModules, load: LoadModule): Promise<ModuleSource> {
     const unavailable = (reason: string): ModuleSource => {
       this.#parts.logger.warning(`The ${MODULE_NAMES[module]} could not be loaded.`, { reason });
       return { kind: 'unavailable', reason };
     };
     try {
-      const bundled = await load();
-      if (bundled.kind === 'absent') return unavailable(bundled.reason);
-      return { kind: 'compiled', module: await this.#parts.compile(bundled.bytes) };
+      return { kind: 'compiled', module: await this.#parts.compile(await load()) };
     } catch (error) {
       // A chunk that would not load rejects with a TypeError, and bytes that
       // would not compile, or a policy that forbids compiling, with a

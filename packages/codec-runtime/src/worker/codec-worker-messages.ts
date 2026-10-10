@@ -3,7 +3,7 @@
  * (ADR-0090, ADR-0091, ADR-0092).
  *
  * The page starts the worker and `configure`s it once with where the codec
- * module and the prebuilt encoders are, and may `connect` another context,
+ * module and the encoder modules are, and may `connect` another context,
  * such as the storage worker, by a port of its own. Each client then sends
  * requests, each named by the client, over its channel: `analyse` a file,
  * `decode` one into a stream to the storage worker, or `encode` a rendered
@@ -42,8 +42,8 @@ export type ModuleSource =
   | { readonly kind: 'compiled'; readonly module: WebAssembly.Module }
   | { readonly kind: 'unavailable'; readonly reason: string };
 
-/** The prebuilt encoders, each a module of its own (ADR-0091). */
-export type PrebuiltEncoder = 'mp3' | 'vorbis';
+/** The encoder modules, each built from a C library into a file of its own (ADR-0091). */
+export type EncoderModuleName = 'mp3' | 'vorbis';
 
 /**
  * What an export's encoder is opened with: the planned file's target and
@@ -108,7 +108,7 @@ export type ToCodecWorker =
       /** Says once where the modules are; no request is served before it. */
       readonly kind: typeof ToCodecWorkerKind.Configure;
       readonly codecModule: ModuleSource;
-      readonly prebuiltEncoders: Readonly<Record<PrebuiltEncoder, ModuleSource>>;
+      readonly encoderModules: Readonly<Record<EncoderModuleName, ModuleSource>>;
     }
   | {
       /** Serves another client's requests over `port`, such as the storage worker's. */
