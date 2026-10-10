@@ -33,6 +33,10 @@
  *   recording       the session and monitoring states, capture profiles,
  *                   calibration and diagnostics; depends on domain + text,
  *                   knows no browser, storage or audio host (ADR-0070)
+ *   import-export   export settings, presets, dither, file naming, collision
+ *                   rules and the import and export jobs as values; depends on
+ *                   domain + audio-graph + audio-engine + codecs, knows no
+ *                   browser, storage or worker (ADR-0090, ADR-0092)
  *   waveform       the peak pyramid, its worker, cache format and column
  *                   reads; depends on domain + audio-engine, knows no browser
  *                   (ADR-0043)
@@ -164,7 +168,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|import-export|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -373,6 +377,18 @@ module.exports = {
         path: '^packages/(?!(recording|domain|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
+    },
+    {
+      name: 'import-export-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Import and export as values: the settings and their validation against a codec ' +
+        "descriptor, the presets, dither, naming, collision rules and the job machines, and the " +
+        'graph an export renders through (ADR-0090, ADR-0092). It depends on the domain, the ' +
+        "codecs' contracts and the engine's and graph's, and knows no browser, storage or worker; " +
+        'the codec and storage workers run its jobs.',
+      from: { path: '^packages/import-export/' },
+      to: { path: '^packages/(?!(import-export|domain|audio-graph|audio-engine|codecs)/)' },
     },
     {
       name: 'waveform-owns-nothing-else',

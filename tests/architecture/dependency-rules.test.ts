@@ -220,6 +220,12 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/recording': ['@audiogubbins/domain', '@audiogubbins/text'],
+  '@audiogubbins/import-export': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/codecs',
+  ],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
     '@audiogubbins/domain',
@@ -850,6 +856,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'editor-view',
     'effect-rack',
     'history',
+    'import-export',
     'input',
     'media-store',
     'ml-runtime',
