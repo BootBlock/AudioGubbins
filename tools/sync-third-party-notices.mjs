@@ -31,12 +31,16 @@
  * where a repository path it names no longer exists, so a notice cannot
  * outlive or lose the code it is for.
  *
- * A prebuilt WebAssembly module a package ships, such as LAME's in
- * `wasm-media-encoders`, holds libraries its package's own licence does not
- * name, so each module's libraries are listed by hand in
- * `tools/prebuilt-module-notices.json`: the project, its version, licence and
- * copyright, and where its source as built is. A module is refused where its
- * package is not installed at the version listed, or its file is gone.
+ * The C libraries vendored under `third_party/` and built into the encoder
+ * modules (`build-encoder-modules.mjs`) are named by no lockfile, so each is
+ * listed by hand in `tools/vendored-library-notices.json`: the project, its
+ * version, licence and copyright, its folder, the release archive its source
+ * was taken from and that archive's SHA-256, which the folder's README must
+ * record too, and the modules it is built into. Its licence text is quoted
+ * from the files it ships. A library is refused where its folder or licence
+ * file is gone or a module it names is not built, and a folder of
+ * `third_party/` the list does not name is refused, so no vendored code ships
+ * without its notice.
  *
  * Usage:
  *   node tools/sync-third-party-notices.mjs           write the notices
@@ -45,21 +49,22 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { SHIPPED_CRATES, WASM_TARGET } from './build-wasm.mjs';
+import { MP3_MODULE, SHIPPED_CRATES, VORBIS_MODULE, WASM_TARGET } from './build-wasm.mjs';
 import { localTracesIn } from './local-traces.mjs';
+import { ZIG_SOURCE, ZIG_VERSION } from './zig-toolchain.mjs';
 import { lockedPackagesOf } from './read-pnpm-lockfile.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTICES = join(REPO_ROOT, 'THIRD-PARTY-NOTICES.md');
 
-/** The committed, reviewed list of the libraries compiled into prebuilt modules. */
-export const PREBUILT_MODULES = join(REPO_ROOT, 'tools', 'prebuilt-module-notices.json');
+/** The committed, reviewed list of the C libraries vendored and built into encoder modules. */
+export const VENDORED_LIBRARIES = join(REPO_ROOT, 'tools', 'vendored-library-notices.json');
 
-/** The workspace package the prebuilt modules' packages are installed for. */
-const PREBUILT_IMPORTER = 'packages/codec-runtime';
+/** Where the C libraries are vendored. */
+const THIRD_PARTY = 'third_party';
 
 /** The committed, reviewed list of the source code ported from other projects. */
 export const PORTED_CODE = join(REPO_ROOT, 'tools', 'ported-code-notices.json');
@@ -118,15 +123,16 @@ export const ALLOWED_LICENCES = Object.freeze([
 export const SOURCE_OFFERED = Object.freeze(['MPL-2.0']);
 
 /**
- * The licences a library in a prebuilt module may carry beyond the
- * allow-list. ADR-0091 decided on LGPL-2.0-or-later for LAME on the terms the
- * LGPL sets for a library: it is its own WebAssembly module, loaded from its
- * own file, so a person can replace it with a build of the same interface;
- * nothing of it is compiled into AudioGubbins; and the notices name where its
- * corresponding source is. It is allowed for a prebuilt module's library
- * alone, never for a package or a port.
+ * The licences a vendored library may carry beyond the allow-list. ADR-0091
+ * decided on LGPL-2.0-or-later for LAME on the terms the LGPL sets for a
+ * library: it is built into its own WebAssembly module, loaded from its own
+ * file, so a person can replace it with a build of the same interface;
+ * nothing of it is compiled into AudioGubbins' own code; and its
+ * corresponding source is vendored in this repository, where the notices
+ * say. It is allowed for a vendored library alone, never for a package or a
+ * port.
  */
-export const PREBUILT_MODULE_LICENCES = Object.freeze(['LGPL-2.0-or-later']);
+export const VENDORED_LIBRARY_LICENCES = Object.freeze(['LGPL-2.0-or-later']);
 
 /**
  * The exceptions an allowed licence may be taken `WITH`, each of which only
@@ -473,38 +479,101 @@ export function portedNoticesOf(list, exists, standardText) {
 }
 
 /**
- * What the notices say of one library compiled into a prebuilt module.
+ * What the notices say of one library built into an encoder module: a C
+ * library vendored under `third_party/`, or a runtime library the C compiler
+ * links into every module it builds.
  *
- * @typedef {object} PrebuiltNotice
- * @property {string} module the package, its version and the module's file
- * @property {string} build where the module's build is published
+ * @typedef {object} VendoredNotice
  * @property {string} project
  * @property {string} version
  * @property {string} licence
  * @property {readonly string[]} copyright
- * @property {string} source where the library's source, as built, is published
- * @property {readonly string[]} texts the standard texts of its licence
+ * @property {{ readonly directory: string } | { readonly bundledBy: string }} source
+ *   the repository folder its source is vendored in, or the toolchain whose
+ *   release holds it
+ * @property {readonly string[]} modules the module files it is built into
+ * @property {string} origin the release archive its source was taken from
+ * @property {string} sha256 that archive's SHA-256
+ * @property {readonly string[]} texts its licence's text: as a vendored
+ *   library ships it, or the standard text for a toolchain's
+ */
+
+/** A SHA-256, written in lower-case hexadecimal. */
+const SHA256 = /^[0-9a-f]{64}$/u;
+
+/**
+ * What the vendored notices are checked against: whether a repository path
+ * exists, a file's text, the folders `third_party/` holds, the module files
+ * the build writes, the pinned compiler's name and its source archive, and
+ * the standard text of a licence.
+ *
+ * @typedef {object} VendoredTree
+ * @property {(path: string) => boolean} exists
+ * @property {(path: string) => string} read
+ * @property {readonly string[]} directories
+ * @property {readonly string[]} modules
+ * @property {{ readonly name: string, readonly url: string, readonly sha256: string }} toolchain
+ * @property {(licence: string) => string} standardText
  */
 
 /**
- * Why one library of a prebuilt module is refused, or its notice.
+ * Why a vendored library's source is refused, or its folder and licence text.
  *
- * @param {unknown} part the library as the list writes it
- * @param {string} module
- * @param {string} build
- * @param {(licence: string) => string} standardText
- * @returns {{ readonly notice: PrebuiltNotice }
+ * @param {Record<string, unknown>} fields
+ * @param {VendoredTree} tree
+ * @returns {{ readonly directory: string, readonly texts: readonly string[], readonly reasons: readonly string[] }}
+ */
+function vendoredSourceOf(fields, tree) {
+  const { directory, licenceFiles, version, origin, sha256 } = fields;
+  const folder =
+    typeof directory === 'string' &&
+    REPOSITORY_PATH.test(directory) &&
+    directory.startsWith(`${THIRD_PARTY}/`) &&
+    tree.exists(directory)
+      ? directory
+      : undefined;
+  if (folder === undefined) {
+    return { directory: '', texts: [], reasons: ['names no folder of third_party/ that exists'] };
+  }
+  const reasons = [];
+  const files = Array.isArray(licenceFiles) ? licenceFiles : [];
+  if (files.length === 0) reasons.push('names no licence file');
+  /** @type {string[]} */
+  const texts = [];
+  for (const file of files) {
+    const path = `${folder}/${String(file)}`;
+    if (typeof file === 'string' && REPOSITORY_PATH.test(path) && tree.exists(path)) {
+      texts.push(normalised(tree.read(path)));
+    } else {
+      reasons.push(`names ${path}, which does not exist`);
+    }
+  }
+  const readme = `${folder}/README.md`;
+  const record = tree.exists(readme) ? tree.read(readme) : '';
+  if (![version, origin, sha256].every((stated) => isText(stated) && record.includes(stated))) {
+    reasons.push(`is not recorded in ${readme} with its version, release archive and SHA-256`);
+  }
+  return { directory: folder, texts, reasons };
+}
+
+/**
+ * Why one library is refused, or its notice.
+ *
+ * @param {unknown} entry the library as the list writes it
+ * @param {number} index
+ * @param {VendoredTree} tree
+ * @returns {{ readonly notice: VendoredNotice }
  *   | { readonly refused: readonly string[] }}
  */
-function prebuiltLibraryOf(part, module, build, standardText) {
+function vendoredLibraryOf(entry, index, tree) {
   /** @type {Record<string, unknown>} */
   const fields =
-    typeof part === 'object' && part !== null ? Object.fromEntries(Object.entries(part)) : {};
-  const { project, version, licence, copyright, source } = fields;
-  const named = `the prebuilt ${module}'s ${isText(project) ? project : 'unnamed library'}`;
+    typeof entry === 'object' && entry !== null ? Object.fromEntries(Object.entries(entry)) : {};
+  const { project, version, licence, copyright, bundledBy, origin, sha256, modules } = fields;
+  const named = `the library ${isText(project) ? project : String(index + 1)}`;
   const reasons = [];
   if (!isText(project) || !isText(version)) reasons.push('names no project and version');
-  const decided = isText(licence) ? listed(PREBUILT_MODULE_LICENCES, licence) : undefined;
+  const decided = isText(licence) ? listed(VENDORED_LIBRARY_LICENCES, licence) : undefined;
   const decision = isText(licence) ? decideLicence(licence) : undefined;
   if (decision === undefined) reasons.push('declares no SPDX licence expression');
   else if (!decision.allowed && decided === undefined) {
@@ -514,89 +583,92 @@ function prebuiltLibraryOf(part, module, build, standardText) {
   if (lines.length === 0 || !lines.every((line) => isText(line) && isCopyright(line))) {
     reasons.push('lists its copyright as anything but lines stating one');
   }
-  if (!isText(source) || !source.startsWith('https://')) {
-    reasons.push('names no https address of its source');
+  if (!isText(origin) || !origin.startsWith('https://')) {
+    reasons.push('names no https address of the release archive its source was taken from');
+  }
+  if (typeof sha256 !== 'string' || !SHA256.test(sha256)) {
+    reasons.push('states no SHA-256 of its release archive');
+  }
+  const into = Array.isArray(modules) ? modules : [];
+  if (into.length === 0) reasons.push('names no module it is built into');
+  for (const module of into) {
+    if (typeof module !== 'string' || !tree.modules.includes(module)) {
+      reasons.push(`names ${String(module)}, which the build does not write`);
+    }
+  }
+  /** @type {VendoredNotice['source']} */
+  let source;
+  /** @type {readonly string[]} */
+  let texts;
+  if (bundledBy === undefined) {
+    const vendored = vendoredSourceOf(fields, tree);
+    reasons.push(...vendored.reasons);
+    source = { directory: vendored.directory };
+    texts = vendored.texts;
+  } else {
+    const { name, url } = tree.toolchain;
+    if (bundledBy !== name || origin !== url || sha256 !== tree.toolchain.sha256) {
+      reasons.push(`is bundled by no compiler but ${name}, from ${url} with its SHA-256`);
+    }
+    source = { bundledBy: name };
+    texts = standardTexts(decision?.allowed === true ? decision.licences : [], tree.standardText);
   }
   if (reasons.length > 0) return { refused: reasons.map((reason) => `${named} ${reason}`) };
-  const licences =
-    decided !== undefined ? [decided] : decision?.allowed === true ? decision.licences : [];
   return {
     notice: {
-      module,
-      build,
       project: String(project),
       version: String(version),
       licence: String(licence),
       copyright: lines.map(String),
-      source: String(source),
-      texts: standardTexts(licences, standardText),
+      source,
+      modules: into.map(String),
+      origin: String(origin),
+      sha256: String(sha256),
+      texts,
     },
   };
 }
 
 /**
- * The notices of the libraries in the prebuilt modules `list` names, read from
- * `tools/prebuilt-module-notices.json`, or every reason one is refused: a field
- * missing or malformed, a licence neither allowed nor decided on for a prebuilt
- * module, a source that is no https address, or a module whose package is not
- * installed at its version with its file.
+ * The notices of the libraries built into the encoder modules that `list`
+ * names, read from `tools/vendored-library-notices.json`, or every reason one
+ * is refused: a field missing or malformed, a licence neither allowed nor
+ * decided on for a vendored library, a module the build does not write; for
+ * a vendored library a folder or licence file that does not exist, or a
+ * folder whose README does not record the release archive and its hash; for a
+ * toolchain's, a toolchain or archive other than the pinned compiler's; and a
+ * folder of `third_party/` the list does not name.
  *
  * @param {unknown} list the list's parsed JSON
- * @param {(name: string, version: string, file: string) => boolean} installed
- *   whether a package is installed at a version with a file
- * @param {(licence: string) => string} standardText the SPDX text of a licence
- * @returns {{ readonly notices: readonly PrebuiltNotice[] }
+ * @param {VendoredTree} tree
+ * @returns {{ readonly notices: readonly VendoredNotice[] }
  *   | { readonly refused: readonly string[] }}
  */
-export function prebuiltNoticesOf(list, installed, standardText) {
-  const modules =
-    typeof list === 'object' && list !== null && 'modules' in list ? list.modules : undefined;
-  if (!Array.isArray(modules)) return { refused: ['the list holds no `modules` array'] };
+export function vendoredNoticesOf(list, tree) {
+  const entries =
+    typeof list === 'object' && list !== null && 'libraries' in list ? list.libraries : undefined;
+  if (!Array.isArray(entries)) return { refused: ['the list holds no `libraries` array'] };
   /** @type {string[]} */
   const refused = [];
-  /** @type {PrebuiltNotice[]} */
+  /** @type {VendoredNotice[]} */
   const notices = [];
-  for (const [index, entry] of modules.entries()) {
-    /** @type {Record<string, unknown>} */
-    const fields = typeof entry === 'object' && entry !== null ? entry : {};
-    const { package: name, version, file, build, libraries } = fields;
-    if (!isText(name) || !isText(version) || !isText(file) || !REPOSITORY_PATH.test(file)) {
-      refused.push(`prebuilt module ${String(index + 1)} names no package, version and file`);
-      continue;
-    }
-    const module = `${name} ${version} ${file}`;
-    if (!installed(name, version, file)) {
-      refused.push(`the prebuilt ${module} is not installed at that version with that file`);
-      continue;
-    }
-    if (!isText(build) || !build.startsWith('https://')) {
-      refused.push(`the prebuilt ${module} names no https address of its build`);
-      continue;
-    }
-    const parts = Array.isArray(libraries) ? libraries : [];
-    if (parts.length === 0) refused.push(`the prebuilt ${module} lists no library`);
-    for (const part of parts) {
-      const decided = prebuiltLibraryOf(part, module, build, standardText);
-      if ('refused' in decided) refused.push(...decided.refused);
-      else notices.push(decided.notice);
+  for (const [index, entry] of entries.entries()) {
+    const decided = vendoredLibraryOf(entry, index, tree);
+    if ('refused' in decided) refused.push(...decided.refused);
+    else notices.push(decided.notice);
+  }
+  // A folder a refused entry names is named, so it is not refused a second time.
+  const named = new Set(
+    entries.flatMap((entry) =>
+      typeof entry === 'object' && entry !== null && 'directory' in entry ? [entry.directory] : [],
+    ),
+  );
+  for (const directory of tree.directories) {
+    if (!named.has(directory)) {
+      refused.push(`${directory} is vendored but the list does not name it`);
     }
   }
   return refused.length > 0 ? { refused } : { notices };
-}
-
-/**
- * Whether a package is installed for `importer` at a version, with a file.
- *
- * @param {string} importer a workspace package's folder
- * @returns {(name: string, version: string, file: string) => boolean}
- */
-function installedFor(importer) {
-  return (name, version, file) => {
-    const folder = join(REPO_ROOT, importer, 'node_modules', name);
-    if (!existsSync(join(folder, 'package.json'))) return false;
-    const manifest = JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8'));
-    return manifest.version === version && existsSync(join(folder, file));
-  };
 }
 
 /**
@@ -643,16 +715,17 @@ function fenceFor(text) {
 }
 
 /**
- * The notices file, from every shipped package's notice and every port's.
- * Each distinct licence text is written once, after the tables, with the
- * packages and ports that ship it; texts that differ only in spacing are one.
+ * The notices file, from every shipped package's notice, every vendored
+ * library's and every port's. Each distinct licence text is written once,
+ * after the tables, with what ships it; texts that differ only in spacing are
+ * one.
  *
  * @param {readonly Notice[]} notices
  * @param {readonly PortedNotice[]} ported
- * @param {readonly PrebuiltNotice[]} prebuilt
+ * @param {readonly VendoredNotice[]} vendored
  * @returns {string}
  */
-export function renderNotices(notices, ported = [], prebuilt = []) {
+export function renderNotices(notices, ported = [], vendored = []) {
   const sorted = notices.toSorted(
     (one, other) => compare(one.name, other.name) || compare(one.version, other.version),
   );
@@ -696,20 +769,20 @@ export function renderNotices(notices, ported = [], prebuilt = []) {
         linksOf(port.texts, `the code ported from ${port.project}`).join(', '),
       ].join(' | '),
     );
-  const libraries = prebuilt
-    .toSorted(
-      (one, other) => compare(one.module, other.module) || compare(one.project, other.project),
-    )
+  const libraries = vendored
+    .toSorted((one, other) => compare(one.project, other.project))
     .map((library) =>
       [
-        `\`${cell(library.module)}\``,
         cell(library.project),
         cell(library.version),
         cell(library.licence),
         library.copyright.map(cell).join('<br>'),
-        `<${library.source}>`,
-        `<${library.build}>`,
-        linksOf(library.texts, `${library.project} in ${library.module}`).join(', '),
+        library.modules.map((module) => `\`${cell(module)}\``).join('<br>'),
+        'directory' in library.source
+          ? `\`${cell(library.source.directory)}\``
+          : `bundled by ${cell(library.source.bundledBy)}`,
+        `<${library.origin}><br>SHA-256 \`${library.sha256}\``,
+        linksOf(library.texts, `${library.project} ${library.version}`).join(', '),
       ].join(' | '),
     );
   const offered = sorted.flatMap((notice) =>
@@ -734,7 +807,7 @@ export function renderNotices(notices, ported = [], prebuilt = []) {
     '# Third-party notices',
     '',
     '<!-- Generated by tools/sync-third-party-notices.mjs from pnpm-lock.yaml,',
-    'Cargo.lock, tools/ported-code-notices.json and tools/prebuilt-module-notices.json.',
+    'Cargo.lock, tools/ported-code-notices.json and tools/vendored-library-notices.json.',
     'Do not edit: run `pnpm notices:update` and commit the result. -->',
     '',
     'AudioGubbins ships the third-party packages below inside the application. Each',
@@ -767,16 +840,21 @@ export function renderNotices(notices, ported = [], prebuilt = []) {
     ...(libraries.length === 0
       ? []
       : [
-          '## Libraries in prebuilt WebAssembly modules',
+          '## Libraries built from vendored source',
           '',
-          'Some packages ship prebuilt WebAssembly modules that hold libraries their own',
-          'licence does not name. Each module is a separate file, loaded only when its',
-          'format is used, which can be replaced by a build of the same interface; nothing',
-          'of it is compiled into AudioGubbins. Each library is listed with its version,',
-          'licence and copyright, where its source as built is published, where the',
-          "module's build is published, and the standard text of its licence.",
+          'The encoder modules are built from the C libraries below, whose source is',
+          'vendored, unmodified, in the folder of this repository each names: that folder',
+          'is where the corresponding source of each is. Each module is a separate',
+          'WebAssembly file, loaded only when its format is exported, which can be replaced',
+          'by a build of the same interface (`native/`); nothing of the libraries is',
+          "compiled into AudioGubbins' own code. The compiler links its own runtime",
+          'libraries into each module, from the source of its pinned release. Each library',
+          'is listed with its version, licence and copyright, the modules built from it,',
+          "where its source is, the release archive it was taken from and that archive's",
+          'SHA-256, and the text of its licence: as a vendored library ships it, or the',
+          "standard text for the compiler's.",
           '',
-          '| Module | Library | Version | Licence | Copyright | Source | Build | Licence text |',
+          '| Library | Version | Licence | Copyright | Modules | Source | Release archive | Licence text |',
           '| --- | --- | --- | --- | --- | --- | --- | --- |',
           ...libraries.map((row) => `| ${row} |`),
           '',
@@ -999,23 +1077,29 @@ function main(argv) {
     );
     return 1;
   }
-  const prebuilt = prebuiltNoticesOf(
-    JSON.parse(readFileSync(PREBUILT_MODULES, 'utf8')),
-    installedFor(PREBUILT_IMPORTER),
-    (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
-  );
-  if ('refused' in prebuilt) {
+  const vendored = vendoredNoticesOf(JSON.parse(readFileSync(VENDORED_LIBRARIES, 'utf8')), {
+    exists: (path) => existsSync(join(REPO_ROOT, path)),
+    read: (path) => readFileSync(join(REPO_ROOT, path), 'utf8'),
+    directories: readdirSync(join(REPO_ROOT, THIRD_PARTY), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => `${THIRD_PARTY}/${entry.name}`),
+    modules: [MP3_MODULE, VORBIS_MODULE].map((module) => basename(module)),
+    toolchain: { name: `Zig ${ZIG_VERSION}`, ...ZIG_SOURCE },
+    standardText: (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+  });
+  if ('refused' in vendored) {
     console.error(
-      `tools/prebuilt-module-notices.json cannot give ${String(prebuilt.refused.length)} notice(s):\n` +
-        prebuilt.refused.map((reason) => `  - ${reason}`).join('\n') +
-        '\n\nEach module names its package, the version installed, its file and an https\n' +
-        'address of its build; each library its project and version, a licence the\n' +
-        'allow-list permits or one decided on for a prebuilt module, the copyright lines\n' +
-        'its source states, and an https address of its source as built.',
+      `tools/vendored-library-notices.json cannot give ${String(vendored.refused.length)} notice(s):\n` +
+        vendored.refused.map((reason) => `  - ${reason}`).join('\n') +
+        '\n\nEach library names its project and version, a licence the allow-list permits\n' +
+        'or one decided on for a vendored library, the copyright lines its source states,\n' +
+        'its folder of third_party/ and the licence files in it, the https address of the\n' +
+        "release archive it was taken from and that archive's SHA-256, both recorded in\n" +
+        "the folder's README.md, and the module files it is built into.",
     );
     return 1;
   }
-  const desired = renderNotices(notices, ported.notices, prebuilt.notices);
+  const desired = renderNotices(notices, ported.notices, vendored.notices);
   const traces = localTracesIn(desired);
   if (traces.length > 0) {
     console.error(`The notices would name this machine: ${[...new Set(traces)].join(', ')}`);
