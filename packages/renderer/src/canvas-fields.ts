@@ -5,6 +5,13 @@
  * from a canvas that is never shown. Putting an image on the geometry's canvas
  * would replace what is there rather than blend over it, so the image is
  * composed off screen and drawn, which blends.
+ *
+ * The browser can take the off-screen canvas's context away as it takes the
+ * geometry's, in the same GPU process crash, and give the geometry's back
+ * first: the backend then draws again at once, and an image composed on a
+ * canvas still lost draws nothing. A canvas whose context is lost is let go,
+ * and the next field asks for another, whose context is the browser's to give
+ * at once.
  */
 
 import type { Painter } from './canvas-painting.js';
@@ -16,7 +23,10 @@ export type Composer = Pick<
   'canvas' | 'createImageData' | 'putImageData'
 >;
 
-/** What paints a backend's fields: its off-screen canvas, asked for once, and an image kept (G4). */
+/**
+ * What paints a backend's fields: its off-screen canvas, asked for once and
+ * again only after its context is lost, and an image kept (G4).
+ */
 export class CanvasFields {
   readonly #offscreen: () => HTMLCanvasElement;
   /** Asked for on the first field: a backend that draws none makes no canvas. */
@@ -32,7 +42,7 @@ export class CanvasFields {
    * answers whether there was a canvas to compose it on.
    */
   paint(painter: Painter, placement: FieldPlacement, lookups: Float32Array): boolean {
-    this.#composer ??= this.#offscreen().getContext('2d');
+    this.#composer ??= this.#compose();
     const composer = this.#composer;
     if (composer === null) return false;
     const { span } = placement;
@@ -58,6 +68,20 @@ export class CanvasFields {
     );
     painter.restore();
     return true;
+  }
+
+  /** A new canvas's context, let go of when the browser takes it away. */
+  #compose(): Composer | null {
+    const canvas = this.#offscreen();
+    const composer = canvas.getContext('2d');
+    canvas.addEventListener(
+      'contextlost',
+      () => {
+        if (this.#composer === composer) this.#composer = undefined;
+      },
+      { once: true },
+    );
+    return composer;
   }
 
   /** An image at least `width` by `height`, kept and grown as fields need. */
