@@ -49,6 +49,7 @@ import {
   hexOf,
   type ByteSink,
   type ByteSource,
+  type ExportCodec,
   type ExportRecord,
 } from '@audiogubbins/project-format';
 
@@ -162,13 +163,14 @@ type Decided =
 
 /**
  * Delivers the export staged under `token` to `destination` and records it
- * in the session's project (see the module comment). Fails only where the
+ * in the session's project as written by `encoder` (see the module comment). Fails only where the
  * export is no longer staged; every other refusal is a delivery refused.
  */
 export async function deliverStaged(
   session: ProjectSession,
   staging: ExportStaging,
   token: string,
+  encoder: ExportCodec,
   destination: DeliveryDestination,
   services: DeliveryServices,
   signal?: AbortSignal,
@@ -195,7 +197,7 @@ export async function deliverStaged(
         ? await destination.file.open()
         : await destination.folder.create(decided.name);
     await written(parts, sink, signal);
-    const delivered = await recorded(session, staged, destination, decided, services);
+    const delivered = await recorded(session, staged, encoder, destination, decided, services);
     await staging.discard(token);
     return succeed(delivered);
   } catch (error) {
@@ -208,10 +210,12 @@ export async function deliverStaged(
 
 /**
  * The record of a delivered export, as the project's history keeps it: what
- * was rendered and how, where it went, and the file written.
+ * was rendered and how, the encoder that wrote it, where it went, and the
+ * file written.
  */
 export function exportRecordOf(
   staged: StagedExport,
+  encoder: ExportCodec,
   destination: { readonly kind: ExportDestinationKind; readonly label?: string },
   fileName: string,
   services: Pick<DeliveryServices, 'ids' | 'clock'>,
@@ -230,7 +234,7 @@ export function exportRecordOf(
       fileName,
       byteLength: staged.bytes,
       sha256: staged.sha256,
-      codec: origin.codec,
+      codec: encoder,
       reproducible: origin.reproducible,
     },
     status: ExportStatus.Succeeded,
@@ -359,6 +363,7 @@ async function written(
 async function recorded(
   session: ProjectSession,
   staged: StagedExport,
+  encoder: ExportCodec,
   destination: DeliveryDestination,
   decided: Extract<Decided, { readonly kind: 'write' }>,
   services: DeliveryServices,
@@ -373,7 +378,7 @@ async function recorded(
               : ExportDestinationKind.TrustedDirectory,
           label: destination.folder.name,
         };
-  const record = exportRecordOf(staged, where, decided.name, services);
+  const record = exportRecordOf(staged, encoder, where, decided.name, services);
   const kept = await session.recordExport(record);
   return {
     kind: 'delivered',

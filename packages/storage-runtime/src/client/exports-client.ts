@@ -19,6 +19,7 @@ import type {
   ExportFileName,
   ExportedFileRecord,
 } from '@audiogubbins/import-export';
+import type { ExportCodec } from '@audiogubbins/project-format';
 import type { CollisionPrompt, ExportOrigin } from '@audiogubbins/storage';
 
 import {
@@ -78,18 +79,25 @@ export interface ExportsClient {
 
   /**
    * Delivers the export staged as `token` to `destination`, recorded in the
-   * history of the project `session` writes; a refused delivery keeps it
-   * staged for a retry or another destination.
+   * history of the project `session` writes as written by `encoder`; a
+   * refused delivery keeps it staged for a retry or another destination.
    */
   deliver(
     session: RemoteProjectSession,
     token: string,
+    encoder: ExportCodec,
     destination: PageDestination,
     signal?: AbortSignal,
   ): Promise<DomainResult<DeliveryAnswer>>;
 
   /** Gives up the export staged as `token`: downloaded, or no longer wanted. */
   discard(token: string): Promise<void>;
+}
+
+/** A staged export, and the encoder that wrote it, which its record names. */
+interface Staged {
+  readonly token: string;
+  readonly encoder: ExportCodec;
 }
 
 /** A trusted folder the page no longer keeps. */
@@ -123,10 +131,16 @@ export function exportsClient(channel: ClientChannel, call: LendingCall): Export
         stop();
       }
     },
-    deliver: async (session, token, destination, signal) =>
+    deliver: async (session, token, encoder, destination, signal) =>
       destination.kind === 'trusted-folder'
-        ? await deliveredTrusted(call, session, token, destination, signal)
-        : await delivered(call, session, token, crossingOf(destination, undefined), signal),
+        ? await deliveredTrusted(call, session, { token, encoder }, destination, signal)
+        : await delivered(
+            call,
+            session,
+            { token, encoder },
+            crossingOf(destination, undefined),
+            signal,
+          ),
     discard: async (token) => {
       await channel.call('exports.discard', { token });
     },
@@ -137,7 +151,7 @@ export function exportsClient(channel: ClientChannel, call: LendingCall): Export
 async function delivered(
   call: LendingCall,
   session: RemoteProjectSession,
-  token: string,
+  staged: Staged,
   { crossing, prompt }: ReturnType<typeof crossingOf>,
   signal: AbortSignal | undefined,
 ): Promise<DomainResult<DeliveryAnswer>> {
@@ -145,7 +159,8 @@ async function delivered(
     'exports.deliver',
     (lend) => ({
       handle: session.handle,
-      token,
+      token: staged.token,
+      encoder: staged.encoder,
       destination: crossing,
       ...(prompt === undefined ? {} : { prompt: lend.prompt(prompt) }),
     }),
@@ -160,7 +175,7 @@ async function delivered(
 async function deliveredTrusted(
   call: LendingCall,
   session: RemoteProjectSession,
-  token: string,
+  staged: Staged,
   destination: Extract<PageDestination, { readonly kind: 'trusted-folder' }>,
   signal: AbortSignal | undefined,
 ): Promise<DomainResult<DeliveryAnswer>> {
@@ -170,7 +185,7 @@ async function deliveredTrusted(
     { ...destination, kind: 'folder', handle: kept.folder },
     kept.records,
   );
-  const answer = await delivered(call, session, token, crossing, signal);
+  const answer = await delivered(call, session, staged, crossing, signal);
   if (answer.ok && answer.value.kind === 'delivered') {
     const { name, record } = answer.value;
     const file = record.file;
