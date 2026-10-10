@@ -310,7 +310,7 @@
     "08": {
       "phase": 8,
       "name": "Spectral Editing",
-      "status": "READY",
+      "status": "PASS",
       "hard_dependencies": [
         3,
         4,
@@ -323,8 +323,11 @@
       ],
       "open_verified_findings": [],
       "commits": [],
-      "evidence": [],
-      "handoff": null
+      "evidence": [
+        "reviews/phase-08-evidence.md",
+        "reviews/phase-08-review.md"
+      ],
+      "handoff": "traceability/handoffs/phase-08.md"
     },
     "09": {
       "phase": 9,

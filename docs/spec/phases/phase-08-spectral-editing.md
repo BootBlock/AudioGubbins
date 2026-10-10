@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — every hard dependency has passed, and the readiness review of 2026-10-10 settled the open placements (`ADR-0080`, `ADR-0081`, `ADR-0082`).
+`PASS` — completed on 2026-10-10; see `reviews/phase-08-evidence.md`, `reviews/phase-08-review.md` and `traceability/handoffs/phase-08.md`.
 
 ## Objective
 

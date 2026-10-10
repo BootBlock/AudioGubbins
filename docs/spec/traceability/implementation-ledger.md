@@ -12,7 +12,7 @@
 | 05 — Core Non-Destructive Editing | `PASS` | 02, 03, 04 | 4 | traceability/handoffs/phase-05.md |
 | 06 — Effect Rack and Core DSP | `PASS` | 03, 05 | 11 | traceability/handoffs/phase-06.md |
 | 07 — Recording | `PASS` | 02, 03, 05, 06 | 10 | traceability/handoffs/phase-07.md |
-| 08 — Spectral Editing | `READY` | 03, 04, 05, 06 | 1 | — |
+| 08 — Spectral Editing | `PASS` | 03, 04, 05, 06 | 1 | traceability/handoffs/phase-08.md |
 | 09 — Import, Export, and Codec System | `NOT_READY` | 02, 03, 05, 06 | 3 | — |
 | 10 — Game-Audio Tooling | `NOT_READY` | 05, 06, 09 | 5 | — |
 | 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10 | 29 | — |
