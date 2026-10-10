@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27462: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@30855: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1172,7 +1172,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27462: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@30855: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1559,6 +1559,13 @@ Published paths
   function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
 
 @audiogubbins/codecs
+  type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; readonly byteOrder: "big" | "little"; }
+  interface AiffWriterSettings
+  readonly AiffWriterSettings.container: "aifc" | "aiff"
+  readonly AiffWriterSettings.sampleRate: SampleRate
+  readonly AiffWriterSettings.layout: ChannelLayout
+  readonly AiffWriterSettings.sampleFormat: AiffSampleFormat
+  readonly AiffWriterSettings.metadata: MetadataMap
   interface AudioBytes
   readonly AudioBytes.size: number
   AudioBytes.read: (offset: number, length: number, signal?: CancellationSignal) => Promise<Uint8Array>
@@ -1587,11 +1594,17 @@ Published paths
   readonly BroadcastDescription.originationTime: string
   readonly BroadcastDescription.timeReference: SampleCount
   readonly BroadcastDescription.codingHistory: string
+  type ByteOrder = "big" | "little"
+  const CODEC_REGISTRY: ReadonlyMap<CodecId, CodecDescriptor>
   type CodecCapability = { readonly kind: "available"; readonly codec: CodecId; readonly use: CodecUse; readonly implementation: CodecImplementation; } | { readonly kind: "unavailable"; readonly codec: CodecId; readonly use: CodecUse; readonly reason: string; readonly alternatives: readonly CodecId[]; }
+  interface CodecCodes
+  readonly CodecCodes.waveFormatTags: readonly number[]
+  readonly CodecCodes.aifcCompressionTypes: readonly string[]
   interface CodecDescriptor
   readonly CodecDescriptor.id: CodecId
   readonly CodecDescriptor.name: string
   readonly CodecDescriptor.lossless: boolean
+  readonly CodecDescriptor.codes: CodecCodes
   readonly CodecDescriptor.read: CodecDirection | undefined
   readonly CodecDescriptor.write: CodecDirection | undefined
   interface CodecDirection
@@ -1601,6 +1614,12 @@ Published paths
   readonly CodecDirection.licence: string
   readonly CodecDirection.sampleRates: SampleRateSupport
   readonly CodecDirection.maximumChannels: number
+  interface CodecEnvironment
+  readonly CodecEnvironment.webAssembly: boolean
+  readonly CodecEnvironment.codecModule: ModuleLoad
+  readonly CodecEnvironment.prebuiltModules: ReadonlyMap<CodecId, ModuleLoad>
+  readonly CodecEnvironment.browserDecoders: ReadonlySet<CodecId>
+  readonly CodecEnvironment.browserEncoders: ReadonlySet<CodecId>
   type CodecId = "aac-lc" | "alac" | "flac" | "g711-alaw" | "g711-ulaw" | "he-aac" | "ima-adpcm" | "mp3" | "ms-adpcm" | "opus" | "pcm" | "vorbis"
   type CodecImplementation = "application" | "browser" | "codec-module" | "prebuilt-module"
   type CodecUse = "read" | "write"
@@ -1616,11 +1635,30 @@ Published paths
   readonly FinishedAudioFile.head: Uint8Array<ArrayBufferLike>
   readonly FinishedAudioFile.tail: Uint8Array<ArrayBufferLike>
   readonly FinishedAudioFile.dropped: readonly MetadataPart[]
+  interface FloatSampleEncoding
+  readonly FloatSampleEncoding.kind: "float"
+  readonly FloatSampleEncoding.bits: 32 | 64
+  readonly FloatSampleEncoding.bytes: 4 | 8
+  readonly FloatSampleEncoding.byteOrder: ByteOrder
   interface ForeignMetadataField
   readonly ForeignMetadataField.scheme: string
   readonly ForeignMetadataField.key: string
   readonly ForeignMetadataField.value: string
+  interface G711SampleEncoding
+  readonly G711SampleEncoding.kind: "g711-alaw" | "g711-ulaw"
+  interface ImaAdpcmEncoding
+  readonly ImaAdpcmEncoding.kind: "ima-adpcm"
+  readonly ImaAdpcmEncoding.packing: "ima4" | "wav"
+  readonly ImaAdpcmEncoding.framesPerBlock: number
+  type ImportRoute = { readonly kind: "decode"; readonly container: ContainerId; readonly codec: CodecId | undefined; } | { readonly kind: "read-in-place"; readonly container: ReadableContainer; readonly codec: CodecId; } | { readonly kind: "refuse"; readonly failure: DomainFailure; }
+  interface IntegerSampleEncoding
+  readonly IntegerSampleEncoding.kind: "integer"
+  readonly IntegerSampleEncoding.bits: number
+  readonly IntegerSampleEncoding.bytes: number
+  readonly IntegerSampleEncoding.byteOrder: ByteOrder
+  readonly IntegerSampleEncoding.signed: boolean
   type LoopDirection = "alternating" | "backward" | "forward"
+  const METADATA_READERS: ReadonlyMap<ContainerId, MetadataReader>
   interface MetadataLoop
   readonly MetadataLoop.start: SampleCount
   readonly MetadataLoop.length: SampleCount
@@ -1636,8 +1674,18 @@ Published paths
   readonly MetadataMap.tuning?: SamplerTuning
   readonly MetadataMap.coverArt?: CoverArt
   type MetadataPart = { readonly kind: "broadcast"; } | { readonly kind: "coverArt"; } | { readonly kind: "cues"; } | { readonly kind: "foreign"; readonly scheme: string; readonly key: string; } | { readonly kind: "loops"; } | { readonly kind: "text"; readonly key: MetadataTextKey; } | { readonly kind: "tuning"; }
+  type MetadataReader = (bytes: AudioBytes, signal?: CancellationSignal) => Promise<DomainResult<MetadataMap>>
   type MetadataTextKey = "album" | "albumArtist" | "artist" | "comment" | "copyright" | "date" | "discNumber" | "discTotal" | "encoder" | "genre" | "isrc" | "title" | "trackNumber" | "trackTotal"
+  type ModuleLoad = "failed" | "loaded" | "not-loaded"
+  interface MsAdpcmEncoding
+  readonly MsAdpcmEncoding.kind: "ms-adpcm"
+  readonly MsAdpcmEncoding.framesPerBlock: number
+  readonly MsAdpcmEncoding.coefficients: readonly (readonly [number, number])[]
+  interface OpenedFileWriter
+  readonly OpenedFileWriter.writer: AudioFileWriter
+  readonly OpenedFileWriter.layout: ChannelLayout
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
+  type RecognisedFormat = { readonly kind: "audio"; readonly container: ContainerId; readonly codec: StatedCodec; } | { readonly kind: "unknown"; }
   interface RecordedWavFormat
   readonly RecordedWavFormat.sampleRate: SampleRate
   readonly RecordedWavFormat.layout: ChannelLayout
@@ -1647,16 +1695,30 @@ Published paths
   readonly RecordedWavHeader.dataOffset: number
   readonly RecordedWavHeader.dataLength: number
   readonly RecordedWavHeader.fileLength: number
-  type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
+  type SampleEncoding = FloatSampleEncoding | G711SampleEncoding | ImaAdpcmEncoding | IntegerSampleEncoding | MsAdpcmEncoding
   type SampleRateSupport = { readonly kind: "any"; readonly minimum: number; readonly maximum: number; } | { readonly kind: "listed"; readonly rates: readonly number[]; }
   interface SamplerTuning
   readonly SamplerTuning.unityNote: number
   readonly SamplerTuning.fineTuneCents: number
+  type StatedCodec = { readonly kind: "named"; readonly codec: CodecId; } | { readonly kind: "unnamed"; readonly description: string; } | { readonly kind: "unstated"; }
   interface SyncAudioBytes
   readonly SyncAudioBytes.size: number
   SyncAudioBytes.readInto: (offset: number, into: Uint8Array) => number
+  type WavSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm" | "ms-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; }
+  interface WavWriterSettings
+  readonly WavWriterSettings.form: "bw64" | "riff"
+  readonly WavWriterSettings.sampleRate: SampleRate
+  readonly WavWriterSettings.layout: ChannelLayout
+  readonly WavWriterSettings.sampleFormat: WavSampleFormat
+  readonly WavWriterSettings.metadata: MetadataMap
+  function codecCapability(environment: CodecEnvironment, codec: CodecId, use: CodecUse): CodecCapability
+  function codecDescriptor(id: CodecId): CodecDescriptor
+  function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
+  function createWavWriter(settings: WavWriterSettings): DomainResult<OpenedFileWriter>
+  function importRoute(format: RecognisedFormat): ImportRoute
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
   function quantiseSample(value: number, bits: number): number
+  function recogniseAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<RecognisedFormat>>
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
 
@@ -1668,12 +1730,26 @@ Published paths
   readonly AiffOptions.sampleRate: number
   readonly AiffOptions.channels: readonly FixtureChannel[]
   readonly AiffOptions.commonOverrides?: { readonly declaredFrames?: number; readonly channelCount?: number; }
+  readonly AiffOptions.encodedSamples?: Uint8Array<ArrayBufferLike>
   readonly AiffOptions.channelLayout?: Uint8Array<ArrayBufferLike>
   readonly AiffOptions.soundOffset?: number
   readonly AiffOptions.commonAfterSound?: boolean
   readonly AiffOptions.beforeSound?: readonly FixtureChunk[]
   readonly AiffOptions.afterSound?: readonly FixtureChunk[]
   readonly AiffOptions.truncate?: number
+  interface CompressedWavOptions extends RiffFraming
+  readonly CompressedWavOptions.sampleRate: number
+  readonly CompressedWavOptions.channelCount: number
+  readonly CompressedWavOptions.coding: WavCoding
+  readonly CompressedWavOptions.data: Uint8Array<ArrayBufferLike>
+  readonly CompressedWavOptions.formatOverrides?: { readonly bitsPerSample?: number; readonly extraBytes?: number; readonly coefficientCount?: number; }
+  readonly CompressedWavOptions.form?: "bw64" | "rf64" | "wav"
+  readonly CompressedWavOptions.beforeFormat?: readonly FixtureChunk[]
+  readonly CompressedWavOptions.beforeData?: readonly FixtureChunk[]
+  readonly CompressedWavOptions.afterData?: readonly FixtureChunk[]
+  readonly CompressedWavOptions.factFrames?: number
+  readonly CompressedWavOptions.sizesInDs64?: readonly string[]
+  readonly CompressedWavOptions.truncate?: number
   type FixtureChannel = Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>
   interface FixtureChunk
   readonly FixtureChunk.id: string
@@ -1689,6 +1765,7 @@ Published paths
   interface ReadRequest
   readonly ReadRequest.offset: number
   readonly ReadRequest.length: number
+  type WavCoding = { readonly kind: "g711-alaw" | "g711-ulaw"; } | { readonly kind: "ima-adpcm"; readonly blockAlign: number; readonly framesPerBlock: number; } | { readonly kind: "ms-adpcm"; readonly blockAlign: number; readonly framesPerBlock: number; readonly coefficients: readonly (readonly [number, number])[]; }
   type WavEncoding = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "integer"; readonly bits: number; readonly bytes?: number; }
   interface WavOptions
   readonly WavOptions.form?: "bw64" | "rf64" | "wav"
@@ -1704,10 +1781,15 @@ Published paths
   readonly WavOptions.factFrames?: number
   readonly WavOptions.sizesInDs64?: readonly string[]
   readonly WavOptions.truncate?: number
+  interface WrittenFile
+  readonly WrittenFile.file: Uint8Array<ArrayBufferLike>
+  readonly WrittenFile.finished: FinishedAudioFile
   function channelLayoutBody(layout: { readonly tag: number; readonly bitmap?: number; readonly labels?: readonly number[]; }): Uint8Array<ArrayBufferLike>
   function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, options?: MemoryBytesOptions): MemoryBytes
   function writeAiff(options: AiffOptions): Uint8Array<ArrayBufferLike>
+  function writeCompressedWav(options: CompressedWavOptions): Uint8Array<ArrayBufferLike>
   function writeWav(options: WavOptions): Uint8Array<ArrayBufferLike>
+  function writeWhole(writer: AudioFileWriter, channels: readonly Float32Array<ArrayBufferLike>[], block?: number): Promise<WrittenFile>
 
 @audiogubbins/commands
   const AVAILABLE: CommandAvailability
@@ -6985,19 +7067,8 @@ packages/audio-runtime/src/testing/local-chain-workers.ts
   Core.receive: (data: unknown) => void
   type PostToPage = (message: unknown, transfer: readonly unknown[]) => void
 
-packages/codecs/src/format-descriptor.ts
-  type ByteOrder = "big" | "little"
-  interface FloatSampleEncoding
-  readonly FloatSampleEncoding.kind: "float"
-  readonly FloatSampleEncoding.bits: 32 | 64
-  readonly FloatSampleEncoding.bytes: 4 | 8
-  readonly FloatSampleEncoding.byteOrder: ByteOrder
-  interface IntegerSampleEncoding
-  readonly IntegerSampleEncoding.kind: "integer"
-  readonly IntegerSampleEncoding.bits: number
-  readonly IntegerSampleEncoding.bytes: number
-  readonly IntegerSampleEncoding.byteOrder: ByteOrder
-  readonly IntegerSampleEncoding.signed: boolean
+packages/codecs/src/testing/wav-writer.ts
+  type RiffFraming = { readonly form?: "bw64" | "rf64" | "wav"; readonly beforeFormat?: readonly FixtureChunk[]; readonly beforeData?: readonly FixtureChunk[]; readonly afterData?: readonly FixtureChunk[]; readonly factFrames?: number; readonly sizesInDs64?: readonly string[]; readonly truncate?: number; }
 
 packages/design-system/src/primitives/button.tsx
   type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }

@@ -26,3 +26,5 @@ export {
 } from './wav-writer.js';
 
 export { type AiffOptions, channelLayoutBody, writeAiff } from './aiff-writer.js';
+
+export { type WrittenFile, writeWhole } from './written-file.js';

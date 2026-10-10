@@ -239,18 +239,18 @@ function readExtension(
   });
 }
 
-/** Reads a format chunk's body, at least the first `FORMAT_BYTES_READ` of it. */
-export function readWaveFormat(
+/** The code and fields of a format chunk, unwrapped from the extensible form, or the format it names instead. */
+function codeFields(
   body: Uint8Array,
   container: RiffContainer,
-): DomainResult<WaveFormatReading> {
-  if (body.length < PLAIN_FORMAT_BYTES) {
-    return fail(malformed('The format chunk is shorter than the 16 bytes every WAV format holds.'));
-  }
+): DomainResult<
+  | { readonly fields: FormatFields; readonly mask: number | undefined }
+  | { readonly named: RecognisedFormat }
+> {
   const view = viewOf(body);
   const tag = view.getUint16(0, true);
   const containerBits = view.getUint16(14, true);
-  let fields: FormatFields = {
+  const fields: FormatFields = {
     body,
     view,
     container,
@@ -259,29 +259,49 @@ export function readWaveFormat(
     validBits: containerBits,
     extensible: false,
   };
-  let mask: number | undefined;
-  if (tag === WAVE_FORMAT_EXTENSIBLE) {
-    const extension = readExtension(body, container, containerBits);
-    if (!extension.ok) return extension;
-    if ('kind' in extension.value) return succeed({ readable: false, format: extension.value });
-    fields = { ...fields, ...extension.value, extensible: true };
-    mask = extension.value.mask;
+  if (tag !== WAVE_FORMAT_EXTENSIBLE) return succeed({ fields, mask: undefined });
+  const extension = readExtension(body, container, containerBits);
+  if (!extension.ok) return extension;
+  if ('kind' in extension.value) return succeed({ named: extension.value });
+  return succeed({
+    fields: { ...fields, ...extension.value, extensible: true },
+    mask: extension.value.mask,
+  });
+}
+
+/** The format a code names where this package does not read it in place. */
+function formatOfCode(
+  container: RiffContainer,
+  code: number,
+  codec: CodecId | undefined,
+): RecognisedFormat {
+  return codec === undefined
+    ? unnamedFormat(container, OTHER_CODE_NAMES.get(code) ?? `code ${hexCode(code)}`)
+    : namedFormat(container, codec);
+}
+
+/** Reads a format chunk's body, at least the first `FORMAT_BYTES_READ` of it. */
+export function readWaveFormat(
+  body: Uint8Array,
+  container: RiffContainer,
+): DomainResult<WaveFormatReading> {
+  if (body.length < PLAIN_FORMAT_BYTES) {
+    return fail(malformed('The format chunk is shorter than the 16 bytes every WAV format holds.'));
   }
+  const unwrapped = codeFields(body, container);
+  if (!unwrapped.ok) return unwrapped;
+  if ('named' in unwrapped.value)
+    return succeed({ readable: false, format: unwrapped.value.named });
+  const { fields, mask } = unwrapped.value;
   const codec = WAVE_TAG_CODECS.get(fields.code);
   const read = codec === undefined ? undefined : IN_PLACE.get(codec);
-  if (codec === undefined || read === undefined) {
-    const format =
-      codec === undefined
-        ? unnamedFormat(
-            container,
-            OTHER_CODE_NAMES.get(fields.code) ?? `code ${hexCode(fields.code)}`,
-          )
-        : namedFormat(container, codec);
-    return succeed({ readable: false, format });
+  if (read === undefined) {
+    return succeed({ readable: false, format: formatOfCode(container, fields.code, codec) });
   }
   const reading = read(fields);
   if (!reading.ok) return reading;
   if (!reading.value.readable) return succeed(reading.value);
+  const { view } = fields;
   return succeed({
     readable: true,
     shape: {

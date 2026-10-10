@@ -58,11 +58,6 @@ const CONTAINER_NAMES: Readonly<Record<ContainerId, string>> = {
   matroska: 'Matroska',
 };
 
-/** A container's name as a sentence gives it. */
-export function containerName(container: ContainerId): string {
-  return CONTAINER_NAMES[container];
-}
-
 /** A format code as its documentation writes it, four hexadecimal digits. */
 export function hexCode(value: number): string {
   return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;

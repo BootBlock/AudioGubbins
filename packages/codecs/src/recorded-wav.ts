@@ -15,6 +15,13 @@
  * otherwise. A layout no header can state that way, as a labelled or an
  * ambisonic one, is refused rather than written as something else. Both forms
  * carry the `fact` chunk every WAV of a non-integer code must have.
+ *
+ * The export writer states every layout (ADR-0093), by moving speakers into a
+ * mask's order and by `iXML`; this writer keeps refusing the rest, because its
+ * samples are the recording's chunks as they stand, which it never reorders,
+ * and a session asks it before recording whether its layout can be kept. It
+ * builds its head with the export writer's (`wave-head.ts`), byte for byte as
+ * before.
  */
 
 import {
@@ -31,36 +38,11 @@ import { speakerMaskLayout, speakerMaskOf } from './channel-layouts.js';
 import { unwritableLayout, unwritableLength } from './codec-failures.js';
 import { layoutRead } from './format-descriptor.js';
 import type { ReadableContainer } from './recognised-format.js';
-import { DS64_FIXED_BYTES, SIZE_IN_DS64 } from './riff-container.js';
-import {
-  EXTENSIBLE_FORMAT_BYTES,
-  EXTENSION_BYTES,
-  STANDARD_SUBTYPE_TAIL,
-  WAVE_FORMAT_EXTENSIBLE,
-  WAVE_FORMAT_IEEE_FLOAT,
-} from './wave-format.js';
+import { waveFormatChunk, type WaveFormatForm } from './wave-format-writing.js';
+import { waveHeadPlan, writeWaveHead, type WaveHeadParts, type WaveHeadPlan } from './wave-head.js';
 
 /** The bytes of one 32-bit float sample. */
 const SAMPLE_BYTES = 4;
-
-/** A chunk's id and 32-bit size. */
-const CHUNK_HEADER_BYTES = 8;
-
-/** The form's id, its size and `WAVE`. */
-const FORM_HEADER_BYTES = 12;
-
-/** The plain format chunk: the 16 bytes every WAV format holds, and an empty extension's size. */
-const PLAIN_FORMAT_BYTES = 18;
-
-/** The `fact` chunk's body: the frames, as samples of each channel. */
-const FACT_BYTES = 4;
-
-/**
- * The largest size a 32-bit field states in the plain form. One more is RF64's
- * marker, which sends a reader to the ds64 chunk, so a plain file never states
- * it.
- */
-const LARGEST_PLAIN_SIZE = SIZE_IN_DS64 - 1;
 
 /** What a recording is: its rate, and the layout its channels are in. */
 export interface RecordedWavFormat {
@@ -86,21 +68,6 @@ export interface RecordedWavHeader {
   readonly fileLength: number;
 }
 
-/** How the format chunk states the layout. */
-type FormatForm =
-  { readonly kind: 'plain' } | { readonly kind: 'extensible'; readonly channelMask: number };
-
-/** Every size the header is written with, decided before a byte of it is. */
-interface HeaderPlan {
-  readonly form: FormatForm;
-  readonly container: RecordedWavHeader['container'];
-  readonly channelCount: number;
-  readonly formatBytes: number;
-  readonly dataOffset: number;
-  readonly dataLength: number;
-  readonly fileLength: number;
-}
-
 /** Whether a header stating `stated`, or no layout, is read back as `layout`. */
 function readsAs(stated: ChannelLayout | undefined, layout: ChannelLayout): boolean {
   const read = layoutRead(stated, layout.roles.length);
@@ -108,7 +75,7 @@ function readsAs(stated: ChannelLayout | undefined, layout: ChannelLayout): bool
 }
 
 /** The form of format chunk that states `layout`, or why none does. */
-function formatForm(layout: ChannelLayout): DomainResult<FormatForm> {
+function formatForm(layout: ChannelLayout): DomainResult<WaveFormatForm> {
   const channelCount = layout.roles.length;
   // The plain form states no layout, so it is read as the default, which only
   // mono and stereo have; more channels need the extensible form in any case.
@@ -124,118 +91,40 @@ function formatForm(layout: ChannelLayout): DomainResult<FormatForm> {
   );
 }
 
-/** Every size of the header for `frames` frames in `format`, or why it cannot be written. */
-function headerPlan(format: RecordedWavFormat, frames: SampleCount): DomainResult<HeaderPlan> {
+/** What the header of `frames` frames in `format` holds, or why no WAV file can hold it. */
+function headerParts(format: RecordedWavFormat, frames: SampleCount): DomainResult<WaveHeadParts> {
   const form = formatForm(format.layout);
   if (!form.ok) return form;
   const channelCount = format.layout.roles.length;
   const blockAlign = channelCount * SAMPLE_BYTES;
-  const formatBytes = form.value.kind === 'plain' ? PLAIN_FORMAT_BYTES : EXTENSIBLE_FORMAT_BYTES;
-  const plainHeader = FORM_HEADER_BYTES + CHUNK_HEADER_BYTES * 3 + formatBytes + FACT_BYTES;
-  const dataLength = frames * blockAlign;
-  // The form's size counts everything after its own id and size field.
-  const plainFormSize = plainHeader - CHUNK_HEADER_BYTES + dataLength;
-  const container = plainFormSize <= LARGEST_PLAIN_SIZE ? 'wav' : 'rf64';
-  const dataOffset =
-    container === 'wav' ? plainHeader : plainHeader + CHUNK_HEADER_BYTES + DS64_FIXED_BYTES;
-  const fileLength = dataOffset + dataLength;
-  if (!Number.isSafeInteger(fileLength)) return fail(unwritableLength(frames, blockAlign));
   return succeed({
-    form: form.value,
-    container,
-    channelCount,
-    formatBytes,
-    dataOffset,
-    dataLength,
-    fileLength,
+    form: 'riff',
+    format: waveFormatChunk({
+      encoding: { kind: 'float', bits: 32, bytes: SAMPLE_BYTES, byteOrder: 'little' },
+      channelCount,
+      sampleRate: format.sampleRate,
+      blockAlign,
+      framesPerBlock: 1,
+      form: form.value,
+    }),
+    // Every WAV of a code other than integer PCM carries the fact chunk.
+    factFrames: frames,
+    chunks: [],
+    dataLength: frames * blockAlign,
+    frames,
   });
 }
 
-/** Writes the header's fields in order, little-endian, as a RIFF form is. */
-class FieldWriter {
-  readonly bytes: Uint8Array;
-  private readonly view: DataView;
-  private at = 0;
-
-  constructor(length: number) {
-    this.bytes = new Uint8Array(length);
-    this.view = new DataView(this.bytes.buffer);
-  }
-
-  code(id: string): void {
-    for (let index = 0; index < 4; index += 1) this.bytes[this.at + index] = id.charCodeAt(index);
-    this.at += 4;
-  }
-
-  uint16(value: number): void {
-    this.view.setUint16(this.at, value, true);
-    this.at += 2;
-  }
-
-  uint32(value: number): void {
-    this.view.setUint32(this.at, value, true);
-    this.at += 4;
-  }
-
-  /** A 64-bit value, which the plan has kept a safe integer. */
-  uint64(value: number): void {
-    this.uint32(value % 2 ** 32);
-    this.uint32(Math.floor(value / 2 ** 32));
-  }
-
-  raw(values: readonly number[]): void {
-    this.bytes.set(values, this.at);
-    this.at += values.length;
-  }
-}
-
-/** The format chunk, plain or extensible, of 32-bit float samples. */
-function writeFormat(out: FieldWriter, plan: HeaderPlan, sampleRate: SampleRate): void {
-  const blockAlign = plan.channelCount * SAMPLE_BYTES;
-  const bits = SAMPLE_BYTES * 8;
-  out.code('fmt ');
-  out.uint32(plan.formatBytes);
-  out.uint16(plan.form.kind === 'plain' ? WAVE_FORMAT_IEEE_FLOAT : WAVE_FORMAT_EXTENSIBLE);
-  out.uint16(plan.channelCount);
-  out.uint32(sampleRate);
-  out.uint32(sampleRate * blockAlign);
-  out.uint16(blockAlign);
-  out.uint16(bits);
-  if (plan.form.kind === 'plain') {
-    out.uint16(0);
-    return;
-  }
-  out.uint16(EXTENSION_BYTES);
-  out.uint16(bits);
-  out.uint32(plan.form.channelMask);
-  // The sub-format GUID KSDATAFORMAT_SUBTYPE_IEEE_FLOAT: the code, then the family's tail.
-  out.uint32(WAVE_FORMAT_IEEE_FLOAT);
-  out.raw(STANDARD_SUBTYPE_TAIL);
-}
-
-/** Writes the header a plan describes. */
-function writeHeader(plan: HeaderPlan, format: RecordedWavFormat, frames: SampleCount): Uint8Array {
-  const out = new FieldWriter(plan.dataOffset);
-  const large = plan.container === 'rf64';
-  out.code(large ? 'RF64' : 'RIFF');
-  out.uint32(large ? SIZE_IN_DS64 : plan.fileLength - CHUNK_HEADER_BYTES);
-  out.code('WAVE');
-  if (large) {
-    // EBU Tech 3306: the form's, the data's and the samples' true sizes, and no table.
-    out.code('ds64');
-    out.uint32(DS64_FIXED_BYTES);
-    out.uint64(plan.fileLength - CHUNK_HEADER_BYTES);
-    out.uint64(plan.dataLength);
-    out.uint64(frames);
-    out.uint32(0);
-  }
-  writeFormat(out, plan, format.sampleRate);
-  out.code('fact');
-  out.uint32(FACT_BYTES);
-  out.uint32(large ? SIZE_IN_DS64 : frames);
-  out.code('data');
-  out.uint32(large ? SIZE_IN_DS64 : plan.dataLength);
-  return out.bytes;
+/** The sizes of the header for `frames` frames in `format`, or why it cannot be written. */
+function headerPlan(
+  format: RecordedWavFormat,
+  frames: SampleCount,
+): DomainResult<{ readonly parts: WaveHeadParts; readonly plan: WaveHeadPlan }> {
+  const parts = headerParts(format, frames);
+  if (!parts.ok) return parts;
+  const blockAlign = format.layout.roles.length * SAMPLE_BYTES;
+  const plan = waveHeadPlan(parts.value, () => unwritableLength(frames, blockAlign));
+  return plan.ok ? succeed({ parts: parts.value, plan: plan.value }) : plan;
 }
 
 /**
@@ -249,15 +138,17 @@ export function recordedWavHeader(
   format: RecordedWavFormat,
   frames: SampleCount,
 ): DomainResult<RecordedWavHeader> {
-  const plan = headerPlan(format, frames);
-  if (!plan.ok) return plan;
-  const { container, dataOffset, dataLength, fileLength } = plan.value;
+  const planned = headerPlan(format, frames);
+  if (!planned.ok) return planned;
+  const { parts, plan } = planned.value;
+  // The recorded writer writes neither BW64 nor odd data, so its head is RIFF or RF64 alone.
+  const container = plan.container === 'wav' ? 'wav' : 'rf64';
   return succeed({
     container,
-    bytes: writeHeader(plan.value, format, frames),
-    dataOffset,
-    dataLength,
-    fileLength,
+    bytes: writeWaveHead(plan, parts),
+    dataOffset: plan.dataOffset,
+    dataLength: parts.dataLength,
+    fileLength: plan.fileLength,
   });
 }
 
@@ -269,6 +160,6 @@ export function recordedWavLength(
   format: RecordedWavFormat,
   frames: SampleCount,
 ): DomainResult<number> {
-  const plan = headerPlan(format, frames);
-  return plan.ok ? succeed(plan.value.fileLength) : plan;
+  const planned = headerPlan(format, frames);
+  return planned.ok ? succeed(planned.value.plan.fileLength) : planned;
 }

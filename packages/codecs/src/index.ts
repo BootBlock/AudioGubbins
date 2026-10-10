@@ -1,15 +1,17 @@
 /**
  * The public contract of the AudioGubbins codecs: the read contract for audio
- * files (ADR-0050, ADR-0052).
+ * files (ADR-0050, ADR-0052), the codec registry and the writers (ADR-0090 to
+ * ADR-0093).
  *
  * A file is reached through `AudioBytes`, a size and a ranged, cancellable
  * read. `recogniseAudio` names its format from its contents alone, and
  * `openAudio` parses its header into an `AudioFormatDescriptor` and reads its
  * frames on demand at the rate it was recorded at, never holding the file whole
  * (REQ-AUDIO-220). Phase 09's decoders and writers extend this contract rather
- * than adding a second one, beginning from the one writer Phase 07's recorded
- * media needs: the 32-bit float WAV header, RF64 past four gibibytes, of a
- * recording whose length is known (ADR-0071).
+ * than adding a second one: G.711 and ADPCM are read in place, every other
+ * compressed format is routed by the registry to a decoded rendition, and the
+ * WAV, AIFF and AIFF-C writers serve the streaming write contract, the WAV
+ * writer built on Phase 07's recorded-media header (ADR-0071).
  *
  * Portable: no browser or Node global, so the same readers serve the storage
  * worker, the feeder, render and peak workers, and a test. Depends on the
@@ -18,7 +20,13 @@
 
 export { type AudioBytes } from './audio-bytes.js';
 
-export { type ReadableContainer } from './recognised-format.js';
+export {
+  type ReadableContainer,
+  type RecognisedFormat,
+  type StatedCodec,
+} from './recognised-format.js';
+
+export { recogniseAudio } from './recognition.js';
 
 export { type AudioFormatDescriptor } from './format-descriptor.js';
 
@@ -43,6 +51,7 @@ export {
 
 export {
   type CodecCapability,
+  type CodecCodes,
   type CodecDescriptor,
   type CodecDirection,
   type CodecId,
@@ -70,3 +79,26 @@ export { type SyncAudioBytes } from './sync-audio-bytes.js';
 export { type AudioFileWriter, type FinishedAudioFile } from './audio-file-writer.js';
 
 export { quantiseSample } from './sample-quantisation.js';
+
+export { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';
+
+export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec-capability.js';
+
+export { type ImportRoute, importRoute } from './import-route.js';
+
+export { type MetadataReader } from './metadata-reading.js';
+
+export { METADATA_READERS } from './metadata-readers.js';
+
+export {
+  type OpenedFileWriter,
+  type WavSampleFormat,
+  type WavWriterSettings,
+  createWavWriter,
+} from './wav-file-writer.js';
+
+export {
+  type AiffSampleFormat,
+  type AiffWriterSettings,
+  createAiffWriter,
+} from './aiff-file-writer.js';

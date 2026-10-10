@@ -42,7 +42,7 @@ const FORMS: ReadonlyMap<string, 'wav' | 'rf64' | 'bw64'> = new Map([
 ]);
 
 /** The scheme of a chunk kept whole, such as `iXML`. */
-export const CHUNK_SCHEME = 'riff';
+const CHUNK_SCHEME = 'riff';
 
 /** The largest `iXML` chunk kept; a larger one is skipped. */
 const MAXIMUM_IXML_BYTES = 262_144;

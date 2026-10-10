@@ -7,7 +7,7 @@
  * so full scale is ±32 256 for A-law and ±32 124 for µ-law. The read rule then
  * divides by 2^15 (`decodeCompanded` in the block codings). Both expansions are
  * tables of 256 built once; compression searches the segment ends, rounding
- * each magnitude down to its step as the standard's encoder does.
+ * each magnitude down to its step as the ITU's encoder in G.191 does.
  */
 
 /** The bits of a G.711 byte: its sign, its three-bit segment and its four-bit step. */
@@ -67,11 +67,13 @@ function segmentOf(magnitude: number, ends: readonly number[]): number {
   return found === -1 ? ends.length : found;
 }
 
-/** The A-law byte of a 16-bit linear sample. */
+/**
+ * The A-law byte of a 16-bit linear sample. A negative sample's magnitude is
+ * its ones' complement, as the ITU's own encoder (G.191) takes it.
+ */
 export function compressAlaw(linear: number): number {
   const positive = linear >= 0;
-  // A-law codes thirteen bits, and the negative half is mirrored onto the positive one.
-  const magnitude = positive ? linear >> 3 : -(linear >> 3) - 1;
+  const magnitude = (positive ? linear : ~linear) >> 3;
   const mask = positive ? 0xd5 : ALAW_EVEN_BITS;
   const segment = segmentOf(magnitude, ALAW_SEGMENT_ENDS);
   if (segment >= ALAW_SEGMENT_ENDS.length) return 0x7f ^ mask;
@@ -79,10 +81,14 @@ export function compressAlaw(linear: number): number {
   return ((segment << SEGMENT_SHIFT) | step) ^ mask;
 }
 
-/** The µ-law byte of a 16-bit linear sample. */
+/**
+ * The µ-law byte of a 16-bit linear sample. A negative sample's magnitude is
+ * its ones' complement, as the ITU's own encoder (G.191) takes it, so the
+ * negative half mirrors the positive one step for step.
+ */
 export function compressUlaw(linear: number): number {
   const positive = linear >= 0;
-  const magnitude = Math.min(Math.abs(linear >> 2), ULAW_CLIP) + (ULAW_BIAS >> 2);
+  const magnitude = Math.min((positive ? linear : ~linear) >> 2, ULAW_CLIP) + (ULAW_BIAS >> 2);
   const mask = positive ? ULAW_INVERSION : 0x7f;
   const segment = segmentOf(magnitude, ULAW_SEGMENT_ENDS);
   if (segment >= ULAW_SEGMENT_ENDS.length) return 0x7f ^ mask;

@@ -141,6 +141,27 @@ const ima4Decoder: BlockDecoder = (view, offset, from, to, into, at) => {
   return succeed(undefined);
 };
 
+/** The block coding of AIFF-C `ima4`, whose block is one packet of each channel. */
+function ima4Coding(
+  framesPerBlock: number,
+  channelCount: number,
+  blockAlign: number,
+): DomainResult<BlockCoding> {
+  if (blockAlign !== IMA4_PACKET_BYTES * channelCount || framesPerBlock !== IMA4_FRAMES) {
+    return fail(malformed('An ima4 block is one 34-byte packet of 64 samples for each channel.'));
+  }
+  return succeed(
+    runCoding({
+      blockBytes: blockAlign,
+      framesPerBlock,
+      // A packet holds no frame until every channel's packet is whole.
+      framesInPart: () => 0,
+      bytesForPart: (frames) => (frames === 0 ? 0 : blockAlign),
+      decodeBlock: ima4Decoder,
+    }),
+  );
+}
+
 /**
  * The block coding of IMA ADPCM for `channelCount` channels in blocks of
  * `blockAlign` bytes, or why the header's block cannot be one.
@@ -151,21 +172,7 @@ export function imaBlockCoding(
   blockAlign: number,
 ): DomainResult<BlockCoding> {
   const { framesPerBlock } = encoding;
-  if (encoding.packing === 'ima4') {
-    if (blockAlign !== IMA4_PACKET_BYTES * channelCount || framesPerBlock !== IMA4_FRAMES) {
-      return fail(malformed('An ima4 block is one 34-byte packet of 64 samples for each channel.'));
-    }
-    return succeed(
-      runCoding({
-        blockBytes: blockAlign,
-        framesPerBlock,
-        // A packet holds no frame until every channel's packet is whole.
-        framesInPart: () => 0,
-        bytesForPart: (frames) => (frames === 0 ? 0 : blockAlign),
-        decodeBlock: ima4Decoder,
-      }),
-    );
-  }
+  if (encoding.packing === 'ima4') return ima4Coding(framesPerBlock, channelCount, blockAlign);
   const headerBytes = IMA_WAV_HEADER_BYTES * channelCount;
   const groupBytes = IMA_WAV_WORD_BYTES * channelCount;
   if (blockAlign < headerBytes || (blockAlign - headerBytes) % groupBytes !== 0) {
@@ -183,6 +190,7 @@ export function imaBlockCoding(
       ),
     );
   }
+  const groupsFor = (frames: number) => Math.ceil((frames - 1) / IMA_WAV_WORD_FRAMES);
   return succeed(
     runCoding({
       blockBytes: blockAlign,
@@ -194,8 +202,7 @@ export function imaBlockCoding(
               framesPerBlock,
               1 + Math.floor((bytes - headerBytes) / groupBytes) * IMA_WAV_WORD_FRAMES,
             ),
-      bytesForPart: (frames) =>
-        frames === 0 ? 0 : headerBytes + Math.ceil((frames - 1) / IMA_WAV_WORD_FRAMES) * groupBytes,
+      bytesForPart: (frames) => (frames === 0 ? 0 : headerBytes + groupsFor(frames) * groupBytes),
       decodeBlock: imaWavDecoder(channelCount),
     }),
   );

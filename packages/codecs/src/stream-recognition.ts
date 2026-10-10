@@ -167,13 +167,13 @@ async function afterTags(
 ): Promise<DomainResult<RecognisedFormat>> {
   let offset = 0;
   for (let tags = 0; tags < MAXIMUM_ID3_TAGS; tags += 1) {
-    const window = await source.read(
+    const searched = await source.read(
       offset,
       Math.max(0, Math.min(FRAME_SEARCH_BYTES, source.size - offset)),
       signal,
     );
-    if (!window.ok) return window;
-    const bytes = window.value;
+    if (!searched.ok) return searched;
+    const bytes = searched.value;
     if (fourCharacterCode(bytes, 0).startsWith('ID3')) {
       offset += id3Size(bytes);
       continue;

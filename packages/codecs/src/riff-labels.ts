@@ -16,7 +16,7 @@ import { LINE_TEXT, decodeText } from './metadata-text.js';
 import { listEntries } from './riff-list-entries.js';
 
 /** The most `adtl` entries read from one file: a label and a note for every cue point and loop. */
-export const MAXIMUM_LIST_ENTRIES = 10_240;
+const MAXIMUM_LIST_ENTRIES = 10_240;
 
 /** The cue id a `labl` entry starts with, before its text. */
 export const LABEL_CUE_ID_BYTES = 4;
