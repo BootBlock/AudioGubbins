@@ -78,7 +78,11 @@ export {
 
 export { type SyncAudioBytes } from './sync-audio-bytes.js';
 
-export { type AudioFileWriter, type FinishedAudioFile } from './audio-file-writer.js';
+export {
+  type AudioFileWriter,
+  type FinishedAudioFile,
+  type SamplePlane,
+} from './audio-file-writer.js';
 
 export { quantiseSample } from './sample-quantisation.js';
 

@@ -18,7 +18,7 @@
  * 32-bit float holds, so a depth past 24 bits is written into `Float64Array`s.
  */
 
-import { quantiseSample } from '@audiogubbins/codecs';
+import { quantiseSample, type SamplePlane } from '@audiogubbins/codecs';
 
 import { uniformDraw } from './dither-noise.js';
 import type { DitherSettings } from './export-settings.js';
@@ -98,11 +98,7 @@ export class Quantiser {
    * channel. An output may be the input itself where the depth fits a 32-bit
    * float.
    */
-  quantise(
-    input: readonly Float32Array[],
-    frames: number,
-    output: readonly (Float32Array | Float64Array)[],
-  ): void {
+  quantise(input: readonly SamplePlane[], frames: number, output: readonly SamplePlane[]): void {
     for (let channel = 0; channel < this.#errors.length; channel += 1) {
       const to = output[channel];
       const from = input[channel];
@@ -122,8 +118,8 @@ export class Quantiser {
 
   #channel(
     channel: number,
-    from: Float32Array,
-    to: Float32Array | Float64Array,
+    from: SamplePlane,
+    to: SamplePlane,
     errors: Float64Array,
     frames: number,
   ): void {

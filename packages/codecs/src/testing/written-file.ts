@@ -4,7 +4,7 @@
  * the tail joined, as staging joins them.
  */
 
-import type { AudioFileWriter, FinishedAudioFile } from '../audio-file-writer.js';
+import type { AudioFileWriter, FinishedAudioFile, SamplePlane } from '../audio-file-writer.js';
 
 /** What a writer wrote: the whole file, and what its finish answered. */
 export interface WrittenFile {
@@ -19,7 +19,7 @@ export interface WrittenFile {
  */
 export async function writeWhole(
   writer: AudioFileWriter,
-  channels: readonly Float32Array[],
+  channels: readonly SamplePlane[],
   block = 1_000,
 ): Promise<WrittenFile> {
   const frames = channels[0]?.length ?? 0;

@@ -19,7 +19,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 
-import type { AudioFileWriter, FinishedAudioFile } from './audio-file-writer.js';
+import type { AudioFileWriter, FinishedAudioFile, SamplePlane } from './audio-file-writer.js';
 import { writeInvalid } from './codec-failures.js';
 import type { FrameEncoder } from './frame-encoder.js';
 import type { MetadataPart } from './metadata-map.js';
@@ -52,7 +52,7 @@ export interface StreamFormat {
 
 /** Why a block cannot be written, or `undefined` where it can. */
 function blockProblem(
-  channels: readonly Float32Array[],
+  channels: readonly SamplePlane[],
   frames: number,
   channelCount: number,
 ): string | undefined {

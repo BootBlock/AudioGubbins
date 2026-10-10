@@ -12,13 +12,14 @@
  */
 
 import { adpcmEncoder } from './adpcm-encoding.js';
+import type { SamplePlane } from './audio-file-writer.js';
 import type { FrameEncoder } from './frame-encoder.js';
 import { compressAlaw, compressUlaw } from './g711.js';
 import type { SampleEncoding } from './sample-encoding.js';
 import { quantiseSample } from './sample-quantisation.js';
 
 /** Writes one sample's value at a byte offset. */
-type SampleWriter = (view: DataView, offset: number, channel: Float32Array, frame: number) => void;
+type SampleWriter = (view: DataView, offset: number, channel: SamplePlane, frame: number) => void;
 
 /** The writer of one sample in an uncompressed or G.711 encoding. */
 function sampleWriter(encoding: SampleEncoding): {
@@ -56,6 +57,11 @@ function sampleWriter(encoding: SampleEncoding): {
       return {
         bytes: 4,
         write: (view, offset, channel, frame) => {
+          if (channel instanceof Float64Array) {
+            // A wider sample rounds to the nearest 32-bit float, as IEEE-754 converts.
+            view.setFloat32(offset, channel[frame] ?? 0, littleEndian);
+            return;
+          }
           // Through an integer view, so a NaN's payload is not lost to a number on the way.
           const bits = new Uint32Array(channel.buffer, channel.byteOffset, channel.length);
           view.setUint32(offset, bits[frame] ?? 0, littleEndian);
