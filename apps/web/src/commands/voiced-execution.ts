@@ -17,24 +17,10 @@ import {
 } from '@audiogubbins/commands';
 import { cutAtAWord } from '@audiogubbins/text';
 
-import type { AnnouncementOptions } from '../state/interaction-store.js';
+import type { AnnouncementOptions, VoicedOptions } from '../state/interaction-store.js';
 
 /** Says a sentence: urgently or politely, and how it is shown. */
 export type Announce = (text: string, urgent: boolean, options?: AnnouncementOptions) => void;
-
-/** How a command run from the interface is spoken of. */
-export interface VoicedOptions {
-  /**
-   * Whether a command that found nothing to do says so, politely.
-   *
-   * Asked for by a control the user commits with, a Save or a Rename, which
-   * shows nothing if the command does nothing: without it, recording a
-   * command's own shortcut and saving it would close the recorder in silence.
-   * Not by a slider, a list or the dock, which show the value already, where a
-   * sentence after each drag or click that changed nothing would be noise.
-   */
-  readonly sayWhenUnchanged?: boolean;
-}
 
 /**
  * Runs a command, and announces every reason it gives when it refuses, and

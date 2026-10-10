@@ -67,7 +67,7 @@ beforeEach(() => {
   const found = context.assets.find(ASSET);
   if (found === undefined) throw new Error(`No asset ${ASSET}.`);
   context.editorViews.open('editor', found);
-  context.editorViews.measured('editor', 1000, found.length);
+  context.editorViews.measured('editor', { width: 1000, height: 300 }, found.length);
   context.editorViews.focus('editor');
 });
 

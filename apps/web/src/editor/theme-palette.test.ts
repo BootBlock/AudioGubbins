@@ -104,6 +104,7 @@ function frameOf(
     selection: EMPTY_SELECTION,
     playhead: undefined,
     preview: undefined,
+    drawing: undefined,
     snap: undefined,
     ruler: {
       major: [

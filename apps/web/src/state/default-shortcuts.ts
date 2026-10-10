@@ -319,17 +319,22 @@ export function placeDefaults(
  * monitoring on or off, and Shift with A, P, R and S arms, arms a punch,
  * records and stops.
  *
- * The spectral selection is made from the keyboard as a pointer makes one of
- * rectangles (REQ-UX-005): B selects a band of the time selection, Shift with B
- * adds one and Shift with X takes one away, since Alt with a letter types a
- * character on a Mac; Shift with the up and down arrows widens and narrows the
- * band, as the arrows alone zoom; and Shift with D clears the area, as the
- * usual modifier with D clears the selection. The spectral tools take the
- * letters image editors give them, with Shift where the letter alone is the
- * editor's: M for the marquee and L for the lasso, and P, to paint, for the
- * brush, as Shift with B adds a band. Widening and narrowing in time are left
- * to the palette and the Spectral panel, since every arrow across the timeline
- * is the playhead's, the selection's or the markers'.
+ * The spectral selection is made from the keyboard as a pointer makes it
+ * (REQ-UX-005). B selects a band of the time selection, Shift with B adds one
+ * and Shift with X takes one away, since Alt with a letter types a character on
+ * a Mac; Shift with the up and down arrows widens and narrows the band, as the
+ * arrows alone zoom; and Shift with D clears the area, as the usual modifier
+ * with D clears the selection. A shape is drawn with a cursor that stands at
+ * the playhead, which the arrows already move: Alt with up and down moves it up
+ * and down the frequency axis, a tenth as far with Shift as well, as Alt with
+ * left and right moves the markers; Enter places a point where it stands, Shift
+ * with Enter finishes the shape there, Escape lets its points go, and Shift
+ * with C takes it to the next channel. The spectral tools take the letters
+ * image editors give them, with Shift where the letter alone is the editor's: M
+ * for the marquee and L for the lasso, and P, to paint, for the brush, as Shift
+ * with B adds a band. Widening and narrowing in time are left to the palette
+ * and the Spectral panel, since every arrow across the timeline is the
+ * playhead's, the selection's or the markers'.
  */
 function editorBindings(
   of: (
@@ -411,6 +416,14 @@ function editorBindings(
     bind('editor.tool-spectral-marquee', of(alone('m', true))),
     bind('editor.tool-spectral-lasso', of(alone('l', true))),
     bind('editor.tool-spectral-brush', of(alone('p'))),
+    bind('editor.spectral-cursor-up', of(withAlt('ArrowUp'))),
+    bind('editor.spectral-cursor-down', of(withAlt('ArrowDown'))),
+    bind('editor.spectral-cursor-up-fine', of(withAlt('ArrowUp', true))),
+    bind('editor.spectral-cursor-down-fine', of(withAlt('ArrowDown', true))),
+    bind('editor.spectral-cursor-next-channel', of(alone('c', true))),
+    bind('editor.place-spectral-point', of(named('Enter'))),
+    bind('editor.finish-spectral-shape', of(named('Enter', true))),
+    bind('editor.cancel-spectral-shape', of(named('Escape'))),
     // Input monitoring, one press on or off, as a recording application's input
     // monitoring is: I for input, with Shift, since I alone starts a selection.
     bind('recording.toggle-monitoring', of(alone('i', true))),

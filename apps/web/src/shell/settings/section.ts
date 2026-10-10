@@ -9,7 +9,7 @@
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 
-import type { VoicedOptions } from '../../commands/voiced-execution.js';
+import type { VoicedOptions } from '../../state/interaction-store.js';
 
 /**
  * Runs a command, optionally naming what it should act on, and how it is

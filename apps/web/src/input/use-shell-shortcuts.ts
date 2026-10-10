@@ -13,6 +13,7 @@ import { describePresses, keyboardPlatformFor, type CommandId } from '@audiogubb
 import { commandLayerOf, type KeyEventReading } from '@audiogubbins/input';
 
 import type { Application } from '../application.js';
+import { shortcutTakesItsKey } from '../commands/shell-command.js';
 import { useShortcuts } from './use-shortcuts.js';
 
 /** What the shortcuts are read and run with. */
@@ -60,6 +61,13 @@ export function useShellShortcuts({
     runsInADialogue: useCallback(
       (id: CommandId) => registry.get(id)?.changesAppearance === true,
       [registry],
+    ),
+    takesItsKey: useCallback(
+      (id: CommandId) => {
+        const command = registry.get(id);
+        return command === undefined || shortcutTakesItsKey(command, context);
+      },
+      [registry, context],
     ),
     platform: useMemo(() => keyboardPlatformFor(convention), [convention]),
     reader: useMemo(

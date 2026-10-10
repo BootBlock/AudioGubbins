@@ -13,6 +13,7 @@ import type { PeakHost } from '@audiogubbins/waveform';
 
 import type { SpectrogramDsp } from './spectrogram-reports.js';
 import type { SurfaceStores } from './view-sources.js';
+import type { VoicedOptions } from '../state/interaction-store.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ChosenFiles } from '../state/chosen-files.js';
@@ -36,7 +37,7 @@ export interface EditorPanelParts {
   readonly graphics: GraphicsPlatform;
   readonly rendererReports: RendererReports;
   readonly logger: Logger;
-  readonly run: (id: string, args?: ControlArguments) => void;
+  readonly run: (id: string, args?: ControlArguments, options?: VoicedOptions) => void;
   /** Says a sentence politely, where what it reports is shown in its own place already. */
   readonly announce: (text: string) => void;
   readonly unavailableReason: (id: string) => string | undefined;

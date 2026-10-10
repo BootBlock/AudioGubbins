@@ -269,6 +269,15 @@ export interface Command<TContext> {
   readonly changesAppearance?: boolean;
 
   /**
+   * Whether the command's shortcut takes its key only while the command can
+   * run, and leaves it to the page otherwise, unanswered: for a key the page
+   * and its controls use as well, as Escape backs out and Enter presses, so a
+   * stray press is not taken from them, nor answered with a refusal. Run any
+   * other way, as from the palette, it refuses with its reason as any does.
+   */
+  readonly takesItsKeyOnlyWhenAvailable?: boolean;
+
+  /**
    * Whether the command's effect can be reversed.
    *
    * A command that declares this must return an `inverse` when it applies. A

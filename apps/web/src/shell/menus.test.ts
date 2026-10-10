@@ -55,7 +55,7 @@ describe('the menu bar', () => {
       'Editor',
       'Help',
     ]);
-    expect(entries).toHaveLength(181);
+    expect(entries).toHaveLength(189);
   });
 
   it('offers the spectral tools and the spectral selection in the Editor menu, with their keys', () => {
@@ -83,6 +83,14 @@ describe('the menu bar', () => {
       'editor.spectral-combination-replace',
       'editor.spectral-combination-add',
       'editor.spectral-combination-subtract',
+      'editor.spectral-cursor-up',
+      'editor.spectral-cursor-down',
+      'editor.spectral-cursor-up-fine',
+      'editor.spectral-cursor-down-fine',
+      'editor.spectral-cursor-next-channel',
+      'editor.place-spectral-point',
+      'editor.finish-spectral-shape',
+      'editor.cancel-spectral-shape',
     ]);
     const band = editor?.groups
       .flatMap((group) => group.items)

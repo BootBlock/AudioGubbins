@@ -305,6 +305,15 @@ export interface SpectralDrag {
   readonly channels: readonly number[] | undefined;
 }
 
+/**
+ * Whether a drag with `tool` traces a path, every point of which is its
+ * shape: the lasso's and the brush's, where a marquee reads only where the
+ * drag began and where it is now.
+ */
+export function tracesPath(tool: ToolId): boolean {
+  return tool === ToolId.SpectralLasso || tool === ToolId.SpectralBrush;
+}
+
 /** The trail a press with `tool` starts at `reading`: a lasso's or a brush's, on a spectrogram. */
 export function startedTrail(
   tool: ToolId,
@@ -312,7 +321,7 @@ export function startedTrail(
   reading: SpectralReading,
 ): Trail | undefined {
   const { lane } = spectral;
-  return (tool === ToolId.SpectralLasso || tool === ToolId.SpectralBrush) && lane !== undefined
+  return tracesPath(tool) && lane !== undefined
     ? Trail.from(traceOf(spectral, lane, reading))
     : undefined;
 }

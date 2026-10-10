@@ -18,7 +18,7 @@ async function markedLoop(): Promise<AudioWindow> {
   const audio = await windowWithAudio({ markers: LOOP_MARKERS });
   const { context } = audio.window;
   context.editorViews.open('editor', audio.asset());
-  context.editorViews.measured('editor', 1000, audio.asset().length);
+  context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
   context.editorViews.focus('editor');
   return audio;
 }
@@ -150,7 +150,7 @@ describe('the marker commands (ADR-0047)', () => {
     const audio = await markedLoop();
     const { window } = audio;
     window.context.editorViews.open('two', audio.asset());
-    window.context.editorViews.measured('two', 400, audio.asset().length);
+    window.context.editorViews.measured('two', { width: 400, height: 300 }, audio.asset().length);
 
     await window.runAndHear('editor.add-marker', { view: 'two', at: 1200 });
 

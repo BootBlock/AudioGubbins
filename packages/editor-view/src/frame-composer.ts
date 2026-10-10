@@ -43,6 +43,7 @@ import {
   type KnownSpectrogram,
   type SpectrogramStyle,
 } from './spectrogram-drawing.js';
+import type { DrawingMarks } from './keyboard-drawing.js';
 import type { ToolPreview } from './tool-values.js';
 import type { EditorViewState } from './view-state.js';
 import { WaveformPainter, type KnownAudio } from './waveform-drawing.js';
@@ -69,6 +70,8 @@ export interface ViewScene {
   readonly selection: SelectionSet;
   readonly playhead: SampleCount | undefined;
   readonly preview: ToolPreview | undefined;
+  /** A spectral shape being drawn from the keyboard, if one is. */
+  readonly drawing: DrawingMarks | undefined;
   readonly snap: SnapTarget | undefined;
   readonly ruler: RulerTicks;
   /** The ruler's ticks and the grid's, where the grid is on. */
@@ -88,6 +91,7 @@ function laneOverlayOf(scene: ViewScene): LaneOverlay {
     regions: state.overlays.regions ? content.regions : [],
     playhead: scene.playhead,
     preview: scene.preview,
+    drawing: scene.drawing,
     grid: scene.grid,
     spectral: state.spectral,
     spectralEdits: state.overlays.spectralEdits ? content.spectralEdits : [],

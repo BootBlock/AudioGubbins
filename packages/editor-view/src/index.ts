@@ -53,13 +53,32 @@ export { move, press, release } from './pointer-tools.js';
 
 // The spectral marquee, lasso and brush, and the one account of what their
 // intent makes of a selection, which the selection command and the drag's
-// preview share (ADR-0082), and whether a tool is one that draws one.
+// preview share (ADR-0082), whether a tool is one that draws one, and
+// whether its drag traces a path, every move of which the pointer takes.
 export {
   type DrawnShape,
   type SpectralToolContext,
   isSpectralTool,
+  tracesPath,
   withDrawnShape,
 } from './spectral-tools.js';
+
+// The spectral tools drawn from the keyboard: a cursor in a spectrogram lane
+// and the points it places, making what a pointer through them makes
+// (ADR-0082).
+export {
+  CursorStep,
+  type DrawingContext,
+  type DrawingMarks,
+  type KeyboardDrawing,
+  cursorFrequency,
+  cursorStepped,
+  drawingLaneOf,
+  drawingPreview,
+  drawingShape,
+  newDrawing,
+  pointPlaced,
+} from './keyboard-drawing.js';
 
 // A spectral selection widened and narrowed from the keyboard (ADR-0082).
 export {

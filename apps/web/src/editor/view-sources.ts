@@ -66,6 +66,8 @@ export function viewSources(
     asset,
     selection: stores.selections.of(asset.id),
     playhead: stores.playhead(asset),
+    drawing: entry.drawing,
+    strength: stores.gestures().fixedStrength,
     picture: bound,
     thumbnails: (area) =>
       bound === undefined ||

@@ -8,6 +8,8 @@ import {
   DisplayMode,
   SpectrogramColours,
   ToolId,
+  newDrawing,
+  pointPlaced,
 } from '@audiogubbins/editor-view';
 import {
   SnapKind,
@@ -42,7 +44,7 @@ describe('the editor views', () => {
   it('fit a new view to its asset once its width is measured', () => {
     const views = storeOver(ephemeralStorage());
     views.open('editor', TONES);
-    views.measured('editor', 1000, TONES.length);
+    views.measured('editor', { width: 1000, height: 300 }, TONES.length);
 
     expect(views.entry('editor')?.state.viewport).toMatchObject({
       start: 0,
@@ -55,7 +57,7 @@ describe('the editor views', () => {
     const raw = ephemeralStorage();
     const first = storeOver(raw);
     first.open('editor', LONG);
-    first.measured('editor', 800, LONG.length);
+    first.measured('editor', { width: 800, height: 300 }, LONG.length);
     first.change('editor', (state) => ({
       ...state,
       viewport: { ...state.viewport, start: state.viewport.start, zoom: pixelsPerSample(8) },
@@ -77,6 +79,38 @@ describe('the editor views', () => {
       viewport: { zoom: { kind: 'pixels-per-sample', pixels: 8 }, width: 0 },
     });
     expect([...(kept?.state.snapping.kinds ?? [])]).toEqual([SnapKind.Marker]);
+  });
+
+  it('hold its surface’s height and a keyboard drawing without writing either, nor keeping them', () => {
+    const raw = ephemeralStorage();
+    let writes = 0;
+    const views = createEditorViewStore(
+      createStateStorage(
+        {
+          ...raw,
+          write: (key, value) => {
+            writes += 1;
+            raw.write(key, value);
+          },
+        },
+        logger,
+        () => undefined,
+      ),
+      logger,
+      (write) => {
+        write();
+      },
+    );
+    views.open('editor', TONES);
+    views.measured('editor', { width: 1000, height: 300 }, TONES.length);
+    const written = writes;
+    views.measured('editor', { width: 1000, height: 420 }, TONES.length);
+    const drawing = pointPlaced(newDrawing(1), TONES.length);
+    views.draw('editor', () => drawing);
+
+    expect(views.entry('editor')).toMatchObject({ height: 420, drawing });
+    expect(writes).toBe(written);
+    expect(storeOver(raw).entry('editor')).toMatchObject({ height: 0, drawing: undefined });
   });
 
   it('note the editor in use without writing, since the person changed nothing', () => {

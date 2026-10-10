@@ -1694,6 +1694,7 @@ Published paths
   readonly Command.description?: string
   readonly Command.discoverable?: boolean
   readonly Command.changesAppearance?: boolean
+  readonly Command.takesItsKeyOnlyWhenAvailable?: boolean
   readonly Command.undoable: boolean
   Command.availability: (context: TContext) => CommandAvailability
   Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>
@@ -3007,6 +3008,8 @@ Published paths
 
 @audiogubbins/editor-view
   const AMPLITUDES: readonly number[]
+  const CursorStep: { readonly Up: "up"; readonly Down: "down"; readonly FineUp: "fine-up"; readonly FineDown: "fine-down"; }
+  type CursorStep = "down" | "fine-down" | "fine-up" | "up"
   const DEFAULT_OVERLAYS: Overlays
   const DEFAULT_SPECTROGRAM_DISPLAY: SpectrogramDisplay
   const DisplayMode: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Stacked: "stacked"; readonly Overlay: "overlay"; }
@@ -3014,6 +3017,16 @@ Published paths
   interface DisplayRange
   readonly DisplayRange.floor: number
   readonly DisplayRange.ceiling: number
+  interface DrawingContext
+  readonly DrawingContext.tool: SpectralToolId
+  readonly DrawingContext.spectral: SpectralToolContext & { readonly lane: Lane; }
+  readonly DrawingContext.visibleChannels: readonly number[]
+  readonly DrawingContext.position: SampleCount
+  readonly DrawingContext.strength: number
+  interface DrawingMarks
+  readonly DrawingMarks.channel: number
+  readonly DrawingMarks.points: readonly DrawnPoint[]
+  readonly DrawingMarks.cursor: DrawnPoint
   interface DrawnShape
   readonly DrawnShape.shape: SpectralShape
   readonly DrawnShape.combination: SpectralCombination
@@ -3085,6 +3098,10 @@ Published paths
   type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "region"; readonly id: RegionId; } | { readonly kind: "region-edge"; readonly id: RegionId; readonly boundary: RegionBoundary; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
   const IDLE: Interaction
   type Interaction = { readonly kind: "idle"; } | { readonly kind: "pressed"; readonly tool: ToolId; readonly hit: HitTarget; readonly start: ToolInput; readonly context: ToolContext; readonly dragging: boolean; readonly lastX: number; readonly trail: Trail | undefined; }
+  interface KeyboardDrawing
+  readonly KeyboardDrawing.channel: number
+  readonly KeyboardDrawing.rung: number
+  readonly KeyboardDrawing.placed: readonly DrawingPoint[]
   interface KnownAudio
   readonly KnownAudio.pyramid: WaveformPeakPyramid | undefined
   readonly KnownAudio.buckets: BucketWindow | undefined
@@ -3192,6 +3209,7 @@ Published paths
   readonly ViewScene.selection: SelectionSet
   readonly ViewScene.playhead: SampleCount | undefined
   readonly ViewScene.preview: ToolPreview | undefined
+  readonly ViewScene.drawing: DrawingMarks | undefined
   readonly ViewScene.snap: SnapTarget | undefined
   readonly ViewScene.ruler: RulerTicks
   readonly ViewScene.grid: readonly SampleCount[] | undefined
@@ -3199,6 +3217,11 @@ Published paths
   readonly ViewScene.palette: EditorPalette
   readonly ViewScene.type: EditorType
   function brushRadiusOf(value: number): number
+  function cursorFrequency(drawing: KeyboardDrawing, context: DrawingContext): number
+  function cursorStepped(drawing: KeyboardDrawing, step: CursorStep): KeyboardDrawing
+  function drawingLaneOf(layout: ViewLayout, channel: number): Lane | undefined
+  function drawingPreview(drawing: KeyboardDrawing, context: DrawingContext): { readonly marks: DrawingMarks; readonly drawn: DrawnShape | undefined; readonly selection: SelectionSet | undefined; }
+  function drawingShape(drawing: KeyboardDrawing, context: DrawingContext): DrawnShape | undefined
   function hardnessOf(value: number): number
   function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
   function isDisplayRange(range: DisplayRange): boolean
@@ -3208,12 +3231,15 @@ Published paths
   function maskSteppedInFrequency(mask: SpectralMask, step: SpectralStep, axis: SpectralSettings, highest: number): SpectralMask | undefined
   function maskSteppedInTime(mask: SpectralMask, step: SpectralStep, by: number, length: SampleCount): SpectralMask | undefined
   function move(interaction: Interaction, input: ToolInput): ToolStep
+  function newDrawing(channel: number): KeyboardDrawing
   function newViewState(length: SampleCount, width: number): EditorViewState
+  function pointPlaced(drawing: KeyboardDrawing, position: SampleCount): KeyboardDrawing
   function press(context: ToolContext, input: ToolInput): ToolStep
   function release(interaction: Interaction, input: ToolInput): ToolStep
   function shownSpectrogram(state: EditorViewState, geometry: SpectrogramGeometry, length: SampleCount, pixelRatio: number): SpectrogramView | undefined
   function snapInView(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, viewport: ViewportState): SnapResult
   function snapTargetsOf(sources: SnapSources): readonly SnapTarget[]
+  function tracesPath(tool: ToolId): boolean
   function visibleChannels(state: EditorViewState, channelCount: number): readonly number[]
   function withAmplitudeStep(state: EditorViewState, steps: number): EditorViewState
   function withChannelShown(state: EditorViewState, channel: number, shown: boolean, channelCount: number): EditorViewState
@@ -4225,6 +4251,7 @@ Published paths
   readonly ProjectCommand.description?: string
   readonly ProjectCommand.discoverable?: boolean
   readonly ProjectCommand.changesAppearance?: boolean
+  readonly ProjectCommand.takesItsKeyOnlyWhenAvailable?: boolean
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
@@ -7398,6 +7425,14 @@ packages/editor-view/src/batch-buffers.ts
   SegmentBuilder.add: (x0: number, y0: number, x1: number, y1: number) => void
   SegmentBuilder.batch: () => SegmentBatch
 
+packages/editor-view/src/keyboard-drawing.ts
+  interface DrawingPoint
+  readonly DrawingPoint.position: SampleCount
+  readonly DrawingPoint.rung: number
+  interface DrawnPoint
+  readonly DrawnPoint.x: number
+  readonly DrawnPoint.y: number
+
 packages/editor-view/src/mask-drawing.ts
   interface FieldSource
   readonly FieldSource.mask: SpectralMask
@@ -7429,6 +7464,7 @@ packages/editor-view/src/overlay-drawing.ts
   readonly LaneOverlay.grid: readonly number[] | undefined
   readonly LaneOverlay.spectral: SpectralSettings
   readonly LaneOverlay.spectralEdits: readonly SpectralEditOutline[]
+  readonly LaneOverlay.drawing: DrawingMarks | undefined
 
 packages/editor-view/src/ruler-drawing.ts
   interface OverlayStyle
@@ -7438,6 +7474,7 @@ packages/editor-view/src/ruler-drawing.ts
   readonly OverlayStyle.type: EditorType
 
 packages/editor-view/src/spectral-tools.ts
+  type SpectralToolId = "spectral-brush" | "spectral-lasso" | "spectral-marquee"
   interface Trace
   readonly Trace.x: number
   readonly Trace.y: number
