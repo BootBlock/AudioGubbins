@@ -183,7 +183,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   },
   '@audiogubbins/codecs': {
     "The codec contracts ADR-0090 to ADR-0093 give Phase 09, written before the codecs, the codec worker, the import and export jobs and the storage that consume them: the registry's descriptors and capabilities, the metadata map, the codec worker's synchronous byte port, the streaming write contract, and the integer quantisation the writers and the dither share.":
-      ['AudioFileWriter', 'CodecCapability', 'CodecUse', 'FinishedAudioFile', 'MetadataPart'],
+      ['AudioFileWriter', 'CodecCapability', 'CodecUse'],
     'The registry, the import route and the writers ADR-0090 to ADR-0093 give the codec worker, the import and export jobs and the storage that Phase 09 builds on them: the descriptors and the capability of each codec in a probed environment, recognition and the route from a recognised file to reading in place, decoding or refusal, the metadata reader of each container, and the WAV, AIFF and AIFF-C writers with their settings.':
       [
         'AiffSampleFormat',
