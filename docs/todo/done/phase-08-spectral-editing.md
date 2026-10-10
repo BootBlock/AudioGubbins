@@ -12,10 +12,10 @@ that shape the work are `ADR-0080`, `ADR-0081` and `ADR-0082`.
 
 ## Where the work is
 
-|        |                                                                   |
-| ------ | ----------------------------------------------------------------- |
-| Branch | `phase-08-spectral`, worktree `../AudioGubbins-phase-08-spectral` |
-| Base   | `main` at `1c357d0e`                                              |
+|        |                      |
+| ------ | -------------------- |
+| Branch | `phase-08-spectral`  |
+| Base   | `main` at `1c357d0e` |
 
 ## Gates
 
@@ -93,4 +93,4 @@ a new test sees it fail once against the code it guards.
 1. `tests/e2e/spectral.spec.ts`, project `chromium-spectral`,
    `test:e2e:spectral`.
 2. Evidence, review record (lenses deferred), handoff, ledger `PASS`.
-3. Remove every Phase 08 worktree and its branch.
+3. Remove the phase's merged branches.
