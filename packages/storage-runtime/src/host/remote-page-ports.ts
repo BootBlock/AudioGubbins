@@ -16,11 +16,14 @@
 import { fileSource, listedFolder } from '@audiogubbins/browser-storage';
 import type { ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource } from '@audiogubbins/project-format';
-import type {
-  ConsolidationServices,
-  DirectoryReader,
-  DirectoryWriter,
-  ExternalBackupTarget,
+import { fail, succeed } from '@audiogubbins/domain';
+import {
+  decodingUnavailable,
+  type ConsolidationServices,
+  type DirectoryReader,
+  type DirectoryWriter,
+  type ExternalBackupTarget,
+  type StreamDecoding,
 } from '@audiogubbins/storage';
 
 import type {
@@ -30,6 +33,7 @@ import type {
   PagePort,
 } from '../protocol/page-operations.js';
 import type { HostChannel } from '../protocol/storage-operations.js';
+import { portDecodedStream } from './decoded-stream-port.js';
 
 /**
  * Why a sink was abandoned, as text, which crosses whatever the reason was: an
@@ -165,6 +169,24 @@ export function pageBackupFolder(channel: HostChannel, port: PagePort): External
   return {
     create: async (generation) =>
       pageSink(channel, await channel.call('backupFolder.create', { port, generation })),
+  };
+}
+
+/**
+ * The decoding of the call's file of index `file` through the decoder the
+ * page lent as `port`: the codec worker started on it, and its stream read
+ * from the port the page answers. A page that lent none has no codec worker,
+ * and a file needing one is refused.
+ */
+export function pageDecoding(
+  channel: HostChannel,
+  port: PagePort | undefined,
+  file: number,
+): StreamDecoding {
+  return async (signal) => {
+    if (port === undefined) return fail(decodingUnavailable());
+    const stream = await channel.call('decoder.decode', { port, file }, { signal });
+    return stream.ok ? succeed(portDecodedStream(stream.value)) : stream;
   };
 }
 

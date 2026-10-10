@@ -10,7 +10,8 @@
  * projects, the person's library of saved chains and presets, the projects open
  * (`project-operations.ts`), taking projects out and bringing them in
  * (`transfer-operations.ts`), their backup generations
- * (`backup-operations.ts`), audio files (`media-operations.ts`), model packs
+ * (`backup-operations.ts`), audio files (`media-operations.ts`) and many at once
+ * (`import-operations.ts`), model packs
  * (`pack-operations.ts`), recordings (`recording-operations.ts`), the storage
  * root, the caches, the usage and its cleanup, who writes each project, and the
  * files linked assets were recorded from. The values all clone: none is a class
@@ -53,6 +54,7 @@ import type {
 } from '@audiogubbins/storage';
 
 import type { BackupOperations } from './backup-operations.js';
+import type { ImportOperations, ImportReport, ImportStream } from './import-operations.js';
 import type { MediaOperations } from './media-operations.js';
 import type { Handlers, Operation, Stream } from './operations.js';
 import type { PackChange, PackOperations } from './pack-operations.js';
@@ -77,6 +79,7 @@ export type StorageOperations = ProjectOperations &
   TransferOperations &
   BackupOperations &
   MediaOperations &
+  ImportOperations &
   RecordingOperations &
   PackOperations & {
     /** Every project, deleted ones among them, in the order of their identifiers. */
@@ -216,6 +219,9 @@ export type StorageWorkerSide = {
 
     /** Each change of a recording's status, by its session. */
     readonly [session: RecordingStream]: Stream<RecordingStatus>;
+
+    /** Each report of a batch import, by the name the page gave it. */
+    readonly [report: ImportStream]: Stream<ImportReport>;
   };
 };
 

@@ -58,6 +58,13 @@ import { CACHE_DIRECTORY } from './storage-layout.js';
 export const CacheCategory = {
   /** Regenerable temporary data, the first to go. */
   Temporary: 'temporary',
+
+  /**
+   * Work in progress that is made again by doing it again: a rendition being
+   * decoded, and an export staged for delivery (ADR-0090, ADR-0092). Never a
+   * root, removed once delivered and whenever the storage worker starts.
+   */
+  Staging: 'staging',
   Render: 'render',
   Analysis: 'analysis',
   Waveform: 'waveform',
@@ -73,6 +80,7 @@ export type CacheCategory = (typeof CacheCategory)[keyof typeof CacheCategory];
 /** The order storage pressure gives the categories up in (REQ-STOR-106). */
 export const CACHE_CLEANUP_ORDER: readonly CacheCategory[] = [
   CacheCategory.Temporary,
+  CacheCategory.Staging,
   CacheCategory.Render,
   CacheCategory.Analysis,
   CacheCategory.Waveform,

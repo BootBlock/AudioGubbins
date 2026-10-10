@@ -41,6 +41,13 @@ export type ImportIdentity = 'original' | 'copy' | 'original-or-copy';
 export interface ImportedProject {
   readonly header: ProjectHeader;
   readonly asCopy: boolean;
+
+  /**
+   * The caches the project carried that the storage had no room for, by
+   * their path in the tree, given up since each is made again when it is
+   * next needed (F-51).
+   */
+  readonly skippedCaches: readonly string[];
 }
 
 /** An identity claimed: the project's files, and the lease they are written under. */

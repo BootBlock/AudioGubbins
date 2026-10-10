@@ -10,7 +10,7 @@ import type { ContentId } from '@audiogubbins/project-format';
 import type { AudioPaste, ChangeOutcome, ImportedAudio } from '@audiogubbins/storage';
 
 import type { ClientChannel } from '../protocol/storage-operations.js';
-import type { LendingCall, PageFile, PageLocate } from './page-ports.js';
+import type { LendingCall, PageDecoding, PageFile, PageLocate } from './page-ports.js';
 import type { RemoteProjectSession } from './remote-project.js';
 
 /** One audio file to bring into a project. */
@@ -25,6 +25,13 @@ export interface AudioFileImport {
 
   /** When the import happens, in whole milliseconds since the epoch. */
   readonly importedAt: number;
+
+  /**
+   * Starts the codec worker decoding the file, where it is a compressed file
+   * read through a rendition; absent where the page has no codec worker, when
+   * such a file is refused with why.
+   */
+  readonly decoding?: PageDecoding;
 }
 
 /** Importing audio files and reading stored ones. */
@@ -59,10 +66,15 @@ export interface MediaClient {
 /** Audio files, over calls to the worker and calls that lend the page's ports. */
 export function mediaClient(channel: ClientChannel, call: LendingCall): MediaClient {
   return {
-    importFile: (session, { file, ...request }, signal) =>
+    importFile: (session, { file, decoding, ...request }, signal) =>
       call(
         'media.import',
-        (lend) => ({ handle: session.handle, file: lend.file(file), ...request }),
+        (lend) => ({
+          handle: session.handle,
+          file: lend.file(file),
+          ...(decoding === undefined ? {} : { decoder: lend.decoder(decoding) }),
+          ...request,
+        }),
         signal,
       ),
     file: (contentId, signal) => channel.call('media.file', contentId, { signal }),

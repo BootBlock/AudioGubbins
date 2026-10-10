@@ -13,7 +13,8 @@ import { importAudio, pasteAudio } from '@audiogubbins/storage';
 import type { AreaHandlers, HostChannel } from '../protocol/storage-operations.js';
 import type { HostServices } from './host-services.js';
 import type { OpenProjects } from './open-projects.js';
-import { pageFile, pageLocate } from './remote-page-ports.js';
+import { importServices } from './import-area.js';
+import { pageDecoding, pageFile, pageLocate } from './remote-page-ports.js';
 
 /** The operations of audio files, over the worker's store, its open projects and the page's files. */
 export function mediaHandlers(
@@ -21,18 +22,14 @@ export function mediaHandlers(
   projects: OpenProjects,
   channel: HostChannel,
 ): AreaHandlers<'media'> {
-  const importing = {
-    store: services.store,
-    digest: services.digest,
-    yieldToHost: services.yieldToHost,
-    invocation: addAssetInvocation,
-  };
+  const importing = importServices(services);
   return {
-    'media.import': ({ handle, file, ...request }, { signal }) =>
+    'media.import': ({ handle, file, decoder, ...request }, { signal }) =>
       importAudio(
         projects.session(handle),
-        { file: pageFile(channel, file), ...request },
+        { file: pageFile(channel, file), decode: pageDecoding(channel, decoder, 0), ...request },
         importing,
+        () => undefined,
         signal,
       ),
     'media.file': async (contentId) => {

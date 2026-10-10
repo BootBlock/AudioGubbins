@@ -18,6 +18,7 @@ import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import type { ClientChannel } from '../protocol/storage-operations.js';
 import { backupsClient, type BackupsClient } from './backups-client.js';
 import { cacheClient, type CacheClient } from './cache-client.js';
+import { importsClient, type ImportsClient } from './imports-client.js';
 import { libraryClient, type LibraryClient } from './library-client.js';
 import { mediaClient, type MediaClient } from './media-client.js';
 import { ownershipClient, type OwnershipClient } from './ownership-client.js';
@@ -46,6 +47,9 @@ export interface StorageClient {
   readonly root: RootClient;
   readonly sources: SourcesClient;
   readonly media: MediaClient;
+
+  /** Importing many audio files at once, from a multiple choice or a folder. */
+  readonly imports: ImportsClient;
 
   /** Recording into a project, from a capture channel, and what a crash cut short. */
   readonly recording: RecordingClient;
@@ -93,6 +97,7 @@ export function storageClientOver(
     root: rootClient(channel, lending),
     sources: sourcesClient(lending),
     media: mediaClient(channel, lending),
+    imports: importsClient(channel, lending),
     recording: recordingClient(channel),
     caches: cacheClient(channel),
     packs: packsClient(channel, lending),

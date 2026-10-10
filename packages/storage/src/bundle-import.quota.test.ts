@@ -5,6 +5,8 @@ import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testi
 import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { StorageTree } from '@audiogubbins/project-format';
 
+import { CacheCategory, type CacheKey } from './cache-store.js';
+
 import type { CatalogueEntry } from './project-catalogue.js';
 import { exportBundle, importBundle } from './project-transfer.js';
 import { FillableTree } from './testing/fillable-tree.js';
@@ -68,5 +70,50 @@ describe('bringing a bundle into a full storage (REQ-EXEC-216)', () => {
     }
     // Full while the media was stored, and full while the project was written.
     expect(new Set(refusals)).toEqual(new Set(['media.storage-full', 'storage.full']));
+  });
+});
+
+describe('bringing in a bundle whose caches the storage cannot hold (F-51)', () => {
+  it('brings the project in whole, gives up the caches, and says which', async () => {
+    const test = harness(63);
+    const source = storageOf(test, new MemoryStorageTree());
+    const media = await storedMedia(source.store, 63, 20_000);
+    const header = await madeProject(test, source.tree);
+    const session = await openToWrite(test, source.tree, header.id);
+    expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), media)));
+    expectSuccess(await session.close());
+    const preview: CacheKey = {
+      category: CacheCategory.Render,
+      scope: { kind: 'project', project: header.id },
+      name: 'preview',
+    };
+    expectSuccess(await source.caches.put(preview, new Uint8Array(4_096).fill(7)));
+    const sink = memorySink();
+    expectSuccess(
+      expectSuccess(
+        await exportBundle(
+          header.id,
+          sink,
+          {
+            scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+            includeCaches: true,
+          },
+          source.exporting,
+        ),
+      ).written,
+    );
+
+    const memory = new MemoryStorageTree();
+    const tree = new FillableTree(memory);
+    tree.fullUnder = 'cache';
+    const target = storageOf(test, tree);
+    const imported = expectSuccess(
+      await importBundle(memorySource(sink.bytes()), 'original', target.importing),
+    );
+
+    expect(imported.skippedCaches).toEqual([`render/${header.id}/preview`]);
+    expect(await listed(tree)).toHaveLength(1);
+    expect(expectSuccess(await target.caches.open(preview))).toBeUndefined();
+    expect(memory.paths().filter((path) => path.startsWith('cache/'))).toEqual([]);
   });
 });

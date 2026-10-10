@@ -10,16 +10,45 @@
  * more than that credit and neither worker holds a whole sound.
  */
 
-import type { FinishedAudioFile, MetadataMap } from '@audiogubbins/codecs';
+import type {
+  CodecId,
+  CodecImplementation,
+  FinishedAudioFile,
+  MetadataMap,
+} from '@audiogubbins/codecs';
 import type { ChannelLayout, DomainFailure, SampleCount } from '@audiogubbins/domain';
 
-/** What a decoded stream is, sent once before its first block. */
+/**
+ * What a decoded stream is, sent once before its first block: what the
+ * storage sizes the rendition by before anything is stored, and what the
+ * asset's provenance records of the file and its decoder (ADR-0090).
+ */
 export interface DecodedStreamDescription {
+  /** The codec the stream is in, which a container that states none names only past its start. */
+  readonly codec: CodecId;
   readonly sampleRate: number;
   readonly layout: ChannelLayout;
 
-  /** The frames the stream states it holds, or `undefined` where it states none. */
+  /** The frames the stream states it holds after its priming, or `undefined` where it states none. */
   readonly statedFrames: SampleCount | undefined;
+
+  /** The file's average bit rate in bits a second, where it states one. */
+  readonly bitRate: number | undefined;
+
+  /**
+   * The file's frames before the stream's first decoded frame, as the
+   * positions in `metadata` count them: the priming the decoder trimmed where
+   * the format's loops and cues count it, and zero where they count from the
+   * first frame the decoder gives.
+   */
+  readonly leadingFrames: SampleCount;
+
+  /** The implementation that decodes the stream, its own name and its version. */
+  readonly decoder: {
+    readonly implementation: CodecImplementation;
+    readonly name: string;
+    readonly version: string;
+  };
   readonly metadata: MetadataMap;
 }
 

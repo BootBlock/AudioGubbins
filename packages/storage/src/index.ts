@@ -228,7 +228,26 @@ export { type ListedEntry } from './library-entry-files.js';
 export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
-export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';
+export { importAudio } from './audio-import.js';
+export {
+  type AudioImport,
+  type AudioImportServices,
+  type ImportCommands,
+  type ImportObserver,
+  type ImportedAudio,
+} from './import-contracts.js';
+export { type DecodedStream, type StreamDecoding } from './decoded-stream.js';
+export {
+  type BatchFile,
+  type BatchObserver,
+  type BatchOutcome,
+  type ImportBatch,
+  type ImportedBatch,
+  importBatch,
+} from './import-batch.js';
+export { type StorageRoom } from './import-analysis.js';
+export { decodingUnavailable } from './import-failures.js';
+export { clearStaging } from './staging-paths.js';
 export { type AudioPaste, pasteAudio } from './audio-paste.js';
 
 export { type CaptureStream, type CapturedEvent } from './capture-stream.js';

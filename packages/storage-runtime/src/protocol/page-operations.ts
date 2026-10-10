@@ -9,10 +9,11 @@
  * call settles. Bytes cross transferred, so a chunk is copied once at most. A
  * file the page holds crosses as itself, since a `File` clones and the worker
  * reads it as well as the page can, so only bytes the page alone can read are
- * read through it.
+ * read through it. The codec worker is reached the same way: the page starts
+ * a decode and lends the worker the stream's port, transferred.
  */
 
-import type { AssetId } from '@audiogubbins/domain';
+import type { AssetId, DomainResult } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
 import type { DirectoryFile, ExternalBackupTarget } from '@audiogubbins/storage';
@@ -88,4 +89,12 @@ export type PageOperations = {
     { readonly asset: AssetId; readonly identity: ExternalSourceIdentity },
     CrossingLocated
   >;
+
+  /**
+   * Starts the codec worker decoding the call's file of index `file`, and
+   * answers, transferred, the port the storage worker reads its decoded
+   * stream from (ADR-0090): the page joins the two workers, and no sample
+   * passes through it.
+   */
+  'decoder.decode': Lent<{ readonly file: number }, DomainResult<MessagePort>>;
 };

@@ -12,7 +12,7 @@
  * not lent at all: it crosses as itself (`page-operations.ts`).
  */
 
-import type { AssetId } from '@audiogubbins/domain';
+import type { AssetId, DomainResult } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource, ExternalSourceIdentity } from '@audiogubbins/project-format';
 import type { DirectoryReader, DirectoryWriter, ExternalBackupTarget } from '@audiogubbins/storage';
@@ -52,6 +52,16 @@ export type PageLocate = (
   signal?: AbortSignal,
 ) => Promise<PageLocated>;
 
+/**
+ * Starts the codec worker decoding the file of index `file` among those a call
+ * passes, answering the port its decoded stream is read from, or why it cannot
+ * be decoded, such as a codec worker that could not start (ADR-0090).
+ */
+export type PageDecoding = (
+  file: number,
+  signal?: AbortSignal,
+) => Promise<DomainResult<MessagePort>>;
+
 /** What a call lends the worker, each by the number it gets. */
 export interface Lender {
   sink(sink: ByteSink): PagePort;
@@ -61,6 +71,7 @@ export interface Lender {
   writer(writer: DirectoryWriter): PagePort;
   backupFolder(target: ExternalBackupTarget): PagePort;
   locate(locate: PageLocate): PagePort;
+  decoder(decoding: PageDecoding): PagePort;
 }
 
 type PageObject =
@@ -69,7 +80,8 @@ type PageObject =
   | { readonly kind: 'reader'; readonly reader: DirectoryReader }
   | { readonly kind: 'writer'; readonly writer: DirectoryWriter }
   | { readonly kind: 'backupFolder'; readonly target: ExternalBackupTarget }
-  | { readonly kind: 'locate'; readonly locate: PageLocate };
+  | { readonly kind: 'locate'; readonly locate: PageLocate }
+  | { readonly kind: 'decoder'; readonly decoding: PageDecoding };
 
 type ObjectOf<TKind extends PageObject['kind']> = Extract<PageObject, { readonly kind: TKind }>;
 
@@ -118,7 +130,7 @@ export class PagePorts {
 
   /** The service of the worker's calls on the ports lent. */
   handlers(): Handlers<PageOperations> {
-    return { ...this.#bytesHandlers(), ...this.#folderHandlers() };
+    return { ...this.#bytesHandlers(), ...this.#folderHandlers(), ...this.#decoderHandlers() };
   }
 
   /** The service of the sinks and sources lent. */
@@ -184,6 +196,16 @@ export class PagePorts {
     };
   }
 
+  /** The service of the decoders lent. */
+  #decoderHandlers(): PageHandlers<'decoder'> {
+    return {
+      'decoder.decode': async ({ port, file }, { signal }) => {
+        const stream = await this.#object(port, 'decoder').decoding(file, signal);
+        return stream.ok ? new Transferring(stream, [stream.value]) : stream;
+      },
+    };
+  }
+
   #lenderFor(call: Call): Lender {
     const lend = (object: PageObject): PagePort => this.#lend(object, call);
     const bytes = (offered: PageBytes): CrossingBytes =>
@@ -198,6 +220,7 @@ export class PagePorts {
       writer: (writer) => lend({ kind: 'writer', writer }),
       backupFolder: (target) => lend({ kind: 'backupFolder', target }),
       locate: (locate) => lend({ kind: 'locate', locate }),
+      decoder: (decoding) => lend({ kind: 'decoder', decoding }),
     };
   }
 

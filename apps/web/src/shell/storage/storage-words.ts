@@ -29,6 +29,7 @@ import { lostSentence } from '../history/history-words.js';
 /** What each cache is called. */
 const CACHE_NAMES: Readonly<Record<CacheCategory, string>> = {
   temporary: 'Temporary files',
+  staging: 'Imports and exports in progress',
   render: 'Rendered audio',
   analysis: 'Analysis',
   waveform: 'Waveforms',

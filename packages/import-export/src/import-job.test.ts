@@ -75,9 +75,13 @@ describe('a batch import', () => {
       { kind: 'copy-progress', bytesCopied: 11 },
     ],
     [
-      'decoded frames past the stream',
-      [{ kind: 'analyse' }, { kind: 'decode', framesTotal: 10 }],
-      { kind: 'decode-progress', framesDecoded: 11 },
+      'decoded frames going back',
+      [
+        { kind: 'analyse' },
+        { kind: 'decode', framesTotal: 10 },
+        { kind: 'decode-progress', framesDecoded: 6 },
+      ],
+      { kind: 'decode-progress', framesDecoded: 5 },
     ],
     ['an import before adding', [{ kind: 'analyse' }], { kind: 'imported' }],
     ['a second analysis', [{ kind: 'analyse' }], { kind: 'analyse' }],
@@ -86,6 +90,29 @@ describe('a batch import', () => {
     expect(expectFailureCode(nextImportJob(run(job(), 0, events), 0, event))).toBe(
       'import-export.import-step-refused',
     );
+  });
+
+  it('decodes a stream past the length it states, or one that states none', () => {
+    const stated = run(job(), 0, [
+      { kind: 'analyse' },
+      { kind: 'decode', framesTotal: 10 },
+      { kind: 'decode-progress', framesDecoded: 11 },
+    ]);
+    expect(stated.entries[0]?.state).toEqual({
+      kind: 'decoding',
+      framesDecoded: 11,
+      framesTotal: 10,
+    });
+    const unstated = run(job(), 0, [
+      { kind: 'analyse' },
+      { kind: 'decode', framesTotal: undefined },
+      { kind: 'decode-progress', framesDecoded: 4_800 },
+    ]);
+    expect(unstated.entries[0]?.state).toEqual({
+      kind: 'decoding',
+      framesDecoded: 4_800,
+      framesTotal: undefined,
+    });
   });
 
   it('begins the next file only as the one before it is added, decoding ahead by one', () => {

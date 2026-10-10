@@ -33,7 +33,13 @@ const ORDER: readonly ImportStage[] = ['queued', 'analysing', 'copying', 'decodi
 export type ImportFileState =
   | { readonly kind: 'queued' | 'analysing' | 'adding' }
   | { readonly kind: 'copying'; readonly bytesCopied: number; readonly bytesTotal: number }
-  | { readonly kind: 'decoding'; readonly framesDecoded: number; readonly framesTotal: number }
+  | {
+      readonly kind: 'decoding';
+      readonly framesDecoded: number;
+
+      /** The frames the stream states, which a decode may pass, or `undefined` where it states none. */
+      readonly framesTotal: number | undefined;
+    }
   | { readonly kind: 'imported' }
   | { readonly kind: 'refused'; readonly stage: ImportStage; readonly failure: DomainFailure }
   | { readonly kind: 'cancelled'; readonly stage: ImportStage };
@@ -54,7 +60,7 @@ export type ImportFileEvent =
   | { readonly kind: 'analyse' }
   | { readonly kind: 'copy'; readonly bytesTotal: number }
   | { readonly kind: 'copy-progress'; readonly bytesCopied: number }
-  | { readonly kind: 'decode'; readonly framesTotal: number }
+  | { readonly kind: 'decode'; readonly framesTotal: number | undefined }
   | { readonly kind: 'decode-progress'; readonly framesDecoded: number }
   | { readonly kind: 'add' }
   | { readonly kind: 'imported' }
@@ -115,11 +121,11 @@ function stepped(state: ImportFileState, event: ImportFileEvent): DomainResult<I
         ? succeed({ kind: 'decoding', framesDecoded: 0, framesTotal: event.framesTotal })
         : refused(state, event, 'a file is decoded once it is analysed, before it is added.');
     case 'decode-progress':
-      return state.kind === 'decoding' &&
-        event.framesDecoded >= state.framesDecoded &&
-        event.framesDecoded <= state.framesTotal
+      // A stream's stated length is its header's word, which a decode may pass,
+      // so the frames decoded only grow.
+      return state.kind === 'decoding' && event.framesDecoded >= state.framesDecoded
         ? succeed({ ...state, framesDecoded: event.framesDecoded })
-        : refused(state, event, "decoded frames grow, up to the stream's length, while decoding.");
+        : refused(state, event, 'decoded frames grow while decoding.');
     default:
       return ended(state, event);
   }

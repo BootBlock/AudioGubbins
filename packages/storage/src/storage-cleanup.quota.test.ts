@@ -151,7 +151,7 @@ describe('cleanup (REQ-STOR-106, REQ-STOR-102)', () => {
     const usage = expectSuccess(await storage.caches.usage());
     const temporary = usage.get(CacheCategory.Temporary) ?? 0;
     const relief = expectSuccess(await relieveStoragePressure(storage.caches, temporary + 1));
-    expect([...relief.freed.keys()]).toEqual([CacheCategory.Temporary, CacheCategory.Render]);
+    expect([...relief.freed.keys()]).toEqual([CacheCategory.Temporary, CacheCategory.Staging]);
     expect(notCaches()).toEqual(before);
     expectSuccess(await relieveStoragePressure(storage.caches));
     expect(notCaches()).toEqual(before);
