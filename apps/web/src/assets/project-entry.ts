@@ -25,6 +25,7 @@ import {
   type EditPlan,
   type PlacedMarker,
   type PlanContext,
+  type RangeEdit,
   type Region,
   type RegionId,
 } from '@audiogubbins/domain';
@@ -119,15 +120,24 @@ export function assetSentence(asset: Asset, plan: EditPlan): string {
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
 }
 
+/** Whether `edit` is one the original sound leaves out: a spectral edit (ADR-0081). */
+function isSpectral(edit: RangeEdit): boolean {
+  return edit.kind === 'spectral';
+}
+
 /**
- * Whether a chain processes `asset`, or `region` of it where one is given:
- * a rack of either, or a rack edit over a range of either, so its original
- * sound is another than the one heard.
+ * Whether what the original leaves out processes `asset`, or `region` of it
+ * where one is given: a rack of either, a rack edit over a range of either,
+ * or a spectral edit of either, which is bypassed with the chains for A/B
+ * (`bypassedAssetPlan`), so its original sound is another than the one heard.
  */
-export function runsChains(asset: Asset, region?: Region): boolean {
+export function bypassesProcessing(asset: Asset, region?: Region): boolean {
   return (
     chainIdsOf(assetChains(asset)).length > 0 ||
-    (region !== undefined && chainIdsOf(regionChains(region)).length > 0)
+    asset.edits.some((operation) => operation.kind === 'process' && isSpectral(operation.edit)) ||
+    (region !== undefined &&
+      (chainIdsOf(regionChains(region)).length > 0 ||
+        region.operations.some((operation) => isSpectral(operation.edit))))
   );
 }
 
@@ -219,7 +229,7 @@ function regionPlansBeside(
       ? undefined
       : unrackedRegionPlan(asset, region, context, resolver);
   if (unracked?.ok === false) return unracked.failures[0].summary;
-  const original = runsChains(asset, region)
+  const original = bypassesProcessing(asset, region)
     ? bypassedRegionPlan(asset, region, context, resolver)
     : undefined;
   if (original?.ok === false) return original.failures[0].summary;

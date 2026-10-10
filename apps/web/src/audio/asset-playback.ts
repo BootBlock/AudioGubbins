@@ -90,7 +90,7 @@ export function assetProgramme(asset: EditorAsset, hearing: Hearing): Programme 
     return {
       key: asset.id,
       rate: asset.sampleRate,
-      playing: `${asset.name} is playing as its original, every chain bypassed.`,
+      playing: `${asset.name} is playing as its original, every chain and spectral edit bypassed.`,
       content: original.content,
       plan: original.plan,
       request: (_contextRate, quality) => requestOf(original.layout, original.describe, quality),
