@@ -90,6 +90,8 @@ export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec
 
 export { type ImportRoute, importRoute } from './import-route.js';
 
+export { adtsAudioConfig } from './adts-config.js';
+
 export { type MetadataReader } from './metadata-reading.js';
 
 export { METADATA_READERS } from './metadata-readers.js';
