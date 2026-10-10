@@ -3987,10 +3987,11 @@ Published paths
   interface ImportEntry
   readonly ImportEntry.file: ImportFile
   readonly ImportEntry.state: ImportFileState
+  readonly ImportEntry.format?: RecognisedFormat
   interface ImportFile
   readonly ImportFile.name: string
   readonly ImportFile.bytes: number
-  type ImportFileEvent = { readonly kind: "add"; } | { readonly kind: "analyse"; } | { readonly kind: "copy"; readonly bytesTotal: number; } | { readonly kind: "copy-progress"; readonly bytesCopied: number; } | { readonly kind: "decode"; readonly framesTotal: number | undefined; } | { readonly kind: "decode-progress"; readonly framesDecoded: number; } | { readonly kind: "imported"; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
+  type ImportFileEvent = { readonly kind: "add"; } | { readonly kind: "analyse"; } | { readonly kind: "copy"; readonly bytesTotal: number; } | { readonly kind: "copy-progress"; readonly bytesCopied: number; } | { readonly kind: "decode"; readonly framesTotal: number | undefined; } | { readonly kind: "decode-progress"; readonly framesDecoded: number; } | { readonly kind: "imported"; } | { readonly kind: "recognised"; readonly format: RecognisedFormat; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
   type ImportFileState = { readonly kind: "adding" | "analysing" | "queued"; } | { readonly kind: "cancelled"; readonly stage: ImportStage; } | { readonly kind: "copying"; readonly bytesCopied: number; readonly bytesTotal: number; } | { readonly kind: "decoding"; readonly framesDecoded: number; readonly framesTotal: number | undefined; } | { readonly kind: "imported"; } | { readonly kind: "refused"; readonly stage: ImportStage; readonly failure: DomainFailure; }
   interface ImportJob
   readonly ImportJob.entries: readonly ImportEntry[]

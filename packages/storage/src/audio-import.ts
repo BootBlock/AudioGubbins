@@ -4,7 +4,8 @@
  *
  * The file is analysed first (`import-analysis.ts`), so a file in a format no
  * implementation reads, a malformed one, or one the storage has no room for, is
- * refused with the sentence that names why before a byte is stored. A file the
+ * refused with the sentence that names why before a byte is stored; the format
+ * its bytes were recognised as is reported as soon as it is known. A file the
  * read contract reads where it lies is then brought in by copy or by link as
  * the person's setting says, through the media store's own pipeline, and the
  * asset is built from what the reader found: the rate, the layout and the whole
@@ -70,6 +71,7 @@ export async function prepareImport(
   observe({ kind: 'analyse' });
   const analysis = await analyseFile(request.file, signal);
   if (!analysis.ok) return analysis;
+  observe({ kind: 'recognised', format: analysis.value.recognised });
   const name = nameFromFile('asset', request.file.fileName);
   if (!name.ok) return name;
   const project = session.getSnapshot().model.state.project.id;

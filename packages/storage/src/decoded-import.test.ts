@@ -160,8 +160,13 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
     );
     expect(staged(scene)).toEqual([]);
     expect(stream.refusals).toEqual([]);
+    expect(events[1]).toEqual({
+      kind: 'recognised',
+      format: { kind: 'audio', container: 'flac', codec: { kind: 'named', codec: 'flac' } },
+    });
     expect(events.map((event) => event.kind)).toEqual([
       'analyse',
+      'recognised',
       'copy',
       'copy-progress',
       'decode',

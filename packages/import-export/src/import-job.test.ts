@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { RecognisedFormat } from '@audiogubbins/codecs';
 import { FailureKind, failure } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
@@ -17,6 +18,12 @@ const UNREADABLE = failure(
   FailureKind.IntegrityViolation,
   'The header is cut short.',
 );
+
+const FLAC: RecognisedFormat = {
+  kind: 'audio',
+  container: 'flac',
+  codec: { kind: 'named', codec: 'flac' },
+};
 
 function job(): ImportJob {
   return importJob([
@@ -166,6 +173,30 @@ describe('a batch import', () => {
       'cancelled',
       'cancelled',
     ]);
+  });
+
+  it('keeps the format the analysis recognised on the entry, whatever the file comes to', () => {
+    const recognised = run(job(), 0, [{ kind: 'analyse' }, { kind: 'recognised', format: FLAC }]);
+    expect(recognised.entries[0]).toEqual({
+      file: { name: 'a.flac', bytes: 1_000 },
+      state: { kind: 'analysing' },
+      format: FLAC,
+    });
+    const refused = run(recognised, 0, [{ kind: 'refused', failure: UNREADABLE }]);
+    expect(refused.entries[0]?.format).toEqual(FLAC);
+    expect(cancelImport(run(recognised, 0, TO_ADDING.slice(1))).entries[0]?.format).toEqual(FLAC);
+  });
+
+  it.each([
+    ['before the file is analysed', []],
+    ['a second time', [{ kind: 'analyse' }, { kind: 'recognised', format: FLAC }]],
+    ['once the file is decoding', [{ kind: 'analyse' }, { kind: 'decode', framesTotal: 10 }]],
+  ] as const)('refuses a format recognised %s', (_name, events) => {
+    expect(
+      expectFailureCode(
+        nextImportJob(run(job(), 0, events), 0, { kind: 'recognised', format: FLAC }),
+      ),
+    ).toBe('import-export.import-step-refused');
   });
 
   it('refuses a file it does not have', () => {
