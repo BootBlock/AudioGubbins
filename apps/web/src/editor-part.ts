@@ -143,6 +143,7 @@ function spectrogramHost(
         logger.warning(message, { reason: event.reason });
       }
     },
+    now: () => Date.now(),
   });
 }
 

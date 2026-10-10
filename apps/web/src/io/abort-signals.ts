@@ -6,18 +6,25 @@
 
 import type { CancellationSignal } from '@audiogubbins/domain';
 
-/** An `AbortSignal` that aborts as `signal` is cancelled, with its reason. */
-export function abortSignalOf(signal: CancellationSignal): AbortSignal {
+/**
+ * Runs `work` with an `AbortSignal` that aborts as `signal` is cancelled, with
+ * its reason, and stops listening to `signal` once the work settles: a signal
+ * that is never cancelled, as a view's or a thread's often is not, would
+ * otherwise hold a listener for every piece of work it was ever given.
+ */
+export async function withAbortSignal<T>(
+  signal: CancellationSignal,
+  work: (abort: AbortSignal) => Promise<T>,
+): Promise<T> {
   const controller = new AbortController();
-  if (signal.aborted) controller.abort(signal.reason);
-  else {
-    signal.addEventListener(
-      'abort',
-      () => {
-        controller.abort(signal.reason);
-      },
-      { once: true },
-    );
+  const cancelled = (): void => {
+    controller.abort(signal.reason);
+  };
+  if (signal.aborted) cancelled();
+  else signal.addEventListener('abort', cancelled, { once: true });
+  try {
+    return await work(controller.signal);
+  } finally {
+    signal.removeEventListener('abort', cancelled);
   }
-  return controller.signal;
 }

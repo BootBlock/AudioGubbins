@@ -224,6 +224,7 @@ export function fakePanelParts(context: ShellContext, logger: Logger): EditorPan
         createWorker: silentSpectrogramWorker,
         cache: NO_SPECTROGRAM_CACHE,
         report: () => undefined,
+        now: () => 0,
       }),
       graphics: { gpu: undefined, pixelRatio: () => 1, watchPixelRatio: () => () => undefined },
       rendererReports: createRendererReports(),

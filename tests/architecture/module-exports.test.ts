@@ -256,6 +256,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
   "The most channels an inference worker serves at once, which its core's test fills and goes past; the core refuses a connection past it itself.":
     ['packages/ml-runtime/src/inference-worker-core.ts: MOST_CONNECTIONS'],
+  "The most spectrogram tiles of a sound waiting to be kept, which the cache's test fills and goes past; the cache lets the oldest go past it itself.":
+    ['apps/web/src/io/stored-spectrogram-cache.ts: WAITING_WRITES'],
   'How long a resume of the audio context is waited on, which the lifecycle and session tests wait out.':
     ['packages/audio-runtime/src/context/context-resume.ts: GESTURE_WAIT_MILLISECONDS'],
   'How long a notice stays, which the announcement tests wait out.': [

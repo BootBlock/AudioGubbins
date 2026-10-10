@@ -33,7 +33,7 @@ import {
   type SpectrogramHandle,
   type SpectrogramHostEvent,
 } from './spectrogram-host.js';
-import type { SpectralTileCache } from './spectrogram-ports.js';
+import type { SpectralTileCache, TileWriting } from './spectrogram-ports.js';
 import {
   FromSpectrogramWorkerKind,
   ToSpectrogramWorkerKind,
@@ -66,7 +66,11 @@ function audio(tiles: number, seed = 1): Float32Array {
 }
 
 function rig(
-  options: { readonly worker?: LocalSpectrogramOptions; readonly memoryBudget?: number } = {},
+  options: {
+    readonly worker?: LocalSpectrogramOptions;
+    readonly memoryBudget?: number;
+    readonly now?: () => number;
+  } = {},
   cache: SpectralTileCache = new MemoryTileCache(),
 ) {
   const workers: LocalSpectrogramWorker[] = [];
@@ -79,9 +83,28 @@ function rig(
     },
     cache,
     report: (event) => events.push(event),
+    now: options.now ?? (() => 0),
     ...(options.memoryBudget === undefined ? {} : { memoryBudget: options.memoryBudget }),
   });
   return { host, events, workers };
+}
+
+/** A cache that reads nothing and keeps every write waiting until its signal is cancelled. */
+class WaitingTileCache implements SpectralTileCache {
+  readonly writes: { readonly key: SpectralTileKey; readonly writing: TileWriting }[] = [];
+
+  read(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  write(key: SpectralTileKey, _bytes: Uint8Array, writing: TileWriting): Promise<void> {
+    this.writes.push({ key, writing });
+    return new Promise((_resolve, reject) => {
+      writing.signal.addEventListener('abort', () => {
+        reject(writing.signal.reason instanceof Error ? writing.signal.reason : new Error());
+      });
+    });
+  }
 }
 
 /** Waits until `done` holds, a worker's turn at a time. */
@@ -281,6 +304,38 @@ describe('the spectrogram host', () => {
       { kind: 'cache-unwritten', identity: 'full', reason: 'The storage is full.' },
     ]);
     expect(handle.tile(CONFIG, 0, 0, 0)?.tile.values.length).toBe(256 * 129);
+  });
+
+  it('tells the cache when each revision’s job opened, a later job later, even within the same millisecond', async () => {
+    const cache = new WaitingTileCache();
+    const { host } = rig({ now: () => 1_000 }, cache);
+    const before = host.open(memorySubject('dated', [audio(1, 1)], 'r1'));
+    show(before, 0, 0);
+    await until(() => held(before, 0, 0));
+    const after = host.open(memorySubject('dated', [audio(1, 2)], 'r2'));
+    show(after, 0, 0);
+    await until(() => held(after, 0, 0));
+
+    expect(
+      cache.writes.map(({ key, writing }) => ({ revision: key.revision, opened: writing.opened })),
+    ).toEqual([
+      { revision: 'r1', opened: 1_000 },
+      { revision: 'r2', opened: 1_001 },
+    ]);
+  });
+
+  it('gives up the writes of a job that closes, and reports none of them', async () => {
+    const cache = new WaitingTileCache();
+    const { host, events } = rig({}, cache);
+    const handle = host.open(memorySubject('closed', [audio(2)]));
+    show(handle, 0, 1);
+    await until(() => held(handle, 0, 1));
+    expect(cache.writes.map(({ writing }) => writing.signal.aborted)).toEqual([false, false]);
+    handle.release();
+    await quiet();
+
+    expect(cache.writes.map(({ writing }) => writing.signal.aborted)).toEqual([true, true]);
+    expect(events.filter((event) => event.kind !== 'dsp')).toEqual([]);
   });
 
   it('reports a cache it cannot read, and analyses the tile', async () => {

@@ -20,6 +20,19 @@ export type SpectrogramEvent =
   | { readonly kind: 'cache-unwritten'; readonly identity: string; readonly reason: string }
   | { readonly kind: 'failed'; readonly identity: string; readonly reason: string };
 
+/** What the job that made a tile tells the cache that keeps it. */
+export interface TileWriting {
+  /**
+   * When the job of the tile's revision opened, in milliseconds since 1970,
+   * each job a page opens later than the last: a cache keeping the tiles of a
+   * revision whose job opened later refuses the tile, so a tile of a revision
+   * an edit replaced, kept late, never clears the replacing revision's tiles.
+   */
+  readonly opened: number;
+  /** Cancelled when the job closes, which gives the write up, waiting or under way. */
+  readonly signal: CancellationSignal;
+}
+
 /** Where tiles are kept between sessions: a disposable cache, one revision of a source at a time. */
 export interface SpectralTileCache {
   /** The bytes kept for `key`, or `undefined`; the read stops when `signal` is cancelled. */
@@ -29,9 +42,10 @@ export interface SpectralTileCache {
   ): Promise<Uint8Array<ArrayBuffer> | undefined>;
   /**
    * Keeps `bytes` for `key`, letting go of the tiles of the source's other
-   * revisions. The bytes stay the page's: a store that moves them copies them.
+   * revisions, or refuses them where the kept revision's job opened later.
+   * The bytes stay the page's: a store that moves them copies them.
    */
-  write(key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
+  write(key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>, writing: TileWriting): Promise<void>;
 }
 
 /** What one view of a sound shows: one level's tiles of some channels, around a frame. */
