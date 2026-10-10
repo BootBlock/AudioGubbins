@@ -17,6 +17,8 @@
  * events, so the gesture rules are testable without a touchscreen.
  */
 
+import { DEFAULT_PRESSURE_PREFERENCE, type PressurePreference } from './pressure-preference.js';
+
 /** What is touching the screen. */
 export const PointerKind = {
   Mouse: 'mouse',
@@ -68,14 +70,12 @@ export type Gesture =
 export const NO_GESTURE: Gesture = { kind: 'idle' };
 
 /**
- * How gestures are recognised.
+ * How gestures are recognised, and how hard a tool acts.
  *
- * A value with a default, and nothing persists it yet: no tool in this phase
- * has a strength that pressure could vary, so there is nothing for a user to
- * choose between. ADR-0017 gives the choice, which REQ-UX-068 requires, to the
- * phase that adds the first pressure-sensitive tool.
+ * The pressure choice is the person's, which their preferences persist
+ * (`PressurePreference`, ADR-0082); the long press is the input model's.
  */
-export interface GestureSettings {
+export interface GestureSettings extends PressurePreference {
   /**
    * How long a contact must be still before it becomes a context action.
    *
@@ -87,25 +87,13 @@ export interface GestureSettings {
 
   /** How far a contact may move and still count as a long press. */
   readonly longPressTolerancePx: number;
-
-  /**
-   * Whether pen pressure varies the tool.
-   *
-   * REQ-UX-068 requires a deterministic fixed strength to remain available on
-   * pressure-capable hardware, so this is a preference and not a capability.
-   */
-  readonly usePenPressure: boolean;
-
-  /** The strength used when pressure is off or unreported, from 0 to 1. */
-  readonly fixedStrength: number;
 }
 
 /** How gestures are recognised before a user changes anything. */
 export const DEFAULT_GESTURE_SETTINGS: GestureSettings = {
   longPressMs: 500,
   longPressTolerancePx: 8,
-  usePenPressure: true,
-  fixedStrength: 0.75,
+  ...DEFAULT_PRESSURE_PREFERENCE,
 };
 
 /**
