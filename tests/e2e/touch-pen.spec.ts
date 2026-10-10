@@ -7,6 +7,7 @@ import {
   samplesInPixelOf,
   scopeOf,
   shownOf,
+  surfaceBoxOf,
   surfaceOf,
   writeTimesAs,
 } from './editor.js';
@@ -61,15 +62,13 @@ async function twoFingers(
 
 /** The middle of the first lane of `panel`'s surface. */
 async function middleOf(panel: Locator): Promise<{ x: number; y: number }> {
-  const box = await surfaceOf(panel).boundingBox();
-  if (box === null) throw new Error('The surface is not on screen.');
+  const box = await surfaceBoxOf(panel);
   return { x: box.x + box.width / 2, y: box.y + 42 + (box.height - 42) / 4 };
 }
 
 /** The boundary under the page's `x` on `panel`'s surface, as the panel writes it in samples. */
 async function boundaryUnder(panel: Locator, x: number): Promise<number> {
-  const box = await surfaceOf(panel).boundingBox();
-  if (box === null) throw new Error('The surface is not on screen.');
+  const box = await surfaceBoxOf(panel);
   const { start } = await shownOf(panel);
   return start + (x - box.x - 1) * (await samplesInPixelOf(panel));
 }
