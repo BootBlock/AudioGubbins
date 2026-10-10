@@ -11,7 +11,7 @@ import { ChannelRole, sampleRate, type SampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { dspModuleExports } from '../testing/dsp-module.js';
-import { DetectorKind, type DetectorSettings } from './canonical-analysis.js';
+import { DetectorKind, type DetectorSettings, StftWindow } from './canonical-analysis.js';
 import type { CanonicalDsp } from './canonical-dsp.js';
 import { kWeighting } from './reference/analysis/k-weighting.js';
 import { sineOfTurns } from './reference/primitives.js';
@@ -155,9 +155,14 @@ describe.each([
   ['the WebAssembly module', (): CanonicalDsp => wasm],
   ['the reference path', (): CanonicalDsp => REFERENCE_DSP],
 ])('the measuring objects in %s', (_name, dspOf) => {
-  it('give the golden STFT frames, polar and complex', () => {
+  it.each([
+    // `GOLDEN_STFT` in `stft.rs`.
+    [StftWindow.Hann, [0x7ce28db813909753n, 0xe3df76afe3a05176n]],
+    // `GOLDEN_STFT_BLACKMAN_HARRIS` in `stft.rs`.
+    [StftWindow.BlackmanHarris, [0x907707fcc42f2c34n, 0x992ba50ac9713cc6n]],
+  ])('give the golden STFT frames through the %s window, polar and complex', (window, expected) => {
     const planar = golden(2, 1_000);
-    const stft = expectSuccess(dspOf().createStft({ channels: 2, size: 256, hop: 96 }));
+    const stft = expectSuccess(dspOf().createStft({ channels: 2, size: 256, hop: 96, window }));
     const first = new Float64Array(2 * stft.bins);
     const second = new Float64Array(2 * stft.bins);
     const polar: number[] = [];
@@ -175,11 +180,7 @@ describe.each([
     }
     stft.release();
     expect(frame).toBe(8);
-    // `GOLDEN_STFT` in `stft.rs`.
-    expect([fingerprint(polar), fingerprint(complex)]).toEqual([
-      0x7ce28db813909753n,
-      0xe3df76afe3a05176n,
-    ]);
+    expect([fingerprint(polar), fingerprint(complex)]).toEqual(expected);
   });
 
   it.each([

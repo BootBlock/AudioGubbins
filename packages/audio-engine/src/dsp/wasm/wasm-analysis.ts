@@ -12,6 +12,7 @@ import { succeed, type DomainResult } from '@audiogubbins/domain';
 import {
   DETECTOR_CODES,
   STFT_OUTPUTS,
+  STFT_WINDOW_CODES,
   assertLength,
   detectorValues,
   framesOf,
@@ -80,9 +81,9 @@ function withValues(
 
 /** A short-time Fourier transform in the module. */
 export function stftIn(module: DspExports, settings: StftSettings): DomainResult<CanonicalStft> {
-  const { channels, size, hop } = settings;
+  const { channels, size, hop, window } = settings;
   const calls = module.analysis;
-  const handle = calls.stftCreate(channels, size, hop);
+  const handle = calls.stftCreate(channels, size, hop, STFT_WINDOW_CODES[window]);
   if (handle === 0) return refusedByModule('a short-time Fourier transform');
   const bins = size / 2 + 1;
   const length = channels * bins;

@@ -564,6 +564,9 @@ Published paths
   readonly StftSettings.channels: number
   readonly StftSettings.size: number
   readonly StftSettings.hop: number
+  readonly StftSettings.window: StftWindow
+  const StftWindow: { readonly Hann: "hann"; readonly BlackmanHarris: "blackman-harris"; }
+  type StftWindow = "blackman-harris" | "hann"
   type StreamReader = (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
   const TRANSPORT_AT_START: TransportState
   const TRUE_PEAK_TAPS: 12
@@ -878,7 +881,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27349: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1172,7 +1175,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27349: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 

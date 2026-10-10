@@ -1030,9 +1030,12 @@ describe('third-party libraries stay behind their adapters', () => {
    * The package takes the global as an argument rather than reaching for it, so
    * its own probes are written on `navigatorLike`. An expression that knows the
    * literal `navigator` alone cannot see a line of `keyboard-layout-map.ts`,
-   * the module whose whole purpose is probing.
+   * the module whose whole purpose is probing. A stand-in is a value, so it is
+   * written in camel case: a PascalCase name other than the globals' own
+   * interfaces is a type or a constant, such as the STFT's `StftWindow`, whose
+   * type query is no question about the browser.
    */
-  const GLOBAL_LIKE = String.raw`[\w$]*(?:avigator|indow|lobalThis)[\w$]*`;
+  const GLOBAL_LIKE = String.raw`(?:Window|Navigator|(?![A-Z])[\w$]*(?:avigator|indow|lobalThis)[\w$]*)`;
 
   /**
    * What asking the browser what it can do, or where it is running, looks like.
@@ -1075,6 +1078,7 @@ describe('third-party libraries stay behind their adapters', () => {
       "const keyboard: unknown = Reflect.get(navigatorLike, 'keyboard');",
     ],
     ['a reflected membership test', "if (!Reflect.has(globalThis, 'showOpenFilePicker')) return;"],
+    ['a type test of a global interface', "if (typeof Window === 'undefined') return;"],
   ])('recognises %s as a probe', (_form, code) => {
     expect(PROBE.test(code)).toBe(true);
   });
@@ -1084,6 +1088,10 @@ describe('third-party libraries stay behind their adapters', () => {
     ['a reload', 'window.location.reload();'],
     ['a variable named after a capability', 'const userAgentText = summary.browser;'],
     ['a reflected read of something else', "const entries: unknown = Reflect.get(map, 'entries');"],
+    [
+      'a type query of a constant named for a window',
+      'export type StftWindow = (typeof StftWindow)[keyof typeof StftWindow];',
+    ],
   ])('does not mistake %s for a probe', (_form, code) => {
     expect(PROBE.test(code)).toBe(false);
   });

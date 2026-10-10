@@ -12,6 +12,21 @@
 
 import type { ChannelLayout, SampleRate } from '@audiogubbins/domain';
 
+/**
+ * The window a short-time Fourier transform weights each frame by
+ * (`StftWindow` in `stft.rs`, ADR-0080): the periodic Hann,
+ * `0.5 − 0.5 · cos(2πn/N)`, or the periodic four-term Blackman–Harris,
+ * `0.35875 − 0.48829 · cos(2πn/N) + 0.14128 · cos(4πn/N) − 0.01168 · cos(6πn/N)`,
+ * whose side lobes lie 92 dB down.
+ */
+export const StftWindow = {
+  Hann: 'hann',
+  BlackmanHarris: 'blackman-harris',
+} as const;
+
+/** The window a short-time Fourier transform weights each frame by. */
+export type StftWindow = (typeof StftWindow)[keyof typeof StftWindow];
+
 /** How to make a short-time Fourier transform. */
 export interface StftSettings {
   /** From 1 to 256. */
@@ -20,13 +35,14 @@ export interface StftSettings {
   readonly size: number;
   /** The samples between the starts of two frames, from 1 to `size`. */
   readonly hop: number;
+  readonly window: StftWindow;
 }
 
 /**
  * A short-time Fourier transform (`stft.rs`). Frame `k` is the `N` samples
- * from sample `k · hop`, the first at the stream's first sample, times the
- * periodic Hann window `0.5 − 0.5 · cos(2πn/N)`, transformed by the canonical
- * FFT, unscaled: a full-scale sine centred on a bin has a magnitude of `N/4`
+ * from sample `k · hop`, the first at the stream's first sample, times its
+ * {@link StftWindow}, transformed by the canonical FFT, unscaled: through the
+ * Hann window a full-scale sine centred on a bin has a magnitude of `N/4`
  * there. To reach the last samples of a stream, push `N − hop` zeros after
  * them.
  */
