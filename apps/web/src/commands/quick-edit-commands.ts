@@ -113,7 +113,7 @@ async function attempted(
   const session = stores.project.session();
   if (session === undefined) return { kind: 'failed', failed: fail(NOT_WRITABLE) };
   const outcome = await stores.imports.importChosen(
-    { session, ids: context.ids, clock: context.clock },
+    { session, ids: context.ids, clock: context.clock, codecs: context.codecs },
     [file],
   );
   if (!outcome.ok) return { kind: 'failed', failed: outcome };

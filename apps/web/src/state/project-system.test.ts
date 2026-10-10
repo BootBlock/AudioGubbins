@@ -3,12 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { libraryChannel } from '../io/library-channel.js';
-import {
-  READY_CODECS,
-  olderStorage,
-  projectWorld,
-  scriptedFiles,
-} from '../testing/project-context.js';
+import { olderStorage, projectWorld, scriptedFiles } from '../testing/project-context.js';
 import { ScriptedLinkedFiles } from '../testing/scripted-linked-files.js';
 import { buildShellContext } from '../testing/shell-context.js';
 import type { PageVisibility } from './layout-map-watch.js';
@@ -45,14 +40,8 @@ describe('the peak cache the project system keeps', () => {
         backupFolder: undefined,
         linkedFiles: new ScriptedLinkedFiles(),
         libraryChanges: libraryChannel(undefined, built.context.diagnostics.loggerFor('projects')),
-        codecs: READY_CODECS,
       },
-      {
-        diagnostics: built.context.diagnostics,
-        storage: built.storage,
-        page: VISIBLE_PAGE,
-        codecs: READY_CODECS,
-      },
+      { diagnostics: built.context.diagnostics, storage: built.storage, page: VISIBLE_PAGE },
     );
     await expect.poll(() => system.storageRoot.get().kind).toBe('blocked');
 

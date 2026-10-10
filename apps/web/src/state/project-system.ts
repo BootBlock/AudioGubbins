@@ -35,7 +35,6 @@ import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf, type ProjectServices } from '../storage/project-services.js';
 import { abandonment, isAbandoned } from './abandoning.js';
-import type { ImportCodecs } from './import-batches.js';
 import type { PageVisibility } from './layout-map-watch.js';
 import {
   createProjectStores,
@@ -77,9 +76,6 @@ export interface ProjectSystemNeeds {
   readonly diagnostics: DiagnosticCentre;
   readonly storage: StateStorage;
   readonly page: PageVisibility;
-
-  /** The page's codecs, which exist whether or not projects can be kept here. */
-  readonly codecs: ImportCodecs;
 }
 
 /**
@@ -152,7 +148,6 @@ export function startProjectSystem(
       platform.openBroadcastChannel,
       needs.diagnostics.loggerFor('projects'),
     ),
-    codecs: needs.codecs,
   };
   return { ...projectSystemOver(services, ports, needs), storageAbsences };
 }

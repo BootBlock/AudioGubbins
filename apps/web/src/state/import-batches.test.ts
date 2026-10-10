@@ -11,6 +11,7 @@ import {
   ONE_AT_A_TIME,
   type ImportBatchState,
   type ImportCodecs,
+  type ImportTarget,
 } from './import-batches.js';
 
 holdPlatformFiles();
@@ -30,7 +31,7 @@ const NOTES = new TextEncoder().encode('Not a sound at all.');
 
 const NO_WORKER = failure(
   'codecs.worker-unavailable',
-  FailureKind.Unavailable,
+  FailureKind.Retryable,
   'The codec worker could not be started.',
 );
 
@@ -64,6 +65,7 @@ async function scene(
   readonly imports: ImportBatches;
   readonly asked: ReturnType<typeof vi.spyOn>;
   readonly states: ImportBatchState[];
+  readonly target: () => ImportTarget;
 }> {
   const window = await projectWorld().window();
   await window.runAndHear('file.create-project', { name: 'Harbour' });
@@ -71,7 +73,6 @@ async function scene(
   const asked = vi.spyOn(client, 'importFiles');
   const imports = new ImportBatches(
     client,
-    codecs,
     {
       chooseMediaFiles: () => Promise.resolve(batches.shift() ?? []),
       chooseMediaFolder: () => Promise.resolve(batches.shift() ?? []),
@@ -81,13 +82,12 @@ async function scene(
   );
   const states: ImportBatchState[] = [];
   imports.subscribe(() => states.push(imports.get()));
-  return { window, imports, asked, states };
-}
-
-function target(window: ProjectWindow) {
-  const session = window.projects.project.session();
-  if (session === undefined) throw new Error('No project is open to change.');
-  return { session, ids: window.context.ids, clock: window.context.clock };
+  const target = () => {
+    const session = window.projects.project.session();
+    if (session === undefined) throw new Error('No project is open to change.');
+    return { session, ids: window.context.ids, clock: window.context.clock, codecs };
+  };
+  return { window, imports, asked, states, target };
 }
 
 function assetNames(window: ProjectWindow): readonly string[] {
@@ -100,11 +100,11 @@ function assetNames(window: ProjectWindow): readonly string[] {
 describe('a batch of files imported into the open project (ADR-0090)', () => {
   it('lists every file at once, readies the codecs before the storage is asked, and shows the job the storage reports', async () => {
     const codecs = new HeldCodecs();
-    const { window, imports, asked, states } = await scene(codecs, [
+    const { window, imports, asked, states, target } = await scene(codecs, [
       [chosen(TONE, 'One.wav'), chosen(NOTES, 'notes.txt'), chosen(TONE, 'Two.wav')],
     ]);
 
-    const work = imports.importFiles(target(window));
+    const work = imports.importFiles(target());
     await vi.waitFor(() => {
       expect(codecs.asked).toBe(1);
     });
@@ -145,9 +145,9 @@ describe('a batch of files imported into the open project (ADR-0090)', () => {
 
   it('runs the batch where the codecs cannot be made ready, and says why', async () => {
     const codecs = new HeldCodecs();
-    const { window, imports } = await scene(codecs, [[chosen(TONE, 'One.wav')]]);
+    const { window, imports, target } = await scene(codecs, [[chosen(TONE, 'One.wav')]]);
 
-    const work = imports.importFiles(target(window));
+    const work = imports.importFiles(target());
     await vi.waitFor(() => {
       expect(codecs.asked).toBe(1);
     });
@@ -162,11 +162,11 @@ describe('a batch of files imported into the open project (ADR-0090)', () => {
 
   it('keeps nothing and asks the storage nothing where the import is cancelled while the codecs start', async () => {
     const codecs = new HeldCodecs();
-    const { window, imports, asked } = await scene(codecs, [
+    const { window, imports, asked, target } = await scene(codecs, [
       [chosen(TONE, 'One.wav'), chosen(TONE, 'Two.wav')],
     ]);
 
-    const work = imports.importFiles(target(window));
+    const work = imports.importFiles(target());
     await vi.waitFor(() => {
       expect(codecs.asked).toBe(1);
     });
@@ -187,24 +187,24 @@ describe('a batch of files imported into the open project (ADR-0090)', () => {
 
   it('refuses a second batch while one runs, before any chooser opens', async () => {
     const codecs = new HeldCodecs();
-    const { window, imports } = await scene(codecs, [
+    const { imports, target } = await scene(codecs, [
       [chosen(TONE, 'One.wav')],
       [chosen(TONE, 'Two.wav')],
     ]);
 
-    const work = imports.importFiles(target(window));
+    const work = imports.importFiles(target());
     await vi.waitFor(() => {
       expect(codecs.asked).toBe(1);
     });
-    expect(await imports.importChosen(target(window), [chosen(TONE, 'Two.wav')])).toEqual(
+    expect(await imports.importChosen(target(), [chosen(TONE, 'Two.wav')])).toEqual(
       fail(ONE_AT_A_TIME),
     );
-    expect(await imports.importFolder(target(window))).toEqual(fail(ONE_AT_A_TIME));
+    expect(await imports.importFolder(target())).toEqual(fail(ONE_AT_A_TIME));
     codecs.settle(succeed(undefined));
     await work;
 
     // The refused folder's chooser never opened, so its answer is the next one's.
-    const later = imports.importFolder(target(window));
+    const later = imports.importFolder(target());
     await vi.waitFor(() => {
       expect(codecs.asked).toBe(2);
     });
@@ -217,27 +217,27 @@ describe('a batch of files imported into the open project (ADR-0090)', () => {
 
   it('brings nothing in and asks nothing where the person dismisses the chooser', async () => {
     const codecs = new HeldCodecs();
-    const { window, imports, asked } = await scene(codecs);
+    const { imports, asked, target } = await scene(codecs);
 
-    expect(await imports.importFolder(target(window))).toEqual(succeed({ kind: 'dismissed' }));
+    expect(await imports.importFolder(target())).toEqual(succeed({ kind: 'dismissed' }));
     expect(codecs.asked).toBe(0);
     expect(asked).not.toHaveBeenCalled();
     expect(imports.get()).toEqual({ kind: 'idle' });
   });
 
   it('keeps an ended batch listed until it is cleared, or its project is let go', async () => {
-    const { window, imports } = await scene({ ready: () => Promise.resolve(succeed(undefined)) }, [
-      [chosen(TONE, 'One.wav')],
-      [chosen(TONE, 'Two.wav')],
-    ]);
+    const { window, imports, target } = await scene(
+      { ready: () => Promise.resolve(succeed(undefined)) },
+      [[chosen(TONE, 'One.wav')], [chosen(TONE, 'Two.wav')]],
+    );
 
-    await imports.importFiles(target(window));
+    await imports.importFiles(target());
     expect(imports.get().kind).toBe('ended');
     expect(imports.clear()).toBe(true);
     expect(imports.get().kind).toBe('idle');
     expect(imports.clear()).toBe(false);
 
-    await imports.importFiles(target(window));
+    await imports.importFiles(target());
     expect(imports.get().kind).toBe('ended');
     await window.runAndHear('file.close-project');
     expect(imports.get().kind).toBe('idle');

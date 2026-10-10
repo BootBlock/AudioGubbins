@@ -174,7 +174,12 @@ function importCommand(
       if (typeof stores === 'string') return stores;
       const session = sessionOf(context);
       if (typeof session === 'string') return session;
-      const work = start(stores.imports, { session, ids: context.ids, clock: context.clock });
+      const work = start(stores.imports, {
+        session,
+        ids: context.ids,
+        clock: context.clock,
+        codecs: context.codecs,
+      });
       sayWhenSettled(context, importedSentence(context, work), (said) => said);
       return undefined;
     },

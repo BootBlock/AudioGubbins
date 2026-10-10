@@ -77,11 +77,15 @@ export interface ImportCodecs {
   ready(): Promise<DomainResult<void>>;
 }
 
-/** How a batch is asked for: the project it goes into, its assets' identities, and the time. */
+/**
+ * How a batch is asked for: the project it goes into, its assets' identities,
+ * the time, and the page's codecs, which a command takes from its context.
+ */
 export interface ImportTarget {
   readonly session: RemoteProjectSession;
   readonly ids: IdGenerator;
   readonly clock: Clock;
+  readonly codecs: ImportCodecs;
 }
 
 const IDLE: ImportBatchState = { kind: 'idle' };
@@ -116,7 +120,6 @@ function queuedJob(files: readonly PageFile[]): ImportJob {
 /** Brings batches of audio files into the open project, one batch at a time. */
 export class ImportBatches implements Observable<ImportBatchState> {
   readonly #imports: Pick<ImportsClient, 'importFiles'>;
-  readonly #codecs: ImportCodecs;
   readonly #files: Pick<TransferFiles, 'chooseMediaFiles' | 'chooseMediaFolder'>;
   readonly #project: Pick<OpenProjectStore, 'scope'>;
   readonly #preferences: Pick<ProjectPreferencesStore, 'get'>;
@@ -129,13 +132,11 @@ export class ImportBatches implements Observable<ImportBatchState> {
 
   constructor(
     imports: Pick<ImportsClient, 'importFiles'>,
-    codecs: ImportCodecs,
     files: Pick<TransferFiles, 'chooseMediaFiles' | 'chooseMediaFolder'>,
     project: Pick<OpenProjectStore, 'scope'>,
     preferences: Pick<ProjectPreferencesStore, 'get'>,
   ) {
     this.#imports = imports;
-    this.#codecs = codecs;
     this.#files = files;
     this.#project = project;
     this.#preferences = preferences;
@@ -211,11 +212,11 @@ export class ImportBatches implements Observable<ImportBatchState> {
 
   /** Makes the codec worker ready, then runs the batch in the storage worker. */
   async #run(
-    { session, ids, clock }: ImportTarget,
+    { session, ids, clock, codecs }: ImportTarget,
     files: readonly PageFile[],
     signal: AbortSignal,
   ): Promise<{ readonly batch: ImportedBatch; readonly codecsUnready: DomainFailure | undefined }> {
-    const ready = await this.#codecs.ready();
+    const ready = await codecs.ready();
     const codecsUnready = ready.ok ? undefined : ready.failures[0];
     if (signal.aborted) {
       // Called off while the codec worker started, before the storage was

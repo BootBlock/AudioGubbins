@@ -239,10 +239,11 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
       ),
     );
     const [first] = assetsOf(window).project.assets.values();
+    if (first === undefined) throw new Error('Nothing was imported.');
     expect([...assetsOf(window).project.assets.values()].map((asset) => asset.displayName)).toEqual(
       ['One', 'Two'],
     );
-    expect(window.context.editorViews.entry('editor')?.asset).toBe(assetEntryId(first?.id ?? ''));
+    expect(window.context.editorViews.entry('editor')?.asset).toBe(assetEntryId(first.id));
   });
 
   it('says what a batch the person cancels kept, and what it did not', async () => {

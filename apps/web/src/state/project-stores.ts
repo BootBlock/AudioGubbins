@@ -24,7 +24,7 @@ import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
 import { HistoryRowOrders } from './history-row-orders.js';
-import { ImportBatches, type ImportCodecs } from './import-batches.js';
+import { ImportBatches } from './import-batches.js';
 import { InterruptedRecordings } from './interrupted-recordings.js';
 import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
@@ -88,9 +88,6 @@ export interface ProjectPorts {
 
   /** How this tab and the person's others tell each other their library changed. */
   readonly libraryChanges: LibraryChanges;
-
-  /** The page's codecs, made ready before files are imported so compressed ones decode. */
-  readonly codecs: ImportCodecs;
 }
 
 /**
@@ -125,7 +122,7 @@ export function createProjectStores(
       project,
       recorder: new ExportRecorder(logger, project),
     }),
-    imports: new ImportBatches(client.imports, ports.codecs, files, project, preferences),
+    imports: new ImportBatches(client.imports, files, project, preferences),
     quickEdit: new QuickEditStore(project),
     project,
     review: new HistoryReviewStore(project, logger),
