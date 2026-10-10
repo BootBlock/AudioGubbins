@@ -12,7 +12,7 @@ import { StandardLayouts, sampleRate, type ChannelLayout } from '@audiogubbins/d
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import { dspModuleExports } from '../testing/dsp-module.js';
-import { DetectorKind, type DetectorSettings } from './canonical-analysis.js';
+import { DetectorKind, type DetectorSettings, StftWindow } from './canonical-analysis.js';
 import type { CanonicalDsp } from './canonical-dsp.js';
 import { decibelsToGain } from './reference/decibels.js';
 import { sineOfTurns } from './reference/primitives.js';
@@ -93,12 +93,22 @@ describe.each([
 ])('the measuring objects in %s', (_name, dspOf) => {
   it('refuse settings out of range, with the reason', () => {
     const dsp = dspOf();
-    expect(expectFailureCode(dsp.createStft({ channels: 1, size: 48, hop: 16 }))).toBe(
-      'dsp.stft-settings-invalid',
-    );
-    expect(expectFailureCode(dsp.createStft({ channels: 0, size: 64, hop: 16 }))).toBe(
-      'dsp.stft-settings-invalid',
-    );
+    expect(
+      expectFailureCode(
+        dsp.createStft({ channels: 1, size: 48, hop: 16, window: StftWindow.Hann }),
+      ),
+    ).toBe('dsp.stft-settings-invalid');
+    expect(
+      expectFailureCode(
+        dsp.createStft({ channels: 0, size: 64, hop: 16, window: StftWindow.Hann }),
+      ),
+    ).toBe('dsp.stft-settings-invalid');
+    // Settings may be read from data, where a window can be one neither path knows.
+    expect(
+      expectFailureCode(
+        dsp.createStft({ channels: 1, size: 64, hop: 16, window: 'flat-top' as StftWindow }),
+      ),
+    ).toBe('dsp.stft-settings-invalid');
     expect(expectFailureCode(dsp.createPeakMeter({ channels: 257, sampleRate: RATE }))).toBe(
       'dsp.peak-meter-settings-invalid',
     );
@@ -119,7 +129,9 @@ describe.each([
   });
 
   it('throw the same fault for input and output of the wrong shape', () => {
-    const stft = expectSuccess(dspOf().createStft({ channels: 2, size: 8, hop: 4 }));
+    const stft = expectSuccess(
+      dspOf().createStft({ channels: 2, size: 8, hop: 4, window: StftWindow.Hann }),
+    );
     expect(() => {
       stft.push([new Float32Array(4)]);
     }).toThrow('A short-time Fourier transform of 2 channels was given 1 arrays.');
@@ -140,7 +152,9 @@ describe.each([
   it('transforms a sine centred on a bin to its analytic spectrum', () => {
     // A full-scale sine on bin 8 of 64, Hann windowed: N/4 at bin 8, N/8 at
     // its neighbours, nothing elsewhere, and the sine's phase of −1/4 turn.
-    const stft = expectSuccess(dspOf().createStft({ channels: 1, size: 64, hop: 64 }));
+    const stft = expectSuccess(
+      dspOf().createStft({ channels: 1, size: 64, hop: 64, window: StftWindow.Hann }),
+    );
     stft.push([sine(64, 8 / 64, 1)]);
     const magnitudes = new Float64Array(stft.bins);
     const phases = new Float64Array(stft.bins);

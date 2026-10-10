@@ -6,6 +6,7 @@
  * oldest first and found by the canonical selection (ADR-0032).
  */
 
+import { StftWindow } from '../../canonical-analysis.js';
 import type { FeatureExtractor } from './feature-extractor.js';
 import { rankAt, selectRank } from './selection.js';
 import { ReferenceStft } from './stft.js';
@@ -34,7 +35,7 @@ export class ReferenceTransients implements FeatureExtractor {
 
   constructor(channels: number, size: number, hop: number, threshold: TransientThreshold) {
     this.recordWidth = 2 * channels;
-    this.#stft = new ReferenceStft(channels, size, hop);
+    this.#stft = new ReferenceStft(channels, size, hop, StftWindow.Hann);
     this.#threshold = threshold;
     const bins = this.#stft.bins;
     this.#real = new Float64Array(channels * bins);

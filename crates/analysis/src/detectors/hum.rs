@@ -29,7 +29,7 @@ use audiogubbins_dsp_core::gain_to_decibels;
 
 use crate::error::AnalysisError;
 use crate::selection::{rank_at, select};
-use crate::stft::Stft;
+use crate::stft::{Stft, StftWindow};
 
 /// The frequencies a hum is sought at: the mains of 50 Hz and its second
 /// harmonic, then those of 60 Hz.
@@ -70,7 +70,7 @@ impl HumFeatures {
         if size < SMALLEST_SIZE {
             return Err(AnalysisError::SettingRefused);
         }
-        let stft = Stft::new(channels, size, hop)?;
+        let stft = Stft::new(channels, size, hop, StftWindow::Hann)?;
         if !(search.is_finite() && search > 0.0 && floor.is_finite() && floor > search) {
             return Err(AnalysisError::SettingRefused);
         }

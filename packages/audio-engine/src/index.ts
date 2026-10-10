@@ -117,6 +117,7 @@ export {
   type PeakMeterSettings,
   type SilenceSettings,
   type StftSettings,
+  StftWindow,
   type TransientSettings,
 } from './dsp/canonical-analysis.js';
 
