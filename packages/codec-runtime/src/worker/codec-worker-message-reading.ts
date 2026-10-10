@@ -36,6 +36,7 @@ import {
   codecOf,
   containerOf,
   decoderIdentityOf,
+  encoderIdentityOf,
   readableContainerOf,
 } from './codec-values-reading.js';
 import {
@@ -281,6 +282,7 @@ const ANSWER_READERS: Readonly<
     kind: FromCodecWorkerKind.Encoded,
     request: requestAt(fields),
     frames: sampleCountAt(fields, 'frames'),
+    encoder: encoderIdentityOf(fields['encoder'], 'encoder'),
   }),
   [FromCodecWorkerKind.Failed]: (fields) => ({
     kind: FromCodecWorkerKind.Failed,

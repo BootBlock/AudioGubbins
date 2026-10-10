@@ -36,6 +36,7 @@ import type {
 import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
+import type { CodecServices } from '../codecs/codec-services.js';
 import type { ExportControl } from '../export/export-types.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
@@ -164,6 +165,13 @@ export interface ShellContext {
    * browser cannot keep projects, since an export is staged in their storage.
    */
   readonly exports: ExportControl | undefined;
+
+  /**
+   * The codecs: what this browser can do with each, and the codec worker that
+   * analyses, decodes and encodes files, started on first use (ADR-0090).
+   * Present whether or not projects can be kept here.
+   */
+  readonly codecs: CodecServices;
 
   /** Files the person chose, held for the command that opens each. */
   readonly chosenFiles: ChosenFiles;
