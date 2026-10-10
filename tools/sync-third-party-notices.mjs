@@ -497,7 +497,8 @@ export function portedNoticesOf(list, exists, standardText) {
  */
 function prebuiltLibraryOf(part, module, build, standardText) {
   /** @type {Record<string, unknown>} */
-  const fields = typeof part === 'object' && part !== null ? part : {};
+  const fields =
+    typeof part === 'object' && part !== null ? Object.fromEntries(Object.entries(part)) : {};
   const { project, version, licence, copyright, source } = fields;
   const named = `the prebuilt ${module}'s ${isText(project) ? project : 'unnamed library'}`;
   const reasons = [];
