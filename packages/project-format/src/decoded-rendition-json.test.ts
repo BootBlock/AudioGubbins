@@ -4,7 +4,7 @@ import { StandardLayouts, derivedSampleCount, sampleRate, type Asset } from '@au
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
-import type { DecodedRendition } from './decoded-rendition.js';
+import type { DecodedRendition } from './project-state.js';
 import { keptMetadata, MAXIMUM_KEPT_FOREIGN_FIELDS, type KeptMetadata } from './kept-metadata.js';
 import { readProjectDocument, writeProjectDocument } from './project-json.js';
 import type {

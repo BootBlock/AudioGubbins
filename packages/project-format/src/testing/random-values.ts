@@ -31,7 +31,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { CommonExportSettings, ExportSettings } from '@audiogubbins/import-export';
 
 import type { AssetRecord } from '../asset-record-json.js';
-import type { DecodedRendition } from '../decoded-rendition.js';
+import type { DecodedRendition } from '../project-state.js';
 import type { KeptMetadata } from '../kept-metadata.js';
 import {
   CaptureProfileKind,

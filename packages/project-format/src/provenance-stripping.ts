@@ -45,10 +45,10 @@
 
 import type { AssetId } from '@audiogubbins/domain';
 
-import type { DecodedRendition } from './decoded-rendition.js';
 import type { ExportRecord, ExportedAudioFile } from './export-provenance.js';
 import type {
   AssetSource,
+  DecodedRendition,
   ExternalSourceIdentity,
   MediaSource,
   ProjectState,

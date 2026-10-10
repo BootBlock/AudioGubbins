@@ -22,8 +22,7 @@ import {
 } from './document-reading.js';
 import { presentMembers } from './document-writing.js';
 import { readExternalIdentity, writeExternalIdentity } from './external-identity-json.js';
-import type { DecodedRendition, KeptCompressedSource } from './decoded-rendition.js';
-import type { AssetSource } from './project-state.js';
+import type { AssetSource, DecodedRendition, KeptCompressedSource } from './project-state.js';
 import { asCodec, asContainer, asImplementation } from './codec-names-reading.js';
 import { asContentId, integerConverter, oneOfConverter, textConverter } from './scalar-reading.js';
 import { writeLayout } from './value-writing.js';

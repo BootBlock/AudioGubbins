@@ -72,7 +72,7 @@ export {
   fingerprintOf,
 } from './content-hashing.js';
 
-export { type DecodedRendition, type KeptCompressedSource } from './decoded-rendition.js';
+export { type DecodedRendition, type KeptCompressedSource } from './project-state.js';
 export { writeDecodedRendition } from './decoded-rendition-json.js';
 export { type KeptCoverArt, type KeptMetadata, keptMetadata } from './kept-metadata.js';
 export { writeKeptMetadata } from './kept-metadata-json.js';
