@@ -261,6 +261,32 @@ pub fn silent_mp3(count: usize, mono: bool) -> Vec<u8> {
     frame.repeat(count)
 }
 
+/// The encoder priming and padding the LAME tag of [`lame_mp3`] states.
+pub const LAME_PRIMING: u32 = 576;
+pub const LAME_PADDING: u32 = 1_000;
+
+/// [`silent_mp3`]'s stereo frames after an `Info` frame whose Xing tag
+/// counts them and whose LAME extension states [`LAME_PRIMING`] and
+/// [`LAME_PADDING`], with a tag CRC of 0, which readers take as unchecked.
+pub fn lame_mp3(count: usize) -> Vec<u8> {
+    let mut info = silent_mp3(1, false);
+    let mut tag = b"Info".to_vec();
+    // Flags: the frame count alone.
+    tag.extend_from_slice(&1u32.to_be_bytes());
+    tag.extend_from_slice(&u32::try_from(count).unwrap_or(0).to_be_bytes());
+    tag.extend_from_slice(b"LAME3.100");
+    // Revision, lowpass, peak, two replay gains, flags and bit rate.
+    tag.extend_from_slice(&[0; 1 + 1 + 4 + 2 + 2 + 1 + 1]);
+    // The delay and padding, each less the decoder's 529 frames, in 12 bits.
+    let trim = ((LAME_PRIMING - 529) << 12) | (LAME_PADDING + 529);
+    tag.extend_from_slice(&trim.to_be_bytes()[1..]);
+    // The rest of the extension, ending in its CRC.
+    tag.extend_from_slice(&[0; 12]);
+    info[36..36 + tag.len()].copy_from_slice(&tag);
+    info.extend(silent_mp3(count, false));
+    info
+}
+
 /// A raw data block of AAC-LC: a channel pair of no scale factor bands, so
 /// silence, then fill elements given as (count, first payload nibble), then
 /// `ID_END`.

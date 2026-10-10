@@ -19,8 +19,8 @@ use audiogubbins_codecs::{
     OpusRateControl, OpusSettings, ReadFailure,
 };
 use common::{
-    Lcg, MemorySource, adts, decode_all, flac_stream, integer_signal, ogg_opus, open_and_decode,
-    silent_block, silent_mp3, sine,
+    Lcg, MemorySource, adts, decode_all, flac_stream, integer_signal, lame_mp3, ogg_opus,
+    open_and_decode, silent_block, silent_mp3, sine,
 };
 
 /// Mutations of each file.
@@ -150,14 +150,33 @@ fn mutated_adts_fails_or_decodes_without_panicking() {
 
 #[test]
 fn a_flac_stream_cut_short_of_its_stated_length_is_refused_whole() {
+    // Cut cleanly before the last frame, whose sync code begins it, so every
+    // frame left decodes and only the stated length says some are missing.
     let mut file = flac();
-    file.truncate(file.len() * 2 / 3);
+    let last_frame = file
+        .windows(2)
+        .rposition(|pair| pair == [0xff, 0xf8])
+        .expect("a frame");
+    file.truncate(last_frame);
     let mut session = DecodeSession::open(MemorySource(file)).expect("the header is whole");
     assert_eq!(
         decode_all(&mut session).err(),
         Some(CodecFailure::Malformed)
     );
     // A failed session keeps failing.
+    assert_eq!(
+        decode_all(&mut session).err(),
+        Some(CodecFailure::Malformed)
+    );
+}
+
+#[test]
+fn an_mp3_cut_cleanly_short_of_its_tags_length_is_refused_whole() {
+    // Every MPEG frame left is whole, so only the stated length says some
+    // are missing.
+    let mut file = lame_mp3(40);
+    file.truncate(file.len() - 5 * (144 * 128_000 / 44_100));
+    let mut session = DecodeSession::open(MemorySource(file)).expect("the tag is whole");
     assert_eq!(
         decode_all(&mut session).err(),
         Some(CodecFailure::Malformed)

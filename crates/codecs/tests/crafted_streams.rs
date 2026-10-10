@@ -11,7 +11,10 @@
 mod common;
 
 use audiogubbins_codecs::{Codec, CodecFailure, Container, DecodeSession, StatedLayout};
-use common::{MemorySource, adts, decode_all, open_and_decode, silent_block, silent_mp3};
+use common::{
+    LAME_PADDING, LAME_PRIMING, MemorySource, adts, decode_all, lame_mp3, open_and_decode,
+    silent_block, silent_mp3,
+};
 
 #[test]
 fn decodes_mp3_silence_to_every_frame() {
@@ -26,6 +29,17 @@ fn decodes_mp3_silence_to_every_frame() {
     assert_eq!(planes.len(), 2);
     assert_eq!(planes[0].len(), 40 * 1_152);
     assert!(planes.iter().flatten().all(|&sample| sample == 0.0));
+}
+
+#[test]
+fn trims_and_states_the_priming_padding_and_length_a_lame_tag_states() {
+    let (session, planes) = open_and_decode(lame_mp3(40)).expect("decodable");
+    let description = session.description();
+    let length = 40 * 1_152 - u64::from(LAME_PRIMING + LAME_PADDING);
+    assert_eq!(description.priming, Some(u64::from(LAME_PRIMING)));
+    assert_eq!(description.padding, Some(u64::from(LAME_PADDING)));
+    assert_eq!(description.total_frames, Some(length));
+    assert_eq!(planes[0].len() as u64, length);
 }
 
 #[test]
