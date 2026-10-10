@@ -281,6 +281,7 @@ export function buildShellContext(
       storageRoot: unavailableStorageRoot('This test keeps no projects.'),
       projects: undefined,
       storageAbsences: [],
+      exports: undefined,
       ...parts,
       ...fakeEditor(storage, logger),
       detection: detection.control,

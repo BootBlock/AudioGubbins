@@ -391,6 +391,7 @@ export function createApplication() {
     storageRoot: projectSystem.storageRoot,
     projects: projectSystem.projects,
     storageAbsences: projectSystem.storageAbsences,
+    exports: undefined,
     ...audioPart.parts,
     ...editorPart.parts,
     ...analysisPart.parts,
