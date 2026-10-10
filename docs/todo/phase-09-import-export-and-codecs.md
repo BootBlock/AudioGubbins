@@ -168,6 +168,29 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    reader refuses is `unread` and does not refuse the file. Ogg FLAC metadata
    is read. Decoder identities: Symphonia 0.6.1 and ropus 0.12.18 (a test holds
    them to the Cargo pins), or `WebCodecs (<family>)` with its major version.
+9. **S6b (merged).** `openExportEncoder` serves every format through the codec
+   worker; integer targets pass one `Quantiser` per file. `SamplePlane`
+   (`Float32Array | Float64Array`) makes a dithered 32-bit export exact.
+   `writtenChannelOrder` is the statable-layout rule `validateExportSettings`
+   uses; coded formats take speaker-mask order; MP3 states mono and stereo only,
+   Vorbis at most two channels (the prebuilt build's limit), AAC configurations
+   1–7. FLAC re-blocks to 1152 frames up to level 2 and 4096 above; prebuilt
+   encoders take fixed 4096-frame blocks so output does not depend on render
+   chunking. Vendor `AudioGubbins`; Vorbis serial `0x4147566f`. The render
+   worker's `ChannelSink` posts `RenderedStreamMessage` under credit. LAME 3.100
+   and libvorbis 1.3.7 come from `wasm-media-encoders` 0.7.0's separate `.wasm`
+   files, driven directly (its script inlines them, randomises the Ogg serial and
+   refuses 56 and 144 kbit/s). Hashes of nine local encodings are held.
+   **Open:** the prebuilt builds cannot express MP3 average bit rate or Vorbis
+   nominal bit rate, which ADR-0092's settings name; they are refused when the
+   encoder opens (`codec-runtime.setting-unexpressible`). Decide the correct
+   fix: build LAME and libvorbis to WebAssembly from source with their full API
+   (a C toolchain such as `zig cc` targets wasm32 without emscripten), which also
+   lifts the two-channel Vorbis limit and the stale package; or amend ADR-0092.
+   Either way, validation must refuse before rendering, never at encode. Also
+   open: check in a real browser that Chromium's AAC timestamps carry the
+   priming; `apps/web` must import the two `.wasm` URLs and pass them to
+   `configure`, and declare `wasm-media-encoders` so its notice appears.
 
 ## Left to do
 
