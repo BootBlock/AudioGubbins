@@ -239,14 +239,16 @@ const PACKAGES = [
     dir: 'packages/codec-runtime',
     name: '@audiogubbins/codec-runtime',
     description:
-      "The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port, and every export format's encoder.",
+      'The codec module host and the codec worker: the typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, the browser decoder of HE-AAC, and the worker that analyses, decodes and encodes files read through the synchronous byte port.',
     dom: true,
     jsx: false,
+    threads: { 'codec-worker.ts': 'dedicated-worker' },
     deps: [
       '@audiogubbins/domain',
       '@audiogubbins/codecs',
-      '@audiogubbins/audio-engine',
       '@audiogubbins/import-export',
+      // The browser's codec classes and probes, which capabilities reads and the worker calls.
+      '@audiogubbins/capabilities',
     ],
     devDeps: [],
     external: {},
@@ -373,6 +375,8 @@ const PACKAGES = [
       '@audiogubbins/effect-rack',
       '@audiogubbins/processors',
       '@audiogubbins/ml-runtime',
+      // The rendered stream an export's render sends the codec worker.
+      '@audiogubbins/import-export',
     ],
     devDeps: [],
     external: {},
@@ -564,7 +568,13 @@ const PACKAGES = [
       'Runtime capability detection and degradation descriptors. The only package that probes the browser directly.',
     dom: true,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/diagnostics', '@audiogubbins/text'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/text',
+      // The codec identities and environment its codec probes answer in (ADR-0090).
+      '@audiogubbins/codecs',
+    ],
     devDeps: [],
     external: {},
     externalDev: {},

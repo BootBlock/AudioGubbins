@@ -3,20 +3,16 @@
  *
  * `instantiateCodecModule` instantiates the module from its own file and
  * refuses one of another ABI version, naming both. Through it, a file read
- * synchronously (`SyncAudioBytes`) is opened as a decode session that describes
- * its default audio track and decodes it in order into planar samples at its
- * own rate, never resampled; FLAC frames are encoded for the application's FLAC
- * writer, and Opus packets with what its Ogg writer needs. Every failure is a
- * `DomainResult` with a stable `codec-runtime.*` code, and every object is
- * released once, by its `release()`.
+ * synchronously (`SyncAudioBytes`) is opened as a decode session that
+ * describes its default audio track and decodes it in order into planar
+ * samples at its own rate, never resampled; FLAC frames are encoded for the
+ * application's FLAC writer, and Opus packets with what its Ogg writer needs.
+ * Every failure is a `DomainResult` with a stable `codec-runtime.*` code, and
+ * every object is released once, by its `release()`.
  *
- * `openExportEncoder` opens a planned export file as a writer of the streaming
- * write contract: WAV, AIFF and AIFF-C by the codecs' writers, FLAC and Opus by
- * the module, MP3 and Vorbis by the prebuilt LAME and libvorbis modules, each
- * loaded from its own file, and AAC by the browser's WebCodecs encoder, each
- * quantised through the export's dither where its samples are integers.
- * `encodeRenderedBlocks` feeds such a writer the blocks the render worker sends
- * over a rendered-block channel, granting credit as they are written.
+ * The codec worker (`threads/codec-worker.ts`) serves analysis, decoding and
+ * encoding requests over the protocol below, with the stream messages of
+ * `@audiogubbins/import-export` on the channels its requests carry.
  */
 
 export { type CodecModule, instantiateCodecModule } from './codec-module.js';
@@ -39,21 +35,27 @@ export {
 export { MAX_OPUS_PACKET_FRAMES, type OpusPacketDecoder } from './opus-packet-decoder.js';
 
 export {
-  type ExportEncoderRequest,
-  type ExportEncoderServices,
-  type PrebuiltEncoderName,
-  type WebAssemblyCode,
-} from './encoding/export-encoder-request.js';
+  type AnalysedStream,
+  type CodecRequest,
+  type ExportEncodeRequest,
+  FromCodecWorkerKind,
+  type FromCodecWorker,
+  type ImportAnalysis,
+  type MetadataOutcome,
+  type ModuleSource,
+  type PrebuiltEncoder,
+  ToCodecWorkerKind,
+  type ToCodecWorker,
+} from './worker/codec-worker-messages.js';
 
-export {
-  type AudioDataLike,
-  type AudioEncoderInitLike,
-  type AudioEncoderLike,
-  type EncodedAudioChunkLike,
-  type EncodedAudioChunkMetadataLike,
-  type WebCodecsAudioEncoding,
-} from './encoding/webcodecs-port.js';
+export { readFromCodecWorker } from './worker/codec-worker-message-reading.js';
 
-export { openExportEncoder } from './encoding/open-export-encoder.js';
+export { type ExportEncoderServices, type OpenExportEncoder } from './worker/encode-job.js';
 
-export { type EncodedRender, encodeRenderedBlocks } from './encoding/rendered-block-intake.js';
+export { type DecoderIdentity } from './decoding/decoder-identity.js';
+
+export { type FileHandleLike, type FileSource } from './files/file-source.js';
+
+export { type BlobLike } from './files/sync-file-bytes.js';
+
+export { type MessagePortLike } from './streams/stream-port.js';

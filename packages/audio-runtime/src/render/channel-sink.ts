@@ -3,13 +3,15 @@
  * port straight to the worker consuming them, as an export's blocks go to the
  * codec worker without passing through the page (ADR-0092).
  *
- * The renderer overwrites a block once its write settles, so each chunk is
- * copied into arrays of its own and those are transferred. A write waits for
- * the consumer's credit (`rendered-block-messages.ts`), so a slow encoder
- * slows the render rather than a queue of audio growing. A consumer that
- * refuses stops the render with its reasons, and a cancelled render's waiting
- * write rejects with the cancellation. The render worker ends the channel
- * once the render ends, with its length or its failures, and closes it.
+ * The channel speaks import-export's rendered stream: blocks, then one end
+ * with the frames rendered or the failure that ended the render, each sent
+ * only on the receiver's credit, the end included (`stream-messages.ts`). The
+ * renderer overwrites a block once its write settles, so each chunk is copied
+ * into arrays of its own and those are transferred. A write waits for credit,
+ * so a slow encoder slows the render rather than a queue of audio growing; a
+ * receiver that refuses stops the render with its reason, and a cancelled
+ * render's waiting write rejects with the cancellation. The render worker
+ * ends the channel once the render ends, and closes it.
  */
 
 import {
@@ -20,25 +22,20 @@ import {
   type DomainFailure,
   type SampleCount,
 } from '@audiogubbins/domain';
-import {
-  BlockReplyKind,
-  RenderedBlockKind,
-  readRenderedBlockReply,
-  type AudioFrameBlock,
-  type MessagePortLike,
-  type RenderSink,
-  type RenderedBlockMessage,
-} from '@audiogubbins/audio-engine';
+import type { AudioFrameBlock, MessagePortLike, RenderSink } from '@audiogubbins/audio-engine';
+import { readStreamReceiverMessage, type RenderedStreamMessage } from '@audiogubbins/import-export';
 
 /** A sink whose chunks go over `port`, and the ends of the channel. */
 export class ChannelSink implements RenderSink {
   readonly #port: MessagePortLike;
   readonly #signal: CancellationSignal;
   #credit = 0;
-  #refusal: readonly DomainFailure[] | undefined;
-  /** The renderer writes one chunk at a time, so at most one write waits. */
+  #refusal: DomainFailure | undefined;
+  /** The renderer writes one chunk at a time, and the end follows the last, so one waits at most. */
   #waiting: (() => void) | undefined;
   #closed = false;
+  /** Whether the end is being sent, which is sent once. */
+  #ending = false;
 
   constructor(port: MessagePortLike, signal: CancellationSignal) {
     this.#port = port;
@@ -47,73 +44,84 @@ export class ChannelSink implements RenderSink {
       this.#reply(event.data);
     });
     port.addEventListener('messageerror', () => {
-      this.#refuse([
+      this.#refuse(
         failure(
-          'render.block-reply-unreceivable',
+          'render.stream-reply-unreceivable',
           FailureKind.Unrecoverable,
-          "A reply from the rendered audio's consumer could not be received.",
+          "A reply from the rendered audio's receiver could not be received.",
         ),
-      ]);
+      );
     });
     port.start();
   }
 
   async write(block: AudioFrameBlock): Promise<void> {
-    while (this.#credit === 0 && this.#refusal === undefined) await this.#creditGranted();
+    await this.#creditGranted(this.#signal);
     if (this.#refusal !== undefined) {
       // A plain error, as the engine throws for a source it cannot read: the
       // render worker fails the job with it rather than raising a fault.
-      throw new Error(
-        `The rendered audio's consumer refused it: ${this.#refusal.map((one) => one.summary).join(' ')}`,
-      );
+      throw new Error(`The rendered audio's receiver refused it: ${this.#refusal.summary}`);
     }
-    this.#credit -= 1;
     const channels = block.channels.map((channel) => channel.slice(0, block.frames));
     this.#send(
-      { kind: RenderedBlockKind.Block, channels },
+      { kind: 'block', channels, frames: block.frames },
       channels.map((channel) => channel.buffer),
     );
   }
 
-  /** Ends the channel after the last chunk: the render made `frames` frames. */
-  end(frames: SampleCount): void {
-    this.#send({ kind: RenderedBlockKind.End, frames }, []);
-    this.close();
+  /** Ends the channel after the last chunk, on the receiver's credit: the render made `frames` frames. */
+  async end(frames: SampleCount): Promise<void> {
+    await this.#endWith({ kind: 'end', frames }, this.#signal);
   }
 
-  /** Ends the channel with the failures that ended the render. */
-  abandon(failures: readonly [DomainFailure, ...DomainFailure[]]): void {
-    this.#send({ kind: RenderedBlockKind.Failed, failures }, []);
-    this.close();
+  /**
+   * Ends the channel with the failure that ended the render, once the
+   * receiver's credit allows, whether or not the render was cancelled: the
+   * receiver is told why no more is coming. The render's job does not wait
+   * on it, and the worker that ends with the job ends the wait too.
+   */
+  abandon(reason: DomainFailure): void {
+    void this.#endWith({ kind: 'failed', failure: reason }, undefined);
   }
 
-  /** Closes the port. A second call does nothing. */
+  /** Closes the port, ending any wait for credit. A second call does nothing. */
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
     this.#port.close();
+    this.#wake();
   }
 
-  #send(message: RenderedBlockMessage, transfer: ArrayBuffer[]): void {
-    // A consumer that refused has gone; what it was sent after is nobody's.
-    if (this.#closed || this.#refusal !== undefined) return;
+  async #endWith(
+    message: RenderedStreamMessage,
+    signal: CancellationSignal | undefined,
+  ): Promise<void> {
+    if (this.#closed || this.#ending) return;
+    this.#ending = true;
+    try {
+      await this.#creditGranted(signal);
+      if (this.#refusal === undefined) this.#send(message, []);
+    } finally {
+      this.close();
+    }
+  }
+
+  #send(message: RenderedStreamMessage, transfer: ArrayBuffer[]): void {
+    if (this.#closed) return;
+    this.#credit -= 1;
     this.#port.postMessage(message, transfer);
   }
 
   #reply(data: unknown): void {
-    const read = readRenderedBlockReply(data);
-    if (!read.ok) {
-      this.#refuse(read.failures);
-      return;
-    }
-    const reply = read.value;
-    if (reply.kind === BlockReplyKind.Refused) this.#refuse(reply.failures);
-    else this.#credit += reply.blocks;
+    const read = readStreamReceiverMessage(data);
+    if (!read.ok) this.#refuse(read.failures[0]);
+    else if (read.value.kind === 'refused') this.#refuse(read.value.failure);
+    else this.#credit += read.value.credit;
     this.#wake();
   }
 
-  #refuse(failures: readonly DomainFailure[]): void {
-    this.#refusal ??= failures;
+  #refuse(reason: DomainFailure): void {
+    this.#refusal ??= reason;
     this.#wake();
   }
 
@@ -123,22 +131,28 @@ export class ChannelSink implements RenderSink {
     wake?.();
   }
 
-  #creditGranted(): Promise<void> {
-    const signal = this.#signal;
-    return new Promise<void>((resolve, reject) => {
-      if (signal.aborted) {
-        reject(cancellationReason(signal));
-        return;
-      }
-      const abandon = (): void => {
-        this.#waiting = undefined;
-        reject(cancellationReason(signal));
-      };
-      signal.addEventListener('abort', abandon, { once: true });
-      this.#waiting = () => {
-        signal.removeEventListener('abort', abandon);
-        resolve();
-      };
-    });
+  /** Waits until there is credit, the receiver refused, or the channel closed; rejects when `signal` is cancelled. */
+  async #creditGranted(signal: CancellationSignal | undefined): Promise<void> {
+    while (this.#credit === 0 && this.#refusal === undefined && !this.#closed) {
+      await new Promise<void>((resolve, reject) => {
+        if (signal === undefined) {
+          this.#waiting = resolve;
+          return;
+        }
+        if (signal.aborted) {
+          reject(cancellationReason(signal));
+          return;
+        }
+        const abandon = (): void => {
+          this.#waiting = undefined;
+          reject(cancellationReason(signal));
+        };
+        signal.addEventListener('abort', abandon, { once: true });
+        this.#waiting = () => {
+          signal.removeEventListener('abort', abandon);
+          resolve();
+        };
+      });
+    }
   }
 }

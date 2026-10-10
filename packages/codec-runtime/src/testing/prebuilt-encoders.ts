@@ -9,21 +9,21 @@
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 import { inject } from 'vitest';
 
-import type { PrebuiltEncoderName, WebAssemblyCode } from '../encoding/export-encoder-request.js';
+import type { PrebuiltEncoder } from '../worker/codec-worker-messages.js';
 import { readFile } from './node-files.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
     /** Where each prebuilt encoder's module is installed, for a test to read. */
-    prebuiltEncoderPaths: Readonly<Record<PrebuiltEncoderName, string>>;
+    prebuiltEncoderPaths: Readonly<Record<PrebuiltEncoder, string>>;
   }
 }
 
 /** The bytes of each encoder's module, read once for the test file. */
-const read = new Map<PrebuiltEncoderName, Uint8Array<ArrayBuffer>>();
+const read = new Map<PrebuiltEncoder, Uint8Array<ArrayBuffer>>();
 
 /** A fresh copy of a prebuilt encoder's module's bytes. */
-export function prebuiltEncoderBytes(name: PrebuiltEncoderName): Uint8Array<ArrayBuffer> {
+export function prebuiltEncoderBytes(name: PrebuiltEncoder): Uint8Array<ArrayBuffer> {
   let bytes = read.get(name);
   if (bytes === undefined) {
     bytes = readFile(inject('prebuiltEncoderPaths')[name]);
@@ -32,9 +32,9 @@ export function prebuiltEncoderBytes(name: PrebuiltEncoderName): Uint8Array<Arra
   return bytes.slice();
 }
 
-/** The services' loader of prebuilt encoders, as a test gives it. */
+/** The services' loader of prebuilt encoders, as a test gives it: each module compiled from its file. */
 export function prebuiltEncoderLoader(): (
-  name: PrebuiltEncoderName,
-) => Promise<DomainResult<WebAssemblyCode>> {
-  return (name) => Promise.resolve(succeed(prebuiltEncoderBytes(name)));
+  name: PrebuiltEncoder,
+) => Promise<DomainResult<WebAssembly.Module>> {
+  return async (name) => succeed(await WebAssembly.compile(prebuiltEncoderBytes(name)));
 }

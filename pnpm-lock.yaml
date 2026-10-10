@@ -427,6 +427,9 @@ importers:
       '@audiogubbins/effect-rack':
         specifier: workspace:*
         version: link:../effect-rack
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
       '@audiogubbins/ml-runtime':
         specifier: workspace:*
         version: link:../ml-runtime
@@ -462,6 +465,9 @@ importers:
 
   packages/capabilities:
     dependencies:
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
@@ -497,9 +503,9 @@ importers:
 
   packages/codec-runtime:
     dependencies:
-      '@audiogubbins/audio-engine':
+      '@audiogubbins/capabilities':
         specifier: workspace:*
-        version: link:../audio-engine
+        version: link:../capabilities
       '@audiogubbins/codecs':
         specifier: workspace:*
         version: link:../codecs

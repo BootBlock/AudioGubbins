@@ -182,23 +182,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/codecs': {
-    "The codec contracts ADR-0090 to ADR-0093 give Phase 09, written before the codecs, the codec worker, the import and export jobs and the storage that consume them: the registry's descriptors and capabilities, and the codec worker's synchronous byte port.":
-      ['CodecCapability', 'CodecUse'],
-    'The registry and the import route ADR-0090 to ADR-0093 give the codec worker, the import and export jobs and the storage that Phase 09 builds on them: the descriptors and the capability of each codec in a probed environment, recognition and the route from a recognised file to reading in place, decoding or refusal, and the metadata reader of each container.':
-      [
-        'CODEC_REGISTRY',
-        'CodecEnvironment',
-        'ImportRoute',
-        'METADATA_READERS',
-        'MetadataReader',
-        'ModuleLoad',
-        'RecognisedFormat',
-        'StatedCodec',
-        'codecCapability',
-        'codecDescriptor',
-        'importRoute',
-        'recogniseAudio',
-      ],
+    'The registry ADR-0090 gives Phase 09, written before the import and export jobs and the storage that look a codec up by its identifier: the descriptor of each codec.':
+      ['codecDescriptor'],
   },
   '@audiogubbins/import-export': {
     "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":
@@ -212,10 +197,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'CollisionPolicy',
         'CollisionQuery',
         'CommonExportSettings',
-        'DecodedStreamDescription',
-        'DecodedStreamMessage',
         'DeliveryTarget',
-        'EncodedStreamMessage',
         'ExportBatch',
         'ExportClock',
         'ExportContext',
@@ -250,7 +232,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'PresetChoices',
         'SourcePrecision',
         'StagedFile',
-        'StreamReceiverMessage',
         'TrustedFolder',
         'answerCollision',
         'batchProgress',
@@ -272,6 +253,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'resolvePreset',
         'validateExportSettings',
       ],
+    "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
+      ['readDecodedStreamMessage', 'readEncodedStreamMessage'],
   },
   '@audiogubbins/codec-runtime': {
     "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
@@ -293,21 +276,27 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     'The single-stream Opus packet decoder, taken by the conformance run alone (`pnpm test:opus-conformance`), which fetches the vectors on demand and so is no project the suite runs.':
       ['MAX_OPUS_PACKET_FRAMES', 'OpusPacketDecoder'],
-    "Every export's encoder and the end of the rendered-block channel that feeds it (ADR-0091, ADR-0092), written before the codec worker whose `encode` handler opens the encoder with its request and services, binds the browser's WebCodecs encoder, and feeds it the render worker's blocks.":
+    "The codec worker's protocol ADR-0090 to ADR-0092 give Phase 09, written before the page that starts and configures the worker, the storage worker that asks it to analyse and decode imports, and the export encoders opened through its factory: the messages each way with their reader, the analysis, the encode request and the encoder factory's shape, and the files, ports and decoder names the messages carry.":
       [
-        'AudioDataLike',
-        'AudioEncoderInitLike',
-        'AudioEncoderLike',
-        'EncodedAudioChunkLike',
-        'EncodedAudioChunkMetadataLike',
-        'EncodedRender',
-        'ExportEncoderRequest',
+        'AnalysedStream',
+        'BlobLike',
+        'CodecRequest',
+        'DecoderIdentity',
+        'ExportEncodeRequest',
         'ExportEncoderServices',
-        'PrebuiltEncoderName',
-        'WebAssemblyCode',
-        'WebCodecsAudioEncoding',
-        'encodeRenderedBlocks',
-        'openExportEncoder',
+        'FileHandleLike',
+        'FileSource',
+        'FromCodecWorker',
+        'FromCodecWorkerKind',
+        'ImportAnalysis',
+        'MessagePortLike',
+        'MetadataOutcome',
+        'ModuleSource',
+        'OpenExportEncoder',
+        'PrebuiltEncoder',
+        'ToCodecWorker',
+        'ToCodecWorkerKind',
+        'readFromCodecWorker',
       ],
   },
   '@audiogubbins/input': {

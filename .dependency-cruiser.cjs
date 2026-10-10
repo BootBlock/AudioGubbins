@@ -23,10 +23,14 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
- *   codec-runtime   the codec module's host: its typed loader, decode
- *                   sessions and FLAC and Opus encoders over its narrow ABI,
- *                   reading files through the synchronous byte port; depends
- *                   on domain + codecs (ADR-0090, ADR-0091)
+ *   codec-runtime   the codec module's host and the codec worker: its typed
+ *                   loader, decode sessions and FLAC and Opus encoders over
+ *                   its narrow ABI, the browser's HE-AAC decoder, and the
+ *                   worker that analyses, decodes and encodes files read
+ *                   through the synchronous byte port; depends on domain +
+ *                   codecs + import-export, whose stream messages it sends,
+ *                   + capabilities, which reads the browser's codecs for it
+ *                   (ADR-0090, ADR-0091)
  *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
  *                   Web, which alone imports the runtime and only by import(),
  *                   and the worker that hosts it; depends on domain alone
@@ -54,9 +58,10 @@
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
- *                   domain, whose results the media input answers in, and
+ *                   domain, whose results the media input answers in,
  *                   diagnostics + text, whose check of how names compare it
- *                   probes
+ *                   probes, and codecs, whose environment its codec probes
+ *                   answer
  *   design-system   React/Radix presentation; depends on version, knows nothing
  *                   of the domain
  *   workspace       docking; depends on diagnostics + text + version
@@ -220,10 +225,12 @@ module.exports = {
         'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
         'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
         'storage or command package. Its thread entries also make the effect rack its workers ' +
-        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062).',
+        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062). ' +
+        "An export's render sends its blocks to the codec worker as import-export's rendered " +
+        'stream (ADR-0092).',
       from: { path: '^packages/audio-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|ml-runtime|processors)/)',
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|import-export|ml-runtime|processors)/)',
       },
     },
     {
@@ -351,14 +358,14 @@ module.exports = {
       name: 'codec-runtime-owns-nothing-else',
       severity: 'error',
       comment:
-        "The codec module's host loads the module, wraps its narrow ABI and reads files through " +
-        'the synchronous byte port of the read contract (ADR-0090, ADR-0091), and composes each ' +
-        "export's encoder. It depends on the domain, whose results it answers in, the codecs, " +
-        'whose contracts it serves, import-export, whose settings, targets and quantiser an ' +
-        "export's encoder is made from, and the engine, whose rendered-block channel brings an " +
-        "export's blocks; the codec worker that drives it sits above it.",
+        "The codec module's host and the codec worker load the module, wrap its narrow ABI and " +
+        'read files through the synchronous byte port of the read contract (ADR-0090, ' +
+        'ADR-0091). It depends on the domain, whose results it answers in, the codecs, whose ' +
+        "contracts it serves, import and export's stream messages, which its streams carry, and " +
+        "the capabilities, which read the browser's codecs it calls; the storage worker and the " +
+        'page that drive it sit above it.',
       from: { path: '^packages/codec-runtime/' },
-      to: { path: '^packages/(?!(codec-runtime|codecs|domain|audio-engine|import-export)/)' },
+      to: { path: '^packages/(?!(capabilities|codec-runtime|codecs|domain|import-export)/)' },
     },
     {
       name: 'clipboard-owns-nothing-else',

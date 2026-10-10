@@ -14,7 +14,7 @@ import {
   readMessage,
   type MessageFields,
 } from './message-fields.js';
-import { domainFailuresAt } from './failure-fields.js';
+import { domainFailureAt, domainFailuresAt } from './failure-fields.js';
 
 /** The failure a malformed message is read as, or nothing where it was read. */
 function refusalOf(value: unknown, read: (fields: MessageFields) => unknown) {
@@ -105,5 +105,19 @@ describe("the one reader of a message's fields", () => {
         domainFailuresAt(fields, 'failures'),
       )?.summary,
     ).toBe("The message's failures[0].details.node is not text, a number or a flag.");
+  });
+
+  it('reads one failure whole, named by its field', () => {
+    const whole = failure('codecs.malformed', FailureKind.IntegrityViolation, 'It broke.', {
+      cause: failure('codecs.source-changed', FailureKind.Conflict, 'It changed.'),
+    });
+    expect(domainFailureAt(structuredClone({ failure: whole }), 'failure')).toEqual(whole);
+    expect(
+      refusalOf({ failure: { ...whole, kind: 'lost' } }, (fields) =>
+        domainFailureAt(fields, 'failure'),
+      )?.summary,
+    ).toBe(
+      "The message's failure.kind is not one of rejected, conflict, retryable, unrecoverable, integrity-violation.",
+    );
   });
 });

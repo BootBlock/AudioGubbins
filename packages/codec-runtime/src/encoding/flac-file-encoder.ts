@@ -22,7 +22,7 @@ import type { FlacEncoding } from '@audiogubbins/import-export';
 
 import type { CodecModule } from '../codec-module.js';
 import type { FlacFrameEncoder } from '../flac-frame-encoder.js';
-import type { ExportEncoderRequest } from './export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 import { FramedFileWriter, type UnitEncoder } from './framed-file-writer.js';
 
 /** The encoder's name, as the stream's Vorbis comments state it. */
@@ -103,7 +103,7 @@ class FlacUnits implements UnitEncoder<FlacStreamEnd> {
 
 /** A FLAC export's writer, its blocks quantised to `encoding.bits` already. */
 export function openFlacWriter(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   encoding: FlacEncoding,
   module: CodecModule,
   order: WrittenChannelOrder,

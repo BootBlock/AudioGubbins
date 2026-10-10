@@ -215,8 +215,8 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/codec-runtime': [
     '@audiogubbins/domain',
     '@audiogubbins/codecs',
-    '@audiogubbins/audio-engine',
     '@audiogubbins/import-export',
+    '@audiogubbins/capabilities',
   ],
   '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
   '@audiogubbins/clipboard': [
@@ -282,6 +282,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/effect-rack',
     '@audiogubbins/processors',
     '@audiogubbins/ml-runtime',
+    '@audiogubbins/import-export',
   ],
   '@audiogubbins/commands': [
     '@audiogubbins/domain',
@@ -294,6 +295,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
     '@audiogubbins/text',
+    '@audiogubbins/codecs',
   ],
   '@audiogubbins/design-system': ['@audiogubbins/version'],
   '@audiogubbins/workspace': [

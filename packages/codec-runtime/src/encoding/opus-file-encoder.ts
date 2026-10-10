@@ -20,7 +20,7 @@ import type { OpusEncoding } from '@audiogubbins/import-export';
 import type { CodecModule } from '../codec-module.js';
 import { settingsRefused } from '../codec-status.js';
 import type { OpusEncoder, OpusEncoderSettings } from '../opus-encoder.js';
-import type { ExportEncoderRequest } from './export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 import { Float32Planes } from './float32-planes.js';
 import { FramedFileWriter, type UnitEncoder } from './framed-file-writer.js';
 
@@ -70,7 +70,7 @@ class OpusUnits implements UnitEncoder<EncodedStreamLength> {
 
 /** An Opus export's writer. */
 export function openOpusWriter(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   encoding: OpusEncoding,
   module: CodecModule,
   order: WrittenChannelOrder,
@@ -87,7 +87,8 @@ export function openOpusWriter(
     frameDuration: encoding.frameDuration,
     complexity: encoding.complexity,
     rateControl: 'variable',
-    inputSampleRate: request.sourceRate,
+    // The blocks arrive at the export's rate, which is the rate the header can state.
+    inputSampleRate: request.sampleRate,
   });
   if (!encoder.ok) return encoder;
   const head = readOpusHead(encoder.value.head);

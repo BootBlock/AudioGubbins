@@ -6,6 +6,17 @@
  * absence, is the export's.
  */
 
+import type {
+  AudioDataInit,
+  AudioDataLike,
+  AudioEncoderCallbacks,
+  AudioEncoderLike,
+  BrowserAudioEncoding,
+  CodecState,
+  ConfigSupport,
+  EncodedAudioChunkLike,
+  WebCodecsAudioConfig,
+} from '@audiogubbins/capabilities';
 import { StandardLayouts } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
@@ -19,13 +30,6 @@ import {
 } from '../testing/export-encoding.js';
 import { memoryBytes } from '../testing/memory-bytes.js';
 import { openExportEncoder } from './open-export-encoder.js';
-import type {
-  AudioDataLike,
-  AudioEncoderInitLike,
-  AudioEncoderLike,
-  EncodedAudioChunkLike,
-  WebCodecsAudioEncoding,
-} from './webcodecs-port.js';
 
 const RATE = 48_000;
 const AAC_FRAME = 1_024;
@@ -54,6 +58,22 @@ class FakeAudioData implements AudioDataLike {
 
   constructor(init: AudioDataInit) {
     this.init = init;
+  }
+
+  get sampleRate(): number {
+    return this.init.sampleRate;
+  }
+
+  get numberOfFrames(): number {
+    return this.init.numberOfFrames;
+  }
+
+  get numberOfChannels(): number {
+    return this.init.numberOfChannels;
+  }
+
+  copyTo(): void {
+    throw new TypeError('The export never reads back the audio it hands an encoder.');
   }
 
   close(): void {
@@ -87,27 +107,33 @@ interface FakeOptions {
  * frames, the first `priming` frames of silence before the first frame.
  */
 function fakeWebCodecs(options: FakeOptions): {
-  readonly webCodecs: WebCodecsAudioEncoding;
+  readonly webCodecs: BrowserAudioEncoding;
   readonly log: {
     highestQueue: number;
-    configured: AudioEncoderConfig | undefined;
+    configured: WebCodecsAudioConfig | undefined;
     closed: boolean;
   };
 } {
   const log = {
     highestQueue: 0,
-    configured: undefined as AudioEncoderConfig | undefined,
+    configured: undefined as WebCodecsAudioConfig | undefined,
     closed: false,
   };
   class FakeEncoder implements AudioEncoderLike {
-    readonly #init: AudioEncoderInitLike;
+    readonly #init: AudioEncoderCallbacks;
     readonly #queue: number[] = [];
     readonly #listeners = new Set<() => void>();
     #pending = options.priming;
     #chunks = 0;
     #failed = false;
 
-    constructor(init: AudioEncoderInitLike) {
+    static isConfigSupported(): Promise<ConfigSupport> {
+      return Promise.resolve({ supported: true });
+    }
+
+    readonly state: CodecState = 'configured';
+
+    constructor(init: AudioEncoderCallbacks) {
       this.#init = init;
     }
 
@@ -115,7 +141,7 @@ function fakeWebCodecs(options: FakeOptions): {
       return this.#queue.length;
     }
 
-    configure(config: AudioEncoderConfig): void {
+    configure(config: WebCodecsAudioConfig): void {
       log.configured = config;
     }
 

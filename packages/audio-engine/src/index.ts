@@ -204,14 +204,6 @@ export {
   type RenderSummary,
 } from './render/render-job.js';
 export { renderOffline } from './render/offline-renderer.js';
-export {
-  BlockReplyKind,
-  RenderedBlockKind,
-  type RenderedBlockMessage,
-  type RenderedBlockReply,
-  readRenderedBlockMessage,
-  readRenderedBlockReply,
-} from './render/rendered-block-messages.js';
 
 export {
   type ClockAnchor,

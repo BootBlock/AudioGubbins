@@ -22,7 +22,7 @@ import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 import type { VorbisEncoding } from '@audiogubbins/import-export';
 
 import { unexpressible } from './encoding-failures.js';
-import type { ExportEncoderRequest } from './export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 import { FramedFileWriter } from './framed-file-writer.js';
 import type { PrebuiltModule } from './prebuilt-encoder.js';
 import { PrebuiltUnits } from './prebuilt-units.js';
@@ -32,7 +32,7 @@ const VORBIS_SERIAL = 0x4147566f;
 
 /** An Ogg Vorbis export's writer, on an instance of libvorbis's module. */
 export function openVorbisWriter(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   encoding: VorbisEncoding,
   libvorbis: PrebuiltModule,
   order: WrittenChannelOrder,

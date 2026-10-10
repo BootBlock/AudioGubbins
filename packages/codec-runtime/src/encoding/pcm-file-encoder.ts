@@ -16,7 +16,7 @@ import {
 import { mapResult, type DomainResult } from '@audiogubbins/domain';
 import type { AifcEncoding, AiffEncoding, WavEncoding } from '@audiogubbins/import-export';
 
-import type { ExportEncoderRequest } from './export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 
 /** The WAV writer's name for each coded encoding. */
 const CODED = {
@@ -50,7 +50,7 @@ function aifcFormat(encoding: AifcEncoding): AiffSampleFormat {
 
 /** A WAV export's writer, its blocks in the rendered layout's order. */
 export function openWavWriter(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   encoding: WavEncoding,
 ): DomainResult<AudioFileWriter> {
   return mapResult(
@@ -67,7 +67,7 @@ export function openWavWriter(
 
 /** An AIFF or AIFF-C export's writer, its blocks in the rendered layout's order. */
 export function openAiffWriter(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   container: 'aiff' | 'aifc',
   encoding: AiffEncoding | AifcEncoding,
 ): DomainResult<AudioFileWriter> {

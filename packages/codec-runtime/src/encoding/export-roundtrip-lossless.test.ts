@@ -96,8 +96,7 @@ describe('WAV, AIFF and AIFF-C exports, read back by the codecs', () => {
       };
       const request = {
         ...exportRequest({ format: 'wav', encoding: { kind: 'integer', bits: 16 } }, RATE),
-        dither,
-        ditherKey: 0x5eed,
+        dither: { settings: dither, key: 0x5eed },
       };
       const read = await readWhole(await encodeWhole(request, source));
       const expected = quantised(source, 16, dither, 0x5eed);
@@ -123,8 +122,7 @@ describe('WAV, AIFF and AIFF-C exports, read back by the codecs', () => {
           RATE,
           StandardLayouts.mono,
         ),
-        dither,
-        ditherKey: 99,
+        dither: { settings: dither, key: 99 },
       };
       const file = await encodeWhole(request, source);
       const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
@@ -216,8 +214,7 @@ describe('FLAC exports, decoded by the codec module', () => {
       };
       const request = {
         ...exportRequest({ format: 'flac', encoding: { bits: 32, compressionLevel: 5 } }, RATE),
-        dither,
-        ditherKey: 77,
+        dither: { settings: dither, key: 77 },
       };
       const file = await encodeWhole(request, source);
       const expected = quantised(source, 32, dither, 77).map((plane) =>
@@ -267,8 +264,7 @@ describe('the reproducibility of lossless exports', () => {
         const floating = encoding.format === 'aifc' && encoding.encoding.kind === 'float';
         const request = {
           ...exportRequest(encoding, RATE),
-          dither: floating ? { kind: 'none' as const } : dither,
-          ditherKey: 1234,
+          dither: { settings: floating ? { kind: 'none' as const } : dither, key: 1234 },
         };
         const first = await encodeWhole(request, source);
         for (const block of [1_777, 512, 48_000]) {

@@ -81,19 +81,19 @@ function isRenderFault(error: unknown): error is Error {
   );
 }
 
-/** What a channel's consumer is told of a render that was cancelled. */
-const RENDER_CANCELLED = [
-  failure('render.cancelled', FailureKind.Rejected, 'The render was cancelled.'),
-] as const;
+/** What a channel's receiver is told of a render that was cancelled. */
+const RENDER_CANCELLED = failure(
+  'render.cancelled',
+  FailureKind.Rejected,
+  'The render was cancelled.',
+);
 
-/** What a channel's consumer is told of a render that ended without ending its channel. */
-const RENDER_ENDED_UNFINISHED = [
-  failure(
-    'render.ended-unfinished',
-    FailureKind.Unrecoverable,
-    'The render ended before it finished this audio.',
-  ),
-] as const;
+/** What a channel's receiver is told of a render that ended without ending its channel. */
+const RENDER_ENDED_UNFINISHED = failure(
+  'render.ended-unfinished',
+  FailureKind.Unrecoverable,
+  'The render ended before it finished this audio.',
+);
 
 type RenderMessage = Extract<ToRenderWorker, { readonly kind: typeof ToRenderWorkerKind.Render }>;
 
@@ -313,8 +313,8 @@ export class RenderWorkerCore {
     try {
       const rendered = await renderOffline(renderJob, scoped.dsp, BUILT_IN_NODES, options);
       for (const channel of channels.values()) {
-        if (rendered.ok) channel.end(rendered.value.frames);
-        else channel.abandon(rendered.failures);
+        if (rendered.ok) await channel.end(rendered.value.frames);
+        else channel.abandon(rendered.failures[0]);
       }
       if (rendered.ok) this.#host.post(doneOf(job.jobId, rendered.value, scoped), []);
       else this.#fail(job.jobId, rendered.failures);
@@ -333,7 +333,7 @@ export class RenderWorkerCore {
         FailureKind.Unrecoverable,
         `The render stopped: ${error.message}`,
       );
-      for (const channel of channels.values()) channel.abandon([stopped]);
+      for (const channel of channels.values()) channel.abandon(stopped);
       this.#fail(job.jobId, [stopped]);
     }
   }

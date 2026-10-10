@@ -30,7 +30,9 @@ export {
 
 export { recogniseAudio } from './recognition.js';
 
-export { type AudioFormatDescriptor } from './format-descriptor.js';
+export { type AudioFormatDescriptor, layoutRead } from './format-descriptor.js';
+
+export { speakerMaskLayout } from './channel-layouts.js';
 
 export {
   type ByteOrder,
@@ -76,6 +78,8 @@ export {
   type SamplerTuning,
 } from './metadata-map.js';
 
+export { metadataMapOf, metadataPartOf } from './metadata-map-reading.js';
+
 export { type SyncAudioBytes } from './sync-audio-bytes.js';
 
 export {
@@ -93,6 +97,8 @@ export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec
 export { type ImportRoute, importRoute } from './import-route.js';
 
 export { type WrittenChannelOrder, writtenChannelOrder } from './layout-statement.js';
+
+export { adtsAudioConfig } from './adts-config.js';
 
 export { type MetadataReader } from './metadata-reading.js';
 

@@ -21,9 +21,9 @@ describe('opening an export’s encoder', () => {
     let loaded = false;
     const services = {
       ...testServices(),
-      prebuiltEncoder: () => {
+      prebuiltModule: async () => {
         loaded = true;
-        return Promise.resolve(succeed(prebuiltEncoderBytes('lame')));
+        return succeed(await WebAssembly.compile(prebuiltEncoderBytes('mp3')));
       },
     };
     const opened = await openExportEncoder(
@@ -48,14 +48,22 @@ describe('opening an export’s encoder', () => {
     }
   });
 
-  it('refuses a prebuilt module of another encoder, or bytes that are no module', async () => {
-    for (const code of [prebuiltEncoderBytes('libvorbis'), Uint8Array.of(0, 97, 115, 109)]) {
-      const opened = await openExportEncoder(exportRequest(MP3_320, 48_000), {
-        ...testServices(),
-        prebuiltEncoder: () => Promise.resolve(succeed(code)),
-      });
-      expect(expectFailureCode(opened)).toBe('codec-runtime.prebuilt-encoder-refused');
-    }
+  it('refuses a prebuilt module of another encoder', async () => {
+    const vorbis = await WebAssembly.compile(prebuiltEncoderBytes('vorbis'));
+    const opened = await openExportEncoder(exportRequest(MP3_320, 48_000), {
+      ...testServices(),
+      prebuiltModule: () => Promise.resolve(succeed(vorbis)),
+    });
+    expect(expectFailureCode(opened)).toBe('codec-runtime.prebuilt-encoder-refused');
+  });
+
+  it('refuses a target its encoding does not make', async () => {
+    const request = exportRequest(MP3_320, 48_000);
+    const opened = await openExportEncoder(
+      { ...request, target: { ...request.target, codec: 'vorbis' } },
+      testServices(),
+    );
+    expect(expectFailureCode(opened)).toBe('codec-runtime.target-disagrees');
   });
 
   it('refuses an MP3 bit rate the rate’s MPEG version does not code, which LAME would replace', async () => {

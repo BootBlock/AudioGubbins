@@ -37,8 +37,8 @@ const codecRuntimeRequire = createRequire(
 
 export default function setup(project: TestProject): void {
   project.provide('prebuiltEncoderPaths', {
-    lame: codecRuntimeRequire.resolve('wasm-media-encoders/wasm/mp3'),
-    libvorbis: codecRuntimeRequire.resolve('wasm-media-encoders/wasm/ogg'),
+    mp3: codecRuntimeRequire.resolve('wasm-media-encoders/wasm/mp3'),
+    vorbis: codecRuntimeRequire.resolve('wasm-media-encoders/wasm/ogg'),
   });
   const provideBuilt = (): void => {
     const built = buildWasmModules();

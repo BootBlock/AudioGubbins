@@ -18,15 +18,15 @@ import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 import type { SamplePlane } from '@audiogubbins/codecs';
 
 import { prebuiltFailed, prebuiltRefused } from './encoding-failures.js';
-import type { PrebuiltEncoderName, WebAssemblyCode } from './export-encoder-request.js';
+import type { PrebuiltEncoder } from '../worker/codec-worker-messages.js';
 
 /** The build of the modules this runtime speaks to, as each states its version. */
 const PREBUILT_VERSION = 'wasm-media-encoders-0.7.0';
 
 /** The MIME type each module states. */
-const MIME_TYPES: Readonly<Record<PrebuiltEncoderName, string>> = {
-  lame: 'audio/mpeg',
-  libvorbis: 'audio/ogg',
+const MIME_TYPES: Readonly<Record<PrebuiltEncoder, string>> = {
+  mp3: 'audio/mpeg',
+  vorbis: 'audio/ogg',
 };
 
 /** The C library's `exit`, which the modules' runtime calls on a fatal error. */
@@ -124,8 +124,8 @@ export class PrebuiltModule {
 
   /** Instantiates `name`'s module from its code, refusing one of another build or encoder. */
   static async instantiate(
-    name: PrebuiltEncoderName,
-    code: WebAssemblyCode,
+    name: PrebuiltEncoder,
+    code: WebAssembly.Module | BufferSource,
   ): Promise<DomainResult<PrebuiltModule>> {
     const imports = {
       env: { emscripten_notify_memory_growth: () => undefined },
@@ -179,7 +179,7 @@ export class PrebuiltModule {
     channels: number,
     sampleRate: number,
     parameters: readonly { readonly value: number; readonly float: boolean }[],
-  ): DomainResult<PrebuiltEncoder> {
+  ): DomainResult<PrebuiltEncoderSession> {
     const exports = this.#exports;
     const words = 2 + parameters.length;
     const opened = guarded('enc_init', () => {
@@ -201,12 +201,12 @@ export class PrebuiltModule {
     });
     if (!opened.ok) return opened;
     if (opened.value === 0) return fail(prebuiltFailed('enc_init', 'the settings were refused'));
-    return succeed(new PrebuiltEncoder(exports, opened.value, channels));
+    return succeed(new PrebuiltEncoderSession(exports, opened.value, channels));
   }
 }
 
 /** One encoder of a prebuilt module: samples in, the bytes of its stream out. */
-export class PrebuiltEncoder {
+export class PrebuiltEncoderSession {
   readonly #exports: PrebuiltExports;
   readonly #channels: number;
   #handle: number;

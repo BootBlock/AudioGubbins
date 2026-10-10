@@ -23,19 +23,20 @@ import {
   type SamplePlane,
   type WrittenChannelOrder,
 } from '@audiogubbins/codecs';
+import type {
+  AudioEncoderLike,
+  BrowserAudioEncoding,
+  EncodedAudioChunkLike,
+  EncodedAudioChunkMetadata,
+  WebCodecsAudioConfig,
+} from '@audiogubbins/capabilities';
 import { fail, succeed, type DomainFailure, type DomainResult } from '@audiogubbins/domain';
 import type { AacEncoding } from '@audiogubbins/import-export';
 
 import { browserEncoderFailed, encoderUnavailable } from './encoding-failures.js';
-import type { ExportEncoderRequest } from './export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 import { Float32Planes } from './float32-planes.js';
 import { FramedFileWriter, type UnitEncoder } from './framed-file-writer.js';
-import type {
-  AudioEncoderLike,
-  EncodedAudioChunkLike,
-  EncodedAudioChunkMetadataLike,
-  WebCodecsAudioEncoding,
-} from './webcodecs-port.js';
 
 /** WebCodecs' name for AAC-LC (RFC 6381). */
 const AAC_LC = 'mp4a.40.2';
@@ -45,11 +46,16 @@ const MAXIMUM_QUEUED = 2;
 
 const MICROSECONDS = 1_000_000;
 
-/** The bytes of a buffer source, copied. */
-function bytesOf(source: AllowSharedBufferSource): Uint8Array {
-  return ArrayBuffer.isView(source)
-    ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength).slice()
-    : new Uint8Array(source).slice();
+/** The bytes of a decoder configuration's description, copied, or `undefined` where it is none. */
+function bytesOf(description: unknown): Uint8Array | undefined {
+  if (ArrayBuffer.isView(description)) {
+    return new Uint8Array(
+      description.buffer,
+      description.byteOffset,
+      description.byteLength,
+    ).slice();
+  }
+  return description instanceof ArrayBuffer ? new Uint8Array(description).slice() : undefined;
 }
 
 /** What the encoder stated with its first chunk. */
@@ -61,7 +67,7 @@ interface FirstChunk {
 /** The access units of one AAC stream, from the browser's encoder. */
 class AacUnits implements UnitEncoder<EncodedStreamLength> {
   readonly #encoder: AudioEncoderLike;
-  readonly #webCodecs: WebCodecsAudioEncoding;
+  readonly #webCodecs: BrowserAudioEncoding;
   readonly #sampleRate: number;
   readonly #planes = new Float32Planes();
   #answered: Uint8Array[] = [];
@@ -70,7 +76,7 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
   #frames = 0;
   #closed = false;
 
-  constructor(webCodecs: WebCodecsAudioEncoding, sampleRate: number) {
+  constructor(webCodecs: BrowserAudioEncoding, sampleRate: number) {
     this.#webCodecs = webCodecs;
     this.#sampleRate = sampleRate;
     this.#encoder = new webCodecs.AudioEncoder({
@@ -91,7 +97,7 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
   }
 
   /** Configures the encoder, or says why the browser refused the configuration. */
-  configure(config: AudioEncoderConfig): DomainResult<undefined> {
+  configure(config: WebCodecsAudioConfig): DomainResult<undefined> {
     try {
       this.#encoder.configure(config);
       return succeed(undefined);
@@ -124,7 +130,6 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
         numberOfChannels: samples.length,
         timestamp: Math.round((this.#frames * MICROSECONDS) / this.#sampleRate),
         data,
-        transfer: [data.buffer],
       });
       this.#encoder.encode(audio);
       audio.close();
@@ -161,11 +166,11 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
     this.#encoder.close();
   }
 
-  #output(chunk: EncodedAudioChunkLike, metadata: EncodedAudioChunkMetadataLike | undefined): void {
+  #output(chunk: EncodedAudioChunkLike, metadata: EncodedAudioChunkMetadata | undefined): void {
     if (this.#first === undefined) {
       const description = metadata?.decoderConfig?.description;
       this.#first = {
-        audioSpecificConfig: description === undefined ? undefined : bytesOf(description),
+        audioSpecificConfig: bytesOf(description),
         primingFrames:
           chunk.timestamp < 0
             ? Math.round((-chunk.timestamp * this.#sampleRate) / MICROSECONDS)
@@ -203,9 +208,9 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
 
 /** An AAC export's writer, on the browser's encoder, or why there is none. */
 export function openAacWriter(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   encoding: AacEncoding,
-  webCodecs: WebCodecsAudioEncoding | undefined,
+  webCodecs: BrowserAudioEncoding | undefined,
   order: WrittenChannelOrder,
 ): DomainResult<AudioFileWriter> {
   if (webCodecs === undefined) {

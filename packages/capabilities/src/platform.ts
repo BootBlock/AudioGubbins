@@ -86,6 +86,39 @@ export function operatingSystemOf(signals: PlatformSignals): OperatingSystem {
   return OperatingSystem.Unknown;
 }
 
+/** A browser's family and major version, all a user-agent string may say of it without identifying a machine. */
+export interface BrowserFamily {
+  readonly name: string;
+  readonly majorVersion: string;
+}
+
+/**
+ * The browser families told apart, most specific first: every Chromium
+ * browser also claims to be Chrome, and Chrome also claims to be Safari, so
+ * the most specific claim wins.
+ */
+const BROWSER_FAMILIES: readonly (readonly [name: string, pattern: RegExp])[] = [
+  ['Edge', /Edg\/(\d+)/],
+  ['Opera', /OPR\/(\d+)/],
+  ['Firefox', /Firefox\/(\d+)/],
+  ['Chrome', /Chrome\/(\d+)/],
+  ['Safari', /Version\/(\d+).*Safari/],
+];
+
+/**
+ * Names the browser's family and major version from its user-agent string,
+ * never more of it: the rest carries build numbers and device models that
+ * together identify a machine (REQ-PRIV-161). `undefined` where no family
+ * matches.
+ */
+export function browserFamilyOf(userAgent: string): BrowserFamily | undefined {
+  for (const [name, pattern] of BROWSER_FAMILIES) {
+    const majorVersion = pattern.exec(userAgent)?.[1];
+    if (majorVersion !== undefined) return { name, majorVersion };
+  }
+  return undefined;
+}
+
 /**
  * Whether the operating system writes and presses shortcuts the Apple way.
  *

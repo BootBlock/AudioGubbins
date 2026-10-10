@@ -11,8 +11,9 @@ import {
   fieldsAt,
   fieldsOf,
   itemsAt,
-  oneOf,
+  oneOfValues,
   textAt,
+  textOf,
   type MessageFields,
 } from './message-fields.js';
 
@@ -64,14 +65,19 @@ function domainFailureOf(value: unknown, name: string): DomainFailure {
   const cause =
     fields['cause'] === undefined ? undefined : domainFailureOf(fields['cause'], `${name}.cause`);
   return failure(
-    textAt(fields, 'code'),
-    oneOf(fields, 'kind', FailureKind),
-    textAt(fields, 'summary'),
+    textOf(fields['code'], `${name}.code`),
+    oneOfValues(fields['kind'], `${name}.kind`, FailureKind),
+    textOf(fields['summary'], `${name}.summary`),
     {
       ...(details === undefined ? {} : { details }),
       ...(cause === undefined ? {} : { cause }),
     },
   );
+}
+
+/** A whole failure, with the failure it arose from, if any. */
+export function domainFailureAt(fields: MessageFields, field: string): DomainFailure {
+  return domainFailureOf(fields[field], field);
 }
 
 /** Whole failures, at least one. */

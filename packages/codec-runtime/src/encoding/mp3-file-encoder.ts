@@ -25,7 +25,7 @@ import { settingsRefused } from '../codec-status.js';
 import { mp3BitRates, type Mp3Encoding } from '@audiogubbins/import-export';
 
 import { unexpressible } from './encoding-failures.js';
-import type { ExportEncoderRequest } from './export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
 import { FramedFileWriter } from './framed-file-writer.js';
 import type { PrebuiltModule } from './prebuilt-encoder.js';
 import { PrebuiltUnits } from './prebuilt-units.js';
@@ -79,7 +79,7 @@ function lameParameters(
 
 /** An MP3 export's writer, on an instance of LAME's module. */
 export function openMp3Writer(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   encoding: Mp3Encoding,
   lame: PrebuiltModule,
   order: WrittenChannelOrder,

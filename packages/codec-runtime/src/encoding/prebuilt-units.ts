@@ -16,20 +16,20 @@ import type { SamplePlane } from '@audiogubbins/codecs';
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 
 import type { UnitEncoder } from './framed-file-writer.js';
-import type { PrebuiltEncoder } from './prebuilt-encoder.js';
+import type { PrebuiltEncoderSession } from './prebuilt-encoder.js';
 
 /** The frames each call to a prebuilt encoder is given. */
 const ENCODER_BLOCK_FRAMES = 4_096;
 
 /** A prebuilt encoder's stream, its end made from the frames it was given. */
 export class PrebuiltUnits<TEnd> implements UnitEncoder<TEnd> {
-  readonly #encoder: PrebuiltEncoder;
+  readonly #encoder: PrebuiltEncoderSession;
   readonly #endOf: (frames: number) => TEnd;
   readonly #held: readonly Float32Array[];
   #filled = 0;
   #frames = 0;
 
-  constructor(encoder: PrebuiltEncoder, channels: number, endOf: (frames: number) => TEnd) {
+  constructor(encoder: PrebuiltEncoderSession, channels: number, endOf: (frames: number) => TEnd) {
     this.#encoder = encoder;
     this.#endOf = endOf;
     this.#held = Array.from({ length: channels }, () => new Float32Array(ENCODER_BLOCK_FRAMES));

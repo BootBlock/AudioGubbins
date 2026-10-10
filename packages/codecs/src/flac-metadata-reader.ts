@@ -1,7 +1,7 @@
 /**
  * The metadata of a FLAC file: its Vorbis comments, its pictures, and the WAV
- * chunks its `APPLICATION` `riff` blocks carry (ADR-0093), which are read by
- * the WAV reader's own code and refused by its rules.
+ * chunks its `APPLICATION` `riff` blocks carry (ADR-0093), each block read
+ * into the map as an Ogg FLAC stream's are (`flac-metadata-gathering.ts`).
  *
  * The walk reads each block's four-byte header and only the bodies it keeps, so
  * a large block of another kind costs one small read. It refuses a file whose
@@ -15,28 +15,14 @@ import { fail, succeed, type CancellationSignal, type DomainResult } from '@audi
 import type { AudioBytes } from './audio-bytes.js';
 import { fourCharacterCode, readExactly } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
-import { decodeFlacPicture, gatherPicture } from './flac-picture.js';
-import { RIFF_APPLICATION, riffChunkOfApplication } from './flac-riff-blocks.js';
+import { FlacMetadataGathering } from './flac-metadata-gathering.js';
 import { FlacBlockType } from './flac-metadata-blocks.js';
 import { metadataOverBound } from './framing-failures.js';
 import { id3v2TagLength } from './id3v2-header.js';
-import { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_TAG_METADATA_BYTES, MAXIMUM_METADATA_FIELDS } from './metadata-limits.js';
+import { MAXIMUM_METADATA_FIELDS } from './metadata-limits.js';
 import type { MetadataMap } from './metadata-map.js';
-import { RiffChunkReading } from './riff-chunk-reading.js';
-import { decodeVorbisComment } from './vorbis-comment.js';
 
 const BLOCK_HEADER_BYTES = 4;
-
-/**
- * Whether a carried WAV chunk is one FLAC's mapping reads (ADR-0093): the
- * sampler's loops and tuning, the cue points, and the `adtl` list of their
- * labels. The comments and pictures answer for everything else.
- */
-function isMapped(id: string, body: Uint8Array): boolean {
-  if (id === 'LIST') return body.length >= 4 && fourCharacterCode(body, 0) === 'adtl';
-  return id === 'smpl' || id === 'cue ';
-}
 const STREAM_INFO_BYTES = 34;
 const RESERVED_BLOCK_TYPE = 127;
 
@@ -49,9 +35,7 @@ export async function readFlacMetadata(
   if (!first.ok) return first;
   let offset = first.value;
 
-  const gathering = new MetadataGathering();
-  const riff = new RiffChunkReading();
-  let read = 0;
+  const gathering = new FlacMetadataGathering();
   for (let index = 0; ; index += 1) {
     if (index === MAXIMUM_METADATA_FIELDS) {
       return fail(metadataOverBound('count of FLAC metadata blocks', MAXIMUM_METADATA_FIELDS));
@@ -67,19 +51,12 @@ export async function readFlacMetadata(
     const kept = await keptBody(bytes, type, body, length, gathering, signal);
     if (!kept.ok) return kept;
     if (kept.value !== undefined) {
-      read += kept.value.length;
-      if (read > MAXIMUM_TAG_METADATA_BYTES)
-        return fail(metadataOverBound('metadata', MAXIMUM_TAG_METADATA_BYTES));
-      const taken = readBlock(type, kept.value, gathering, riff);
+      const taken = gathering.add(type, kept.value);
       if (!taken.ok) return taken;
     }
     offset = body + length;
     if (last) break;
   }
-  const carried = riff.toMap();
-  if (carried.cues !== undefined) gathering.setCues(carried.cues);
-  if (carried.loops !== undefined) gathering.setLoops(carried.loops);
-  if (carried.tuning !== undefined) gathering.setTuning(carried.tuning);
   return succeed(gathering.toMap());
 }
 
@@ -136,53 +113,22 @@ async function blockHeader(
   return succeed({ last: (flags & 0x80) !== 0, type, length });
 }
 
-/** The body of a block the reader keeps, or `undefined` for a block it passes over. */
+/** The body of a block the map reads, or `undefined` for a block it passes over. */
 async function keptBody(
   bytes: AudioBytes,
   type: number,
   offset: number,
   length: number,
-  gathering: MetadataGathering,
+  gathering: FlacMetadataGathering,
   signal: CancellationSignal | undefined,
 ): Promise<DomainResult<Uint8Array | undefined>> {
-  if (type === FlacBlockType.VorbisComment) return await readExactly(bytes, offset, length, signal);
-  if (type === FlacBlockType.Picture) {
-    // A front cover replaces any other picture; once one is kept, later pictures are not read.
-    return gathering.keepsCoverArt(true)
-      ? await readExactly(bytes, offset, length, signal)
-      : succeed(undefined);
-  }
+  let applicationId: string | undefined;
   if (type === FlacBlockType.Application && length >= 4) {
     const id = await readExactly(bytes, offset, 4, signal);
     if (!id.ok) return id;
-    return fourCharacterCode(id.value, 0) === RIFF_APPLICATION
-      ? await readExactly(bytes, offset, length, signal)
-      : succeed(undefined);
+    applicationId = fourCharacterCode(id.value, 0);
   }
-  return succeed(undefined);
-}
-
-/** Reads a kept block's body into the map. */
-function readBlock(
-  type: number,
-  body: Uint8Array,
-  gathering: MetadataGathering,
-  riff: RiffChunkReading,
-): DomainResult<undefined> {
-  if (type === FlacBlockType.VorbisComment) {
-    const taken = decodeVorbisComment(body, gathering);
-    return taken.ok ? succeed(undefined) : taken;
-  }
-  if (type === FlacBlockType.Picture) {
-    const picture = decodeFlacPicture(body);
-    if (!picture.ok) return picture;
-    gatherPicture(gathering, picture.value);
-    return succeed(undefined);
-  }
-  const counted = gathering.countField();
-  if (!counted.ok) return counted;
-  const chunk = riffChunkOfApplication(body.subarray(4));
-  return chunk !== undefined && isMapped(chunk.id, chunk.body)
-    ? riff.read(chunk.id, chunk.body)
+  return gathering.reads(type, applicationId)
+    ? await readExactly(bytes, offset, length, signal)
     : succeed(undefined);
 }

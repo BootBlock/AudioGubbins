@@ -154,6 +154,20 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    Opus's pre-skip; `DiscardPadding` trims a block's end (positive) or start
    (negative); `SeekPreRoll` is not read, since a session never seeks. A shift
    overflow on eight-byte EBML sizes in s2's `leading_bytes.rs` was fixed.
+8. **S6a (merged `091b2ba4`).** `packages/capabilities` probes WebAssembly and
+   WebCodecs (`readCodecPlatform`, `probeCodecs`); HE-AAC counts as decodable
+   only where both `mp4a.40.5` and `mp4a.40.29` probe. The codec worker
+   (`codec-runtime/src/threads/codec-worker.ts`) takes `configure` with compiled
+   modules (codec module, LAME, Vorbis, each compiled or unavailable; it never
+   fetches) and `connect` ports; requests are `analyse`, `decode`, `encode`,
+   `cancel`; replies are read with `readFromCodecWorker`. Analyses run one at a
+   time and streams one at a time beside them. Every stream message, the end
+   included, waits for credit. Decoded blocks hold at most 65,536 frames and 1
+   MiB. An ADTS stream's AudioSpecificConfig comes from its first header. Module
+   ambisonics map to AmbiX; an unstated layout gets the WAV default. Metadata a
+   reader refuses is `unread` and does not refuse the file. Ogg FLAC metadata
+   is read. Decoder identities: Symphonia 0.6.1 and ropus 0.12.18 (a test holds
+   them to the Cargo pins), or `WebCodecs (<family>)` with its major version.
 
 ## Left to do
 

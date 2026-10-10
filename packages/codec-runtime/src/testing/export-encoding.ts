@@ -9,16 +9,15 @@ import {
   StandardLayouts,
   sampleRate,
   succeed,
+  type CancellationSignal,
   type ChannelLayout,
   type SampleRate,
 } from '@audiogubbins/domain';
-import type { FormatEncoding } from '@audiogubbins/import-export';
+import { exportTarget, type FormatEncoding } from '@audiogubbins/import-export';
 
 import type { DecoderSession } from '../decoder-session.js';
-import type {
-  ExportEncoderRequest,
-  ExportEncoderServices,
-} from '../encoding/export-encoder-request.js';
+import type { ExportEncodeRequest } from '../worker/codec-worker-messages.js';
+import type { ExportEncoderServices } from '../worker/encode-job.js';
 import { openExportEncoder } from '../encoding/open-export-encoder.js';
 import { codecModule } from './codec-module.js';
 import { prebuiltEncoderLoader } from './prebuilt-encoders.js';
@@ -61,32 +60,33 @@ export function exportRequest(
   encoding: FormatEncoding,
   hertz: number,
   layout: ChannelLayout = StandardLayouts.stereo,
-): ExportEncoderRequest {
+): ExportEncodeRequest {
   return {
+    target: exportTarget(encoding),
     encoding,
     sampleRate: rate(hertz),
-    sourceRate: rate(hertz),
     layout,
     metadata: {},
-    dither: { kind: 'none' },
-    ditherKey: 0,
+    dither: { settings: { kind: 'none' }, key: 0 },
   };
 }
 
 /** The services of a Node test: the run's codec module, the prebuilt encoders' files, no browser. */
 export function testServices(
-  webCodecs?: ExportEncoderServices['webCodecs'],
+  encoding?: ExportEncoderServices['encoding'],
+  signal: CancellationSignal = new AbortController().signal,
 ): ExportEncoderServices {
   return {
     codecModule: async () => succeed(await codecModule()),
-    prebuiltEncoder: prebuiltEncoderLoader(),
-    webCodecs,
+    prebuiltModule: prebuiltEncoderLoader(),
+    encoding,
+    signal,
   };
 }
 
 /** The whole file `request` makes of `planes`, written in blocks of `block` frames. */
 export async function encodeWhole(
-  request: ExportEncoderRequest,
+  request: ExportEncodeRequest,
   planes: readonly Float32Array[],
   services: ExportEncoderServices = testServices(),
   block = 4_000,
