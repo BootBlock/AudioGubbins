@@ -30,7 +30,13 @@ import { readOggMetadata } from './ogg-metadata-reader.js';
 import { OggOpusWriter } from './ogg-opus-writer.js';
 import { OggPageWriter } from './ogg-page-writer.js';
 import { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
-import { frames, fullMetadata, memoryBytes, mutations } from './testing/index.js';
+import {
+  frames,
+  fullMetadata,
+  memoryBytes,
+  mutations,
+  oggFlacFile as oggFlacStream,
+} from './testing/index.js';
 import { encodeVorbisComment } from './vorbis-comment.js';
 
 /** How many damaged copies of each header are read. */
@@ -115,24 +121,38 @@ const flacFrame = (number: number) => {
   return concatenate([header, Uint8Array.of(crc8(header)), new Uint8Array(30)]);
 };
 
-function flacFile(): Uint8Array {
+/** The head of a FLAC file of two frames carrying the metadata, and the frames. */
+function flacParts(): { readonly head: Uint8Array; readonly frames: readonly Uint8Array[] } {
   const digest = new FlacSampleDigest(16);
   digest.add([new Int32Array(8_192), new Int32Array(8_192)], 8_192);
-  return written(
-    expectSuccess(
-      FlacStreamWriter.create({
-        sampleRate: 48_000,
-        channels: 2,
-        bitsPerSample: 16,
-        blockSize: 4_096,
-        vendor: 'flacenc',
-        metadata: METADATA,
-        keepRiffChunks: true,
-      }),
-    ),
-    [flacFrame(0), flacFrame(1)],
-    { samples: digest },
+  const writer = expectSuccess(
+    FlacStreamWriter.create({
+      sampleRate: 48_000,
+      channels: 2,
+      bitsPerSample: 16,
+      blockSize: 4_096,
+      vendor: 'flacenc',
+      metadata: METADATA,
+      keepRiffChunks: true,
+    }),
   );
+  const frames = [flacFrame(0), flacFrame(1)];
+  for (const frame of frames) expectSuccess(writer.add(frame));
+  return { head: expectSuccess(writer.finish({ samples: digest })).head, frames };
+}
+
+/** The same FLAC stream mapped into Ogg. */
+function oggFlacFile(): Uint8Array {
+  const { head, frames } = flacParts();
+  return oggFlacStream(
+    head,
+    frames.map((bytes) => ({ bytes, samples: 4_096 })),
+  );
+}
+
+function flacFile(): Uint8Array {
+  const { head, frames } = flacParts();
+  return concatenate([head, ...frames]);
 }
 
 const m4aFile = () =>
@@ -172,6 +192,7 @@ type Reader = (
 const CONTAINERS: readonly (readonly [name: string, make: () => Uint8Array, read: Reader])[] = [
   ['Ogg Opus', opusFile, readOggMetadata],
   ['Ogg Vorbis', vorbisFile, readOggMetadata],
+  ['Ogg FLAC', oggFlacFile, readOggMetadata],
   ['FLAC', flacFile, readFlacMetadata],
   ['M4A', m4aFile, readMp4Metadata],
   ['MP3', mp3File, readId3Metadata],

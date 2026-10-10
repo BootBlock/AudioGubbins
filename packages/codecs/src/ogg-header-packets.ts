@@ -32,12 +32,14 @@ import {
 const MAXIMUM_HEADER_PAGES = 4_096;
 
 /**
- * The first `count` packets of the file's first logical stream, refusing a file
- * that does not begin with that stream's first page or ends before them.
+ * The first packets of the file's first logical stream, read page by page
+ * until `complete` says the packets so far hold the headers, refusing a file
+ * that does not begin with that stream's first page or ends before they are
+ * complete. The packets of the page that completes them are all answered.
  */
 export async function readOggHeaderPackets(
   bytes: AudioBytes,
-  count: number,
+  complete: (packets: readonly Uint8Array[]) => boolean,
   signal?: CancellationSignal,
 ): Promise<DomainResult<readonly Uint8Array[]>> {
   const assembler = new OggPacketAssembler(MAXIMUM_TAG_METADATA_BYTES);
@@ -45,7 +47,7 @@ export async function readOggHeaderPackets(
   let serial: number | undefined;
   let offset = 0;
   let sequence = 0;
-  for (let pages = 0; packets.length < count; pages += 1) {
+  for (let pages = 0; !complete(packets); pages += 1) {
     if (pages === MAXIMUM_HEADER_PAGES) {
       return fail(metadataOverBound('count of Ogg header pages', MAXIMUM_HEADER_PAGES));
     }
@@ -75,7 +77,7 @@ export async function readOggHeaderPackets(
     }
     offset = located.value.end;
   }
-  return succeed(packets.slice(0, count));
+  return succeed(packets);
 }
 
 /** A page found by its header and lacing, its body not yet read. */

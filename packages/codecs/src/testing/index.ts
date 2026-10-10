@@ -31,9 +31,11 @@ export { type WrittenFile, writeWhole } from './written-file.js';
 
 export {
   COVER_BYTES,
+  type OggFlacFrame,
   frames,
   fullMetadata,
   mutations,
+  oggFlacFile,
   oggPages,
   random,
 } from './compressed-fixtures.js';
