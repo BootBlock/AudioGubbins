@@ -352,11 +352,12 @@ module.exports = {
       severity: 'error',
       comment:
         "The codec module's host loads the module, wraps its narrow ABI and reads files through " +
-        'the synchronous byte port of the read contract (ADR-0090, ADR-0091). It depends on the ' +
-        'domain, whose results it answers in, and the codecs, whose contracts it serves; the ' +
-        'codec worker and the import and export jobs that drive it sit above it.',
+        'the synchronous byte port of the read contract (ADR-0090, ADR-0091), and composes each ' +
+        "export's encoder. It depends on the domain, whose results it answers in, the codecs, " +
+        'whose contracts it serves, and import-export, whose settings, targets and quantiser an ' +
+        "export's encoder is made from; the codec worker that drives it sits above it.",
       from: { path: '^packages/codec-runtime/' },
-      to: { path: '^packages/(?!(codec-runtime|codecs|domain)/)' },
+      to: { path: '^packages/(?!(codec-runtime|codecs|domain|import-export)/)' },
     },
     {
       name: 'clipboard-owns-nothing-else',

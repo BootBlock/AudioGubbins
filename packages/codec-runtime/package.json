@@ -2,7 +2,7 @@
   "name": "@audiogubbins/codec-runtime",
   "version": "0.1.0",
   "private": true,
-  "description": "The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port.",
+  "description": "The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port, and every export format's encoder.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -26,7 +26,9 @@
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
-    "@audiogubbins/codecs": "workspace:*"
+    "@audiogubbins/codecs": "workspace:*",
+    "@audiogubbins/import-export": "workspace:*",
+    "wasm-media-encoders": "0.7.0"
   },
   "devDependencies": {
     "vitest": "5.0.1"

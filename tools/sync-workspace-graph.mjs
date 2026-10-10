@@ -230,18 +230,21 @@ const PACKAGES = [
   {
     // The codec module's host: its typed loader, the decode sessions, FLAC
     // frame and Opus encoders over its narrow ABI, and the synchronous read
-    // its one import makes of a file (ADR-0090, ADR-0091). Compiled with the
-    // DOM's definitions for the codec worker it serves and the browser's
-    // codecs it reaches.
+    // its one import makes of a file (ADR-0090, ADR-0091); and every export's
+    // encoder, composed from those, the prebuilt LAME and libvorbis modules of
+    // `wasm-media-encoders`, each its own file, and the browser's AAC encoder,
+    // quantising through the export's dither. Compiled with the DOM's
+    // definitions for the codec worker it serves and the browser's codecs it
+    // reaches.
     dir: 'packages/codec-runtime',
     name: '@audiogubbins/codec-runtime',
     description:
-      'The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port.',
+      "The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port, and every export format's encoder.",
     dom: true,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/codecs'],
+    deps: ['@audiogubbins/domain', '@audiogubbins/codecs', '@audiogubbins/import-export'],
     devDeps: [],
-    external: {},
+    external: { 'wasm-media-encoders': '0.7.0' },
     externalDev: {},
   },
   {
