@@ -16,6 +16,13 @@ export {
 
 export { type FixtureChannel, type FixtureChunk } from './sample-writing.js';
 
-export { type WavEncoding, type WavOptions, writeWav } from './wav-writer.js';
+export {
+  type CompressedWavOptions,
+  type WavCoding,
+  type WavEncoding,
+  type WavOptions,
+  writeCompressedWav,
+  writeWav,
+} from './wav-writer.js';
 
 export { type AiffOptions, channelLayoutBody, writeAiff } from './aiff-writer.js';

@@ -20,9 +20,11 @@ import {
 
 import {
   AIFC_COMM_BYTES,
+  aifcFormat,
+  commonBlock,
   commonEncoding,
-  isUncompressed,
   readCommon,
+  readsInPlace,
   type CommonFacts,
 } from './aiff-common.js';
 import { viewOf, type HeaderSource } from './byte-reading.js';
@@ -150,14 +152,15 @@ async function describeSound(
     if (!read.ok) return read;
     layout = read.value;
   }
+  const block = commonBlock(common, encoding.value);
   return describeAudio(
     {
       container,
       sampleRate: common.sampleRate.value,
       encoding: encoding.value,
       channelCount: common.channelCount,
-      blockAlign: Math.max(common.channelCount, 0) * encoding.value.bytes,
-      declaredFrames: common.declaredFrames,
+      blockAlign: block.blockAlign,
+      declared: { kind: 'frames', frames: common.declaredFrames * block.framesPerCount },
       ...data.value,
     },
     (channelCount): ChannelLayout | undefined =>
@@ -167,7 +170,7 @@ async function describeSound(
 
 /**
  * Recognises an IFF form's codec by walking to its `COMM` chunk, and, where the
- * samples are uncompressed PCM, offers the rest of the parse, which continues
+ * samples are in an encoding read in place, offers the rest of the parse, which continues
  * the same walk and so is taken once.
  */
 export async function recogniseAiff(
@@ -187,15 +190,11 @@ export async function recogniseAiff(
   const common = readCommon(body.value, container === 'aifc');
   if (!common.ok) return common;
   const facts = common.value;
-  if (!isUncompressed(facts.compressionType)) {
-    return succeed({
-      readable: false,
-      format: { kind: 'compressed-aifc', compressionType: facts.compressionType },
-    });
-  }
+  const format = aifcFormat(container, facts.compressionType);
+  if (!readsInPlace(facts.compressionType)) return succeed({ readable: false, format });
   return succeed({
     readable: true,
-    format: { kind: container },
+    format,
     describe: async (describeSignal) =>
       await describeSound(source, walk, found, { container, common: facts }, describeSignal),
   });

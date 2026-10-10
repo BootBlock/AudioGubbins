@@ -14,16 +14,18 @@
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
 
 import { fourCharacterCode, viewOf, type HeaderSource } from './byte-reading.js';
-import { speakerMaskLayout } from './channel-layouts.js';
-import { ChunkWalk, readHeaderChunk, type ChunkSizeRules } from './chunk-walk.js';
+import { ChunkWalk, readHeaderChunk, type ChunkSizeRules, type ChunkSpan } from './chunk-walk.js';
 import { malformed } from './codec-failures.js';
 import {
   describeAudio,
   type AudioFormatDescriptor,
   type FormatStage,
+  type HeaderFacts,
 } from './format-descriptor.js';
-import { quotedCode, type RiffContainer } from './recognised-format.js';
-import { EXTENSIBLE_FORMAT_BYTES, readWaveFormat, type WaveShape } from './wave-format.js';
+import { namedFormat, quotedCode, type RiffContainer } from './recognised-format.js';
+import { codecOfEncoding } from './sample-encoding.js';
+import { FORMAT_BYTES_READ, readWaveFormat, type WaveShape } from './wave-format.js';
+import { waveStatedLayout } from './wave-layout-reading.js';
 
 /** Where the chunks begin, after the form's id, its size and `WAVE`. */
 const FIRST_CHUNK = 12;
@@ -47,8 +49,14 @@ function safeUint64(view: DataView, offset: number): number | undefined {
   return high > SAFE_HIGH_WORD ? undefined : high * 2 ** 32 + view.getUint32(offset, true);
 }
 
+/** What a ds64 chunk holds: the sizes the walk resolves, and the 64-bit sample count. */
+interface Ds64Reading {
+  readonly rules: ChunkSizeRules;
+  readonly sampleCount: number | undefined;
+}
+
 /** Reads a ds64 chunk's body into the size rules the rest of the walk uses. */
-function ds64Rules(body: Uint8Array, statedSize: number): DomainResult<ChunkSizeRules> {
+function ds64Rules(body: Uint8Array, statedSize: number): DomainResult<Ds64Reading> {
   if (body.length < DS64_FIXED_BYTES) {
     return fail(malformed('The ds64 chunk is shorter than the 28 bytes its sizes need.'));
   }
@@ -72,29 +80,47 @@ function ds64Rules(body: Uint8Array, statedSize: number): DomainResult<ChunkSize
     return fail(malformed('The ds64 chunk states a size larger than any file can be.'));
   }
   return succeed({
-    littleEndian: true,
-    resolve: (id, stated) => {
-      if (stated !== SIZE_IN_DS64) return succeed(stated);
-      const size = id === 'data' ? dataSize : table.get(id);
-      return size === undefined
-        ? fail(
-            malformed(
-              `The ${quotedCode(id)} chunk's size is kept in the ds64 chunk, which does not list it.`,
-            ),
-          )
-        : succeed(size);
+    rules: {
+      littleEndian: true,
+      resolve: (id, stated) => {
+        if (stated !== SIZE_IN_DS64) return succeed(stated);
+        const size = id === 'data' ? dataSize : table.get(id);
+        return size === undefined
+          ? fail(
+              malformed(
+                `The ${quotedCode(id)} chunk's size is kept in the ds64 chunk, which does not list it.`,
+              ),
+            )
+          : succeed(size);
+      },
     },
+    sampleCount: safeUint64(view, 16),
   });
 }
 
-/** The walk over the form's chunks, which for RF64 and BW64 starts after the ds64 chunk and reads its sizes. */
-async function firstWalk(
+/** A walk over a RIFF form's chunks, and the sample count an RF64 or BW64 file keeps in ds64. */
+interface RiffWalk {
+  readonly walk: ChunkWalk;
+
+  /** The ds64 chunk's sample count, which a fact chunk stating 0xFFFFFFFF defers to. */
+  readonly sampleCount: number | undefined;
+}
+
+/**
+ * The walk over the form's chunks, which for RF64 and BW64 starts after the
+ * ds64 chunk and reads its sizes.
+ */
+async function riffWalk(
   source: HeaderSource,
   container: RiffContainer,
   signal: CancellationSignal | undefined,
-): Promise<DomainResult<ChunkWalk>> {
-  if (container === 'wav')
-    return succeed(new ChunkWalk(source, FIRST_CHUNK, { littleEndian: true }));
+): Promise<DomainResult<RiffWalk>> {
+  if (container === 'wav') {
+    return succeed({
+      walk: new ChunkWalk(source, FIRST_CHUNK, { littleEndian: true }),
+      sampleCount: undefined,
+    });
+  }
   const first = await new ChunkWalk(source, FIRST_CHUNK, { littleEndian: true }).next(signal);
   if (!first.ok) return first;
   if (first.value?.id !== 'ds64') {
@@ -108,49 +134,102 @@ async function firstWalk(
   const limit = DS64_FIXED_BYTES + MAXIMUM_DS64_ENTRIES * DS64_ENTRY_BYTES;
   const body = await readHeaderChunk(source, span, limit, signal);
   if (!body.ok) return body;
-  const rules = ds64Rules(body.value, span.size);
-  if (!rules.ok) return rules;
-  return succeed(new ChunkWalk(source, span.bodyOffset + span.size + (span.size % 2), rules.value));
+  const ds64 = ds64Rules(body.value, span.size);
+  if (!ds64.ok) return ds64;
+  return succeed({
+    walk: new ChunkWalk(source, span.bodyOffset + span.size + (span.size % 2), ds64.value.rules),
+    sampleCount: ds64.value.sampleCount,
+  });
+}
+
+/**
+ * The walk over the form's chunks, as `riffWalk` gives it. The metadata reader
+ * walks a form by it too, so a size kept in the ds64 table means the same to
+ * both.
+ */
+export async function firstWalk(
+  source: HeaderSource,
+  container: RiffContainer,
+  signal: CancellationSignal | undefined,
+): Promise<DomainResult<ChunkWalk>> {
+  const walked = await riffWalk(source, container, signal);
+  return walked.ok ? succeed(walked.value.walk) : walked;
+}
+
+/** The bytes of a `fact` chunk's frame count. */
+const FACT_BYTES = 4;
+
+/**
+ * How long a file's header says its samples are. A block code's encoder pads
+ * its last block, so its `fact` chunk's frame count is the length; uncompressed
+ * PCM and G.711 are as long as their data, and their `fact` chunk, where one is
+ * written, is not consulted.
+ */
+async function declaredLength(
+  source: HeaderSource,
+  riff: RiffWalk,
+  shape: WaveShape,
+  spans: { readonly data: ChunkSpan; readonly fact: ChunkSpan | undefined },
+  signal: CancellationSignal | undefined,
+): Promise<DomainResult<HeaderFacts['declared']>> {
+  const bytes: HeaderFacts['declared'] = { kind: 'bytes', bytes: spans.data.size };
+  const blockCoded = shape.encoding.kind === 'ima-adpcm' || shape.encoding.kind === 'ms-adpcm';
+  if (!blockCoded || spans.fact === undefined) return succeed(bytes);
+  const body = await readHeaderChunk(source, spans.fact, FACT_BYTES, signal);
+  if (!body.ok) return body;
+  if (body.value.length < FACT_BYTES) {
+    return fail(malformed('The fact chunk is shorter than the 4 bytes of its frame count.'));
+  }
+  const stated = viewOf(body.value).getUint32(0, true);
+  const frames = stated === SIZE_IN_DS64 ? riff.sampleCount : stated;
+  if (frames === undefined) {
+    return fail(malformed("The fact chunk's frame count is kept in a ds64 chunk the file lacks."));
+  }
+  return succeed({ kind: 'frames', frames });
 }
 
 /** Continues a walk past the format chunk to the data, and describes the file. */
 async function describeData(
   source: HeaderSource,
-  walk: ChunkWalk,
+  riff: RiffWalk,
   container: RiffContainer,
   shape: WaveShape,
   signal: CancellationSignal | undefined,
 ): Promise<DomainResult<AudioFormatDescriptor>> {
+  let fact: ChunkSpan | undefined;
+  let ixml: ChunkSpan | undefined;
   for (;;) {
-    const next = await walk.next(signal);
+    const next = await riff.walk.next(signal);
     if (!next.ok) return next;
     const span = next.value;
     if (span === undefined)
       return fail(malformed('The file has no data chunk holding its samples.'));
+    if (span.id === 'fact') fact ??= span;
+    if (span.id === 'iXML') ixml ??= span;
     if (span.id !== 'data') continue;
-    const blockAlign = shape.blockAlign;
+    const declared = await declaredLength(source, riff, shape, { data: span, fact }, signal);
+    if (!declared.ok) return declared;
+    const stated = await waveStatedLayout(source, shape.channelMask, ixml, signal);
+    if (!stated.ok) return stated;
     return describeAudio(
       {
         container,
         sampleRate: shape.sampleRate,
         encoding: shape.encoding,
         channelCount: shape.channelCount,
-        blockAlign,
+        blockAlign: shape.blockAlign,
         dataOffset: span.bodyOffset,
-        declaredFrames: blockAlign === 0 ? 0 : Math.floor(span.size / blockAlign),
+        declared: declared.value,
         presentBytes: Math.min(span.size, source.size - span.bodyOffset),
       },
-      (channelCount) =>
-        shape.channelMask === undefined
-          ? undefined
-          : speakerMaskLayout(shape.channelMask, channelCount),
+      stated.value,
     );
   }
 }
 
 /**
  * Recognises a RIFF form's codec by walking to its format chunk, and, where the
- * samples are uncompressed PCM, offers the rest of the parse, which continues
+ * samples are in an encoding read in place, offers the rest of the parse, which continues
  * the same walk and so is taken once.
  */
 export async function recogniseRiff(
@@ -158,9 +237,10 @@ export async function recogniseRiff(
   container: RiffContainer,
   signal: CancellationSignal | undefined,
 ): Promise<DomainResult<FormatStage>> {
-  const walked = await firstWalk(source, container, signal);
+  const walked = await riffWalk(source, container, signal);
   if (!walked.ok) return walked;
-  const walk = walked.value;
+  const riff = walked.value;
+  const { walk } = riff;
   for (;;) {
     const next = await walk.next(signal);
     if (!next.ok) return next;
@@ -171,7 +251,7 @@ export async function recogniseRiff(
       return fail(malformed("The sample data comes before the 'fmt ' chunk that describes it."));
     }
     if (span.id !== 'fmt ') continue;
-    const body = await readHeaderChunk(source, span, EXTENSIBLE_FORMAT_BYTES, signal);
+    const body = await readHeaderChunk(source, span, FORMAT_BYTES_READ, signal);
     if (!body.ok) return body;
     const reading = readWaveFormat(body.value, container);
     if (!reading.ok) return reading;
@@ -179,9 +259,9 @@ export async function recogniseRiff(
     const shape = reading.value.shape;
     return succeed({
       readable: true,
-      format: { kind: container },
+      format: namedFormat(container, codecOfEncoding(shape.encoding)),
       describe: async (describeSignal) =>
-        await describeData(source, walk, container, shape, describeSignal),
+        await describeData(source, riff, container, shape, describeSignal),
     });
   }
 }

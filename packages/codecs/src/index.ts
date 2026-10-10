@@ -20,7 +20,17 @@ export { type AudioBytes } from './audio-bytes.js';
 
 export { type ReadableContainer } from './recognised-format.js';
 
-export { type AudioFormatDescriptor, type SampleEncoding } from './format-descriptor.js';
+export { type AudioFormatDescriptor } from './format-descriptor.js';
+
+export {
+  type ByteOrder,
+  type FloatSampleEncoding,
+  type G711SampleEncoding,
+  type ImaAdpcmEncoding,
+  type IntegerSampleEncoding,
+  type MsAdpcmEncoding,
+  type SampleEncoding,
+} from './sample-encoding.js';
 
 export { type AudioReader, openAudio } from './audio-reader.js';
 

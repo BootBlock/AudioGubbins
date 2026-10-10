@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { writeAiff, writeWav } from '@audiogubbins/codecs/testing';
+import { writeAiff, writeCompressedWav, writeWav } from '@audiogubbins/codecs/testing';
 import { StandardLayouts, type AssetId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceHandling, type ExternalFile } from '@audiogubbins/media-store';
@@ -179,6 +179,30 @@ describe('importing an audio file (ADR-0052)', () => {
 
     expect(expectFailureCode(result)).toBe('codecs.unsupported-format');
     expect(result.ok ? '' : result.failures[0].summary).toContain('FLAC');
+    expect(await storedObjects(scene)).toEqual([]);
+    expect(scene.session.getSnapshot().model.state.project.assets.size).toBe(0);
+  });
+
+  it('refuses a file of compressed samples the provenance cannot record, before storing anything', async () => {
+    const scene = await setUp();
+    const alaw = writeCompressedWav({
+      sampleRate: 8_000,
+      channelCount: 1,
+      coding: { kind: 'g711-alaw' },
+      data: new Uint8Array(800).fill(0xd5),
+    });
+    const result = await importAudio(
+      scene.session,
+      {
+        file: fileOf(memorySource(Uint8Array.from(alaw)), 'Phone line.wav'),
+        choice: { mode: SourceHandling.Copy },
+        assetId: scene.assetId,
+        importedAt: IMPORTED_AT,
+      },
+      scene.services,
+    );
+
+    expect(expectFailureCode(result)).toBe('storage.source-codec-unrecorded');
     expect(await storedObjects(scene)).toEqual([]);
     expect(scene.session.getSnapshot().model.state.project.assets.size).toBe(0);
   });

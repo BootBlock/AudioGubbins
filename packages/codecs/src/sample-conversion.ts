@@ -22,7 +22,7 @@
  */
 
 import { viewOf } from './byte-reading.js';
-import type { IntegerSampleEncoding, SampleEncoding } from './format-descriptor.js';
+import type { IntegerSampleEncoding, PcmSampleEncoding } from './sample-encoding.js';
 
 /** Reads one container integer at an offset: two's complement where `signed`. */
 type ContainerReader = (view: DataView, offset: number, littleEndian: boolean) => number;
@@ -91,7 +91,7 @@ type ChannelDecoder = (
 ) => void;
 
 /** The decoder of one channel's samples in this encoding. */
-function channelDecoder(encoding: SampleEncoding): ChannelDecoder {
+function channelDecoder(encoding: PcmSampleEncoding): ChannelDecoder {
   const littleEndian = encoding.byteOrder === 'little';
   if (encoding.kind === 'float' && encoding.bits === 32) {
     return (view, first, stride, frames, target, at) => {
@@ -120,7 +120,7 @@ function channelDecoder(encoding: SampleEncoding): ChannelDecoder {
  * array per channel, writing from index `at`.
  */
 export function decodeFrames(
-  encoding: SampleEncoding,
+  encoding: PcmSampleEncoding,
   bytes: Uint8Array,
   frames: number,
   into: readonly Float32Array[],

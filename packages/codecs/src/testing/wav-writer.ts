@@ -129,7 +129,6 @@ function ds64Chunk(
 
 /** Writes a WAV, RF64 or BW64 file of the given samples. */
 export function writeWav(options: WavOptions): Uint8Array {
-  const form = options.form ?? 'wav';
   const bytes = containerBytes(options.encoding);
   const data = encodeFrames(
     options.channels,
@@ -143,6 +142,23 @@ export function writeWav(options: WavOptions): Uint8Array {
           signed: bytes !== 1,
         },
   );
+  return riffFile(options, formatBody(options), data, options.channels[0]?.length ?? 0);
+}
+
+/** The parts of a fixture every RIFF form frames the same way, whatever its samples are. */
+type RiffFraming = Pick<
+  WavOptions,
+  'form' | 'beforeFormat' | 'beforeData' | 'afterData' | 'factFrames' | 'sizesInDs64' | 'truncate'
+>;
+
+/** Frames a format chunk and sample data as a WAV, RF64 or BW64 file. */
+function riffFile(
+  options: RiffFraming,
+  format: Uint8Array,
+  data: Uint8Array,
+  frames: number,
+): Uint8Array {
+  const form = options.form ?? 'wav';
   const large = new Set(form === 'wav' ? [] : (options.sizesInDs64 ?? []));
   const extra = (chunks: readonly FixtureChunk[] | undefined) =>
     (chunks ?? []).map((chunk) =>
@@ -150,7 +166,7 @@ export function writeWav(options: WavOptions): Uint8Array {
     );
   const chunks: FixtureChunk[] = [
     ...extra(options.beforeFormat),
-    { id: 'fmt ', body: formatBody(options) },
+    { id: 'fmt ', body: format },
     ...(options.factFrames === undefined
       ? []
       : [{ id: 'fact', body: fields(true, [options.factFrames, 4]) }]),
@@ -170,11 +186,93 @@ export function writeWav(options: WavOptions): Uint8Array {
       0,
     );
     const riffSize = 4 + chunkTotal + 8 + 28 + 12 * listed.length;
-    chunks.unshift(ds64Chunk(riffSize, data.length, options.channels[0]?.length ?? 0, listed));
+    chunks.unshift(ds64Chunk(riffSize, data.length, frames, listed));
   }
   const body = joinBytes(chunks.map((chunk) => chunkBytes(chunk, true)));
   const id = form === 'wav' ? 'RIFF' : form.toUpperCase();
   const riffSize = form === 'wav' ? body.length + 4 : 0xffffffff;
   const file = joinBytes([codeBytes(id), fields(true, [riffSize, 4]), codeBytes('WAVE'), body]);
   return file.slice(0, file.length - (options.truncate ?? 0));
+}
+
+/** A compressed code a WAV fixture states, with the block layout an ADPCM code needs. */
+export type WavCoding =
+  | { readonly kind: 'g711-alaw' | 'g711-ulaw' }
+  | { readonly kind: 'ima-adpcm'; readonly blockAlign: number; readonly framesPerBlock: number }
+  | {
+      readonly kind: 'ms-adpcm';
+      readonly blockAlign: number;
+      readonly framesPerBlock: number;
+      readonly coefficients: readonly (readonly [number, number])[];
+    };
+
+/** A WAV fixture of compressed samples, given as the bytes the data chunk holds. */
+export interface CompressedWavOptions extends RiffFraming {
+  readonly sampleRate: number;
+  readonly channelCount: number;
+  readonly coding: WavCoding;
+  readonly data: Uint8Array;
+
+  /** Replaces fields of the format chunk, to state what the samples are not. */
+  readonly formatOverrides?: {
+    readonly bitsPerSample?: number;
+    readonly extraBytes?: number;
+    readonly coefficientCount?: number;
+  };
+}
+
+/** The format tag and bits per sample each compressed code is written with. */
+const CODINGS: Readonly<Record<WavCoding['kind'], readonly [tag: number, bits: number]>> = {
+  'g711-alaw': [0x0006, 8],
+  'g711-ulaw': [0x0007, 8],
+  'ima-adpcm': [0x0011, 4],
+  'ms-adpcm': [0x0002, 4],
+};
+
+/** The fields an ADPCM format chunk adds after the plain ones, from its extension size on. */
+function codingExtension(options: CompressedWavOptions): Uint8Array {
+  const { coding, formatOverrides } = options;
+  if (coding.kind === 'ima-adpcm') {
+    return fields(true, [formatOverrides?.extraBytes ?? 2, 2], [coding.framesPerBlock, 2]);
+  }
+  if (coding.kind === 'ms-adpcm') {
+    const table = coding.coefficients.flatMap(([first, second]): [number, number][] => [
+      [first, 2],
+      [second, 2],
+    ]);
+    return fields(
+      true,
+      [formatOverrides?.extraBytes ?? 4 + 4 * coding.coefficients.length, 2],
+      [coding.framesPerBlock, 2],
+      [formatOverrides?.coefficientCount ?? coding.coefficients.length, 2],
+      ...table,
+    );
+  }
+  return fields(true, [formatOverrides?.extraBytes ?? 0, 2]);
+}
+
+/**
+ * Writes a WAV, RF64 or BW64 file of compressed samples: the plain format chunk
+ * with the code's own fields, the data as given, and a fact chunk where asked.
+ */
+export function writeCompressedWav(options: CompressedWavOptions): Uint8Array {
+  const { coding, channelCount, sampleRate } = options;
+  const [tag, bits] = CODINGS[coding.kind];
+  const blockAlign = 'blockAlign' in coding ? coding.blockAlign : channelCount;
+  const framesPerBlock = 'framesPerBlock' in coding ? coding.framesPerBlock : 1;
+  const format = joinBytes([
+    fields(
+      true,
+      [tag, 2],
+      [channelCount, 2],
+      [sampleRate, 4],
+      [Math.floor((sampleRate * blockAlign) / framesPerBlock), 4],
+      [blockAlign, 2],
+      [options.formatOverrides?.bitsPerSample ?? bits, 2],
+    ),
+    codingExtension(options),
+  ]);
+  const frames =
+    options.factFrames ?? Math.floor(options.data.length / blockAlign) * framesPerBlock;
+  return riffFile(options, format, options.data, frames);
 }

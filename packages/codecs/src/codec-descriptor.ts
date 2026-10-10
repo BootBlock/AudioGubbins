@@ -67,13 +67,27 @@ export interface CodecDirection {
   readonly maximumChannels: number;
 }
 
+/**
+ * The codes a RIFF or AIFF-C file names a codec by in its own header: the WAV
+ * format tags, as `fmt ` or the extensible sub-format states them, and the
+ * AIFF-C compression types. A stream format names its codec its own way, which
+ * recognition reads, so it has none here.
+ */
+export interface CodecCodes {
+  readonly waveFormatTags: readonly number[];
+  readonly aifcCompressionTypes: readonly string[];
+}
+
 /** A codec, and the directions AudioGubbins serves it in. */
 export interface CodecDescriptor {
   readonly id: CodecId;
 
-  /** The codec's name as a sentence gives it, such as "Ogg Vorbis". */
+  /** The codec's name as a sentence gives it, such as "Vorbis". */
   readonly name: string;
   readonly lossless: boolean;
+
+  /** The codes a WAV or AIFF-C header names this codec by, so recognition asks the registry. */
+  readonly codes: CodecCodes;
   readonly read: CodecDirection | undefined;
   readonly write: CodecDirection | undefined;
 }

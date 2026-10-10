@@ -22,6 +22,9 @@ import type { CommandInvocation } from '@audiogubbins/commands';
 import { openAudio, type AudioFormatDescriptor } from '@audiogubbins/codecs';
 import {
   AssetOrigin,
+  FailureKind,
+  fail,
+  failure,
   succeed,
   type Asset,
   type AssetId,
@@ -86,6 +89,8 @@ export async function importAudio(
   const opened = await openAudio(file.source, signal);
   if (!opened.ok) return opened;
   const { format } = opened.value;
+  const audio = audioShape(format);
+  if (!audio.ok) return audio;
   const name = nameFromFile('asset', file.fileName);
   if (!name.ok) return name;
 
@@ -95,7 +100,7 @@ export async function importAudio(
       choice: request.choice,
       projectId: session.getSnapshot().model.state.project.id,
       importedAt: request.importedAt,
-      audio: audioShape(format),
+      audio: audio.value,
     },
     services,
     signal === undefined ? {} : { signal },
@@ -140,10 +145,27 @@ function importedAsset(
   };
 }
 
-/** The audio shape the reader found, as the provenance records it. */
-export function audioShape(format: AudioFormatDescriptor): SourceAudioShape {
+/**
+ * The audio shape the reader found, as the provenance records it, or why the
+ * provenance cannot record it. The read contract reads G.711 and ADPCM in place
+ * (ADR-0090), but the provenance's shape holds only an uncompressed encoding:
+ * the source's codec joins it when the provenance gains the compressed source,
+ * and until then such a file is refused before anything is stored rather than
+ * recorded as a PCM file it is not.
+ */
+export function audioShape(format: AudioFormatDescriptor): DomainResult<SourceAudioShape> {
   const { encoding } = format;
-  return {
+  if (encoding.kind !== 'integer' && encoding.kind !== 'float') {
+    return fail(
+      failure(
+        'storage.source-codec-unrecorded',
+        FailureKind.Rejected,
+        "This file's samples are compressed, and a project cannot yet record a compressed source, so it is not imported.",
+        { details: { encoding: encoding.kind } },
+      ),
+    );
+  }
+  return succeed({
     container: format.container,
     sampleRate: format.sampleRate,
     encoding: encoding.kind,
@@ -152,5 +174,5 @@ export function audioShape(format: AudioFormatDescriptor): SourceAudioShape {
     ...(format.statedLayout === undefined ? {} : { statedLayout: format.statedLayout }),
     frames: format.frames,
     declaredFrames: format.declaredFrames,
-  };
+  });
 }
