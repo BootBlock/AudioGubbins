@@ -29,6 +29,7 @@ import type { StorageClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
+import { browserExportDestinations } from '../io/export-destinations.js';
 import { libraryChannel } from '../io/library-channel.js';
 import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
@@ -141,6 +142,7 @@ export function startProjectSystem(
   const { services } = made;
   const ports: ProjectPorts = {
     files: browserTransferFiles(platform.pickers, services.keeper),
+    exportDestinations: browserExportDestinations(platform.pickers),
     canLink: platform.pickers !== undefined,
     backupFolder: browserBackupFolder(platform.pickers, services.keeper),
     linkedFiles: browserLinkedFiles(services.keeper),

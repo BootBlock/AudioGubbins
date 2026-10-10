@@ -16,7 +16,12 @@
  * decides in the worker (REQ-STOR-098).
  */
 
-import { FileHandleKeeper, randomTokens, webDigest } from '@audiogubbins/browser-storage';
+import {
+  FileHandleKeeper,
+  TrustedFolders,
+  randomTokens,
+  webDigest,
+} from '@audiogubbins/browser-storage';
 import type { StoragePlatform } from '@audiogubbins/capabilities';
 import type { DiagnosticCentre, Logger } from '@audiogubbins/diagnostics';
 import type { Digest } from '@audiogubbins/project-format';
@@ -32,6 +37,12 @@ export interface ProjectServices {
 
   /** Where the page keeps the handles of linked files, absent where the browser keeps none. */
   readonly keeper: FileHandleKeeper | undefined;
+
+  /**
+   * The folders kept trusted for exports, absent where the browser keeps no
+   * handles or gives no folder to write into.
+   */
+  readonly trustedFolders: TrustedFolders | undefined;
 
   /** The browser's SHA-256, which names the caches the editor keeps. */
   readonly digest: Digest;
@@ -70,6 +81,10 @@ export function projectPlatformOf(
       platform.indexedDb === undefined
         ? undefined
         : new FileHandleKeeper(platform.indexedDb, randomTokens(randomBytes)),
+    trustedFolders:
+      platform.indexedDb === undefined || platform.pickers === undefined
+        ? undefined
+        : new TrustedFolders(platform.indexedDb, randomTokens(randomBytes)),
     digest: webDigest(subtle),
     logger: diagnostics.loggerFor('projects'),
   };

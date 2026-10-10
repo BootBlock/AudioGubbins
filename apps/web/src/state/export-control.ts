@@ -48,10 +48,11 @@ import {
   type ExportJob,
   type ExportJobEvent,
   type ExportSettings,
+  type ExportTarget,
   type PlannedFile,
 } from '@audiogubbins/import-export';
-import type { KeptMetadata } from '@audiogubbins/project-format';
-import type { CollisionReply, ExportOrigin } from '@audiogubbins/storage';
+import type { Digest, KeptMetadata } from '@audiogubbins/project-format';
+import type { CollisionReply, ExportOrigin, ProjectSnapshot } from '@audiogubbins/storage';
 import type {
   DeliveryAnswer,
   ExportsClient,
@@ -90,11 +91,21 @@ export interface ExportControlParts {
   /** The folders kept trusted, absent where this browser keeps none. */
   readonly trusted: TrustedFolders | undefined;
 
+  /**
+   * Whether a handle may be written, asking the person where the browser
+   * needs their leave; called first in `start`, `retry` and
+   * `deliverElsewhere`, inside the gesture that ran them.
+   */
+  readonly allowWriting: (handle: FileSystemHandle) => Promise<boolean>;
+
   /** Hands a delivered download to the person. */
   readonly download: (file: Blob, name: string) => void;
 
   /** The bytes the storage has free, as its estimate gives it, or nothing where it gives none. */
   readonly room: () => Promise<number | undefined>;
+
+  /** The page's SHA-256, which names the state an export renders. */
+  readonly digest: Digest;
 
   /** The moment an export is asked for, which a file name's `{date}` is filled from. */
   readonly clock: () => ExportClock;
@@ -143,6 +154,13 @@ interface JobParts {
 
   /** The file staged, once it is. */
   staged: StagedRun | undefined;
+}
+
+/** An export planned and checked, before its origin is taken and it begins. */
+interface Prepared {
+  readonly jobs: readonly JobParts[];
+  readonly snapshot: ProjectSnapshot;
+  readonly target: ExportTarget;
 }
 
 /** A batch the page is running or holding. */
@@ -234,16 +252,20 @@ export class PageExportControl implements ExportControl {
         ),
       );
     }
+    const writable = await this.#writable(start.destination);
+    if (!writable.ok) return writable;
     const prepared = this.#prepared(session, start);
     if (!prepared.ok) return prepared;
     const roomy = await this.#roomFor(prepared.value);
     if (!roomy.ok) return roomy;
-    // Made only now, after the last await that can refuse, so a second start
+    const { snapshot, target, jobs } = prepared.value;
+    const origin = await exportOrigin(snapshot, start.settings, target, this.#parts.digest);
+    // Made only now, after the last await before it begins, so a second start
     // asked for meanwhile cannot run beside this one.
     if (this.#run !== undefined)
       return fail(refusal('busy', 'An export is running; wait for it, or cancel it.'));
     await this.#forgetDownloads();
-    const run = this.#begin(session, start.settings, prepared.value);
+    const run = this.#begin(session, start.settings, { jobs, origin });
     await this.#runJobs(run);
     return succeed(this.#settle(run));
   }
@@ -278,11 +300,45 @@ export class PageExportControl implements ExportControl {
     return await this.#redeliver(session, job, destination);
   }
 
+  /**
+   * Whether `destination` may be written, asked of the person where the
+   * browser needs their leave: before anything renders, or a held file is
+   * delivered again, since the delivery itself may only check.
+   */
+  async #writable(destination: ExportDestinationChoice): Promise<DomainResult<void>> {
+    let handle: FileSystemHandle;
+    switch (destination.kind) {
+      case 'download':
+        return succeed(undefined);
+      case 'file':
+      case 'folder':
+        handle = destination.handle;
+        break;
+      case 'trusted-folder': {
+        const kept = await this.#parts.trusted?.find(destination.key);
+        if (kept === undefined) {
+          return fail(
+            refusal(
+              'trusted-folder-missing',
+              'That trusted folder is no longer kept; choose it again, or another destination.',
+            ),
+          );
+        }
+        handle = kept.folder;
+        break;
+      }
+    }
+    if (await this.#parts.allowWriting(handle)) return succeed(undefined);
+    return fail(
+      refusal(
+        'permission-refused',
+        `AudioGubbins was not given leave to write to ${quoted(handle.name)}, so nothing was written there.`,
+      ),
+    );
+  }
+
   /** Every file `start` makes, ready to stage, or every reason it cannot start. */
-  #prepared(
-    session: RemoteProjectSession,
-    start: ExportStart,
-  ): DomainResult<{ readonly jobs: readonly JobParts[]; readonly origin: ExportOrigin }> {
+  #prepared(session: RemoteProjectSession, start: ExportStart): DomainResult<Prepared> {
     const { assets, codecs } = this.#parts;
     const asset = assets.find(assetEntryId(start.asset));
     if (asset === undefined) {
@@ -308,11 +364,6 @@ export class PageExportControl implements ExportControl {
             ),
           );
         }
-        if (destination.kind === 'trusted-folder' && this.#parts.trusted === undefined) {
-          return fail(
-            refusal('trusted-folders-unavailable', 'This browser keeps no trusted folder.'),
-          );
-        }
         const capability = codecs.capability(first.target.codec, 'write');
         if (capability.kind === 'unavailable') {
           const instead = capability.alternatives.map(codecName);
@@ -326,11 +377,9 @@ export class PageExportControl implements ExportControl {
           );
         }
         const kept = snapshot.model.state.sources.get(start.asset)?.provenance?.metadata;
-        return flatMapResult(exportOrigin(snapshot, settings, first.target), (origin) =>
-          mapResult(
-            combine(files.map((file) => this.#jobOf(asset, file, settings, kept, destination))),
-            (jobs) => ({ jobs, origin }),
-          ),
+        return mapResult(
+          combine(files.map((file) => this.#jobOf(asset, file, settings, kept, destination))),
+          (jobs) => ({ jobs, snapshot, target: first.target }),
         );
       }),
     );
@@ -613,15 +662,15 @@ export class PageExportControl implements ExportControl {
     if (parts?.staged === undefined || job?.state.kind !== 'staged') {
       return fail(refusal('not-waiting', 'That file is not waiting to be delivered.'));
     }
-    if (elsewhere !== undefined) {
-      if (elsewhere.kind === 'trusted-folder' && this.#parts.trusted === undefined) {
-        return fail(
-          refusal('trusted-folders-unavailable', 'This browser keeps no trusted folder.'),
-        );
-      }
-      parts.destination = elsewhere;
-    }
+    // Running from here, so a second retry asked for while this one asks
+    // for leave finds the export no longer held.
     this.#publish(run);
+    const writable = await this.#writable(elsewhere ?? parts.destination);
+    if (!writable.ok) {
+      this.#settle(run);
+      return writable;
+    }
+    if (elsewhere !== undefined) parts.destination = elsewhere;
     await this.#deliver(run, id, parts);
     if (run.cancel.signal.aborted) await this.#giveUp(run);
     return succeed(this.#settle(run));
