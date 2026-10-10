@@ -19,3 +19,12 @@ export { type FixtureChannel, type FixtureChunk } from './sample-writing.js';
 export { type WavEncoding, type WavOptions, writeWav } from './wav-writer.js';
 
 export { type AiffOptions, channelLayoutBody, writeAiff } from './aiff-writer.js';
+
+export {
+  COVER_BYTES,
+  frames,
+  fullMetadata,
+  mutations,
+  oggPages,
+  random,
+} from './compressed-fixtures.js';
