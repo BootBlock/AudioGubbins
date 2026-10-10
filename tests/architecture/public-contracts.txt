@@ -6249,7 +6249,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 7; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 8; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
