@@ -64,7 +64,7 @@ const TYPES_AHEAD = selectorOf(
 ).concat(', ', selectorOf(['tree', 'treegrid', 'grid', 'combobox'], []));
 
 /** The keys a control moves with. */
-const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
+const MOVING_KEYS: ReadonlySet<string> = new Set([
   'ArrowLeft',
   'ArrowRight',
   'ArrowUp',
@@ -83,8 +83,21 @@ const MODAL_DIALOGUE = ['dialog', 'alertdialog']
   .map((role) => `[role="${role}"][aria-modal="true"]`)
   .join(', ');
 
+/**
+ * The keys a control moves with, and those it acts with: a button or a link is
+ * pressed with Enter or Space, and a menu, a popover or a list closes with
+ * Escape. Each is a shortcut only where nothing else takes it.
+ */
+const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
+  ...MOVING_KEYS,
+  'Enter',
+  'NumpadEnter',
+  'Space',
+  'Escape',
+]);
+
 /** The keys a text field moves its caret, and deletes, with, alone or with any modifier. */
-const CARET_KEYS: ReadonlySet<string> = new Set([...NAVIGATION_KEYS, 'Backspace', 'Delete']);
+const CARET_KEYS: ReadonlySet<string> = new Set([...MOVING_KEYS, 'Backspace', 'Delete']);
 
 /** The letters a text field selects all, undoes, redoes, cuts, copies and pastes with. */
 const FIELD_LETTERS: ReadonlySet<string> = new Set(['a', 'c', 'v', 'x', 'y', 'z']);
@@ -132,11 +145,12 @@ function fieldEditsWith(reading: KeyEventReading): boolean {
  *
  * Elsewhere, a press made with no modifier but Shift. A navigation key pressed
  * alone moves, scrolls or changes whatever has the keyboard, a list, a toolbar,
- * a slider, a scrolled panel or a dialogue, so it is a shortcut only in the
- * editor's surface and where nothing has the keyboard; any other key pressed
- * alone is a list's or a menu's, which finds an entry by its letter. A shortcut
- * on a key pressed alone gives way there, so the editor's keys never take what
- * a control or a page does with them.
+ * a slider, a scrolled panel or a dialogue, and Enter, Space and Escape press a
+ * button or close what is open, so each is a shortcut only in the editor's
+ * surface and where nothing has the keyboard; any other key pressed alone is a
+ * list's or a menu's, which finds an entry by its letter. A shortcut on a key
+ * pressed alone gives way there, so the editor's keys never take what a control
+ * or a page does with them.
  */
 export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading): boolean {
   if (isTextField(target)) return fieldEditsWith(reading);
