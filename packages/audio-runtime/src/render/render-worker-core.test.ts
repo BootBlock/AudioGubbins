@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FailureKind,
+  failure,
   mapResult,
   MAXIMUM_QUALITY,
   sampleCount,
@@ -11,10 +12,15 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { GraphDescriptor } from '@audiogubbins/audio-graph';
+import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import {
   BUILT_IN_NODES,
+  BlockReplyKind,
   BuiltInNodeType,
+  RenderedBlockKind,
+  readRenderedBlockMessage,
+  type RenderedBlockMessage,
+  type RenderedBlockReply,
   DspImplementation,
   REFERENCE_DSP,
   ResamplingQuality,
@@ -23,6 +29,7 @@ import {
   renderOffline,
   signalSource,
   type CanonicalDsp,
+  type MessagePortLike,
   type PcmSource,
   type RenderSink,
   toneRecipe,
@@ -84,11 +91,13 @@ function renderOf(
     readonly chunkFrames?: number;
     readonly module?: WebAssembly.Module | undefined;
     readonly coefficientBudgetBytes?: number;
+    readonly channels?: readonly (readonly [NodeId, MessagePortLike])[];
   } = {},
 ): ToRenderWorker {
   return {
     kind: ToRenderWorkerKind.Render,
     jobId: options.jobId ?? 'render-1',
+    channels: options.channels ?? [],
     graph,
     sampleRate: RATE,
     range: {
@@ -889,5 +898,141 @@ describe('the memory a render worker gives its conversions’ tables', () => {
     const sources = [recorded('a', CD_RATE), recorded('b', CD_RATE)];
 
     expect(await budgetsGiven(sources, undefined)).toEqual([undefined, undefined]);
+  });
+});
+
+/**
+ * The consumer's end of a rendered-block channel, played by the test: every
+ * message read and kept, and credit granted as `grant` says.
+ */
+class ConsumerUnderTest {
+  readonly received: RenderedBlockMessage[] = [];
+  readonly #port: MessagePort;
+  /** The most blocks sent beyond those the consumer had answered. */
+  mostUnanswered = 0;
+  #unanswered = 0;
+
+  constructor(
+    port: MessagePort,
+    grant: (message: RenderedBlockMessage) => RenderedBlockReply | undefined,
+  ) {
+    this.#port = port;
+    port.addEventListener('message', (event: MessageEvent) => {
+      const message = expectSuccess(readRenderedBlockMessage(event.data));
+      this.received.push(message);
+      if (message.kind === RenderedBlockKind.Block) {
+        this.#unanswered += 1;
+        this.mostUnanswered = Math.max(this.mostUnanswered, this.#unanswered);
+      }
+      const reply = grant(message);
+      if (reply === undefined) return;
+      if (reply.kind === BlockReplyKind.Credit) this.#unanswered = 0;
+      port.postMessage(reply);
+    });
+    port.start();
+  }
+
+  give(reply: RenderedBlockReply): void {
+    this.#port.postMessage(reply);
+  }
+
+  get blocks(): readonly (readonly Float32Array[])[] {
+    return this.received.flatMap((message) =>
+      message.kind === RenderedBlockKind.Block ? [message.channels] : [],
+    );
+  }
+
+  get last(): RenderedBlockMessage | undefined {
+    return this.received.at(-1);
+  }
+}
+
+const CREDIT_ONE: RenderedBlockReply = { kind: BlockReplyKind.Credit, blocks: 1 };
+
+describe('a render worker sending a sink’s blocks over a channel', () => {
+  it('sends them to the consumer as its credit allows, the engine’s render to the bit, and ends', async () => {
+    const dsp = REFERENCE_DSP;
+    const channel = new MessageChannel();
+    const consumer = new ConsumerUnderTest(channel.port2, (message) =>
+      message.kind === RenderedBlockKind.Block ? CREDIT_ONE : undefined,
+    );
+    consumer.give(CREDIT_ONE);
+    const worker = new WorkerUnderTest();
+    worker.core.receive(
+      renderOf(lookaheadGraph(STEREO), [pcmAt(RATE, distinctChannels(STEREO, 3_000))], {
+        channels: [[named('out'), channel.port1]],
+      }),
+    );
+    expect(await worker.runToEnd()).toMatchObject({ kind: FromRenderWorkerKind.Done });
+    for (let turn = 0; turn < 100 && consumer.last?.kind !== RenderedBlockKind.End; turn += 1) {
+      await idle();
+    }
+    const engine = await engineRender(
+      lookaheadGraph(STEREO),
+      memoryAt(RATE, STEREO, distinctChannels(STEREO, 3_000)),
+      dsp,
+    );
+    expect(
+      joined(
+        STEREO.roles.map((_, index) =>
+          consumer.blocks.map((block) => block[index] ?? new Float32Array(0)),
+        ),
+      ),
+    ).toEqual(engine.out);
+    expect(consumer.last).toEqual({ kind: RenderedBlockKind.End, frames: 2_500 });
+    // The consumer was never sent a block it had not given credit for.
+    expect(consumer.mostUnanswered).toBe(1);
+    // Only the sink with no channel came back to the host.
+    expect(worker.channelsOf('out')).toEqual([]);
+    expect(worker.channelsOf('dry')).toEqual(engine.dry);
+  });
+
+  it('stops the render with the consumer’s reasons when it refuses', async () => {
+    const channel = new MessageChannel();
+    const consumer = new ConsumerUnderTest(channel.port2, () => undefined);
+    consumer.give({
+      kind: BlockReplyKind.Refused,
+      failures: [failure('codec-runtime.writer-ended', FailureKind.Rejected, 'The encoder ended.')],
+    });
+    const worker = new WorkerUnderTest();
+    worker.core.receive(
+      renderOf(lookaheadGraph(STEREO), [pcmAt(RATE, distinctChannels(STEREO, 3_000))], {
+        channels: [[named('out'), channel.port1]],
+      }),
+    );
+    const ended = await worker.runToEnd();
+    expect(ended).toMatchObject({
+      kind: FromRenderWorkerKind.Failed,
+      failures: [{ code: 'render.worker-fault' }],
+    });
+    expect(ended.kind === FromRenderWorkerKind.Failed ? ended.failures[0].summary : '').toContain(
+      'The encoder ended.',
+    );
+    expect(consumer.blocks).toEqual([]);
+  });
+
+  it('tells the consumer of a render cancelled while it waited for credit', async () => {
+    const channel = new MessageChannel();
+    const consumer = new ConsumerUnderTest(channel.port2, () => undefined);
+    const worker = new WorkerUnderTest();
+    worker.core.receive(
+      renderOf(lookaheadGraph(STEREO), [pcmAt(RATE, distinctChannels(STEREO, 3_000))], {
+        channels: [[named('out'), channel.port1]],
+      }),
+    );
+    for (let turn = 0; turn < 20; turn += 1) {
+      await idle();
+      worker.resume();
+    }
+    worker.core.receive({ kind: ToRenderWorkerKind.Cancel, jobId: 'render-1' });
+    expect(await worker.runToEnd()).toEqual({
+      kind: FromRenderWorkerKind.Cancelled,
+      jobId: 'render-1',
+    });
+    for (let turn = 0; turn < 100 && consumer.last === undefined; turn += 1) await idle();
+    expect(consumer.last).toMatchObject({
+      kind: RenderedBlockKind.Failed,
+      failures: [{ code: 'render.cancelled' }],
+    });
   });
 });

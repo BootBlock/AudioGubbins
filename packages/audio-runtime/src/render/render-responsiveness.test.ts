@@ -97,6 +97,7 @@ function representativeRender(module: WebAssembly.Module | undefined): ToRenderW
   return {
     kind: ToRenderWorkerKind.Render,
     jobId: JOB,
+    channels: [],
     graph: GRAPH,
     sampleRate: RENDER_RATE,
     range: {

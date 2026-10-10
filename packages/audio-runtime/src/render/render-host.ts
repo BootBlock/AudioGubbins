@@ -59,13 +59,33 @@ function unbound(node: NodeId): DomainFailure {
   );
 }
 
+function boundTwice(node: NodeId): DomainFailure {
+  return failure(
+    'render.sink-bound-twice',
+    FailureKind.Rejected,
+    `The graph's sink ${node} is bound to a render sink and to a channel; bind it to one.`,
+    { details: { node } },
+  );
+}
+
+function notASink(node: NodeId): DomainFailure {
+  return failure(
+    'render.channel-unknown-sink',
+    FailureKind.Rejected,
+    `A channel is given for ${node}, which is no sink of the graph.`,
+    { details: { node } },
+  );
+}
+
 /**
- * Each sink of the graph bound to the caller's, or every sink left unbound,
- * found before a worker is started or a source's audio is given up.
+ * Each sink of the graph bound to the caller's, those bound to a channel
+ * left to the worker, or every sink left unbound or bound twice, found before
+ * a worker is started or a source's audio is given up.
  */
 function bindSinks(
   request: RenderRequest,
   sinks: ReadonlyMap<NodeId, RenderSink>,
+  channels: ReadonlyMap<NodeId, MessagePort>,
 ): DomainResult<ReadonlyMap<NodeId, BoundSink>> {
   const endpoints = renderEndpoints(request.graph);
   if (!endpoints.ok) return endpoints;
@@ -73,8 +93,13 @@ function bindSinks(
   const problems: DomainFailure[] = [];
   for (const [node, layout] of endpoints.value.sinks) {
     const sink = sinks.get(node);
-    if (sink === undefined) problems.push(unbound(node));
-    else bound.set(node, { sink, layout });
+    const channelled = channels.has(node);
+    if (sink !== undefined && channelled) problems.push(boundTwice(node));
+    else if (sink !== undefined) bound.set(node, { sink, layout });
+    else if (!channelled) problems.push(unbound(node));
+  }
+  for (const node of channels.keys()) {
+    if (!endpoints.value.sinks.has(node)) problems.push(notASink(node));
   }
   const [first, ...rest] = problems;
   return first === undefined ? succeed(bound) : fail(first, ...rest);
@@ -85,7 +110,7 @@ export function createRenderHost(options: RenderHostOptions): RenderHost {
   let jobs = 0;
   return {
     render: async (request, run) => {
-      const sinks = bindSinks(request, run.sinks);
+      const sinks = bindSinks(request, run.sinks, run.channels ?? new Map());
       if (!sinks.ok) return sinks;
       jobs += 1;
       const jobId = `render-${String(jobs)}`;

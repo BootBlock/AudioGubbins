@@ -287,6 +287,49 @@ describe('the render host', () => {
     expect(workers).toHaveLength(0);
   });
 
+  it('sends a sink bound to a channel its port, transferred, and writes it no chunk', async () => {
+    const { host, workers } = hostUnderTest();
+    const channel = new MessageChannel();
+    void host.render(request(), {
+      priority: JobPriority.Foreground,
+      sinks: new Map([[OUT, immediateSink()]]),
+      channels: new Map([[MONITOR, channel.port1]]),
+    });
+    await Promise.resolve();
+    const sent = workers[0]?.received[0];
+    const channels = sent?.message.kind === ToRenderWorkerKind.Render ? sent.message.channels : [];
+    expect(channels).toHaveLength(1);
+    expect(channels[0]?.[0]).toBe(MONITOR);
+    expect(channels[0]?.[1]).toBe(channel.port1);
+    expect(sent?.transfer.includes(channel.port1)).toBe(true);
+    channel.port1.close();
+  });
+
+  it('refuses a sink bound twice, and a channel for no sink, before it starts a worker', async () => {
+    const { host, workers } = hostUnderTest();
+    const channel = new MessageChannel();
+    const twice = await host.render(request(), {
+      priority: JobPriority.Foreground,
+      sinks: new Map([
+        [OUT, immediateSink()],
+        [MONITOR, immediateSink()],
+      ]),
+      channels: new Map([[MONITOR, channel.port1]]),
+    });
+    expect(expectFailureCode(twice)).toBe('render.sink-bound-twice');
+    const stray = await host.render(request(), {
+      priority: JobPriority.Foreground,
+      sinks: new Map([
+        [OUT, immediateSink()],
+        [MONITOR, immediateSink()],
+      ]),
+      channels: new Map([[expectSuccess(nodeId('nowhere')), channel.port1]]),
+    });
+    expect(expectFailureCode(stray)).toBe('render.channel-unknown-sink');
+    expect(workers).toHaveLength(0);
+    channel.port1.close();
+  });
+
   describe('fails the render, and terminates its worker,', () => {
     const sinks = () =>
       new Map([
