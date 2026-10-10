@@ -18,12 +18,8 @@ import {
 } from '@audiogubbins/project-format';
 
 import type { EncodedStream } from './encoded-stream.js';
-import {
-  deliverStaged,
-  type CollisionReply,
-  type DeliveryDestination,
-  type DeliveryFolder,
-} from './export-delivery.js';
+import type { CollisionReply } from './export-collision.js';
+import { deliverStaged, type DeliveryDestination, type DeliveryFolder } from './export-delivery.js';
 import { ExportStaging, type ExportOrigin } from './export-staging.js';
 import { mediaSharingOf } from './storage-sharing.js';
 import { MemoryLeaseCoordinator } from './testing/memory-leases.js';
