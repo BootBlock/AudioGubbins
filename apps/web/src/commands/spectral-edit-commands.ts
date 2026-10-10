@@ -14,9 +14,9 @@
  * to the project in a chain of its own that enters and leaves with the edit; a
  * processor whose model this page cannot run is refused with the reason first,
  * as ADR-0081 asks, and applied only when the invocation says `knowingly`, the
- * project keeping it to be heard once it can run. An edit the
- * domain refuses, for its mask, its resolution, its gain or its chain, is
- * refused with the reason and nothing changes.
+ * project keeping it to be heard once it can run. An edit the domain refuses,
+ * for its mask, its resolution, its gain or its chain, is refused with the
+ * reason and nothing changes.
  */
 
 import { decibelsToGain } from '@audiogubbins/audio-engine';

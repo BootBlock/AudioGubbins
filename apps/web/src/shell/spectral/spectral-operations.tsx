@@ -1,12 +1,12 @@
 /**
- * The Spectral panel's operations (ADR-0081, REQ-AUDIO-016): attenuating by
- * the decibels typed, removing, isolating with the rest lowered by the
- * decibels typed or removed, healing, and cleaning up with a restoration
- * processor, each analysed at the resolution chosen and run as the
- * `spectral.*` command of the same name; a processor whose model cannot run
- * says so before it is applied, and its button then cleans up knowingly, as
- * the command asks. Comparing the latest spectral edit with
- * before it, and hearing the original beside it, follow.
+ * The Spectral panel's operations (ADR-0081, REQ-AUDIO-016): attenuating by the
+ * decibels typed, removing, isolating with the rest lowered by the decibels
+ * typed or removed, healing, and cleaning up with a restoration processor, each
+ * analysed at the resolution chosen and run as the `spectral.*` command of the
+ * same name; a processor whose model cannot run says so before it is applied,
+ * and its button then cleans up knowingly, as the command asks. Comparing the
+ * latest spectral edit with before it, and hearing the original beside it,
+ * follow.
  */
 
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
