@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { DisplayMode, ToolId } from '@audiogubbins/editor-view';
+import { StftWindow } from '@audiogubbins/audio-engine';
+import {
+  DEFAULT_SPECTROGRAM_DISPLAY,
+  DisplayMode,
+  SpectrogramColours,
+  ToolId,
+} from '@audiogubbins/editor-view';
 import { SnapKind, StandardFrameRates, pixelsPerSample } from '@audiogubbins/timeline';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
@@ -100,7 +106,7 @@ describe('the editor views', () => {
     raw.write(
       EDITOR_VIEWS_KEY,
       JSON.stringify({
-        schemaVersion: 1,
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
         views: {
           editor: { asset: TONES.id, tool: 'chainsaw', amplitude: 3, displayMode: 'overlay' },
           broken: { tool: 'hand' },
@@ -157,6 +163,89 @@ describe('the editor views', () => {
       hardness: 0.35,
       feather: { time: 0, frequency: 0 },
     });
+  });
+
+  it('keep each view’s spectrogram between visits: its analysis, range, ramp and axis', () => {
+    const raw = ephemeralStorage();
+    const first = storeOver(raw);
+    first.open('editor', TONES);
+    first.change('editor', (state) => ({
+      ...state,
+      spectral: { frequencyScale: 'linear', lowest: 0, highest: 24_000 },
+      spectrogram: {
+        analysis: { windowLength: 8192, window: StftWindow.Hann, overlap: 8 },
+        range: { floor: -96.5, ceiling: -12 },
+        colours: SpectrogramColours.Greyscale,
+      },
+    }));
+
+    expect(storeOver(raw).entry('editor')?.state).toMatchObject({
+      spectral: { frequencyScale: 'linear', lowest: 0, highest: 24_000 },
+      spectrogram: {
+        analysis: { windowLength: 8192, window: StftWindow.Hann, overlap: 8 },
+        range: { floor: -96.5, ceiling: -12 },
+        colours: SpectrogramColours.Greyscale,
+      },
+    });
+  });
+
+  it('take each spectrogram setting a spectrogram cannot be drawn with as its default', () => {
+    const raw = ephemeralStorage();
+    const stored = (spectrogram: unknown) =>
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
+        views: { editor: { asset: TONES.id, spectrogram } },
+      });
+    for (const [spectrogram, expected] of [
+      [
+        {
+          analysis: { windowLength: 3000, window: 'hann', overlap: 4 },
+          range: { floor: -60, ceiling: 6 },
+          colours: 'rainbow',
+        },
+        DEFAULT_SPECTROGRAM_DISPLAY,
+      ],
+      [
+        {
+          analysis: { windowLength: 1024, window: 'kaiser', overlap: 4 },
+          range: { floor: -60.25, ceiling: 0 },
+          colours: 'greyscale',
+        },
+        { ...DEFAULT_SPECTROGRAM_DISPLAY, colours: SpectrogramColours.Greyscale },
+      ],
+      [
+        {
+          analysis: { windowLength: 1024, window: 'hann', overlap: 3 },
+          range: { floor: -10, ceiling: -8 },
+        },
+        DEFAULT_SPECTROGRAM_DISPLAY,
+      ],
+      [
+        { analysis: { windowLength: 512, window: 'hann', overlap: 2 }, range: { floor: -140 } },
+        {
+          ...DEFAULT_SPECTROGRAM_DISPLAY,
+          analysis: { windowLength: 512, window: StftWindow.Hann, overlap: 2 },
+        },
+      ],
+      ['none', DEFAULT_SPECTROGRAM_DISPLAY],
+    ] as const) {
+      raw.write(EDITOR_VIEWS_KEY, stored(spectrogram));
+      expect(storeOver(raw).entry('editor')?.state.spectrogram).toEqual(expected);
+    }
+  });
+
+  it('refuse views of the first schema, which held no spectrogram or spectral tools, and start afresh', () => {
+    // Before 1.0 a raised schema is refused rather than migrated (REQ-STOR-052).
+    const raw = ephemeralStorage();
+    raw.write(
+      EDITOR_VIEWS_KEY,
+      JSON.stringify({
+        schemaVersion: 1,
+        views: { editor: { asset: TONES.id, displayMode: 'spectrogram' } },
+      }),
+    );
+
+    expect(storeOver(raw).get().views.size).toBe(0);
   });
 
   it('start afresh from views written for another version', () => {

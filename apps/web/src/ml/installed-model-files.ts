@@ -18,7 +18,7 @@
  * missing until the person installs it.
  */
 
-import { FailureKind, failure, succeed, type CancellationSignal } from '@audiogubbins/domain';
+import { FailureKind, failure, succeed } from '@audiogubbins/domain';
 import {
   versionAvailability,
   type AvailabilityContext,
@@ -30,6 +30,7 @@ import type { DomainResult } from '@audiogubbins/domain';
 import type { ModelFileReader, ModelVersionCheck } from '@audiogubbins/ml-runtime';
 import { ModelUnavailability, modelUnavailable } from '@audiogubbins/processors';
 
+import { abortSignalOf } from '../io/abort-signals.js';
 import { NO_PACK_STORAGE } from './model-availability.js';
 
 /** The installer's reads, as the storage client answers them. */
@@ -43,22 +44,6 @@ export interface InstalledModelParts {
   readonly files: PackFiles | undefined;
   /** What the installer keeps now, with the runtime in use and the device. */
   readonly context: (signal?: AbortSignal) => Promise<DomainResult<AvailabilityContext>>;
-}
-
-/** An `AbortSignal` that aborts as `signal` is cancelled, for the storage client. */
-function abortSignalOf(signal: CancellationSignal): AbortSignal {
-  const controller = new AbortController();
-  if (signal.aborted) controller.abort(signal.reason);
-  else {
-    signal.addEventListener(
-      'abort',
-      () => {
-        controller.abort(signal.reason);
-      },
-      { once: true },
-    );
-  }
-  return controller.signal;
 }
 
 /** Why no pack can be read where this browser keeps none, in availability's words. */

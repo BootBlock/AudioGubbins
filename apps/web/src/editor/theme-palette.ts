@@ -1,13 +1,23 @@
 /**
  * The colours and type an editor view draws with, taken from the theme
  * (REQ-UX-155, ADR-0012): the waveform, selection and analysis palettes, the
- * text written on the display, and the chrome's ruler, as the sRGB channels the
- * renderer takes. A view has no colour of its own, so a change of theme,
- * brightness or contrast reaches the next frame it draws.
+ * spectrogram's ramps, the text written on the display, and the chrome's ruler,
+ * as the sRGB channels the renderer takes. A view has no colour of its own, so
+ * a change of theme, brightness or contrast reaches the next frame it draws.
  */
 
-import { oklchToSrgb, type Oklch, type Theme } from '@audiogubbins/design-system';
-import type { EditorPalette, EditorType } from '@audiogubbins/editor-view';
+import {
+  oklchToSrgb,
+  type Oklch,
+  type SpectrogramRamp,
+  type Theme,
+} from '@audiogubbins/design-system';
+import {
+  SPECTROGRAM_RAMP_COLOURS,
+  SpectrogramColours,
+  type EditorPalette,
+  type EditorType,
+} from '@audiogubbins/editor-view';
 import type { Colour } from '@audiogubbins/renderer';
 
 /** The shell's own font stack, so the editor's labels read as the rest of the page does. */
@@ -21,6 +31,48 @@ function colour(value: Oklch, alpha?: number): Colour {
 /** A category colour by name, or the accent where the theme has none of that name. */
 function category(theme: Theme, name: string): Oklch {
   return theme.palette.category[name] ?? theme.palette.chrome.accent;
+}
+
+/** The hue `share` of the way from `from` to `to`, the shorter way round. */
+function hueBetween(from: number, to: number, share: number): number {
+  const turn = ((((to - from) % 360) + 540) % 360) - 180;
+  return from + turn * share;
+}
+
+/**
+ * The colour `share` of the way along `stops`, evenly spaced, each step
+ * between two stops taken in OKLCH: lightness and chroma straight across, so
+ * a ramp whose stops rise in lightness rises between them too.
+ */
+function alongRamp(stops: SpectrogramRamp, share: number): Oklch {
+  const place = share * (stops.length - 1);
+  const below = Math.min(stops.length - 2, Math.floor(place));
+  const from = stops[Math.max(0, below)] ?? stops[0];
+  const to = stops[Math.max(0, below) + 1] ?? from;
+  const step = place - Math.max(0, below);
+  return {
+    lightness: from.lightness + (to.lightness - from.lightness) * step,
+    chroma: from.chroma + (to.chroma - from.chroma) * step,
+    hue: hueBetween(from.hue, to.hue, step),
+  };
+}
+
+/**
+ * The spectrogram's ramps from the theme's stops (ADR-0082): its colours, and
+ * its lightness alone, each as many colours as a ramp maps, quietest first.
+ */
+function spectrogramRamps(stops: SpectrogramRamp): EditorPalette['spectrogramRamps'] {
+  const shares = Array.from(
+    { length: SPECTROGRAM_RAMP_COLOURS },
+    (_, index) => index / (SPECTROGRAM_RAMP_COLOURS - 1),
+  );
+  const coloured = shares.map((share) => alongRamp(stops, share));
+  return {
+    [SpectrogramColours.Theme]: coloured.map((each) => colour(each)),
+    [SpectrogramColours.Greyscale]: coloured.map((each) =>
+      colour({ lightness: each.lightness, chroma: 0, hue: each.hue }),
+    ),
+  };
 }
 
 /** The editor's colours in `theme`. */
@@ -56,6 +108,7 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
     loop: colour(category(theme, 'violet')),
     snap: colour(selection.handle),
     spectrogramBackground: colour(spectrogram[0]),
+    spectrogramRamps: spectrogramRamps(spectrogram),
     // Not the selection's colour, so where an edit applies is never taken
     // for what is selected (REQ-EDIT-064).
     spectralEdit: colour(category(theme, 'lime')),

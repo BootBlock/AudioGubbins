@@ -226,6 +226,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/input',
     '@audiogubbins/timeline',
     '@audiogubbins/waveform',
+    '@audiogubbins/spectral-analysis',
     '@audiogubbins/renderer',
   ],
   '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],

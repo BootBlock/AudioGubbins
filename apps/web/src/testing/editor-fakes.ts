@@ -8,12 +8,14 @@
 import { createDeterministicIdGenerator } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 
+import { SpectrogramHost, type SpectrogramWorkerPort } from '@audiogubbins/spectral-analysis';
 import { PeakHost, type PeakWorkerPort } from '@audiogubbins/waveform';
 
 import { testAssets } from '../assets/test-assets.js';
 import { panelPartsOf } from '../editor-part.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { NO_PEAK_CACHE } from '../io/stored-peak-cache.js';
+import { NO_SPECTROGRAM_CACHE } from '../io/stored-spectrogram-cache.js';
 import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
@@ -197,6 +199,11 @@ function silentPeakWorker(): PeakWorkerPort {
   return { post: () => undefined, listen: () => undefined, terminate: () => undefined };
 }
 
+/** A spectrogram worker that takes every message and answers none, for a panel that is only drawn. */
+function silentSpectrogramWorker(): SpectrogramWorkerPort {
+  return { post: () => undefined, listen: () => undefined, terminate: () => undefined };
+}
+
 /** The Editor and Picture panels' parts over `context`, drawing nothing and asking no worker. */
 export function fakePanelParts(context: ShellContext, logger: Logger): EditorPanelParts {
   return panelPartsOf(
@@ -211,6 +218,11 @@ export function fakePanelParts(context: ShellContext, logger: Logger): EditorPan
       peaks: new PeakHost({
         createWorker: silentPeakWorker,
         cache: NO_PEAK_CACHE,
+        report: () => undefined,
+      }),
+      spectrograms: new SpectrogramHost({
+        createWorker: silentSpectrogramWorker,
+        cache: NO_SPECTROGRAM_CACHE,
         report: () => undefined,
       }),
       graphics: { gpu: undefined, pixelRatio: () => 1, watchPixelRatio: () => () => undefined },

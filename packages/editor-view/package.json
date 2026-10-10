@@ -25,6 +25,7 @@
     "@audiogubbins/input": "workspace:*",
     "@audiogubbins/timeline": "workspace:*",
     "@audiogubbins/waveform": "workspace:*",
+    "@audiogubbins/spectral-analysis": "workspace:*",
     "@audiogubbins/renderer": "workspace:*"
   },
   "devDependencies": {

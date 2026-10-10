@@ -61,6 +61,7 @@ import { browserSchedule } from './audio/browser-schedule.js';
 import type { OpenCapture } from './audio/capture-parts.js';
 import type { AudioContextHost } from './audio/context-host.js';
 import { PlaybackControl } from './audio/playback-control.js';
+import { pageDsp, type PageDsp } from './audio/page-dsp.js';
 import { followPlayingAsset } from './audio/playing-asset.js';
 import { browserPreviews } from './audio/preview-threads.js';
 import { RenderControl } from './audio/render-control.js';
@@ -166,6 +167,8 @@ function startAudio(
     'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
   readonly previews: PreviewHost;
+  /** The page's DSP module, which the spectrogram worker runs as the engine's threads do. */
+  readonly dsp: PageDsp;
   /** The page's one audio context, which an input joins. */
   readonly host: AudioContextHost;
   /** Makes a capture session over the context, once the engine is loaded. */
@@ -178,7 +181,8 @@ function startAudio(
   const previews = browserPreviews(logger, audio, models);
   let stopFollowing = (): void => undefined;
   const runtime = audioRuntimeCapabilities(capabilities);
-  const engine = browserEngineLoader(runtime, previews.host, models);
+  const dsp = pageDsp(runtime);
+  const engine = browserEngineLoader(runtime, previews.host, models, dsp);
   const host = browserContextHost(runtime, logger);
   const audioSettings = createAudioSettingsStore(storage, logger);
   const renderStrategy = createRenderStrategyStore();
@@ -208,6 +212,7 @@ function startAudio(
   return {
     parts: { audio, audioSettings, renderStrategy, playback, hearing, rendering },
     previews: previews.host,
+    dsp,
     host,
     openCapture: browserCapture(engine, logger),
     followAssets: (assets) => {
@@ -343,6 +348,7 @@ export function createApplication() {
     projectSystem,
     audioPart.previews,
     models,
+    audioPart.dsp,
   );
   audioPart.followAssets(editorPart.parts.assets);
   const packsPart = startPackManager(projectSystem, models);

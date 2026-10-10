@@ -23,6 +23,7 @@ import {
 
 import { frequencyWords } from '../wording.js';
 import { presentationCommand } from './editor-presentation-commands.js';
+import { spectrogramCommands } from './spectrogram-commands.js';
 import { spectralToolCommands } from './spectral-tool-commands.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -258,6 +259,7 @@ export function editorOptionCommands(): readonly Command<ShellContext>[] {
     ...timeFormatCommands(),
     ...followCommands(),
     ...spectralCommands(),
+    ...spectrogramCommands(),
     ...spectralToolCommands(),
   ];
 }

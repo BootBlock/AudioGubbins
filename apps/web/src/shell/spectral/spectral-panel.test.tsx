@@ -144,4 +144,32 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
       screen.getByRole('switch', { name: 'Let pen pressure set the strength' }),
     ).not.toBeChecked();
   });
+
+  it('says how the spectrogram is analysed and drawn, and changes it through its commands', async () => {
+    const audio = await selectedLoop();
+    const ran = panelOver(audio);
+
+    expect(
+      screen.getByText(
+        'The spectrogram analyses windows of 2,048 samples through the Blackman–Harris window, overlapping 4 times.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('The spectrogram’s colours span -120 to 0 dBFS.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Longer windows' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Raise floor' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Greys' }));
+
+    expect(ran).toEqual([
+      ['editor.spectrogram-window-longer', { view: 'editor' }],
+      ['editor.spectrogram-floor-raise', { view: 'editor' }],
+      ['editor.spectrogram-colours-greyscale', { view: 'editor' }],
+    ]);
+    expect(
+      screen.getByText(
+        'The spectrogram analyses windows of 4,096 samples through the Blackman–Harris window, overlapping 4 times.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('The spectrogram’s colours span -114 to 0 dBFS.')).toBeInTheDocument();
+    expect(screen.getByText('The spectrogram is drawn in greys.')).toBeInTheDocument();
+  });
 });

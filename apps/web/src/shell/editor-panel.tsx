@@ -136,6 +136,7 @@ function useEditorSurface(
       panel,
       stores: parts.stores,
       peaks: parts.peaks,
+      spectrograms: parts.spectrograms,
       graphics: parts.graphics,
       look: () => look.current,
       run: (command) => {

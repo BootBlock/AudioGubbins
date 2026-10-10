@@ -71,8 +71,8 @@ Published paths
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
   const CANONICAL_RESAMPLER_VERSION: 1
-  const CachePurpose: { readonly Playback: "playback"; readonly Waveform: "waveform"; readonly Analysis: "analysis"; }
-  type CachePurpose = "analysis" | "playback" | "waveform"
+  const CachePurpose: { readonly Playback: "playback"; readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Analysis: "analysis"; }
+  type CachePurpose = "analysis" | "playback" | "spectrogram" | "waveform"
   interface CachedStream
   readonly CachedStream.ready: Promise<DomainResult<void>>
   CachedStream.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
@@ -899,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29083: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1190,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29083: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3006,8 +3006,12 @@ Published paths
 @audiogubbins/editor-view
   const AMPLITUDES: readonly number[]
   const DEFAULT_OVERLAYS: Overlays
+  const DEFAULT_SPECTROGRAM_DISPLAY: SpectrogramDisplay
   const DisplayMode: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Stacked: "stacked"; readonly Overlay: "overlay"; }
   type DisplayMode = "overlay" | "spectrogram" | "stacked" | "waveform"
+  interface DisplayRange
+  readonly DisplayRange.floor: number
+  readonly DisplayRange.ceiling: number
   interface DrawnShape
   readonly DrawnShape.shape: SpectralShape
   readonly DrawnShape.combination: SpectralCombination
@@ -3038,6 +3042,7 @@ Published paths
   readonly EditorPalette.loop: Colour
   readonly EditorPalette.snap: Colour
   readonly EditorPalette.spectrogramBackground: Colour
+  readonly EditorPalette.spectrogramRamps: Readonly<Record<SpectrogramColours, readonly Colour[]>>
   readonly EditorPalette.spectralEdit: Colour
   interface EditorType
   readonly EditorType.label: string
@@ -3053,6 +3058,7 @@ Published paths
   readonly EditorViewState.timeFormat: TimeFormat
   readonly EditorViewState.follow: FollowMode
   readonly EditorViewState.spectral: SpectralSettings
+  readonly EditorViewState.spectrogram: SpectrogramDisplay
   readonly EditorViewState.spectralTools: SpectralToolSettings
   const FollowMode: { readonly Off: "off"; readonly Page: "page"; readonly Centre: "centre"; }
   type FollowMode = "centre" | "off" | "page"
@@ -3061,11 +3067,13 @@ Published paths
   readonly FrameComposer.#pool: BuilderPool
   readonly FrameComposer.#waveform: WaveformPainter
   readonly FrameComposer.#masks: MaskPainter
+  readonly FrameComposer.#spectrogram: SpectrogramPainter
   FrameComposer.waiting: boolean
+  FrameComposer.spectrogramWaiting: boolean
   FrameComposer.compose: (scene: ViewScene) => RenderFrame
   FrameComposer.#above: (scene: ViewScene, style: OverlayStyle) => RenderLayer[]
-  FrameComposer.#lane: (lane: Lane, scene: ViewScene, overlay: LaneOverlay, style: OverlayStyle) => RenderBatch[]
-  FrameComposer.#spectrogramShell: (lane: Lane, scene: ViewScene, out: RenderBatch[]) => void
+  FrameComposer.#lane: (lane: Lane, scene: ViewScene, shown: SpectrogramView | undefined, overlay: LaneOverlay, style: OverlayStyle) => RenderBatch[]
+  FrameComposer.#frequencyAxis: (lane: Lane, scene: ViewScene, out: RenderBatch[]) => void
   interface HitScene
   readonly HitScene.layout: ViewLayout
   readonly HitScene.viewport: ViewportState
@@ -3080,6 +3088,7 @@ Published paths
   readonly KnownAudio.buckets: BucketWindow | undefined
   readonly KnownAudio.samples: SampleWindow | undefined
   readonly KnownAudio.length: SampleCount
+  type KnownSpectrogram = { readonly kind: "not-drawn"; readonly reason: string; } | { readonly kind: "tiles"; readonly geometry: SpectrogramGeometry; readonly sampleRate: number; readonly tile: (channel: number, level: number, index: number) => ShownTile | undefined; }
   interface Lane
   readonly Lane.channel: number
   readonly Lane.kind: LaneKind
@@ -3096,6 +3105,7 @@ Published paths
   readonly Overlays.spectralEdits: boolean
   const SPECTRAL_TIME_STEP_PIXELS: 10
   const SPECTRAL_TOOL_RANGES: { readonly brushRadius: { readonly minimum: 2; readonly maximum: 96; readonly step: 1; }; readonly hardness: { readonly minimum: 0; readonly maximum: 0.95; readonly step: 0.05; }; }
+  const SPECTROGRAM_RAMP_COLOURS: 256
   interface SnapSources
   readonly SnapSources.markers: readonly PlacedMarker[]
   readonly SnapSources.regions: readonly PlacedRegion[]
@@ -3126,6 +3136,12 @@ Published paths
   readonly SpectralToolSettings.brushRadius: number
   readonly SpectralToolSettings.hardness: number
   readonly SpectralToolSettings.feather: SpectralFeather
+  const SpectrogramColours: { readonly Theme: "theme"; readonly Greyscale: "greyscale"; }
+  type SpectrogramColours = "greyscale" | "theme"
+  interface SpectrogramDisplay
+  readonly SpectrogramDisplay.analysis: SpectrogramConfig
+  readonly SpectrogramDisplay.range: DisplayRange
+  readonly SpectrogramDisplay.colours: SpectrogramColours
   interface ToolContext
   readonly ToolContext.tool: ToolId
   readonly ToolContext.panning: boolean
@@ -3169,6 +3185,7 @@ Published paths
   readonly ViewScene.pixelRatio: number
   readonly ViewScene.content: ViewContent
   readonly ViewScene.audio: KnownAudio
+  readonly ViewScene.spectrogram: KnownSpectrogram
   readonly ViewScene.selection: SelectionSet
   readonly ViewScene.playhead: SampleCount | undefined
   readonly ViewScene.preview: ToolPreview | undefined
@@ -3181,6 +3198,7 @@ Published paths
   function brushRadiusOf(value: number): number
   function hardnessOf(value: number): number
   function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
+  function isDisplayRange(range: DisplayRange): boolean
   function laneAt(layout: ViewLayout, y: number): Lane | undefined
   function layoutView(state: EditorViewState, width: number, height: number, channelCount: number, pictureBound: boolean): ViewLayout
   function maskSteppedInFrequency(mask: SpectralMask, step: SpectralStep, axis: SpectralSettings, highest: number): SpectralMask | undefined
@@ -3189,6 +3207,7 @@ Published paths
   function newViewState(length: SampleCount, width: number): EditorViewState
   function press(context: ToolContext, input: ToolInput): ToolStep
   function release(interaction: Interaction, input: ToolInput): ToolStep
+  function shownSpectrogram(state: EditorViewState, geometry: SpectrogramGeometry, length: SampleCount, pixelRatio: number): SpectrogramView | undefined
   function snapInView(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, viewport: ViewportState): SnapResult
   function snapTargetsOf(sources: SnapSources): readonly SnapTarget[]
   function visibleChannels(state: EditorViewState, channelCount: number): readonly number[]
@@ -6438,7 +6457,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 2; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 8; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 2; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 8; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -7419,6 +7438,40 @@ packages/editor-view/src/spectral-tools.ts
   readonly Trail.last: Trace
   Trail.appended: (trace: Trace) => Trail
   Trail.traces: () => readonly Trace[]
+
+packages/editor-view/src/spectrogram-drawing.ts
+  interface RowSource
+  readonly RowSource.top: number
+  readonly RowSource.height: number
+  readonly RowSource.ratio: number
+  readonly RowSource.axis: SpectralSettings
+  readonly RowSource.spacing: number
+  class SpectrogramPainter
+  new SpectrogramPainter(): SpectrogramPainter
+  SpectrogramPainter.#waiting: boolean
+  SpectrogramPainter.#rows: (undefined | { readonly source: RowSource; readonly rows: Float32Array; })[]
+  SpectrogramPainter.#next: number
+  SpectrogramPainter.#ramps: Map<string, ColourRamp>
+  SpectrogramPainter.#rampsBefore: Map<string, ColourRamp>
+  readonly SpectrogramPainter.#names: WeakMap<object, number>
+  SpectrogramPainter.#named: number
+  readonly SpectrogramPainter.#fields: WeakMap<SpectralTile, ScalarField>
+  SpectrogramPainter.waiting: boolean
+  SpectrogramPainter.begin: () => void
+  SpectrogramPainter.draw: (pool: BuilderPool, lane: Lane, known: KnownSpectrogram, shown: SpectrogramView | undefined, style: SpectrogramStyle, out: RenderBatch[]) => void
+  SpectrogramPainter.#tiles: (pool: BuilderPool, lane: Lane, known: Extract<KnownSpectrogram, { readonly kind: "tiles"; }>, shown: SpectrogramView, rows: Float32Array, style: SpectrogramStyle, out: RenderBatch[]) => void
+  SpectrogramPainter.#placed: (level: LevelGeometry, index: number, frames: number, lane: Lane, viewport: ViewportState) => Pick<FieldBatch, "at" | "columns"> | undefined
+  SpectrogramPainter.#rowsFor: (slot: number, lane: Lane, source: RowSource) => Float32Array
+  SpectrogramPainter.#fieldOf: (tile: SpectralTile) => ScalarField
+  SpectrogramPainter.#nameOf: (value: object) => number
+  SpectrogramPainter.#ramp: (style: SpectrogramStyle, stale: boolean) => ColourRamp
+  interface SpectrogramStyle
+  readonly SpectrogramStyle.viewport: ViewportState
+  readonly SpectrogramStyle.pixelRatio: number
+  readonly SpectrogramStyle.axis: SpectralSettings
+  readonly SpectrogramStyle.display: SpectrogramDisplay
+  readonly SpectrogramStyle.palette: EditorPalette
+  readonly SpectrogramStyle.type: EditorType
 
 packages/editor-view/src/waveform-drawing.ts
   class WaveformPainter

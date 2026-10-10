@@ -45,7 +45,8 @@
  *                   sync; depends on domain + timeline (ADR-0046)
  *   editor-view     one view as values: state, lanes, tools, hit testing,
  *                   snapping and frame composition; depends on domain, input,
- *                   timeline, waveform and renderer (ADR-0040)
+ *                   timeline, waveform, spectral-analysis and renderer
+ *                   (ADR-0040, ADR-0080)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -464,7 +465,7 @@ module.exports = {
         'knows no command, storage or interface package.',
       from: { path: '^packages/editor-view/' },
       to: {
-        path: '^packages/(?!(editor-view|domain|input|timeline|waveform|renderer)/)',
+        path: '^packages/(?!(editor-view|domain|input|timeline|waveform|spectral-analysis|renderer)/)',
       },
     },
     {

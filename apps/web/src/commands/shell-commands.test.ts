@@ -1217,6 +1217,23 @@ describe('finding the shell commands in the palette', () => {
     'editor.spectral-band-audible': inEditor({
       before: (run) => run('editor.spectral-band-whole'),
     }),
+    'editor.spectrogram-analysis': inEditor({ arguments: () => ({ windowLength: 4096 }) }),
+    'editor.spectrogram-window-blackman-harris': inEditor({
+      before: (run) => run('editor.spectrogram-window-hann'),
+    }),
+    'editor.spectrogram-overlap-4': inEditor({
+      before: (run) => run('editor.spectrogram-overlap-2'),
+    }),
+    'editor.spectrogram-range': inEditor({ arguments: () => ({ floor: -90 }) }),
+    'editor.spectrogram-ceiling-raise': inEditor({
+      before: (run) => run('editor.spectrogram-ceiling-lower'),
+    }),
+    'editor.spectrogram-range-default': inEditor({
+      before: (run) => run('editor.spectrogram-floor-raise'),
+    }),
+    'editor.spectrogram-colours-theme': inEditor({
+      before: (run) => run('editor.spectrogram-colours-greyscale'),
+    }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
     'editor.select-spectral': inEditor({
       arguments: () => ({

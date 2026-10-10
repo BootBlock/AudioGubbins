@@ -92,6 +92,82 @@ describe("a view's spectral settings (REQ-EDIT-061, REQ-EDIT-062)", () => {
   });
 });
 
+describe("a view's spectrogram (ADR-0080, ADR-0082)", () => {
+  beforeEach(() => {
+    openView('one', 'test:tone-bursts');
+    openView('two', 'test:tone-bursts');
+  });
+
+  it('is analysed as its own commands say, within the windows a spectrogram takes', () => {
+    run('editor.spectrogram-window-longer', { view: 'one' });
+    run('editor.spectrogram-window-hann', { view: 'one' });
+    run('editor.spectrogram-overlap-8', { view: 'one' });
+
+    expect(view('one').spectrogram.analysis).toEqual({
+      windowLength: 4096,
+      window: 'hann',
+      overlap: 8,
+    });
+    expect(view('two').spectrogram.analysis).toEqual({
+      windowLength: 2048,
+      window: 'blackman-harris',
+      overlap: 4,
+    });
+    for (let step = 0; step < 3; step += 1)
+      run('editor.spectrogram-window-shorter', { view: 'two' });
+    expect(view('two').spectrogram.analysis.windowLength).toBe(256);
+    expect(run('editor.spectrogram-window-shorter', { view: 'two' })).toMatchObject({
+      kind: 'refused',
+    });
+    expect(view('two').spectrogram.analysis.windowLength).toBe(256);
+
+    expect(run('editor.spectrogram-analysis', { view: 'one', windowLength: 3000 })).toMatchObject({
+      kind: 'refused',
+    });
+    run('editor.spectrogram-analysis', {
+      view: 'one',
+      windowLength: 32_768,
+      window: 'blackman-harris',
+    });
+    expect(view('one').spectrogram.analysis).toEqual({
+      windowLength: 32_768,
+      window: 'blackman-harris',
+      overlap: 8,
+    });
+  });
+
+  it('spans the levels its range commands say, never past what a tile holds or narrower than 6 dB', () => {
+    for (let step = 0; step < 3; step += 1) run('editor.spectrogram-floor-lower', { view: 'one' });
+    // From -120 dBFS in steps of 6 down to the quietest level a tile holds.
+    expect(view('one').spectrogram.range).toEqual({ floor: -127.5, ceiling: 0 });
+    expect(run('editor.spectrogram-ceiling-raise', { view: 'one' }).kind).toBe('unchanged');
+
+    run('editor.spectrogram-range', { view: 'two', floor: -30, ceiling: -24 });
+    expect(view('two').spectrogram.range).toEqual({ floor: -30, ceiling: -24 });
+    expect(run('editor.spectrogram-ceiling-lower', { view: 'two' })).toMatchObject({
+      kind: 'refused',
+    });
+    expect(run('editor.spectrogram-floor-raise', { view: 'two' })).toMatchObject({
+      kind: 'refused',
+    });
+    expect(run('editor.spectrogram-range', { view: 'two', floor: -30.2 })).toMatchObject({
+      kind: 'refused',
+    });
+    expect(view('two').spectrogram.range).toEqual({ floor: -30, ceiling: -24 });
+
+    run('editor.spectrogram-range-default', { view: 'two' });
+    expect(view('two').spectrogram.range).toEqual({ floor: -120, ceiling: 0 });
+  });
+
+  it('is drawn in the ramp its view chooses', () => {
+    run('editor.spectrogram-colours-greyscale', { view: 'one' });
+
+    expect(view('one').spectrogram.colours).toBe('greyscale');
+    expect(view('two').spectrogram.colours).toBe('theme');
+    expect(run('editor.spectrogram-colours-theme', { view: 'two' }).kind).toBe('unchanged');
+  });
+});
+
 describe('a selection (REQ-EDIT-063, REQ-EDIT-064)', () => {
   beforeEach(() => {
     openView('editor', 'test:tone-bursts');

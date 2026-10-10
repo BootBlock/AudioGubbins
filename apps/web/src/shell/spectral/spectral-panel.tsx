@@ -1,10 +1,10 @@
 /**
  * The Spectral panel (ADR-0082, REQ-AUDIO-016): what the editor in use has
- * selected in time and frequency, in words; the spectral tools and the
- * settings they draw with; the pen's pressure and the fixed strength; the
- * operations that repair the area, with what each is given; and the
- * spectral edits of the sound shown, each worded as the Inspector words it
- * and compared with before it by its command.
+ * selected in time and frequency, in words; the spectral tools and the settings
+ * they draw with; the pen's pressure and the fixed strength; how the
+ * spectrogram is analysed and drawn; the operations that repair the area, with
+ * what each is given; and the spectral edits of the sound shown, each worded as
+ * the Inspector words it and compared with before it by its command.
  *
  * It reads the stores and runs commands; it writes nothing itself (`CLAUDE.md`
  * G2), and it follows every change to them, an undo included.
@@ -21,6 +21,7 @@ import { editWording, operationWords, regionOperationWords } from '../inspector/
 import { PressureControls } from '../pressure-controls.js';
 import { OperationsSection } from './spectral-operations.js';
 import { SelectionSection, ToolSection } from './spectral-selection-section.js';
+import { SpectrogramSection } from './spectrogram-section.js';
 import { useShownView, type ShownView, type SpectralContext } from './shown-spectral.js';
 
 /** A spectral edit of the sound shown, in words, by its identifier. */
@@ -138,6 +139,7 @@ export function SpectralPanel({
           <SelectionSection shown={shown} commands={context} />
           <ToolSection shown={shown} commands={context} />
           <PressureSection shown={shown} context={context} />
+          <SpectrogramSection shown={shown} commands={context} />
           {shown.project === undefined ? (
             <p className="ag-panel-note">
               It is not part of the project, so it keeps no spectral edits. Import a file to repair

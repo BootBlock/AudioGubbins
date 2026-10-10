@@ -307,6 +307,9 @@ importers:
       '@audiogubbins/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
+      '@audiogubbins/spectral-analysis':
+        specifier: workspace:*
+        version: link:../../packages/spectral-analysis
       '@audiogubbins/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -622,6 +625,9 @@ importers:
       '@audiogubbins/renderer':
         specifier: workspace:*
         version: link:../renderer
+      '@audiogubbins/spectral-analysis':
+        specifier: workspace:*
+        version: link:../spectral-analysis
       '@audiogubbins/timeline':
         specifier: workspace:*
         version: link:../timeline
