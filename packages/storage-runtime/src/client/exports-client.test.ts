@@ -17,7 +17,11 @@ import type {
   StreamReceiverMessage,
 } from '@audiogubbins/import-export';
 import { countingTokens } from '@audiogubbins/media-store/testing';
-import { ExportDestinationKind, stateFingerprintFrom } from '@audiogubbins/project-format';
+import {
+  ExportDestinationKind,
+  stateFingerprintFrom,
+  type ExportCodec,
+} from '@audiogubbins/project-format';
 import type { ExportOrigin } from '@audiogubbins/storage';
 
 import { projectScene, storedModel } from '../testing/project-scene.js';
@@ -46,9 +50,11 @@ const SETTINGS: ExportSettings = {
   fileName: '{project}',
 };
 
+/** The encoder the codec worker names once the file is encoded. */
+const ENCODER: ExportCodec = { id: 'pcm', implementation: 'application', version: '0.1.0' };
+
 const ORIGIN: ExportOrigin = {
   settings: SETTINGS,
-  codec: { id: 'pcm', implementation: 'application', version: '0.1.0' },
   reproducible: true,
   stateFingerprint: expectSuccess(stateFingerprintFrom(`s1-${'4'.repeat(64)}`)),
   engineVersions: new Map([['renderer', '1']]),
@@ -137,7 +143,7 @@ describe('exports through the storage worker (ADR-0092)', () => {
     const folder = new FakeDirectoryHandle('Game sounds', [taken]);
     const asked: string[] = [];
     const delivery = expectSuccess(
-      await storage.client.exports.deliver(session, file.token, {
+      await storage.client.exports.deliver(session, file.token, ENCODER, {
         kind: 'folder',
         handle: folder,
         wanted: { stem: 'Forest walk', extension: 'wav' },
@@ -180,7 +186,8 @@ describe('exports through the storage worker (ADR-0092)', () => {
       },
     } as const;
     expect(
-      expectSuccess(await storage.client.exports.deliver(session, file.token, destination)).kind,
+      expectSuccess(await storage.client.exports.deliver(session, file.token, ENCODER, destination))
+        .kind,
     ).toBe('delivered');
     expect((await folders.find(key))?.records).toEqual([
       { name: 'Forest walk.wav', size: WHOLE.length, hash: file.sha256 },
@@ -197,7 +204,7 @@ describe('exports through the storage worker (ADR-0092)', () => {
       ),
     );
     const second = expectSuccess(
-      await storage.client.exports.deliver(session, again.token, destination),
+      await storage.client.exports.deliver(session, again.token, ENCODER, destination),
     );
     expect(second).toMatchObject({ kind: 'delivered', replaced: 'trusted' });
     expect(asked).toEqual([]);
@@ -206,7 +213,7 @@ describe('exports through the storage worker (ADR-0092)', () => {
   it('answers a download as a file of the staged parts, and keeps it staged until given up', async () => {
     const { storage, project, session, file } = await staged();
     const delivery = expectSuccess(
-      await storage.client.exports.deliver(session, file.token, {
+      await storage.client.exports.deliver(session, file.token, ENCODER, {
         kind: 'download',
         name: 'Forest walk.wav',
         mediaType: 'audio/wav',
@@ -222,7 +229,7 @@ describe('exports through the storage worker (ADR-0092)', () => {
     await storage.client.exports.discard(file.token);
     expect(
       expectFailureCode(
-        await storage.client.exports.deliver(session, file.token, {
+        await storage.client.exports.deliver(session, file.token, ENCODER, {
           kind: 'download',
           name: 'Forest walk.wav',
           mediaType: 'audio/wav',

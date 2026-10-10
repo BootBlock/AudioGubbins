@@ -357,18 +357,12 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * only what no module takes holds.
  */
 const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
-  "The page's codecs and export as Phase 09 composes them (ADR-0090, ADR-0092): the codec services the codec worker's start implements and the import, the picture's sound and the export take; the export's control, its start and destinations and the context it is planned against, which the export pipeline implements and its commands, dialog and progress take.":
-    [
-      'apps/web/src/export/export-types.ts: ExportContextOf',
-      'apps/web/src/export/export-types.ts: ExportControl',
-    ],
+  "The trusted folders' section of the export settings (ADR-0092), which the Export tab of the settings dialogue mounts beside the person's export presets.":
+    ['apps/web/src/shell/settings/trusted-folders.tsx: TrustedFoldersSection'],
   'The identities of the import and export commands, and the words the person finds them and their surfaces by, which the commands, the menus, the import list, the Export dialog, the collision prompt and the browser suite name alike.':
     [
-      'apps/web/src/commands/import-export-ids.ts: ExportCommand',
-      'apps/web/src/import-export-words.ts: COLLISION_PROMPT_WORDS',
       'apps/web/src/import-export-words.ts: EXPORT_BUTTON',
       'apps/web/src/import-export-words.ts: EXPORT_DIALOG_WORDS',
-      'apps/web/src/import-export-words.ts: collisionPromptTitle',
     ],
 };
 

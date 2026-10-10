@@ -1174,6 +1174,8 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
     'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
       ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
     "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],
+    'The folders the person keeps trusted for exports, and leave to write into a folder or file an export goes to, which only the page may ask the person for, in their gesture (ADR-0092).':
+      ['TrustedFolders', 'queryWritePermission', 'requestWritePermission'],
   },
 };
 
@@ -2860,8 +2862,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
     ],
     'apps/web/src/application.ts': [
-      361,
-      'The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts and the codecs in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back.',
+      378,
+      "The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts, the codecs and the export in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back. The export's lines are the render, codecs, assets, room and clock it is handed, which only the root holds together.",
     ],
     'apps/web/src/commands/recording-settings-commands.ts': [
       320,
@@ -3040,6 +3042,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * go stale.
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'apps/web/src/state/project-stores.ts: createProjectStores': [
+      51,
+      "The project system's composition: each store made once over the storage client's part it asks and the ports the browser gives, and handed the stores it reads; what remains are the lines that hand each its collaborators, every store a class or factory of its own.",
+    ],
+    'packages/storage-runtime/src/host/export-area.ts: exportHandlers': [
+      55,
+      'A table of the three export operations, stage, deliver and discard, each a few lines over the one staging area and the delivery services made here, which every operation shares; a download is a function of its own beside it.',
+    ],
     'apps/web/src/application.ts: startAudio': [
       52,
       "The audio part's composition: the view, the previews, the engine loader, the one context host that playback and the inputs share, the settings, and the playback and render controls, each made once with what it needs; what remains are the lines that hand each its collaborators and the dispose that ends them in order.",
@@ -3196,8 +3206,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      163,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, and the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
+      179,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, and the export by `startExport` once the render, the codecs and the assets it renders exist, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
     // Components: hooks, then the tree they draw.

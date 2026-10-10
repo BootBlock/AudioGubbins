@@ -52,6 +52,7 @@ import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 
 import { startAnalysis } from './analysis/analysis-part.js';
 import { browserCodecs } from './codecs/browser-codecs.js';
+import { exportClockAt, startExport, storageRoom } from './export/page-export.js';
 import {
   browserCapture,
   browserContextHost,
@@ -388,6 +389,18 @@ export function createApplication() {
     logger: diagnostics.loggerFor('recording'),
   });
 
+  const rendering = audioPart.parts.rendering;
+  const exports = startExport(projectSystem.exporting, {
+    runner: {
+      host: () => rendering.host(),
+      planRender: (shape) => rendering.planRender(shape),
+    },
+    codecs,
+    assets: editorPart.parts.assets,
+    room: () => storageRoom(storagePlatform.estimate, diagnostics.loggerFor('projects')),
+    clock: () => exportClockAt(clock.now()),
+  });
+
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
     workspace,
@@ -412,6 +425,7 @@ export function createApplication() {
     packs: packsPart.manager,
     recording: recordingPart.parts,
     codecs,
+    exports,
   };
 
   const registry = createCommandRegistry<ShellContext>();

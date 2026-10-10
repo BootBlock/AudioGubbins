@@ -22,7 +22,7 @@ import type {
   ExportFileName,
   ExportedFileRecord,
 } from '@audiogubbins/import-export';
-import type { ExportRecord } from '@audiogubbins/project-format';
+import type { ExportCodec, ExportRecord } from '@audiogubbins/project-format';
 import type { Delivery, ExportOrigin } from '@audiogubbins/storage';
 
 import type { Operation } from './operations.js';
@@ -102,13 +102,15 @@ export type ExportOperations = {
   /**
    * Delivers the export staged as `token` to `destination`, asking through
    * `prompt` where a name is taken and the rules ask, and records it in the
-   * history of the project open under `handle`. Fails only where it is no
-   * longer staged; a refused delivery keeps it staged.
+   * history of the project open under `handle` as written by `encoder`, which
+   * the codec worker named once it had encoded the file. Fails only where it
+   * is no longer staged; a refused delivery keeps it staged.
    */
   'exports.deliver': Operation<
     {
       readonly handle: ProjectHandle;
       readonly token: string;
+      readonly encoder: ExportCodec;
       readonly destination: CrossingDestination;
       readonly prompt?: PagePort;
     },

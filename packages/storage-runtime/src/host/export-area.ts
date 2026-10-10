@@ -12,7 +12,7 @@
 import { fileDestination, folderDestination } from '@audiogubbins/browser-storage';
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 import { nobleSha256 } from '@audiogubbins/model-packs';
-import { ExportDestinationKind } from '@audiogubbins/project-format';
+import { ExportDestinationKind, type ExportCodec } from '@audiogubbins/project-format';
 import {
   ExportStaging,
   deliverStaged,
@@ -68,15 +68,23 @@ export function exportHandlers(
       const { token, bytes, sha256, dropped } = staged.value;
       return succeed({ token, bytes, sha256, dropped });
     },
-    'exports.deliver': async ({ handle, token, destination, prompt }, { signal }) => {
+    'exports.deliver': async ({ handle, token, encoder, destination, prompt }, { signal }) => {
       const session = projects.session(handle);
       if (destination.kind === 'download') {
-        return await download(session, staging, token, destination, services, delivering);
+        return await download(
+          session,
+          staging,
+          { token, encoder },
+          destination,
+          services,
+          delivering,
+        );
       }
       return await deliverStaged(
         session,
         staging,
         token,
+        encoder,
         destinationOf(destination, channel, prompt),
         delivering,
         signal,
@@ -97,7 +105,7 @@ export function exportHandlers(
 async function download(
   session: ProjectSession,
   staging: ExportStaging,
-  token: string,
+  { token, encoder }: { readonly token: string; readonly encoder: ExportCodec },
   destination: Extract<CrossingDestination, { readonly kind: 'download' }>,
   services: HostServices,
   delivering: DeliveryServices,
@@ -116,6 +124,7 @@ async function download(
   }
   const record = exportRecordOf(
     staged,
+    encoder,
     { kind: ExportDestinationKind.Download },
     destination.name,
     delivering,

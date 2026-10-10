@@ -9,7 +9,8 @@
  */
 
 import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
-import type { ExportRecord } from '@audiogubbins/project-format';
+import { codecDescriptor, type CodecImplementation } from '@audiogubbins/codecs';
+import type { ExportedAudioFile, ExportRecord } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { describeBytes, when } from '../../wording.js';
@@ -27,12 +28,42 @@ export function describeNode(node: HistoryNode): string {
   }
 }
 
-/** What an export made from a point was, in a phrase. */
+/** Who served a codec, as a phrase names it. */
+const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
+  application: 'AudioGubbins',
+  'codec-module': 'the codec module',
+  'prebuilt-module': 'its encoder',
+  browser: "the browser's encoder",
+};
+
+/** The file an export wrote, as a phrase names it: its codec, what served it and whether it is reproducible. */
+function writtenFile(file: ExportedAudioFile): string {
+  const { codec } = file;
+  const by = `${IMPLEMENTATION_WORDS[codec.implementation]} ${codec.version}`;
+  const bytes = file.reproducible
+    ? 'the same bytes on every machine'
+    : 'bytes another machine may not repeat';
+  return `, encoded as ${codecDescriptor(codec.id).name} by ${by}, ${bytes}`;
+}
+
+/**
+ * What an export made from a point was, in a phrase: the file it wrote and
+ * where, and for an audio file its codec, its version and whether the same
+ * project gives the same bytes (REQ-STOR-197, REQ-AUDIO-145).
+ */
 export function describeExport(record: ExportRecord): string {
-  const where = record.destination.label ?? record.output.container;
+  const { file } = record;
+  const label = record.destination.label;
+  const written = file?.fileName === undefined ? undefined : quoted(file.fileName);
+  const where =
+    written === undefined
+      ? (label ?? record.output.container)
+      : label === undefined || label === file?.fileName
+        ? written
+        : `${written} to ${quoted(label)}`;
   const status =
     record.status === 'succeeded' ? '' : record.status === 'partial' ? ', in part' : ', and failed';
-  return `Exported as ${where} on ${when(record.at)}${status}`;
+  return `Exported as ${where} on ${when(record.at)}${file === undefined ? '' : writtenFile(file)}${status}`;
 }
 
 /** What letting history go takes away, in a sentence. */

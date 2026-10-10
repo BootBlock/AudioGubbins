@@ -37,6 +37,7 @@ import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
 import type { CodecServices } from '../codecs/codec-services.js';
+import type { ExportControl } from '../export/export-types.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { PackManager } from '../ml/pack-manager.js';
@@ -158,6 +159,12 @@ export interface ShellContext {
   /** The reference picture, and the decoding of its sound. */
   readonly picture: ReferencePicture;
   readonly pictureSound: PictureSoundDecoder;
+
+  /**
+   * The page's export, one batch at a time (ADR-0092), absent where this
+   * browser cannot keep projects, since an export is staged in their storage.
+   */
+  readonly exports: ExportControl | undefined;
 
   /**
    * The codecs: what this browser can do with each, and the codec worker that

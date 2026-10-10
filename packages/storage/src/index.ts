@@ -254,9 +254,8 @@ export {
   type StagedExport,
   type StagingServices,
 } from './export-staging.js';
+export { type CollisionPrompt, type CollisionReply } from './export-collision.js';
 export {
-  type CollisionPrompt,
-  type CollisionReply,
   type Delivery,
   type DeliveryDestination,
   type DeliveryFile,

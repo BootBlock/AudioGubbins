@@ -3,15 +3,11 @@
  * REQ-ARCH-054, REQ-STOR-197): a file a save dialog gave, or a folder, kept
  * trusted or chosen for this export.
  *
- * A folder's collision is decided by `@audiogubbins/import-export`'s rules
- * from the folder's listing at delivery, never assumed: the policy, the answer
- * the person gave for the rest of a batch, and, in a trusted folder, the
- * records of what AudioGubbins exported there before against the size and
- * SHA-256 of the file now there. Where the rules ask, the person is asked, and
- * the delivery waits for the answer. Each destination writes through a sink
- * that replaces the file only when it closes (`createWritable` in the
- * browser), so no destination is ever half written: head, body and tail are
- * streamed from the staging, never held whole.
+ * A folder's collision is decided from its listing at delivery, never assumed
+ * (`export-collision.ts`), the person asked where the rules ask. Each
+ * destination writes through a sink that replaces the file only when it closes
+ * (`createWritable` in the browser), so no destination is ever half written:
+ * head, body and tail are streamed from the staging, never held whole.
  *
  * A delivery refused (permission lost, the name skipped or left unanswered, a
  * write the destination refused) leaves the destination as it was and the
@@ -28,16 +24,11 @@ import {
   type DomainResult,
   type IdGenerator,
 } from '@audiogubbins/domain';
-import {
-  answerCollision,
-  decideCollision,
-  type AnsweredDecision,
-  type CollisionAnswer,
-  type CollisionPolicy,
-  type CollisionQuery,
-  type ExportFileName,
-  type ExportedFileRecord,
-  type ListedFileContent,
+import type {
+  CollisionAnswer,
+  CollisionPolicy,
+  ExportFileName,
+  ExportedFileRecord,
 } from '@audiogubbins/import-export';
 import type { Sha256 } from '@audiogubbins/model-packs';
 import {
@@ -46,14 +37,14 @@ import {
   ExportStatus,
   TreeFailure,
   TreeFailureKind,
-  hexOf,
   type ByteSink,
   type ByteSource,
+  type ExportCodec,
   type ExportRecord,
 } from '@audiogubbins/project-format';
 
+import { decidedIn, type CollisionPrompt, type Decided } from './export-collision.js';
 import {
-  collisionSkipped,
   deliveryRefused,
   destinationNeedsPermission,
   stagedExportMissing,
@@ -87,20 +78,6 @@ export interface DeliveryFolder {
   /** A sink for the file of that name, replacing any only once it closes. */
   create(name: string): Promise<ByteSink>;
 }
-
-/** What the person answers when asked about a taken name, or nothing where they dismissed it. */
-export interface CollisionReply {
-  readonly answer: CollisionAnswer;
-
-  /** Whether the answer holds for the rest of the batch. */
-  readonly applyToAll: boolean;
-}
-
-/** Asks the person what to do with a taken name, waiting for their answer. */
-export type CollisionPrompt = (
-  name: string,
-  signal?: AbortSignal,
-) => Promise<CollisionReply | undefined>;
 
 /** Where a staged export is delivered. */
 export type DeliveryDestination =
@@ -150,25 +127,17 @@ export type Delivery =
       readonly remembered: CollisionAnswer | undefined;
     };
 
-/** Where a decided delivery writes, and what it replaces. */
-type Decided =
-  | {
-      readonly kind: 'write';
-      readonly name: string;
-      readonly replaced: 'none' | 'chosen' | 'trusted';
-      readonly remembered: CollisionAnswer | undefined;
-    }
-  | { readonly kind: 'refused'; readonly delivery: Delivery };
-
 /**
  * Delivers the export staged under `token` to `destination` and records it
- * in the session's project (see the module comment). Fails only where the
- * export is no longer staged; every other refusal is a delivery refused.
+ * in the session's project as written by `encoder` (see the module comment).
+ * Fails only where the export is no longer staged; every other refusal is a
+ * delivery refused.
  */
 export async function deliverStaged(
   session: ProjectSession,
   staging: ExportStaging,
   token: string,
+  encoder: ExportCodec,
   destination: DeliveryDestination,
   services: DeliveryServices,
   signal?: AbortSignal,
@@ -189,13 +158,13 @@ export async function deliverStaged(
       destination.kind === 'file'
         ? ({ kind: 'write', name: destination.file.name, replaced: 'none', remembered } as const)
         : await decidedIn(destination, services.sha256, signal);
-    if (decided.kind === 'refused') return succeed(decided.delivery);
+    if (decided.kind === 'refused') return succeed(decided);
     const sink =
       destination.kind === 'file'
         ? await destination.file.open()
         : await destination.folder.create(decided.name);
     await written(parts, sink, signal);
-    const delivered = await recorded(session, staged, destination, decided, services);
+    const delivered = await recorded(session, staged, encoder, destination, decided, services);
     await staging.discard(token);
     return succeed(delivered);
   } catch (error) {
@@ -208,10 +177,12 @@ export async function deliverStaged(
 
 /**
  * The record of a delivered export, as the project's history keeps it: what
- * was rendered and how, where it went, and the file written.
+ * was rendered and how, the encoder that wrote it, where it went, and the
+ * file written.
  */
 export function exportRecordOf(
   staged: StagedExport,
+  encoder: ExportCodec,
   destination: { readonly kind: ExportDestinationKind; readonly label?: string },
   fileName: string,
   services: Pick<DeliveryServices, 'ids' | 'clock'>,
@@ -230,100 +201,12 @@ export function exportRecordOf(
       fileName,
       byteLength: staged.bytes,
       sha256: staged.sha256,
-      codec: origin.codec,
+      codec: encoder,
       reproducible: origin.reproducible,
     },
     status: ExportStatus.Succeeded,
     problems: [],
   };
-}
-
-/** Decides a folder delivery's name from its listing, asking the person where the rules ask. */
-async function decidedIn(
-  destination: Extract<DeliveryDestination, { readonly kind: 'folder' }>,
-  sha256: Sha256,
-  signal?: AbortSignal,
-): Promise<Decided> {
-  const { folder, trusted } = destination;
-  const listing = await folder.list(signal);
-  const base: CollisionQuery = {
-    wanted: destination.wanted,
-    listing,
-    policy: destination.policy,
-    remembered: destination.remembered,
-    trusted: undefined,
-  };
-  // Asked with nothing that answers for it, the rules name the file the
-  // wanted name takes, if any: the one a trusted folder's records are checked
-  // against.
-  const taken = decideCollision({ ...base, policy: 'prompt', remembered: undefined });
-  const query: CollisionQuery =
-    trusted === undefined || taken.kind !== 'ask'
-      ? base
-      : {
-          ...base,
-          trusted: {
-            records: trusted,
-            existing: await contentOf(folder, taken.name, sha256, signal),
-          },
-        };
-  const decision = decideCollision(query);
-  if (decision.kind !== 'ask') return outcomeOf(decision, destination.remembered);
-  const reply = await destination.prompt(decision.name, signal);
-  if (reply === undefined) {
-    return {
-      kind: 'refused',
-      delivery: {
-        kind: 'refused',
-        failure: collisionSkipped(decision.name),
-        remembered: destination.remembered,
-      },
-    };
-  }
-  const remembered = reply.applyToAll ? reply.answer : destination.remembered;
-  return outcomeOf(answerCollision(query, reply.answer), remembered);
-}
-
-/** What a decision comes to. */
-function outcomeOf(decision: AnsweredDecision, remembered: CollisionAnswer | undefined): Decided {
-  switch (decision.kind) {
-    case 'write':
-    case 'rename':
-      return { kind: 'write', name: decision.name, replaced: 'none', remembered };
-    case 'overwrite':
-      return {
-        kind: 'write',
-        name: decision.name,
-        replaced: decision.trusted ? 'trusted' : 'chosen',
-        remembered,
-      };
-    case 'skip':
-      return {
-        kind: 'refused',
-        delivery: { kind: 'refused', failure: collisionSkipped(decision.name), remembered },
-      };
-  }
-}
-
-/** The size and SHA-256 of the folder's file of that name, where it is there to read. */
-async function contentOf(
-  folder: DeliveryFolder,
-  name: string,
-  sha256: Sha256,
-  signal?: AbortSignal,
-): Promise<ListedFileContent | undefined> {
-  const file = await folder.open(name);
-  if (file === undefined) return undefined;
-  const run = sha256();
-  for (let offset = 0; offset < file.size; offset += CONTENT_CHUNK_BYTES) {
-    signal?.throwIfAborted();
-    const length = Math.min(CONTENT_CHUNK_BYTES, file.size - offset);
-    const chunk = await file.read(offset, length, signal);
-    // A file that changed as it was read is not the one any record names.
-    if (chunk.length !== length) return undefined;
-    await run.update(chunk);
-  }
-  return { size: file.size, hash: hexOf(await run.digest()) };
 }
 
 /** Streams the staged parts into `sink` and closes it, abandoning it where anything fails. */
@@ -359,6 +242,7 @@ async function written(
 async function recorded(
   session: ProjectSession,
   staged: StagedExport,
+  encoder: ExportCodec,
   destination: DeliveryDestination,
   decided: Extract<Decided, { readonly kind: 'write' }>,
   services: DeliveryServices,
@@ -373,7 +257,7 @@ async function recorded(
               : ExportDestinationKind.TrustedDirectory,
           label: destination.folder.name,
         };
-  const record = exportRecordOf(staged, where, decided.name, services);
+  const record = exportRecordOf(staged, encoder, where, decided.name, services);
   const kept = await session.recordExport(record);
   return {
     kind: 'delivered',

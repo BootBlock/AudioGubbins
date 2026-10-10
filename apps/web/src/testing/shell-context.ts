@@ -280,6 +280,7 @@ export function buildShellContext(
       // commands builds one that does (`project-context.ts`).
       storageRoot: unavailableStorageRoot('This test keeps no projects.'),
       projects: undefined,
+      exports: undefined,
       storageAbsences: [],
       ...parts,
       ...fakeEditor(storage, logger),

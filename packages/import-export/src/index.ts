@@ -67,7 +67,7 @@ export { type PlannedFile, planExport } from './export-plan.js';
 export { type ExportSpan } from './export-range.js';
 export { type ExportRenderPlan } from './export-render-plan.js';
 export { type ExportClock } from './file-name-template.js';
-export { type ExportFileName } from './file-name-safety.js';
+export { type ExportFileName, safeFileName } from './file-name-safety.js';
 
 export { type EncodingFacts, encodingProblems } from './encoding-rules.js';
 

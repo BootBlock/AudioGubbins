@@ -325,6 +325,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
             <ProjectSurfaces
               root={context.storageRoot}
               projects={context.projects}
+              exports={context.exports}
               section={interaction.projectsSection}
               run={runNamed}
               unavailableReason={unavailableReason}

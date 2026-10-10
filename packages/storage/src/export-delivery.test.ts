@@ -14,15 +14,12 @@ import {
   stateFingerprintFrom,
   type ByteSink,
   type ByteSource,
+  type ExportCodec,
 } from '@audiogubbins/project-format';
 
 import type { EncodedStream } from './encoded-stream.js';
-import {
-  deliverStaged,
-  type CollisionReply,
-  type DeliveryDestination,
-  type DeliveryFolder,
-} from './export-delivery.js';
+import type { CollisionReply } from './export-collision.js';
+import { deliverStaged, type DeliveryDestination, type DeliveryFolder } from './export-delivery.js';
 import { ExportStaging, type ExportOrigin } from './export-staging.js';
 import { mediaSharingOf } from './storage-sharing.js';
 import { MemoryLeaseCoordinator } from './testing/memory-leases.js';
@@ -66,9 +63,11 @@ const SETTINGS: ExportSettings = {
   fileName: '{project}',
 };
 
+/** The encoder the codec worker names once the file is encoded. */
+const ENCODER: ExportCodec = { id: 'pcm', implementation: 'application', version: '0.1.0' };
+
 const ORIGIN: ExportOrigin = {
   settings: SETTINGS,
-  codec: { id: 'pcm', implementation: 'application', version: '0.1.0' },
   reproducible: true,
   stateFingerprint: expectSuccess(stateFingerprintFrom(`s1-${'2'.repeat(64)}`)),
   engineVersions: new Map([['renderer', '1']]),
@@ -305,7 +304,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
     const folder = new MemoryFolder();
     const { token } = await staged();
     const delivery = expectSuccess(
-      await deliverStaged(session, staging, token, intoFolder(folder), services),
+      await deliverStaged(session, staging, token, ENCODER, intoFolder(folder), services),
     );
 
     expect(delivery).toMatchObject({ kind: 'delivered', name: 'Footsteps.wav', replaced: 'none' });
@@ -337,6 +336,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
         session,
         staging,
         (await staged()).token,
+        ENCODER,
         intoFolder(folder, { reply: { answer: 'rename', applyToAll: true }, asked }),
         services,
       ),
@@ -354,7 +354,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
     folder.files.set('Footsteps.wav', Uint8Array.from([7]));
     const { token } = await staged();
     const refused = expectSuccess(
-      await deliverStaged(session, staging, token, intoFolder(folder), services),
+      await deliverStaged(session, staging, token, ENCODER, intoFolder(folder), services),
     );
 
     expect(refused.kind === 'refused' ? refused.failure.code : refused.kind).toBe(
@@ -366,7 +366,9 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
 
     const other = new MemoryFolder();
     expect(
-      expectSuccess(await deliverStaged(session, staging, token, intoFolder(other), services)).kind,
+      expectSuccess(
+        await deliverStaged(session, staging, token, ENCODER, intoFolder(other), services),
+      ).kind,
     ).toBe('delivered');
     expect(other.files.get('Footsteps.wav')).toEqual(WHOLE);
   });
@@ -382,6 +384,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
         session,
         staging,
         token,
+        ENCODER,
         intoFolder(folder, { policy: 'skip', asked }),
         services,
       ),
@@ -392,6 +395,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
         session,
         staging,
         token,
+        ENCODER,
         intoFolder(folder, { policy: 'overwrite', asked }),
         services,
       ),
@@ -417,6 +421,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
         session,
         staging,
         (await staged()).token,
+        ENCODER,
         intoFolder(folder, { trusted: [record], asked }),
         services,
       ),
@@ -433,6 +438,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
         session,
         staging,
         (await staged()).token,
+        ENCODER,
         intoFolder(folder, { trusted: [record], asked }),
         services,
       ),
@@ -447,7 +453,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
     const locked = new MemoryFolder();
     locked.access = () => Promise.resolve('needs-permission');
     const needed = expectSuccess(
-      await deliverStaged(session, staging, token, intoFolder(locked), services),
+      await deliverStaged(session, staging, token, ENCODER, intoFolder(locked), services),
     );
     expect(needed.kind === 'refused' ? needed.failure.code : needed.kind).toBe(
       'export.permission-needed',
@@ -456,7 +462,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
     const withdrawn = new MemoryFolder();
     withdrawn.refuseWrites = true;
     const refused = expectSuccess(
-      await deliverStaged(session, staging, token, intoFolder(withdrawn), services),
+      await deliverStaged(session, staging, token, ENCODER, intoFolder(withdrawn), services),
     );
     expect(refused.kind === 'refused' ? refused.failure.code : refused.kind).toBe(
       'export.destination-unavailable',
@@ -474,6 +480,7 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
         session,
         staging,
         (await staged()).token,
+        ENCODER,
         {
           kind: 'file',
           file: {
@@ -511,7 +518,14 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
     await tree.remove('cache/staging');
     expect(
       expectFailureCode(
-        await deliverStaged(session, staging, token, intoFolder(new MemoryFolder()), services),
+        await deliverStaged(
+          session,
+          staging,
+          token,
+          ENCODER,
+          intoFolder(new MemoryFolder()),
+          services,
+        ),
       ),
     ).toBe('export.staged-missing');
     expect(staging.staged(token)).toBeUndefined();

@@ -18,7 +18,8 @@
  * the person would be asked for is scripted.
  */
 
-import { webDigest } from '@audiogubbins/browser-storage';
+import { TrustedFolders, webDigest } from '@audiogubbins/browser-storage';
+import { MemoryDatabases } from '@audiogubbins/browser-storage/testing';
 import {
   commandId,
   createCommandBus,
@@ -26,7 +27,7 @@ import {
   type CommandInvocation,
   type ExecutionResult,
 } from '@audiogubbins/commands';
-import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, countingTokens, memorySource } from '@audiogubbins/media-store/testing';
 import type { DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
 import { MemoryLeaseCoordinator, memorySink, type MemorySink } from '@audiogubbins/storage/testing';
 import { connectStorage, type PageFile } from '@audiogubbins/storage-runtime';
@@ -49,11 +50,13 @@ import { abandonment } from '../state/abandoning.js';
 import { createModelAvailabilityStore } from '../ml/model-availability.js';
 import { modelGates } from '../ml/model-words.js';
 import { followProjectAssets } from '../state/project-catalogue.js';
+import { PageExportControl } from '../export/export-control.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
 
 import type { FakePlayback } from './audio-fakes.js';
+import { FakeExportCodecs, FakeExportRender, ScriptedExportDestinations } from './export-fakes.js';
 import type { RecordingFakes } from './recording-fakes.js';
 import { libraryChannel } from '../io/library-channel.js';
 import type { PackManager } from '../ml/pack-manager.js';
@@ -153,6 +156,16 @@ export interface ProjectWindow {
 
   /** The world's own services over its storage, for a test to prepare or look into it. */
   readonly storage: HostServices;
+
+  /**
+   * The window's export: its render and codec workers, played on real
+   * channels, and where the person chooses to deliver it.
+   */
+  readonly exporting: {
+    readonly render: FakeExportRender;
+    readonly codecs: FakeExportCodecs;
+    readonly destinations: ScriptedExportDestinations;
+  };
 
   /** The audio engine the window plays through, which a test reads what it was given from. */
   readonly audio: { readonly playback: FakePlayback };
@@ -265,6 +278,7 @@ function pageOf(
   return {
     client: connectStorage(pair.page, context.diagnostics),
     keeper: undefined,
+    trustedFolders: new TrustedFolders(new MemoryDatabases(), countingTokens()),
     digest: webDigest(crypto.subtle),
     logger: context.diagnostics.loggerFor('projects'),
   };
@@ -306,6 +320,7 @@ export function projectWorld(
       const built = buildShellContext();
       const services = page(built.context, options.estimate);
       const files = scriptedFiles(options.canWriteFolders);
+      const destinations = new ScriptedExportDestinations();
       const lifetime = new AbortController();
       const root = new StorageRoot(services.client.root, lifetime.signal);
       const projects = createProjectStores(
@@ -313,6 +328,7 @@ export function projectWorld(
         built.storage,
         {
           files,
+          exportDestinations: destinations,
           canLink: true,
           backupFolder: options.backupFolder,
           linkedFiles: options.linkedFiles ?? new ScriptedLinkedFiles(),
@@ -339,6 +355,11 @@ export function projectWorld(
           audio: built.audio,
           recording: built.recording,
           detectionWorkers: built.detectionWorkers,
+          exporting: {
+            render: new FakeExportRender(),
+            codecs: new FakeExportCodecs(),
+            destinations,
+          },
         },
         lifetime.signal,
       );
@@ -376,6 +397,7 @@ async function windowOver(
     | 'audio'
     | 'recording'
     | 'detectionWorkers'
+    | 'exporting'
   >,
   lifetime: AbortSignal,
 ): Promise<ProjectWindow> {
@@ -399,7 +421,29 @@ async function windowOver(
   projects.savedProcessing.follow(page, (error) => {
     throw error;
   });
-  const context: ShellContext = { ...base, storageRoot: root, projects, modelGate, packs };
+  const { render, codecs, destinations } = parts.exporting;
+  const exports = new PageExportControl({
+    runner: { host: render.host, planRender: render.planRender },
+    codecs,
+    exports: parts.services.client.exports,
+    assets: base.assets,
+    trusted: parts.services.trustedFolders,
+    allowWriting: destinations.allowWriting,
+    download: (file, name) => {
+      destinations.download(file, name);
+    },
+    room: () => Promise.resolve(undefined),
+    digest: parts.services.digest,
+    clock: () => ({ epochMilliseconds: base.clock.now(), utcOffsetMinutes: 0 }),
+  });
+  const context: ShellContext = {
+    ...base,
+    storageRoot: root,
+    projects,
+    exports,
+    modelGate,
+    packs,
+  };
   followProjectAssets(projects, context.assets, modelGate);
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
