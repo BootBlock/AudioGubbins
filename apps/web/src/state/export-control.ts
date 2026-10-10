@@ -111,6 +111,16 @@ export interface ExportControlParts {
   readonly clock: () => ExportClock;
 }
 
+/**
+ * What the composition root gives the export beside the project system's
+ * storage: what renders and encodes it, the assets it renders, the room the
+ * storage has and the time.
+ */
+export type ExportNeeds = Pick<
+  ExportControlParts,
+  'runner' | 'codecs' | 'assets' | 'room' | 'clock'
+>;
+
 /** The media type a download of each container is offered as. */
 const MEDIA_TYPES: Readonly<Record<ContainerId, string>> = {
   wav: 'audio/wav',

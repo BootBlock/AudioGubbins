@@ -230,6 +230,27 @@ function startAudio(
 }
 
 /**
+ * The bytes the storage has free, from the browser's estimate where it gives
+ * both its figures, or nothing where it gives none or refuses, as one may in
+ * a context it does not trust: an export then goes ahead, and the storage
+ * refuses what it cannot hold.
+ */
+async function storageRoom(
+  estimate: (() => Promise<StorageEstimate>) | undefined,
+  logger: Logger,
+): Promise<number | undefined> {
+  if (estimate === undefined) return undefined;
+  try {
+    const { quota, usage } = await estimate();
+    return quota === undefined || usage === undefined ? undefined : Math.max(0, quota - usage);
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    logger.info('The storage estimate could not be read.', { reason: error.message });
+    return undefined;
+  }
+}
+
+/**
  * How a panel's control runs a command with what it names, and asks the
  * command's label, the shortcut written beside it and why it cannot run: as
  * the menus do, so a panel's control and the menu entry are one action.
@@ -388,6 +409,21 @@ export function createApplication() {
     logger: diagnostics.loggerFor('recording'),
   });
 
+  const rendering = audioPart.parts.rendering;
+  const exports = projectSystem.exportControl({
+    runner: {
+      host: () => rendering.host(),
+      planRender: (shape) => rendering.planRender(shape),
+    },
+    codecs,
+    assets: editorPart.parts.assets,
+    room: () => storageRoom(storagePlatform.estimate, diagnostics.loggerFor('projects')),
+    clock: () => {
+      const now = new Date(clock.now());
+      return { epochMilliseconds: now.getTime(), utcOffsetMinutes: -now.getTimezoneOffset() };
+    },
+  });
+
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
     workspace,
@@ -412,6 +448,7 @@ export function createApplication() {
     packs: packsPart.manager,
     recording: recordingPart.parts,
     codecs,
+    exports,
   };
 
   const registry = createCommandRegistry<ShellContext>();

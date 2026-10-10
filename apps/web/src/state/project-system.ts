@@ -35,7 +35,9 @@ import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf, type ProjectServices } from '../storage/project-services.js';
+import type { ExportControl } from '../export/export-types.js';
 import { abandonment, isAbandoned } from './abandoning.js';
+import { PageExportControl, type ExportNeeds } from './export-control.js';
 import type { PageVisibility } from './layout-map-watch.js';
 import {
   createProjectStores,
@@ -67,6 +69,13 @@ export interface ProjectSystem {
    * projects, as the model packs do; absent where projects cannot be kept.
    */
   readonly storage: StorageClient | undefined;
+
+  /**
+   * Makes the page's export over the system's storage, its staging and its
+   * trusted folders, with what renders and encodes it, which the composition
+   * root makes after the system; absent where projects cannot be kept.
+   */
+  readonly exportControl: (needs: ExportNeeds) => ExportControl | undefined;
 
   /** Stops what the system put on the page. */
   readonly dispose: () => void;
@@ -135,6 +144,7 @@ export function startProjectSystem(
       storageAbsences,
       peakCache: NO_PEAK_CACHE,
       storage: undefined,
+      exportControl: () => undefined,
       dispose: () => undefined,
     };
   }
@@ -178,6 +188,17 @@ export function projectSystemOver(
       digest: services.digest,
     }),
     storage: services.client,
+    exportControl: (exporting) =>
+      new PageExportControl({
+        ...exporting,
+        exports: services.client.exports,
+        trusted: services.trustedFolders,
+        allowWriting: ports.exportDestinations.allowWriting,
+        download: (file, name) => {
+          ports.exportDestinations.download(file, name);
+        },
+        digest: services.digest,
+      }),
     dispose: () => {
       stop();
       lifetime.abort(abandonment('The page took the project system down.'));
