@@ -53,11 +53,13 @@ export { move, press, release } from './pointer-tools.js';
 
 // The spectral marquee, lasso and brush, and the one account of what their
 // intent makes of a selection, which the selection command and the drag's
-// preview share (ADR-0082), and whether a tool is one that draws one.
+// preview share (ADR-0082), whether a tool is one that draws one, and
+// whether its drag traces a path, every move of which the pointer takes.
 export {
   type DrawnShape,
   type SpectralToolContext,
   isSpectralTool,
+  tracesPath,
   withDrawnShape,
 } from './spectral-tools.js';
 
