@@ -182,7 +182,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/codecs': {
-    "The codec contracts ADR-0090 to ADR-0093 give Phase 09, written before the codecs, the codec worker, the import and export jobs and the storage that consume them: the registry's descriptors and capabilities, the metadata map, the codec worker's synchronous byte port and the streaming write contract.":
+    "The codec contracts ADR-0090 to ADR-0093 give Phase 09, written before the codecs, the codec worker, the import and export jobs and the storage that consume them: the registry's descriptors and capabilities, the metadata map, the codec worker's synchronous byte port, the streaming write contract, and the integer quantisation the writers and the dither share.":
       [
         'AudioFileWriter',
         'BroadcastDescription',
@@ -205,6 +205,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'SampleRateSupport',
         'SamplerTuning',
         'SyncAudioBytes',
+        'quantiseSample',
       ],
   },
   '@audiogubbins/input': {

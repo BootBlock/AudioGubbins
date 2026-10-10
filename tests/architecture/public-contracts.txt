@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27454: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27462: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1172,7 +1172,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27454: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27462: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1656,6 +1656,7 @@ Published paths
   readonly SyncAudioBytes.size: number
   SyncAudioBytes.readInto: (offset: number, into: Uint8Array) => number
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
+  function quantiseSample(value: number, bits: number): number
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
 
