@@ -8,8 +8,8 @@
  * reference decoder rebuilds the WAV file with its `smpl`, `cue ` and labels,
  * and any reader of the blocks finds the chunks where it looks. The pieces are
  * the head the WAV writer itself writes for those samples (`wave-head.ts`,
- * `wave-format-writing.ts`), so a carried chunk and an exported one are the same
- * bytes: plain PCM for one or two channels of 8 or 16 bits, and
+ * `wave-format-writing.ts`), so a carried chunk and an exported one are the
+ * same bytes: plain PCM for one or two channels of 8 or 16 bits, and
  * `WAVE_FORMAT_EXTENSIBLE` with the speaker mask of FLAC's channel order
  * otherwise. A stream whose WAV file would pass four gibibytes has no plain WAV
  * form, so its chunks are not carried.

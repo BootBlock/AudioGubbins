@@ -1,7 +1,9 @@
 /**
- * FLAC frames encoded by the codec module's `flacenc` (ADR-0091), one at a
- * time, for the application's own FLAC writer to write the stream around
- * and compute STREAMINFO from.
+ * FLAC frames encoded by the codec module (ADR-0091), one at a time, for the
+ * application's own FLAC writer to write the stream around and compute
+ * STREAMINFO from. `flacenc` encodes 8, 12, 16, 20 and 24 bits a sample, and
+ * the module's own encoder every other depth FLAC allows, 32 bits among
+ * them, behind the same call.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -17,14 +19,15 @@ import {
 import { INTS, ModuleBuffer, copyOut } from './module-buffer.js';
 
 /**
- * What a FLAC stream is encoded with. `flacenc` encodes one to eight
- * channels, 8, 12, 16, 20 or 24 bits a sample (not 32), blocks of 32 to
- * 32 767 frames, and any rate a frame header can name: to 65 535 Hz, then
- * multiples of 10 Hz to 655 350 Hz.
+ * What a FLAC stream is encoded with. The module encodes one to eight
+ * channels, 4 to 32 bits a sample, blocks of 32 to 32 767 frames, and any
+ * rate a frame header can name: to 65 535 Hz, then multiples of 10 Hz to
+ * 655 350 Hz.
  */
 export interface FlacFrameSettings {
   /** Channels, in FLAC's own order, which is the speaker mask's. */
   readonly channels: number;
+  /** Bits a sample, 4 to 32: STREAMINFO's range. */
   readonly bitsPerSample: number;
   readonly sampleRate: number;
   /** Frames in every block but the last. */
@@ -32,7 +35,8 @@ export interface FlacFrameSettings {
   /**
    * How hard the encoder searches, 0 to 8, after `libFLAC`'s levels: up to 2
    * the fixed predictors alone, from 3 linear prediction of order 6, 8 and
-   * from 7 of 12; stereo decorrelation at every level but 0 and 3.
+   * from 7 of 12; stereo decorrelation at every level but 0 and 3, and below
+   * 32 bits a sample.
    */
   readonly level: number;
 }

@@ -39,7 +39,10 @@ fn vint(bytes: &[u8], at: usize, strip: bool) -> Option<(u64, usize)> {
         return None;
     }
     let mut value = u64::from(if strip {
-        first & (0xff >> length)
+        first
+            & u8::MAX
+                .checked_shr(u32::try_from(length).ok()?)
+                .unwrap_or(0)
     } else {
         first
     });
@@ -147,5 +150,19 @@ mod tests {
             Ok(Leading::Other)
         );
         assert_eq!(leading(&mut MemorySource(Vec::new())), Ok(Leading::Other));
+    }
+
+    #[test]
+    fn reads_a_header_whose_size_takes_eight_bytes() {
+        // The longest size field, which muxers that write sizes before they
+        // know them use: a first byte of 0x01 with no value bits of its own.
+        let mut bytes = vec![0x1a, 0x45, 0xdf, 0xa3, 0x01, 0, 0, 0, 0, 0, 0, 11];
+        bytes.extend_from_slice(&[0x42, 0x82, 0x84]);
+        bytes.extend_from_slice(b"webm");
+        bytes.extend_from_slice(&[0x42, 0x87, 0x81, 0x04]);
+        assert_eq!(
+            leading(&mut MemorySource(bytes)),
+            Ok(Leading::Ebml { webm: true })
+        );
     }
 }

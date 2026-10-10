@@ -104,7 +104,7 @@ fn surround_states_flacs_channel_order_as_a_speaker_mask() {
 }
 
 #[test]
-fn refuses_what_flacenc_cannot_encode() {
+fn refuses_what_flac_cannot_encode() {
     let valid = FlacSettings {
         channels: 2,
         bits_per_sample: 16,
@@ -114,11 +114,11 @@ fn refuses_what_flacenc_cannot_encode() {
     };
     for refused in [
         FlacSettings {
-            bits_per_sample: 32,
+            bits_per_sample: 3,
             ..valid
         },
         FlacSettings {
-            bits_per_sample: 10,
+            bits_per_sample: 33,
             ..valid
         },
         FlacSettings {

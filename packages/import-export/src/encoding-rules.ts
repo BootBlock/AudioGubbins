@@ -2,14 +2,14 @@
  * The rules each format's own encoding values are held to, beyond what its
  * codec's descriptor says of rates and channels.
  *
- * Each bound is the codec's: MP3's bit rates are the table of its MPEG
- * version, which the sample rate decides (ISO/IEC 11172-3 and 13818-3, with
- * MPEG-2.5's rates taking MPEG-2's table, as LAME does); AAC's ceiling is
- * 6144 bits a channel for each frame of 1024 samples (ISO/IEC 14496-3); Opus
- * codes 6 kbit/s and up, to 255 kbit/s a channel, 510 for a stereo pair
- * (RFC 6716); libvorbis's managed bit rates run from 16 to 250 kbit/s a
- * channel, its quality from -1 to 10; LAME's variable quality runs from 0 to
- * 9 and FLAC's compression levels from 0 to 8. A value outside is refused.
+ * Each bound is the codec's: MP3's bit rates are the table of its MPEG version,
+ * which the sample rate decides (ISO/IEC 11172-3 and 13818-3, with MPEG-2.5's
+ * rates taking MPEG-2's table, as LAME does); AAC's ceiling is 6144 bits a
+ * channel for each frame of 1024 samples (ISO/IEC 14496-3); Opus codes 6 kbit/s
+ * and up, to 255 kbit/s a channel, 510 for a stereo pair (RFC 6716);
+ * libvorbis's managed bit rates run from 16 to 250 kbit/s a channel, its
+ * quality from -1 to 10; LAME's variable quality runs from 0 to 9 and FLAC's
+ * compression levels from 0 to 8. A value outside is refused.
  */
 
 import type { DomainFailure, SampleRate } from '@audiogubbins/domain';

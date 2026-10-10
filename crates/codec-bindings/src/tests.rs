@@ -139,7 +139,12 @@ fn encodes_flac_frames_from_integer_buffers() {
     );
     assert_eq!(ag_flac_encoder_encode(encoder, samples, 257, 4), TOO_SMALL);
     assert_eq!(ag_flac_encoder_encode(encoder, 999, 256, 4), BAD_HANDLE);
-    assert_eq!(ag_flac_encoder_create(2, 32, 48_000, 256, 5), REFUSED);
+    assert_eq!(ag_flac_encoder_create(2, 33, 48_000, 256, 5), REFUSED);
+    // 32 bits a sample is the module's own encoder, behind the same call.
+    let wide = made(ag_flac_encoder_create(2, 32, 48_000, 256, 5));
+    let wide_length = ag_flac_encoder_encode(wide, samples, 256, 0);
+    assert!(wide_length > 0, "{wide_length}");
+    assert_eq!(ag_flac_encoder_close(wide), DONE);
     assert_eq!(ag_flac_encoder_create(2, 16, 48_000, 256, 300), REFUSED);
     assert_eq!(ag_flac_encoder_close(encoder), DONE);
 }

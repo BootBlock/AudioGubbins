@@ -4,8 +4,9 @@
 //! A packet decodes to as many frames as its codec gives, which need not fit
 //! the block a caller asks for, so what is left waits here. The trimming of a
 //! container that states the encoder's priming and the stream's length
-//! outside its packets (an MP4 edit list, or the pre-skip of Opus in
-//! Matroska) is applied here, as frames arrive.
+//! outside its packets (an MP4 edit list, Matroska's `CodecDelay`, or Opus's
+//! pre-skip) is applied here, as frames arrive, and so is a Matroska block's
+//! `DiscardPadding`, which drops frames from a block's start or end.
 
 use crate::track_decoder::Decoded;
 
@@ -51,9 +52,28 @@ impl PlanarQueue {
         matches!(self.remaining, Some(0))
     }
 
+    /// Drops at least the next `frames` frames pushed, as well as any the
+    /// stream's start still drops.
+    pub fn skip_at_least(&mut self, frames: u64) {
+        self.skip = self.skip.max(frames);
+    }
+
+    /// Takes back the last `frames` frames pushed, none of which has been
+    /// given out, and keeps that many more of what follows where the stream's
+    /// length is stated.
+    pub fn retract(&mut self, frames: usize) {
+        let frames = frames.min(self.waiting());
+        for plane in &mut self.planes {
+            plane.truncate(plane.len() - frames);
+        }
+        if let Some(remaining) = self.remaining.as_mut() {
+            *remaining += frames as u64;
+        }
+    }
+
     /// Appends what a packet decoded to, less the frames the stream's own
-    /// trimming drops.
-    pub fn push(&mut self, decoded: &Decoded<'_>) {
+    /// trimming drops, answering how many it kept.
+    pub fn push(&mut self, decoded: &Decoded<'_>) -> usize {
         let mut range = decoded.frames.clone();
         let dropped = usize::try_from(self.skip)
             .unwrap_or(usize::MAX)
@@ -70,6 +90,7 @@ impl PlanarQueue {
         for (plane, source) in self.planes.iter_mut().zip(decoded.planes) {
             plane.extend_from_slice(&source[range.clone()]);
         }
+        range.len()
     }
 
     /// Moves up to `capacity` frames into `planes`, one slice per channel of
@@ -139,6 +160,21 @@ mod tests {
         assert_eq!(rest[0], vec![11.0, 12.0]);
         assert_eq!(rest[1], vec![-11.0, -12.0]);
         assert_eq!(queue.waiting(), 0);
+    }
+
+    #[test]
+    fn drops_a_blocks_start_and_takes_back_its_end() {
+        let mut queue = PlanarQueue::new(2, 3, None);
+        let planes = ramp(0.0, 8);
+        let decoded = Decoded {
+            planes: &planes,
+            frames: 0..8,
+        };
+        // The stream's start drops 3; a block that drops 5 overlaps it.
+        queue.skip_at_least(5);
+        assert_eq!(queue.push(&decoded), 3);
+        queue.retract(2);
+        assert_eq!(take(&mut queue, 8)[0], vec![5.0]);
     }
 
     #[test]
