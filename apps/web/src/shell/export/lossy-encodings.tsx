@@ -9,12 +9,12 @@ import type { ReactNode } from 'react';
 
 import { constantBitRates } from '@audiogubbins/codecs';
 import { channelCount } from '@audiogubbins/domain';
-import {
-  type ExportContext,
-  type Mp3Encoding,
-  type OpusApplication,
-  type OpusFrameDuration,
-  type VorbisEncoding,
+import type {
+  ExportContext,
+  Mp3Encoding,
+  OpusApplication,
+  OpusFrameDuration,
+  VorbisEncoding,
 } from '@audiogubbins/import-export';
 
 import { APPLICATION_NAMES } from './export-words.js';
@@ -54,8 +54,8 @@ function mp3Of(
 }
 
 /**
- * The constant bit rates MP3's encoder codes at `sampleRate`, as its
- * descriptor states them, for the source's channels; none where it states none.
+ * The constant bit rates MP3's encoder codes at `sampleRate`, as its descriptor
+ * states them, for the source's channels; none where it states none.
  */
 function mp3Rates(sampleRate: number, context: ExportContext): readonly number[] {
   const write = context.codecs('mp3')?.write;
