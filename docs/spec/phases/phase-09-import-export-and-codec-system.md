@@ -112,7 +112,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 - Codec modules consume audio-stream contracts and storage destinations through public interfaces.
 - Game/Godot-specific policy layers may depend on generic export contracts, not the reverse.
 - `packages/codecs` depends on the domain alone, and stays portable.
-- `packages/import-export` depends on the domain, the codecs, the project format and the engine's contracts, and reads no browser global.
+- `packages/import-export` depends on the domain, the codecs and the engine's contracts, and reads no browser global; `packages/project-format` depends on it and on the codecs for the provenance and export settings it keeps, so `packages/import-export` never depends on the project format (`ADR-0092` amended).
 - `packages/codec-runtime` depends on the codecs and the import-export contracts; only `packages/capabilities` probes the browser's codecs, and only `packages/codec-runtime` calls them.
 - Only the storage worker writes renditions and staged exports; no sample passes through the page.
 
@@ -132,8 +132,8 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 ## Data / Schema Changes
 
 - Introduces codec descriptors/capability metadata, import/export job state, typed export settings, metadata/loop metadata mappings and collision-policy records.
-- The asset's provenance gains the compressed source's container and codec, its metadata, and the decoder and its version; the project gains its last export settings; both raise `projectDocument`. The person's preferences gain export presets and trusted folders, raising `userPreferences`. Before 1.0 nothing migrates (`REQ-STOR-052`).
-- The storage gains the export staging area, a cache category.
+- The asset's provenance gains the compressed source's container and codec, its metadata, and the decoder and its version; the project gains its last export settings; both raise `projectDocument`. The person's preferences gain export presets, raising `userPreferences`; trusted folders and the records of what was exported into each are kept beside their handles in the browser's handle database (`ADR-0092` amended). Before 1.0 nothing migrates (`REQ-STOR-052`).
+- The storage gains the export staging area, the cache category `staging`, given up after `temporary` (`ADR-0092` amended).
 - Settled by this phase's readiness review (`ADR-0090` to `ADR-0093`): how a compressed file becomes an asset, which codec serves each format, how an export is staged and delivered, and how metadata and layouts are mapped.
 
 ## Browser / Platform Considerations
@@ -191,7 +191,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 - `pnpm test:codec-fixtures`
 - `pnpm test:roundtrip-audio`, which this phase adds: every lossless format bit for bit, every lossy format within a stated error, metadata and loops through every format that holds them
 - `pnpm test:malformed-media`
-- `pnpm test:opus-conformance`, which this phase adds: the RFC 6716 and RFC 8251 vectors, fetched on demand with their hashes
+- `pnpm test:opus-conformance`, which this phase adds: the RFC 8251 vector set, RFC 6716's bitstreams with the outputs of both decoders, fetched on demand with its hash (`ADR-0091` amended)
 - `pnpm test:project-roundtrip` and `pnpm test:architecture`
 - `pnpm test:e2e:import-export`, which this phase adds: a Chromium project that imports a compressed file and a folder, exports a region to a folder with a collision, and reloads
 
