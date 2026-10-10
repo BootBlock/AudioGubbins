@@ -269,6 +269,12 @@ export interface ShortcutBindingOptions {
    */
   readonly runsInADialogue: (id: CommandId) => boolean;
 
+  /**
+   * Whether a command's shortcut takes its key now; a press it does not take
+   * reaches the page, as though no shortcut were bound to it.
+   */
+  readonly takesItsKey: (id: CommandId) => boolean;
+
   /** How this platform's keyboard uses AltGr, and whether Option types in a field. */
   readonly platform: KeyboardPlatform;
 
@@ -375,6 +381,10 @@ function listen(options: ShortcutBindingOptions): () => void {
       if (waiting) cancelChord();
       return;
     }
+    // A key the page uses too is left to it while its command could do
+    // nothing, unanswered, so a stray Escape still backs out of what it backs
+    // out of and no refusal is said of it.
+    if (outcome.kind === 'run' && !options.takesItsKey(outcome.commandId)) return;
     answer(outcome, event, { ...options, modal });
   };
 
@@ -403,7 +413,7 @@ function listen(options: ShortcutBindingOptions): () => void {
 /** Listens for shortcuts while the component is mounted. */
 export function useShortcuts(options: ShortcutBindingOptions): void {
   const { tracker, run, onPendingChange, onAnnounce, onChordCancelled } = options;
-  const { runsInADialogue, platform, reader, logger } = options;
+  const { runsInADialogue, takesItsKey, platform, reader, logger } = options;
 
   useEffect(
     () =>
@@ -414,6 +424,7 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
         onAnnounce,
         onChordCancelled,
         runsInADialogue,
+        takesItsKey,
         platform,
         reader,
         logger,
@@ -425,6 +436,7 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
       onAnnounce,
       onChordCancelled,
       runsInADialogue,
+      takesItsKey,
       platform,
       reader,
       logger,

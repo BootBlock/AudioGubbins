@@ -27,6 +27,7 @@ import { ToolPointer } from '../editor/tool-pointer.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { everythingQueued } from '../testing/waiting.js';
 import type { ShellContext } from './shell-context.js';
+import { shortcutTakesItsKey } from './shell-command.js';
 import { shellCommands } from './shell-commands.js';
 
 type Arguments = NonNullable<CommandInvocation['arguments']>;
@@ -264,5 +265,35 @@ describe('drawing a spectral shape from the keyboard', () => {
     expect(refusal(run('editor.spectral-cursor-up'))).toBe(
       'The cursor’s channel shows no spectrogram here. Show the spectrogram to draw on it.',
     );
+  });
+});
+
+describe('the keys of a shape drawn from the keyboard', () => {
+  /** Whether the shortcut of `id` takes its key now, as the shell asks it. */
+  const takesItsKey = (id: string): boolean => {
+    const command = shellCommands(DESCRIPTORS).find((each) => each.id === commandId(id));
+    if (command === undefined) throw new Error(`No command ${id}.`);
+    return shortcutTakesItsKey(command, context);
+  };
+
+  it('leave Enter to the page without a spectral tool, and Shift+Enter and Escape with no shape drawn', () => {
+    expect(takesItsKey('editor.place-spectral-point')).toBe(false);
+    expect(takesItsKey('editor.finish-spectral-shape')).toBe(false);
+    expect(takesItsKey('editor.cancel-spectral-shape')).toBe(false);
+    run('editor.tool-spectral-lasso');
+    expect(takesItsKey('editor.place-spectral-point')).toBe(true);
+    expect(takesItsKey('editor.cancel-spectral-shape')).toBe(false);
+    run('editor.place-spectral-point');
+    expect(takesItsKey('editor.finish-spectral-shape')).toBe(true);
+    expect(takesItsKey('editor.cancel-spectral-shape')).toBe(true);
+    // Any other command takes its key whenever it is pressed.
+    expect(takesItsKey('editor.zoom-in')).toBe(true);
+  });
+
+  it('still refuse with a reason when run where they cannot act, as from the palette', () => {
+    expect(refusal(run('editor.cancel-spectral-shape'))).toBe(
+      'No point of a spectral shape is placed.',
+    );
+    expect(refusal(run('editor.finish-spectral-shape'))).toBe('Place a point of the shape first.');
   });
 });
