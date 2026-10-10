@@ -32,6 +32,7 @@ export {
 } from './handle-database.js';
 
 export { type KeptFileAccess, reopenKeptFile, requestKeptFileAccess } from './kept-files.js';
+export { queryWritePermission, requestWritePermission } from './handle-permissions.js';
 export {
   type KeptFolderAccess,
   reopenKeptFolder,
