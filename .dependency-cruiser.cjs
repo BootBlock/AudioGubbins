@@ -23,10 +23,10 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
- *   codec-runtime   the codec module's host: its typed loader, decode sessions
- *                   and FLAC and Opus encoders over its narrow ABI, reading files
- *                   through the synchronous byte port; depends on domain +
- *                   codecs (ADR-0090, ADR-0091)
+ *   codec-runtime   the codec module's host: its typed loader, decode
+ *                   sessions and FLAC and Opus encoders over its narrow ABI,
+ *                   reading files through the synchronous byte port; depends
+ *                   on domain + codecs (ADR-0090, ADR-0091)
  *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
  *                   Web, which alone imports the runtime and only by import(),
  *                   and the worker that hosts it; depends on domain alone

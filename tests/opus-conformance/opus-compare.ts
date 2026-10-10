@@ -3,14 +3,14 @@
  * implementation's `src/opus_compare.c`), which RFC 6716 and RFC 8251 name as
  * the test of a decoder's output against the reference decoder's.
  *
- * Both signals are cut into 480-sample windows every 120 samples, each
- * window's power taken in 240 bins and summed into 21 bands of the CELT
- * layout. The reference's band energies, spread across bands and frames as
- * masking, set how much difference each bin may hide; the weighted error is
- * folded into a quality figure, and a decoder conforms where it is at least 0.
- * Written again here from the algorithm, at 48 kHz, the rate every vector is
- * decoded at; sums are kept in single precision where the reference keeps
- * them so, by `Math.fround`.
+ * Both signals are cut into 480-sample windows every 120 samples, each window's
+ * power taken in 240 bins and summed into 21 bands of the CELT layout. The
+ * reference's band energies, spread across bands and frames as masking, set how
+ * much difference each bin may hide; the weighted error is folded into a
+ * quality figure, and a decoder conforms where it is at least 0. Written again
+ * here from the algorithm, at 48 kHz, the rate every vector is decoded at; sums
+ * are kept in single precision where the reference keeps them so, by
+ * `Math.fround`.
  */
 
 /** Bands, and the bins they end at. */
@@ -84,10 +84,10 @@ function bandEnergy(
 }
 
 /**
- * The quality of `decoded` against `reference`, both interleaved 16-bit
- * scaled samples at 48 kHz: `reference` always stereo, as the vectors' outputs
- * are, and averaged to one channel where `channels` is 1, as `opus_compare`
- * does. At least 0 conforms; `undefined` where the lengths differ.
+ * The quality of `decoded` against `reference`, both interleaved 16-bit scaled
+ * samples at 48 kHz: `reference` always stereo, as the vectors' outputs are,
+ * and averaged to one channel where `channels` is 1, as `opus_compare` does. At
+ * least 0 conforms; `undefined` where the lengths differ.
  */
 export function opusQuality(
   reference: Float32Array,

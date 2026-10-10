@@ -77,9 +77,9 @@ function oggPage(
 }
 
 /**
- * An Ogg Opus file of the encoder's packets, its granule positions as
- * RFC 7845 asks: the pre-skip and every frame of each page's packets, and the
- * end granule on the last page.
+ * An Ogg Opus file of the encoder's packets, its granule positions as RFC 7845
+ * asks: the pre-skip and every frame of each page's packets, and the end
+ * granule on the last page.
  */
 function oggOpus(encoder: OpusEncoder, planes: Float32Array[]): Uint8Array {
   const packets: OpusPacket[] = [];

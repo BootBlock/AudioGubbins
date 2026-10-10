@@ -2,12 +2,12 @@
  * The codec module's Opus decoder against the RFC 6716 and RFC 8251
  * conformance vectors (ADR-0091; `pnpm test:opus-conformance`).
  *
- * Each of the twelve bitstreams is decoded by the built module, to one
- * channel and to two at 48 kHz, as the reference's `run_vectors.sh` does: the
- * range coder's final state after each packet must be the one the bitstream
- * records, and the output must reach `opus_compare`'s threshold against
- * either reference output. A decoder that fails a vector fails the build.
- * Not part of `verify:commit`: the vectors are fetched on demand.
+ * Each of the twelve bitstreams is decoded by the built module, to one channel
+ * and to two at 48 kHz, as the reference's `run_vectors.sh` does: the range
+ * coder's final state after each packet must be the one the bitstream records,
+ * and the output must reach `opus_compare`'s threshold against either reference
+ * output. A decoder that fails a vector fails the build. Not part of
+ * `verify:commit`: the vectors are fetched on demand.
  */
 
 import { describe, expect, it } from 'vitest';

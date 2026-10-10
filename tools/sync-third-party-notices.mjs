@@ -737,9 +737,9 @@ function shippedNodeSources() {
 }
 
 /**
- * The third-party crates the WebAssembly modules link, each once, from `cargo metadata`
- * held to `Cargo.lock` and run offline, so it neither changes the lockfile
- * nor reaches the network.
+ * The third-party crates the WebAssembly modules link, each listed once. They
+ * are read from `cargo metadata` held to `Cargo.lock` and run offline, so it
+ * neither changes the lockfile nor reaches the network.
  *
  * @returns {PackageSource[]}
  */

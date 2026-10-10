@@ -15,10 +15,10 @@
  * `target/wasm/audiogubbins-codecs.wasm`, which the ignore rules keep out of
  * the tree. The application's build and the tests read them from there.
  *
- * The WebAssembly features the modules may use are named here rather than
- * left to the toolchain, whose defaults for the target change between
- * releases: `rust-toolchain.toml` follows the stable channel, so a new release
- * could otherwise start emitting instructions a browser at the floor
+ * The WebAssembly features the modules may use are named here rather than left
+ * to the toolchain, whose defaults for the target change between releases:
+ * `rust-toolchain.toml` follows the stable channel, so a new release could
+ * otherwise start emitting instructions a browser at the floor
  * (`BROWSER_TARGETS` in `apps/web/vite.config.ts`) cannot compile.
  * `tests/architecture/wasm-module-features.test.ts` holds each built module's
  * `target_features` section to the floor.

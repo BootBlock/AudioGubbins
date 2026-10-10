@@ -1,10 +1,9 @@
 /**
- * Opus encoded by the codec module's conformant encoder (ADR-0091), with
- * what the application's Ogg writer needs around the packets: the
- * identification header, each packet's duration at 48 kHz for its granule
- * positions, and the end granule that trims the last packet's padding
- * (RFC 7845, section 4). The same samples and settings give the same packets
- * on every machine.
+ * Opus encoded by the codec module's conformant encoder (ADR-0091), with what
+ * the application's Ogg writer needs around the packets: the identification
+ * header, each packet's duration at 48 kHz for its granule positions, and the
+ * end granule that trims the last packet's padding (RFC 7845, section 4). The
+ * same samples and settings give the same packets on every machine.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
