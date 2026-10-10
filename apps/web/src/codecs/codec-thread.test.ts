@@ -317,7 +317,10 @@ describe('an encode through the page’s codecs', () => {
           extension: 'flac',
           depth: 16,
         },
-        encoding: { format: 'flac', encoding: { bits: 16, compressionLevel: 5 } },
+        encoding: {
+          format: 'flac',
+          encoding: { bits: 16, compressionLevel: 5, keepRiffChunks: false },
+        },
         sampleRate: expectSuccess(sampleRate(48_000)),
         layout: StandardLayouts.stereo,
         metadata: {},

@@ -103,7 +103,7 @@ export const BUILT_IN_PRESETS: readonly ExportPreset[] = [
     id: 'master-flac',
     name: 'Master, FLAC',
     format: 'flac',
-    settings: { encoding: { bits: 24, compressionLevel: 8 } },
+    settings: { encoding: { bits: 24, compressionLevel: 8, keepRiffChunks: false } },
   },
   {
     id: 'distribution-mp3-320',

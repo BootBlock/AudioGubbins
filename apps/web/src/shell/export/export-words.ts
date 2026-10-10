@@ -73,7 +73,7 @@ function encodingOnly(settings: FormatEncoding): string {
     case 'aifc':
       return pcmWords(settings.encoding);
     case 'flac':
-      return `${String(settings.encoding.bits)}-bit, compression level ${String(settings.encoding.compressionLevel)}`;
+      return `${String(settings.encoding.bits)}-bit, compression level ${String(settings.encoding.compressionLevel)}${settings.encoding.keepRiffChunks ? ', loops, cues and tuning kept as WAV chunks' : ''}`;
     case 'mp3': {
       const { encoding } = settings;
       if (encoding.mode === 'variable')

@@ -4005,6 +4005,7 @@ Published paths
   interface FlacEncoding
   readonly FlacEncoding.bits: 16 | 24 | 32
   readonly FlacEncoding.compressionLevel: number
+  readonly FlacEncoding.keepRiffChunks: boolean
   interface FloatPcm
   readonly FloatPcm.kind: "float"
   readonly FloatPcm.bits: 32 | 64

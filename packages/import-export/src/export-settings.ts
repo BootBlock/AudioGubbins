@@ -46,10 +46,16 @@ export type AiffEncoding = IntegerPcm;
 export type AifcEncoding =
   IntegerPcm | FloatPcm | { readonly kind: 'a-law' | 'mu-law' | 'ima-adpcm' };
 
-/** FLAC: the depth of its integer samples, and how hard the encoder works, 0 to 8. */
+/**
+ * FLAC: the depth of its integer samples, how hard the encoder works, 0 to 8,
+ * and whether the WAV chunks of the file's loops, cues and tuning (`smpl` and
+ * `cue `) are kept in `APPLICATION` `riff` blocks beside the Vorbis comments,
+ * which hold the first loop alone and no cue or tuning (ADR-0093).
+ */
 export interface FlacEncoding {
   readonly bits: 16 | 24 | 32;
   readonly compressionLevel: number;
+  readonly keepRiffChunks: boolean;
 }
 
 /**

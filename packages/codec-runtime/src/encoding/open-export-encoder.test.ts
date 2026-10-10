@@ -92,7 +92,10 @@ describe('an export’s writer', () => {
   it('refuses a block of the wrong channels, and then takes no more', async () => {
     const writer = expectSuccess(
       await openExportEncoder(
-        exportRequest({ format: 'flac', encoding: { bits: 16, compressionLevel: 5 } }, 48_000),
+        exportRequest(
+          { format: 'flac', encoding: { bits: 16, compressionLevel: 5, keepRiffChunks: false } },
+          48_000,
+        ),
         testServices(),
       ),
     ).writer;
@@ -133,12 +136,18 @@ describe('the encoder an export names', () => {
 
   it('names flacenc at the depths it encodes, and the codec module’s own encoder at 32 bits', async () => {
     for (const bits of [16, 24] as const) {
-      expect(await encoderOf({ format: 'flac', encoding: { bits, compressionLevel: 5 } })).toEqual(
-        FLACENC_ENCODER,
-      );
+      expect(
+        await encoderOf({
+          format: 'flac',
+          encoding: { bits, compressionLevel: 5, keepRiffChunks: false },
+        }),
+      ).toEqual(FLACENC_ENCODER);
     }
     expect(
-      await encoderOf({ format: 'flac', encoding: { bits: 32, compressionLevel: 5 } }),
+      await encoderOf({
+        format: 'flac',
+        encoding: { bits: 32, compressionLevel: 5, keepRiffChunks: false },
+      }),
     ).toEqual({ implementation: 'codec-module', version: `AudioGubbins ${PRODUCT_VERSION}` });
   });
 

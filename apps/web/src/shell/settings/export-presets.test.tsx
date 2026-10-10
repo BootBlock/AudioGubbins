@@ -30,6 +30,26 @@ describe('the person’s export presets in Settings', () => {
     expect(run.mock.calls).toEqual([[ExportCommand.RemovePreset, { preset: 'own:Masters' }]]);
   });
 
+  it('says a FLAC preset keeps its loops, cues and tuning as WAV chunks where it does', () => {
+    const flac = defaultExportSettings('flac', exportContextOver());
+    if (flac.format !== 'flac') throw new Error('Not FLAC.');
+    const settings = presetSettings({
+      ...flac,
+      encoding: { ...flac.encoding, keepRiffChunks: true },
+    });
+    render(
+      <ExportPresetsSection
+        presets={[{ id: ownPresetId('Loops'), name: 'Loops', settings }]}
+        run={() => true}
+      />,
+    );
+    expect(
+      screen.getByText(
+        /^Sets FLAC, 16-bit, compression level 5, loops, cues and tuning kept as WAV chunks at 48 kHz/u,
+      ),
+    ).toBeVisible();
+  });
+
   it('says where a preset is saved from while there is none', () => {
     render(<ExportPresetsSection presets={[]} run={() => true} />);
     expect(screen.getByText(/You keep no presets of your own yet/u)).toBeVisible();

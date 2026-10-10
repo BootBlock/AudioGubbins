@@ -44,7 +44,7 @@ function rate(value: number): SampleRate {
 
 const ENCODE: ExportEncodeRequest = {
   target: { formatName: 'FLAC', codec: 'flac', container: 'flac', extension: 'flac', depth: 24 },
-  encoding: { format: 'flac', encoding: { bits: 24, compressionLevel: 5 } },
+  encoding: { format: 'flac', encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: false } },
   sampleRate: rate(48_000),
   layout: StandardLayouts.stereo,
   metadata: { text: { title: 'Mix' } },
@@ -100,7 +100,10 @@ describe('the codec worker’s messages', () => {
           request: 'e',
           encode: {
             ...ENCODE,
-            encoding: { format: 'flac', encoding: { bits: 20, compressionLevel: 5 } },
+            encoding: {
+              format: 'flac',
+              encoding: { bits: 20, compressionLevel: 5, keepRiffChunks: false },
+            },
           },
           rendered: port1,
           stream: port2,
