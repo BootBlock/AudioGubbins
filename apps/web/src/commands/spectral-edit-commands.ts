@@ -6,16 +6,17 @@
  *
  * Each acts on the spectral selection alone, the facet made last, and is
  * refused with any other (ADR-0042). Its range is the selection's support
- * widened by half a frame each side, within the asset or the region shown
- * (`spectralPlacement`), so no changed frame reaches past it, and its mask is
- * stated relative to that range. It keeps the selection's channel scope. A gain
- * is typed in decibels and kept as the linear factor the domain holds,
- * converted once here. Cleaning up runs a restoration or model processor, new
- * to the project in a chain of its own that enters and leaves with the edit; a
- * processor whose model this page cannot run is applied all the same, as the
- * project keeps it, and the person is told why it is not heard. An edit the
- * domain refuses, for its mask, its resolution, its gain or its chain, is
- * refused with the reason and nothing changes.
+ * widened by half a frame each side, and a heal's by its borders as well,
+ * within the asset or the region shown (`spectralPlacement`), so no changed
+ * frame reaches past it and every frame a heal reads lies within it, and its
+ * mask is stated relative to that range. It keeps the selection's channel
+ * scope. A gain is typed in decibels and kept as the linear factor the domain
+ * holds, converted once here. Cleaning up runs a restoration or model
+ * processor, new to the project in a chain of its own that enters and leaves
+ * with the edit; a processor whose model this page cannot run is applied all
+ * the same, as the project keeps it, and the person is told why it is not
+ * heard. An edit the domain refuses, for its mask, its resolution, its gain or
+ * its chain, is refused with the reason and nothing changes.
  */
 
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
@@ -88,11 +89,15 @@ function resolutionOf(invocation: CommandInvocation): number | string {
     : 'A spectral edit analyses in frames of a power of two from 256 to 16,384 samples.';
 }
 
-/** Where a spectral edit at `resolution` of the selection of the view named lies, or why none can. */
+/**
+ * Where a spectral edit `kind` at `resolution` of the selection of the view
+ * named lies, or why none can.
+ */
 function spectralScope(
   context: ShellContext,
   invocation: CommandInvocation,
   resolution: number,
+  kind: SpectralOperationKind,
 ): SpectralScope | string {
   const view = editedView(context, invocation);
   if (typeof view === 'string') return view;
@@ -100,7 +105,7 @@ function spectralScope(
   const selected = selectedTarget(context, asset, SPECTRAL_AREA);
   if (typeof selected === 'string') return selected;
   if (selected.kind !== 'spectral') return 'A spectral edit acts on a spectral selection.';
-  const placed = spectralPlacement(selected.mask, resolution, asset.length);
+  const placed = spectralPlacement(selected.mask, resolution, asset.length, kind);
   if (placed === undefined) return 'The spectral selection reaches no audio.';
   const { owner } = view.project;
   const range = { start: onAsset(owner, placed.start), end: onAsset(owner, placed.end) };
@@ -138,7 +143,7 @@ function applied(
 ): BodyAnswer {
   const resolution = resolutionOf(invocation);
   if (typeof resolution === 'string') return resolution;
-  const scope = spectralScope(context, invocation, resolution);
+  const scope = spectralScope(context, invocation, resolution, operation.kind);
   if (typeof scope === 'string') return scope;
   const edit = { kind: 'spectral', mask: scope.mask, resolution, operation } as const;
   const chains = new Map<EffectChainId, EffectChain>(scope.view.project.state.project.effectChains);

@@ -230,6 +230,7 @@ export {
   type SpectralOperationKind,
   type SpectralPlacement,
   DEFAULT_SPECTRAL_RESOLUTION,
+  HEAL_BORDER_FRAMES,
   LARGEST_SPECTRAL_RESOLUTION,
   SMALLEST_SPECTRAL_RESOLUTION,
   isSpectralReduction,

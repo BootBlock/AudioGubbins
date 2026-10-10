@@ -17,6 +17,7 @@ import {
   type EditOperation,
   type Region,
   type SpectralMask,
+  type SpectralOperationKind,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleCount } from '@audiogubbins/domain';
@@ -71,9 +72,9 @@ function chainOf(audio: AudioWindow): readonly EditOperation[] {
   return audio.session.getSnapshot().model.state.project.assets.get(audio.assetId)?.edits ?? [];
 }
 
-/** Where the domain places a spectral edit of `mask` at the default resolution. */
-function placed(mask: SpectralMask, length: number) {
-  const placement = spectralPlacement(mask, DEFAULT_SPECTRAL_RESOLUTION, length);
+/** Where the domain places a spectral edit `kind` of `mask` at the default resolution. */
+function placed(mask: SpectralMask, length: number, kind: SpectralOperationKind) {
+  const placement = spectralPlacement(mask, DEFAULT_SPECTRAL_RESOLUTION, length, kind);
   if (placement === undefined) throw new Error('The area reaches no audio.');
   return placement;
 }
@@ -87,10 +88,10 @@ describe('a spectral edit of the selection', () => {
     ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: 10 ** (-20 / 20) }],
     ['spectral.heal', {}, { kind: 'heal' }],
   ] as const)(
-    '%s %o is one change over the area widened by half a frame',
+    '%s %o is one change over the area widened as the domain places its kind',
     async (id, args, operation) => {
       const audio = await selectedLoop({ channels: '1' });
-      const { start, end, mask } = placed(SELECTED, audio.asset().length);
+      const { start, end, mask } = placed(SELECTED, audio.asset().length, operation.kind);
 
       await audio.window.runAndHear(id, args);
 
@@ -102,7 +103,10 @@ describe('a spectral edit of the selection', () => {
           edit: { kind: 'spectral', mask, resolution: DEFAULT_SPECTRAL_RESOLUTION, operation },
         }),
       ]);
-      expect(start).toBe(48_000 - DEFAULT_SPECTRAL_RESOLUTION / 2);
+      // Half a frame, and a heal's four border frames of the longest hop,
+      // half a frame each, as well.
+      const half = DEFAULT_SPECTRAL_RESOLUTION / 2;
+      expect(start).toBe(48_000 - half - (operation.kind === 'heal' ? 4 * half : 0));
       await audio.window.runAndHear('edit.undo');
       expect(chainOf(audio)).toEqual([]);
     },
@@ -113,7 +117,8 @@ describe('a spectral edit of the selection', () => {
     await audio.window.runAndHear('spectral.heal', { resolution: 512 });
     const [operation] = chainOf(audio);
     expect(operation?.kind === 'process' && operation.edit).toMatchObject({ resolution: 512 });
-    expect(operation?.kind === 'process' && operation.range.start).toBe(48_000 - 256);
+    // Half a frame of 512, and the heal's borders, four hops of half a frame.
+    expect(operation?.kind === 'process' && operation.range.start).toBe(48_000 - 256 - 4 * 256);
   });
 
   it('refuses what the domain refuses, saying why, and changes nothing', async () => {
@@ -172,7 +177,7 @@ describe('a spectral edit of the selection', () => {
 
     await audio.window.runAndHear('spectral.heal');
 
-    const { start, end, mask } = placed(shown, 192_000);
+    const { start, end, mask } = placed(shown, 192_000, 'heal');
     const operations: Region['operations'] | undefined = audio.session
       .getSnapshot()
       .model.state.project.regions.get(region.id)?.operations;

@@ -218,11 +218,25 @@ describe('a spectral edit', () => {
   });
 
   it('is placed over its mask widened by half a frame each side, within the audio, its mask moved', () => {
-    const placed = spectralPlacement(mask(rectangle(5_000, 6_000)), 2_048, 100_000);
+    const placed = spectralPlacement(mask(rectangle(5_000, 6_000)), 2_048, 100_000, 'attenuate');
     expect(placed?.start).toBe(5_000 - 4 - 1_024);
     expect(placed?.end).toBe(6_000 + 4 + 1_024);
     expect(maskOutline(placed?.mask ?? mask(rectangle(0, 1))).start).toBe(1_028);
-    const atEdge = spectralPlacement(mask(rectangle(100, 6_000)), 2_048, 6_500);
+    const atEdge = spectralPlacement(mask(rectangle(100, 6_000)), 2_048, 6_500, 'isolate');
     expect([atEdge?.start, atEdge?.end]).toEqual([0, 6_500]);
+  });
+
+  it('places a heal over its borders as well: four of the longest hop, and half a frame, each side', () => {
+    // Two frames overlap at the fewest, so the longest hop is half a frame:
+    // the heal's four border frames either side of its mask, each wholly in
+    // the range, take two frames and a half.
+    const placed = spectralPlacement(mask(rectangle(20_000, 21_000)), 2_048, 100_000, 'heal');
+    expect(placed?.start).toBe(20_000 - 4 - 1_024 - 4 * 1_024);
+    expect(placed?.end).toBe(21_000 + 4 + 1_024 + 4 * 1_024);
+    expect(maskOutline(placed?.mask ?? mask(rectangle(0, 1))).start).toBe(4 + 5 * 1_024);
+    for (const kind of ['attenuate', 'isolate', 'process'] as const) {
+      const other = spectralPlacement(mask(rectangle(20_000, 21_000)), 2_048, 100_000, kind);
+      expect(other?.start).toBe(20_000 - 4 - 1_024);
+    }
   });
 });

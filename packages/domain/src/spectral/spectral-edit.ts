@@ -15,6 +15,7 @@
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
+import { SMALLEST_SPECTRAL_OVERLAP } from '../processing/quality-mode.js';
 import { derivedSampleCount, type SampleCount } from '../time/sample-time.js';
 import { maskProblem } from './mask-validation.js';
 import { maskSupport, translatedMask, type SpectralMask } from './spectral-mask.js';
@@ -60,6 +61,13 @@ export const LARGEST_SPECTRAL_RESOLUTION = 16_384;
 
 /** The frame a spectral edit analyses with unless the person chooses another. */
 export const DEFAULT_SPECTRAL_RESOLUTION = 2_048;
+
+/**
+ * The most frames either border of a heal's run is measured over: the mean
+ * magnitude of up to this many frames the mask leaves, one after another,
+ * just before each run of masked frames in a bin and just after it.
+ */
+export const HEAL_BORDER_FRAMES = 4;
 
 /** Whether `value` is a resolution this build analyses with. */
 export function isSpectralResolution(value: number): boolean {
@@ -131,21 +139,34 @@ export interface SpectralPlacement {
 }
 
 /**
- * The range a spectral edit of `mask`, a selection's on a timeline of
+ * How far past its mask's support a spectral edit `kind` at `resolution`
+ * reads: half a frame, so no changed frame reaches past the range's ends;
+ * and for a heal, its borders as well, every frame of which lies wholly
+ * within the range at the longest hop any quality analyses with, since the
+ * range is kept with the project and read at every quality.
+ */
+function reachOf(kind: SpectralOperationKind, resolution: number): number {
+  const half = resolution / 2;
+  if (kind !== 'heal') return half;
+  return half + HEAL_BORDER_FRAMES * (resolution / SMALLEST_SPECTRAL_OVERLAP);
+}
+
+/**
+ * The range a spectral edit `kind` of `mask`, a selection's on a timeline of
  * `length`, processes at `resolution`, and the mask relative to it: the
- * mask's support widened by half a frame each side, within the timeline, so
- * no changed frame reaches past the range's ends (ADR-0081). `undefined`
- * where the mask reaches no audio.
+ * mask's support widened each side by what the edit reads past it, within
+ * the timeline (ADR-0081). `undefined` where the mask reaches no audio.
  */
 export function spectralPlacement(
   mask: SpectralMask,
   resolution: number,
   length: number,
+  kind: SpectralOperationKind,
 ): SpectralPlacement | undefined {
   const support = maskSupport(mask);
-  const half = resolution / 2;
-  const start = Math.max(0, Math.floor(support.start - half));
-  const end = Math.min(length, Math.ceil(support.end + half));
+  const reach = reachOf(kind, resolution);
+  const start = Math.max(0, Math.floor(support.start - reach));
+  const end = Math.min(length, Math.ceil(support.end + reach));
   if (start >= end) return undefined;
   return {
     start: derivedSampleCount(start),
