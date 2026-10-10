@@ -181,6 +181,32 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'wavFile',
       ],
   },
+  '@audiogubbins/codecs': {
+    "The codec contracts ADR-0090 to ADR-0093 give Phase 09, written before the codecs, the codec worker, the import and export jobs and the storage that consume them: the registry's descriptors and capabilities, the metadata map, the codec worker's synchronous byte port and the streaming write contract.":
+      [
+        'AudioFileWriter',
+        'BroadcastDescription',
+        'CodecCapability',
+        'CodecDescriptor',
+        'CodecDirection',
+        'CodecId',
+        'CodecImplementation',
+        'CodecUse',
+        'ContainerId',
+        'CoverArt',
+        'CuePoint',
+        'FinishedAudioFile',
+        'ForeignMetadataField',
+        'LoopDirection',
+        'MetadataLoop',
+        'MetadataMap',
+        'MetadataPart',
+        'MetadataTextKey',
+        'SampleRateSupport',
+        'SamplerTuning',
+        'SyncAudioBytes',
+      ],
+  },
   '@audiogubbins/input': {
     'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
       ['NO_GESTURE', 'toolStrength'],

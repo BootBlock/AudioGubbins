@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27454: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1172,7 +1172,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27454: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1562,6 +1562,9 @@ Published paths
   interface AudioBytes
   readonly AudioBytes.size: number
   AudioBytes.read: (offset: number, length: number, signal?: CancellationSignal) => Promise<Uint8Array>
+  interface AudioFileWriter
+  AudioFileWriter.write: (channels: readonly Float32Array[], frames: number, signal?: CancellationSignal) => Promise<DomainResult<readonly Uint8Array[]>>
+  AudioFileWriter.finish: (signal?: CancellationSignal) => Promise<DomainResult<FinishedAudioFile>>
   interface AudioFormatDescriptor
   readonly AudioFormatDescriptor.container: ReadableContainer
   readonly AudioFormatDescriptor.sampleRate: SampleRate
@@ -1576,6 +1579,64 @@ Published paths
   interface AudioReader
   readonly AudioReader.format: AudioFormatDescriptor
   AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<DomainResult<number>>
+  interface BroadcastDescription
+  readonly BroadcastDescription.description: string
+  readonly BroadcastDescription.originator: string
+  readonly BroadcastDescription.originatorReference: string
+  readonly BroadcastDescription.originationDate: string
+  readonly BroadcastDescription.originationTime: string
+  readonly BroadcastDescription.timeReference: SampleCount
+  readonly BroadcastDescription.codingHistory: string
+  type CodecCapability = { readonly kind: "available"; readonly codec: CodecId; readonly use: CodecUse; readonly implementation: CodecImplementation; } | { readonly kind: "unavailable"; readonly codec: CodecId; readonly use: CodecUse; readonly reason: string; readonly alternatives: readonly CodecId[]; }
+  interface CodecDescriptor
+  readonly CodecDescriptor.id: CodecId
+  readonly CodecDescriptor.name: string
+  readonly CodecDescriptor.lossless: boolean
+  readonly CodecDescriptor.read: CodecDirection | undefined
+  readonly CodecDescriptor.write: CodecDirection | undefined
+  interface CodecDirection
+  readonly CodecDirection.implementation: CodecImplementation
+  readonly CodecDirection.containers: readonly ContainerId[]
+  readonly CodecDirection.reproducible: boolean
+  readonly CodecDirection.licence: string
+  readonly CodecDirection.sampleRates: SampleRateSupport
+  readonly CodecDirection.maximumChannels: number
+  type CodecId = "aac-lc" | "alac" | "flac" | "g711-alaw" | "g711-ulaw" | "he-aac" | "ima-adpcm" | "mp3" | "ms-adpcm" | "opus" | "pcm" | "vorbis"
+  type CodecImplementation = "application" | "browser" | "codec-module" | "prebuilt-module"
+  type CodecUse = "read" | "write"
+  type ContainerId = "adts" | "aifc" | "aiff" | "bw64" | "flac" | "matroska" | "mp3" | "mp4" | "ogg" | "rf64" | "wav" | "webm"
+  interface CoverArt
+  readonly CoverArt.mediaType: string
+  readonly CoverArt.description: string
+  readonly CoverArt.bytes: Uint8Array<ArrayBufferLike>
+  interface CuePoint
+  readonly CuePoint.position: SampleCount
+  readonly CuePoint.name: string
+  interface FinishedAudioFile
+  readonly FinishedAudioFile.head: Uint8Array<ArrayBufferLike>
+  readonly FinishedAudioFile.tail: Uint8Array<ArrayBufferLike>
+  readonly FinishedAudioFile.dropped: readonly MetadataPart[]
+  interface ForeignMetadataField
+  readonly ForeignMetadataField.scheme: string
+  readonly ForeignMetadataField.key: string
+  readonly ForeignMetadataField.value: string
+  type LoopDirection = "alternating" | "backward" | "forward"
+  interface MetadataLoop
+  readonly MetadataLoop.start: SampleCount
+  readonly MetadataLoop.length: SampleCount
+  readonly MetadataLoop.playCount: "endless" | number
+  readonly MetadataLoop.direction: LoopDirection
+  readonly MetadataLoop.name?: string
+  interface MetadataMap
+  readonly MetadataMap.text?: Readonly<Partial<Record<MetadataTextKey, string>>>
+  readonly MetadataMap.foreign?: readonly ForeignMetadataField[]
+  readonly MetadataMap.broadcast?: BroadcastDescription
+  readonly MetadataMap.cues?: readonly CuePoint[]
+  readonly MetadataMap.loops?: readonly MetadataLoop[]
+  readonly MetadataMap.tuning?: SamplerTuning
+  readonly MetadataMap.coverArt?: CoverArt
+  type MetadataPart = { readonly kind: "broadcast"; } | { readonly kind: "coverArt"; } | { readonly kind: "cues"; } | { readonly kind: "foreign"; readonly scheme: string; readonly key: string; } | { readonly kind: "loops"; } | { readonly kind: "text"; readonly key: MetadataTextKey; } | { readonly kind: "tuning"; }
+  type MetadataTextKey = "album" | "albumArtist" | "artist" | "comment" | "copyright" | "date" | "discNumber" | "discTotal" | "encoder" | "genre" | "isrc" | "title" | "trackNumber" | "trackTotal"
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
   interface RecordedWavFormat
   readonly RecordedWavFormat.sampleRate: SampleRate
@@ -1587,6 +1648,13 @@ Published paths
   readonly RecordedWavHeader.dataLength: number
   readonly RecordedWavHeader.fileLength: number
   type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
+  type SampleRateSupport = { readonly kind: "any"; readonly minimum: number; readonly maximum: number; } | { readonly kind: "listed"; readonly rates: readonly number[]; }
+  interface SamplerTuning
+  readonly SamplerTuning.unityNote: number
+  readonly SamplerTuning.fineTuneCents: number
+  interface SyncAudioBytes
+  readonly SyncAudioBytes.size: number
+  SyncAudioBytes.readInto: (offset: number, into: Uint8Array) => number
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>

@@ -30,3 +30,31 @@ export {
   recordedWavHeader,
   recordedWavLength,
 } from './recorded-wav.js';
+
+export {
+  type CodecCapability,
+  type CodecDescriptor,
+  type CodecDirection,
+  type CodecId,
+  type CodecImplementation,
+  type CodecUse,
+  type ContainerId,
+  type SampleRateSupport,
+} from './codec-descriptor.js';
+
+export {
+  type BroadcastDescription,
+  type CoverArt,
+  type CuePoint,
+  type ForeignMetadataField,
+  type LoopDirection,
+  type MetadataLoop,
+  type MetadataMap,
+  type MetadataPart,
+  type MetadataTextKey,
+  type SamplerTuning,
+} from './metadata-map.js';
+
+export { type SyncAudioBytes } from './sync-audio-bytes.js';
+
+export { type AudioFileWriter, type FinishedAudioFile } from './audio-file-writer.js';
