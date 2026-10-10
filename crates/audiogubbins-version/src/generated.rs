@@ -16,7 +16,7 @@ pub const PRODUCT_VERSION_PATCH: u32 = 0;
 pub const PRODUCT_VERSION: &str = "0.1.0";
 
 /// Version of the persisted `userPreferences` schema.
-pub const USER_PREFERENCES_SCHEMA_VERSION: u32 = 1;
+pub const USER_PREFERENCES_SCHEMA_VERSION: u32 = 2;
 
 /// Version of the persisted `workspaceLayout` schema.
 pub const WORKSPACE_LAYOUT_SCHEMA_VERSION: u32 = 1;
