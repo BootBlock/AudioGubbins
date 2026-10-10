@@ -1,17 +1,17 @@
 /**
  * A batch import as a state machine (ADR-0090, REQ-ARCH-153).
  *
- * Each file goes `queued → analysing → copying → decoding → adding →
- * imported`, skipping a stage it does not need, a file linked rather than
- * copied, or one read in place rather than decoded to a rendition, but never
- * going back; or it is `refused` with the reason, or `cancelled`. One file's
- * refusal stops nothing else.
+ * Each file goes `queued → analysing → copying → decoding → adding → imported`,
+ * skipping a stage it does not need, a file linked rather than copied, or one
+ * read in place rather than decoded to a rendition, but never going back; or it
+ * is `refused` with the reason, or `cancelled`. One file's refusal stops
+ * nothing else.
  *
- * Files run one at a time, with the codec worker decoding ahead by at most
- * one: a file leaves the queue only once every file before it has ended,
- * save the one just before it, which may be adding to the project while this
- * one begins. Cancelling stops the file in progress and every file after it;
- * what was imported before stays.
+ * Files run one at a time, with the codec worker decoding ahead by at most one:
+ * a file leaves the queue only once every file before it has ended, save the
+ * one just before it, which may be adding to the project while this one begins.
+ * Cancelling stops the file in progress and every file after it; what was
+ * imported before stays.
  */
 
 import { fail, succeed, type DomainFailure, type DomainResult } from '@audiogubbins/domain';

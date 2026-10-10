@@ -4,8 +4,8 @@
  * The walk is the audio reader's own, so RF64's ds64 sizes mean the same to
  * both, and it never reads the sample data; what each chunk means to the map is
  * `riff-chunk-reading.ts`'s, which FLAC's carried chunks are read by as well.
- * Only the bodies of the chunks the map takes are read, a `LIST`'s once its type
- * says the map takes it, each within the per-chunk and per-file bounds.
+ * Only the bodies of the chunks the map takes are read, a `LIST`'s once its
+ * type says the map takes it, each within the per-chunk and per-file bounds.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
