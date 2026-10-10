@@ -131,6 +131,7 @@ describe('the spectrogram a view holds while it shows one (ADR-0080)', () => {
       },
       cache: new MemoryTileCache(),
       report: () => undefined,
+      now: () => 0,
     });
     const told: (SpectrogramStatus | undefined)[] = [];
     const shown = new ShownSpectrogram(
