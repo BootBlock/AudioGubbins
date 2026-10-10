@@ -138,6 +138,26 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
     ]);
   });
 
+  it('compares each spectral edit listed with before it, naming the edit', async () => {
+    const audio = await selectedLoop();
+    await audio.window.runAndHear('spectral.heal');
+    await audio.window.runAndHear('spectral.remove');
+    const edits =
+      audio.session.getSnapshot().model.state.project.assets.get(audio.assetId)?.edits ?? [];
+    const ran = panelOver(audio);
+
+    const buttons = screen.getAllByRole('button', { name: 'Compare with before it' });
+    expect(buttons).toHaveLength(2);
+    const [first] = buttons;
+    if (first === undefined) throw new Error('No edit is listed.');
+    await userEvent.click(first);
+
+    expect(ran.at(-1)).toEqual([
+      'spectral.compare-before-edit',
+      { view: 'editor', operationId: edits[0]?.id },
+    ]);
+  });
+
   it('turns pen pressure off through its command, shown in the brush’s strength', async () => {
     const audio = await selectedLoop();
     const ran = panelOver(audio);

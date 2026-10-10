@@ -271,6 +271,33 @@ describe('comparing a spectral edit, and hearing it bypassed', () => {
     expect(audio.window.run('spectral.compare-before-edit').kind).toBe('unchanged');
   });
 
+  it('compares the project with before the spectral edit named, though a later one was made', async () => {
+    const audio = await selectedLoop();
+    const before = audio.session.getSnapshot().model.history.cursor;
+    await audio.window.runAndHear('spectral.heal');
+    const healed = audio.session.getSnapshot().model.history.cursor;
+    await audio.window.runAndHear('spectral.remove');
+    const removed = audio.session.getSnapshot().model.history.cursor;
+    const [heal, removal] = chainOf(audio);
+    if (heal === undefined || removal === undefined) throw new Error('Two edits were made.');
+
+    expect(
+      await audio.window.runAndHear('spectral.compare-before-edit', { operationId: heal.id }),
+    ).toMatch(/^Comparing the project as it is, side A, with before /);
+    const { comparison } = audio.session.getSnapshot().model;
+    expect([comparison?.a.node, comparison?.b.node]).toEqual([removed, before]);
+
+    await audio.window.runAndHear('spectral.compare-before-edit', { operationId: removal.id });
+    const latest = audio.session.getSnapshot().model.comparison;
+    expect([latest?.a.node, latest?.b.node]).toEqual([removed, healed]);
+    expect(
+      audio.window.run('spectral.compare-before-edit', { operationId: 'not-an-edit' }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'That is not a spectral edit of Loop.' }],
+    });
+  });
+
   it('hears the original with a spectral edit bypassed, though no chain processes the sound', async () => {
     const audio = await selectedLoop();
     const before = audio.asset();
