@@ -1690,3 +1690,53 @@ describe('what a redaction leaves of a secret, a location and a name', () => {
     expect(redacted('Said "go" then opened "Take.wav"')).toBe('Said "go" then opened "<file>"');
   });
 });
+
+describe('a path among the words after it', () => {
+  const redacted = (message: string, keepFileNames = false): string =>
+    redactOne(record({ message }), keepFileNames).record.message;
+
+  it('ends a path before a date or "and/or" that follows it, from every root', () => {
+    // A word after a path that held a slash was taken for a folder of it, so the
+    // path ran on through the date or the "and/or" and the words after it, and
+    // the rules that end a path at its file's extension or at a clause's mark
+    // were never read.
+    const cases: readonly [string, string][] = [
+      [
+        'Imported C:\\Users\\jane\\take.wav on 10/10/2026 at noon.',
+        'Imported <path> on 10/10/2026 at noon.',
+      ],
+      ['Copy /home/jane/notes and/or retry.', 'Copy <path> and/or retry.'],
+      [
+        'Read \\\\studio-nas\\projects\\take.wav, 2026/10/10 and later.',
+        'Read <path>, 2026/10/10 and later.',
+      ],
+      ['Dropped file:///C:/Users/jane/take.wav and/or later', 'Dropped <path> and/or later'],
+      ['Opened smb://nas/Clients/notes N/A retry', 'Opened <path> N/A retry'],
+      [
+        'Saved C:\\Users\\Alex Bloggs\\Sessions\\Jane Smith Interview (10/10/2026) twice',
+        'Saved <path> (10/10/2026) twice',
+      ],
+      ['Locked /home/jane/notes; 10/10/2026 retry', 'Locked <path>; 10/10/2026 retry'],
+      ["Opened '/home/jane/My Songs/demo' and/or 1/2 of it", "Opened '<path>' and/or 1/2 of it"],
+    ];
+
+    for (const [message, expected] of cases) expect(redacted(message)).toBe(expected);
+  });
+
+  it('keeps the name on request, and the date after it', () => {
+    expect(redacted('Imported C:\\Users\\jane\\take.wav on 10/10/2026', true)).toBe(
+      'Imported <path>/take.wav on 10/10/2026',
+    );
+  });
+
+  it('runs on through a slashed word that a folder after it shows was part of the path', () => {
+    // No name holds a slash, so a slashed word is either folders or prose; a
+    // folder after it settles that it was folders.
+    expect(redacted('Opened /Volumes/Jane Backup/Sessions and/or Takes/Jane Smith.wav')).toBe(
+      'Opened <path>',
+    );
+    expect(redacted('Opened /srv/audio/Session 2026/10/10/Jane Smith Interview')).toBe(
+      'Opened <path>',
+    );
+  });
+});
