@@ -39,6 +39,9 @@ Published paths
   @audiogubbins/project-format/testing
   @audiogubbins/recording
   @audiogubbins/renderer
+  @audiogubbins/spectral-analysis
+  @audiogubbins/spectral-analysis/testing
+  @audiogubbins/spectral-analysis/threads/*
   @audiogubbins/storage
   @audiogubbins/storage-runtime
   @audiogubbins/storage-runtime/testing
@@ -206,6 +209,9 @@ Published paths
   const DetectorKind: { readonly Clicks: "clicks"; readonly Hum: "hum"; readonly NoiseFloor: "noise-floor"; readonly Clipping: "clipping"; readonly DcOffset: "dc-offset"; readonly Transients: "transients"; readonly Silence: "silence"; }
   type DetectorKind = "clicks" | "clipping" | "dc-offset" | "hum" | "noise-floor" | "silence" | "transients"
   type DetectorSettings = ClickSettings | ClippingSettings | DcOffsetSettings | HumSettings | NoiseFloorSettings | SilenceSettings | TransientSettings
+  type DspDelivery<TModule> = { readonly kind: typeof DspDeliveryKind.Available; readonly module: TModule; } | { readonly kind: typeof DspDeliveryKind.Unavailable; readonly reason: string; }
+  const DspDeliveryKind: { readonly Available: "available"; readonly Unavailable: "unavailable"; }
+  type DspDeliveryKind = "available" | "unavailable"
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   const ENGINE_VERSIONS: EngineVersions
@@ -539,6 +545,9 @@ Published paths
   readonly SchedulerCounts.queued: Readonly<Record<JobPriority, number>>
   const SchedulingPolicy: { readonly InteractiveFirst: "interactive-first"; readonly Throughput: "throughput"; }
   type SchedulingPolicy = "interactive-first" | "throughput"
+  interface ScopeDsp
+  readonly ScopeDsp.dsp: CanonicalDsp
+  readonly ScopeDsp.fallbackReason: string | undefined
   interface SignalRecipe
   readonly SignalRecipe.channels: readonly ChannelProgramme[]
   readonly SignalRecipe.length: SampleCount
@@ -625,8 +634,11 @@ Published paths
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
   function decibelsToGain(decibels: number): number
+  function deliveredAs<TFrom, TTo>(delivery: DspDelivery<TFrom>, form: (module: TFrom) => TTo): DspDelivery<TTo>
+  function deliveredDsp<TModule>(delivery: DspDelivery<TModule>, instantiate: (module: TModule) => unknown): ScopeDsp
   function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
   function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp, processing: PlanProcessing): DomainResult<PcmSource>
+  function dspDeliveryAt<TModule>(fields: Readonly<Record<string, unknown>>, field: string, readModule: (delivery: MessageFields, field: string) => TModule): DspDelivery<TModule>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function exp(x: number): number
   function findPeaks(magnitude: Float64Array<ArrayBufferLike>, bins: number, peaks: Int32Array<ArrayBufferLike>): number
@@ -680,8 +692,10 @@ Published paths
   readonly CountingDsp.dsp: CanonicalDsp
   readonly CountingDsp.held: () => number
   readonly CountingDsp.made: () => number
+  const GOLDEN_INPUT: readonly Float32Array<ArrayBufferLike>[]
   const GOLDEN_LAYOUT: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }
   const GOLDEN_MASKS: readonly GoldenMask[]
+  const GOLDEN_RATE: import("packages/domain/src/index").SampleRate
   const GOLDEN_SETTINGS: readonly GoldenSettings[]
   const NO_CHAIN_PROCESSING: ChainProcessing
   const PLAIN_PLAN_PROCESSING: PlanProcessing
@@ -885,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29053: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -982,9 +996,6 @@ Published paths
   readonly DeviceReport.outputLatencySeconds: number | undefined
   readonly DeviceReport.maxChannelCount: number
   readonly DeviceReport.channelCount: number
-  type DspDelivery<TModule> = { readonly kind: typeof DspDeliveryKind.Available; readonly module: TModule; } | { readonly kind: typeof DspDeliveryKind.Unavailable; readonly reason: string; }
-  const DspDeliveryKind: { readonly Available: "available"; readonly Unavailable: "unavailable"; }
-  type DspDeliveryKind = "available" | "unavailable"
   interface DspStatus
   readonly DspStatus.implementation: DspImplementation
   readonly DspStatus.fallbackReason: string | undefined
@@ -1179,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29053: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -5129,6 +5140,137 @@ Published paths
   readonly TextLabel.baseline: "bottom" | "middle" | "top"
   function browserBackends(gpu: unknown, schedule: Schedule, offscreen: () => HTMLCanvasElement): readonly BackendFactory[]
 
+@audiogubbins/spectral-analysis
+  const DEFAULT_SPECTROGRAM_CONFIG: SpectrogramConfig
+  interface FrameRange
+  readonly FrameRange.start: number
+  readonly FrameRange.end: number
+  const LEVEL_FLOOR_DECIBELS: -127.5
+  const LEVEL_STEP_DECIBELS: 0.5
+  interface LevelGeometry
+  readonly LevelGeometry.level: number
+  readonly LevelGeometry.columnFrames: number
+  readonly LevelGeometry.windows: number
+  readonly LevelGeometry.spacing: number
+  readonly LevelGeometry.columns: number
+  readonly LevelGeometry.tiles: number
+  interface ShownTile
+  readonly ShownTile.tile: SpectralTile
+  readonly ShownTile.stale: boolean
+  interface SpectralTile
+  readonly SpectralTile.key: SpectralTileKey
+  readonly SpectralTile.columns: number
+  readonly SpectralTile.bins: number
+  readonly SpectralTile.values: Uint8Array<ArrayBuffer>
+  interface SpectralTileCache
+  SpectralTileCache.read: (key: SpectralTileKey, signal: CancellationSignal) => Promise<Uint8Array<ArrayBuffer> | undefined>
+  SpectralTileCache.write: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  interface SpectralTileKey
+  readonly SpectralTileKey.identity: string
+  readonly SpectralTileKey.revision: string
+  readonly SpectralTileKey.channel: number
+  readonly SpectralTileKey.config: SpectrogramConfig
+  readonly SpectralTileKey.level: number
+  readonly SpectralTileKey.index: number
+  interface SpectrogramConfig
+  readonly SpectrogramConfig.windowLength: number
+  readonly SpectrogramConfig.window: StftWindow
+  readonly SpectrogramConfig.overlap: SpectrogramOverlap
+  type SpectrogramEvent = { readonly kind: "cache-refused"; readonly identity: string; readonly reason: string; } | { readonly kind: "cache-unreadable"; readonly identity: string; readonly reason: string; } | { readonly kind: "cache-unwritten"; readonly identity: string; readonly reason: string; } | { readonly kind: "failed"; readonly identity: string; readonly reason: string; }
+  interface SpectrogramGeometry
+  readonly SpectrogramGeometry.config: SpectrogramConfig
+  readonly SpectrogramGeometry.frames: number
+  readonly SpectrogramGeometry.channels: number
+  readonly SpectrogramGeometry.bins: number
+  readonly SpectrogramGeometry.levels: readonly LevelGeometry[]
+  interface SpectrogramHandle
+  readonly SpectrogramHandle.status: SpectrogramStatus
+  SpectrogramHandle.geometry: (config: SpectrogramConfig) => SpectrogramGeometry
+  SpectrogramHandle.subscribe: (listener: () => void) => () => void
+  SpectrogramHandle.show: (view: SpectrogramView | undefined) => void
+  SpectrogramHandle.tile: (config: SpectrogramConfig, channel: number, level: number, index: number) => ShownTile | undefined
+  SpectrogramHandle.release: () => void
+  class SpectrogramHost
+  new SpectrogramHost(options: { readonly createWorker: () => SpectrogramWorkerPort; readonly cache: SpectralTileCache; readonly report: (event: SpectrogramHostEvent) => void; readonly memoryBudget?: number; }): SpectrogramHost
+  readonly SpectrogramHost.#createWorker: () => SpectrogramWorkerPort
+  readonly SpectrogramHost.#cache: SpectralTileCache
+  readonly SpectrogramHost.#report: (event: SpectrogramHostEvent) => void
+  readonly SpectrogramHost.#memory: TileMemory
+  readonly SpectrogramHost.#shared: Map<string, Shared>
+  readonly SpectrogramHost.#byName: Map<string, SpectrogramJob>
+  SpectrogramHost.#worker: SpectrogramWorkerPort | undefined
+  SpectrogramHost.#jobs: number
+  SpectrogramHost.#requests: number
+  SpectrogramHost.open: (subject: SpectrogramSubject) => SpectrogramHandle
+  SpectrogramHost.#start: (key: string, subject: SpectrogramSubject) => Shared
+  SpectrogramHost.#hold: (tile: SpectralTile) => void
+  SpectrogramHost.#workerPort: () => SpectrogramWorkerPort
+  SpectrogramHost.#receive: (value: unknown) => void
+  SpectrogramHost.#workerFailed: (reason: string) => void
+  SpectrogramHost.#close: (key: string, job: SpectrogramJob) => void
+  SpectrogramHost.dispose: () => void
+  type SpectrogramHostEvent = SpectrogramEvent | { readonly kind: "dsp"; readonly implementation: DspImplementation; readonly fallbackReason: string | undefined; }
+  type SpectrogramOverlap = 1 | 2 | 4 | 8
+  type SpectrogramStatus = { readonly kind: "failed"; readonly reason: string; } | { readonly kind: "running"; }
+  interface SpectrogramSubject
+  readonly SpectrogramSubject.identity: string
+  readonly SpectrogramSubject.revision: string
+  readonly SpectrogramSubject.channels: number
+  readonly SpectrogramSubject.frames: number
+  readonly SpectrogramSubject.describe: () => PcmDescription
+  readonly SpectrogramSubject.quality: QualityMode
+  interface SpectrogramView
+  readonly SpectrogramView.config: SpectrogramConfig
+  readonly SpectrogramView.level: number
+  readonly SpectrogramView.channels: readonly number[]
+  readonly SpectrogramView.first: number
+  readonly SpectrogramView.last: number
+  readonly SpectrogramView.centre: number
+  interface SpectrogramWorkerPort
+  SpectrogramWorkerPort.post: (message: ToSpectrogramWorker, transfer: readonly ArrayBuffer[]) => void
+  SpectrogramWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  SpectrogramWorkerPort.terminate: () => void
+  const TILE_COLUMNS: 256
+  interface TileSpan
+  readonly TileSpan.start: number
+  readonly TileSpan.columns: number
+  type ToSpectrogramWorker = { readonly kind: typeof ToSpectrogramWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToSpectrogramWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToSpectrogramWorkerKind.Dsp; readonly delivery: DspDelivery<CompiledModule>; } | { readonly kind: typeof ToSpectrogramWorkerKind.Focus; readonly job: string; readonly centre: number; } | { readonly kind: typeof ToSpectrogramWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly quality: QualityMode; } | { readonly kind: typeof ToSpectrogramWorkerKind.Previews; readonly port: MessagePortLike; } | { readonly kind: typeof ToSpectrogramWorkerKind.Want; readonly job: string; readonly request: number; readonly config: SpectrogramConfig; readonly channel: number; readonly level: number; readonly index: number; readonly cached: Uint8Array<ArrayBuffer> | undefined; }
+  const ToSpectrogramWorkerKind: { readonly Dsp: "dsp"; readonly Previews: "previews"; readonly Open: "open"; readonly Focus: "focus"; readonly Want: "want"; readonly Cancel: "cancel"; readonly Close: "close"; }
+  function levelDecibels(level: number): number
+  function levelFor(geometry: SpectrogramGeometry, framesPerPixel: number): number
+  function spectrogramConfig(settings: { readonly windowLength: number; readonly window: string; readonly overlap: number; }): DomainResult<SpectrogramConfig>
+  function tileKeyText(key: SpectralTileKey): string
+  function tileSpan(level: LevelGeometry, index: number): TileSpan
+  function tilesOver(level: LevelGeometry, range: FrameRange): undefined | { readonly first: number; readonly last: number; }
+
+@audiogubbins/spectral-analysis/testing
+  interface LocalSpectrogramOptions
+  readonly LocalSpectrogramOptions.dsp?: DspDelivery<object>
+  class LocalSpectrogramWorker
+  new LocalSpectrogramWorker(options?: LocalSpectrogramOptions): LocalSpectrogramWorker
+  readonly LocalSpectrogramWorker.sent: ToSpectrogramWorker[]
+  readonly LocalSpectrogramWorker.posted: unknown[]
+  LocalSpectrogramWorker.terminated: boolean
+  LocalSpectrogramWorker.#onMessage: ((value: unknown) => void) | undefined
+  LocalSpectrogramWorker.#onFault: ((reason: string) => void) | undefined
+  readonly LocalSpectrogramWorker.#models: ModelChannel
+  readonly LocalSpectrogramWorker.#core: SpectrogramWorkerCore
+  LocalSpectrogramWorker.post: (message: ToSpectrogramWorker, transfer: readonly ArrayBuffer[]) => void
+  LocalSpectrogramWorker.#deliver: (message: unknown, transfer: readonly unknown[]) => void
+  LocalSpectrogramWorker.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  LocalSpectrogramWorker.fault: (reason: string) => void
+  LocalSpectrogramWorker.terminate: () => void
+  class MemoryTileCache
+  new MemoryTileCache(): MemoryTileCache
+  readonly MemoryTileCache.kept: Map<string, Uint8Array<ArrayBuffer>>
+  MemoryTileCache.reads: number
+  MemoryTileCache.writes: number
+  MemoryTileCache.refusing: string | undefined
+  MemoryTileCache.read: (key: SpectralTileKey) => Promise<Uint8Array<ArrayBuffer> | undefined>
+  MemoryTileCache.write: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  function memorySubject(identity: string, channels: readonly Float32Array<ArrayBufferLike>[], revision?: string): SpectrogramSubject
+  function turn(): Promise<void>
+
 @audiogubbins/storage
   type Alone<TValue> = { readonly kind: "busy"; } | { readonly kind: "done"; readonly value: TValue; } | { readonly kind: "unavailable"; }
   interface AnotherProject
@@ -7581,6 +7723,123 @@ packages/recording/src/controlled-recording.ts
 packages/renderer/src/renderer-backend.ts
   type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
   type Schedule = (callback: () => void, delayMs: number) => () => void
+
+packages/spectral-analysis/src/spectrogram-host.ts
+  interface Shared
+  readonly Shared.job: SpectrogramJob
+  Shared.holders: number
+
+packages/spectral-analysis/src/spectrogram-job.ts
+  interface Asked
+  readonly Asked.key: SpectralTileKey
+  readonly Asked.request: number
+  readonly Asked.cancel: CancellationSource
+  Asked.sent: boolean
+  interface JobServices
+  readonly JobServices.post: (message: ToSpectrogramWorker, transfer: readonly ArrayBuffer[]) => void
+  readonly JobServices.cache: SpectralTileCache
+  readonly JobServices.report: (event: SpectrogramEvent) => void
+  readonly JobServices.request: () => number
+  readonly JobServices.held: (place: string) => SpectralTile | undefined
+  readonly JobServices.hold: (tile: SpectralTile) => void
+  class SpectrogramJob
+  new SpectrogramJob(name: string, subject: SpectrogramSubject, services: JobServices): SpectrogramJob
+  readonly SpectrogramJob.subject: SpectrogramSubject
+  readonly SpectrogramJob.name: string
+  readonly SpectrogramJob.#services: JobServices
+  readonly SpectrogramJob.#listeners: Set<() => void>
+  SpectrogramJob.#status: SpectrogramStatus
+  readonly SpectrogramJob.#views: Map<object, ReadonlyMap<string, SpectralTileKey>>
+  readonly SpectrogramJob.#asked: Map<string, Asked>
+  readonly SpectrogramJob.#byRequest: Map<number, string>
+  readonly SpectrogramJob.#geometries: Map<string, SpectrogramGeometry>
+  SpectrogramJob.#closed: boolean
+  SpectrogramJob.status: SpectrogramStatus
+  SpectrogramJob.shownPlaces: () => Generator<string>
+  SpectrogramJob.subscribe: (listener: () => void) => () => void
+  SpectrogramJob.changed: () => void
+  SpectrogramJob.start: () => void
+  SpectrogramJob.geometry: (config: SpectrogramConfig) => SpectrogramGeometry
+  SpectrogramJob.keyOf: (config: SpectrogramConfig, channel: number, level: number, index: number) => SpectralTileKey
+  SpectrogramJob.show: (viewer: object, view: SpectrogramView | undefined) => void
+  SpectrogramJob.#reconcile: () => void
+  SpectrogramJob.#ask: (text: string, key: SpectralTileKey) => void
+  SpectrogramJob.#cancel: (text: string, asked: Asked) => void
+  SpectrogramJob.receive: (message: Exclude<FromSpectrogramWorker, { kind: typeof FromSpectrogramWorkerKind.Dsp; }>) => void
+  SpectrogramJob.#decoded: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>) => DomainResult<SpectralTile>
+  SpectrogramJob.#failOpen: (reason: string) => void
+  SpectrogramJob.fail: (reason: string) => void
+  SpectrogramJob.#cancelAll: () => void
+  SpectrogramJob.close: () => void
+
+packages/spectral-analysis/src/spectrogram-messages.ts
+  type CompiledModule = object
+  type FromSpectrogramWorker = { readonly kind: typeof FromSpectrogramWorkerKind.Dsp; readonly implementation: DspImplementation; readonly fallbackReason: string | undefined; } | { readonly kind: typeof FromSpectrogramWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromSpectrogramWorkerKind.Tile; readonly job: string; readonly request: number; readonly bytes: Uint8Array<ArrayBuffer>; readonly adopted: boolean; readonly refusedCache: string | undefined; }
+
+packages/spectral-analysis/src/spectrogram-worker-core.ts
+  interface Job
+  readonly Job.name: string
+  readonly Job.identity: string
+  readonly Job.revision: string
+  readonly Job.source: PcmSource
+  readonly Job.dsp: ScopeDsp
+  readonly Job.geometries: Map<string, SpectrogramGeometry>
+  Job.focus: number
+  readonly Job.waiting: Map<number, Waiting>
+  interface Making
+  readonly Making.job: Job
+  readonly Making.wants: Map<number, Waiting>
+  readonly Making.cancel: CancellationSource
+  class SpectrogramWorkerCore
+  new SpectrogramWorkerCore(host: SpectrogramWorkerHost): SpectrogramWorkerCore
+  readonly SpectrogramWorkerCore.#host: SpectrogramWorkerHost
+  SpectrogramWorkerCore.#dsp: ScopeDsp | undefined
+  SpectrogramWorkerCore.#previews: PreviewClient | undefined
+  readonly SpectrogramWorkerCore.#jobs: Map<string, Job>
+  SpectrogramWorkerCore.#order: string[]
+  SpectrogramWorkerCore.#making: Making | undefined
+  SpectrogramWorkerCore.#pumping: boolean
+  SpectrogramWorkerCore.receive: (value: unknown) => void
+  SpectrogramWorkerCore.messageFailed: () => void
+  SpectrogramWorkerCore.#post: (message: FromSpectrogramWorker) => void
+  SpectrogramWorkerCore.#chooseDsp: (delivery: DspDelivery<CompiledModule>) => void
+  SpectrogramWorkerCore.#fail: (job: string, reason: string) => void
+  SpectrogramWorkerCore.#open: (message: Extract<ToSpectrogramWorker, { kind: typeof ToSpectrogramWorkerKind.Open; }>) => void
+  SpectrogramWorkerCore.#focus: (name: string, centre: number) => void
+  SpectrogramWorkerCore.#geometryOf: (job: Job, want: Want) => SpectrogramGeometry
+  SpectrogramWorkerCore.#want: (want: Want) => void
+  SpectrogramWorkerCore.#cancel: (name: string, request: number) => void
+  SpectrogramWorkerCore.#next: () => Making | undefined
+  SpectrogramWorkerCore.#pump: () => Promise<void>
+  SpectrogramWorkerCore.#make: (making: Making) => Promise<void>
+  SpectrogramWorkerCore.#close: (name: string) => void
+  interface SpectrogramWorkerHost
+  readonly SpectrogramWorkerHost.post: (message: FromSpectrogramWorker, transfer: readonly ArrayBuffer[]) => void
+  readonly SpectrogramWorkerHost.yieldToHost: () => Promise<void>
+  readonly SpectrogramWorkerHost.processing: ChainProcessing
+  readonly SpectrogramWorkerHost.chooseDsp: (delivery: DspDelivery<CompiledModule>) => ScopeDsp
+  readonly SpectrogramWorkerHost.reportFault: (error: Error) => void
+
+packages/spectral-analysis/src/tile-memory.ts
+  class TileMemory
+  new TileMemory(budget: number): TileMemory
+  readonly TileMemory.#budget: number
+  readonly TileMemory.#held: Map<string, SpectralTile>
+  TileMemory.#bytes: number
+  TileMemory.bytes: number
+  TileMemory.at: (place: string) => SpectralTile | undefined
+  TileMemory.shown: (place: string) => void
+  TileMemory.hold: (tile: SpectralTile, inView: (place: string) => boolean) => void
+  TileMemory.#forget: (place: string) => void
+
+packages/spectral-analysis/src/tile-wants.ts
+  interface Waiting
+  readonly Waiting.want: { readonly kind: typeof ToSpectrogramWorkerKind.Want; readonly job: string; readonly request: number; readonly config: import("packages/spectral-analysis/src/spectrogram-config").SpectrogramConfig; readonly channel: number; readonly level: number; readonly index: number; readonly cached: Uint8Array<ArrayBuffer> | undefined; }
+  readonly Waiting.geometry: SpectrogramGeometry
+  readonly Waiting.level: LevelGeometry
+  readonly Waiting.place: string
+  readonly Waiting.refusedCache: string | undefined
+  type Want = { readonly kind: typeof ToSpectrogramWorkerKind.Want; readonly job: string; readonly request: number; readonly config: import("packages/spectral-analysis/src/spectrogram-config").SpectrogramConfig; readonly channel: number; readonly level: number; readonly index: number; readonly cached: Uint8Array<ArrayBuffer> | undefined; }
 
 packages/storage-runtime/src/client/project-mirror.ts
   class ProjectMirror

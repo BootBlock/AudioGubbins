@@ -45,10 +45,11 @@ import {
   ResamplingQuality,
   type RenderConversion,
   type RenderRange,
+  type DspDelivery,
+  dspDeliveryAt,
 } from '@audiogubbins/audio-engine';
 
-import type { DspDelivery } from '../dsp/dsp-delivery.js';
-import { dspDeliveryAt, graphAt, moduleAt, nodeAt } from './message-reading.js';
+import { graphAt, moduleAt, nodeAt } from './message-reading.js';
 import { sourceFrom, type SourceDescription } from './source-descriptions.js';
 
 /** The kinds of message a render worker is sent. */

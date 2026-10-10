@@ -125,6 +125,14 @@
       ]
     },
     {
+      "name": "spectral-analysis",
+      "root": "packages/spectral-analysis",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "detection-runtime",
       "root": "packages/detection-runtime",
       "environment": "node",

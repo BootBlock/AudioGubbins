@@ -8,10 +8,9 @@ import {
   unsafeBrandId,
 } from '@audiogubbins/domain';
 import { crossingThreads, expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import { DspImplementation } from '@audiogubbins/audio-engine';
+import { DspImplementation, DspDeliveryKind } from '@audiogubbins/audio-engine';
 
 import { CaptureEndReason } from '../capture/capture-wire.js';
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
 import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import {

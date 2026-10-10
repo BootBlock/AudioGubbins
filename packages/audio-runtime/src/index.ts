@@ -33,7 +33,7 @@ export {
 
 export { type DeviceReport } from './context/device-report.js';
 
-export { type CompiledDspModule, type DspDelivery, DspDeliveryKind } from './dsp/dsp-delivery.js';
+export { type CompiledDspModule } from './dsp/dsp-delivery.js';
 
 export { compileDspModule } from './dsp/dsp-module.js';
 

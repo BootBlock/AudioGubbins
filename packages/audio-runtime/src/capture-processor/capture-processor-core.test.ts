@@ -14,11 +14,10 @@ import {
   type ChannelLayout,
   type EffectChain,
 } from '@audiogubbins/domain';
-import { decibelsToGain } from '@audiogubbins/audio-engine';
+import { decibelsToGain, DspDeliveryKind } from '@audiogubbins/audio-engine';
 
 import { CaptureReader, type CaptureEvent } from '../capture/capture-reader.js';
 import { CaptureEndReason } from '../capture/capture-wire.js';
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
 import {
   FromCaptureKind,

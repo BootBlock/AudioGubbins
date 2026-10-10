@@ -36,6 +36,9 @@
  *   waveform       the peak pyramid, its worker, cache format and column
  *                   reads; depends on domain + audio-engine, knows no browser
  *                   (ADR-0043)
+ *   spectral-analysis the spectrogram's tile pyramid, its worker, host and
+ *                   tile cache format; depends on domain + audio-engine, knows
+ *                   no browser (ADR-0080)
  *   renderer        frames as values and the WebGPU, WebGL2 and Canvas 2D
  *                   backends; depends on domain, reads no global (ADR-0044)
  *   video-reference picture bound to the media clock, frame arithmetic and
@@ -164,7 +167,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -327,7 +330,10 @@ module.exports = {
         'does, make it, so the cores that render, feed and summarise depend on the port and run ' +
         'in tests with any processing. The same modules give the thread its model channel ' +
         '(ADR-0062), so no core imports the inference runtime (ADR-0030, ADR-0040).',
-      from: { path: '^packages/(audio-runtime|waveform)/src/', pathNot: '/src/(threads|testing)/' },
+      from: {
+        path: '^packages/(audio-runtime|waveform|spectral-analysis)/src/',
+        pathNot: '/src/(threads|testing)/',
+      },
       to: { path: '^packages/(effect-rack|processors|ml-runtime)/' },
     },
     {
@@ -386,6 +392,21 @@ module.exports = {
       from: { path: '^packages/waveform/' },
       to: {
         path: '^packages/(?!(waveform|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+      },
+    },
+    {
+      name: 'spectral-analysis-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Spectrogram tiles are analysed from the sounds the engine reads and are drawn by the ' +
+        'views above them (ADR-0080). The package depends on the domain and the engine, and its ' +
+        'worker entry and test support on the effect rack it reads chains with and the model ' +
+        'channel its models run through (ADR-0062); it knows no interface or storage: the cache ' +
+        'is kept through a port the application implements.',
+      from: { path: '^packages/spectral-analysis/' },
+      to: {
+        path: '^packages/(?!(spectral-analysis|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+        pathNot: '^packages/test-fixtures/',
       },
     },
     {
