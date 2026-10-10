@@ -19,7 +19,9 @@ import type { SpectralSettings } from './view-state.js';
 function shareOf(frequency: number, settings: SpectralSettings): number {
   return settings.frequencyScale === 'linear'
     ? (frequency - settings.lowest) / (settings.highest - settings.lowest)
-    : Math.log(frequency / settings.lowest) / Math.log(settings.highest / settings.lowest);
+    : // Nothing and below lie infinitely far down an axis of octaves.
+      Math.log(Math.max(0, frequency) / settings.lowest) /
+        Math.log(settings.highest / settings.lowest);
 }
 
 /** The frequency `share` of the way up the axis, unbounded: the inverse of `shareOf`. */

@@ -6,6 +6,9 @@
  * The editor's selection scope, a live region, says what is selected after
  * each, so none of them speaks as well.
  *
+ * A spectral tool's shape joins the spectral selection by the command of
+ * `spectral-selection-commands.ts`.
+ *
  * The commands that select time with the playhead are
  * `selection-playhead-commands.ts`.
  *
@@ -16,7 +19,7 @@
  * what is (REQ-EDIT-073).
  */
 
-import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
+import type { Command } from '@audiogubbins/commands';
 import {
   ZERO_SAMPLES,
   assetChains,
@@ -35,7 +38,6 @@ import {
 import {
   EMPTY_SELECTION,
   SelectionFacet,
-  selectionsEqual,
   withChannels,
   withObjects,
   withTimeRange,
@@ -46,48 +48,15 @@ import {
 import {
   boundaryArgument,
   channelsArgument,
-  editorTarget,
-  needsEditor,
   playheadOf,
   type EditorTarget,
 } from './editor-target.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { projectTarget } from './project-edits.js';
-import { shellCommand, textArgument, type ShellCommandOptions } from './shell-command.js';
+import { selectionCommand } from './selection-command.js';
+import { textArgument } from './shell-command.js';
+import { spectralSelectionCommands } from './spectral-selection-commands.js';
 import type { ShellContext } from './shell-context.js';
-
-type SelectionChange = (
-  current: SelectionSet,
-  target: EditorTarget,
-  context: ShellContext,
-  invocation: Parameters<Command<ShellContext>['run']>[1],
-) => SelectionSet | string;
-
-function selectionCommand(
-  id: string,
-  label: string,
-  change: SelectionChange,
-  extra: ShellCommandOptions = {},
-): Command<ShellContext> {
-  return shellCommand(
-    id,
-    label,
-    CommandCategory.Selection,
-    (context, invocation) => {
-      const target = editorTarget(context, invocation);
-      if (typeof target === 'string') return target;
-      const current = context.selections.of(target.asset.id);
-      const next = change(current, target, context, invocation);
-      if (typeof next === 'string') return next;
-      if (selectionsEqual(next, current)) {
-        return unchanged('editor.selection-unchanged', 'That is already the selection.');
-      }
-      context.selections.change(target.asset.id, () => next);
-      return undefined;
-    },
-    { availability: needsEditor, ...extra },
-  );
-}
 
 function boundary(value: number): SampleCount | undefined {
   const read = sampleCount(value);
@@ -353,6 +322,7 @@ function wholeCommands(): readonly Command<ShellContext>[] {
 export function selectionCommands(): readonly Command<ShellContext>[] {
   return [
     ...rangeCommands(),
+    ...spectralSelectionCommands(),
     ...objectSelections(),
     ...processorSelections(),
     stepCommand(MARKERS, Step.Next),

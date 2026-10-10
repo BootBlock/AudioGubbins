@@ -31,6 +31,7 @@ import {
 import { BuilderPool } from './batch-buffers.js';
 import { frequencyY } from './frequency-axis.js';
 import { LaneKind, type Lane } from './lane-layout.js';
+import { MaskPainter } from './mask-drawing.js';
 import { drawLaneOverlay, type LaneOverlay } from './overlay-drawing.js';
 import type { OverlayStyle } from './ruler-drawing.js';
 import { PALETTE, at } from './testing/scene.js';
@@ -98,12 +99,20 @@ function overlay(selection: SelectionSet): LaneOverlay {
     preview: undefined,
     grid: undefined,
     spectral: AXIS,
+    spectralEdits: [],
   };
 }
 
 function drawn(selection: SelectionSet, lane = SPECTROGRAM, viewport = VIEW): RenderBatch[] {
   const out: RenderBatch[] = [];
-  drawLaneOverlay(new BuilderPool(), lane, overlay(selection), style(viewport), out);
+  drawLaneOverlay(
+    new BuilderPool(),
+    new MaskPainter(),
+    lane,
+    overlay(selection),
+    style(viewport),
+    out,
+  );
   return out;
 }
 

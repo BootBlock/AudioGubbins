@@ -56,6 +56,9 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
     loop: colour(category(theme, 'violet')),
     snap: colour(selection.handle),
     spectrogramBackground: colour(spectrogram[0]),
+    // Not the selection's colour, so where an edit applies is never taken
+    // for what is selected (REQ-EDIT-064).
+    spectralEdit: colour(category(theme, 'lime')),
   };
 }
 

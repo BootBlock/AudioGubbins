@@ -7,15 +7,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { DEFAULT_THEME_PREFERENCES } from '@audiogubbins/design-system';
 import { DEFAULT_PRESSURE_PREFERENCE } from '@audiogubbins/input';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
-import {
-  DEFAULT_USER_PREFERENCES,
-  PREFERENCES_KEY,
-  createPreferencesStore,
-} from './preferences-store.js';
+import { PREFERENCES_KEY, createPreferencesStore } from './preferences-store.js';
+
+/** Every preference before a user changes anything: the theme's and the pressure choice. */
+const DEFAULT_USER_PREFERENCES = {
+  ...DEFAULT_THEME_PREFERENCES,
+  pressure: DEFAULT_PRESSURE_PREFERENCE,
+};
 import { createStateStorage, type KeyValueStorage } from './state-storage.js';
 
 function storeOver(raw: KeyValueStorage) {

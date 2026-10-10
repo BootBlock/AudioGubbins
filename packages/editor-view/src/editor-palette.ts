@@ -37,6 +37,8 @@ export interface EditorPalette {
   readonly loop: Colour;
   readonly snap: Colour;
   readonly spectrogramBackground: Colour;
+  /** The outline of where a spectral edit applies, which no selection is drawn in. */
+  readonly spectralEdit: Colour;
 }
 
 /** The font a view writes labels in, as a CSS font shorthand. */

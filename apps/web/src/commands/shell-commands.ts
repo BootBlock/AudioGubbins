@@ -155,6 +155,11 @@ function surfaceCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** Every command that changes the person's preferences: how the interface looks, and the pressure choice. */
+function preferenceCommands(): readonly Command<ShellContext>[] {
+  return [...viewCommands(), ...pressureCommands()];
+}
+
 /** Every command of the project system: its projects, their history and the storage. */
 function projectSystemCommands(): readonly Command<ShellContext>[] {
   return [
@@ -186,8 +191,7 @@ export function shellCommands(
   descriptors: ReadonlyMap<PanelKind, PanelDescriptor>,
 ): readonly Command<ShellContext>[] {
   return [
-    ...viewCommands(),
-    ...pressureCommands(),
+    ...preferenceCommands(),
     ...workspaceCommands(),
     ...panelCommands(descriptors),
     ...surfaceCommands(),

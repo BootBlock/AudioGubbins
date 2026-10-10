@@ -4,16 +4,31 @@
  * The razor splits where it is clicked, and the region tool makes a region of
  * the range it was dragged over by selecting it and making a region of the
  * selection, as a person with a keyboard does. A region's end dragged in the
- * strip moves to where it was let go.
+ * strip moves to where it was let go. A spectral tool's shape joins the
+ * spectral selection, given as a mask of the one shape it drew.
  */
 
 import { RegionBoundary } from '@audiogubbins/domain';
-import type { ToolIntent } from '@audiogubbins/editor-view';
+import type { DrawnShape, ToolIntent } from '@audiogubbins/editor-view';
 
 /** A command to run, and what it is given. */
 export interface IntentCommand {
   readonly id: string;
   readonly args: Readonly<Record<string, string | number | boolean>>;
+}
+
+/** The command that joins a spectral tool's shape, drawn in view `view`, to the selection. */
+function spectralSelection(drawn: DrawnShape, view: string): IntentCommand {
+  const { shape, feather, combination, channels } = drawn;
+  return {
+    id: 'editor.select-spectral',
+    args: {
+      view,
+      mask: JSON.stringify({ shapes: [shape], feather }),
+      combination,
+      ...(channels === undefined ? {} : { channels: channels.join(',') }),
+    },
+  };
 }
 
 /** The commands `intent`, made in view `view`, runs. */
@@ -74,5 +89,7 @@ export function commandsOf(intent: ToolIntent, view: string): readonly IntentCom
         },
         { id: 'region.create', args: { view } },
       ];
+    case 'select-spectral':
+      return [spectralSelection(intent.drawn, view)];
   }
 }

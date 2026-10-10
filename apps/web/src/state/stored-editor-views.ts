@@ -90,6 +90,7 @@ function overlaysOf(value: unknown): Overlays {
     markers: flag(value, 'markers'),
     regions: flag(value, 'regions'),
     filmstrip: flag(value, 'filmstrip'),
+    spectralEdits: flag(value, 'spectralEdits'),
   };
 }
 

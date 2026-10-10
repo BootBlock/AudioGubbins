@@ -17,6 +17,7 @@ import {
 } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { createIdGenerator } from '@audiogubbins/domain';
+import { DEFAULT_GESTURE_SETTINGS } from '@audiogubbins/input';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
@@ -129,6 +130,7 @@ export function panelPartsOf(
       playing: (asset) =>
         context.playback.programme() === asset &&
         context.audio.get().playback?.transport.mode === TransportMode.Playing,
+      gestures: () => ({ ...DEFAULT_GESTURE_SETTINGS, ...context.preferences.get().pressure }),
     },
     assets: context.assets,
     picture: context.picture,

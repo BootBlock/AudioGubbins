@@ -61,8 +61,8 @@ function stepCommand(direction: 1 | -1): Command<ShellContext> {
   );
 }
 
-/** The commands that set the pressure choice. */
-export function pressureCommands(): readonly Command<ShellContext>[] {
+/** The two commands that turn pen pressure on and off. */
+function switchCommands(): readonly Command<ShellContext>[] {
   return [
     shellCommand(
       'tools.use-pen-pressure',
@@ -96,32 +96,39 @@ export function pressureCommands(): readonly Command<ShellContext>[] {
           ),
       },
     ),
-    shellCommand(
-      'tools.set-fixed-strength',
-      'Set the fixed strength',
-      CommandCategory.Tools,
-      (context, invocation) => {
-        const asked = invocation.arguments?.['strength'];
-        if (typeof asked !== 'number' || !Number.isFinite(asked)) {
-          return `Choose a strength from ${percent(FIXED_STRENGTH_RANGE.minimum)} to ${percent(FIXED_STRENGTH_RANGE.maximum)}.`;
-        }
-        const fixedStrength = fixedStrengthOf(asked);
-        if (fixedStrength === pressureOf(context).fixedStrength) {
-          return unchanged(
-            'tools.fixed-strength-already-set',
-            `The fixed strength is already ${percent(fixedStrength)}.`,
-          );
-        }
-        changed(context, { fixedStrength });
-        return undefined;
-      },
-      {
-        keywords: ['strength', 'brush', 'pressure', 'fixed'],
-        description:
-          'Sets the strength a tool acts with when pen pressure does not set it. Raise and Lower move it a step at a time.',
-      },
-    ),
-    stepCommand(1),
-    stepCommand(-1),
   ];
+}
+
+/** The command that sets the fixed strength to a stated value, as a slider does. */
+function setCommand(): Command<ShellContext> {
+  return shellCommand(
+    'tools.set-fixed-strength',
+    'Set the fixed strength',
+    CommandCategory.Tools,
+    (context, invocation) => {
+      const asked = invocation.arguments?.['strength'];
+      if (typeof asked !== 'number' || !Number.isFinite(asked)) {
+        return `Choose a strength from ${percent(FIXED_STRENGTH_RANGE.minimum)} to ${percent(FIXED_STRENGTH_RANGE.maximum)}.`;
+      }
+      const fixedStrength = fixedStrengthOf(asked);
+      if (fixedStrength === pressureOf(context).fixedStrength) {
+        return unchanged(
+          'tools.fixed-strength-already-set',
+          `The fixed strength is already ${percent(fixedStrength)}.`,
+        );
+      }
+      changed(context, { fixedStrength });
+      return undefined;
+    },
+    {
+      keywords: ['strength', 'brush', 'pressure', 'fixed'],
+      description:
+        'Sets the strength a tool acts with when pen pressure does not set it. Raise and Lower move it a step at a time.',
+    },
+  );
+}
+
+/** The commands that set the pressure choice. */
+export function pressureCommands(): readonly Command<ShellContext>[] {
+  return [...switchCommands(), setCommand(), stepCommand(1), stepCommand(-1)];
 }

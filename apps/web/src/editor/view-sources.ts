@@ -6,6 +6,7 @@
  */
 
 import type { SampleCount } from '@audiogubbins/domain';
+import type { GestureSettings } from '@audiogubbins/input';
 import {
   FollowMode,
   type EditorPalette,
@@ -40,6 +41,8 @@ export interface SurfaceStores {
   readonly playhead: (asset: EditorAsset) => SampleCount;
   /** Whether the transport is playing asset `asset`. */
   readonly playing: (asset: string) => boolean;
+  /** How a pointer's gestures are read, with the person's pressure choice. */
+  readonly gestures: () => GestureSettings;
 }
 
 /** What one frame of panel `panel` is drawn from, but the audio and the drag, or nothing to draw. */

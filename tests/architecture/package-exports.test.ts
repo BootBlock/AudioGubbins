@@ -182,8 +182,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/input': {
-    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
-      ['NO_GESTURE', 'toolStrength'],
+    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. Its gesture of no contact is offered with the model, though the editor surface, which reads contacts and gestures through it, has not needed to name it.':
+      ['NO_GESTURE'],
   },
   '@audiogubbins/domain': {
     "The deterministic identity generator, which the fixtures package and every package's test support make reproducible identities with; the fixtures package may take no test support, so it is offered here. The application makes its identities with `createIdGenerator`.":

@@ -37,10 +37,22 @@ export {
   type ToolIntent,
   type ToolPreview,
   type ToolStep,
-  move,
-  press,
-  release,
-} from './pointer-tools.js';
+} from './tool-values.js';
+
+export { move, press, release } from './pointer-tools.js';
+
+// The spectral marquee, lasso and brush, and the one account of what their
+// intent makes of a selection, which the selection command and the drag's
+// preview share (ADR-0082).
+export {
+  DEFAULT_SPECTRAL_TOOL_SETTINGS,
+  type DrawnShape,
+  type SpectralToolContext,
+  type SpectralToolSettings,
+  withDrawnShape,
+} from './spectral-tools.js';
+
+export { type SpectralEditOutline } from './mask-drawing.js';
 
 export { type SnapSources, snapInView, snapTargetsOf } from './snap-candidates.js';
 

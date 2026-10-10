@@ -32,10 +32,11 @@ import type { RulerTicks, SelectionSet, SnapTarget } from '@audiogubbins/timelin
 import { BuilderPool } from './batch-buffers.js';
 import type { EditorPalette, EditorType } from './editor-palette.js';
 import { LaneKind, type Lane, type ViewLayout } from './lane-layout.js';
+import { MaskPainter, type SpectralEditOutline } from './mask-drawing.js';
 import { frequencyY } from './frequency-axis.js';
-import { drawLaneOverlay } from './overlay-drawing.js';
+import { drawLaneOverlay, type LaneOverlay } from './overlay-drawing.js';
 import { drawRuler, drawStrip, type OverlayStyle } from './ruler-drawing.js';
-import type { ToolPreview } from './pointer-tools.js';
+import type { ToolPreview } from './tool-values.js';
 import type { EditorViewState } from './view-state.js';
 import { WaveformPainter, type KnownAudio } from './waveform-drawing.js';
 
@@ -46,6 +47,8 @@ export interface ViewContent {
   readonly channelNames: readonly string[];
   readonly markers: readonly PlacedMarker[];
   readonly regions: readonly PlacedRegion[];
+  /** Where each of the asset's spectral edits applies, placed on the view's timeline. */
+  readonly spectralEdits: readonly SpectralEditOutline[];
 }
 
 /** Everything one frame of a view is composed from. */
@@ -72,10 +75,26 @@ export interface ViewScene {
 export const SPECTROGRAM_SHELL_NOTE =
   'The spectrogram is drawn by spectral analysis, which arrives with spectral editing.';
 
+/** What every lane's overlays read of a scene, as its overlays say. */
+function laneOverlayOf(scene: ViewScene): LaneOverlay {
+  const { state, content } = scene;
+  return {
+    selection: scene.selection,
+    markers: state.overlays.markers ? content.markers : [],
+    regions: state.overlays.regions ? content.regions : [],
+    playhead: scene.playhead,
+    preview: scene.preview,
+    grid: scene.grid,
+    spectral: state.spectral,
+    spectralEdits: state.overlays.spectralEdits ? content.spectralEdits : [],
+  };
+}
+
 /** Composes a view's frames, keeping its arrays between them. */
 export class FrameComposer {
   readonly #pool = new BuilderPool();
   readonly #waveform = new WaveformPainter();
+  readonly #masks = new MaskPainter();
 
   /**
    * Whether the last frame composed drew a column whose peaks were not yet
@@ -89,6 +108,7 @@ export class FrameComposer {
   compose(scene: ViewScene): RenderFrame {
     this.#pool.reset();
     this.#waveform.begin();
+    this.#masks.begin();
     const { layout, palette } = scene;
     const style: OverlayStyle = {
       viewport: scene.state.viewport,
@@ -96,9 +116,10 @@ export class FrameComposer {
       palette,
       type: scene.type,
     };
+    const overlay = laneOverlayOf(scene);
     const layers: RenderLayer[] = layout.lanes.map((lane) => ({
       clip: lane.area,
-      batches: this.#lane(lane, scene, style),
+      batches: this.#lane(lane, scene, overlay, style),
     }));
     const separators = this.#pool.rectangles(palette.laneSeparator);
     for (const lane of layout.lanes)
@@ -151,7 +172,7 @@ export class FrameComposer {
     return layers;
   }
 
-  #lane(lane: Lane, scene: ViewScene, style: OverlayStyle): RenderBatch[] {
+  #lane(lane: Lane, scene: ViewScene, overlay: LaneOverlay, style: OverlayStyle): RenderBatch[] {
     const { state } = scene;
     const out: RenderBatch[] = [];
     if (lane.kind !== LaneKind.Waveform) this.#spectrogramShell(lane, scene, out);
@@ -171,21 +192,7 @@ export class FrameComposer {
         out,
       );
     }
-    drawLaneOverlay(
-      this.#pool,
-      lane,
-      {
-        selection: scene.selection,
-        markers: state.overlays.markers ? scene.content.markers : [],
-        regions: state.overlays.regions ? scene.content.regions : [],
-        playhead: scene.playhead,
-        preview: scene.preview,
-        grid: scene.grid,
-        spectral: state.spectral,
-      },
-      style,
-      out,
-    );
+    drawLaneOverlay(this.#pool, this.#masks, lane, overlay, style, out);
     const name = scene.content.channelNames[lane.channel] ?? `Channel ${String(lane.channel + 1)}`;
     const label: TextLabel = {
       text: lane.kind === LaneKind.Spectrogram ? `${name} · spectrogram` : name,

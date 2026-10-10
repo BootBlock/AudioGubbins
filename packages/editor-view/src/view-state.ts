@@ -32,10 +32,9 @@ export const DisplayMode = {
 export type DisplayMode = (typeof DisplayMode)[keyof typeof DisplayMode];
 
 /**
- * The explicit tools a view offers (REQ-EDIT-065). The spectral marquee, lasso
- * and brush arrive with spectral editing (Phase 08), and the region tool with
- * regions (Phase 05, REQ-EDIT-014); the selection set already carries their
- * targets.
+ * The explicit tools a view offers (REQ-EDIT-065). The spectral marquee, the
+ * spectral lasso and the spectral brush draw on a spectrogram lane and make a
+ * spectral selection (ADR-0082).
  */
 export const ToolId = {
   Select: 'select',
@@ -45,6 +44,9 @@ export const ToolId = {
   Razor: 'razor',
   Marker: 'marker',
   Region: 'region',
+  SpectralMarquee: 'spectral-marquee',
+  SpectralLasso: 'spectral-lasso',
+  SpectralBrush: 'spectral-brush',
 } as const;
 
 export type ToolId = (typeof ToolId)[keyof typeof ToolId];
@@ -58,6 +60,8 @@ export interface Overlays {
   readonly regions: boolean;
   /** A strip of picture thumbnails, where reference picture is bound. */
   readonly filmstrip: boolean;
+  /** The outline of where each spectral edit of the asset applies. */
+  readonly spectralEdits: boolean;
 }
 
 /** How a spectrogram lane is laid out, which spectral editing draws into. */
@@ -102,6 +106,7 @@ export const DEFAULT_OVERLAYS: Overlays = {
   markers: true,
   regions: true,
   filmstrip: true,
+  spectralEdits: true,
 };
 
 /** The amplitudes a view steps between. */

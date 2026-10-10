@@ -50,7 +50,7 @@ export interface UserPreferences extends ThemePreferences {
 }
 
 /** The preferences before a user changes anything. */
-export const DEFAULT_USER_PREFERENCES: UserPreferences = {
+const DEFAULT_USER_PREFERENCES: UserPreferences = {
   ...DEFAULT_THEME_PREFERENCES,
   pressure: DEFAULT_PRESSURE_PREFERENCE,
 };

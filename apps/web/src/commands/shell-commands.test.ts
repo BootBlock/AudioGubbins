@@ -1215,6 +1215,23 @@ describe('finding the shell commands in the palette', () => {
       before: (run) => run('editor.spectral-band-whole'),
     }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
+    'editor.select-spectral': inEditor({
+      arguments: () => ({
+        mask: JSON.stringify({
+          shapes: [
+            {
+              kind: 'rectangle',
+              effect: 'add',
+              range: { start: 100, end: 200 },
+              band: { low: 100, high: 400 },
+            },
+          ],
+          feather: { time: 0, frequency: 0 },
+        }),
+        combination: 'replace',
+        channels: '1',
+      }),
+    }),
     'editor.select-marker': onProjectMarker(),
     'editor.select-region': {
       inProject: true,

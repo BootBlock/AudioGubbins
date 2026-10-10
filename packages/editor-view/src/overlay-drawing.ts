@@ -6,7 +6,11 @@
  * A kept selection is always drawn (REQ-EDIT-064): the active facet in the
  * selection colour, one kept but not active in a quieter wash, so a range the
  * person made earlier is never a surprise. A time range narrowed to some
- * channels washes only their lanes (REQ-EDIT-063).
+ * channels washes only their lanes (REQ-EDIT-063). A spectral selection is
+ * drawn on a lane that shows a spectrogram as its mask's weight with each shape
+ * outlined (`mask-drawing.ts`), and while a spectral tool is dragged, as the
+ * selection its shape would leave. The spectral edits of the asset are outlined
+ * beneath it in a colour of their own, where the view's overlays include them.
  */
 
 import type { Colour, RenderBatch } from '@audiogubbins/renderer';
@@ -22,7 +26,8 @@ import {
 import type { BuilderPool, RectangleBuilder } from './batch-buffers.js';
 import { frequencyY } from './frequency-axis.js';
 import type { Lane } from './lane-layout.js';
-import type { ToolPreview } from './pointer-tools.js';
+import { outlineMask, type MaskPainter, type SpectralEditOutline } from './mask-drawing.js';
+import type { ToolPreview } from './tool-values.js';
 import { crispX, type OverlayStyle } from './ruler-drawing.js';
 import type { SpectralSettings } from './view-state.js';
 
@@ -35,6 +40,8 @@ export interface LaneOverlay {
   readonly preview: ToolPreview | undefined;
   readonly grid: readonly number[] | undefined;
   readonly spectral: SpectralSettings;
+  /** The asset's spectral edits to outline, none where the overlay is off. */
+  readonly spectralEdits: readonly SpectralEditOutline[];
 }
 
 function inScope(channels: readonly number[] | undefined, channel: number): boolean {
@@ -77,14 +84,48 @@ function wash(
   out.push(rectangles.batch(), edges.batch());
 }
 
-function drawSelection(
+/** Where `lane` draws a position and a frequency. */
+function placing(
+  lane: Lane,
+  overlay: LaneOverlay,
+  style: OverlayStyle,
+): readonly [(position: number) => number, (frequency: number) => number] {
+  return [
+    (position) => pixelOf(style.viewport, position),
+    (frequency) => frequencyY(lane, frequency, overlay.spectral),
+  ];
+}
+
+function drawSpectralEdits(
   pool: BuilderPool,
   lane: Lane,
   overlay: LaneOverlay,
   style: OverlayStyle,
   out: RenderBatch[],
 ): void {
-  const { selection } = overlay;
+  if (lane.kind === 'waveform' || overlay.spectralEdits.length === 0) return;
+  const outline = pool.segments(style.palette.spectralEdit, 1);
+  const [, y] = placing(lane, overlay, style);
+  for (const edit of overlay.spectralEdits) {
+    if (!inScope(edit.channels, lane.channel)) continue;
+    const x = (position: number): number => pixelOf(style.viewport, edit.from + position);
+    outlineMask(outline, edit.mask, x, y);
+  }
+  out.push(outline.batch());
+}
+
+function drawSelection(
+  pool: BuilderPool,
+  masks: MaskPainter,
+  lane: Lane,
+  overlay: LaneOverlay,
+  style: OverlayStyle,
+  out: RenderBatch[],
+): void {
+  // While a spectral tool is dragged, the selection is drawn as its shape,
+  // let go, would leave it.
+  const selection =
+    overlay.preview?.kind === 'spectral-shape' ? overlay.preview.selection : overlay.selection;
   const active = activeFacet(selection);
   if (!inScope(selection.channels, lane.channel)) return;
   if (selection.time !== undefined) {
@@ -96,39 +137,20 @@ function drawSelection(
   }
   const mask = selection.spectral;
   if (mask === undefined || lane.kind === 'waveform') return;
-  const colour =
-    active === SelectionFacet.Spectral ? style.palette.selectionBorder : style.palette.quietText;
-  const outline = pool.segments(colour, 1.5);
-  const x = (position: number): number => pixelOf(style.viewport, position);
-  const y = (frequency: number): number => frequencyY(lane, frequency, overlay.spectral);
-  // Each shape is outlined as it was drawn: a rectangle's edges, a lasso's
-  // closed path and a brush's path, so a shape taken from the mask is seen
-  // where it was taken.
-  for (const shape of mask.shapes) {
-    if (shape.kind === 'rectangle') {
-      const x0 = x(shape.range.start);
-      const x1 = x(shape.range.end);
-      const y0 = y(shape.band.high);
-      const y1 = y(shape.band.low);
-      outline.add(x0, y0, x1, y0);
-      outline.add(x1, y0, x1, y1);
-      outline.add(x1, y1, x0, y1);
-      outline.add(x0, y1, x0, y0);
-      continue;
-    }
-    const { points } = shape;
-    for (let index = 1; index < points.length; index += 1) {
-      const from = points[index - 1];
-      const to = points[index];
-      if (from === undefined || to === undefined) continue;
-      outline.add(x(from.position), y(from.frequency), x(to.position), y(to.frequency));
-    }
-    if (shape.kind === 'polygon') {
-      const [first] = points;
-      const last = points[points.length - 1] ?? first;
-      outline.add(x(last.position), y(last.frequency), x(first.position), y(first.frequency));
-    }
-  }
+  const spectralActive = active === SelectionFacet.Spectral;
+  masks.draw(
+    lane,
+    mask,
+    overlay.spectral,
+    style,
+    spectralActive ? style.palette.selectionFill : style.palette.inactiveSelectionFill,
+    out,
+  );
+  const outline = pool.segments(
+    spectralActive ? style.palette.selectionBorder : style.palette.quietText,
+    1.5,
+  );
+  outlineMask(outline, mask, ...placing(lane, overlay, style));
   out.push(outline.batch());
 }
 
@@ -182,14 +204,18 @@ function drawPreview(
       out.push(guide.batch());
       break;
     }
+    case 'spectral-shape':
+      // Drawn as the selection it would leave, with the selection.
+      break;
     case undefined:
       break;
   }
 }
 
-/** Draws a lane's grid, selection, content, preview and playhead. */
+/** Draws a lane's grid, spectral edits, selection, content, preview and playhead. */
 export function drawLaneOverlay(
   pool: BuilderPool,
+  masks: MaskPainter,
   lane: Lane,
   overlay: LaneOverlay,
   style: OverlayStyle,
@@ -200,7 +226,8 @@ export function drawLaneOverlay(
     for (const position of overlay.grid) across(grid, style, lane, position);
     out.push(grid.batch());
   }
-  drawSelection(pool, lane, overlay, style, out);
+  drawSpectralEdits(pool, lane, overlay, style, out);
+  drawSelection(pool, masks, lane, overlay, style, out);
   drawContent(pool, lane, overlay, style, out);
   drawPreview(pool, lane, overlay.preview, style, out);
   if (overlay.playhead !== undefined) {
