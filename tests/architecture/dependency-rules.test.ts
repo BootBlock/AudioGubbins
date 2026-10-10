@@ -1174,7 +1174,7 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
     'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
       ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
     "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],
-    "The folders the person keeps trusted for exports, and leave to write into a folder or file an export goes to, which only the page may ask the person for, in their gesture (ADR-0092).":
+    'The folders the person keeps trusted for exports, and leave to write into a folder or file an export goes to, which only the page may ask the person for, in their gesture (ADR-0092).':
       ['TrustedFolders', 'queryWritePermission', 'requestWritePermission'],
   },
 };
@@ -3048,7 +3048,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
     'packages/storage-runtime/src/host/export-area.ts: exportHandlers': [
       55,
-      "A table of the three export operations, stage, deliver and discard, each a few lines over the one staging area and the delivery services made here, which every operation shares; a download is a function of its own beside it.",
+      'A table of the three export operations, stage, deliver and discard, each a few lines over the one staging area and the delivery services made here, which every operation shares; a download is a function of its own beside it.',
     ],
     'apps/web/src/application.ts: startAudio': [
       52,
