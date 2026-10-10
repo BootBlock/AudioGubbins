@@ -1,6 +1,6 @@
 > **Status:** In progress. 2026-10-10: the phase is `READY` (`ADR-0090` to
-> `ADR-0093`); slices S1 to S7 are built and merged on `phase-09-codecs`, where
-> `verify:commit` is green; S8 (the application) and the close are left.
+> `ADR-0093`); slices S1 to S8 are built and merged on `phase-09-codecs`; the
+> browser suite, three gap fixes and the close are left.
 
 # Phase 09 — Import, Export, and Codec System
 
@@ -181,16 +181,9 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    and libvorbis 1.3.7 come from `wasm-media-encoders` 0.7.0's separate `.wasm`
    files, driven directly (its script inlines them, randomises the Ogg serial and
    refuses 56 and 144 kbit/s). Hashes of nine local encodings are held.
-   **Open:** the prebuilt builds cannot express MP3 average bit rate or Vorbis
-   nominal bit rate, which ADR-0092's settings name; they are refused when the
-   encoder opens (`codec-runtime.setting-unexpressible`). Decide the correct
-   fix: build LAME and libvorbis to WebAssembly from source with their full API
-   (a C toolchain such as `zig cc` targets wasm32 without emscripten), which also
-   lifts the two-channel Vorbis limit and the stale package; or amend ADR-0092.
-   Either way, validation must refuse before rendering, never at encode. Also
-   open: check in a real browser that Chromium's AAC timestamps carry the
-   priming; `apps/web` must import the two `.wasm` URLs and pass them to
-   `configure`, and declare `wasm-media-encoders` so its notice appears.
+   **Settled** by decision 11: the encoders are built from source. Chromium's
+   AAC priming is checked by `test:e2e:import-export` where the browser encodes
+   AAC.
 10. **S7 (merged `eb5555ee`).** `AssetProvenance` gains `rendition` (container,
     codec, rate, layout, frames decoded and stated, bit rate, leading frames,
     decoder, and how the source is kept) and `metadata`; the source encoding is
@@ -199,61 +192,77 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
     settings, name, size, SHA-256, codec and version and reproducibility; new
     destination kinds `file` and `trusted-directory`. `projectDocument` 7 → 8.
     `project-format` depends on `codecs` and `import-export`, so `import-export`
-    never depends on `project-format` (ADR-0092's constraint and the packet's
-    dependency rule must say so). `DecoderIdentity` is one type in codecs. An
-    asset frame is the file position minus the leading frames. Each loop becomes
-    a region over the whole asset with a forward endless loop; play count and
-    direction stay in provenance. Cover art is described in provenance, not
-    stored. Room needed is the copied source plus the rendition's WAV length;
-    with no estimate the import proceeds. New cache category `staging` after
-    `temporary`, cleared at start only when no other window holds the storage
-    lock. A dismissed collision prompt counts as skipped and keeps the staged
-    file. Trusted folders live in the IndexedDB handle database
-    (`TrustedFolders`, last record per name, 1,024 per folder), not in
-    preferences, so `userPreferences` is not raised yet. Protocol: storage
-    `imports.connectCodecWorker`, `imports.run`, `exports.stage`,
-    `exports.deliver`, `exports.discard`; streams `import:<name>`,
-    `staging:<name>`; page-served `collision.ask`.
+    never depends on `project-format`. `DecoderIdentity` is one type in codecs.
+    An asset frame is the file position minus the leading frames. Each loop
+    becomes a region over the whole asset with a forward endless loop; play
+    count and direction stay in provenance. Cover art is described in
+    provenance, not stored. Room needed is the copied source plus the
+    rendition's WAV length; with no estimate the import proceeds. New cache
+    category `staging` after `temporary`, cleared at start only when no other
+    window holds the storage lock. A dismissed collision prompt counts as
+    skipped and keeps the staged file. Trusted folders live in the IndexedDB
+    handle database (`TrustedFolders`, last record per name, 1,024 per folder),
+    not in preferences. Protocol: storage `imports.connectCodecWorker`,
+    `imports.run`, `exports.stage`, `exports.deliver`, `exports.discard`;
+    streams `import:<name>`, `staging:<name>`; page-served `collision.ask`.
+11. **S6c (merged).** LAME 3.100, libvorbis 1.3.7 and libogg 1.3.6 are vendored
+    unmodified under `third_party/` and built by `zig cc` (Zig 0.17.0, pinned
+    by version and SHA-256 per host, fetched once into `target/toolchains`) for
+    wasm32-wasi as reactors, on the Rust modules' feature floor, into
+    `target/wasm/audiogubbins-mp3.wasm` and `audiogubbins-vorbis.wasm`, each a
+    separate replaceable file with an ABI version 1 interface (`native/`). The
+    host stubs WASI and refuses I/O. MP3: joint stereo, LAME's default quality,
+    variable is `vbr_mtrh` 0–9, average is LAME's ABR. A Vorbis nominal bit
+    rate is held by libvorbis's bit-rate manager. Ogg pages for Vorbis and Opus
+    come from one TypeScript writer. Descriptors carry `bitRates` bands, and
+    `encodingProblems` refuses in validation (and by the same rule in the
+    worker) what LAME and libvorbis would change or reject; Vorbis takes 1–8
+    channels up to 200 kHz. Symphonia's Vorbis decoder (0.6.1) is vendored
+    under `third_party/symphonia-codec-vorbis` with two fixes (residue
+    classifications bounded per channel, inverse coupling in reverse) and
+    patched in by `[patch.crates-io]`; a Vorbis rendition's decoder is
+    `Symphonia 0.6.1+patched`. ADR-0091 and ADR-0092 are amended.
+12. **S8 (merged as s8c, s8a, s8b, s8x and s8d).** Contracts:
+    `apps/web/src/codecs/codec-services.ts`, `apps/web/src/export/export-types.ts`,
+    the ids in `commands/import-export-ids.ts` and the words in
+    `import-export-words.ts`. The codec module and both encoders reach the page
+    as bundled base64 modules built by the Vite plugin, never fetched; a module
+    that will not compile makes its formats unavailable with the reason. The
+    `encoded` answer names its encoder; the encoder is recorded at delivery.
+    Every import (one file, many, a folder, Quick Edit's) is one batch through
+    `imports.importFiles` after `codecs.ready()`; each file's format arrives as
+    the job's `recognised` event. An export renders through the playback
+    render host at maximum quality, from the edited description; `{project}` is
+    the project's name; the room for the whole batch is checked before
+    rendering; a refused delivery holds the file for retry or another
+    destination without a new render; a download's staging is kept until the
+    next export. `userPreferences` 1 → 2 migrates the version-1 record and adds
+    the person's presets (`own:<name>`, at most 256). The Export dialog resolves
+    every path through the package's presets and defaults and keeps edits as
+    "Your edited settings". The reference picture's sound is weighed at the
+    channels the codec worker reads. There is no multitrack mixdown in this
+    phase, so the range "the project" is the asset in the editor.
 
 ## Left to do
 
-S1 to S7 are merged into `phase-09-codecs`; the integrated `verify:commit` is
-green there (757 files, 11,704 tests). In order:
+S1 to S8 are merged into `phase-09-codecs`. In order:
 
-1. Settle the open item of decision 9: build LAME and libvorbis from source to
-   WebAssembly with their full API (MP3 average bit rate, Vorbis nominal bit
-   rate, Vorbis above two channels), or amend ADR-0092; either way validation
-   refuses before rendering, never at encode.
-2. S8, `apps/web`: start the codec worker (compile the codec module, LAME and
-   Vorbis `.wasm`, post `configure`, feed `environment` into the capabilities),
-   connect it to the storage worker (`connect` + `imports.connectCodecWorker`),
-   the import commands (one file, many, a folder) with analysis, staged progress
-   and per-file outcomes, the Export dialog (presets with progressive disclosure
-   of every setting, ranges: project, region, every region, selection; Quick
-   Edit's, the region list's and the File menu's entry points), the export
-   pipeline (render worker `channels` → codec worker `encode` →
-   `exports.stage` → `exports.deliver`, `exports.discard` after a download), the
-   collision prompt (`collision.ask`), trusted folders, `project.set-export-
-settings`, the person's own presets (raising `userPreferences`), the
-   reference picture's real channel count (Phase 04 debt, read by the codec
-   module's demultiplexer), keyboard forms for every action, and
-   `test:e2e:import-export` (a Chromium project that imports a compressed file
-   and a folder, exports a region to a folder with a collision, and reloads;
-   also checks that Chromium's AAC timestamps carry the priming).
-3. Amend ADR-0092's dependency constraint (decision 10) and record every
-   decision above that changes an ADR's wording; regenerate the spec and run
-   `spec:verify`.
-4. Run the packet's commands: `test:codecs`, `cargo test --workspace`,
+1. Merge the slices still building: `p09-s8e` (`test:e2e:import-export`),
+   `p09-s6e` (real AAC-LC decoding fixtures) and `p09-s8f` (metadata and loops
+   through the export round trips, the storage each import needs stated, and
+   the Inspector's export job). Then run one integrated `verify:commit`.
+2. Run the packet's commands: `test:codecs`, `cargo test --workspace`,
    `test:codec-fixtures`, `test:roundtrip-audio`, `test:malformed-media`,
    `test:opus-conformance`, `test:project-roundtrip`, `test:architecture`, and
-   `pnpm run build` then `test:e2e:import-export`. Check every In Scope box and
-   acceptance criterion against the code.
-5. Write the evidence and the review record (lenses deferred), the handoff, the
+   `pnpm run build` then `test:e2e:import-export`.
+3. Write the evidence and the review record (lenses deferred), the handoff, the
    ledger `PASS`, the README's readiness line; run `spec:verify`.
-6. Move this note to `docs/todo/done/`, merge `main` in (Phase 08 may have
+4. Move this note to `docs/todo/done/`, merge `main` in (Phase 08 may have
    landed: raise `projectDocument`, `userPreferences` and any other version
    above `main`'s, rerun `pnpm version:sync` and `pnpm contracts:update`), run
    `verify:commit`, merge into `main` with `--no-ff` from the primary checkout,
    push, remove the worktree, and delete the merged slice branches with
    `git branch -d` (`p09-s1`, `p09-s2`, `p09-s2b`, `p09-s3`, `p09-s3i`,
-   `p09-s4`, `p09-s5`, `p09-s6a`, `p09-s6b`, `p09-s7`, `phase-09-codecs`).
+   `p09-s4`, `p09-s5`, `p09-s6a`, `p09-s6b`, `p09-s6c`, `p09-s6e`, `p09-s7`,
+   `p09-spec`, `p09-s8a`, `p09-s8b`, `p09-s8c`, `p09-s8d`, `p09-s8e`,
+   `p09-s8f`, `p09-s8x`, `phase-09-codecs`).
