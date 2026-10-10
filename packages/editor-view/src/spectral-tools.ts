@@ -24,7 +24,6 @@ import {
   HIGHEST_MASK_FREQUENCY,
   MAXIMUM_MASK_POINTS,
   MaskEffect,
-  NO_FEATHER,
   type SampleCount,
   type SpectralFeather,
   type SpectralPoint,
@@ -42,24 +41,7 @@ import {
 
 import { frequencyAt, frequencyOnAxis } from './frequency-axis.js';
 import { LaneKind, type Lane } from './lane-layout.js';
-import { ToolId, type SpectralSettings } from './view-state.js';
-
-/** How the spectral tools draw, which the person sets in the Spectral panel. */
-export interface SpectralToolSettings {
-  /** The brush's radius in CSS pixels. */
-  readonly brushRadius: number;
-  /** How much of the brush's radius is at full strength, from 0 to just below 1. */
-  readonly hardness: number;
-  /** How far past their edges the marquee's and the lasso's shapes fade out. */
-  readonly feather: SpectralFeather;
-}
-
-/** How the spectral tools draw before the person changes anything. */
-export const DEFAULT_SPECTRAL_TOOL_SETTINGS: SpectralToolSettings = {
-  brushRadius: 12,
-  hardness: 0.5,
-  feather: NO_FEATHER,
-};
+import { ToolId, type SpectralSettings, type SpectralToolSettings } from './view-state.js';
 
 /** What a spectral tool reads of the view and the selection at a press. */
 export interface SpectralToolContext {

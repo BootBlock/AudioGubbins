@@ -18,7 +18,6 @@
 import { SnapKind, boundaryAt, samplesWithin, type SnapTarget } from '@audiogubbins/timeline';
 import { toolStrength, type GestureSettings, type PointerSample } from '@audiogubbins/input';
 import {
-  DEFAULT_SPECTRAL_TOOL_SETTINGS,
   IDLE,
   hitTest,
   laneAt,
@@ -141,9 +140,7 @@ export class ToolPointer {
               length: snapshot.sources.asset.length,
               channelCount: snapshot.sources.asset.layout.roles.length,
               selection,
-              // The Spectral panel's brush and softness are not yet the
-              // person's to set, so the tools draw with their defaults.
-              settings: DEFAULT_SPECTRAL_TOOL_SETTINGS,
+              settings: state.spectralTools,
             },
           },
           input,

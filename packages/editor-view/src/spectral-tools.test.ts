@@ -48,14 +48,17 @@ import type {
   ToolIntent,
   ToolPreview,
 } from './tool-values.js';
-import {
-  DEFAULT_SPECTRAL_TOOL_SETTINGS,
-  withDrawnShape,
-  type DrawnShape,
-  type SpectralToolSettings,
-} from './spectral-tools.js';
+import { withDrawnShape, type DrawnShape } from './spectral-tools.js';
 import { at } from './testing/scene.js';
-import { ToolId, type SpectralSettings } from './view-state.js';
+import {
+  ToolId,
+  newViewState,
+  type SpectralSettings,
+  type SpectralToolSettings,
+} from './view-state.js';
+
+/** How the spectral tools draw in a new view. */
+const DEFAULT_TOOLS = newViewState(at(0), 0).spectralTools;
 
 const LENGTH = at(1_000_000);
 const AXIS: SpectralSettings = { frequencyScale: 'logarithmic', lowest: 20, highest: 20_000 };
@@ -92,7 +95,7 @@ function context(setting: Setting): ToolContext {
       length: LENGTH,
       channelCount: 2,
       selection: setting.selection ?? EMPTY_SELECTION,
-      settings: setting.settings ?? DEFAULT_SPECTRAL_TOOL_SETTINGS,
+      settings: setting.settings ?? DEFAULT_TOOLS,
     },
   };
 }
@@ -276,11 +279,11 @@ const STROKE = [pen(100, 100, 0.2), pen(110, 104, 0.6), pen(125, 110, 0.9), pen(
 describe('the spectral brush', () => {
   it('strokes its path, each point with its strength and its radius converted where it is', () => {
     const shape = brushed(DEFAULT_GESTURE_SETTINGS, STROKE);
-    const radius = DEFAULT_SPECTRAL_TOOL_SETTINGS.brushRadius;
+    const radius = DEFAULT_TOOLS.brushRadius;
     expect(shape).toEqual({
       kind: 'stroke',
       effect: MaskEffect.Add,
-      hardness: DEFAULT_SPECTRAL_TOOL_SETTINGS.hardness,
+      hardness: DEFAULT_TOOLS.hardness,
       points: STROKE.map((sample) => ({
         position: boundaryAt(VIEW, sample.x, LENGTH),
         frequency: frequencyAt(lane(0), sample.y, AXIS),
@@ -340,7 +343,7 @@ describe('the spectral brush', () => {
   });
 
   it('keeps a stroke’s points a quarter of its radius apart', () => {
-    const settings = { ...DEFAULT_SPECTRAL_TOOL_SETTINGS, brushRadius: 20 };
+    const settings = { ...DEFAULT_TOOLS, brushRadius: 20 };
     const steps = Array.from({ length: 41 }, (_, index) => input(100 + index, 100));
     const [first, ...rest] = steps;
     if (first === undefined) throw new Error('No stroke.');

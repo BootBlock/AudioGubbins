@@ -16,7 +16,7 @@ import type { Lane } from './lane-layout.js';
 import type { SpectralSettings } from './view-state.js';
 
 /** How far up the axis `frequency` lies, from 0 at the lowest to 1 at the highest, unbounded. */
-function shareOf(frequency: number, settings: SpectralSettings): number {
+export function shareOf(frequency: number, settings: SpectralSettings): number {
   return settings.frequencyScale === 'linear'
     ? (frequency - settings.lowest) / (settings.highest - settings.lowest)
     : // Nothing and below lie infinitely far down an axis of octaves.
@@ -25,7 +25,7 @@ function shareOf(frequency: number, settings: SpectralSettings): number {
 }
 
 /** The frequency `share` of the way up the axis, unbounded: the inverse of `shareOf`. */
-function frequencyOfShare(share: number, settings: SpectralSettings): number {
+export function frequencyOfShare(share: number, settings: SpectralSettings): number {
   return settings.frequencyScale === 'linear'
     ? settings.lowest + share * (settings.highest - settings.lowest)
     : settings.lowest * Math.exp(share * Math.log(settings.highest / settings.lowest));
