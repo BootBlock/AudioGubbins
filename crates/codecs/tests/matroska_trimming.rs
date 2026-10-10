@@ -147,6 +147,23 @@ fn negative_padding_trims_a_blocks_start_beyond_the_codec_delay() {
 }
 
 #[test]
+fn codec_delay_wins_over_the_opus_pre_skip_where_stated() {
+    let encoded = encoded(2, 9_000);
+    let more = 100;
+    let layout = MatroskaLayout {
+        codec_delay: Some(nanoseconds(encoded.pre_skip + more, OPUS_RATE)),
+        ..webm_layout(&encoded, 2)
+    };
+    let (session, decoded) = open_and_decode(file_of(layout, &encoded)).expect("decodable");
+    assert_eq!(session.description().priming, Some(encoded.pre_skip + more));
+    let expected: Vec<Vec<f32>> = from_ogg(&encoded)
+        .into_iter()
+        .map(|plane| plane[more as usize..].to_vec())
+        .collect();
+    assert_eq!(decoded, expected);
+}
+
+#[test]
 fn padding_past_its_block_is_malformed() {
     let encoded = encoded(1, 5_000);
     let layout = MatroskaLayout {
