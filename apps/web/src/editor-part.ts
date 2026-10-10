@@ -22,6 +22,7 @@ import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
+import type { CodecServices } from './codecs/codec-services.js';
 import { testAssets } from './assets/test-assets.js';
 import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
@@ -140,6 +141,7 @@ export function panelPartsOf(
 function referencePicture(
   capabilities: CapabilityRegistry,
   assets: AssetCatalogue,
+  codecs: Pick<CodecServices, 'analyse'>,
   logger: Logger,
 ): { readonly picture: ReferencePicture; readonly pictureSound: PictureSoundDecoder } {
   const picture = new ReferencePicture({
@@ -148,6 +150,8 @@ function referencePicture(
   });
   const pictureSound = new PictureSoundDecoder({
     decode: browserSoundDecoder(),
+    // The file's channels, read from its headers, weigh its sound.
+    analyse: (file, signal) => codecs.analyse(file, signal),
     picture,
     catalogue: assets,
     logger,
@@ -160,7 +164,8 @@ function referencePicture(
 /**
  * Builds the editor part, its assets following the open project of `projects`
  * where this browser keeps projects, and its peaks drawn at the chosen render
- * quality of `audioSettings`, a racked sound's from the renders of `previews`.
+ * quality of `audioSettings`, a racked sound's from the renders of `previews`,
+ * and a reference picture's sound weighed at the channels `codecs` reads.
  */
 export function startEditor(
   capabilities: CapabilityRegistry,
@@ -174,6 +179,7 @@ export function startEditor(
   },
   previews: PreviewHost,
   models: ModelServices,
+  codecs: Pick<CodecServices, 'analyse'>,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
   const modelGate = modelGates(models.availability);
@@ -193,7 +199,7 @@ export function startEditor(
     if (document.visibilityState === 'hidden') editorViews.flush();
   };
   document.addEventListener('visibilitychange', flushViews);
-  const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
+  const { picture, pictureSound } = referencePicture(capabilities, assets, codecs, logger);
   const peaks = peakHost(projects.peakCache, logger, previews, models);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
   const graphics = readGraphicsPlatform();

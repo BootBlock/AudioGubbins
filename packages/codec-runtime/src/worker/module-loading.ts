@@ -7,8 +7,10 @@
  *
  * A load that fails stays failed, and says why: the formats the module serves
  * are unavailable here with that reason, and every other format keeps working
- * (the packet's failure behaviour). Each load's progress is reported as the
- * registry's `ModuleLoad`, so the worker tells the page whenever one changes.
+ * (the packet's failure behaviour). A module the page had none of has failed
+ * from the start, so its formats are unavailable before any request finds it
+ * so. Each load's progress is reported as the registry's `ModuleLoad`, so the
+ * worker tells the page whenever one changes.
  */
 
 import type { ModuleLoad } from '@audiogubbins/codecs';
@@ -42,6 +44,17 @@ export class OnceLoaded<TModule> {
     this.#changed = changed;
   }
 
+  /** A load that failed before it began, answering `failed` whenever it is asked. */
+  static failed<TModule>(failed: DomainResult<never>): OnceLoaded<TModule> {
+    const load = new OnceLoaded<TModule>(
+      () => Promise.resolve(failed),
+      () => undefined,
+    );
+    load.#state = 'failed';
+    load.#loading = Promise.resolve(failed);
+    return load;
+  }
+
   get state(): ModuleLoad {
     return this.#state;
   }
@@ -62,10 +75,9 @@ export function codecModuleLoad(
   source: ModuleSource,
   changed: () => void,
 ): OnceLoaded<CodecModule> {
-  return new OnceLoaded(async () => {
-    const compiled = compiledModule('codec module', source);
-    return compiled.ok ? await instantiateCodecModule(compiled.value) : compiled;
-  }, changed);
+  const compiled = compiledModule('codec module', source);
+  if (!compiled.ok) return OnceLoaded.failed(compiled);
+  return new OnceLoaded(() => instantiateCodecModule(compiled.value), changed);
 }
 
 /** A prebuilt encoder's module `source` names, compiled, loaded once. */
@@ -74,5 +86,7 @@ export function prebuiltModuleLoad(
   source: ModuleSource,
   changed: () => void,
 ): OnceLoaded<WebAssembly.Module> {
-  return new OnceLoaded(() => Promise.resolve(compiledModule(`${name} encoder`, source)), changed);
+  const compiled = compiledModule(`${name} encoder`, source);
+  if (!compiled.ok) return OnceLoaded.failed(compiled);
+  return new OnceLoaded(() => Promise.resolve(compiled), changed);
 }

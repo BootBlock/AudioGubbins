@@ -9,7 +9,8 @@
  * first request that needs it, and a load that fails makes only its own formats
  * unavailable. The browser's codecs are probed once, at start, and every
  * request waits for the probe, so no request is answered from a guess. The page
- * hears what the worker can do with each codec at first and whenever a load
+ * hears what the worker can do with each codec once it is both probed and
+ * configured, so the first word it hears is whole, and whenever a load
  * changes it.
  *
  * Requests come from the page and from each client the page connects, each
@@ -128,7 +129,7 @@ export class CodecWorkerCore {
     };
     this.#probed = host.probe().then((probes) => {
       this.#probes = probes;
-      this.#tellEnvironment();
+      if (this.#modules !== undefined) this.#tellEnvironment();
       return probes;
     });
     this.#analyses = new JobQueue((job) => this.#runJob(job));
@@ -203,6 +204,11 @@ export class CodecWorkerCore {
         vorbis: prebuiltModuleLoad('Vorbis', prebuilt.vorbis, changed),
       },
     };
+    // A module the page had none of has failed already, which the page hears
+    // with the probe's findings, as its first word or straight after it.
+    void this.#probed.then(() => {
+      this.#tellEnvironment();
+    });
   }
 
   /** Serves another client's requests over `port`. */
@@ -307,6 +313,7 @@ export class CodecWorkerCore {
             codecModule: () => modules.codec.get(),
             prebuiltModule: (encoder) => modules.prebuilt[encoder].get(),
             encoding: this.#host.platform.encoding,
+            browser: this.#host.platform.browser,
           },
           context,
         );

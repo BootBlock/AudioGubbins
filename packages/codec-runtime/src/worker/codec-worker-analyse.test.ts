@@ -15,7 +15,7 @@ import type { DecoderSession } from '../decoder-session.js';
 import type { StreamDescription } from '../stream-description.js';
 import { codecModule } from '../testing/codec-module.js';
 import { flacFile } from '../testing/encoded-fixtures.js';
-import { MEMORY_READER, memoryFile, workerHarness } from '../testing/worker-harness.js';
+import { MEMORY_READER, memoryFile, pageWorker, workerHarness } from '../testing/worker-harness.js';
 import { runAnalysis } from './analyse-job.js';
 import type { ImportServices } from './import-opening.js';
 
@@ -139,6 +139,62 @@ describe('the codec worker analysing a file', () => {
       one.kind === 'environment' ? [one.environment] : [],
     );
     expect(environments.at(-1)?.codecModule).toBe('failed');
+  });
+
+  it('says nothing of the codecs until it is configured, so the page’s first word is whole', async () => {
+    const worker = pageWorker();
+    const heard: unknown[] = [];
+    worker.listen(
+      (data) => heard.push(data),
+      () => undefined,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(heard).toEqual([]);
+
+    worker.post(
+      {
+        kind: 'configure',
+        codecModule: { kind: 'unavailable', reason: 'None.' },
+        prebuiltEncoders: {
+          mp3: { kind: 'unavailable', reason: 'None.' },
+          vorbis: { kind: 'unavailable', reason: 'None.' },
+        },
+      },
+      [],
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(heard).toEqual([
+      {
+        kind: 'environment',
+        environment: {
+          webAssembly: true,
+          browserDecoders: new Set(),
+          browserEncoders: new Set(),
+          codecModule: 'failed',
+          prebuiltModules: new Map([
+            ['mp3', 'failed'],
+            ['vorbis', 'failed'],
+          ]),
+        },
+      },
+    ]);
+  });
+
+  it('tells the page at once of each module it was given none of, before any request needs it', async () => {
+    // The harness compiles the codec module before it configures the worker,
+    // so the browser's probe has been answered and told by then: only the
+    // configuration can tell the page of the encoders it gives the worker none of.
+    const harness = await workerHarness();
+    const environments = harness.posted.flatMap((one) =>
+      one.kind === 'environment' ? [one.environment] : [],
+    );
+    expect(environments.at(-1)).toMatchObject({
+      codecModule: 'not-loaded',
+      prebuiltModules: new Map([
+        ['mp3', 'failed'],
+        ['vorbis', 'failed'],
+      ]),
+    });
   });
 
   it('says why metadata was not read, keeping the audio', async () => {

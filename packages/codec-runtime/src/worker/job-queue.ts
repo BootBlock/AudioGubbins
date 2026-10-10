@@ -92,7 +92,12 @@ function answerOf(request: string, end: JobEnd): FromCodecWorker {
         decoder: end.decoder,
       };
     case 'encoded':
-      return { kind: FromCodecWorkerKind.Encoded, request, frames: end.frames };
+      return {
+        kind: FromCodecWorkerKind.Encoded,
+        request,
+        frames: end.frames,
+        encoder: end.encoder,
+      };
     case 'failed':
       return { kind: FromCodecWorkerKind.Failed, request, failure: end.failure };
     case 'cancelled':
