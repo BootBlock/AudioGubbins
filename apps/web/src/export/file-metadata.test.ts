@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  StandardLayouts,
   derivedSampleCount,
   sampleRate,
   unsafeBrandId,
@@ -8,7 +9,7 @@ import {
   type PlacedRegion,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { ExportSettings, ExportableRegion, PlannedFile } from '@audiogubbins/import-export';
+import type { ExportSettings, ExportableRegion } from '@audiogubbins/import-export';
 import type { KeptMetadata } from '@audiogubbins/project-format';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
@@ -75,16 +76,16 @@ function file(
   length: number,
   region?: ExportableRegion,
   hertz = 48_000,
-): PlannedFile {
+): Parameters<typeof fileMetadata>[0] {
   return {
     span: {
-      audio: { sampleRate: RATE, layout: { roles: [] }, precision: { kind: 'float' } },
+      audio: { sampleRate: RATE, layout: StandardLayouts.stereo, precision: { kind: 'float' } },
       start: at(start),
       length: at(length),
       region,
     },
     render: { sampleRate: expectSuccess(sampleRate(hertz)) },
-  } as PlannedFile;
+  };
 }
 
 describe('the metadata an exported file carries (ADR-0093)', () => {

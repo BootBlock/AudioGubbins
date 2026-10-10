@@ -26,7 +26,12 @@ import {
   type PlacedRegion,
   type SampleCount,
 } from '@audiogubbins/domain';
-import { exportMetadata, type ExportSettings, type PlannedFile } from '@audiogubbins/import-export';
+import {
+  exportMetadata,
+  type ExportRenderPlan,
+  type ExportSettings,
+  type ExportSpan,
+} from '@audiogubbins/import-export';
 import type { KeptMetadata } from '@audiogubbins/project-format';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
@@ -111,7 +116,7 @@ export interface MetadataSources {
  * the file's rate, or why its positions cannot be placed there.
  */
 export function fileMetadata(
-  file: PlannedFile,
+  file: { readonly span: ExportSpan; readonly render: Pick<ExportRenderPlan, 'sampleRate'> },
   settings: ExportSettings,
   sources: MetadataSources,
 ): DomainResult<MetadataMap> {
