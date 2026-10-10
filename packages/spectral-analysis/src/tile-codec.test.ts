@@ -84,7 +84,7 @@ describe('the tile cache format', () => {
     ['of another height', { ...EXPECTED, bins: 257 }, /shape/u],
   ])('refuses a tile %s', (_case, expected, reason) => {
     const refused = decodeTile(encodeTile(tile()), expected, true);
-    expectFailureCode(refused, 'spectral.tile-refused');
+    expect(expectFailureCode(refused)).toBe('spectral.tile-refused');
     expect(refused.ok ? '' : refused.failures[0].summary).toMatch(reason);
   });
 

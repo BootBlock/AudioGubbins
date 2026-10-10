@@ -2,16 +2,16 @@
  * What the spectrogram worker does, apart from the scope it runs in.
  *
  * It runs the DSP the page delivers, the WebAssembly module where one is
- * compiled and the reference where none is, and says which (ADR-0080). Each
- * job is one revision of one sound, read through the engine's plan readers,
- * a racked sound through the preview worker's renders once the page has
- * given the port to them (ADR-0061). A want names one tile; the cached bytes
- * it carries are checked against its key and checksum and given back, or the
- * tile is made. Tiles are made one place at a time, nearest the focus of the
- * job focused last, the wants of every channel at that place in one pass, with
- * a turn to the host between chunks of each, so a want cancelled or a focus
- * moved is read within one chunk's work. A cancelled want is answered with
- * nothing, and work no want still waits on stops.
+ * compiled and the reference where none is, and says which (ADR-0080). Each job
+ * is one revision of one sound, read through the engine's plan readers, a
+ * racked sound through the preview worker's renders once the page has given the
+ * port to them (ADR-0061). A want names one tile; the cached bytes it carries
+ * are checked against its key and checksum and given back, or the tile is made.
+ * Tiles are made one place at a time, nearest the focus of the job focused
+ * last, the wants of every channel at that place in one pass, with a turn to
+ * the host between chunks of each, so a want cancelled or a focus moved is read
+ * within one chunk's work. A cancelled want is answered with nothing, and work
+ * no want still waits on stops.
  */
 
 import {
@@ -41,14 +41,9 @@ import {
 } from './spectrogram-messages.js';
 import { readToSpectrogramWorker } from './spectrogram-message-reading.js';
 import { analyseTiles } from './tile-analysis.js';
-import { decodeTile, encodeTile } from './tile-codec.js';
-import {
-  spectrogramGeometry,
-  tileCentre,
-  tileSpan,
-  type LevelGeometry,
-  type SpectrogramGeometry,
-} from './tile-geometry.js';
+import { decodeTile } from './tile-codec.js';
+import { spectrogramGeometry, tileSpan, type SpectrogramGeometry } from './tile-geometry.js';
+import { answers, takeNearestPlace, wantedKey, type Want, type Waiting } from './tile-wants.js';
 
 /** What the worker's scope gives the core. */
 export interface SpectrogramWorkerHost {
@@ -61,19 +56,6 @@ export interface SpectrogramWorkerHost {
   readonly chooseDsp: (delivery: DspDelivery<CompiledModule>) => ScopeDsp;
   /** Reports a message that could not be read, which the page sent wrongly. */
   readonly reportFault: (error: Error) => void;
-}
-
-type Want = Extract<ToSpectrogramWorker, { kind: typeof ToSpectrogramWorkerKind.Want }>;
-
-/** A want waiting to be made, with what it is made at. */
-interface Waiting {
-  readonly want: Want;
-  readonly geometry: SpectrogramGeometry;
-  readonly level: LevelGeometry;
-  /** Where its tile lies, every channel's alike: the wants made in one pass. */
-  readonly place: string;
-  /** Why the cached bytes it carried were refused, where it carried some. */
-  readonly refusedCache: string | undefined;
 }
 
 /** One revision of one sound. */
@@ -254,14 +236,7 @@ export class SpectrogramWorkerCore {
       );
       return;
     }
-    const key = {
-      identity: job.identity,
-      revision: job.revision,
-      channel: want.channel,
-      config: want.config,
-      level: want.level,
-      index: want.index,
-    };
+    const key = wantedKey(job.identity, job.revision, want);
     let refusedCache: string | undefined;
     if (want.cached !== undefined) {
       const checked = decodeTile(
@@ -301,23 +276,8 @@ export class SpectrogramWorkerCore {
     for (const name of this.#order) {
       const job = this.#jobs.get(name);
       if (job === undefined || job.waiting.size === 0) continue;
-      let nearest: Waiting | undefined;
-      let distance = Infinity;
-      for (const waiting of job.waiting.values()) {
-        const from = Math.abs(tileCentre(waiting.level, waiting.want.index) - job.focus);
-        if (from < distance) {
-          nearest = waiting;
-          distance = from;
-        }
-      }
-      if (nearest === undefined) continue;
-      const wants = new Map<number, Waiting>();
-      for (const [request, waiting] of job.waiting) {
-        if (waiting.place !== nearest.place) continue;
-        wants.set(request, waiting);
-        job.waiting.delete(request);
-      }
-      return { job, wants, cancel: createCancellationSource() };
+      const wants = takeNearestPlace(job.waiting, job.focus);
+      if (wants !== undefined) return { job, wants, cancel: createCancellationSource() };
     }
     return undefined;
   }
@@ -326,6 +286,9 @@ export class SpectrogramWorkerCore {
     if (this.#pumping) return;
     this.#pumping = true;
     try {
+      // A turn first, so the wants and focus that came with this one are read
+      // and every channel wanted at a place is made in one pass.
+      await this.#host.yieldToHost();
       for (let making = this.#next(); making !== undefined; making = this.#next()) {
         this.#making = making;
         await this.#make(making);
@@ -355,30 +318,12 @@ export class SpectrogramWorkerCore {
         },
       );
       if (this.#jobs.get(making.job.name) !== making.job) return;
-      const { columns } = tileSpan(first.level, first.want.index);
-      for (const [request, waiting] of making.wants) {
-        const values = tiles[channels.indexOf(waiting.want.channel)];
-        if (values === undefined) continue;
-        const bytes = encodeTile({
-          key: {
-            identity: making.job.identity,
-            revision: making.job.revision,
-            channel: waiting.want.channel,
-            config: waiting.want.config,
-            level: waiting.want.level,
-            index: waiting.want.index,
-          },
-          columns,
-          bins: geometry.bins,
-          values,
-        });
+      for (const answer of answers(making.wants, { channels, tiles }, making.job)) {
         this.#post({
           kind: FromSpectrogramWorkerKind.Tile,
           job: making.job.name,
-          request,
-          bytes,
           adopted: false,
-          refusedCache: waiting.refusedCache,
+          ...answer,
         });
       }
     } catch (error) {

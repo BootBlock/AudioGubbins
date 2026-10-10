@@ -23,7 +23,7 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { impulse, noise, sine } from '@audiogubbins/test-fixtures';
 
-import { type SpectrogramConfig } from './spectrogram-config.js';
+import type { SpectrogramConfig } from './spectrogram-config.js';
 import { analyseTiles } from './tile-analysis.js';
 import { spectrogramGeometry, tileSpan, type SpectrogramGeometry } from './tile-geometry.js';
 
@@ -31,7 +31,10 @@ const RATE = expectSuccess(sampleRate(48_000));
 
 const SHORT: SpectrogramConfig = { windowLength: 256, window: StftWindow.Hann, overlap: 1 };
 
-/** A source of `channels` held in memory, counting the frames read from it. */
+/**
+ * A source of `channels` held in memory, counting the frames read from it. It
+ * reads on whatever its signal says, so a test sees the work itself stop.
+ */
 function counted(channels: readonly Float32Array[]): { source: PcmSource; read: () => number } {
   const inner = expectSuccess(
     memorySource(
@@ -44,8 +47,8 @@ function counted(channels: readonly Float32Array[]): { source: PcmSource; read: 
   return {
     source: {
       ...inner,
-      read: async (start, into, signal) => {
-        const read = await inner.read(start, into, signal);
+      read: async (start, into) => {
+        const read = await inner.read(start, into);
         frames += read;
         return read;
       },
@@ -63,7 +66,7 @@ async function tiles(
   index: number,
   channels: readonly number[] = [0],
 ): Promise<readonly Uint8Array[]> {
-  return analyseTiles(
+  return await analyseTiles(
     { geometry, level, index, channels },
     {
       source,
@@ -166,6 +169,25 @@ describe('a tile', () => {
     );
     expect(columnOf(tile!, 8, 129, 0).every((level) => level > 0)).toBe(true);
     expect(columnOf(tile!, 8, 129, 1).every((level) => level === 0)).toBe(true);
+  });
+
+  it('reads silence where a window reaches past the sound, whatever the window before it read', async () => {
+    // The sound ends 200 frames before its last column's end, within the last
+    // window of every level; padded with silence to that end, it has the same
+    // pyramid, so the same tiles.
+    const frames = 2048 * 300 - 200;
+    const sound = noise(5, { length: frames }).channels[0]!;
+    const padded = new Float32Array(frames + 200);
+    padded.set(sound);
+    for (const level of [0, 2, 3]) {
+      const short = spectrogramGeometry(SHORT, frames, 1);
+      const long = spectrogramGeometry(SHORT, frames + 200, 1);
+      const last = short.levels[level]!.tiles - 1;
+      expect(long.levels[level]!.tiles - 1).toBe(last);
+      expect(await tiles(short, counted([sound]).source, level, last)).toEqual(
+        await tiles(long, counted([padded]).source, level, last),
+      );
+    }
   });
 
   it('reads the windows of a coarse level alone where they lie apart, and nothing between them', async () => {

@@ -15,8 +15,13 @@ import {
   StftWindow,
   frameBlock,
   memorySource,
+  type CanonicalDsp,
 } from '@audiogubbins/audio-engine';
-import { NO_CHAIN_PROCESSING, dspModuleBytes } from '@audiogubbins/audio-engine/testing';
+import {
+  NO_CHAIN_PROCESSING,
+  countingDsp,
+  dspModuleBytes,
+} from '@audiogubbins/audio-engine/testing';
 import { createCancellationSource, discreteLayout, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { noise } from '@audiogubbins/test-fixtures';
@@ -27,7 +32,7 @@ import {
   type SpectrogramHandle,
   type SpectrogramHostEvent,
 } from './spectrogram-host.js';
-import type { SpectralTileCache } from './spectrogram-job.js';
+import type { SpectralTileCache } from './spectrogram-ports.js';
 import {
   FromSpectrogramWorkerKind,
   ToSpectrogramWorkerKind,
@@ -44,6 +49,7 @@ import {
   type LocalSpectrogramOptions,
 } from './testing/spectrogram-rig.js';
 import { analyseTiles } from './tile-analysis.js';
+import { decodeTile } from './tile-codec.js';
 import { spectrogramGeometry } from './tile-geometry.js';
 
 /** The part of the host's WebAssembly this test uses. */
@@ -74,7 +80,7 @@ function rig(
     report: (event) => events.push(event),
     ...(options.memoryBudget === undefined ? {} : { memoryBudget: options.memoryBudget }),
   });
-  return { host, cache, events, workers };
+  return { host, events, workers };
 }
 
 /** Waits until `done` holds, a worker's turn at a time. */
@@ -163,7 +169,8 @@ async function madeAlone(samples: Float32Array, index: number): Promise<Uint8Arr
 
 describe('the spectrogram host', () => {
   it('makes the tiles a view shows in the worker, and keeps each in the cache', async () => {
-    const { host, cache, workers } = rig();
+    const cache = new MemoryTileCache();
+    const { host, workers } = rig({}, cache);
     const samples = audio(4);
     const handle = host.open(memorySubject('noise', [samples]));
     show(handle, 1, 2);
@@ -181,20 +188,21 @@ describe('the spectrogram host', () => {
   });
 
   it('adopts the tiles the cache keeps, and analyses none of them', async () => {
-    const first = rig();
+    const kept = new MemoryTileCache();
+    const first = rig({}, kept);
     const subject = memorySubject('kept', [audio(3)]);
     const made = first.host.open(subject);
     show(made, 0, 2);
     await until(() => held(made, 0, 2));
     await quiet();
-    const second = rig({}, first.cache);
+    const second = rig({}, kept);
     const adopted = second.host.open(subject);
     show(adopted, 0, 2);
     await until(() => held(adopted, 0, 2));
     await quiet();
     const tiles = postedTiles(second.workers[0]!);
     expect(tiles.map((tile) => tile.adopted)).toEqual([true, true, true]);
-    expect(first.cache instanceof MemoryTileCache ? first.cache.writes : -1).toBe(3);
+    expect(kept.writes).toBe(3);
     expect([...adopted.tile(CONFIG, 0, 0, 1)!.tile.values]).toEqual([
       ...made.tile(CONFIG, 0, 0, 1)!.tile.values,
     ]);
@@ -212,12 +220,13 @@ describe('the spectrogram host', () => {
       level: 0,
       index: 0,
     };
-    const made = rig();
+    const madeCache = new MemoryTileCache();
+    const made = rig({}, madeCache);
     const original = made.host.open(subject);
     show(original, 0, 0);
     await until(() => held(original, 0, 0));
     await quiet();
-    const bytes = (made.cache as MemoryTileCache).kept.get(tileKeyText(key))!.slice();
+    const bytes = madeCache.kept.get(tileKeyText(key))!.slice();
     bytes[200]! ^= 0xff;
     cache.kept.set(tileKeyText(key), bytes);
     const handle = host.open(subject);
@@ -237,9 +246,7 @@ describe('the spectrogram host', () => {
       },
     ]);
     expect(postedTiles(workers[0]!).map((tile) => tile.adopted)).toEqual([false]);
-    expect(cache.kept.get(tileKeyText(key))).toEqual(
-      (made.cache as MemoryTileCache).kept.get(tileKeyText(key)),
-    );
+    expect(cache.kept.get(tileKeyText(key))).toEqual(madeCache.kept.get(tileKeyText(key)));
   });
 
   it('reports a refused cache write and still draws the tile', async () => {
@@ -391,33 +398,129 @@ describe('the spectrogram host', () => {
 });
 
 describe('the spectrogram worker', () => {
-  function core() {
+  function core(dsp: CanonicalDsp = REFERENCE_DSP) {
     const posted: FromSpectrogramWorker[] = [];
+    let yields = 0;
     const worker = new SpectrogramWorkerCore({
       post: (message) => posted.push(message),
-      yieldToHost: () => Promise.resolve(),
+      yieldToHost: () => {
+        yields += 1;
+        return turn();
+      },
       processing: NO_CHAIN_PROCESSING,
-      chooseDsp: () => ({ dsp: REFERENCE_DSP, fallbackReason: 'For this test.' }),
+      chooseDsp: () => ({ dsp, fallbackReason: 'For this test.' }),
       reportFault: (error) => {
         throw error;
       },
     });
-    return { worker, posted };
+    return { worker, posted, yields: () => yields };
   }
 
-  const OPEN = {
-    kind: ToSpectrogramWorkerKind.Open,
-    job: 'job',
-    identity: 'one',
-    revision: '1',
-    channels: 1,
-    description: {
-      kind: 'pcm',
-      sampleRate: 48_000,
-      channels: [new Float32Array(TILE)],
-    },
-    quality: memorySubject('one', []).quality,
+  function openOf(frames: number) {
+    return {
+      kind: ToSpectrogramWorkerKind.Open,
+      job: 'job',
+      identity: 'one',
+      revision: '1',
+      channels: 1,
+      description: { kind: 'pcm', sampleRate: 48_000, channels: [audio(frames / TILE)] },
+      quality: memorySubject('one', []).quality,
+    };
+  }
+
+  const OPEN = openOf(TILE);
+
+  const DSP = {
+    kind: ToSpectrogramWorkerKind.Dsp,
+    delivery: { kind: DspDeliveryKind.Unavailable, reason: 'For this test.' },
   };
+
+  function want(request: number, index: number, config: SpectrogramConfig = CONFIG) {
+    return {
+      kind: ToSpectrogramWorkerKind.Want,
+      job: 'job',
+      request,
+      config,
+      channel: 0,
+      level: 0,
+      index,
+    };
+  }
+
+  function tilesPosted(posted: readonly FromSpectrogramWorker[]): number[] {
+    return posted.flatMap((message) =>
+      message.kind === FromSpectrogramWorkerKind.Tile ? [message.request] : [],
+    );
+  }
+
+  it('makes its tiles on the DSP chosen from the delivery, and releases every STFT it makes', async () => {
+    const counting = countingDsp();
+    const { worker, posted } = core(counting.dsp);
+    worker.receive(DSP);
+    worker.receive(OPEN);
+    worker.receive(want(1, 0));
+    await until(() => tilesPosted(posted).length === 1);
+    expect(counting.made()).toBe(1);
+    expect(counting.held()).toBe(0);
+  });
+
+  it('makes the wants that came together nearest the focus first', async () => {
+    const { worker, posted } = core();
+    worker.receive(DSP);
+    worker.receive(openOf(10 * TILE));
+    worker.receive({ kind: ToSpectrogramWorkerKind.Focus, job: 'job', centre: 8.5 * TILE });
+    for (let index = 0; index < 10; index += 1) worker.receive(want(index, index));
+    await until(() => tilesPosted(posted).length === 10);
+    expect(tilesPosted(posted).slice(0, 4)).toEqual([8, 7, 9, 6]);
+  });
+
+  it('makes every channel wanted at a place in one pass, each as that channel alone', async () => {
+    const counting = countingDsp();
+    const { worker, posted } = core(counting.dsp);
+    const left = audio(1, 3);
+    const right = audio(1, 4);
+    worker.receive(DSP);
+    worker.receive({
+      ...OPEN,
+      channels: 2,
+      description: { kind: 'pcm', sampleRate: 48_000, channels: [left, right] },
+    });
+    worker.receive({ ...want(1, 0), channel: 1 });
+    worker.receive(want(2, 0));
+    await until(() => tilesPosted(posted).length === 2);
+    expect(counting.made()).toBe(1);
+    const values = (request: number, channel: number): number[] => {
+      const message = posted.find(
+        (one) => one.kind === FromSpectrogramWorkerKind.Tile && one.request === request,
+      );
+      if (message?.kind !== FromSpectrogramWorkerKind.Tile) return [];
+      const key: SpectralTileKey = {
+        identity: 'one',
+        revision: '1',
+        channel,
+        config: CONFIG,
+        level: 0,
+        index: 0,
+      };
+      const tile = decodeTile(message.bytes, { key, columns: 256, bins: 129 }, true);
+      return tile.ok ? [...tile.value.values] : [];
+    };
+    expect(values(1, 1)).toEqual([...(await madeAlone(right, 0))]);
+    expect(values(2, 0)).toEqual([...(await madeAlone(left, 0))]);
+  });
+
+  it('stops making a tile no want waits on any longer, and sends nothing for it', async () => {
+    const { worker, posted, yields } = core();
+    const long: SpectrogramConfig = { windowLength: 4096, window: StftWindow.Hann, overlap: 2 };
+    worker.receive(DSP);
+    worker.receive(openOf(8 * TILE));
+    worker.receive(want(1, 0, long));
+    worker.receive({ kind: ToSpectrogramWorkerKind.Cancel, job: 'job', request: 1 });
+    await quiet();
+    expect(tilesPosted(posted)).toEqual([]);
+    // A tile at this window spans eight chunks; the work stops after the first.
+    expect(yields()).toBeLessThan(3);
+  });
 
   it('fails a sound it is given before its DSP, rather than choosing one itself', () => {
     const { worker, posted } = core();
@@ -433,10 +536,7 @@ describe('the spectrogram worker', () => {
 
   it('fails a job asked for a tile its sound does not have', () => {
     const { worker, posted } = core();
-    worker.receive({
-      kind: ToSpectrogramWorkerKind.Dsp,
-      delivery: { kind: DspDeliveryKind.Unavailable, reason: 'For this test.' },
-    });
+    worker.receive(DSP);
     worker.receive(OPEN);
     worker.receive({
       kind: ToSpectrogramWorkerKind.Want,

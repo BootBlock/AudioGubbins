@@ -27,7 +27,7 @@ import { inProcessChannel } from '@audiogubbins/ml-runtime/testing';
 import { processorTypesWith } from '@audiogubbins/processors';
 
 import type { SpectrogramWorkerPort } from '../spectrogram-host.js';
-import type { SpectralTileCache } from '../spectrogram-job.js';
+import type { SpectralTileCache } from '../spectrogram-ports.js';
 import {
   ToSpectrogramWorkerKind,
   type CompiledModule,

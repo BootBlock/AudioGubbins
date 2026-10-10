@@ -7,14 +7,14 @@
  * window. A column of level `L` spans `hop · 2^L` frames of the sound and is
  * the per-bin maximum power of `min(2^L, 4)` windows centred evenly within it,
  * so the windows of a level lie `spacing` frames apart, the first centred half
- * a spacing into the sound: level 0 is the STFT at the hop, each level to
- * level 2 the most of twice the windows of the level below, and each above it
- * four windows twice as far apart again. A level is so analysed without the
- * levels below it, and a long sound is drawn at its coarsest level from the
- * few windows that level reads. Every position here is a whole frame, so a
- * column's start is the sample boundary the timeline's exact conversions
- * place it at (ADR-0041): the hop is at least 32 frames, so half a spacing
- * and half a window are whole.
+ * a spacing into the sound: level 0 is the STFT at the hop, each level to level
+ * 2 the most of twice the windows of the level below, and each above it four
+ * windows twice as far apart again. A level is so analysed without the levels
+ * below it, and a long sound is drawn at its coarsest level from the few
+ * windows that level reads. Every position here is a whole frame, so a column's
+ * start is the sample boundary the timeline's exact conversions place it at
+ * (ADR-0041): the hop is at least 32 frames, so half a spacing and half a
+ * window are whole.
  */
 
 import { binsOf, hopOf, type SpectrogramConfig } from './spectrogram-config.js';

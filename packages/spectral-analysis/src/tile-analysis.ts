@@ -4,15 +4,15 @@
  * maximum power quantised (ADR-0080). Nothing else analyses audio for the
  * spectrogram, so the reference and the WebAssembly DSP make the same bytes.
  *
- * The tiles of several channels at one place are made in one pass, one STFT
- * of those channels over one read of the sound. Where a level's windows
- * overlap or touch, the frames from its first window's start to its last
- * window's end are read and pushed a chunk at a time, the STFT stepping by the
- * level's spacing; where they lie apart, at the coarse levels of a short
- * window, each window's samples alone are read and pushed, the STFT stepping
- * by its whole length, so a three-hour sound's coarsest tile reads a few
- * thousand windows, not three hours. The work gives the worker's host a turn
- * between chunks, and stops at the first after its signal is cancelled.
+ * The tiles of several channels at one place are made in one pass, one STFT of
+ * those channels over one read of the sound. Where a level's windows overlap or
+ * touch, the frames from its first window's start to its last window's end are
+ * read and pushed a chunk at a time, the STFT stepping by the level's spacing;
+ * where they lie apart, at the coarse levels of a short window, each window's
+ * samples alone are read and pushed, the STFT stepping by its whole length, so
+ * a three-hour sound's coarsest tile reads a few thousand windows, not three
+ * hours. The work gives the worker's host a turn between chunks, and stops at
+ * the first after its signal is cancelled.
  */
 
 import {

@@ -43,7 +43,7 @@ export {
   type SpectrogramEvent,
   type SpectrogramStatus,
   type SpectrogramView,
-} from './spectrogram-job.js';
+} from './spectrogram-ports.js';
 
 export {
   type ShownTile,

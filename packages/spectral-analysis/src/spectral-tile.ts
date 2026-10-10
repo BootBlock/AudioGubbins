@@ -24,9 +24,9 @@ export interface SpectralTileKey {
 }
 
 /**
- * A tile's levels: `bins` rows of `columns` bytes, row by row, row 0 the bin
- * at 0 Hz, so the byte of `bin` and `column` is `values[bin * columns +
- * column]`, as a renderer's scalar field holds its cells.
+ * A tile's levels: `bins` rows of `columns` bytes, row by row, row 0 the bin at
+ * 0 Hz, so the byte of `bin` and `column` is `values[bin * columns + column]`,
+ * as a renderer's scalar field holds its cells.
  */
 export interface SpectralTile {
   readonly key: SpectralTileKey;

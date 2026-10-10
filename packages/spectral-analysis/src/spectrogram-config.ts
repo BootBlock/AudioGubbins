@@ -105,10 +105,12 @@ export function configText(config: SpectrogramConfig): string {
 /** Settings that crossed a thread, read field by field and checked. */
 export function configAt(fields: MessageFields, field: string): SpectrogramConfig {
   const settings = fieldsOf(fields[field], field);
-  const { windowLength, window, overlap } = settings;
+  // Named apart from their fields, whose names hold a browser global's: a test
+  // of such a name's type reads as a probe of the browser.
+  const { windowLength: samples, window: kind, overlap } = settings;
   const config =
-    typeof windowLength === 'number' && typeof window === 'string' && typeof overlap === 'number'
-      ? spectrogramConfig({ windowLength, window, overlap })
+    typeof samples === 'number' && typeof kind === 'string' && typeof overlap === 'number'
+      ? spectrogramConfig({ windowLength: samples, window: kind, overlap })
       : undefined;
   if (config?.ok !== true) throw new Malformed(field, 'a spectrogram’s settings');
   return config.value;

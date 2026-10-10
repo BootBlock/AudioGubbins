@@ -55,7 +55,7 @@ describe('a spectrogram’s settings', () => {
     ['a window of no kind it knows', { windowLength: 2048, window: 'kaiser', overlap: 4 }],
     ['an overlap of three', { windowLength: 2048, window: 'hann', overlap: 3 }],
   ])('refuses %s', (_case, settings) => {
-    expectFailureCode(spectrogramConfig(settings), 'spectral.config-invalid');
+    expect(expectFailureCode(spectrogramConfig(settings))).toBe('spectral.config-invalid');
   });
 
   it('reads settings that crossed a thread, and refuses settings it would refuse', () => {

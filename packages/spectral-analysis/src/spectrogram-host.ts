@@ -17,13 +17,13 @@
 import type { DspImplementation } from '@audiogubbins/audio-engine';
 
 import type { SpectrogramConfig } from './spectrogram-config.js';
-import {
-  SpectrogramJob,
-  type SpectralTileCache,
-  type SpectrogramEvent,
-  type SpectrogramStatus,
-  type SpectrogramView,
-} from './spectrogram-job.js';
+import { SpectrogramJob } from './spectrogram-job.js';
+import type {
+  SpectralTileCache,
+  SpectrogramEvent,
+  SpectrogramStatus,
+  SpectrogramView,
+} from './spectrogram-ports.js';
 import { FromSpectrogramWorkerKind, type ToSpectrogramWorker } from './spectrogram-messages.js';
 import { readFromSpectrogramWorker } from './spectrogram-message-reading.js';
 import type { SpectrogramSubject } from './spectrogram-subject.js';

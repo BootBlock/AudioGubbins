@@ -4,14 +4,14 @@
  * It only connects the worker's global scope to `SpectrogramWorkerCore`, which
  * holds everything the worker does, so that behaviour is tested without a
  * worker. The package is compiled without any browser's type definitions, so
- * the parts of the scope this module uses are declared here by their shape;
- * the build compiles it again, with everything it imports, by
+ * the parts of the scope this module uses are declared here by their shape; the
+ * build compiles it again, with everything it imports, by
  * `scopes/dedicated-worker`, against a worker's definitions. It instantiates
  * the DSP module the page delivers, as a render worker does, and runs the
  * reference path where none is delivered or it will not start (ADR-0080). A
- * chain it runs itself rather than read from a render runs a model through
- * the model channel the page connects it by, which its scope hands on before
- * the core reads anything.
+ * chain it runs itself rather than read from a render runs a model through the
+ * model channel the page connects it by, which its scope hands on before the
+ * core reads anything.
  */
 
 import { deliveredDsp } from '@audiogubbins/audio-engine';
