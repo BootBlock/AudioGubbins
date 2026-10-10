@@ -260,8 +260,8 @@ const SLASHED_WORDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a word whose slash a sentence writes, a date, a fraction or one of
- * {@link SLASHED_WORDS}, rather than a path.
+ * Whether a word is one whose slash a sentence writes, a date, a fraction or
+ * one of {@link SLASHED_WORDS}, rather than a path.
  *
  * No folder's or file's name holds a slash, so a slashed word after a path is
  * either more of its folders or prose, and only these are read as prose: each
@@ -285,7 +285,9 @@ function isSlashedProse(word: string): boolean {
  * prose's ({@link isSlashedProse}) is not counted as holding one: counted, a
  * date or an `and/or` after a path would carry the path on through the
  * sentence to the end of the line, past the extension and the clause's mark
- * that end it. A folder after such a run still carries the path on through it.
+ * that end it. A folder after such a run still carries the path on through it,
+ * and so does a path of its own: a slashed word between two paths goes with
+ * them.
  * The final segment, after the last separator, is where a path and a sentence
  * meet. Its words are read in turn, and the path ends:
  *
