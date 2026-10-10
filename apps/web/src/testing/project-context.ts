@@ -42,6 +42,7 @@ import {
 
 import { shellCommands } from '../commands/shell-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
+import type { ExportServices } from '../export/export-types.js';
 import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
@@ -209,6 +210,8 @@ export interface ProjectWorld {
     readonly linkedFiles?: ScriptedLinkedFiles;
     /** The storage estimate the window's storage worker reads: none where not given. */
     readonly estimate?: () => Promise<StorageEstimate | undefined>;
+    /** The page's export, which a window offers none of where not given. */
+    readonly exports?: ExportServices;
   }): Promise<ProjectWindow>;
 }
 
@@ -330,6 +333,7 @@ export function projectWorld(
           projects,
           files,
           takeDown,
+          exports: options.exports,
           audio: built.audio,
           recording: built.recording,
           detectionWorkers: built.detectionWorkers,
@@ -370,7 +374,7 @@ async function windowOver(
     | 'audio'
     | 'recording'
     | 'detectionWorkers'
-  >,
+  > & { readonly exports: ExportServices | undefined },
   lifetime: AbortSignal,
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;
@@ -393,7 +397,14 @@ async function windowOver(
   projects.savedProcessing.follow(page, (error) => {
     throw error;
   });
-  const context: ShellContext = { ...base, storageRoot: root, projects, modelGate, packs };
+  const context: ShellContext = {
+    ...base,
+    storageRoot: root,
+    projects,
+    modelGate,
+    packs,
+    exports: parts.exports,
+  };
   followProjectAssets(projects, context.assets, modelGate);
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);

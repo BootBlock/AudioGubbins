@@ -62,6 +62,7 @@ import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
+import { exportDialogCommands } from './export-dialog-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
@@ -806,6 +807,8 @@ describe('finding the shell commands in the palette', () => {
       ...projectTransferCommands(),
       ...audioImportCommands(),
       ...quickEditCommands(),
+      // Each is run twice, its work awaited, in `export-dialog-commands.test.ts`.
+      ...exportDialogCommands(),
       ...libraryCommands(),
       ...libraryApplyCommands(),
       // Each is a step of the storage worker's pack installer, run twice with
