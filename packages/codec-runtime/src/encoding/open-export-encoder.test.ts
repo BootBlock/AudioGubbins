@@ -1,60 +1,79 @@
 /**
  * What opening an export's encoder refuses, and how its writer ends: a layout
- * the format cannot state, a setting the shipped encoder cannot express, a
- * prebuilt module that is not the build this runtime drives, a block of the
- * wrong shape, and a cancelled write.
+ * the format cannot state, an encoding value the encoder would not keep, an
+ * encoder module of another encoder, a block of the wrong shape, and a
+ * cancelled write.
  */
 
 import { StandardLayouts } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { succeed } from '@audiogubbins/domain';
+import type { FormatEncoding } from '@audiogubbins/import-export';
 import { describe, expect, it } from 'vitest';
 
+import { encoderModuleBytes } from '../testing/encoder-modules.js';
 import { exportRequest, testServices, testSignal } from '../testing/export-encoding.js';
-import { prebuiltEncoderBytes } from '../testing/prebuilt-encoders.js';
 import { openExportEncoder } from './open-export-encoder.js';
 
 const MP3_320 = { format: 'mp3', encoding: { mode: 'constant', bitRate: 320 } } as const;
 
+/** The test's services, counting the encoder modules loaded. */
+function counted() {
+  const loaded: string[] = [];
+  const services = {
+    ...testServices(),
+    encoderModule: async (name: 'mp3' | 'vorbis') => {
+      loaded.push(name);
+      return succeed(await WebAssembly.compile(encoderModuleBytes(name)));
+    },
+  };
+  return { services, loaded };
+}
+
 describe('opening an export’s encoder', () => {
   it('refuses a layout the format cannot state before loading its encoder', async () => {
-    let loaded = false;
-    const services = {
-      ...testServices(),
-      prebuiltModule: async () => {
-        loaded = true;
-        return succeed(await WebAssembly.compile(prebuiltEncoderBytes('mp3')));
-      },
-    };
+    const { services, loaded } = counted();
     const opened = await openExportEncoder(
       exportRequest(MP3_320, 48_000, StandardLayouts.surround5_1),
       services,
     );
     expect(expectFailureCode(opened)).toBe('codecs.layout-unwritable');
-    expect(loaded).toBe(false);
+    expect(loaded).toEqual([]);
   });
 
-  it('refuses the settings the shipped encoders cannot express, naming them', async () => {
-    for (const [encoding, setting] of [
-      [{ format: 'mp3', encoding: { mode: 'average', bitRate: 192 } }, 'mp3.average'],
-      [
-        { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 192 } },
-        'ogg-vorbis.bit-rate',
-      ],
-    ] as const) {
-      const opened = await openExportEncoder(exportRequest(encoding, 48_000), testServices());
-      expect(expectFailureCode(opened)).toBe('codec-runtime.setting-unexpressible');
-      expect(opened.ok ? undefined : opened.failures[0].details?.['setting']).toBe(setting);
-    }
-  });
+  it.each([
+    [
+      'an MP3 bit rate past LAME’s table at 8 kHz',
+      { format: 'mp3', encoding: { mode: 'constant', bitRate: 80 } },
+      8_000,
+    ],
+    [
+      'an MP3 average bit rate past LAME’s table at 11.025 kHz',
+      { format: 'mp3', encoding: { mode: 'average', bitRate: 96 } },
+      11_025,
+    ],
+    [
+      'a Vorbis nominal bit rate at 96 kHz, where libvorbis holds none',
+      { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 192 } },
+      96_000,
+    ],
+  ] as const)(
+    'refuses %s by the rule validation refuses it by, before loading the encoder',
+    async (_name, encoding: FormatEncoding, hertz) => {
+      const { services, loaded } = counted();
+      const opened = await openExportEncoder(exportRequest(encoding, hertz), services);
+      expect(expectFailureCode(opened)).toBe('import-export.encoding-invalid');
+      expect(loaded).toEqual([]);
+    },
+  );
 
-  it('refuses a prebuilt module of another encoder', async () => {
-    const vorbis = await WebAssembly.compile(prebuiltEncoderBytes('vorbis'));
+  it('refuses an encoder module of another encoder', async () => {
+    const vorbis = await WebAssembly.compile(encoderModuleBytes('vorbis'));
     const opened = await openExportEncoder(exportRequest(MP3_320, 48_000), {
       ...testServices(),
-      prebuiltModule: () => Promise.resolve(succeed(vorbis)),
+      encoderModule: () => Promise.resolve(succeed(vorbis)),
     });
-    expect(expectFailureCode(opened)).toBe('codec-runtime.prebuilt-encoder-refused');
+    expect(expectFailureCode(opened)).toBe('codec-runtime.encoder-module-refused');
   });
 
   it('refuses a target its encoding does not make', async () => {
@@ -64,24 +83,6 @@ describe('opening an export’s encoder', () => {
       testServices(),
     );
     expect(expectFailureCode(opened)).toBe('codec-runtime.target-disagrees');
-  });
-
-  it('refuses an MP3 bit rate the rate’s MPEG version does not code, which LAME would replace', async () => {
-    const opened = await openExportEncoder(exportRequest(MP3_320, 16_000), testServices());
-    expect(expectFailureCode(opened)).toBe('codec-runtime.settings-refused');
-  });
-
-  it('answers the prebuilt encoder’s refusal of settings it will not encode', async () => {
-    // The libvorbis build encodes one or two channels; validation refuses more first.
-    const opened = await openExportEncoder(
-      exportRequest(
-        { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 5 } },
-        48_000,
-        StandardLayouts.lcr,
-      ),
-      testServices(),
-    );
-    expect(expectFailureCode(opened)).toBe('codec-runtime.prebuilt-encoder-failed');
   });
 });
 

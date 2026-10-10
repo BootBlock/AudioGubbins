@@ -254,7 +254,7 @@ function heAacServices(probed: boolean, released: { count: number }): ImportServ
     environment: () => ({
       webAssembly: true,
       codecModule: 'loaded',
-      prebuiltModules: new Map(),
+      encoderModules: new Map(),
       browserDecoders: new Set(probed ? (['he-aac'] as const) : []),
       browserEncoders: new Set(),
     }),

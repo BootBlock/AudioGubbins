@@ -43,7 +43,7 @@ export {
   type ImportAnalysis,
   type MetadataOutcome,
   type ModuleSource,
-  type PrebuiltEncoder,
+  type EncoderModuleName,
   ToCodecWorkerKind,
   type ToCodecWorker,
 } from './worker/codec-worker-messages.js';

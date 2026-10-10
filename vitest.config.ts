@@ -93,6 +93,8 @@ export default defineConfig({
       ...configDefaults.forceRerunTriggers,
       '**/crates/**/*.rs',
       '**/Cargo.{toml,lock}',
+      '**/native/**/*.{c,h}',
+      '**/third_party/**/*.{c,h}',
     ],
 
     projects: [

@@ -3,7 +3,9 @@
  * Ogg Vorbis by libvorbis and Opus by the codec module, each decoded by the
  * codec module, which gives back exactly as many frames as were exported,
  * the encoder's priming and padding trimmed by what the file states, and
- * within a stated error of the source.
+ * within a stated error of the source. Every bit-rate mode of each encoder is
+ * here, and Vorbis in three, six and eight channels, each channel its own
+ * tones, so a channel written in the wrong place fails the error.
  *
  * The error is the signal-to-noise ratio of the decoded audio against the
  * source, sample for sample over every channel, with no alignment searched
@@ -63,11 +65,25 @@ const CASES: readonly LossyCase[] = [
     floorDb: 19,
   },
   {
-    name: 'MP3 at a constant 56 kbit/s, which LAME encodes and the package’s script refuses',
+    name: 'MP3 at a constant 56 kbit/s in mono',
     encoding: { format: 'mp3', encoding: { mode: 'constant', bitRate: 56 } },
     rate: 48_000,
     layout: StandardLayouts.mono,
     floorDb: 15,
+  },
+  {
+    name: 'MP3 at an average 160 kbit/s',
+    encoding: { format: 'mp3', encoding: { mode: 'average', bitRate: 160 } },
+    rate: 44_100,
+    layout: StandardLayouts.stereo,
+    floorDb: 19,
+  },
+  {
+    name: 'MP3 at an average 48 kbit/s at 11.025 kHz, MPEG-2.5',
+    encoding: { format: 'mp3', encoding: { mode: 'average', bitRate: 48 } },
+    rate: 11_025,
+    layout: StandardLayouts.stereo,
+    floorDb: 19,
   },
   {
     name: 'MP3 of variable bit rate at V0',
@@ -89,6 +105,40 @@ const CASES: readonly LossyCase[] = [
     rate: 44_100,
     layout: StandardLayouts.mono,
     floorDb: 28,
+  },
+  {
+    name: 'Ogg Vorbis at a nominal 128 kbit/s',
+    encoding: { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 128 } },
+    rate: 44_100,
+    layout: StandardLayouts.stereo,
+    floorDb: 30,
+  },
+  {
+    name: 'Ogg Vorbis in three channels, LCR, at quality 6',
+    encoding: { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 6 } },
+    rate: 48_000,
+    layout: StandardLayouts.lcr,
+    floorDb: 31,
+  },
+  {
+    // At 32 kHz libvorbis codes six channels uncoupled. Its 5.1 setup, from 40
+    // to 70 kHz, couples them in several steps, which the codec module's
+    // decoder (Symphonia 0.6.1) inverts in the wrong order.
+    name: 'Ogg Vorbis in 5.1 at quality 6',
+    encoding: { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 6 } },
+    rate: 32_000,
+    layout: StandardLayouts.surround5_1,
+    floorDb: 34,
+  },
+  {
+    // At quality 6 the residue's partitions fill its classwords; where they do
+    // not, the codec module's decoder (Symphonia 0.6.1) overwrites the next
+    // channel's classifications, so this decodes only where they do.
+    name: 'Ogg Vorbis in 7.1 at quality 6',
+    encoding: { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 6 } },
+    rate: 48_000,
+    layout: StandardLayouts.surround7_1,
+    floorDb: 31,
   },
   {
     name: 'Opus at 256 kbit/s',
@@ -161,12 +211,20 @@ describe('the reproducibility of lossy exports', () => {
       '44e6b5e6c8329b9d02f9223f7bb9eb4ba49f6104ca96404a0732148992c4eec7',
     ],
     [
+      { format: 'mp3', encoding: { mode: 'average', bitRate: 160 } },
+      '216e85625f0ef56868799dd2e6f5651bd17f07cde8fe2d352c0e5e43fd5943a5',
+    ],
+    [
       { format: 'mp3', encoding: { mode: 'variable', quality: 2 } },
       '8b78ad77d7fc54f52152e0005fdc3e43f4a6d9144020f0b20a0cde9571846617',
     ],
     [
       { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 6 } },
-      'a755e65bc9897269c22882641e73ebb3f1af4cd993fd4f2997a48831e8771209',
+      '0b78e48ddfc08eaf0170ba732cbc11f28af5d2c9382e53531d03b410704c40bb',
+    ],
+    [
+      { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 128 } },
+      'af46702bbea8faa7d596997f65e53246a07206371c9d34f17dd1cc29dd86e479',
     ],
     [
       {
