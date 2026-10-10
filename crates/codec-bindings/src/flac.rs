@@ -9,7 +9,9 @@ use crate::{
 
 /// An encoder of FLAC frames of `channels` channels of `bits` bits at `rate`,
 /// in blocks of `block_size` frames, at compression level `level` (0 to 8):
-/// its handle, or [`REFUSED`] for settings `flacenc` does not encode.
+/// its handle, or [`REFUSED`] for settings FLAC does not encode. Every
+/// depth from 4 to 32 bits is served: `flacenc`'s by `flacenc`, the rest,
+/// 32 bits among them, by the module's own encoder.
 #[unsafe(no_mangle)]
 pub extern "C" fn ag_flac_encoder_create(
     channels: u32,

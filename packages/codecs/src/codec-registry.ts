@@ -109,7 +109,8 @@ const DESCRIPTORS: Readonly<Record<CodecId, CodecDescriptor>> = {
       implementation: 'codec-module',
       containers: ['flac'],
       reproducible: true,
-      // flacenc, the codec module's FLAC encoder.
+      // flacenc, and the codec module's own encoder for the depths flacenc
+      // does not encode, 32 bits among them.
       licence: 'Apache-2.0',
       sampleRates: { kind: 'any', minimum: 8_000, maximum: 655_350 },
       maximumChannels: 8,

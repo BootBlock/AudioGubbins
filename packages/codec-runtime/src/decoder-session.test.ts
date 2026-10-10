@@ -115,6 +115,36 @@ describe('a decode session', () => {
     session.release();
   });
 
+  it('returns 32-bit FLAC frames the runtime encodes within a float sample of each', async () => {
+    const module = await codecModule();
+    const settings: FlacFrameSettings = { ...STEREO_16, bitsPerSample: 32, level: 8 };
+    const planes = [
+      signal(9_000, 3, 32, 1),
+      Int32Array.from({ length: 9_000 }, (_, frame) =>
+        frame % 2 === 0 ? -(2 ** 31) : 2 ** 31 - 1,
+      ),
+    ];
+    const opened = module.openDecoder(memoryBytes(flacStream(module, settings, planes)));
+    if (!opened.ok) throw new Error(opened.failures[0].summary);
+    const session = opened.value;
+    expect(session.description).toMatchObject({ bitsPerSample: 32, totalFrames: 9_000 });
+    const decoded = decodeAll(session, 2);
+    if (typeof decoded === 'string') throw new Error(decoded);
+    // A decoded sample is a float of 24 significant bits, so it is within
+    // 2^7 of the 32-bit sample it was.
+    decoded.forEach((plane, channel) => {
+      const original = planes[channel] ?? new Int32Array(0);
+      expect(plane.length).toBe(original.length);
+      const furthest = plane.reduce(
+        (worst, sample, frame) =>
+          Math.max(worst, Math.abs(sample * 2 ** 31 - (original[frame] ?? 0))),
+        0,
+      );
+      expect(furthest).toBeLessThanOrEqual(2 ** 7);
+    });
+    session.release();
+  });
+
   it('refuses a call after release, and a second release does nothing', async () => {
     const module = await codecModule();
     const opened = module.openDecoder(
@@ -219,7 +249,7 @@ describe('a decode session', () => {
 });
 
 describe('a FLAC frame encoder', () => {
-  it('refuses settings flacenc does not encode, and frame numbers past 31 bits', async () => {
+  it('refuses settings FLAC does not encode, and frame numbers past 31 bits', async () => {
     const module = await codecModule();
     const codeOf = (settings: FlacFrameSettings): string | undefined => {
       const made = module.createFlacFrameEncoder(settings);
@@ -227,6 +257,8 @@ describe('a FLAC frame encoder', () => {
       return made.ok ? undefined : made.failures[0].code;
     };
     expect(codeOf({ ...STEREO_16, channels: 9 })).toBe('codec-runtime.refused');
+    expect(codeOf({ ...STEREO_16, bitsPerSample: 3 })).toBe('codec-runtime.refused');
+    expect(codeOf({ ...STEREO_16, bitsPerSample: 33 })).toBe('codec-runtime.refused');
     expect(codeOf({ ...STEREO_16, blockSize: 16 })).toBe('codec-runtime.refused');
     expect(codeOf({ ...STEREO_16, sampleRate: 44_100.5 })).toBe('codec-runtime.settings-refused');
     expect(codeOf({ ...STEREO_16, sampleRate: 2 ** 32 + 44_100 })).toBe(

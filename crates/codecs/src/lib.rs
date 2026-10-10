@@ -10,9 +10,10 @@
 //! fixed-point port of the reference decoder, `ropus`. A packet that will not
 //! decode fails the session: nothing is concealed or repaired.
 //!
-//! [`FlacFrameEncoder`] encodes FLAC frames for the application's own FLAC
-//! writer, and [`OpusEncoder`] encodes Opus packets, with the identification
-//! header and granule positions its Ogg writer needs.
+//! [`FlacFrameEncoder`] encodes FLAC frames of every depth for the
+//! application's own FLAC writer, and [`OpusEncoder`] encodes Opus packets,
+//! with the identification header and granule positions its Ogg writer
+//! needs.
 //!
 //! Every function is safe Rust, and nothing here panics on any input: a file
 //! is untrusted, so each failure is a [`CodecFailure`] (REQ-EXEC-136). The
@@ -24,6 +25,8 @@ mod decode_session;
 mod description;
 mod failure;
 mod flac_frames;
+mod flac_native;
+mod flacenc_frames;
 mod leading_bytes;
 mod mp4_gapless;
 mod opus_decoding;

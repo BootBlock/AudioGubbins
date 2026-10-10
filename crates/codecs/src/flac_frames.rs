@@ -1,4 +1,4 @@
-//! FLAC frames encoded one at a time by `flacenc` (ADR-0091).
+//! FLAC frames encoded one at a time (ADR-0091), at every depth FLAC allows.
 //!
 //! The module encodes frames and nothing else: the application's own FLAC
 //! writer (in `@audiogubbins/codecs`) writes the stream around them, and
@@ -7,28 +7,28 @@
 //! receives. Each frame of a stream of fixed block size carries its number,
 //! so frames may be encoded in any order.
 //!
-//! What `flacenc` encodes, and so what this accepts: one to eight channels,
-//! 8, 12, 16, 20 or 24 bits a sample (FLAC's own frame codes, without 32,
-//! which `flacenc` refuses), blocks of 32 to 32 767 frames, and any rate a
-//! frame header can name (to 65 535 Hz, then multiples of 10 Hz to
-//! 655 350 Hz).
-
-use flacenc::bitsink::ByteSink;
-use flacenc::component::{BitRepr, StreamInfo};
-use flacenc::config;
-use flacenc::error::{Verified, Verify};
-use flacenc::source::{Fill, FrameBuf};
+//! `flacenc` encodes the depths it serves, 8, 12, 16, 20 and 24 bits a
+//! sample; the module's own encoder (`flac_native`) encodes the rest, 32
+//! bits above all, so a caller sees one encoder of every depth from 4 to 32.
+//! Either way it accepts one to eight channels, blocks of 32 to 32 767
+//! frames, and any rate a frame header can name (to 65 535 Hz, then
+//! multiples of 10 Hz to 655 350 Hz).
 
 use crate::failure::CodecFailure;
+use crate::flac_native::NativeFrames;
+use crate::flacenc_frames::{DEPTHS as FLACENC_DEPTHS, FlacencFrames};
 
-/// The bits a sample may have.
-const DEPTHS: [u8; 5] = [8, 12, 16, 20, 24];
+/// The bits a sample may have: FLAC's STREAMINFO names 4 to 32.
+const DEPTHS: std::ops::RangeInclusive<u8> = 4..=32;
 
-/// The block sizes `flacenc` encodes.
+/// The block sizes encoded.
 const BLOCK_SIZES: std::ops::RangeInclusive<u32> = 32..=32_767;
 
 /// The highest compression level.
 pub const MAX_LEVEL: u8 = 8;
+
+/// The largest frame number a frame header holds: 31 bits.
+const MAX_FRAME_NUMBER: u32 = (1 << 31) - 1;
 
 /// What a FLAC stream is encoded with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -36,7 +36,7 @@ pub struct FlacSettings {
     /// Channels, one to eight, in FLAC's own order, which is the speaker
     /// mask's.
     pub channels: u8,
-    /// Bits a sample: 8, 12, 16, 20 or 24.
+    /// Bits a sample, 4 to 32.
     pub bits_per_sample: u8,
     /// Frames a second.
     pub sample_rate: u32,
@@ -44,37 +44,21 @@ pub struct FlacSettings {
     pub block_size: u32,
     /// How hard the encoder searches, 0 to 8, after `libFLAC`'s levels: up
     /// to 2 the fixed predictors alone, from 3 linear prediction of order 6,
-    /// 8 and from 7 of 12; stereo decorrelation at every level but 0 and 3.
+    /// 8 and from 7 of 12; stereo decorrelation at every level but 0 and 3,
+    /// and below 32 bits a sample.
     pub level: u8,
 }
 
-/// The encoder configuration of a compression level.
-fn configuration(level: u8, block_size: usize) -> Result<Verified<config::Encoder>, CodecFailure> {
-    let mut encoder = config::Encoder::default();
-    encoder.block_size = block_size;
-    // The module has one thread; a worker pool could not start.
-    encoder.multithread = false;
-    let stereo = !matches!(level, 0 | 3);
-    encoder.stereo_coding.use_leftside = stereo;
-    encoder.stereo_coding.use_rightside = stereo;
-    encoder.stereo_coding.use_midside = stereo;
-    encoder.subframe_coding.use_lpc = level >= 3;
-    encoder.subframe_coding.qlpc.lpc_order = match level {
-        0..=3 => 6,
-        4..=6 => 8,
-        _ => 12,
-    };
-    encoder.into_verified().map_err(|_| CodecFailure::Refused)
+/// The encoder that serves a stream's depth.
+enum Engine {
+    Flacenc(FlacencFrames),
+    Native(NativeFrames),
 }
 
 /// Encodes one FLAC stream's frames.
 pub struct FlacFrameEncoder {
     settings: FlacSettings,
-    config: Verified<config::Encoder>,
-    stream_info: StreamInfo,
-    frame: FrameBuf,
-    interleaved: Vec<i32>,
-    encoded: ByteSink,
+    engine: Engine,
 }
 
 impl FlacFrameEncoder {
@@ -82,7 +66,7 @@ impl FlacFrameEncoder {
     ///
     /// # Errors
     ///
-    /// [`CodecFailure::Refused`] for settings outside what `flacenc` encodes.
+    /// [`CodecFailure::Refused`] for settings outside what FLAC encodes.
     pub fn new(settings: FlacSettings) -> Result<Self, CodecFailure> {
         let FlacSettings {
             channels,
@@ -99,35 +83,26 @@ impl FlacFrameEncoder {
         if !usable {
             return Err(CodecFailure::Refused);
         }
-        let block = usize::try_from(block_size).map_err(|_| CodecFailure::Refused)?;
-        let channel_count = usize::from(channels);
-        let rate = usize::try_from(sample_rate).map_err(|_| CodecFailure::Refused)?;
-        let stream_info = StreamInfo::new(rate, channel_count, usize::from(bits_per_sample))
-            .map_err(|_| CodecFailure::Refused)?;
-        // A frame header names the rate, so a rate it cannot name is refused
-        // here rather than at the first frame.
-        flacenc::component::FrameHeader::new(
-            block,
-            flacenc::component::ChannelAssignment::Independent(channels),
-            usize::from(bits_per_sample),
-            rate,
-            flacenc::component::FrameOffset::Frame(0),
-        )
-        .map_err(|_| CodecFailure::Refused)?;
-        Ok(Self {
-            settings,
-            config: configuration(level, block)?,
-            stream_info,
-            frame: FrameBuf::with_size(channel_count, block).map_err(|_| CodecFailure::Refused)?,
-            interleaved: Vec::with_capacity(block * channel_count),
-            encoded: ByteSink::new(),
-        })
+        let engine = if FLACENC_DEPTHS.contains(&bits_per_sample) {
+            Engine::Flacenc(FlacencFrames::new(settings)?)
+        } else {
+            Engine::Native(NativeFrames::new(
+                channels,
+                bits_per_sample,
+                sample_rate,
+                level,
+            )?)
+        };
+        Ok(Self { settings, engine })
     }
 
     /// The bytes of the frame last encoded.
     #[must_use]
     pub fn last_frame(&self) -> &[u8] {
-        self.encoded.as_slice()
+        match &self.engine {
+            Engine::Flacenc(engine) => engine.last_frame(),
+            Engine::Native(engine) => engine.last_frame(),
+        }
     }
 
     /// The settings the encoder was made with.
@@ -151,30 +126,18 @@ impl FlacFrameEncoder {
         frames: usize,
         number: u32,
     ) -> Result<&[u8], CodecFailure> {
-        let channels = usize::from(self.settings.channels);
-        let usable = planes.len() == channels
+        let block = usize::try_from(self.settings.block_size).map_err(|_| CodecFailure::Refused)?;
+        let usable = planes.len() == usize::from(self.settings.channels)
             && frames > 0
-            && frames <= self.frame.size()
+            && frames <= block
+            && number <= MAX_FRAME_NUMBER
             && planes.iter().all(|plane| plane.as_ref().len() >= frames);
         if !usable {
             return Err(CodecFailure::Refused);
         }
-        self.interleaved.clear();
-        for index in 0..frames {
-            self.interleaved
-                .extend(planes.iter().map(|plane| plane.as_ref()[index]));
+        match &mut self.engine {
+            Engine::Flacenc(engine) => engine.encode(planes, frames, number),
+            Engine::Native(engine) => engine.encode(planes, frames, number),
         }
-        self.frame
-            .fill_interleaved(&self.interleaved)
-            .map_err(|_| CodecFailure::Refused)?;
-        let number = usize::try_from(number).map_err(|_| CodecFailure::Refused)?;
-        let frame =
-            flacenc::encode_fixed_size_frame(&self.config, &self.frame, number, &self.stream_info)
-                .map_err(|_| CodecFailure::Refused)?;
-        self.encoded.clear();
-        frame
-            .write(&mut self.encoded)
-            .map_err(|_| CodecFailure::Refused)?;
-        Ok(self.encoded.as_slice())
     }
 }
