@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -100,6 +100,51 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
     expect(screen.getByText('No area of time and frequency is selected.')).toBeInTheDocument();
   });
 
+  it('chooses how a shape drawn with no modifier joins the area, for a finger or a pen', async () => {
+    const audio = await selectedLoop();
+    const ran = panelOver(audio);
+    const modes = screen.getByRole('group', { name: 'Combination mode' });
+
+    expect(within(modes).getByRole('button', { name: 'Replace' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(within(modes).getByRole('button', { name: 'Take away' }));
+
+    expect(ran).toEqual([['editor.spectral-combination-subtract', { view: 'editor' }]]);
+    expect(within(modes).getByRole('button', { name: 'Take away' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(modes).getByRole('button', { name: 'Replace' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('adds a band of the time selection to the area, and takes one from it', async () => {
+    const audio = await selectedLoop();
+    audio.window.run('editor.select-time', { start: 100_000, end: 120_000 });
+    const ran = panelOver(audio);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add the band of the time selection' }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Take the band of the time selection away' }),
+    );
+
+    expect(ran).toEqual([
+      ['editor.add-spectral-band', { view: 'editor' }],
+      ['editor.subtract-spectral-band', { view: 'editor' }],
+    ]);
+    expect(
+      audio.window.context.selections
+        .of(audio.asset().id)
+        .spectral?.shapes.map((shape) => shape.effect),
+    ).toEqual(['add', 'add', 'subtract']);
+  });
+
   it('attenuates by the decibels typed at the resolution chosen, and lists the edit made', async () => {
     const audio = await selectedLoop();
     const ran = panelOver(audio);
@@ -138,11 +183,14 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
     ]);
   });
 
-  it('says before cleaning up that a processor whose model cannot run will not be heard', async () => {
+  it('says before cleaning up that a processor whose model cannot run will not be heard, and then cleans up knowingly', async () => {
     const audio = await selectedLoop();
-    panelOver(audio, (processor) =>
+    const ran = panelOver(audio, (processor) =>
       processor.typeKey === 'deepfilternet-3' ? 'Its model is not installed.' : undefined,
     );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clean up' }));
+    const runnable = ran.at(-1);
 
     screen.getByRole('combobox', { name: 'Clean up with' }).focus();
     await userEvent.keyboard('{Enter}');
@@ -153,6 +201,33 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
         'It can be applied, but it is not heard until it can run: Its model is not installed.',
       ),
     ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clean up anyway' }));
+
+    expect(runnable?.[1]).not.toHaveProperty('knowingly');
+    expect(ran.at(-1)).toEqual([
+      'spectral.process',
+      { view: 'editor', resolution: 2048, typeKey: 'deepfilternet-3', knowingly: true },
+    ]);
+  });
+
+  it('compares each spectral edit listed with before it, naming the edit', async () => {
+    const audio = await selectedLoop();
+    await audio.window.runAndHear('spectral.heal');
+    await audio.window.runAndHear('spectral.remove');
+    const edits =
+      audio.session.getSnapshot().model.state.project.assets.get(audio.assetId)?.edits ?? [];
+    const ran = panelOver(audio);
+
+    const buttons = screen.getAllByRole('button', { name: 'Compare with before it' });
+    expect(buttons).toHaveLength(2);
+    const [first] = buttons;
+    if (first === undefined) throw new Error('No edit is listed.');
+    await userEvent.click(first);
+
+    expect(ran.at(-1)).toEqual([
+      'spectral.compare-before-edit',
+      { view: 'editor', operationId: edits[0]?.id },
+    ]);
   });
 
   it('turns pen pressure off through its command, shown in the brush’s strength', async () => {

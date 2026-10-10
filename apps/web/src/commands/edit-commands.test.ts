@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
+import { ENGINE_VERSIONS, decibelsToGain } from '@audiogubbins/audio-engine';
 import { sampleRate, type EditOperation, type Region } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sine } from '@audiogubbins/test-fixtures';
@@ -60,9 +60,12 @@ const PROCESSING: readonly (readonly [
     { kind: 'fade', direction: 'out', shape: 'equal-power' },
     true,
   ],
-  ['edit.louder', {}, { kind: 'gain', gain: 10 ** (3 / 20) }, true],
-  ['edit.quieter', {}, { kind: 'gain', gain: 10 ** (-3 / 20) }, true],
-  ['edit.gain', { decibels: 6 }, { kind: 'gain', gain: 10 ** (6 / 20) }, true],
+  ['edit.louder', {}, { kind: 'gain', gain: decibelsToGain(3) }, true],
+  ['edit.quieter', {}, { kind: 'gain', gain: decibelsToGain(-3) }, true],
+  ['edit.gain', { decibels: 6 }, { kind: 'gain', gain: decibelsToGain(6) }, true],
+  // The platform's power of ten gives another last bit at 12 dB: the factor
+  // kept is the engine's canonical conversion, the same on every machine.
+  ['edit.gain', { decibels: 12 }, { kind: 'gain', gain: decibelsToGain(12) }, true],
   ['edit.swap-channels', {}, { kind: 'swap-channels', first: 0, second: 1 }, false],
   ['edit.copy-channel', { from: 'left', to: 2 }, { kind: 'copy-channel', from: 0, to: 1 }, false],
   ['edit.channel-gains', { gains: '1,0.5' }, { kind: 'channel-gains', gains: [1, 0.5] }, false],

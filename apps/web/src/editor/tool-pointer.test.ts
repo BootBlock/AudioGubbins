@@ -15,7 +15,12 @@ import {
   type GestureSettings,
   type PointerSample,
 } from '@audiogubbins/input';
-import { EMPTY_SELECTION, boundaryAt, samplesWithin } from '@audiogubbins/timeline';
+import {
+  EMPTY_SELECTION,
+  SpectralCombination,
+  boundaryAt,
+  samplesWithin,
+} from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { testAssets } from '../assets/test-assets.js';
@@ -449,7 +454,12 @@ describe('the spectral tools through the pointer (ADR-0082)', () => {
   });
 
   it('draws with the brush and softness the view keeps, as the Spectral panel set them', async () => {
-    const tools = { brushRadius: 30, hardness: 0.25, feather: { time: 480, frequency: 50 } };
+    const tools = {
+      brushRadius: 30,
+      hardness: 0.25,
+      feather: { time: 480, frequency: 50 },
+      combination: SpectralCombination.Replace,
+    };
     const brushed = { ...spectral(ToolId.SpectralBrush), spectralTools: tools };
     const { tool, ran } = pointerOver(brushed, () => Promise.resolve(undefined));
     tool.down({ ...at(200), y: 90 }, NONE);
@@ -494,5 +504,68 @@ describe('the spectral tools through the pointer (ADR-0082)', () => {
       },
     });
     expect(mask.feather).toEqual({ time: 0, frequency: 0 });
+  });
+  /** A finger at `x`, `y`: a touch reports a pressure the brush does not read. */
+  const finger = (x: number, y: number): PointerSample => ({
+    pointerId: 3,
+    kind: PointerKind.Touch,
+    x,
+    y,
+    pressure: 0.5,
+    timestamp: 0,
+  });
+
+  /** The command a finger's drag through `points` ran, each move taken before the next. */
+  async function touched(
+    state: EditorViewState,
+    points: readonly (readonly [number, number])[],
+  ): Promise<IntentCommand | undefined> {
+    const { tool, ran } = pointerOver(state, () => Promise.resolve(undefined));
+    const [first, ...rest] = points;
+    if (first === undefined) throw new Error('No touch.');
+    tool.down(finger(...first), NONE);
+    for (const point of rest) {
+      await everythingQueued();
+      tool.moved(finger(...point), NONE);
+    }
+    await everythingQueued();
+    tool.up(finger(...(rest.at(-1) ?? first)), NONE);
+    await vi.waitFor(() => {
+      expect(ran).toHaveLength(1);
+    });
+    return ran[0];
+  }
+
+  it('adds and takes away with a finger, which holds no key, as the combination mode says', async () => {
+    for (const tool of [ToolId.SpectralMarquee, ToolId.SpectralLasso, ToolId.SpectralBrush]) {
+      for (const combination of [SpectralCombination.Add, SpectralCombination.Subtract]) {
+        const state = spectral(tool);
+        const command = await touched(
+          { ...state, spectralTools: { ...state.spectralTools, combination } },
+          [
+            [200, 80],
+            [260, 90],
+            [300, 110],
+          ],
+        );
+        expect(command).toMatchObject({ id: 'editor.select-spectral', args: { combination } });
+      }
+    }
+  });
+
+  it('brushes with a finger at the fixed strength, since a touch has no pressure to read', async () => {
+    const command = await touched(spectral(ToolId.SpectralBrush), [
+      [200, 90],
+      [240, 95],
+      [280, 100],
+    ]);
+    const mask = JSON.parse(String(command?.args['mask'])) as {
+      shapes: { points: { strength: number }[] }[];
+    };
+    expect(mask.shapes[0]?.points.map((point) => point.strength)).toEqual([
+      DEFAULT_GESTURE_SETTINGS.fixedStrength,
+      DEFAULT_GESTURE_SETTINGS.fixedStrength,
+      DEFAULT_GESTURE_SETTINGS.fixedStrength,
+    ]);
   });
 });

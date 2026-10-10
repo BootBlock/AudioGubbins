@@ -2768,8 +2768,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    *
    * REQ-EXEC-136.7 makes roughly 300 to 400 logical lines a trigger for a
    * cohesion review rather than an automatic failure, and prohibits splitting a
-   * coherent concept into meaningless files to satisfy a number. A file past
-   * it fails until it is split, or until its review is recorded in
+   * coherent concept into meaningless files to satisfy a number. A file past it
+   * fails until it is split, or until its review is recorded in
    * `REVIEWED_PAST_THRESHOLD` with its justification, which keeps an exception
    * visible rather than raising the number for everything.
    */
@@ -2898,8 +2898,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "Every command that changes the recording settings, as three tables, the profiles, the buffer and count-in, and the preferences and latency, each command a few lines over the store's revisions in `recording-settings.ts`; split by table, the shared `revised` and argument readers would move to a fourth file.",
     ],
     'apps/web/src/shell/menus.ts': [
-      302,
-      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command.",
+      328,
+      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table.",
     ],
     'apps/web/src/shell/panels.tsx': [
       332,
@@ -3162,8 +3162,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      62,
-      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key.",
+      71,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,

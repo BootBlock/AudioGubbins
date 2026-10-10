@@ -6,15 +6,14 @@
  * The frames are given in order, once each. A run is the frames one after
  * another whose weight in the bin is above nothing. The border before a run is
  * the mean magnitude of up to four frames just before it that the mask leaves,
- * one after another, and the border after it likewise. A frame that holds
- * samples past either end of the stream is no border: what lies there is no
- * sound of the stream's, and a frame cut short by it measures a magnitude the
- * sound does not have. It ends the frames one after another as a masked frame
- * does; where a run has both, frame `k` of the run from `s` to `e` takes
- * `before + t · (after − before)`, `t = (k − s + 1) / (e − s + 2)`, so the heal
- * joins its borders in a straight line; where it has one, it takes that one;
- * where it has none, its frames are left as they are. Each mean is summed in
- * the order of the frames, so every machine finds the same.
+ * one after another, and the border after it likewise. A frame that reaches
+ * outside the stream holds silence there that is not the sound, so it is no
+ * border: it ends the border it would have joined. Where a run has both, frame
+ * `k` of the run from `s` to `e` takes `before + t · (after − before)`,
+ * `t = (k − s + 1) / (e − s + 2)`, so the heal joins its borders in a straight
+ * line; where it has one, it takes that one; where it has none, its frames are
+ * left as they are. Each mean is summed in the order of the frames, so every
+ * machine finds the same.
  */
 
 import { HEAL_BORDER_FRAMES } from '@audiogubbins/domain';
@@ -67,14 +66,14 @@ export class HealBorders {
 
   /**
    * Takes frame `k`, after every frame before it: its weights, `undefined`
-   * where the mask covers none of it, and each channel's spectrum, or
-   * `undefined` where the frame holds samples past the stream's ends and so
-   * is no border.
+   * where the mask covers none of it, whether it lies wholly within the
+   * stream, and each channel's spectrum.
    */
   take(
     k: number,
     weights: Float64Array | undefined,
-    spectra: readonly Spectrum[] | undefined,
+    within: boolean,
+    spectra: readonly Spectrum[],
   ): void {
     const channels = this.#channels;
     for (let bin = 0; bin < this.#bins; bin += 1) {
@@ -82,8 +81,8 @@ export class HealBorders {
         this.#masked(bin, k);
         continue;
       }
-      if (spectra === undefined) {
-        this.#cut(bin);
+      if (!within) {
+        this.#outside(bin);
         continue;
       }
       const magnitudes = this.#magnitudes;
@@ -150,12 +149,8 @@ export class HealBorders {
     this.#recentCount[bin] = 0;
   }
 
-  /**
-   * Records a frame the mask leaves in `bin` that is no border: a run open
-   * there ends, the border after the run before is measured no further, and
-   * the frames before the next run start after it.
-   */
-  #cut(bin: number): void {
+  /** Records a frame the mask leaves in `bin` that reaches outside the stream: no border. */
+  #outside(bin: number): void {
     this.#open[bin] = undefined;
     this.#measuring[bin] = undefined;
     this.#recentCount[bin] = 0;

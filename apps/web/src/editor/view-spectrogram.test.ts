@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { MAXIMUM_QUALITY } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { DisplayMode, newViewState, type EditorViewState } from '@audiogubbins/editor-view';
-import { SpectrogramHost, ToSpectrogramWorkerKind } from '@audiogubbins/spectral-analysis';
+import {
+  SpectrogramHost,
+  ToSpectrogramWorkerKind,
+  type SpectrogramStatus,
+} from '@audiogubbins/spectral-analysis';
 import {
   LocalSpectrogramWorker,
   MemoryTileCache,
@@ -12,7 +16,7 @@ import {
 import { samplesPerPixel, scrolledBy, viewportAtStart } from '@audiogubbins/timeline';
 
 import { testAssets } from '../assets/test-assets.js';
-import { ViewSpectrogram } from './view-spectrogram.js';
+import { ShownSpectrogram, ViewSpectrogram } from './view-spectrogram.js';
 
 const [FIRST] = expectSuccess(testAssets());
 if (FIRST === undefined) throw new Error('No test asset.');
@@ -36,6 +40,7 @@ function viewOver() {
     },
     cache: new MemoryTileCache(),
     report: () => undefined,
+    now: () => 0,
   });
   const told = { progressed: 0 };
   const view = new ViewSpectrogram({
@@ -111,5 +116,58 @@ describe("a view's spectrogram (ADR-0080)", () => {
     expect(after.geometry.config.windowLength).toBe(512);
     expect(after.geometry.levels.length).toBeGreaterThan(before.geometry.levels.length);
     view.release();
+  });
+});
+
+describe('the spectrogram a view holds while it shows one (ADR-0080)', () => {
+  /** The view's hold over the real worker core, and the workers it started. */
+  function shownOver() {
+    const workers: LocalSpectrogramWorker[] = [];
+    host = new SpectrogramHost({
+      createWorker: () => {
+        const worker = new LocalSpectrogramWorker();
+        workers.push(worker);
+        return worker;
+      },
+      cache: new MemoryTileCache(),
+      report: () => undefined,
+    });
+    const told: (SpectrogramStatus | undefined)[] = [];
+    const shown = new ShownSpectrogram(
+      host,
+      () => undefined,
+      (status) => {
+        told.push(status);
+      },
+    );
+    return { shown, workers, told };
+  }
+
+  it('tells where the spectrogram is as that changes, for the panel to say why it is not drawn', async () => {
+    const { shown, workers, told } = shownOver();
+    expect(shown.status).toBeUndefined();
+
+    shown.known(TONES, SHOWN, MAXIMUM_QUALITY, 1);
+    shown.known(TONES, SHOWN, MAXIMUM_QUALITY, 1);
+    expect(told).toEqual([{ kind: 'running' }]);
+    await turn();
+    workers[0]?.fault('It ran out of memory.');
+
+    const failed = {
+      kind: 'failed',
+      reason: 'The spectrogram worker stopped: It ran out of memory.',
+    };
+    expect(shown.status).toEqual(failed);
+    expect(told).toEqual([{ kind: 'running' }, failed]);
+    shown.release();
+  });
+
+  it('tells of none once the view stops showing a spectrogram', () => {
+    const { shown, told } = shownOver();
+    shown.known(TONES, SHOWN, MAXIMUM_QUALITY, 1);
+    shown.known(TONES, { ...SHOWN, displayMode: DisplayMode.Waveform }, MAXIMUM_QUALITY, 1);
+    shown.known(TONES, { ...SHOWN, displayMode: DisplayMode.Waveform }, MAXIMUM_QUALITY, 1);
+    expect(shown.status).toBeUndefined();
+    expect(told).toEqual([{ kind: 'running' }, undefined]);
   });
 });

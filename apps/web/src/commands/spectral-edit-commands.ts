@@ -6,19 +6,21 @@
  *
  * Each acts on the spectral selection alone, the facet made last, and is
  * refused with any other (ADR-0042). Its range is the selection's support
- * widened by half a frame each side, and a heal's by its borders as well,
- * within the asset or the region shown (`spectralPlacement`), so no changed
- * frame reaches past it and every frame a heal reads lies within it, and its
- * mask is stated relative to that range. It keeps the selection's channel
- * scope. A gain is typed in decibels and kept as the linear factor the domain
- * holds, converted once here. Cleaning up runs a restoration or model
- * processor, new to the project in a chain of its own that enters and leaves
- * with the edit; a processor whose model this page cannot run is applied all
- * the same, as the project keeps it, and the person is told why it is not
- * heard. An edit the domain refuses, for its mask, its resolution, its gain or
- * its chain, is refused with the reason and nothing changes.
+ * widened by half a frame each side, and a heal's by its borders too, within
+ * the asset or the region shown (`spectralPlacement`), so no changed frame
+ * reaches past it and a heal's borders lie within it. Its mask is stated
+ * relative to that range. It keeps the selection's channel scope. A gain is
+ * typed in decibels and kept as the linear factor the domain holds, converted
+ * once here. Cleaning up runs a restoration or model processor, new to the
+ * project in a chain of its own that enters and leaves with the edit; a
+ * processor whose model this page cannot run is refused with the reason first,
+ * as ADR-0081 asks, and applied only when the invocation says `knowingly`, the
+ * project keeping it to be heard once it can run. An edit the domain refuses,
+ * for its mask, its resolution, its gain or its chain, is refused with the
+ * reason and nothing changes.
  */
 
+import { decibelsToGain } from '@audiogubbins/audio-engine';
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
   DEFAULT_SPECTRAL_RESOLUTION,
@@ -96,8 +98,8 @@ function resolutionOf(invocation: CommandInvocation): number | string {
 function spectralScope(
   context: ShellContext,
   invocation: CommandInvocation,
-  resolution: number,
   kind: SpectralOperationKind,
+  resolution: number,
 ): SpectralScope | string {
   const view = editedView(context, invocation);
   if (typeof view === 'string') return view;
@@ -105,7 +107,7 @@ function spectralScope(
   const selected = selectedTarget(context, asset, SPECTRAL_AREA);
   if (typeof selected === 'string') return selected;
   if (selected.kind !== 'spectral') return 'A spectral edit acts on a spectral selection.';
-  const placed = spectralPlacement(selected.mask, resolution, asset.length, kind);
+  const placed = spectralPlacement(selected.mask, resolution, kind, asset.length);
   if (placed === undefined) return 'The spectral selection reaches no audio.';
   const { owner } = view.project;
   const range = { start: onAsset(owner, placed.start), end: onAsset(owner, placed.end) };
@@ -143,7 +145,7 @@ function applied(
 ): BodyAnswer {
   const resolution = resolutionOf(invocation);
   if (typeof resolution === 'string') return resolution;
-  const scope = spectralScope(context, invocation, resolution, operation.kind);
+  const scope = spectralScope(context, invocation, operation.kind, resolution);
   if (typeof scope === 'string') return scope;
   const edit = { kind: 'spectral', mask: scope.mask, resolution, operation } as const;
   const chains = new Map<EffectChainId, EffectChain>(scope.view.project.state.project.effectChains);
@@ -166,9 +168,10 @@ function applied(
  * it (ADR-0081), or why it makes none an attenuation may apply.
  */
 function reductionOf(decibels: number): number | string {
-  // Converted once, where the decibels are typed: the factor is what is kept,
-  // so the edit gives the same bits on every machine.
-  const factor = 10 ** (decibels / 20);
+  // Converted once, where the decibels are typed, by the engine's canonical
+  // conversion: the factor is what is kept, so the edit gives the same bits on
+  // every machine.
+  const factor = decibelsToGain(decibels);
   return isSpectralReduction(factor)
     ? factor
     : 'A spectral reduction lowers the level: give a number of decibels below nothing.';
@@ -281,6 +284,9 @@ function cleanUpCommand(): Command<ShellContext> {
       const processor = instantiateProcessor(context.ids.next<'ProcessorId'>(), descriptor);
       const chain: EffectChain = { id: context.ids.next<'EffectChainId'>(), slots: [processor] };
       const cannot = context.modelGate.get()(processor);
+      if (cannot !== undefined && invocation.arguments?.['knowingly'] !== true) {
+        return `${cannot} Nothing changed: clean up with it knowingly to apply it now, heard once it can run.`;
+      }
       const name = processorLabel(descriptor.typeKey);
       return applied(
         context,
@@ -294,7 +300,7 @@ function cleanUpCommand(): Command<ShellContext> {
     {
       keywords: ['clean', 'cleanup', 'repair', 'denoise', 'restore', 'model', 'spectral'],
       description:
-        'Runs a restoration processor over the spectral selection and takes its output there, in a chain of its own the Effects rack shows.',
+        'Runs a restoration processor over the spectral selection and takes its output there, in a chain of its own the Effects rack shows. One whose model cannot run here is applied only knowingly.',
     },
   );
 }

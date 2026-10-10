@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { decibelsToGain } from '@audiogubbins/audio-engine';
 import {
   DEFAULT_SPECTRAL_RESOLUTION,
   MaskEffect,
@@ -22,6 +23,7 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleCount } from '@audiogubbins/domain';
 
+import { followPlayingAsset } from '../audio/playing-asset.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 import type { projectWorld } from '../testing/project-context.js';
 
@@ -73,25 +75,29 @@ function chainOf(audio: AudioWindow): readonly EditOperation[] {
 }
 
 /** Where the domain places a spectral edit `kind` of `mask` at the default resolution. */
-function placed(mask: SpectralMask, length: number, kind: SpectralOperationKind) {
-  const placement = spectralPlacement(mask, DEFAULT_SPECTRAL_RESOLUTION, length, kind);
+function placed(mask: SpectralMask, kind: SpectralOperationKind, length: number) {
+  const placement = spectralPlacement(mask, DEFAULT_SPECTRAL_RESOLUTION, kind, length);
   if (placement === undefined) throw new Error('The area reaches no audio.');
   return placement;
 }
 
 describe('a spectral edit of the selection', () => {
   it.each([
-    ['spectral.attenuate', {}, { kind: 'attenuate', gain: 10 ** (-12 / 20) }],
-    ['spectral.attenuate', { decibels: -6 }, { kind: 'attenuate', gain: 10 ** (-6 / 20) }],
-    ['spectral.remove', {}, { kind: 'attenuate', gain: 0 }],
-    ['spectral.isolate', {}, { kind: 'isolate', gain: 0 }],
-    ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: 10 ** (-20 / 20) }],
-    ['spectral.heal', {}, { kind: 'heal' }],
+    ['spectral.attenuate', {}, { kind: 'attenuate', gain: decibelsToGain(-12) }, 1],
+    ['spectral.attenuate', { decibels: -6 }, { kind: 'attenuate', gain: decibelsToGain(-6) }, 1],
+    // The platform's power of ten gives another last bit at −96 dB: the factor
+    // kept is the engine's canonical conversion, the same on every machine.
+    ['spectral.attenuate', { decibels: -96 }, { kind: 'attenuate', gain: decibelsToGain(-96) }, 1],
+    ['spectral.remove', {}, { kind: 'attenuate', gain: 0 }, 1],
+    ['spectral.isolate', {}, { kind: 'isolate', gain: 0 }, 1],
+    ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: decibelsToGain(-20) }, 1],
+    // A heal's four border frames at the widest hop, half a frame each, too.
+    ['spectral.heal', {}, { kind: 'heal' }, 5],
   ] as const)(
-    '%s %o is one change over the area widened as the domain places its kind',
-    async (id, args, operation) => {
+    '%s %o is one change over the area widened by %i half frames',
+    async (id, args, operation, halves) => {
       const audio = await selectedLoop({ channels: '1' });
-      const { start, end, mask } = placed(SELECTED, audio.asset().length, operation.kind);
+      const { start, end, mask } = placed(SELECTED, operation.kind, audio.asset().length);
 
       await audio.window.runAndHear(id, args);
 
@@ -103,10 +109,7 @@ describe('a spectral edit of the selection', () => {
           edit: { kind: 'spectral', mask, resolution: DEFAULT_SPECTRAL_RESOLUTION, operation },
         }),
       ]);
-      // Half a frame, and a heal's four border frames of the longest hop,
-      // half a frame each, as well.
-      const half = DEFAULT_SPECTRAL_RESOLUTION / 2;
-      expect(start).toBe(48_000 - half - (operation.kind === 'heal' ? 4 * half : 0));
+      expect(start).toBe(48_000 - (halves * DEFAULT_SPECTRAL_RESOLUTION) / 2);
       await audio.window.runAndHear('edit.undo');
       expect(chainOf(audio)).toEqual([]);
     },
@@ -117,8 +120,8 @@ describe('a spectral edit of the selection', () => {
     await audio.window.runAndHear('spectral.heal', { resolution: 512 });
     const [operation] = chainOf(audio);
     expect(operation?.kind === 'process' && operation.edit).toMatchObject({ resolution: 512 });
-    // Half a frame of 512, and the heal's borders, four hops of half a frame.
-    expect(operation?.kind === 'process' && operation.range.start).toBe(48_000 - 256 - 4 * 256);
+    // Half a frame, and a heal's four border frames at the widest hop, a half frame each.
+    expect(operation?.kind === 'process' && operation.range.start).toBe(48_000 - 5 * 256);
   });
 
   it('refuses what the domain refuses, saying why, and changes nothing', async () => {
@@ -177,7 +180,7 @@ describe('a spectral edit of the selection', () => {
 
     await audio.window.runAndHear('spectral.heal');
 
-    const { start, end, mask } = placed(shown, 192_000, 'heal');
+    const { start, end, mask } = placed(shown, 'heal', 192_000);
     const operations: Region['operations'] | undefined = audio.session
       .getSnapshot()
       .model.state.project.regions.get(region.id)?.operations;
@@ -216,10 +219,25 @@ describe('cleaning up the spectral selection', () => {
     );
   });
 
-  it('says a model it cannot run is not heard, and the sound says why it cannot be heard', async () => {
+  it('says first that a model it cannot run would not be heard, changing nothing until told knowingly', async () => {
     const audio = await selectedLoop();
 
-    const said = await audio.window.runAndHear('spectral.process', { typeKey: 'deepfilternet-3' });
+    expect(audio.window.run('spectral.process', { typeKey: 'deepfilternet-3' })).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary: expect.stringMatching(
+            /^DeepFilterNet 3 cannot run because the model it needs is not available\. .+ Nothing changed: clean up with it knowingly to apply it now, heard once it can run\.$/,
+          ),
+        },
+      ],
+    });
+    expect(chainOf(audio)).toEqual([]);
+
+    const said = await audio.window.runAndHear('spectral.process', {
+      typeKey: 'deepfilternet-3',
+      knowingly: true,
+    });
 
     expect(said).toMatch(
       /It is not heard yet: DeepFilterNet 3 cannot run because the model it needs is not available\./,
@@ -257,13 +275,53 @@ describe('comparing a spectral edit, and hearing it bypassed', () => {
     expect(audio.window.run('spectral.compare-before-edit').kind).toBe('unchanged');
   });
 
+  it('compares the project with before the spectral edit named, though a later one was made', async () => {
+    const audio = await selectedLoop();
+    const before = audio.session.getSnapshot().model.history.cursor;
+    await audio.window.runAndHear('spectral.heal');
+    const healed = audio.session.getSnapshot().model.history.cursor;
+    await audio.window.runAndHear('spectral.remove');
+    const removed = audio.session.getSnapshot().model.history.cursor;
+    const [heal, removal] = chainOf(audio);
+    if (heal === undefined || removal === undefined) throw new Error('Two edits were made.');
+
+    expect(
+      await audio.window.runAndHear('spectral.compare-before-edit', { operationId: heal.id }),
+    ).toMatch(/^Comparing the project as it is, side A, with before /);
+    const { comparison } = audio.session.getSnapshot().model;
+    expect([comparison?.a.node, comparison?.b.node]).toEqual([removed, before]);
+
+    await audio.window.runAndHear('spectral.compare-before-edit', { operationId: removal.id });
+    const latest = audio.session.getSnapshot().model.comparison;
+    expect([latest?.a.node, latest?.b.node]).toEqual([removed, healed]);
+    expect(
+      audio.window.run('spectral.compare-before-edit', { operationId: 'not-an-edit' }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'That is not a spectral edit of Loop.' }],
+    });
+  });
+
   it('hears the original with a spectral edit bypassed, though no chain processes the sound', async () => {
     const audio = await selectedLoop();
+    const { context } = audio.window;
+    followPlayingAsset(context.assets, context.hearing, context.playback);
     const before = audio.asset();
     await audio.window.runAndHear('spectral.remove');
     const edited = await audio.changed(before);
+    await audio.window.runAndHear('transport.play');
+    const [opened] = audio.window.audio.playback.opened;
+    if (opened === undefined) throw new Error('Playback opened a session.');
+    const { session } = opened;
+    const loads = session.loads.length;
 
     expect(edited.original).toBeDefined();
     expect(audio.window.run('transport.listen-original').kind).toBe('applied');
+
+    await expect.poll(() => session.loads.length).toBe(loads + 1);
+    const heard = session.loads.at(-1)?.sources[0];
+    const plan = heard !== undefined && 'plan' in heard ? heard.plan : undefined;
+    expect(plan?.streams.some((stream) => stream.processing !== undefined)).toBe(false);
+    expect(plan).toEqual(before.owner.kind === 'project' ? before.owner.plan : undefined);
   });
 });

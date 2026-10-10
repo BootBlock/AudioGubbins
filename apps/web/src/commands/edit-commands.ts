@@ -13,6 +13,7 @@
  * frequency, are `spectral-edit-commands.ts`.
  */
 
+import { decibelsToGain, gainToDecibels } from '@audiogubbins/audio-engine';
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import { FadeDirection, FadeShape, MAXIMUM_EDIT_GAIN, type RangeEdit } from '@audiogubbins/domain';
 import { processTargetInvocation } from '@audiogubbins/project-commands';
@@ -231,11 +232,12 @@ function gainOf(decibels: number): number | string {
   if (decibels < QUIETEST_DECIBELS) {
     return `A gain is no quieter than ${String(QUIETEST_DECIBELS)} dB. Silence the range instead.`;
   }
-  // Converted once, where the decibels are typed: the factor is what is kept,
-  // so the edit gives the same bits on every machine.
-  const factor = 10 ** (decibels / 20);
+  // Converted once, where the decibels are typed, by the engine's canonical
+  // conversion: the factor is what is kept, so the edit gives the same bits on
+  // every machine.
+  const factor = decibelsToGain(decibels);
   return factor > MAXIMUM_EDIT_GAIN
-    ? `A gain is no louder than ${String(20 * Math.log10(MAXIMUM_EDIT_GAIN))} dB.`
+    ? `A gain is no louder than ${String(gainToDecibels(MAXIMUM_EDIT_GAIN))} dB.`
     : factor;
 }
 

@@ -54,6 +54,9 @@ export interface QualitySettings {
   readonly spectralOverlap: 2 | 4 | 8;
 }
 
+/** The fewest frames a spectral processor may cover each sample with, so its widest hop. */
+export const FEWEST_SPECTRAL_OVERLAP: QualitySettings['spectralOverlap'] = 2;
+
 /** The name of one quality setting, as a processor's descriptor names those it reads. */
 export type QualitySettingKey = keyof QualitySettings;
 
@@ -104,16 +107,7 @@ export function namedQualityMode(level: NamedQualityLevel): QualityMode {
 export const MAXIMUM_QUALITY: QualityMode = namedQualityMode(QualityLevel.Maximum);
 
 const OVERSAMPLING: ReadonlySet<unknown> = new Set([1, 2, 4, 8]);
-/** Every spectral overlap a level sets, fewest first. */
-const SPECTRAL_OVERLAPS = [2, 4, 8] as const;
-
-/**
- * The fewest frames any level overlaps, which gives the longest hop: what a
- * placement that must hold at every quality measures by.
- */
-export const SMALLEST_SPECTRAL_OVERLAP = SPECTRAL_OVERLAPS[0];
-
-const OVERLAP: ReadonlySet<unknown> = new Set(SPECTRAL_OVERLAPS);
+const OVERLAP: ReadonlySet<unknown> = new Set([2, 4, 8]);
 const GRADES: ReadonlySet<unknown> = new Set(Object.values(ResamplingGrade));
 
 const isGrade = (value: unknown): value is ResamplingGrade => GRADES.has(value);

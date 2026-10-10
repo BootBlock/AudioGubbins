@@ -20,6 +20,7 @@ import {
 } from '@audiogubbins/spectral-analysis';
 import {
   DEFAULT_SNAP_SETTINGS,
+  SpectralCombination,
   TimeFormatKind,
   viewportFitting,
   type SnapSettings,
@@ -151,6 +152,12 @@ export interface SpectralToolSettings {
   readonly hardness: number;
   /** How far past their edges the marquee's and the lasso's shapes fade out. */
   readonly feather: SpectralFeather;
+  /**
+   * How a shape drawn with no modifier held joins the spectral selection: the
+   * combination mode, which a finger or a pen, holding no key, adds and takes
+   * away with. Shift and Alt still say how where they are held.
+   */
+  readonly combination: SpectralCombination;
 }
 
 /** How the spectral tools draw before the person changes anything. */
@@ -158,6 +165,7 @@ const DEFAULT_SPECTRAL_TOOL_SETTINGS: SpectralToolSettings = {
   brushRadius: 12,
   hardness: 0.5,
   feather: NO_FEATHER,
+  combination: SpectralCombination.Replace,
 };
 
 /**

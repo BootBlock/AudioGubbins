@@ -1,11 +1,13 @@
 /**
- * How a view's spectral tools draw (ADR-0082): the brush's radius and
- * hardness, and the softness the marquee's and the lasso's shapes fade out
- * across. Each is the view's own, as its tool is (REQ-EDIT-061), so each is a
- * presentation change, never undoable, and each runs from the Spectral panel,
- * the palette or a shortcut alike (REQ-EDIT-073). The stepping commands move
- * a setting through the steps of its control, so a setting reached from the
- * keyboard and one set with a slider are the same number.
+ * How a view's spectral tools draw (ADR-0082): the brush's radius and hardness,
+ * the softness the marquee's and the lasso's shapes fade out across, and the
+ * combination mode, how a shape drawn with no modifier held joins the
+ * selection, which is how a finger or a pen adds to it and takes from it. Each
+ * is the view's own, as its tool is (REQ-EDIT-061), so each is a presentation
+ * change, never undoable, and each runs from the Spectral panel, the palette or
+ * a shortcut alike (REQ-EDIT-073). The stepping commands move a setting through
+ * the steps of its control, so a setting reached from the keyboard and one set
+ * with a slider are the same number.
  */
 
 import { CommandCategory, type Command } from '@audiogubbins/commands';
@@ -17,6 +19,7 @@ import {
   type EditorViewState,
   type SpectralToolSettings,
 } from '@audiogubbins/editor-view';
+import { SpectralCombination } from '@audiogubbins/timeline';
 
 import { frequencyWords } from '../wording.js';
 import { numberArgument } from './editor-target.js';
@@ -35,7 +38,8 @@ function withTools(state: EditorViewState, tools: SpectralToolSettings): EditorV
   return now.brushRadius === tools.brushRadius &&
     now.hardness === tools.hardness &&
     now.feather.time === tools.feather.time &&
-    now.feather.frequency === tools.feather.frequency
+    now.feather.frequency === tools.feather.frequency &&
+    now.combination === tools.combination
     ? state
     : { ...state, spectralTools: tools };
 }
@@ -193,7 +197,57 @@ function softnessCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/**
+ * What each combination mode is called on its control, and what a shape
+ * drawn in it does to the spectral selection, as an instruction and as a
+ * statement.
+ */
+export const COMBINATIONS: Readonly<
+  Record<
+    SpectralCombination,
+    { readonly name: string; readonly verb: string; readonly does: string }
+  >
+> = {
+  [SpectralCombination.Replace]: { name: 'Replace', verb: 'replace', does: 'replaces' },
+  [SpectralCombination.Add]: { name: 'Add', verb: 'add to', does: 'adds to' },
+  [SpectralCombination.Subtract]: { name: 'Take away', verb: 'take from', does: 'takes from' },
+};
+
+/**
+ * The commands that choose the combination mode, each one mode, so each is a
+ * control's, an entry's of the palette and a shortcut's alike.
+ */
+function combinationCommands(): readonly Command<ShellContext>[] {
+  return Object.values(SpectralCombination).map((combination) => {
+    const { verb, does } = COMBINATIONS[combination];
+    return presentationCommand(
+      `editor.spectral-combination-${combination}`,
+      `Make a spectral tool’s shape ${verb} the selection`,
+      CommandCategory.Tools,
+      (state) => withTools(state, { ...state.spectralTools, combination }),
+      () => `A spectral tool’s shape ${does} the spectral selection.`,
+      {
+        keywords: [
+          'spectral',
+          'combination',
+          'mode',
+          'selection',
+          'touch',
+          'pen',
+          ...does.split(' '),
+        ],
+        description: `A shape drawn with no modifier held ${does} the spectral selection; Shift still adds and Alt still takes away.`,
+      },
+    );
+  });
+}
+
 /** The commands that set how a view's spectral tools draw. */
 export function spectralToolCommands(): readonly Command<ShellContext>[] {
-  return [...radiusCommands(), ...hardnessCommands(), ...softnessCommands()];
+  return [
+    ...radiusCommands(),
+    ...hardnessCommands(),
+    ...softnessCommands(),
+    ...combinationCommands(),
+  ];
 }

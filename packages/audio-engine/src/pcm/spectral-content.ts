@@ -253,8 +253,7 @@ export class SpectralContent implements ContentReader {
    * The heal's borders: every frame from four before the first the mask may
    * reach to four after the last, walked once, in order, through a window of
    * its own, since the frames' window is then read again from the start. A
-   * frame that holds samples past the stream's ends is not analysed, since it
-   * is no border.
+   * frame that reaches outside the stream is no border (`heal-borders.ts`).
    */
   async #healBorders(signal: CancellationSignal | undefined): Promise<HealBorders> {
     const geometry = this.#geometry;
@@ -268,20 +267,12 @@ export class SpectralContent implements ContentReader {
       const frameStart = geometry.first(k);
       await dry.hold(frameStart, frameStart + geometry.size, signal);
       const weights = change.weights(k);
-      const whole = frameStart >= 0 && frameStart + geometry.size <= this.length;
-      if (whole) {
-        for (let channel = 0; channel < this.channels; channel += 1) {
-          const x = this.#spectra[channel];
-          if (x === undefined) continue;
-          this.#transform.analyse(
-            dry.samples(channel),
-            frameStart - dry.start,
-            x.real,
-            x.imaginary,
-          );
-        }
+      for (let channel = 0; channel < this.channels; channel += 1) {
+        const x = this.#spectra[channel];
+        if (x === undefined) continue;
+        this.#transform.analyse(dry.samples(channel), frameStart - dry.start, x.real, x.imaginary);
       }
-      borders.take(k, weights, whole ? this.#spectra : undefined);
+      borders.take(k, weights, geometry.within(k), this.#spectra);
       dry.release(frameStart + geometry.hop);
     }
     borders.finish();

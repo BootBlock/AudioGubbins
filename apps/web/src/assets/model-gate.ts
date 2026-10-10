@@ -12,11 +12,11 @@
 
 import {
   appliedSlots,
+  streamChain,
   type ChainSlot,
   type EditPlan,
   type EffectChain,
   type ProcessorInstance,
-  type StreamProcessing,
 } from '@audiogubbins/domain';
 
 /** Why `processor` cannot run, as a reader is told, or nothing where it can. */
@@ -42,23 +42,14 @@ export function chainModelRefusal(chain: EffectChain, gate: ModelGate): string |
 }
 
 /**
- * The chain a stream's processing runs: a chain's own, or the chain a
- * spectral `process` edit runs inside its frames (ADR-0081), which needs its
- * models as much as a rack does.
+ * Why a chain `plan` runs cannot run, a spectral edit's among them
+ * (`streamChain`), the first processor's reason, or nothing where every one
+ * can.
  */
-function streamChain(processing: StreamProcessing | undefined): EffectChain | undefined {
-  if (processing?.kind === 'chain') return processing.chain;
-  if (processing?.kind === 'spectral' && processing.edit.operation.kind === 'process') {
-    return processing.edit.operation.chain;
-  }
-  return undefined;
-}
-
-/** Why a chain `plan` runs cannot run, the first processor's reason, or nothing where every one can. */
 export function planModelRefusal(plan: EditPlan, gate: ModelGate): string | undefined {
   for (const stream of plan.streams) {
-    const chain = streamChain(stream.processing);
-    const refusal = chain === undefined ? undefined : chainModelRefusal(chain, gate);
+    const run = streamChain(stream.processing);
+    const refusal = run === undefined ? undefined : chainModelRefusal(run.chain, gate);
     if (refusal !== undefined) return refusal;
   }
   return undefined;

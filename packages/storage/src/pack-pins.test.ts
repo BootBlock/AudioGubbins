@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AssetOrigin,
+  MaskEffect,
+  NO_FEATHER,
   StandardLayouts,
   SummingLaw,
   createProject,
@@ -13,6 +15,7 @@ import {
   type IdGenerator,
   type ModelIdentity,
   type ProcessorInstance,
+  type StreamProcessing,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
@@ -39,6 +42,9 @@ const EVERY_CHANGE: BackupPolicy = {
   trigger: { everyChanges: 1 },
   retention: { count: 4 },
 };
+
+/** The layout of the audio pasted into a project. */
+const LAYOUT = StandardLayouts.mono;
 
 /** Past the number of arguments a call takes in any engine this runs in. */
 const LONGER_THAN_ARGUMENTS = 1_000_000;
@@ -156,49 +162,71 @@ describe('the model packs the projects need', () => {
     expect(await pinsOf(tree)).toEqual(['ten@1.0.0']);
   });
 
-  it('names a version a chain carried by pasted audio runs, as a state’s own chains are read', () => {
-    const test = harness(67);
-    const rate = expectSuccess(sampleRate(48_000));
-    const layout = StandardLayouts.mono;
-    const chain = chainRunning(test.ids, modelOf('spleeter-4-stems'));
-    const payload: EditPlan = {
-      streams: [
-        {
-          sampleRate: rate,
-          layout,
-          segments: [],
-          processing: { kind: 'chain', chain, input: layout },
+  it.each([
+    [
+      'over a stream',
+      (chain: EffectChain): StreamProcessing => ({ kind: 'chain', chain, input: LAYOUT }),
+    ],
+    [
+      'inside a spectral edit’s frames',
+      (chain: EffectChain): StreamProcessing => ({
+        kind: 'spectral',
+        edit: {
+          mask: {
+            shapes: [
+              {
+                kind: 'rectangle',
+                effect: MaskEffect.Add,
+                range: { start: derivedSampleCount(10), end: derivedSampleCount(90) },
+                band: { low: 100, high: 400 },
+              },
+            ],
+            feather: NO_FEATHER,
+          },
+          resolution: 256,
+          operation: { kind: 'process', chain, input: LAYOUT },
         },
-      ],
-    };
-    const asset: Asset = {
-      id: test.ids.next<'AssetId'>(),
-      displayName: 'Pasted into',
-      origin: AssetOrigin.Imported,
-      sampleRate: rate,
-      channelLayout: layout,
-      length: derivedSampleCount(100),
-      storageKey: 'pasted',
-      edits: [
-        {
-          id: test.ids.next<'EditOperationId'>(),
-          kind: 'insert',
-          at: derivedSampleCount(0),
-          payload,
-        },
-      ],
-    };
-    const project = createProject(test.ids.next<'ProjectId'>(), 'Pasted', {
-      sampleRate: rate,
-      channelLayout: layout,
-    });
-    const state: ProjectState = {
-      project: { ...project, assets: new Map([[asset.id, asset]]) },
-      sources: new Map(),
-    };
+      }),
+    ],
+  ])(
+    'names a version a chain carried by pasted audio runs %s, as a state’s own chains are read',
+    (_, processing) => {
+      const test = harness(67);
+      const rate = expectSuccess(sampleRate(48_000));
+      const layout = LAYOUT;
+      const chain = chainRunning(test.ids, modelOf('spleeter-4-stems'));
+      const payload: EditPlan = {
+        streams: [{ sampleRate: rate, layout, segments: [], processing: processing(chain) }],
+      };
+      const asset: Asset = {
+        id: test.ids.next<'AssetId'>(),
+        displayName: 'Pasted into',
+        origin: AssetOrigin.Imported,
+        sampleRate: rate,
+        channelLayout: layout,
+        length: derivedSampleCount(100),
+        storageKey: 'pasted',
+        edits: [
+          {
+            id: test.ids.next<'EditOperationId'>(),
+            kind: 'insert',
+            at: derivedSampleCount(0),
+            payload,
+          },
+        ],
+      };
+      const project = createProject(test.ids.next<'ProjectId'>(), 'Pasted', {
+        sampleRate: rate,
+        channelLayout: layout,
+      });
+      const state: ProjectState = {
+        project: { ...project, assets: new Map([[asset.id, asset]]) },
+        sources: new Map(),
+      };
 
-    expect([...modelsNamedBy(state)]).toEqual([{ id: 'spleeter-4-stems', version: '1.0.0' }]);
-  });
+      expect([...modelsNamedBy(state)]).toEqual([{ id: 'spleeter-4-stems', version: '1.0.0' }]);
+    },
+  );
 
   it('cannot be told, keeping everything with the reason, where a project cannot be read', async () => {
     const test = harness(65);

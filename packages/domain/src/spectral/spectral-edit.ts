@@ -15,7 +15,7 @@
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
-import { SMALLEST_SPECTRAL_OVERLAP } from '../processing/quality-mode.js';
+import { FEWEST_SPECTRAL_OVERLAP } from '../processing/quality-mode.js';
 import { derivedSampleCount, type SampleCount } from '../time/sample-time.js';
 import { maskProblem } from './mask-validation.js';
 import { maskSupport, translatedMask, type SpectralMask } from './spectral-mask.js';
@@ -29,7 +29,9 @@ import { maskSupport, translatedMask, type SpectralMask } from './spectral-mask.
  * - `isolate`: multiplies everything outside the mask, within its time span,
  *   by `gain`, so what the mask holds is left alone.
  * - `heal`: replaces each bin's magnitude with one interpolated across time
- *   from the frames bordering the mask, keeping the phase.
+ *   from up to four frames each side that border the mask, keeping the phase;
+ *   a frame that reaches outside the stream borders nothing, since what it
+ *   holds there is not the sound.
  * - `process`: takes the output of the chain `chain` names, run over the
  *   range, in place of the input (ADR-0060), which is how a restoration or a
  *   model processor is applied to an area.
@@ -53,6 +55,9 @@ export interface SpectralEdit {
   readonly operation: SpectralEditOperation;
 }
 
+/** The most frames each border of a heal is measured over. */
+export const HEAL_BORDER_FRAMES = 4;
+
 /** The shortest frame a spectral edit may analyse with. */
 export const SMALLEST_SPECTRAL_RESOLUTION = 256;
 
@@ -61,13 +66,6 @@ export const LARGEST_SPECTRAL_RESOLUTION = 16_384;
 
 /** The frame a spectral edit analyses with unless the person chooses another. */
 export const DEFAULT_SPECTRAL_RESOLUTION = 2_048;
-
-/**
- * The most frames either border of a heal's run is measured over: the mean
- * magnitude of up to this many frames the mask leaves, one after another,
- * just before each run of masked frames in a bin and just after it.
- */
-export const HEAL_BORDER_FRAMES = 4;
 
 /** Whether `value` is a resolution this build analyses with. */
 export function isSpectralResolution(value: number): boolean {
@@ -139,32 +137,31 @@ export interface SpectralPlacement {
 }
 
 /**
- * How far past its mask's support a spectral edit `kind` at `resolution`
- * reads: half a frame, so no changed frame reaches past the range's ends;
- * and for a heal, its borders as well, every frame of which lies wholly
- * within the range at the longest hop any quality analyses with, since the
- * range is kept with the project and read at every quality.
+ * How far before and after its mask's support a spectral edit `kind` at
+ * `resolution` reads: half a frame, so no changed frame reaches past it, and
+ * for a heal its borders too, as many frames as it measures at the widest hop
+ * a quality may take, so every border frame lies wholly within the range.
  */
-function reachOf(kind: SpectralOperationKind, resolution: number): number {
+function placementReach(kind: SpectralOperationKind, resolution: number): number {
   const half = resolution / 2;
   if (kind !== 'heal') return half;
-  return half + HEAL_BORDER_FRAMES * (resolution / SMALLEST_SPECTRAL_OVERLAP);
+  return half + (HEAL_BORDER_FRAMES * resolution) / FEWEST_SPECTRAL_OVERLAP;
 }
 
 /**
  * The range a spectral edit `kind` of `mask`, a selection's on a timeline of
  * `length`, processes at `resolution`, and the mask relative to it: the
- * mask's support widened each side by what the edit reads past it, within
+ * mask's support widened by its reach each side (`placementReach`), within
  * the timeline (ADR-0081). `undefined` where the mask reaches no audio.
  */
 export function spectralPlacement(
   mask: SpectralMask,
   resolution: number,
-  length: number,
   kind: SpectralOperationKind,
+  length: number,
 ): SpectralPlacement | undefined {
   const support = maskSupport(mask);
-  const reach = reachOf(kind, resolution);
+  const reach = placementReach(kind, resolution);
   const start = Math.max(0, Math.floor(support.start - reach));
   const end = Math.min(length, Math.ceil(support.end + reach));
   if (start >= end) return undefined;

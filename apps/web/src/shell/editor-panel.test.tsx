@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_THEME_PREFERENCES,
@@ -8,6 +8,9 @@ import {
   fixedSystemAppearance,
 } from '@audiogubbins/design-system';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { DisplayMode } from '@audiogubbins/editor-view';
+import type { SpectrogramWorkerPort } from '@audiogubbins/spectral-analysis';
+import { LocalSpectrogramWorker } from '@audiogubbins/spectral-analysis/testing';
 
 import { fakePanelParts } from '../testing/editor-fakes.js';
 import type { ShellContext } from '../commands/shell-context.js';
@@ -19,14 +22,18 @@ const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).logger
 
 holdPlatformFiles();
 
-/** The Editor panel of `context`, drawn. */
-function drawn(context: ShellContext): void {
+/** The Editor panel of `context`, drawn, its spectrogram made by `spectrogramWorker` where given. */
+function drawn(context: ShellContext, spectrogramWorker?: () => SpectrogramWorkerPort): void {
   render(
     <ThemeProvider
       preferences={DEFAULT_THEME_PREFERENCES}
       system={fixedSystemAppearance(UNKNOWN_SYSTEM_APPEARANCE)}
     >
-      <EditorPanel panel="editor" title="Editor" parts={fakePanelParts(context, logger)} />
+      <EditorPanel
+        panel="editor"
+        title="Editor"
+        parts={fakePanelParts(context, logger, spectrogramWorker)}
+      />
     </ThemeProvider>,
   );
 }
@@ -55,6 +62,35 @@ describe('the Editor panel', () => {
 
     expect(screen.getByText('Loop')).toBeVisible();
     expect(screen.queryByText(/not part of a project/)).toBeNull();
+  });
+
+  it('raises the spectrogram’s failure as an alert, which the canvas alone says only in pixels', async () => {
+    const { context } = buildShellContext();
+    const tones = context.assets.find('test:tone-bursts');
+    if (tones === undefined) throw new Error('No tone bursts.');
+    context.editorViews.open('editor', tones);
+    context.editorViews.change('editor', (state) => ({
+      ...state,
+      displayMode: DisplayMode.Spectrogram,
+    }));
+    const workers: LocalSpectrogramWorker[] = [];
+
+    drawn(context, () => {
+      const worker = new LocalSpectrogramWorker();
+      workers.push(worker);
+      return worker;
+    });
+    await vi.waitFor(() => {
+      expect(workers).toHaveLength(1);
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    act(() => {
+      workers[0]?.fault('It ran out of memory.');
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The spectrogram could not be made: The spectrogram worker stopped: It ran out of memory.',
+    );
   });
 
   it('says why an asset of the project cannot be shown yet, where its file is not held', () => {

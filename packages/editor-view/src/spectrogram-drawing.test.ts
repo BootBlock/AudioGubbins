@@ -73,6 +73,7 @@ function testHost(): SpectrogramHost {
     createWorker: () => new LocalSpectrogramWorker(),
     cache: new MemoryTileCache(),
     report: () => undefined,
+    now: () => 0,
   });
   return host;
 }

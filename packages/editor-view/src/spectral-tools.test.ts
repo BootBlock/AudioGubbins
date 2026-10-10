@@ -361,12 +361,121 @@ describe('the spectral brush', () => {
       brushRadius: 8,
       hardness: 0.25,
       feather: { time: 100, frequency: 50 },
+      combination: SpectralCombination.Replace,
     };
     const drawn = drawnBy(
       gesture(context({ tool: ToolId.SpectralBrush, settings }), input(100, 100), input(140, 120)),
     );
     expect(drawn.shape.kind === 'stroke' && drawn.shape.hardness).toBe(0.25);
     expect(drawn.feather).toEqual({ time: 100, frequency: 50 });
+  });
+});
+
+/** A finger's sample at `x`, `y`: a touch reports no pressure a tool reads. */
+function finger(x: number, y: number): PointerSample {
+  return { pointerId: 2, kind: PointerKind.Touch, x, y, pressure: 0.5, timestamp: 0 };
+}
+
+/** A finger's drag through `samples`, as the application reads each: no modifier is held. */
+function touched(given: ToolContext, samples: readonly PointerSample[]): Gesture {
+  const [first, ...rest] = samples.map((sample) => read(sample, DEFAULT_GESTURE_SETTINGS));
+  if (first === undefined) throw new Error('No touch.');
+  return gesture(given, first, ...rest);
+}
+
+/** The spectral tool `tool`, joining a shape drawn with no modifier as `combination` says. */
+function latched(tool: ToolId, combination: SpectralCombination, selection?: SelectionSet) {
+  return context({
+    tool,
+    settings: { ...DEFAULT_TOOLS, combination },
+    ...(selection === undefined ? {} : { selection }),
+  });
+}
+
+describe('the spectral tools by touch (ADR-0082)', () => {
+  it('selects the rectangle a finger drags across, as a mouse does', () => {
+    const tool = context({ tool: ToolId.SpectralMarquee });
+    expect(drawnBy(touched(tool, [finger(300, 200), finger(120, 90)]))).toEqual(
+      drawnBy(gesture(tool, input(300, 200), input(120, 90))),
+    );
+  });
+
+  it('adds to and takes from the selection as the combination mode says, which a finger cannot hold a key for', () => {
+    const drag = [finger(100, 100), finger(200, 150)];
+    for (const tool of [ToolId.SpectralMarquee, ToolId.SpectralLasso, ToolId.SpectralBrush]) {
+      const path = tool === ToolId.SpectralLasso ? [...drag, finger(100, 150)] : drag;
+      for (const combination of Object.values(SpectralCombination)) {
+        expect(drawnBy(touched(latched(tool, combination), path)).combination).toBe(combination);
+      }
+    }
+  });
+
+  it('builds a compound selection from shapes a finger draws one after another', () => {
+    let selection = EMPTY_SELECTION;
+    for (const [combination, from, to] of [
+      [SpectralCombination.Replace, finger(100, 60), finger(400, 200)],
+      [SpectralCombination.Add, finger(500, 60), finger(700, 200)],
+      [SpectralCombination.Subtract, finger(150, 100), finger(250, 150)],
+    ] as const) {
+      const drawn = drawnBy(
+        touched(latched(ToolId.SpectralMarquee, combination, selection), [from, to]),
+      );
+      selection = withDrawnShape(selection, drawn, 2);
+    }
+    expect(selection.spectral?.shapes.map((shape) => shape.effect)).toEqual([
+      MaskEffect.Add,
+      MaskEffect.Add,
+      MaskEffect.Subtract,
+    ]);
+  });
+
+  it('lets a held modifier say how, over the combination mode', () => {
+    const at_ = (combination: SpectralCombination, modifiers: Partial<ToolInput>) =>
+      drawnBy(
+        gesture(
+          latched(ToolId.SpectralMarquee, combination),
+          input(100, 100, modifiers),
+          input(200, 150),
+        ),
+      ).combination;
+    expect(at_(SpectralCombination.Add, { alt: true })).toBe(SpectralCombination.Subtract);
+    expect(at_(SpectralCombination.Subtract, { shift: true })).toBe(SpectralCombination.Add);
+    expect(at_(SpectralCombination.Subtract, {})).toBe(SpectralCombination.Subtract);
+  });
+
+  it('encloses the area of a finger’s lasso path', () => {
+    const drawn = drawnBy(
+      touched(context({ tool: ToolId.SpectralLasso }), [
+        finger(100, 100),
+        finger(150, 100),
+        finger(150, 160),
+        finger(100, 160),
+      ]),
+    );
+    expect(drawn.shape.kind === 'polygon' && drawn.shape.points).toHaveLength(4);
+  });
+
+  it('strokes a finger’s path at the fixed strength, since a touch has no pressure to read', () => {
+    const drawn = drawnBy(
+      touched(context({ tool: ToolId.SpectralBrush }), [
+        finger(100, 100),
+        finger(120, 104),
+        finger(140, 110),
+      ]),
+    );
+    if (drawn.shape.kind !== 'stroke') throw new Error('Not a stroke.');
+    expect(drawn.shape.points.map((point) => point.strength)).toEqual([
+      DEFAULT_GESTURE_SETTINGS.fixedStrength,
+      DEFAULT_GESTURE_SETTINGS.fixedStrength,
+      DEFAULT_GESTURE_SETTINGS.fixedStrength,
+    ]);
+  });
+
+  it('marks one dab where a finger trembles less than a touch’s drag threshold', () => {
+    const drawn = drawnBy(
+      touched(context({ tool: ToolId.SpectralBrush }), [finger(100, 100), finger(104, 102)]),
+    );
+    expect(drawn.shape.kind === 'stroke' && drawn.shape.points).toHaveLength(1);
   });
 });
 
