@@ -65,6 +65,7 @@ import { timeEditCommands } from './time-edit-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
+import { pressureCommands } from './pressure-commands.js';
 import { selectionCommands } from './selection-commands.js';
 import { selectionPlayheadCommands } from './selection-playhead-commands.js';
 import { shellCommand } from './shell-command.js';
@@ -186,6 +187,7 @@ export function shellCommands(
 ): readonly Command<ShellContext>[] {
   return [
     ...viewCommands(),
+    ...pressureCommands(),
     ...workspaceCommands(),
     ...panelCommands(descriptors),
     ...surfaceCommands(),
