@@ -10,8 +10,8 @@
  *
  * Each module states its version and MIME type, and one that is not the build
  * this runtime speaks to is refused before it is used. A module's memory may
- * grow on any call, so every view of it is made after the call it follows.
- * A call that traps, or reaches the C library's `exit`, ends the encoder.
+ * grow on any call, so every view of it is made after the call it follows. A
+ * call that traps, or reaches the C library's `exit`, ends the encoder.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';

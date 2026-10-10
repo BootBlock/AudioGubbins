@@ -4,16 +4,16 @@
  * browser's encoder is its own, so the bytes are not reproducible, which the
  * registry states and the export record carries.
  *
- * The encoder answers its chunks through a callback, so the units of each
- * block are those it has answered by the time the block is queued, and the
- * rest arrive with later blocks or the flush at the end. A block waits while
- * more than {@link MAXIMUM_QUEUED} are queued, so the encoder never holds a
- * growing backlog of audio. The writer's AudioSpecificConfig is the decoder
- * configuration the encoder states with its first chunk, and its priming is
- * how far that chunk's timestamp lies before the first frame given: an
- * encoder whose first chunk starts at the first frame states no priming.
- * The channels are given in the speaker mask's order, the order WebCodecs
- * implementations take a layout of their count in.
+ * The encoder answers its chunks through a callback, so the units of each block
+ * are those it has answered by the time the block is queued, and the rest
+ * arrive with later blocks or the flush at the end. A block waits while more
+ * than {@link MAXIMUM_QUEUED} are queued, so the encoder never holds a growing
+ * backlog of audio. The writer's AudioSpecificConfig is the decoder
+ * configuration the encoder states with its first chunk, and its priming is how
+ * far that chunk's timestamp lies before the first frame given: an encoder
+ * whose first chunk starts at the first frame states no priming. The channels
+ * are given in the speaker mask's order, the order WebCodecs implementations
+ * take a layout of their count in.
  */
 
 import {

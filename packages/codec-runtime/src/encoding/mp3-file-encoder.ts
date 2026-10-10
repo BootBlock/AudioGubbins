@@ -1,17 +1,16 @@
 /**
  * MP3 exports (ADR-0091): LAME 3.100, the prebuilt module of its own file,
- * framed by the application's MP3 writer, which writes the ID3v2.4 tag and
- * the LAME information frame that gapless players trim by.
+ * framed by the application's MP3 writer, which writes the ID3v2.4 tag and the
+ * LAME information frame that gapless players trim by.
  *
- * The settings map onto the build's interface as follows. A constant bit
- * rate is LAME's `vbr_off` at that rate; a variable one is LAME's default
- * variable mode (`vbr_mtrh`) at the quality asked, 0 to 9. The output rate is
- * the input's, so LAME never resamples what the engine rendered, and a
- * constant rate its MPEG version does not code is refused, since LAME would
- * encode the nearest one it does. An average
- * bit rate (LAME's ABR, `vbr_abr`) cannot be expressed: the build's interface
- * sets only a constant rate or a variable quality, so it is refused, never
- * replaced by either.
+ * The settings map onto the build's interface as follows. A constant bit rate
+ * is LAME's `vbr_off` at that rate; a variable one is LAME's default variable
+ * mode (`vbr_mtrh`) at the quality asked, 0 to 9. The output rate is the
+ * input's, so LAME never resamples what the engine rendered, and a constant
+ * rate its MPEG version does not code is refused, since LAME would encode the
+ * nearest one it does. An average bit rate (LAME's ABR, `vbr_abr`) cannot be
+ * expressed: the build's interface sets only a constant rate or a variable
+ * quality, so it is refused, never replaced by either.
  */
 
 import {
@@ -44,8 +43,8 @@ function lameParameters(
 ): DomainResult<readonly { readonly value: number; readonly float: boolean }[]> {
   switch (encoding.mode) {
     case 'constant': {
-      // LAME takes any rate and encodes the nearest its MPEG version codes, which would
-      // be a rate other than the one asked for.
+      // LAME takes any rate and encodes the nearest its MPEG version codes,
+      // which would be a rate other than the one asked for.
       const rates = mp3BitRates(sampleRate);
       if (!rates.includes(encoding.bitRate)) {
         return fail(

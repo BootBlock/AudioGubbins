@@ -493,7 +493,8 @@ export function portedNoticesOf(list, exists, standardText) {
  * @param {string} module
  * @param {string} build
  * @param {(licence: string) => string} standardText
- * @returns {{ readonly notice: PrebuiltNotice } | { readonly refused: readonly string[] }}
+ * @returns {{ readonly notice: PrebuiltNotice }
+ *   | { readonly refused: readonly string[] }}
  */
 function prebuiltLibraryOf(part, module, build, standardText) {
   /** @type {Record<string, unknown>} */
@@ -534,11 +535,11 @@ function prebuiltLibraryOf(part, module, build, standardText) {
 }
 
 /**
- * The notices of the libraries in the prebuilt modules `list` names, read
- * from `tools/prebuilt-module-notices.json`, or every reason one is refused: a
- * field missing or malformed, a licence neither allowed nor decided on for a
- * prebuilt module, a source that is no https address, or a module whose
- * package is not installed at its version with its file.
+ * The notices of the libraries in the prebuilt modules `list` names, read from
+ * `tools/prebuilt-module-notices.json`, or every reason one is refused: a field
+ * missing or malformed, a licence neither allowed nor decided on for a prebuilt
+ * module, a source that is no https address, or a module whose package is not
+ * installed at its version with its file.
  *
  * @param {unknown} list the list's parsed JSON
  * @param {(name: string, version: string, file: string) => boolean} installed

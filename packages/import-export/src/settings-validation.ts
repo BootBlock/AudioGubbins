@@ -2,13 +2,13 @@
  * Whether an export can be made as its settings ask, before anything is
  * rendered (ADR-0092).
  *
- * Every problem is reported at once, so the person correcting the Export
- * dialog sees them all, and each is a refusal with its reason: nothing is
- * clamped, rounded or substituted. The checks are the codec's descriptor and
- * the layouts the format states (`codec-checks.ts`), the format's own encoding rules (`encoding-rules.ts`),
- * the channel conversion against the layout of every span the range covers
- * (`layout-conversion.ts`), and the dither, metadata and file name
- * (`settings-checks.ts`).
+ * Every problem is reported at once, so the person correcting the Export dialog
+ * sees them all, and each is a refusal with its reason: nothing is clamped,
+ * rounded or substituted. The checks are the codec's descriptor and the layouts
+ * the format states (`codec-checks.ts`), the format's own encoding rules
+ * (`encoding-rules.ts`), the channel conversion against the layout of every
+ * span the range covers (`layout-conversion.ts`), and the dither, metadata and
+ * file name (`settings-checks.ts`).
  */
 
 import { fail, succeed, type DomainFailure, type DomainResult } from '@audiogubbins/domain';

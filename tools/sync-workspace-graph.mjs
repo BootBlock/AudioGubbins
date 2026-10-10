@@ -234,9 +234,8 @@ const PACKAGES = [
     // encoder, composed from those, the prebuilt LAME and libvorbis modules of
     // `wasm-media-encoders`, each its own file, and the browser's AAC encoder,
     // quantising through the export's dither, fed the rendered blocks the
-    // engine's channel brings. Compiled with the DOM's
-    // definitions for the codec worker it serves and the browser's codecs it
-    // reaches.
+    // engine's channel brings. Compiled with the DOM's definitions for the
+    // codec worker it serves and the browser's codecs it reaches.
     dir: 'packages/codec-runtime',
     name: '@audiogubbins/codec-runtime',
     description:

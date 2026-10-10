@@ -78,9 +78,9 @@ function notASink(node: NodeId): DomainFailure {
 }
 
 /**
- * Each sink of the graph bound to the caller's, those bound to a channel
- * left to the worker, or every sink left unbound or bound twice, found before
- * a worker is started or a source's audio is given up.
+ * Each sink of the graph bound to the caller's, those bound to a channel left
+ * to the worker, or every sink left unbound or bound twice, found before a
+ * worker is started or a source's audio is given up.
  */
 function bindSinks(
   request: RenderRequest,

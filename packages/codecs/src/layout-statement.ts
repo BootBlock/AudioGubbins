@@ -9,10 +9,10 @@
  *
  * - FLAC (RFC 9639, section 9.1.3), Vorbis (Vorbis I, section 4.3.9) and Opus's
  *   mapping families 0 and 1 (RFC 7845, section 5.1.1.2) share one table for
- *   one to eight channels. The surround pair of five and six channels is
- *   FLAC's "back/surround" pair and Vorbis's "rear" pair, the one surround pair
- *   of a 5.0 or 5.1 layout, so it is stated whether the layout names it the
- *   side pair, as the domain's 5.1 does, or the rear pair.
+ *   one to eight channels. The surround pair of five and six channels is FLAC's
+ *   "back/surround" pair and Vorbis's "rear" pair, the one surround pair of a
+ *   5.0 or 5.1 layout, so it is stated whether the layout names it the side
+ *   pair, as the domain's 5.1 does, or the rear pair.
  * - AAC states its channel configurations 1 to 7 (ISO/IEC 14496-3, table 1.19),
  *   the last eight channels with the front-centre pair and a surround pair.
  * - MP3 states mono and stereo alone.

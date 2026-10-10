@@ -1,15 +1,15 @@
 /**
- * A prebuilt encoder as a unit encoder: what it answers is one unit, the
- * bytes of its stream in whatever pieces it made them, which its framer
- * reads through. The frames it was given are counted, for the end of a
- * stream whose framer states its length.
+ * A prebuilt encoder as a unit encoder: what it answers is one unit, the bytes
+ * of its stream in whatever pieces it made them, which its framer reads
+ * through. The frames it was given are counted, for the end of a stream whose
+ * framer states its length.
  *
  * The encoder is handed its samples in blocks of {@link ENCODER_BLOCK_FRAMES}
  * whatever blocks the render made, the last block alone shorter. libvorbis's
  * output depends on how its input is divided (it extrapolates the stream's
- * start from the first samples it holds, and chooses its block sizes from
- * the lookahead it has), and an export's bytes must depend on its samples
- * and settings alone, never on the size of the render's chunks (ADR-0091).
+ * start from the first samples it holds, and chooses its block sizes from the
+ * lookahead it has), and an export's bytes must depend on its samples and
+ * settings alone, never on the size of the render's chunks (ADR-0091).
  */
 
 import type { SamplePlane } from '@audiogubbins/codecs';
