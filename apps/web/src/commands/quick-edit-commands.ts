@@ -113,16 +113,32 @@ async function attempted(
   const session = stores.project.session();
   if (session === undefined) return { kind: 'failed', failed: fail(NOT_WRITABLE) };
   const outcome = await stores.imports.importChosen(
-    session,
-    file,
-    context.ids.next<'AssetId'>(),
-    context.clock,
+    { session, ids: context.ids, clock: context.clock },
+    [file],
   );
   if (!outcome.ok) return { kind: 'failed', failed: outcome };
-  if (outcome.value.kind === 'cancelled') return { kind: 'cancelled' };
-  const { imported } = outcome.value;
-  stores.quickEdit.hold({ project: made.id, asset: imported.asset.id, fileName: file.fileName });
-  return { kind: 'kept', imported };
+  const { batch, codecsUnready } = outcome.value;
+  const [only] = batch.outcomes;
+  switch (only?.kind) {
+    case 'refused':
+      return {
+        kind: 'failed',
+        failed:
+          codecsUnready === undefined ? fail(only.failure) : fail(only.failure, codecsUnready),
+      };
+    case 'cancelled':
+    case undefined:
+      return { kind: 'cancelled' };
+    case 'imported': {
+      const { imported } = only;
+      stores.quickEdit.hold({
+        project: made.id,
+        asset: imported.asset.id,
+        fileName: file.fileName,
+      });
+      return { kind: 'kept', imported };
+    }
+  }
 }
 
 /** Makes the chosen file a project and opens it; or nothing, where it cannot be. */

@@ -157,7 +157,7 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
     const project = await projectWorld().window();
     await project.runAndHear('file.create-project', { name: 'Harbour' });
     project.context.editorViews.focus('editor');
-    project.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    project.files.mediaBatches.push([chosen(HARBOUR_WAV)]);
     await project.runAndHear('file.import-audio');
 
     for (const window of [quick, project]) {
@@ -270,8 +270,8 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
 
   it('says nothing and makes nothing when the person dismisses the chooser', async () => {
     const window = await projectWorld().window();
-    const { library, media } = window.services.client;
-    const asked = [vi.spyOn(library, 'create'), vi.spyOn(media, 'importFile')];
+    const { library, imports } = window.services.client;
+    const asked = [vi.spyOn(library, 'create'), vi.spyOn(imports, 'importFiles')];
 
     expect(window.run('file.quick-edit').kind).toBe('applied');
     // A task runs once every promise the dismissal settled has run its callbacks.

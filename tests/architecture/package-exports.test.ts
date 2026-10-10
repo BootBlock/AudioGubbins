@@ -181,10 +181,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'wavFile',
       ],
   },
-  '@audiogubbins/codecs': {
-    'The registry ADR-0090 gives Phase 09, written before the import and export jobs and the storage that look a codec up by its identifier: the descriptor of each codec.':
-      ['codecDescriptor'],
-  },
   '@audiogubbins/import-export': {
     "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":
       [
@@ -194,7 +190,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'ExportJobEvent',
         'ExportPreset',
         'ExportSettingsOf',
-        'ImportProgress',
         'MetadataRates',
         'PresetChoices',
         'batchProgress',
@@ -202,7 +197,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'defaultExportSettings',
         'exportBatch',
         'exportMetadata',
-        'importProgress',
         'nextExportBatch',
         'nextExportJob',
         'nextJobToStart',
@@ -359,10 +353,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
   },
-  '@audiogubbins/browser-storage': {
-    "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
-      ['filesInDirectory'],
-  },
+  '@audiogubbins/browser-storage': {},
   '@audiogubbins/storage-runtime': {},
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":

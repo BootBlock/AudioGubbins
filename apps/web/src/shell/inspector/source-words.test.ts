@@ -23,7 +23,15 @@ const RENDITION: DecodedRendition = {
   decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
   kept: {
     kind: 'linked',
-    identity: { handleKey: 'forest-key', fileName: 'Forest.ogg' },
+    identity: {
+      handleKey: 'forest-key',
+      fileName: 'Forest.ogg',
+      byteLength: 412_000,
+      lastModified: 1_789_000_000_000,
+      mediaType: 'audio/ogg',
+      signature: '4f676753',
+      fastFingerprint: 'f'.repeat(64),
+    },
     retainedCopy: contentIdOfDigit('b'),
   },
 };

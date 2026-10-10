@@ -8,7 +8,7 @@ import { SourceHandling, type ExternalFile, type ImportChoice } from '@audiogubb
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf } from '@audiogubbins/project-format';
 
-import { importAudio } from './audio-import.js';
+import { importAudio } from './testing/one-file-import.js';
 import type { StreamAnalysis } from './decoded-stream.js';
 import { bytesSource } from './byte-streams.js';
 import type { AudioImportServices } from './import-contracts.js';

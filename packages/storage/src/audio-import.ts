@@ -17,7 +17,8 @@
  * are the caller's, since the storage does not depend on the project commands.
  *
  * An import is prepared, everything it stores stored and held, then added, so
- * a batch prepares one file while the one before it is added (ADR-0090). A
+ * a batch prepares one file while the one before it is added (ADR-0090); every
+ * import is a batch's, one file or many (`import-batch.ts`). A
  * managed object the import stored is held in the media store until storage
  * holds the change that refers to it, and released at once where the change is
  * not made, so collection never takes it in between and a refused or cancelled
@@ -41,20 +42,6 @@ import type {
 import { prepareInPlace } from './in-place-import.js';
 import { runHolding } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
-
-/** Imports `request.file` into the session's project (see the module comment). */
-export async function importAudio(
-  session: ProjectSession,
-  request: AudioImport,
-  services: AudioImportServices,
-  observe: ImportObserver = () => undefined,
-  signal?: AbortSignal,
-): Promise<DomainResult<ImportedAudio>> {
-  const prepared = await prepareImport(session, request, services, observe, signal);
-  if (!prepared.ok) return prepared;
-  observe({ kind: 'add' });
-  return await addPrepared(session, prepared.value, services.commands);
-}
 
 /**
  * Analyses, keeps and, where it needs it, decodes `request.file`, ready to be

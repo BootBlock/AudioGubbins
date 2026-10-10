@@ -5842,12 +5842,6 @@ Published paths
   interface AnotherProject
   readonly AnotherProject.name: string | undefined
   type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
-  interface AudioImport
-  readonly AudioImport.file: ExternalFile
-  readonly AudioImport.choice: ImportChoice
-  readonly AudioImport.assetId: AssetId
-  readonly AudioImport.importedAt: number
-  readonly AudioImport.decoding: FileDecoding
   interface AudioImportServices extends ImportServices
   readonly AudioImportServices.commands: ImportCommands
   readonly AudioImportServices.tree: StorageTree
@@ -6181,7 +6175,6 @@ Published paths
   readonly ImportCommands.addRegion: (region: Region) => CommandInvocation
   readonly ImportCommands.addMarker: (marker: Marker) => CommandInvocation
   type ImportIdentity = "copy" | "original" | "original-or-copy"
-  type ImportObserver = (event: ImportFileEvent) => void
   interface ImportOrigin
   readonly ImportOrigin.from: ProjectId
   readonly ImportOrigin.at: number
@@ -6607,7 +6600,6 @@ Published paths
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
-  function importAudio(session: ProjectSession, request: AudioImport, services: AudioImportServices, observe?: ImportObserver, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedAudio>>
   function importBatch(session: ProjectSession, batch: ImportBatch, services: AudioImportServices, observe: BatchObserver, signal?: AbortSignal | undefined): Promise<ImportedBatch>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
@@ -6639,11 +6631,6 @@ Published paths
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
 @audiogubbins/storage-runtime
-  interface AudioFileImport
-  readonly AudioFileImport.file: PageFile
-  readonly AudioFileImport.choice: ImportChoice
-  readonly AudioFileImport.assetId: AssetId
-  readonly AudioFileImport.importedAt: number
   interface BackupsClient
   BackupsClient.tick: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
   BackupsClient.backUpNow: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
@@ -6692,7 +6679,6 @@ Published paths
   LibraryClient.purge: (project: ProjectId, confirmation: PurgeProjectConfirmation) => Promise<DomainResult<void>>
   LibraryClient.fork: (request: ForkRequest, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
   interface MediaClient
-  MediaClient.importFile: (session: RemoteProjectSession, request: AudioFileImport, signal?: AbortSignal) => Promise<DomainResult<ImportedAudio>>
   MediaClient.file: (contentId: ContentId, signal?: AbortSignal) => Promise<DomainResult<Blob>>
   MediaClient.paste: (session: RemoteProjectSession, paste: AudioPaste, locate: PageLocate, signal?: AbortSignal) => Promise<DomainResult<ChangeOutcome>>
   interface OwnershipClient
@@ -8585,7 +8571,7 @@ packages/storage-runtime/src/protocol/import-operations.ts
   type ImportStream = `import:${string}`
 
 packages/storage-runtime/src/protocol/media-operations.ts
-  type MediaOperations = { 'media.import': Operation<{ readonly handle: ProjectHandle; readonly file: CrossingFile; readonly choice: ImportChoice; readonly assetId: AssetId; readonly importedAt: number; }, DomainResult<ImportedAudio>>; 'media.file': Operation<ContentId, DomainResult<Blob>>; 'media.paste': Operation<{ readonly handle: ProjectHandle; readonly paste: AudioPaste; readonly locate: PagePort; }, DomainResult<ChangeOutcome>>; }
+  type MediaOperations = { 'media.file': Operation<ContentId, DomainResult<Blob>>; 'media.paste': Operation<{ readonly handle: ProjectHandle; readonly paste: AudioPaste; readonly locate: PagePort; }, DomainResult<ChangeOutcome>>; }
 
 packages/storage-runtime/src/protocol/operations.ts
   type Answered<TValue> = TValue | Transferring<TValue>

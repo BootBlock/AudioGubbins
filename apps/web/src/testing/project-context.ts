@@ -19,6 +19,7 @@
  */
 
 import { webDigest } from '@audiogubbins/browser-storage';
+import { succeed } from '@audiogubbins/domain';
 import {
   commandId,
   createCommandBus,
@@ -49,6 +50,7 @@ import { abandonment } from '../state/abandoning.js';
 import { createModelAvailabilityStore } from '../ml/model-availability.js';
 import { modelGates } from '../ml/model-words.js';
 import { followProjectAssets } from '../state/project-catalogue.js';
+import type { ImportCodecs } from '../state/import-batches.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
@@ -83,9 +85,21 @@ export interface ScriptedFiles extends TransferFiles {
   readonly foldersToWrite: DirectoryWriter[];
   readonly mediaFiles: PageFile[];
 
+  /** What each chooser of several files, or of a folder's, answers in turn: none once it runs out. */
+  readonly mediaBatches: (readonly PageFile[])[];
+
   /** Whether the next save is dismissed. */
   dismissSave: boolean;
 }
+
+/**
+ * Codecs ready at once, as a window's are where no test says otherwise: no
+ * codec worker is joined, so a compressed file is refused as one this window
+ * cannot decode, and every other file is read where it lies.
+ */
+export const READY_CODECS: ImportCodecs = {
+  ready: () => Promise.resolve(succeed(undefined)),
+};
 
 /** What every folder the person chooses to write into is called. */
 export const CHOSEN_FOLDER_NAME = 'Sounds';
@@ -98,6 +112,7 @@ export function scriptedFiles(canWriteFolders = true): ScriptedFiles {
     foldersToRead: [],
     foldersToWrite: [],
     mediaFiles: [],
+    mediaBatches: [],
     dismissSave: false,
     save: (name, mediaType) => {
       if (files.dismissSave) return Promise.resolve(undefined);
@@ -126,6 +141,8 @@ export function scriptedFiles(canWriteFolders = true): ScriptedFiles {
         }
       : undefined,
     chooseMediaFile: () => Promise.resolve(files.mediaFiles.shift()),
+    chooseMediaFiles: () => Promise.resolve(files.mediaBatches.shift() ?? []),
+    chooseMediaFolder: () => Promise.resolve(files.mediaBatches.shift() ?? []),
   };
   return files;
 }
@@ -209,6 +226,8 @@ export interface ProjectWorld {
     readonly linkedFiles?: ScriptedLinkedFiles;
     /** The storage estimate the window's storage worker reads: none where not given. */
     readonly estimate?: () => Promise<StorageEstimate | undefined>;
+    /** The page's codecs as the import makes them ready: ready at once where not given. */
+    readonly codecs?: ImportCodecs;
   }): Promise<ProjectWindow>;
 }
 
@@ -314,6 +333,7 @@ export function projectWorld(
             words.open,
             built.context.diagnostics.loggerFor('projects'),
           ),
+          codecs: options.codecs ?? READY_CODECS,
         },
         lifetime.signal,
       );

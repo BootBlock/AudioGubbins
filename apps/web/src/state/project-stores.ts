@@ -18,13 +18,13 @@ import type { LibraryChanges } from '../io/library-channel.js';
 import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
-import { AudioImports } from './audio-imports.js';
 import { QuickEditStore } from './quick-edit-store.js';
 import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
 import { HistoryRowOrders } from './history-row-orders.js';
+import { ImportBatches, type ImportCodecs } from './import-batches.js';
 import { InterruptedRecordings } from './interrupted-recordings.js';
 import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
@@ -47,8 +47,8 @@ import { StorageUsageStore } from './storage-usage-store.js';
 export interface ProjectStores {
   readonly library: ProjectLibraryStore;
   readonly transfer: ProjectTransferStore;
-  /** Brings audio files into the open project. */
-  readonly imports: AudioImports;
+  /** Brings batches of audio files into the open project. */
+  readonly imports: ImportBatches;
   /** The Quick Edit in progress, while its project is open. */
   readonly quickEdit: QuickEditStore;
   readonly project: OpenProjectStore;
@@ -88,6 +88,9 @@ export interface ProjectPorts {
 
   /** How this tab and the person's others tell each other their library changed. */
   readonly libraryChanges: LibraryChanges;
+
+  /** The page's codecs, made ready before files are imported so compressed ones decode. */
+  readonly codecs: ImportCodecs;
 }
 
 /**
@@ -122,7 +125,7 @@ export function createProjectStores(
       project,
       recorder: new ExportRecorder(logger, project),
     }),
-    imports: new AudioImports(client.media, files, project, preferences),
+    imports: new ImportBatches(client.imports, ports.codecs, files, project, preferences),
     quickEdit: new QuickEditStore(project),
     project,
     review: new HistoryReviewStore(project, logger),

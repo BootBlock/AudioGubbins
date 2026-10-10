@@ -1168,8 +1168,8 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
         'requestKeptFileAccess',
         'requestKeptFolderAccess',
       ],
-    "The pickers and the page's own file input, which a browser opens only in the handler of the person's gesture.":
-      ['filesFromInput', 'pickDirectory', 'pickFiles', 'pickSaveFile'],
+    "The pickers and the page's own file input, which a browser opens only in the handler of the person's gesture, and the walk of a folder the picker gave, each file's handle kept so a file linked from it is found again.":
+      ['filesFromInput', 'filesInDirectory', 'pickDirectory', 'pickFiles', 'pickSaveFile'],
     'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
       ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
     "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],

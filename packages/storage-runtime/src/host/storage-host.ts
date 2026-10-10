@@ -59,7 +59,7 @@ export function serveStorage(
     ...backupHandlers(services, projects, channel),
     ...rootHandlers(services, channel),
     ...sourceHandlers(services, projects, channel),
-    ...mediaHandlers(services, projects, channel, codecs),
+    ...mediaHandlers(services, projects, channel),
     ...importHandlers(services, projects, channel, codecs),
     ...exportHandlers(services, projects, channel),
     ...cacheHandlers(services),
