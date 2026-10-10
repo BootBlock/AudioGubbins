@@ -305,7 +305,7 @@ async function openedProject(): Promise<AudioWindow> {
   const { window } = audio;
   const asset = audio.asset();
   window.context.editorViews.open('editor', asset);
-  window.context.editorViews.measured('editor', 1000, asset.length);
+  window.context.editorViews.measured('editor', { width: 1000, height: 300 }, asset.length);
   window.context.editorViews.focus('editor');
   return audio;
 }

@@ -104,6 +104,7 @@ export function scene(
     selection: options.selection ?? EMPTY_SELECTION,
     playhead: options.playhead,
     preview: options.preview,
+    drawing: options.drawing,
     snap: options.snap,
     ruler: options.ruler ?? NO_TICKS,
     grid: options.grid,

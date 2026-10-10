@@ -55,6 +55,7 @@ import type { EditorAsset } from '../assets/editor-asset.js';
 import { projectTarget } from './project-edits.js';
 import { selectionCommand } from './selection-command.js';
 import { textArgument } from './shell-command.js';
+import { spectralDrawingCommands } from './spectral-drawing-commands.js';
 import { spectralSelectionCommands } from './spectral-selection-commands.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -323,6 +324,7 @@ export function selectionCommands(): readonly Command<ShellContext>[] {
   return [
     ...rangeCommands(),
     ...spectralSelectionCommands(),
+    ...spectralDrawingCommands(),
     ...objectSelections(),
     ...processorSelections(),
     stepCommand(MARKERS, Step.Next),

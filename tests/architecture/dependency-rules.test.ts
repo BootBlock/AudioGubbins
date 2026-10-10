@@ -3162,8 +3162,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      71,
-      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table.",
+      79,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
@@ -3199,6 +3199,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
 
     // Factories: private state closed over, with each returned method a unit.
+    'apps/web/src/state/editor-view-store.ts: createEditorViewStore': [
+      51,
+      "Nine small methods over one observable state and its coalesced write, the largest the measuring, which takes a width that changes how the view is presented and so is written, and a height that does not and so is not; the keyboard's drawing is set beside it without a write. Taken out, each would take the state, the write and `withEntry` with it.",
+    ],
     'apps/web/src/state/workspace-store.ts: createWorkspaceStore': [
       235,
       "Twenty-six small methods over one layout store and one state, beside the state's own `get` and `subscribe`, the largest about fifteen lines. The panel operations are each a line or two over the model and share `commit`; taken out, they would take the state, the store and `commit` with them. What it writes of the collection, and the text nobody has read that it keeps aside, are decided by `workspace-custody.ts`, and the reset and removal refusals are functions of the module beside it.",

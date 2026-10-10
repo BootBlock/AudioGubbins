@@ -34,7 +34,7 @@ export type SpectralStep = (typeof SpectralStep)[keyof typeof SpectralStep];
 export const SPECTRAL_TIME_STEP_PIXELS = 10;
 
 /** How far a step in frequency moves each edge of a selection: this share of the axis. */
-const FREQUENCY_STEP_SHARE = 1 / 20;
+export const FREQUENCY_STEP_SHARE = 1 / 20;
 
 /** A straight map from one span to another. */
 function spanMap(

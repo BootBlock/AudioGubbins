@@ -102,6 +102,22 @@ function drawnShapeOf(
   };
 }
 
+/**
+ * `current` with `drawn` joined, as a spectral tool's shape joins the
+ * selection whether a pointer or the keyboard drew it, or why it cannot be.
+ */
+export function joinedSelection(
+  current: SelectionSet,
+  drawn: DrawnShape,
+  asset: EditorAsset,
+): SelectionSet | string {
+  const next = withDrawnShape(current, drawn, channelCount(asset.layout));
+  if (next.spectral === undefined) return 'Nothing is selected to take that shape from.';
+  // The one check of the shape and of what joining it made, which may pass
+  // the shapes or points a selection may hold.
+  return maskProblem(next.spectral, asset.length) ?? next;
+}
+
 /** The command that joins a spectral tool's shape to the selection. */
 function drawnShapeCommand(): Command<ShellContext> {
   return selectionCommand(
@@ -109,12 +125,7 @@ function drawnShapeCommand(): Command<ShellContext> {
     'Select a spectral area',
     (current, { asset }, _context, invocation) => {
       const drawn = drawnShapeOf(invocation, asset);
-      if (typeof drawn === 'string') return drawn;
-      const next = withDrawnShape(current, drawn, channelCount(asset.layout));
-      if (next.spectral === undefined) return 'Nothing is selected to take that shape from.';
-      // The one check of the shape and of what joining it made, which may
-      // pass the shapes or points a selection may hold.
-      return maskProblem(next.spectral, asset.length) ?? next;
+      return typeof drawn === 'string' ? drawn : joinedSelection(current, drawn, asset);
     },
     { discoverable: false },
   );
