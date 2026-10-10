@@ -1,10 +1,12 @@
 /**
  * An export's encoder driven whole, for a test: a reproducible test signal,
- * the request and services an export is opened with, the file written in
- * blocks, and the error of a decoded file against its source.
+ * the request and services an export is opened with, carrying the metadata
+ * the page gives an export, the file written in blocks with what its writer
+ * reported dropped, and the error of a decoded file against its source.
  */
 
-import { writeWhole } from '@audiogubbins/codecs/testing';
+import type { MetadataMap } from '@audiogubbins/codecs';
+import { writeWhole, type WrittenFile } from '@audiogubbins/codecs/testing';
 import {
   StandardLayouts,
   sampleRate,
@@ -55,18 +57,22 @@ export function testSignal(channels: number, frames: number, hertz: number): Flo
   });
 }
 
-/** A request for `encoding` of audio in `layout` at `hertz`, without metadata or dither. */
+/**
+ * A request for `encoding` of audio in `layout` at `hertz`, carrying
+ * `metadata` as the page gives it (`fileMetadata`), without dither.
+ */
 export function exportRequest(
   encoding: FormatEncoding,
   hertz: number,
   layout: ChannelLayout = StandardLayouts.stereo,
+  metadata: MetadataMap = {},
 ): ExportEncodeRequest {
   return {
     target: exportTarget(encoding),
     encoding,
     sampleRate: rate(hertz),
     layout,
-    metadata: {},
+    metadata,
     dither: { settings: { kind: 'none' }, key: 0 },
   };
 }
@@ -88,6 +94,22 @@ export function testServices(
   };
 }
 
+/**
+ * The whole file `request` makes of `planes`, written in blocks of `block`
+ * frames, with what its writer's finish answered: the parts of the request's
+ * metadata it reported dropped among it.
+ */
+export async function encodeWritten(
+  request: ExportEncodeRequest,
+  planes: readonly Float32Array[],
+  services: ExportEncoderServices = testServices(),
+  block = 4_000,
+): Promise<WrittenFile> {
+  const opened = await openExportEncoder(request, services);
+  if (!opened.ok) throw new Error(opened.failures[0].summary);
+  return await writeWhole(opened.value.writer, planes, block);
+}
+
 /** The whole file `request` makes of `planes`, written in blocks of `block` frames. */
 export async function encodeWhole(
   request: ExportEncodeRequest,
@@ -95,9 +117,7 @@ export async function encodeWhole(
   services: ExportEncoderServices = testServices(),
   block = 4_000,
 ): Promise<Uint8Array> {
-  const opened = await openExportEncoder(request, services);
-  if (!opened.ok) throw new Error(opened.failures[0].summary);
-  return (await writeWhole(opened.value.writer, planes, block)).file;
+  return (await encodeWritten(request, planes, services, block)).file;
 }
 
 /** Every frame a session decodes, one plane per channel. */
