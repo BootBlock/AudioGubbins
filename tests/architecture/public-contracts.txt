@@ -3134,6 +3134,7 @@ Published paths
   readonly SpectralToolSettings.brushRadius: number
   readonly SpectralToolSettings.hardness: number
   readonly SpectralToolSettings.feather: SpectralFeather
+  readonly SpectralToolSettings.combination: SpectralCombination
   const SpectrogramColours: { readonly Theme: "theme"; readonly Greyscale: "greyscale"; }
   type SpectrogramColours = "greyscale" | "theme"
   interface SpectrogramDisplay
@@ -3197,6 +3198,7 @@ Published paths
   function hardnessOf(value: number): number
   function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
   function isDisplayRange(range: DisplayRange): boolean
+  function isSpectralTool(tool: ToolId): boolean
   function laneAt(layout: ViewLayout, y: number): Lane | undefined
   function layoutView(state: EditorViewState, width: number, height: number, channelCount: number, pictureBound: boolean): ViewLayout
   function maskSteppedInFrequency(mask: SpectralMask, step: SpectralStep, axis: SpectralSettings, highest: number): SpectralMask | undefined

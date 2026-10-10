@@ -681,6 +681,41 @@ describe('the default shortcut profile', () => {
     ]);
   });
 
+  it('reaches the spectral selection and the spectral tools from the keyboard (REQ-UX-005)', () => {
+    const profile = defaultShortcutProfile(KeyboardConvention.Windows, UNKNOWN_LAYOUT);
+    const said = (id: string) => {
+      const bound = profile.bindings.find((binding) => binding.commandId === commandId(id));
+      return bound === undefined
+        ? undefined
+        : describeShortcut(bound.shortcut, KeyboardConvention.Windows, UNKNOWN_LAYOUT);
+    };
+    expect(
+      Object.fromEntries(
+        [
+          'editor.select-spectral-band',
+          'editor.add-spectral-band',
+          'editor.subtract-spectral-band',
+          'editor.widen-spectral-band',
+          'editor.narrow-spectral-band',
+          'editor.clear-spectral-selection',
+          'editor.tool-spectral-marquee',
+          'editor.tool-spectral-lasso',
+          'editor.tool-spectral-brush',
+        ].map((id) => [id, said(id)]),
+      ),
+    ).toEqual({
+      'editor.select-spectral-band': 'B',
+      'editor.add-spectral-band': 'Shift+B',
+      'editor.subtract-spectral-band': 'Shift+X',
+      'editor.widen-spectral-band': 'Shift+Up',
+      'editor.narrow-spectral-band': 'Shift+Down',
+      'editor.clear-spectral-selection': 'Shift+D',
+      'editor.tool-spectral-marquee': 'Shift+M',
+      'editor.tool-spectral-lasso': 'Shift+L',
+      'editor.tool-spectral-brush': 'P',
+    });
+  });
+
   it('writes each default by what the layout types, in the menus and the palette', () => {
     expect(
       describeShortcut(
@@ -1254,6 +1289,19 @@ describe('finding the shell commands in the palette', () => {
     }),
     'editor.select-spectral-band': inEditor({
       before: (run) => run('editor.select-time', { start: 1_000, end: 96_000 }),
+    }),
+    'editor.add-spectral-band': inEditor({
+      before: (run) => run('editor.select-time', { start: 1_000, end: 96_000 }),
+    }),
+    'editor.subtract-spectral-band': inEditor({
+      before: (run) => {
+        run('editor.select-time', { start: 1_000, end: 96_000 });
+        run('editor.select-spectral-band', { low: 400, high: 4_000 });
+      },
+      arguments: () => ({ low: 1_000, high: 2_000 }),
+    }),
+    'editor.spectral-combination-replace': inEditor({
+      before: (run) => run('editor.spectral-combination-add'),
     }),
     ...Object.fromEntries(
       [

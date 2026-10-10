@@ -88,15 +88,15 @@ export const TOOLS: Readonly<Record<ToolId, { readonly name: string; readonly do
   },
   [ToolId.SpectralMarquee]: {
     name: 'Spectral marquee',
-    does: 'Selects the time and frequencies of the rectangle it is dragged over on a spectrogram, adding with Shift and taking away with Alt.',
+    does: 'Selects the time and frequencies of the rectangle it is dragged over on a spectrogram, adding with Shift and taking away with Alt, or as the combination mode says.',
   },
   [ToolId.SpectralLasso]: {
     name: 'Spectral lasso',
-    does: 'Selects the area of a spectrogram its path encloses, adding with Shift and taking away with Alt.',
+    does: 'Selects the area of a spectrogram its path encloses, adding with Shift and taking away with Alt, or as the combination mode says.',
   },
   [ToolId.SpectralBrush]: {
     name: 'Spectral brush',
-    does: 'Paints a selection on a spectrogram, as hard as a pen presses or at the fixed strength, adding with Shift and taking away with Alt.',
+    does: 'Paints a selection on a spectrogram, as hard as a pen presses or at the fixed strength, adding with Shift and taking away with Alt, or as the combination mode says.',
   },
 };
 

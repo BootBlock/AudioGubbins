@@ -34,6 +34,7 @@ import { spectrogramConfig, type SpectrogramConfig } from '@audiogubbins/spectra
 import {
   DEFAULT_SNAP_SETTINGS,
   SnapKind,
+  SpectralCombination,
   TimeFormatKind,
   frameRate,
   pixelsPerSample,
@@ -200,10 +201,10 @@ function featherOf(value: unknown): SpectralToolSettings['feather'] {
   return within && time > 0 === frequency > 0 ? { time, frequency } : fallback;
 }
 
-/** Stored spectral tool settings, each taken to the step its control offers. */
+/** Stored spectral tool settings, each taken to the step its control offers or to its default. */
 function spectralToolsOf(value: unknown): SpectralToolSettings {
   if (!isRecord(value)) return DEFAULTS.spectralTools;
-  const { brushRadius, hardness } = value;
+  const { brushRadius, hardness, combination } = value;
   return {
     brushRadius:
       typeof brushRadius === 'number'
@@ -211,6 +212,9 @@ function spectralToolsOf(value: unknown): SpectralToolSettings {
         : DEFAULTS.spectralTools.brushRadius,
     hardness: typeof hardness === 'number' ? hardnessOf(hardness) : DEFAULTS.spectralTools.hardness,
     feather: featherOf(value['feather']),
+    combination: isMemberOf(SpectralCombination, combination)
+      ? combination
+      : DEFAULTS.spectralTools.combination,
   };
 }
 

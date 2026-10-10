@@ -17,6 +17,7 @@ import {
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { SPECTRAL_TOOL_RANGES, type SpectralToolSettings } from '@audiogubbins/editor-view';
+import { SpectralCombination } from '@audiogubbins/timeline';
 
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import type { ShellContext } from './shell-context.js';
@@ -104,5 +105,40 @@ describe('the softness of the marquee and the lasso', () => {
       'refused',
     );
     expect(tools()?.feather).toEqual({ time: 0, frequency: 0 });
+  });
+});
+
+describe('the combination mode', () => {
+  it('sets how a shape drawn with no modifier joins the selection, and says so', () => {
+    expect(tools()?.combination).toBe(SpectralCombination.Replace);
+    for (const [id, combination, said] of [
+      [
+        'editor.spectral-combination-add',
+        SpectralCombination.Add,
+        'A spectral tool’s shape adds to the spectral selection.',
+      ],
+      [
+        'editor.spectral-combination-subtract',
+        SpectralCombination.Subtract,
+        'A spectral tool’s shape takes from the spectral selection.',
+      ],
+      [
+        'editor.spectral-combination-replace',
+        SpectralCombination.Replace,
+        'A spectral tool’s shape replaces the spectral selection.',
+      ],
+    ] as const) {
+      expect(run(id).kind).toBe('applied');
+      expect(tools()?.combination).toBe(combination);
+      expect(context.interaction.get().announcement?.text).toBe(said);
+    }
+  });
+
+  it('says a mode already in use is so, rather than doing nothing quietly', () => {
+    run('editor.spectral-combination-add');
+    expect(run('editor.spectral-combination-add')).toMatchObject({
+      kind: 'unchanged',
+      reason: 'The view is already so.',
+    });
   });
 });

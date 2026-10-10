@@ -59,11 +59,11 @@ export interface SpectralToolContext {
 
 /**
  * A shape a spectral tool drew, and how it joins the spectral selection: it
- * replaces it, adds to it (Shift) or takes from it (Alt). The shape is as
- * drawn, adding, and the combination says what it does. A shape that
- * replaces the selection scopes it to `channels`, every channel where they
- * are absent, as a drag of the time-selection tool does; one that joins the
- * selection keeps its scope.
+ * replaces it, adds to it or takes from it, as the modifiers held at its press
+ * or the combination mode say (`combinationOf`). The shape is as drawn, adding,
+ * and the combination says what it does. A shape that replaces the selection
+ * scopes it to `channels`, every channel where they are absent, as a drag of
+ * the time-selection tool does; one that joins the selection keeps its scope.
  */
 export interface DrawnShape {
   readonly shape: SpectralShape;
@@ -106,13 +106,17 @@ export function showsSpectrogram(lane: Lane | undefined): lane is Lane {
   return lane !== undefined && lane.kind !== LaneKind.Waveform;
 }
 
-/** How the modifiers held at a press join its shape: Alt takes away, Shift adds. */
-function combinationOf(modifiers: {
-  readonly shift: boolean;
-  readonly alt: boolean;
-}): SpectralCombination {
+/**
+ * How a press's shape joins the selection: Alt takes away and Shift adds,
+ * where either is held, and the combination mode says how otherwise, so a
+ * finger or a pen, which holds no key, adds and takes away as a mouse does.
+ */
+function combinationOf(
+  modifiers: { readonly shift: boolean; readonly alt: boolean },
+  mode: SpectralCombination,
+): SpectralCombination {
   if (modifiers.alt) return SpectralCombination.Subtract;
-  return modifiers.shift ? SpectralCombination.Add : SpectralCombination.Replace;
+  return modifiers.shift ? SpectralCombination.Add : mode;
 }
 
 /** A point of a drag where the pointer was, in CSS pixels, and in time and frequency. */
@@ -346,7 +350,7 @@ export function drawnShapeOf(drag: SpectralDrag, reading: SpectralReading): Draw
   if (shape === undefined) return undefined;
   return {
     shape,
-    combination: combinationOf(start),
+    combination: combinationOf(start, spectral.settings.combination),
     feather: spectral.settings.feather,
     channels: drag.channels,
   };
