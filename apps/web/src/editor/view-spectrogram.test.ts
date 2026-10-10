@@ -14,8 +14,9 @@ import { samplesPerPixel, scrolledBy, viewportAtStart } from '@audiogubbins/time
 import { testAssets } from '../assets/test-assets.js';
 import { ViewSpectrogram } from './view-spectrogram.js';
 
-const [TONES] = expectSuccess(testAssets());
-if (TONES === undefined) throw new Error('No test asset.');
+const [FIRST] = expectSuccess(testAssets());
+if (FIRST === undefined) throw new Error('No test asset.');
+const TONES = FIRST;
 
 let host: SpectrogramHost | undefined;
 
