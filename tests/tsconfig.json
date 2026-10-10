@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
     "outDir": "./dist/types",
     "rootDir": "..",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
