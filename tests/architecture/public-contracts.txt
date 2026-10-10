@@ -885,7 +885,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35160: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35165: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1180,7 +1180,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35160: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35165: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1733,6 +1733,9 @@ Published paths
   interface EncodedPacket
   readonly EncodedPacket.data: Uint8Array<ArrayBufferLike>
   readonly EncodedPacket.frames: number
+  interface EncoderIdentity
+  readonly EncoderIdentity.implementation: CodecImplementation
+  readonly EncoderIdentity.version: string
   interface ExportEncodeRequest
   readonly ExportEncodeRequest.target: ExportTarget
   readonly ExportEncodeRequest.encoding: FormatEncoding
@@ -1744,6 +1747,7 @@ Published paths
   readonly ExportEncoderServices.codecModule: () => Promise<DomainResult<CodecModule>>
   readonly ExportEncoderServices.prebuiltModule: (encoder: PrebuiltEncoder) => Promise<DomainResult<WebAssembly.Module>>
   readonly ExportEncoderServices.encoding: BrowserAudioEncoding | undefined
+  readonly ExportEncoderServices.browser: BrowserFamily | undefined
   readonly ExportEncoderServices.signal: CancellationSignal
   interface FileHandleLike
   FileHandleLike.createSyncAccessHandle: (options: { readonly mode: "read-only"; }) => Promise<SyncAccessHandleLike>
@@ -1757,7 +1761,7 @@ Published paths
   readonly FlacFrameSettings.sampleRate: number
   readonly FlacFrameSettings.blockSize: number
   readonly FlacFrameSettings.level: number
-  type FromCodecWorker = { readonly kind: typeof FromCodecWorkerKind.Analysed; readonly request: string; readonly analysis: ImportAnalysis; } | { readonly kind: typeof FromCodecWorkerKind.Cancelled; readonly request: string; } | { readonly kind: typeof FromCodecWorkerKind.Decoded; readonly request: string; readonly frames: SampleCount; readonly decoder: DecoderIdentity; } | { readonly kind: typeof FromCodecWorkerKind.Encoded; readonly request: string; readonly frames: SampleCount; } | { readonly kind: typeof FromCodecWorkerKind.Environment; readonly environment: CodecEnvironment; } | { readonly kind: typeof FromCodecWorkerKind.Failed; readonly request: string; readonly failure: DomainFailure; } | { readonly kind: typeof FromCodecWorkerKind.Progress; readonly request: string; readonly frames: number; } | { readonly kind: typeof FromCodecWorkerKind.Refused; readonly failure: DomainFailure; }
+  type FromCodecWorker = { readonly kind: typeof FromCodecWorkerKind.Analysed; readonly request: string; readonly analysis: ImportAnalysis; } | { readonly kind: typeof FromCodecWorkerKind.Cancelled; readonly request: string; } | { readonly kind: typeof FromCodecWorkerKind.Decoded; readonly request: string; readonly frames: SampleCount; readonly decoder: DecoderIdentity; } | { readonly kind: typeof FromCodecWorkerKind.Encoded; readonly request: string; readonly frames: SampleCount; readonly encoder: EncoderIdentity; } | { readonly kind: typeof FromCodecWorkerKind.Environment; readonly environment: CodecEnvironment; } | { readonly kind: typeof FromCodecWorkerKind.Failed; readonly request: string; readonly failure: DomainFailure; } | { readonly kind: typeof FromCodecWorkerKind.Progress; readonly request: string; readonly frames: number; } | { readonly kind: typeof FromCodecWorkerKind.Refused; readonly failure: DomainFailure; }
   const FromCodecWorkerKind: { readonly Environment: "environment"; readonly Analysed: "analysed"; readonly Progress: "progress"; readonly Decoded: "decoded"; readonly Encoded: "encoded"; readonly Failed: "failed"; readonly Cancelled: "cancelled"; readonly Refused: "refused"; }
   type ImportAnalysis = { readonly kind: "decode"; readonly stream: AnalysedStream; readonly decoder: DecoderIdentity; readonly metadata: MetadataOutcome; } | { readonly kind: "read-in-place"; readonly container: ReadableContainer; readonly codec: CodecId; readonly metadata: MetadataOutcome; } | { readonly kind: "refused"; readonly failure: DomainFailure; readonly alternatives: readonly CodecId[]; }
   const MAX_OPUS_PACKET_FRAMES: 5760
@@ -1768,7 +1772,10 @@ Published paths
   MessagePortLike.close: () => void
   type MetadataOutcome = { readonly kind: "none"; } | { readonly kind: "read"; readonly metadata: MetadataMap; } | { readonly kind: "unread"; readonly failure: DomainFailure; }
   type ModuleSource = { readonly kind: "compiled"; readonly module: WebAssembly.Module; } | { readonly kind: "unavailable"; readonly reason: string; }
-  type OpenExportEncoder = (request: ExportEncodeRequest, services: ExportEncoderServices) => Promise<DomainResult<AudioFileWriter>>
+  type OpenExportEncoder = (request: ExportEncodeRequest, services: ExportEncoderServices) => Promise<DomainResult<OpenedExportEncoder>>
+  interface OpenedExportEncoder
+  readonly OpenedExportEncoder.writer: AudioFileWriter
+  readonly OpenedExportEncoder.encoder: EncoderIdentity
   type OpusApplication = "audio" | "restricted-low-delay" | "voip"
   interface OpusEncoder
   readonly OpusEncoder.head: Uint8Array<ArrayBufferLike>
@@ -1811,6 +1818,7 @@ Published paths
   readonly StreamDescription.codecConfig: Uint8Array<ArrayBufferLike>
   type ToCodecWorker = CodecRequest | { readonly kind: typeof ToCodecWorkerKind.Configure; readonly codecModule: ModuleSource; readonly prebuiltEncoders: Readonly<Record<PrebuiltEncoder, ModuleSource>>; } | { readonly kind: typeof ToCodecWorkerKind.Connect; readonly port: MessagePortLike; }
   const ToCodecWorkerKind: { readonly Configure: "configure"; readonly Connect: "connect"; readonly Analyse: "analyse"; readonly Decode: "decode"; readonly Encode: "encode"; readonly Cancel: "cancel"; }
+  const WORK_CANCELLED: DomainFailure
   function instantiateCodecModule(code: BufferSource | WebAssembly.Module): Promise<DomainResult<CodecModule>>
   function readFromCodecWorker(value: unknown): DomainResult<FromCodecWorker>
 
@@ -1820,11 +1828,19 @@ Published paths
   readonly FlacFixture.bitsPerSample: 12 | 16 | 20 | 24 | 8
   readonly FlacFixture.blockSize: number
   readonly FlacFixture.metadata?: MetadataMap
+  interface PageWorker
+  PageWorker.post: (message: ToCodecWorker, transfer: readonly unknown[]) => void
+  PageWorker.listen: (onMessage: (data: unknown) => void, onFault: (reason: string) => void) => void
+  PageWorker.terminate: () => void
+  readonly PageWorker.sent: readonly ToCodecWorker[]
+  readonly PageWorker.terminated: () => boolean
+  PageWorker.fault: (reason: string) => void
   function codecModule(): Promise<CodecModule>
   function codecModuleBytes(): Uint8Array<ArrayBuffer>
   function flacFile(module: CodecModule, planes: readonly Int32Array<ArrayBufferLike>[], fixture: FlacFixture): Uint8Array<ArrayBufferLike>
   function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, reads?: number[] | undefined): SyncAudioBytes
   function oggOpusFile(module: CodecModule, planes: readonly Float32Array<ArrayBufferLike>[], settings: Omit<OpusEncoderSettings, "channels" | "sampleRate">): Uint8Array<ArrayBufferLike>
+  function pageWorker(options?: Omit<HarnessOptions, "codecModule">): PageWorker
   function prebuiltEncoderBytes(name: PrebuiltEncoder): Uint8Array<ArrayBuffer>
   function prebuiltEncoderLoader(): (name: PrebuiltEncoder) => Promise<DomainResult<WebAssembly.Module>>
 
@@ -7960,6 +7976,13 @@ packages/codec-runtime/src/files/sync-file-bytes.ts
 packages/codec-runtime/src/streams/stream-port.ts
   interface PortMessage
   readonly PortMessage.data: unknown
+
+packages/codec-runtime/src/testing/worker-harness.ts
+  interface HarnessOptions
+  readonly HarnessOptions.platform?: Partial<CodecPlatform>
+  readonly HarnessOptions.probes?: Partial<CodecProbes>
+  readonly HarnessOptions.codecModule?: ModuleSource
+  readonly HarnessOptions.openExportEncoder?: OpenExportEncoder
 
 packages/codecs/src/aac-config.ts
   interface AacConfig

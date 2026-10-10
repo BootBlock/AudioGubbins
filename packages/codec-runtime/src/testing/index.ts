@@ -13,3 +13,4 @@ export { codecModule, codecModuleBytes } from './codec-module.js';
 export { memoryBytes } from './memory-bytes.js';
 export { type FlacFixture, flacFile, oggOpusFile } from './encoded-fixtures.js';
 export { prebuiltEncoderBytes, prebuiltEncoderLoader } from './prebuilt-encoders.js';
+export { type PageWorker, pageWorker } from './worker-harness.js';

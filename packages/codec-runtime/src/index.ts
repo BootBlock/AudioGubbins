@@ -63,3 +63,5 @@ export { type FileHandleLike, type FileSource } from './files/file-source.js';
 export { type BlobLike } from './files/sync-file-bytes.js';
 
 export { type MessagePortLike } from './streams/stream-port.js';
+
+export { WORK_CANCELLED } from './work-cancelled.js';

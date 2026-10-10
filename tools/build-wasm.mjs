@@ -82,6 +82,12 @@ export const DSP_MODULE = join(REPO_ROOT, 'target', 'wasm', 'audiogubbins-dsp.wa
 /** Where the codec module is written. */
 export const CODEC_MODULE = join(REPO_ROOT, 'target', 'wasm', 'audiogubbins-codecs.wasm');
 
+/** Where the MP3 encoder module is written. */
+export const MP3_MODULE = join(REPO_ROOT, 'target', 'wasm', 'audiogubbins-mp3.wasm');
+
+/** Where the Vorbis encoder module is written. */
+export const VORBIS_MODULE = join(REPO_ROOT, 'target', 'wasm', 'audiogubbins-vorbis.wasm');
+
 /** Each crate, and the module file it is built into. */
 const MODULES = new Map([
   [DSP_CRATE, DSP_MODULE],
@@ -142,6 +148,18 @@ export function buildDspModule() {
 export function buildCodecModule() {
   build([CODEC_CRATE]);
   return CODEC_MODULE;
+}
+
+/**
+ * The MP3 and Vorbis encoder modules, answering their paths. They are not
+ * built from the crates, and this tool does not yet build them, so either
+ * file may be absent; the application then offers its format as unavailable,
+ * saying why.
+ *
+ * @returns {Promise<{ readonly mp3: string, readonly vorbis: string }>}
+ */
+export function buildEncoders() {
+  return Promise.resolve({ mp3: MP3_MODULE, vorbis: VORBIS_MODULE });
 }
 
 /** Builds both modules, answering their paths. */

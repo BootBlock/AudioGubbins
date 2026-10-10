@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,7 +6,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-import { buildDspModule } from '../../tools/build-wasm.mjs';
+import { buildCodecModule, buildDspModule, buildEncoders } from '../../tools/build-wasm.mjs';
 import { inferenceRuntime, runtimeBundleReferences } from './inference-runtime.js';
 import { modelPackServing } from './model-pack-serving.js';
 import { previewRequestLog } from './preview-request-log.js';
@@ -196,6 +196,79 @@ function dspModule(): Plugin {
   };
 }
 
+/** The module text that makes `name` the bytes of `file`, decoded once when it is evaluated. */
+function bytesModule(name: string, file: string): string {
+  const encoded = readFileSync(file).toString('base64');
+  return [
+    `const binary = atob(${JSON.stringify(encoded)});`,
+    `export const ${name} = new Uint8Array(binary.length);`,
+    'for (let index = 0; index < binary.length; index += 1) {',
+    `  ${name}[index] = binary.charCodeAt(index);`,
+    '}',
+  ].join('\n');
+}
+
+/** What the application imports the codec module's bytes as, and the same marked as no file. */
+const CODEC_MODULE_ID = 'virtual:audiogubbins/codec-module';
+const RESOLVED_CODEC_MODULE_ID = `\0${CODEC_MODULE_ID}`;
+
+/**
+ * What the application imports each encoder module as, marked as no file, by
+ * the encoder's name as the build tool names it, and the format it encodes.
+ */
+interface EncoderModule {
+  readonly encoder: 'mp3' | 'vorbis';
+  readonly format: string;
+}
+const ENCODER_MODULES: ReadonlyMap<string, EncoderModule> = new Map([
+  ['virtual:audiogubbins/mp3-encoder-module', { encoder: 'mp3', format: 'MP3' }],
+  ['virtual:audiogubbins/vorbis-encoder-module', { encoder: 'vorbis', format: 'Vorbis' }],
+]);
+const RESOLVED_ENCODER_MODULES: ReadonlyMap<string, EncoderModule> = new Map(
+  [...ENCODER_MODULES].map(([id, encoder]) => [`\0${id}`, encoder]),
+);
+
+/**
+ * The codec module and the MP3 and Vorbis encoder modules, carried in the
+ * bundle as the DSP module is (ADR-0090, ADR-0091): the page makes no request,
+ * so each reaches it as a module of the bundle whose text is its bytes in
+ * base64, a chunk of its own that the page imports only when the codec worker
+ * is first needed, and compiles before it hands the worker the compiled module.
+ *
+ * The codec module is built from the crates, and a build that fails fails the
+ * application's build, as the DSP module's does. An encoder module the build
+ * tool did not write is carried as absent, with the reason, so the page
+ * offers its format as unavailable and every other format still works: the
+ * answer the page gives an encoder whose bytes will not compile.
+ */
+function codecModules(): Plugin {
+  return {
+    name: 'audiogubbins:codec-modules',
+    resolveId: (id) => {
+      if (id === CODEC_MODULE_ID) return RESOLVED_CODEC_MODULE_ID;
+      return ENCODER_MODULES.has(id) ? `\0${id}` : undefined;
+    },
+    async load(id) {
+      if (id === RESOLVED_CODEC_MODULE_ID) {
+        for (const source of crateSources()) this.addWatchFile(source);
+        return bytesModule('CODEC_MODULE_BYTES', buildCodecModule());
+      }
+      const module = RESOLVED_ENCODER_MODULES.get(id);
+      if (module === undefined) return undefined;
+      const file = (await buildEncoders())[module.encoder];
+      this.addWatchFile(file);
+      if (existsSync(file)) {
+        return [
+          bytesModule('ENCODER_BYTES', file),
+          "export const ENCODER_MODULE = { kind: 'bundled', bytes: ENCODER_BYTES };",
+        ].join('\n');
+      }
+      const reason = `The ${module.format} encoder was not built into this copy of AudioGubbins.`;
+      return `export const ENCODER_MODULE = { kind: 'absent', reason: ${JSON.stringify(reason)} };`;
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   // A project site lives at /<repository>/, a user site and a local server at
   // /. Taking it from the environment means the same build configuration serves
@@ -241,6 +314,8 @@ export default defineConfig(({ command }) => ({
     contentSecurityPolicy(),
 
     dspModule(),
+
+    codecModules(),
 
     // The inference runtime's WebAssembly, served from the application's own
     // origin with the digests taken from the bytes served (ADR-0062).

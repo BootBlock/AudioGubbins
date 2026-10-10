@@ -179,7 +179,10 @@ export const FromCodecWorkerKind = {
 /** A message the worker sends. */
 export type FromCodecWorker =
   | {
-      /** What the worker can do with each codec, sent at first and whenever a load changes it. */
+      /**
+       * What the worker can do with each codec, sent once it is probed and
+       * configured, and whenever a load changes it.
+       */
       readonly kind: typeof FromCodecWorkerKind.Environment;
       readonly environment: CodecEnvironment;
     }
