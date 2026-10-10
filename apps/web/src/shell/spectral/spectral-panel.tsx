@@ -92,6 +92,7 @@ function SpectralEdits({
                 commands={context}
                 args={{ view: shown.panel, operationId: edit.id }}
                 compact
+                sayWhenUnchanged
               />
             </li>
           ))}

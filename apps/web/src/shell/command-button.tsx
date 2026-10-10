@@ -14,6 +14,8 @@ import type { ReactNode } from 'react';
 import type { ButtonTone } from '@audiogubbins/design-system';
 import type { CommandInvocation } from '@audiogubbins/commands';
 
+import type { VoicedOptions } from '../commands/voiced-execution.js';
+
 import {
   NotedButton,
   ReasonedButton,
@@ -23,7 +25,11 @@ import {
 
 /** How a panel runs a command, and asks why one cannot run. */
 export interface PanelCommands {
-  readonly run: (id: string, args?: CommandInvocation['arguments']) => void;
+  readonly run: (
+    id: string,
+    args?: CommandInvocation['arguments'],
+    options?: VoicedOptions,
+  ) => void;
   readonly unavailableReason: (id: string) => string | undefined;
 }
 
@@ -50,6 +56,7 @@ export function CommandButton({
   compact = false,
   refusal,
   shared,
+  sayWhenUnchanged = false,
 }: {
   readonly id: string;
   readonly label: string;
@@ -70,9 +77,17 @@ export function CommandButton({
    * so a button given them is given no `refusal`.
    */
   readonly shared?: SharedReasons<string>;
+
+  /**
+   * Whether the command says so when it finds nothing to do, for a button
+   * whose panel shows nothing of what it would have done: comparing a change
+   * with before it, whose comparison is the History panel's.
+   */
+  readonly sayWhenUnchanged?: boolean;
 }): ReactNode {
   const run = (): void => {
-    if (args === undefined) commands.run(id);
+    if (sayWhenUnchanged) commands.run(id, args, { sayWhenUnchanged });
+    else if (args === undefined) commands.run(id);
     else commands.run(id, args);
   };
   const toned = tone === undefined ? {} : { tone };
