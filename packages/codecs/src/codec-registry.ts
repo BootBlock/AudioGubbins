@@ -176,9 +176,11 @@ const DESCRIPTORS: Readonly<Record<CodecId, CodecDescriptor>> = {
       // samples and settings give the same bytes on every machine.
       reproducible: true,
       licence: 'BSD-3-Clause',
-      // libvorbis has encoder setups from 8 kHz to 192 kHz, and Vorbis I orders speakers for one to eight channels.
+      // libvorbis has encoder setups from 8 kHz to 192 kHz. Vorbis I orders
+      // speakers for one to eight channels, but the prebuilt build is made
+      // for one or two and refuses more.
       sampleRates: { kind: 'any', minimum: 8_000, maximum: 192_000 },
-      maximumChannels: 8,
+      maximumChannels: 2,
     },
   },
   mp3: {

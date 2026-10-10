@@ -7,14 +7,16 @@
  * spread across the package.
  */
 
-import type { CodecId, ContainerId } from '@audiogubbins/codecs';
+import type { ChannelLayout } from '@audiogubbins/domain';
+import { writtenChannelOrder, type CodecId, type ContainerId } from '@audiogubbins/codecs';
 
+import type { CodecLookup } from './export-context.js';
 import type {
   CodedPcm,
   ExportFormat,
-  ExportSettings,
-  ExportSettingsOf,
   FloatPcm,
+  FormatEncoding,
+  FormatEncodingOf,
   FormatEncodings,
   IntegerPcm,
 } from './export-settings.js';
@@ -28,6 +30,12 @@ interface FormatRow<F extends ExportFormat> {
   /** The extension its files are named with, without the dot. */
   readonly extension: string;
   readonly codecOf: (encoding: FormatEncodings[F]) => CodecId;
+
+  /**
+   * The codec whose statement of a channel layout its files make. Every
+   * encoding of a WAV or AIFF file states a layout alike, by its container.
+   */
+  readonly layoutCodec: CodecId;
 
   /**
    * The integer depth the encoder takes its samples at, which dither is added
@@ -68,12 +76,20 @@ function pcmDepth(encoding: IntegerPcm | FloatPcm | CodedPcm): number | undefine
 const FLOATING = (): undefined => undefined;
 
 const FORMATS: { readonly [F in ExportFormat]: FormatRow<F> } = {
-  wav: { name: 'WAV', container: 'wav', extension: 'wav', codecOf: pcmCodec, depthOf: pcmDepth },
+  wav: {
+    name: 'WAV',
+    container: 'wav',
+    extension: 'wav',
+    codecOf: pcmCodec,
+    layoutCodec: 'pcm',
+    depthOf: pcmDepth,
+  },
   aiff: {
     name: 'AIFF',
     container: 'aiff',
     extension: 'aiff',
     codecOf: pcmCodec,
+    layoutCodec: 'pcm',
     depthOf: pcmDepth,
   },
   aifc: {
@@ -81,6 +97,7 @@ const FORMATS: { readonly [F in ExportFormat]: FormatRow<F> } = {
     container: 'aifc',
     extension: 'aifc',
     codecOf: pcmCodec,
+    layoutCodec: 'pcm',
     depthOf: pcmDepth,
   },
   flac: {
@@ -88,14 +105,23 @@ const FORMATS: { readonly [F in ExportFormat]: FormatRow<F> } = {
     container: 'flac',
     extension: 'flac',
     codecOf: () => 'flac',
+    layoutCodec: 'flac',
     depthOf: (encoding) => encoding.bits,
   },
-  mp3: { name: 'MP3', container: 'mp3', extension: 'mp3', codecOf: () => 'mp3', depthOf: FLOATING },
+  mp3: {
+    name: 'MP3',
+    container: 'mp3',
+    extension: 'mp3',
+    codecOf: () => 'mp3',
+    layoutCodec: 'mp3',
+    depthOf: FLOATING,
+  },
   'ogg-vorbis': {
     name: 'Ogg Vorbis',
     container: 'ogg',
     extension: 'ogg',
     codecOf: () => 'vorbis',
+    layoutCodec: 'vorbis',
     depthOf: FLOATING,
   },
   opus: {
@@ -103,6 +129,7 @@ const FORMATS: { readonly [F in ExportFormat]: FormatRow<F> } = {
     container: 'ogg',
     extension: 'opus',
     codecOf: () => 'opus',
+    layoutCodec: 'opus',
     depthOf: FLOATING,
   },
   aac: {
@@ -110,6 +137,7 @@ const FORMATS: { readonly [F in ExportFormat]: FormatRow<F> } = {
     container: 'mp4',
     extension: 'm4a',
     codecOf: () => 'aac-lc',
+    layoutCodec: 'aac-lc',
     depthOf: FLOATING,
   },
 };
@@ -125,7 +153,7 @@ export interface ExportTarget {
   readonly depth: number | undefined;
 }
 
-function targetOfFormat<F extends ExportFormat>(settings: ExportSettingsOf<F>): ExportTarget {
+function targetOfFormat<F extends ExportFormat>(settings: FormatEncodingOf<F>): ExportTarget {
   const row: FormatRow<F> = FORMATS[settings.format];
   return {
     formatName: row.name,
@@ -136,9 +164,23 @@ function targetOfFormat<F extends ExportFormat>(settings: ExportSettingsOf<F>): 
   };
 }
 
-/** The file an export's settings make. */
-export function exportTarget(settings: ExportSettings): ExportTarget {
+/** The file an export's format and encoding make, as its settings state them. */
+export function exportTarget(settings: FormatEncoding): ExportTarget {
   return targetOfFormat(settings);
+}
+
+/**
+ * The names of the formats whose files state `layout` and whose codec writes
+ * as many channels, in the table's order (ADR-0093).
+ */
+export function formatsStating(layout: ChannelLayout, codecs: CodecLookup): readonly string[] {
+  return Object.values(FORMATS)
+    .filter(
+      (row) =>
+        (codecs(row.layoutCodec)?.write?.maximumChannels ?? 0) >= layout.roles.length &&
+        writtenChannelOrder(row.layoutCodec, row.container, layout).ok,
+    )
+    .map((row) => row.name);
 }
 
 /** A format's name as a sentence gives it. */

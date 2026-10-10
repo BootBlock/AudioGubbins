@@ -82,7 +82,11 @@ export { metadataMapOf, metadataPartOf } from './metadata-map-reading.js';
 
 export { type SyncAudioBytes } from './sync-audio-bytes.js';
 
-export { type AudioFileWriter, type FinishedAudioFile } from './audio-file-writer.js';
+export {
+  type AudioFileWriter,
+  type FinishedAudioFile,
+  type SamplePlane,
+} from './audio-file-writer.js';
 
 export { quantiseSample } from './sample-quantisation.js';
 
@@ -91,6 +95,8 @@ export { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';
 export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec-capability.js';
 
 export { type ImportRoute, importRoute } from './import-route.js';
+
+export { type WrittenChannelOrder, writtenChannelOrder } from './layout-statement.js';
 
 export { adtsAudioConfig } from './adts-config.js';
 
@@ -119,7 +125,7 @@ export {
 
 export { OggOpusWriter, type OggOpusSettings } from './ogg-opus-writer.js';
 
-export { type OpusChannelMapping, type OpusHeadSettings } from './opus-header.js';
+export { type OpusChannelMapping, type OpusHeadSettings, readOpusHead } from './opus-header.js';
 
 export { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
 

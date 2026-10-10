@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FailureKind,
+  failure,
   mapResult,
   MAXIMUM_QUALITY,
   sampleCount,
@@ -11,7 +12,12 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { GraphDescriptor } from '@audiogubbins/audio-graph';
+import {
+  readRenderedStreamMessage,
+  type RenderedStreamMessage,
+  type StreamReceiverMessage,
+} from '@audiogubbins/import-export';
+import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import {
   BUILT_IN_NODES,
   BuiltInNodeType,
@@ -23,6 +29,7 @@ import {
   renderOffline,
   signalSource,
   type CanonicalDsp,
+  type MessagePortLike,
   type PcmSource,
   type RenderSink,
   toneRecipe,
@@ -84,11 +91,13 @@ function renderOf(
     readonly chunkFrames?: number;
     readonly module?: WebAssembly.Module | undefined;
     readonly coefficientBudgetBytes?: number;
+    readonly channels?: readonly (readonly [NodeId, MessagePortLike])[];
   } = {},
 ): ToRenderWorker {
   return {
     kind: ToRenderWorkerKind.Render,
     jobId: options.jobId ?? 'render-1',
+    channels: options.channels ?? [],
     graph,
     sampleRate: RATE,
     range: {
@@ -889,5 +898,130 @@ describe('the memory a render worker gives its conversions’ tables', () => {
     const sources = [recorded('a', CD_RATE), recorded('b', CD_RATE)];
 
     expect(await budgetsGiven(sources, undefined)).toEqual([undefined, undefined]);
+  });
+});
+
+/**
+ * The receiving end of a rendered stream, played by the test: every message
+ * read and kept, and credit granted as `grant` says.
+ */
+class ReceiverUnderTest {
+  readonly received: RenderedStreamMessage[] = [];
+  readonly #port: MessagePort;
+  #credit = 0;
+  /** The most messages the sender sent past the credit it had been granted; it must send none. */
+  overdrawn = 0;
+
+  constructor(
+    port: MessagePort,
+    grant: (message: RenderedStreamMessage) => StreamReceiverMessage | undefined,
+  ) {
+    this.#port = port;
+    port.addEventListener('message', (event: MessageEvent) => {
+      const message = expectSuccess(readRenderedStreamMessage(event.data));
+      this.received.push(message);
+      this.#credit -= 1;
+      this.overdrawn = Math.max(this.overdrawn, -this.#credit);
+      const reply = grant(message);
+      if (reply !== undefined) this.give(reply);
+    });
+    port.start();
+  }
+
+  give(reply: StreamReceiverMessage): void {
+    if (reply.kind === 'ready') this.#credit += reply.credit;
+    this.#port.postMessage(reply);
+  }
+
+  get blocks(): readonly (readonly Float32Array[])[] {
+    return this.received.flatMap((message) => (message.kind === 'block' ? [message.channels] : []));
+  }
+
+  get last(): RenderedStreamMessage | undefined {
+    return this.received.at(-1);
+  }
+}
+
+const CREDIT_ONE: StreamReceiverMessage = { kind: 'ready', credit: 1 };
+
+describe('a render worker sending a sink’s blocks over a channel', () => {
+  it('sends them as the receiver’s credit allows, the engine’s render to the bit, and ends', async () => {
+    const dsp = REFERENCE_DSP;
+    const channel = new MessageChannel();
+    const receiver = new ReceiverUnderTest(channel.port2, (message) =>
+      message.kind === 'block' ? CREDIT_ONE : undefined,
+    );
+    receiver.give(CREDIT_ONE);
+    const worker = new WorkerUnderTest();
+    worker.core.receive(
+      renderOf(lookaheadGraph(STEREO), [pcmAt(RATE, distinctChannels(STEREO, 3_000))], {
+        channels: [[named('out'), channel.port1]],
+      }),
+    );
+    expect(await worker.runToEnd()).toMatchObject({ kind: FromRenderWorkerKind.Done });
+    for (let turn = 0; turn < 100 && receiver.last?.kind !== 'end'; turn += 1) {
+      await idle();
+    }
+    const engine = await engineRender(
+      lookaheadGraph(STEREO),
+      memoryAt(RATE, STEREO, distinctChannels(STEREO, 3_000)),
+      dsp,
+    );
+    expect(
+      joined(
+        STEREO.roles.map((_, index) =>
+          receiver.blocks.map((block) => block[index] ?? new Float32Array(0)),
+        ),
+      ),
+    ).toEqual(engine.out);
+    expect(receiver.last).toEqual({ kind: 'end', frames: 2_500 });
+    expect(receiver.overdrawn).toBe(0);
+    // Only the sink with no channel came back to the host.
+    expect(worker.channelsOf('out')).toEqual([]);
+    expect(worker.channelsOf('dry')).toEqual(engine.dry);
+  });
+
+  it('stops the render with the receiver’s reason when it refuses', async () => {
+    const channel = new MessageChannel();
+    const receiver = new ReceiverUnderTest(channel.port2, () => undefined);
+    receiver.give({
+      kind: 'refused',
+      failure: failure('codec-runtime.writer-ended', FailureKind.Rejected, 'The encoder ended.'),
+    });
+    const worker = new WorkerUnderTest();
+    worker.core.receive(
+      renderOf(lookaheadGraph(STEREO), [pcmAt(RATE, distinctChannels(STEREO, 3_000))], {
+        channels: [[named('out'), channel.port1]],
+      }),
+    );
+    const ended = await worker.runToEnd();
+    expect(ended).toMatchObject({
+      kind: FromRenderWorkerKind.Failed,
+      failures: [{ code: 'render.worker-fault' }],
+    });
+    expect(ended.kind === FromRenderWorkerKind.Failed ? ended.failures[0].summary : '').toContain(
+      'The encoder ended.',
+    );
+    expect(receiver.blocks).toEqual([]);
+  });
+
+  it('tells the receiver why a render failed, on the credit it has', async () => {
+    const channel = new MessageChannel();
+    const receiver = new ReceiverUnderTest(channel.port2, () => undefined);
+    receiver.give({ kind: 'ready', credit: 2 });
+    const worker = new WorkerUnderTest();
+    // A source the graph has no input for fails the job before it renders.
+    worker.core.receive(
+      renderOf(lookaheadGraph(STEREO), [], { channels: [[named('out'), channel.port1]] }),
+    );
+    const ended = await worker.runToEnd();
+    expect(ended).toMatchObject({ kind: FromRenderWorkerKind.Failed });
+    for (let turn = 0; turn < 100 && receiver.last === undefined; turn += 1) await idle();
+    // The receiver is told the job's own reason.
+    expect(receiver.last).toEqual({
+      kind: 'failed',
+      failure: ended.kind === FromRenderWorkerKind.Failed ? ended.failures[0] : undefined,
+    });
+    expect(receiver.overdrawn).toBe(0);
   });
 });

@@ -47,6 +47,7 @@ function renderMessage(module: WebAssembly.Module | undefined): ToRenderWorker {
   return {
     kind: ToRenderWorkerKind.Render,
     jobId: 'render-1',
+    channels: [],
     graph: GRAPH,
     sampleRate: RATE,
     range: { start: expectSuccess(sampleCount(10)), length: expectSuccess(sampleCount(4_800)) },

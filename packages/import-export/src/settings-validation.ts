@@ -2,21 +2,27 @@
  * Whether an export can be made as its settings ask, before anything is
  * rendered (ADR-0092).
  *
- * Every problem is reported at once, so the person correcting the Export
- * dialog sees them all, and each is a refusal with its reason: nothing is
- * clamped, rounded or substituted. The checks are the codec's descriptor
- * (`codec-checks.ts`), the format's own encoding rules (`encoding-rules.ts`),
- * the channel conversion against the layout of every span the range covers
- * (`layout-conversion.ts`), and the dither, metadata and file name
- * (`settings-checks.ts`).
+ * Every problem is reported at once, so the person correcting the Export dialog
+ * sees them all, and each is a refusal with its reason: nothing is clamped,
+ * rounded or substituted. The checks are the codec's descriptor and the layouts
+ * the format states (`codec-checks.ts`), the format's own encoding rules
+ * (`encoding-rules.ts`), the channel conversion against the layout of every
+ * span the range covers (`layout-conversion.ts`), and the dither, metadata and
+ * file name (`settings-checks.ts`).
  */
 
 import { fail, succeed, type DomainFailure, type DomainResult } from '@audiogubbins/domain';
 
-import { channelProblems, rateProblems, writingDirection, type Writing } from './codec-checks.js';
+import {
+  channelProblems,
+  layoutProblems,
+  rateProblems,
+  writingDirection,
+  type Writing,
+} from './codec-checks.js';
 import { encodingProblems } from './encoding-rules.js';
-import type { ExportContext, ExportableAudio } from './export-context.js';
-import { exportTarget } from './export-formats.js';
+import type { CodecLookup, ExportContext, ExportableAudio } from './export-context.js';
+import { exportTarget, type ExportTarget } from './export-formats.js';
 import { exportSpans } from './export-range.js';
 import type { ExportSettings } from './export-settings.js';
 import { layoutConversion } from './layout-conversion.js';
@@ -26,13 +32,18 @@ import { ditherProblems, fileNameProblems, metadataProblems } from './settings-c
 function audioProblems(
   settings: ExportSettings,
   audio: ExportableAudio,
+  target: ExportTarget,
   writing: Writing | undefined,
+  codecs: CodecLookup,
 ): readonly DomainFailure[] {
   const conversion = layoutConversion(audio.layout, settings.channels);
   if (!conversion.ok) return conversion.failures;
-  const channels = conversion.value.to.roles.length;
+  const layout = conversion.value.to;
+  const channels = layout.roles.length;
   const fits = writing === undefined ? [] : channelProblems(writing, channels);
-  return [...fits, ...encodingProblems(settings, channels)];
+  // A layout of more channels than the codec holds is refused for its count alone.
+  const stated = fits.length === 0 ? layoutProblems(target, layout, codecs) : [];
+  return [...fits, ...stated, ...encodingProblems(settings, channels)];
 }
 
 /** Each failure once, by its code and sentence, in the order found. */
@@ -58,7 +69,9 @@ export function validateExportSettings(
   const problems: DomainFailure[] = [
     ...(found.ok ? rateProblems(found.value, settings.sampleRate) : found.failures),
     ...(spans.ok
-      ? spans.value.flatMap((span) => audioProblems(settings, span.audio, writing))
+      ? spans.value.flatMap((span) =>
+          audioProblems(settings, span.audio, target, writing, context.codecs),
+        )
       : spans.failures),
     ...ditherProblems(settings.dither, target.depth, settings.sampleRate),
     ...metadataProblems(settings.metadata),

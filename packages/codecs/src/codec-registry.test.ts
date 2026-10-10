@@ -88,6 +88,9 @@ describe('the registry', () => {
     });
     expect(codecDescriptor('mp3').write?.sampleRates).toMatchObject({ kind: 'listed' });
     expect(codecDescriptor('mp3').write?.maximumChannels).toBe(2);
+    // The prebuilt libvorbis encodes one or two channels, though Vorbis reads up to 255.
+    expect(codecDescriptor('vorbis').write?.maximumChannels).toBe(2);
+    expect(codecDescriptor('vorbis').read?.maximumChannels).toBe(255);
     expect(codecDescriptor('pcm').write?.sampleRates).toEqual({
       kind: 'any',
       minimum: 8_000,

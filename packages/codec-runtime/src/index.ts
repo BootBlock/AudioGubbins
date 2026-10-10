@@ -38,7 +38,6 @@ export {
   type AnalysedStream,
   type CodecRequest,
   type ExportEncodeRequest,
-  type FormatEncoding,
   FromCodecWorkerKind,
   type FromCodecWorker,
   type ImportAnalysis,

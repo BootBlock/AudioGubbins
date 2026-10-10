@@ -25,6 +25,7 @@ import type {
   ExportFormat,
   ExportTarget,
   FlacEncoding,
+  FormatEncoding,
   IntegerPcm,
   Mp3Encoding,
   OpusEncoding,
@@ -33,7 +34,7 @@ import type {
 } from '@audiogubbins/import-export';
 
 import { codecOf, containerOf } from './codec-values-reading.js';
-import type { ExportEncodeRequest, FormatEncoding } from './codec-worker-messages.js';
+import type { ExportEncodeRequest } from './codec-worker-messages.js';
 
 /** The value, named `field`, as one of `values`. */
 function oneOfList<TValue extends string | number>(

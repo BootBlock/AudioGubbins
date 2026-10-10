@@ -225,10 +225,12 @@ module.exports = {
         'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
         'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
         'storage or command package. Its thread entries also make the effect rack its workers ' +
-        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062).',
+        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062). ' +
+        "An export's render sends its blocks to the codec worker as import-export's rendered " +
+        'stream (ADR-0092).',
       from: { path: '^packages/audio-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|ml-runtime|processors)/)',
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|import-export|ml-runtime|processors)/)',
       },
     },
     {

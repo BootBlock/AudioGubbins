@@ -32,6 +32,8 @@ import {
 } from './codec-worker-message-reading.js';
 import type { ExportEncodeRequest, FromCodecWorker } from './codec-worker-messages.js';
 import type { OpenExportEncoder } from './encode-job.js';
+import { openExportEncoder } from '../encoding/open-export-encoder.js';
+import { encodeWhole, testSignal } from '../testing/export-encoding.js';
 
 function rate(value: number): SampleRate {
   const read = sampleRate(value);
@@ -332,6 +334,31 @@ describe('the codec worker encoding an export', () => {
             : one.kind,
       ),
     ).toEqual([[100], [200], [44], [[1], [2], []]]);
+  });
+
+  it('encodes the export through the encoders the worker registers, the file a direct write makes', async () => {
+    const source = testSignal(2, 9_000, 48_000);
+    const blocks: RenderedStreamMessage[] = [0, 3_000, 6_000].map((at) => ({
+      kind: 'block',
+      channels: source.map((plane) => plane.slice(at, at + 3_000)),
+      frames: 3_000,
+    }));
+    const frames = sampleCount(9_000);
+    if (!frames.ok) throw new Error('frames');
+    const { answer, received } = await encodeThrough(openExportEncoder, [
+      ...blocks,
+      { kind: 'end', frames: frames.value },
+    ]);
+    expect(answer).toEqual({ kind: 'encoded', request: 'e', frames: 9_000 });
+    const finished = received.at(-1);
+    if (finished?.kind !== 'finished') throw new Error('The encode did not finish.');
+    const parts = [
+      finished.file.head,
+      ...received.flatMap((one) => (one.kind === 'body' ? [one.bytes] : [])),
+      finished.file.tail,
+    ];
+    const file = parts.flatMap((part) => [...part]);
+    expect(file).toEqual([...(await encodeWhole(ENCODE, source))]);
   });
 
   it('ends both streams with the reason where the encoder is refused, the render fails, or its length disagrees', async () => {

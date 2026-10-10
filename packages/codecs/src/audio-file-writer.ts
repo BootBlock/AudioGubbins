@@ -13,6 +13,14 @@ import type { CancellationSignal, DomainResult } from '@audiogubbins/domain';
 
 import type { MetadataPart } from './metadata-map.js';
 
+/**
+ * One channel's samples of a block. A rendered block is 32-bit float; a block
+ * quantised to a 32-bit integer depth is 64-bit, since a 32-bit float cannot
+ * hold every `k / 2^31` and the integer written would not be the one the
+ * dither chose.
+ */
+export type SamplePlane = Float32Array | Float64Array;
+
 /** The end of a written file. */
 export interface FinishedAudioFile {
   /** The bytes before the body. */
@@ -33,7 +41,7 @@ export interface FinishedAudioFile {
  */
 export interface AudioFileWriter {
   write(
-    channels: readonly Float32Array[],
+    channels: readonly SamplePlane[],
     frames: number,
     signal?: CancellationSignal,
   ): Promise<DomainResult<readonly Uint8Array[]>>;

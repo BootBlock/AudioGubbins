@@ -43,6 +43,8 @@ import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import {
   DspImplementation,
   ResamplingQuality,
+  isMessagePortLike,
+  type MessagePortLike,
   type RenderConversion,
   type RenderRange,
 } from '@audiogubbins/audio-engine';
@@ -75,6 +77,12 @@ export type ToRenderWorker =
       readonly coefficientBudgetBytes: number | undefined;
       /** The canonical DSP compiled on the main thread, or why it could not be. */
       readonly dsp: DspDelivery<WebAssembly.Module>;
+      /**
+       * The sinks whose chunks go over a port of their own straight to the
+       * worker that consumes them (`channel-sink.ts`), each port transferred;
+       * every other sink's chunks come back to the main thread.
+       */
+      readonly channels: readonly (readonly [NodeId, MessagePortLike])[];
     }
   | {
       /** The main thread has written one chunk, so the worker may send another. */
@@ -204,6 +212,19 @@ function conversionFrom(fields: MessageFields): RenderConversion {
   };
 }
 
+/**
+ * A sink's node and its channel's port. The port is told by the members a
+ * channel uses, as the engine tells a preview's port (`isMessagePortLike`),
+ * since a port's class is not one every realm names alike.
+ */
+function channelFrom(value: unknown, name: string): readonly [NodeId, MessagePortLike] {
+  const port: unknown = Array.isArray(value) ? value[1] : undefined;
+  if (!Array.isArray(value) || value.length !== 2 || !isMessagePortLike(port)) {
+    throw new Malformed(name, 'a node and the end of a message channel');
+  }
+  return [nodeAt({ node: value[0] }, 'node'), port];
+}
+
 function toRenderWorkerFrom(fields: MessageFields): ToRenderWorker {
   const kind = oneOf(fields, 'kind', ToRenderWorkerKind);
   const jobId = textAt(fields, 'jobId');
@@ -220,6 +241,7 @@ function toRenderWorkerFrom(fields: MessageFields): ToRenderWorker {
         sources: objectsAt(fields, 'sources', sourceFrom),
         coefficientBudgetBytes: optionalCountAt(fields, 'coefficientBudgetBytes'),
         dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
+        channels: itemsAt(fields, 'channels', channelFrom),
       };
     case ToRenderWorkerKind.ChunkTaken:
     case ToRenderWorkerKind.Cancel:

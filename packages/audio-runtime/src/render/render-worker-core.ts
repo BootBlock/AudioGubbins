@@ -43,6 +43,7 @@ import {
   type RenderFailures,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
+import { ChannelSink } from './channel-sink.js';
 import { ChunkWindow } from './chunk-window.js';
 import { postingSink, type PostToHost } from './posting-sink.js';
 import { renderEndpoints } from './render-endpoints.js';
@@ -79,6 +80,20 @@ function isRenderFault(error: unknown): error is Error {
     (error instanceof Error && Object.getPrototypeOf(error) === Error.prototype)
   );
 }
+
+/** What a channel's receiver is told of a render that was cancelled. */
+const RENDER_CANCELLED = failure(
+  'render.cancelled',
+  FailureKind.Rejected,
+  'The render was cancelled.',
+);
+
+/** What a channel's receiver is told of a render that ended without ending its channel. */
+const RENDER_ENDED_UNFINISHED = failure(
+  'render.ended-unfinished',
+  FailureKind.Unrecoverable,
+  'The render ended before it finished this audio.',
+);
 
 type RenderMessage = Extract<ToRenderWorker, { readonly kind: typeof ToRenderWorkerKind.Render }>;
 
@@ -225,6 +240,26 @@ export class RenderWorkerCore {
   }
 
   async #render(message: RenderMessage, job: RunningJob): Promise<void> {
+    const channels = new Map(
+      message.channels.map(([node, port]) => [
+        node,
+        new ChannelSink(port, job.cancellation.signal),
+      ]),
+    );
+    try {
+      await this.#renderTo(message, job, channels);
+    } finally {
+      // A channel the render did not end, as one whose job was refused before
+      // it rendered, is ended here, so its consumer never waits on it.
+      for (const channel of channels.values()) channel.abandon(RENDER_ENDED_UNFINISHED);
+    }
+  }
+
+  async #renderTo(
+    message: RenderMessage,
+    job: RunningJob,
+    channels: ReadonlyMap<NodeId, ChannelSink>,
+  ): Promise<void> {
     const scoped = this.#chooseDsp(message.dsp);
     const endpoints = renderEndpoints(message.graph);
     if (!endpoints.ok) {
@@ -247,16 +282,24 @@ export class RenderWorkerCore {
       post: this.#host.post,
     };
     const sinks = new Map<NodeId, RenderSink>(
-      [...endpoints.value.sinks.keys()].map((node) => [node, postingSink(node, posting)]),
+      [...endpoints.value.sinks.keys()].map((node) => [
+        node,
+        channels.get(node) ?? postingSink(node, posting),
+      ]),
     );
     try {
-      await this.#run(renderJobOf(message, sources.value, sinks), job, scoped);
+      await this.#run(renderJobOf(message, sources.value, sinks), job, scoped, channels);
     } finally {
       for (const source of sources.value.values()) source.release();
     }
   }
 
-  async #run(renderJob: RenderJob, job: RunningJob, scoped: ScopeDsp): Promise<void> {
+  async #run(
+    renderJob: RenderJob,
+    job: RunningJob,
+    scoped: ScopeDsp,
+    channels: ReadonlyMap<NodeId, ChannelSink>,
+  ): Promise<void> {
     const { signal } = job.cancellation;
     const options: RenderOptions = {
       signal,
@@ -269,10 +312,15 @@ export class RenderWorkerCore {
     };
     try {
       const rendered = await renderOffline(renderJob, scoped.dsp, BUILT_IN_NODES, options);
+      for (const channel of channels.values()) {
+        if (rendered.ok) await channel.end(rendered.value.frames);
+        else channel.abandon(rendered.failures[0]);
+      }
       if (rendered.ok) this.#host.post(doneOf(job.jobId, rendered.value, scoped), []);
       else this.#fail(job.jobId, rendered.failures);
     } catch (error) {
       if (signal.aborted && error === signal.reason) {
+        for (const channel of channels.values()) channel.abandon(RENDER_CANCELLED);
         this.#host.post({ kind: FromRenderWorkerKind.Cancelled, jobId: job.jobId }, []);
         return;
       }
@@ -280,13 +328,13 @@ export class RenderWorkerCore {
       // DSP out of memory, is the job's failure, which the main thread is
       // waiting to hear as a message.
       if (!isRenderFault(error)) throw error;
-      this.#fail(job.jobId, [
-        failure(
-          'render.worker-fault',
-          FailureKind.Unrecoverable,
-          `The render stopped: ${error.message}`,
-        ),
-      ]);
+      const stopped = failure(
+        'render.worker-fault',
+        FailureKind.Unrecoverable,
+        `The render stopped: ${error.message}`,
+      );
+      for (const channel of channels.values()) channel.abandon(stopped);
+      this.#fail(job.jobId, [stopped]);
     }
   }
 }

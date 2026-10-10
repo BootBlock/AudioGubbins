@@ -12,10 +12,9 @@
  */
 
 import { probeCodecs, readCodecPlatform } from '@audiogubbins/capabilities';
-import { FailureKind, fail, failure } from '@audiogubbins/domain';
 
 import type { FileReaderSyncLike } from '../files/sync-file-bytes.js';
-import type { OpenExportEncoder } from '../worker/encode-job.js';
+import { openExportEncoder } from '../encoding/open-export-encoder.js';
 import type { FromCodecWorker } from '../worker/codec-worker-messages.js';
 import { CodecWorkerCore } from '../worker/codec-worker-core.js';
 
@@ -53,23 +52,6 @@ function yieldToHost(): Promise<void> {
     turns.port2.postMessage(undefined);
   });
 }
-
-/**
- * The encoders of this build, by format: none is registered with the worker
- * here, so every export is refused with the format it named, and every other
- * request is served.
- */
-const openExportEncoder: OpenExportEncoder = (request) =>
-  Promise.resolve(
-    fail(
-      failure(
-        'codec-runtime.encoder-unavailable',
-        FailureKind.Rejected,
-        `No encoder of ${request.target.formatName} is registered with the codec worker.`,
-        { details: { format: request.encoding.format } },
-      ),
-    ),
-  );
 
 const platform = readCodecPlatform(self);
 

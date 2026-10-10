@@ -1,20 +1,27 @@
 /**
  * Settings held to the codec's descriptor (ADR-0090): that the registry knows
  * the codec, writes it, writes it in the format's container, at the rate
- * asked for and with the channels the file will have.
+ * asked for and with the channels the file will have; and held to what the
+ * format's file can say of those channels' layout (ADR-0093).
  */
 
 import {
   fail,
   succeed,
+  type ChannelLayout,
   type DomainFailure,
   type DomainResult,
   type SampleRate,
 } from '@audiogubbins/domain';
-import type { CodecDescriptor, CodecDirection, SampleRateSupport } from '@audiogubbins/codecs';
+import {
+  writtenChannelOrder,
+  type CodecDescriptor,
+  type CodecDirection,
+  type SampleRateSupport,
+} from '@audiogubbins/codecs';
 
 import type { CodecLookup } from './export-context.js';
-import type { ExportTarget } from './export-formats.js';
+import { formatsStating, type ExportTarget } from './export-formats.js';
 import { refusal } from './refusal.js';
 
 /** Whether a direction takes a rate. */
@@ -101,4 +108,26 @@ export function channelProblems(
           { channels, maximum: write.maximumChannels },
         ),
       ];
+}
+
+/**
+ * Why the target's file cannot state `layout`, naming the formats that can,
+ * or nothing: refused before rendering, never written as a file that says
+ * less of its channels than its audio is.
+ */
+export function layoutProblems(
+  target: ExportTarget,
+  layout: ChannelLayout,
+  codecs: CodecLookup,
+): readonly DomainFailure[] {
+  const stated = writtenChannelOrder(target.codec, target.container, layout);
+  if (stated.ok) return [];
+  const others = formatsStating(layout, codecs);
+  return [
+    refusal(
+      'layout-unstated',
+      `${target.formatName} cannot state this layout of ${String(layout.roles.length)} channels; ${others.join(', ')} can. ${stated.failures[0].summary}`,
+      { channels: layout.roles.length },
+    ),
+  ];
 }

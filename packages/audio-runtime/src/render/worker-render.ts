@@ -132,6 +132,7 @@ class WorkerRender {
 
   start(): void {
     const { jobId, request, dsp, signal } = this.#job;
+    const channels = this.#job.options.channels ?? new Map<NodeId, MessagePort>();
     this.#worker.addEventListener('message', this.#onMessage);
     this.#worker.addEventListener('messageerror', this.#onMessageError);
     this.#worker.addEventListener('error', this.#onError);
@@ -148,8 +149,9 @@ class WorkerRender {
         sources: request.sources,
         coefficientBudgetBytes: request.coefficientBudgetBytes,
         dsp: deliveredAs(dsp, (module) => module.module),
+        channels: [...channels],
       },
-      sourceTransferables(request.sources),
+      [...sourceTransferables(request.sources), ...channels.values()],
     );
   }
 

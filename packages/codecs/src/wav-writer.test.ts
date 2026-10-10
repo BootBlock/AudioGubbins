@@ -416,6 +416,35 @@ describe('the WAV writer’s contract', () => {
     );
   });
 
+  it('takes 64-bit planes: a 32-bit integer exactly, and a 32-bit float rounded to the nearest', async () => {
+    // Each of these integers is k / 2^31 exactly in a 64-bit float and in no 32-bit one but the ends.
+    const integers = [2 ** 31 - 1, -(2 ** 31), 123_456_789, -987_654_321];
+    const integer = expectSuccess(
+      createWavWriter(
+        settings(StandardLayouts.mono, { sampleFormat: { kind: 'integer', bits: 32 } }),
+      ),
+    );
+    const { file: integerFile } = await writeWhole(integer.writer, [
+      Float64Array.from(integers, (value) => value / 2 ** 31),
+    ]);
+    const integerData = (chunkAt(integerFile, 'data') ?? 0) + 8;
+    expect(
+      integers.map((_, index) => view(integerFile).getInt32(integerData + index * 4, true)),
+    ).toEqual(integers);
+
+    const wide = [0.1, -1 / 3, 2 ** -30 + 2 ** -60];
+    const float = expectSuccess(
+      createWavWriter(
+        settings(StandardLayouts.mono, { sampleFormat: { kind: 'float', bits: 32 } }),
+      ),
+    );
+    const { file: floatFile } = await writeWhole(float.writer, [Float64Array.from(wide)]);
+    const floatData = (chunkAt(floatFile, 'data') ?? 0) + 8;
+    expect(wide.map((_, index) => view(floatFile).getFloat32(floatData + index * 4, true))).toEqual(
+      wide.map(Math.fround),
+    );
+  });
+
   it('rejects with the signal’s reason when cancelled', async () => {
     const opened = expectSuccess(createWavWriter(settings(StandardLayouts.mono)));
     const controller = new AbortController();

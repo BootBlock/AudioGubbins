@@ -28,6 +28,8 @@ export {
   type ExportSettingsOf,
   type FlacEncoding,
   type FloatPcm,
+  type FormatEncoding,
+  type FormatEncodingOf,
   type FormatEncodings,
   type IntegerPcm,
   type MetadataEdit,
@@ -66,6 +68,8 @@ export { type ExportSpan } from './export-range.js';
 export { type ExportRenderPlan } from './export-render-plan.js';
 export { type ExportClock } from './file-name-template.js';
 export { type ExportFileName } from './file-name-safety.js';
+
+export { mp3BitRates } from './encoding-rules.js';
 
 export { Quantiser, type QuantiserSettings } from './quantiser.js';
 export { type MetadataRates, exportMetadata } from './export-metadata.js';

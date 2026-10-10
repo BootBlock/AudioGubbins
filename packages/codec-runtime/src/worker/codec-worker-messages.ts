@@ -25,12 +25,7 @@ import type {
   ReadableContainer,
 } from '@audiogubbins/codecs';
 import type { ChannelLayout, DomainFailure, SampleCount, SampleRate } from '@audiogubbins/domain';
-import type {
-  DitherSettings,
-  ExportFormat,
-  ExportTarget,
-  FormatEncodings,
-} from '@audiogubbins/import-export';
+import type { DitherSettings, ExportTarget, FormatEncoding } from '@audiogubbins/import-export';
 
 import type { DecoderIdentity } from '../decoding/decoder-identity.js';
 import type { FileSource } from '../files/file-source.js';
@@ -48,11 +43,6 @@ export type ModuleSource =
 
 /** The prebuilt encoders, each a module of its own (ADR-0091). */
 export type PrebuiltEncoder = 'mp3' | 'vorbis';
-
-/** A format's encoding, with the format it is of. */
-export type FormatEncoding = {
-  readonly [F in ExportFormat]: { readonly format: F; readonly encoding: FormatEncodings[F] };
-}[ExportFormat];
 
 /**
  * What an export's encoder is opened with: the planned file's target and
