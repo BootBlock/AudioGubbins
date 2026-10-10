@@ -23,10 +23,14 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
- *   codec-runtime   the codec module's host: its typed loader, decode
- *                   sessions and FLAC and Opus encoders over its narrow ABI,
- *                   reading files through the synchronous byte port; depends
- *                   on domain + codecs (ADR-0090, ADR-0091)
+ *   codec-runtime   the codec module's host and the codec worker: its typed
+ *                   loader, decode sessions and FLAC and Opus encoders over
+ *                   its narrow ABI, the browser's HE-AAC decoder, and the
+ *                   worker that analyses, decodes and encodes files read
+ *                   through the synchronous byte port; depends on domain +
+ *                   codecs + import-export, whose stream messages it sends,
+ *                   + capabilities, which reads the browser's codecs for it
+ *                   (ADR-0090, ADR-0091)
  *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
  *                   Web, which alone imports the runtime and only by import(),
  *                   and the worker that hosts it; depends on domain alone
@@ -352,12 +356,14 @@ module.exports = {
       name: 'codec-runtime-owns-nothing-else',
       severity: 'error',
       comment:
-        "The codec module's host loads the module, wraps its narrow ABI and reads files through " +
-        'the synchronous byte port of the read contract (ADR-0090, ADR-0091). It depends on the ' +
-        'domain, whose results it answers in, and the codecs, whose contracts it serves; the ' +
-        'codec worker and the import and export jobs that drive it sit above it.',
+        "The codec module's host and the codec worker load the module, wrap its narrow ABI and " +
+        'read files through the synchronous byte port of the read contract (ADR-0090, ' +
+        'ADR-0091). It depends on the domain, whose results it answers in, the codecs, whose ' +
+        "contracts it serves, import and export's stream messages, which its streams carry, and " +
+        "the capabilities, which read the browser's codecs it calls; the storage worker and the " +
+        'page that drive it sit above it.',
       from: { path: '^packages/codec-runtime/' },
-      to: { path: '^packages/(?!(codec-runtime|codecs|domain)/)' },
+      to: { path: '^packages/(?!(capabilities|codec-runtime|codecs|domain|import-export)/)' },
     },
     {
       name: 'clipboard-owns-nothing-else',

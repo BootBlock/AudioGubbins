@@ -28,15 +28,11 @@ import {
   FailureKind,
   createCancellationSource,
   failure,
-  type CancellationSource,
   type DomainFailure,
 } from '@audiogubbins/domain';
-import type { DecodedStreamMessage, EncodedStreamMessage } from '@audiogubbins/import-export';
 
 import type { CodecModule } from '../codec-module.js';
 import type { FileReaderSyncLike } from '../files/sync-file-bytes.js';
-import { refuseStream } from '../streams/credited-receiver.js';
-import { CreditedSender } from '../streams/credited-sender.js';
 import { listen, type MessagePortLike } from '../streams/stream-port.js';
 import { WORK_CANCELLED } from '../work-cancelled.js';
 import { runAnalysis } from './analyse-job.js';
@@ -53,6 +49,7 @@ import { runDecode } from './decode-job.js';
 import { runEncode, type OpenExportEncoder } from './encode-job.js';
 import type { ImportServices } from './import-opening.js';
 import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
+import { JobQueue, abandonStreams, answerJob, type Client, type Job } from './job-queue.js';
 import { codecModuleLoad, prebuiltModuleLoad, type OnceLoaded } from './module-loading.js';
 
 /** What the worker's scope gives the core. */
@@ -72,18 +69,6 @@ export interface CodecWorkerHost {
    * scope, which the page hears as the worker's `error` event.
    */
   readonly reportFault: (error: unknown) => void;
-}
-
-/** A context that asks the worker for work, and how it is answered. */
-interface Client {
-  readonly post: (message: FromCodecWorker) => void;
-}
-
-/** A request taken, and what cancels it. */
-interface Job {
-  readonly client: Client;
-  readonly request: Exclude<CodecRequest, { readonly kind: 'cancel' }>;
-  readonly cancellation: CancellationSource;
 }
 
 /** The modules, once the page has said where they are. */
@@ -118,43 +103,6 @@ const FAULT: DomainFailure = failure(
   FailureKind.Unrecoverable,
   'The codec worker met a fault it did not expect.',
 );
-
-/** A queue of jobs, run one at a time in the order taken. */
-class JobQueue {
-  readonly #waiting: Job[] = [];
-  readonly #run: (job: Job) => Promise<void>;
-  #running: Job | undefined;
-
-  constructor(run: (job: Job) => Promise<void>) {
-    this.#run = run;
-  }
-
-  add(job: Job): void {
-    this.#waiting.push(job);
-    void this.#pump();
-  }
-
-  /** Takes every waiting job `matches` out of the queue, answering them. */
-  withdraw(matches: (job: Job) => boolean): Job[] {
-    const withdrawn = this.#waiting.filter(matches);
-    for (const job of withdrawn) this.#waiting.splice(this.#waiting.indexOf(job), 1);
-    return withdrawn;
-  }
-
-  /** The running job, if `matches` holds of it. */
-  running(matches: (job: Job) => boolean): Job | undefined {
-    return this.#running !== undefined && matches(this.#running) ? this.#running : undefined;
-  }
-
-  async #pump(): Promise<void> {
-    if (this.#running !== undefined) return;
-    for (let job = this.#waiting.shift(); job !== undefined; job = this.#waiting.shift()) {
-      this.#running = job;
-      await this.#run(job);
-      this.#running = undefined;
-    }
-  }
-}
 
 /** The codec worker's work, given its scope's parts. */
 export class CodecWorkerCore {
@@ -284,8 +232,8 @@ export class CodecWorkerCore {
     }
     const job: Job = { client, request, cancellation: createCancellationSource() };
     if (this.#modules === undefined) {
-      this.#answer(job, { kind: 'failed', failure: UNCONFIGURED });
-      void this.#abandon(job, UNCONFIGURED);
+      answerJob(job, { kind: 'failed', failure: UNCONFIGURED });
+      void abandonStreams(job.request, UNCONFIGURED);
       return;
     }
     (request.kind === ToCodecWorkerKind.Analyse ? this.#analyses : this.#streams).add(job);
@@ -294,46 +242,11 @@ export class CodecWorkerCore {
   #cancel(client: Client, request: string): void {
     const matches = (job: Job): boolean => job.client === client && job.request.request === request;
     for (const job of [...this.#analyses.withdraw(matches), ...this.#streams.withdraw(matches)]) {
-      this.#answer(job, { kind: 'cancelled' });
-      void this.#abandon(job, WORK_CANCELLED);
+      answerJob(job, { kind: 'cancelled' });
+      void abandonStreams(job.request, WORK_CANCELLED);
     }
     for (const job of [this.#analyses.running(matches), this.#streams.running(matches)]) {
       job?.cancellation.cancel();
-    }
-  }
-
-  /** Ends the streams of a job that never ran, so their other sides stop waiting. */
-  async #abandon(job: Job, reason: DomainFailure): Promise<void> {
-    const { request } = job;
-    if (request.kind === ToCodecWorkerKind.Analyse) return;
-    if (request.kind === ToCodecWorkerKind.Encode) refuseStream(request.rendered, reason);
-    const sender = new CreditedSender<DecodedStreamMessage | EncodedStreamMessage>(request.stream);
-    await sender.send({ kind: 'failed', failure: reason }, []);
-    sender.close();
-  }
-
-  #answer(job: Job, end: JobEnd): void {
-    const request = job.request.request;
-    switch (end.kind) {
-      case 'analysed':
-        job.client.post({ kind: FromCodecWorkerKind.Analysed, request, analysis: end.analysis });
-        return;
-      case 'decoded':
-        job.client.post({
-          kind: FromCodecWorkerKind.Decoded,
-          request,
-          frames: end.frames,
-          decoder: end.decoder,
-        });
-        return;
-      case 'encoded':
-        job.client.post({ kind: FromCodecWorkerKind.Encoded, request, frames: end.frames });
-        return;
-      case 'failed':
-        job.client.post({ kind: FromCodecWorkerKind.Failed, request, failure: end.failure });
-        return;
-      case 'cancelled':
-        job.client.post({ kind: FromCodecWorkerKind.Cancelled, request });
     }
   }
 
@@ -363,14 +276,14 @@ export class CodecWorkerCore {
       },
     };
     try {
-      this.#answer(job, await this.#perform(job, modules, context));
+      answerJob(job, await this.#perform(job, modules, context));
     } catch (error) {
       const end = endOfThrown(error, signal);
       if (end !== undefined) {
-        this.#answer(job, end);
+        answerJob(job, end);
         return;
       }
-      this.#answer(job, { kind: 'failed', failure: FAULT });
+      answerJob(job, { kind: 'failed', failure: FAULT });
       this.#host.reportFault(error);
     }
   }

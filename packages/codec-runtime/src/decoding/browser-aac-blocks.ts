@@ -149,7 +149,7 @@ class BrowserAacBlocks implements DecodedBlocks {
   }
 
   /** Feeds the decoder the next packet, or notes that none are left. */
-  #feed(): void {
+  #feedNext(): void {
     const packet = this.#session.readPacket();
     if (!packet.ok) {
       this.#failure = packet.failures[0];
@@ -262,7 +262,7 @@ class BrowserAacBlocks implements DecodedBlocks {
         break;
       } else if (!this.#packetsDone && this.#decoder.decodeQueueSize < MOST_QUEUED_PACKETS) {
         try {
-          this.#feed();
+          this.#feedNext();
         } catch (error) {
           // A decoder closed under the feed, or a chunk it refuses, throws.
           this.#failure ??= decoderFailure(error);

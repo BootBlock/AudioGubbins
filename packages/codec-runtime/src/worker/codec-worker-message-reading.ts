@@ -17,6 +17,7 @@ import {
   fieldsOf,
   isTagged,
   layoutOf,
+  oneOf,
   rateOf,
   readMessage,
   sampleCountAt,
@@ -252,55 +253,53 @@ function analysisOf(value: unknown, field: string): ImportAnalysis {
   }
 }
 
+/** How each answer the worker sends is read, by its kind. */
+const ANSWER_READERS: Readonly<
+  Record<FromCodecWorker['kind'], (fields: MessageFields) => FromCodecWorker>
+> = {
+  [FromCodecWorkerKind.Environment]: (fields) => ({
+    kind: FromCodecWorkerKind.Environment,
+    environment: codecEnvironmentOf(fields['environment'], 'environment'),
+  }),
+  [FromCodecWorkerKind.Analysed]: (fields) => ({
+    kind: FromCodecWorkerKind.Analysed,
+    request: requestAt(fields),
+    analysis: analysisOf(fields['analysis'], 'analysis'),
+  }),
+  [FromCodecWorkerKind.Progress]: (fields) => ({
+    kind: FromCodecWorkerKind.Progress,
+    request: requestAt(fields),
+    frames: countAt(fields, 'frames'),
+  }),
+  [FromCodecWorkerKind.Decoded]: (fields) => ({
+    kind: FromCodecWorkerKind.Decoded,
+    request: requestAt(fields),
+    frames: sampleCountAt(fields, 'frames'),
+    decoder: decoderIdentityOf(fields['decoder'], 'decoder'),
+  }),
+  [FromCodecWorkerKind.Encoded]: (fields) => ({
+    kind: FromCodecWorkerKind.Encoded,
+    request: requestAt(fields),
+    frames: sampleCountAt(fields, 'frames'),
+  }),
+  [FromCodecWorkerKind.Failed]: (fields) => ({
+    kind: FromCodecWorkerKind.Failed,
+    request: requestAt(fields),
+    failure: domainFailureAt(fields, 'failure'),
+  }),
+  [FromCodecWorkerKind.Cancelled]: (fields) => ({
+    kind: FromCodecWorkerKind.Cancelled,
+    request: requestAt(fields),
+  }),
+  [FromCodecWorkerKind.Refused]: (fields) => ({
+    kind: FromCodecWorkerKind.Refused,
+    failure: domainFailureAt(fields, 'failure'),
+  }),
+};
+
 /** A message the worker sends, read by the page or a connected client. */
 export function readFromCodecWorker(value: unknown): DomainResult<FromCodecWorker> {
-  return readMessage(value, MALFORMED, (fields): FromCodecWorker => {
-    switch (fields['kind']) {
-      case FromCodecWorkerKind.Environment:
-        return {
-          kind: FromCodecWorkerKind.Environment,
-          environment: codecEnvironmentOf(fields['environment'], 'environment'),
-        };
-      case FromCodecWorkerKind.Analysed:
-        return {
-          kind: FromCodecWorkerKind.Analysed,
-          request: requestAt(fields),
-          analysis: analysisOf(fields['analysis'], 'analysis'),
-        };
-      case FromCodecWorkerKind.Progress:
-        return {
-          kind: FromCodecWorkerKind.Progress,
-          request: requestAt(fields),
-          frames: countAt(fields, 'frames'),
-        };
-      case FromCodecWorkerKind.Decoded:
-        return {
-          kind: FromCodecWorkerKind.Decoded,
-          request: requestAt(fields),
-          frames: sampleCountAt(fields, 'frames'),
-          decoder: decoderIdentityOf(fields['decoder'], 'decoder'),
-        };
-      case FromCodecWorkerKind.Encoded:
-        return {
-          kind: FromCodecWorkerKind.Encoded,
-          request: requestAt(fields),
-          frames: sampleCountAt(fields, 'frames'),
-        };
-      case FromCodecWorkerKind.Failed:
-        return {
-          kind: FromCodecWorkerKind.Failed,
-          request: requestAt(fields),
-          failure: domainFailureAt(fields, 'failure'),
-        };
-      case FromCodecWorkerKind.Cancelled:
-        return { kind: FromCodecWorkerKind.Cancelled, request: requestAt(fields) };
-      case FromCodecWorkerKind.Refused:
-        return { kind: FromCodecWorkerKind.Refused, failure: domainFailureAt(fields, 'failure') };
-      default:
-        throw new Malformed(
-          'kind',
-          'environment, analysed, progress, decoded, encoded, failed, cancelled or refused',
-        );
-    }
-  });
+  return readMessage(value, MALFORMED, (fields) =>
+    ANSWER_READERS[oneOf(fields, 'kind', FromCodecWorkerKind)](fields),
+  );
 }
