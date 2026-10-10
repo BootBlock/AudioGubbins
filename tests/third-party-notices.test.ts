@@ -15,6 +15,7 @@ import {
   portedNoticesOf,
   renderNotices,
   type PackageSource,
+  vendoredCrateFolder,
   vendoredNoticesOf,
 } from '../tools/sync-third-party-notices.mjs';
 import { MP3_MODULE, VORBIS_MODULE } from '../tools/build-wasm.mjs';
@@ -265,6 +266,22 @@ describe('which packages ship', () => {
       'linked',
       'transitive',
     ]);
+    // A third party's crate vendored and patched in has no source, and is still listed.
+    const patched = (one: { readonly name: string }) => one.name === 'core';
+    expect(linkedCratesOf(metadata, 'bindings', patched).map(({ name }) => name)).toEqual([
+      'core',
+      'linked',
+      'transitive',
+    ]);
+  });
+
+  it('knows a crate vendored under third_party/ by its folder, and no other', () => {
+    expect(vendoredCrateFolder('third_party/decoder/crate/Cargo.toml')).toBe('third_party/decoder');
+    expect(vendoredCrateFolder('third_party\\decoder\\crate\\Cargo.toml')).toBe(
+      'third_party/decoder',
+    );
+    expect(vendoredCrateFolder('crates/codecs/Cargo.toml')).toBeUndefined();
+    expect(vendoredCrateFolder('third_party/decoder/Cargo.toml')).toBeUndefined();
   });
 });
 
@@ -348,6 +365,26 @@ describe('the notices file', () => {
     const mpl = 'notice' in decided ? [decided.notice] : [];
     expect(renderNotices([...allowed(), ...mpl])).toContain(`- decoder 0.6.1: <${source}>`);
     expect(renderNotices(allowed())).not.toContain('Mozilla Public License');
+  });
+
+  it('says a package is modified, where the copy shipped is, and where its unmodified source is', () => {
+    const source = 'https://crates.io/crates/decoder/0.6.1';
+    const decided = noticeOf(
+      {
+        name: 'decoder',
+        version: '0.6.1',
+        licence: 'MPL-2.0',
+        files: [],
+        source,
+        modified: 'third_party/decoder',
+      },
+      standardText,
+    );
+    expect(decided).toMatchObject({ notice: { modified: 'third_party/decoder' } });
+    const rendered = renderNotices('notice' in decided ? [decided.notice] : []);
+    expect(rendered).toContain(
+      `- decoder 0.6.1, modified: the files as shipped are in this repository at \`third_party/decoder\`, whose README.md states each change and why; the unmodified source is <${source}>`,
+    );
   });
 
   it('writes a text two packages share once, naming both', () => {
@@ -578,9 +615,11 @@ describe('the notices of the libraries built into the encoder modules', () => {
     const decided = vendoredNoticesOf(list, {
       exists: (path) => existsSync(inRepository(path)),
       read: (path) => readFileSync(inRepository(path), 'utf8'),
+      // A crate vendored and patched in has its notice among the packages, from Cargo.
       directories: readdirSync(inRepository('third_party'), { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .map((entry) => `third_party/${entry.name}`),
+        .map((entry) => `third_party/${entry.name}`)
+        .filter((folder) => !existsSync(inRepository(`${folder}/crate/Cargo.toml`))),
       modules: [basename(MP3_MODULE), basename(VORBIS_MODULE)],
       toolchain: { name: `Zig ${ZIG_VERSION}`, ...ZIG_SOURCE },
       standardText: (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
