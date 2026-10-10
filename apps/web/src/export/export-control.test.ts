@@ -361,6 +361,24 @@ describe('the page export (ADR-0092)', () => {
     expect(await bytesIn(folder, 'Loop.wav')).toBe(3);
   });
 
+  it('shows a second export running once the first has ended', async () => {
+    const audio = await windowWithAudio();
+    const { start, control } = exportOver(audio);
+    expectSuccess(await start({ kind: 'project' }, { kind: 'download' }));
+    const kinds: string[] = [];
+    const stop = control.subscribe(() => {
+      kinds.push(control.get().kind);
+    });
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+    expectSuccess(
+      await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'prompt' }),
+    );
+    stop();
+
+    expect(kinds[0]).toBe('running');
+    expect(kinds.at(-1)).toBe('ended');
+  });
+
   it('refuses a second export while one is held', async () => {
     const audio = await windowWithAudio();
     const { start } = exportOver(audio);

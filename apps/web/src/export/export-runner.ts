@@ -33,15 +33,20 @@ import {
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
-import type { PcmDescription } from '@audiogubbins/audio-engine';
-import type { RenderHost } from '@audiogubbins/audio-runtime';
+import type { RenderHost, RenderRequest, WorkerRenderSummary } from '@audiogubbins/audio-runtime';
+import type { PcmDescription, RenderProgress } from '@audiogubbins/audio-engine';
 import type { PlannedFile, StagedFile } from '@audiogubbins/import-export';
 import type { ExportCodec } from '@audiogubbins/project-format';
 import type { ExportOrigin } from '@audiogubbins/storage';
-import type { ExportsClient, RemoteProjectSession } from '@audiogubbins/storage-runtime';
+import type {
+  ExportsClient,
+  RemoteProjectSession,
+  StagedFile as StagedExport,
+} from '@audiogubbins/storage-runtime';
 
 import type { RenderRun } from '../audio/render-control.js';
-import type { CodecServices } from '../codecs/codec-services.js';
+import type { CodecServices, EncodedFile } from '../codecs/codec-services.js';
+import { exportStopped } from './export-refusals.js';
 
 /** What the runner works with, each made once by the composition root. */
 export interface ExportRunnerParts {
@@ -79,15 +84,6 @@ export interface StagedRun {
 /** How far a file has got: its frames rendered and its bytes staged, neither going back. */
 export type StagingProgress = (framesRendered: number, bytesStaged: number) => void;
 
-/** A render, an encode or a staging that stopped in a way it could not answer. */
-function stopped(what: string, thrown: unknown): DomainFailure {
-  return failure(
-    'export.stopped',
-    FailureKind.Unrecoverable,
-    `The export's ${what} stopped: ${thrown instanceof Error ? thrown.message : 'no reason was given'}.`,
-  );
-}
-
 /** An encoder that answered other than the frames the render made. */
 function framesDisagree(rendered: number, encoded: number): DomainFailure {
   return failure(
@@ -115,8 +111,112 @@ async function settled<T>(
     return result;
   } catch (thrown) {
     off();
-    return fail(stopped(what, thrown));
+    return fail(exportStopped(what, thrown));
   }
+}
+
+/** The three steps of a file, under way together, each answered as `settled` answers it. */
+interface Steps {
+  readonly rendering: Promise<DomainResult<WorkerRenderSummary>>;
+  readonly encoding: Promise<DomainResult<EncodedFile>>;
+  readonly staging: Promise<DomainResult<StagedExport>>;
+}
+
+/** How the three steps are run together: what each is given, and how they are called off. */
+interface Together {
+  readonly session: RemoteProjectSession;
+  readonly job: FileToStage;
+  readonly host: RenderHost;
+  readonly run: RenderRun;
+  readonly signal: AbortSignal;
+  readonly off: () => void;
+  readonly rendered: (frames: number) => void;
+  readonly staged: (bytes: number) => void;
+}
+
+/**
+ * Starts the render, the encode and the staging, the render's blocks going
+ * to the codec worker over one channel and its bytes to the storage worker
+ * over another.
+ */
+function started(parts: ExportRunnerParts, together: Together, channels: ChannelPair): Steps {
+  const { job, run, signal, off } = together;
+  const { render } = job.file;
+  const request: RenderRequest = {
+    graph: render.graph,
+    sampleRate: render.sampleRate,
+    range: render.range,
+    chunkFrames: run.chunkFrames,
+    quality: MAXIMUM_QUALITY,
+    sources: [{ ...job.source, node: render.input }],
+    ...(run.coefficientBudgetBytes === undefined
+      ? {}
+      : { coefficientBudgetBytes: run.coefficientBudgetBytes }),
+  };
+  const options = {
+    priority: run.priority,
+    signal,
+    onProgress: (reached: RenderProgress) => {
+      together.rendered(reached.framesRendered);
+    },
+    sinks: new Map(),
+    channels: new Map([[render.output, channels.rendered.port1]]),
+  };
+  const ports = { rendered: channels.rendered.port2, stream: channels.encoded.port1 };
+  const stream = { stream: channels.encoded.port2, origin: job.origin };
+  return {
+    rendering: settled(together.host.render(request, options), 'render', off),
+    encoding: settled(
+      parts.codecs.encode(job.encode, ports, () => undefined, signal),
+      'encoder',
+      off,
+    ),
+    staging: settled(
+      parts.exports.stage(together.session, stream, together.staged, signal),
+      'staging',
+      off,
+    ),
+  };
+}
+
+/** The two channels between the workers: the rendered audio, and the encoded file. */
+interface ChannelPair {
+  readonly rendered: MessageChannel;
+  readonly encoded: MessageChannel;
+}
+
+/**
+ * What the three steps came to: the file staged, or the first failure in the
+ * stream's order, the staging given up where an earlier step failed or the
+ * frames disagree.
+ */
+async function outcome(
+  parts: ExportRunnerParts,
+  job: FileToStage,
+  steps: Steps,
+): Promise<DomainResult<StagedRun>> {
+  const frames = job.file.render.range.length;
+  const [rendered, encoded, staged] = await Promise.all([
+    steps.rendering,
+    steps.encoding,
+    steps.staging,
+  ]);
+  if (!rendered.ok || !encoded.ok || !staged.ok) {
+    // A file staged beside a render or an encoder that failed is not the export's.
+    if (staged.ok) await parts.exports.discard(staged.value.token);
+    return fail(firstFailure(rendered, encoded, staged));
+  }
+  if (rendered.value.frames !== frames || encoded.value.frames !== frames) {
+    await parts.exports.discard(staged.value.token);
+    return fail(framesDisagree(rendered.value.frames, encoded.value.frames));
+  }
+  const { token, bytes, sha256, dropped } = staged.value;
+  return succeed({
+    token,
+    staged: { bytes, hash: sha256, reproducible: job.origin.reproducible },
+    encoder: encoded.value.encoder,
+    dropped,
+  });
 }
 
 /**
@@ -142,99 +242,43 @@ export async function stageFile(
   if (!run.ok) return run;
   const host = await parts.host();
   if (!host.ok) return host;
-
   const together = new AbortController();
   const off = (): void => {
     together.abort(signal.reason);
   };
   signal.addEventListener('abort', off, { once: true });
-  const rendered = new MessageChannel();
-  const encoded = new MessageChannel();
+  const channels = { rendered: new MessageChannel(), encoded: new MessageChannel() };
   let framesRendered = 0;
   let bytesStaged = 0;
-  const told = (): void => {
-    progress(framesRendered, bytesStaged);
-  };
   try {
-    const rendering = settled(
-      host.value.render(
-        {
-          graph: render.graph,
-          sampleRate: render.sampleRate,
-          range: render.range,
-          chunkFrames: run.value.chunkFrames,
-          quality: MAXIMUM_QUALITY,
-          sources: [{ ...job.source, node: render.input }],
-          ...(run.value.coefficientBudgetBytes === undefined
-            ? {}
-            : { coefficientBudgetBytes: run.value.coefficientBudgetBytes }),
-        },
-        {
-          priority: run.value.priority,
-          signal: together.signal,
-          onProgress: (reached) => {
-            framesRendered = Math.min(frames, Math.max(framesRendered, reached.framesRendered));
-            told();
-          },
-          sinks: new Map(),
-          channels: new Map([[render.output, rendered.port1]]),
-        },
-      ),
-      'render',
-      off,
-    );
-    const encoding = settled(
-      parts.codecs.encode(
-        job.encode,
-        { rendered: rendered.port2, stream: encoded.port1 },
-        () => undefined,
-        together.signal,
-      ),
-      'encoder',
-      off,
-    );
-    const staging = settled(
-      parts.exports.stage(
+    const steps = started(
+      parts,
+      {
         session,
-        { stream: encoded.port2, origin: job.origin },
-        (bytes) => {
-          bytesStaged = Math.max(bytesStaged, bytes);
-          told();
+        job,
+        host: host.value,
+        run: run.value,
+        signal: together.signal,
+        off,
+        rendered: (reached) => {
+          framesRendered = Math.min(frames, Math.max(framesRendered, reached));
+          progress(framesRendered, bytesStaged);
         },
-        together.signal,
-      ),
-      'staging',
-      off,
+        staged: (bytes) => {
+          bytesStaged = Math.max(bytesStaged, bytes);
+          progress(framesRendered, bytesStaged);
+        },
+      },
+      channels,
     );
-    const [renderedFile, encodedFile, stagedFile] = await Promise.all([
-      rendering,
-      encoding,
-      staging,
-    ]);
-    if (!renderedFile.ok || !encodedFile.ok || !stagedFile.ok) {
-      // A file staged beside a render or an encoder that failed is not the export's.
-      if (stagedFile.ok) await parts.exports.discard(stagedFile.value.token);
-      return fail(firstFailure(renderedFile, encodedFile, stagedFile));
-    }
-    if (renderedFile.value.frames !== frames || encodedFile.value.frames !== frames) {
-      await parts.exports.discard(stagedFile.value.token);
-      return fail(framesDisagree(renderedFile.value.frames, encodedFile.value.frames));
-    }
-    framesRendered = frames;
-    bytesStaged = stagedFile.value.bytes;
-    told();
-    const { token, bytes, sha256, dropped } = stagedFile.value;
-    return succeed({
-      token,
-      staged: { bytes, hash: sha256, reproducible: job.origin.reproducible },
-      encoder: encodedFile.value.encoder,
-      dropped,
-    });
+    const done = await outcome(parts, job, steps);
+    if (done.ok) progress(frames, done.value.staged.bytes);
+    return done;
   } finally {
     signal.removeEventListener('abort', off);
     // Each end was given to a worker; one a worker refused before taking it
     // would stay open here, and closing one a worker took does nothing.
-    rendered.port1.close();
-    encoded.port2.close();
+    channels.rendered.port1.close();
+    channels.encoded.port2.close();
   }
 }

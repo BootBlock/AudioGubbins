@@ -179,7 +179,11 @@ async function chosenElsewhere(
           ),
         );
       }
-      return await stores.exportDestinations.chooseFolder(policy);
+      const chosen = await stores.exportDestinations.chooseFolder();
+      if (!chosen.ok) return chosen;
+      return succeed(
+        chosen.value === undefined ? undefined : { kind: 'folder', handle: chosen.value, policy },
+      );
     }
     default:
       return fail(
@@ -241,7 +245,7 @@ function trustFolderCommand(): Command<ShellContext> {
       const problem = trustProblem(context);
       if (problem !== undefined) return problem;
       const work = stores.exportDestinations
-        .chooseFolderToTrust()
+        .chooseFolder()
         .then(async (chosen): Promise<DomainResult<string | undefined>> => {
           if (!chosen.ok) return chosen;
           if (chosen.value === undefined) return succeed(undefined);

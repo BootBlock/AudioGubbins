@@ -288,14 +288,7 @@ export class ScriptedExportDestinations implements ExportDestinations {
     );
   };
 
-  readonly chooseFolder: ExportDestinations['chooseFolder'] = (policy) =>
-    Promise.resolve(
-      succeed(
-        this.folder === undefined ? undefined : { kind: 'folder', handle: this.folder, policy },
-      ),
-    );
-
-  readonly chooseFolderToTrust: ExportDestinations['chooseFolderToTrust'] = () =>
+  readonly chooseFolder: ExportDestinations['chooseFolder'] = () =>
     Promise.resolve(succeed(this.folder));
 
   readonly allowWriting = browserExportDestinations(undefined).allowWriting;

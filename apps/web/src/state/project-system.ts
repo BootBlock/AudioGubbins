@@ -24,20 +24,20 @@ import {
   type StorageCapabilityAbsence,
   type StoragePlatform,
 } from '@audiogubbins/capabilities';
+import type { TrustedFolders } from '@audiogubbins/browser-storage';
 import type { DiagnosticCentre } from '@audiogubbins/diagnostics';
-import type { StorageClient } from '@audiogubbins/storage-runtime';
+import type { Digest } from '@audiogubbins/project-format';
+import type { ExportsClient, StorageClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
-import { browserExportDestinations } from '../io/export-destinations.js';
+import { browserExportDestinations, type ExportDestinations } from '../io/export-destinations.js';
 import { libraryChannel } from '../io/library-channel.js';
 import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf, type ProjectServices } from '../storage/project-services.js';
-import type { ExportControl } from '../export/export-types.js';
 import { abandonment, isAbandoned } from './abandoning.js';
-import { PageExportControl, type ExportNeeds } from './export-control.js';
 import type { PageVisibility } from './layout-map-watch.js';
 import {
   createProjectStores,
@@ -71,14 +71,26 @@ export interface ProjectSystem {
   readonly storage: StorageClient | undefined;
 
   /**
-   * Makes the page's export over the system's storage, its staging and its
-   * trusted folders, with what renders and encodes it, which the composition
-   * root makes after the system; absent where projects cannot be kept.
+   * What the page's export is staged, delivered and named with, which the
+   * composition root makes it over once what renders and encodes it exists;
+   * absent where projects cannot be kept.
    */
-  readonly exportControl: (needs: ExportNeeds) => ExportControl | undefined;
+  readonly exporting: ExportStorage | undefined;
 
   /** Stops what the system put on the page. */
   readonly dispose: () => void;
+}
+
+/**
+ * What the project system gives the page's export: the storage worker's
+ * staging and delivery, the folders kept trusted, where the person chooses an
+ * export goes, and the digest that names the state an export renders.
+ */
+export interface ExportStorage {
+  readonly exports: ExportsClient;
+  readonly trusted: TrustedFolders | undefined;
+  readonly destinations: ExportDestinations;
+  readonly digest: Digest;
 }
 
 /** What starting the system needs from the composition root. */
@@ -144,7 +156,7 @@ export function startProjectSystem(
       storageAbsences,
       peakCache: NO_PEAK_CACHE,
       storage: undefined,
-      exportControl: () => undefined,
+      exporting: undefined,
       dispose: () => undefined,
     };
   }
@@ -188,17 +200,12 @@ export function projectSystemOver(
       digest: services.digest,
     }),
     storage: services.client,
-    exportControl: (exporting) =>
-      new PageExportControl({
-        ...exporting,
-        exports: services.client.exports,
-        trusted: services.trustedFolders,
-        allowWriting: ports.exportDestinations.allowWriting,
-        download: (file, name) => {
-          ports.exportDestinations.download(file, name);
-        },
-        digest: services.digest,
-      }),
+    exporting: {
+      exports: services.client.exports,
+      trusted: services.trustedFolders,
+      destinations: ports.exportDestinations,
+      digest: services.digest,
+    },
     dispose: () => {
       stop();
       lifetime.abort(abandonment('The page took the project system down.'));

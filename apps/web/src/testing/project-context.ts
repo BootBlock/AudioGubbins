@@ -50,7 +50,7 @@ import { abandonment } from '../state/abandoning.js';
 import { createModelAvailabilityStore } from '../ml/model-availability.js';
 import { modelGates } from '../ml/model-words.js';
 import { followProjectAssets } from '../state/project-catalogue.js';
-import { PageExportControl } from '../state/export-control.js';
+import { PageExportControl } from '../export/export-control.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';

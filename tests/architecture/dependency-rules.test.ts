@@ -1174,6 +1174,8 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
     'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
       ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
     "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],
+    "The folders the person keeps trusted for exports, and leave to write into a folder or file an export goes to, which only the page may ask the person for, in their gesture (ADR-0092).":
+      ['TrustedFolders', 'queryWritePermission', 'requestWritePermission'],
   },
 };
 

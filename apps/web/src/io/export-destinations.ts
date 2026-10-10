@@ -21,10 +21,11 @@ import {
 } from '@audiogubbins/browser-storage';
 import type { FilePickers } from '@audiogubbins/capabilities';
 import { fail, failure, FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
-import type { CollisionPolicy } from '@audiogubbins/import-export';
-
-import type { ExportDestinationChoice } from '../export/export-types.js';
 import { offerDownload } from './download.js';
+
+/** Where a save dialog put an export: a file it gave, or a download where there is no dialog. */
+export type ChosenExportFile =
+  { readonly kind: 'file'; readonly handle: FileSystemFileHandle } | { readonly kind: 'download' };
 
 /** How the person chooses where an export goes. */
 export interface ExportDestinations {
@@ -32,18 +33,14 @@ export interface ExportDestinations {
    * A file the person chooses in a save dialog, suggested as `name`, or a
    * download where the browser has no save dialog; nothing where dismissed.
    */
-  readonly chooseFile: (name: string) => Promise<ExportDestinationChoice | undefined>;
+  readonly chooseFile: (name: string) => Promise<ChosenExportFile | undefined>;
 
   /**
-   * A folder the person chooses to export into under `policy`, nothing where
-   * dismissed, or refused where the browser gives no folder to write into.
+   * A folder the person chooses to export into, or to keep trusted, with leave
+   * to write into it; nothing where dismissed, or refused where the browser
+   * gives no folder to write into.
    */
-  readonly chooseFolder: (
-    policy: CollisionPolicy,
-  ) => Promise<DomainResult<ExportDestinationChoice | undefined>>;
-
-  /** A folder the person chooses to keep trusted, nothing where dismissed, refused as `chooseFolder` is. */
-  readonly chooseFolderToTrust: () => Promise<DomainResult<FileSystemDirectoryHandle | undefined>>;
+  readonly chooseFolder: () => Promise<DomainResult<FileSystemDirectoryHandle | undefined>>;
 
   /**
    * Whether `handle` may be written, asking the person where the browser
@@ -64,25 +61,17 @@ const NO_FOLDERS = failure(
 
 /** The browser's way of choosing where an export goes, with the pickers where it has them. */
 export function browserExportDestinations(pickers: FilePickers | undefined): ExportDestinations {
-  const folder = async (): Promise<DomainResult<FileSystemDirectoryHandle | undefined>> => {
-    if (pickers === undefined) return fail(NO_FOLDERS);
-    const picked = await pickDirectory(pickers.openDirectory, 'readwrite');
-    return succeed(picked.kind === 'cancelled' ? undefined : picked.chosen);
-  };
   return {
     chooseFile: async (name) => {
       if (pickers === undefined) return { kind: 'download' };
       const picked = await pickSaveFile(pickers.saveFile, name);
       return picked.kind === 'cancelled' ? undefined : { kind: 'file', handle: picked.chosen };
     },
-    chooseFolder: async (policy) => {
-      const chosen = await folder();
-      if (!chosen.ok) return chosen;
-      return succeed(
-        chosen.value === undefined ? undefined : { kind: 'folder', handle: chosen.value, policy },
-      );
+    chooseFolder: async () => {
+      if (pickers === undefined) return fail(NO_FOLDERS);
+      const picked = await pickDirectory(pickers.openDirectory, 'readwrite');
+      return succeed(picked.kind === 'cancelled' ? undefined : picked.chosen);
     },
-    chooseFolderToTrust: folder,
     allowWriting: async (handle) => {
       if ((await queryWritePermission(handle)) === 'granted') return true;
       return (await requestWritePermission(handle)) === 'granted';
