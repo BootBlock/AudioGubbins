@@ -32,25 +32,27 @@ export interface ExportDestinations {
    * A file the person chooses in a save dialog, suggested as `name`, or a
    * download where the browser has no save dialog; nothing where dismissed.
    */
-  chooseFile(name: string): Promise<ExportDestinationChoice | undefined>;
+  readonly chooseFile: (name: string) => Promise<ExportDestinationChoice | undefined>;
 
   /**
    * A folder the person chooses to export into under `policy`, nothing where
    * dismissed, or refused where the browser gives no folder to write into.
    */
-  chooseFolder(policy: CollisionPolicy): Promise<DomainResult<ExportDestinationChoice | undefined>>;
+  readonly chooseFolder: (
+    policy: CollisionPolicy,
+  ) => Promise<DomainResult<ExportDestinationChoice | undefined>>;
 
   /** A folder the person chooses to keep trusted, nothing where dismissed, refused as `chooseFolder` is. */
-  chooseFolderToTrust(): Promise<DomainResult<FileSystemDirectoryHandle | undefined>>;
+  readonly chooseFolderToTrust: () => Promise<DomainResult<FileSystemDirectoryHandle | undefined>>;
 
   /**
    * Whether `handle` may be written, asking the person where the browser
    * needs their leave; only in answer to their gesture.
    */
-  allowWriting(handle: FileSystemHandle): Promise<boolean>;
+  readonly allowWriting: (handle: FileSystemHandle) => Promise<boolean>;
 
   /** Hands `file` to the person as a download under `name`. */
-  download(file: Blob, name: string): void;
+  readonly download: (file: Blob, name: string) => void;
 }
 
 /** Why no folder can be chosen in this browser. */

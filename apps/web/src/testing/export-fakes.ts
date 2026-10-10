@@ -24,7 +24,6 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { DspImplementation } from '@audiogubbins/audio-engine';
 import type { RenderHost, RenderRequest, RenderRunOptions } from '@audiogubbins/audio-runtime';
 import type {
-  CollisionPolicy,
   EncodedStreamMessage,
   RenderedStreamMessage,
   StreamReceiverMessage,
@@ -33,7 +32,6 @@ import type { ExportCodec } from '@audiogubbins/project-format';
 
 import type { RenderRun } from '../audio/render-control.js';
 import type { CodecServices, EncodedFile } from '../codecs/codec-services.js';
-import type { ExportDestinationChoice } from '../export/export-types.js';
 import { browserExportDestinations, type ExportDestinations } from '../io/export-destinations.js';
 
 /** Frames a fake render sends in a block. */
@@ -283,30 +281,26 @@ export class ScriptedExportDestinations implements ExportDestinations {
   /** Every download handed over, in order. */
   readonly downloads: { readonly name: string; readonly file: Blob }[] = [];
 
-  chooseFile(name: string): Promise<ExportDestinationChoice | undefined> {
+  readonly chooseFile: ExportDestinations['chooseFile'] = (name) => {
     this.suggested.push(name);
     return Promise.resolve(
       this.file === undefined ? undefined : { kind: 'file', handle: this.file },
     );
-  }
+  };
 
-  chooseFolder(
-    policy: CollisionPolicy,
-  ): Promise<DomainResult<ExportDestinationChoice | undefined>> {
-    return Promise.resolve(
+  readonly chooseFolder: ExportDestinations['chooseFolder'] = (policy) =>
+    Promise.resolve(
       succeed(
         this.folder === undefined ? undefined : { kind: 'folder', handle: this.folder, policy },
       ),
     );
-  }
 
-  chooseFolderToTrust(): Promise<DomainResult<FileSystemDirectoryHandle | undefined>> {
-    return Promise.resolve(succeed(this.folder));
-  }
+  readonly chooseFolderToTrust: ExportDestinations['chooseFolderToTrust'] = () =>
+    Promise.resolve(succeed(this.folder));
 
   readonly allowWriting = browserExportDestinations(undefined).allowWriting;
 
-  download(file: Blob, name: string): void {
+  readonly download: ExportDestinations['download'] = (file, name) => {
     this.downloads.push({ name, file });
-  }
+  };
 }

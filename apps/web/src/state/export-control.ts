@@ -270,14 +270,20 @@ export class PageExportControl implements ExportControl {
     if (!roomy.ok) return roomy;
     const { snapshot, target, jobs } = prepared.value;
     const origin = await exportOrigin(snapshot, start.settings, target, this.#parts.digest);
-    // Made only now, after the last await before it begins, so a second start
-    // asked for meanwhile cannot run beside this one.
-    if (this.#run !== undefined)
-      return fail(refusal('busy', 'An export is running; wait for it, or cancel it.'));
     await this.#forgetDownloads();
+    // Asked again after the last await before it begins, so a second start
+    // asked for meanwhile cannot run beside this one.
+    if (this.#busy()) {
+      return fail(refusal('busy', 'An export is running; wait for it, or cancel it.'));
+    }
     const run = this.#begin(session, start.settings, { jobs, origin });
     await this.#runJobs(run);
     return succeed(this.#settle(run));
+  }
+
+  /** Whether a batch is running or held, read afresh after each await. */
+  #busy(): boolean {
+    return this.#run !== undefined;
   }
 
   cancel(): boolean {

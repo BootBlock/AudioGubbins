@@ -59,7 +59,12 @@ export function CollisionPrompt({
       title={collisionPromptTitle(asking ?? '')}
       description={WHAT_EACH_DOES}
       actions={ANSWER_ORDER.map((choice) => (
-        <Button key={choice} onClick={() => answer(choice)}>
+        <Button
+          key={choice}
+          onClick={() => {
+            answer(choice);
+          }}
+        >
           {COLLISION_PROMPT_WORDS.answers[choice]}
         </Button>
       ))}
@@ -70,7 +75,9 @@ export function CollisionPrompt({
             id={checkbox}
             type="checkbox"
             checked={forTheRest}
-            onChange={(event) => setForTheRest(event.currentTarget.checked)}
+            onChange={(event) => {
+              setForTheRest(event.currentTarget.checked);
+            }}
           />
           <label htmlFor={checkbox}>{COLLISION_PROMPT_WORDS.forTheRest}</label>
         </div>
