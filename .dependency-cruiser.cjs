@@ -54,9 +54,10 @@
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
- *                   domain, whose results the media input answers in, and
+ *                   domain, whose results the media input answers in,
  *                   diagnostics + text, whose check of how names compare it
- *                   probes
+ *                   probes, and codecs, whose environment its codec probes
+ *                   answer
  *   design-system   React/Radix presentation; depends on version, knows nothing
  *                   of the domain
  *   workspace       docking; depends on diagnostics + text + version

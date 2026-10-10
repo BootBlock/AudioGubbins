@@ -553,7 +553,13 @@ const PACKAGES = [
       'Runtime capability detection and degradation descriptors. The only package that probes the browser directly.',
     dom: true,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/diagnostics', '@audiogubbins/text'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/text',
+      // The codec identities and environment its codec probes answer in (ADR-0090).
+      '@audiogubbins/codecs',
+    ],
     devDeps: [],
     external: {},
     externalDev: {},

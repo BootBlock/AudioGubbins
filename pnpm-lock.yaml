@@ -462,6 +462,9 @@ importers:
 
   packages/capabilities:
     dependencies:
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
