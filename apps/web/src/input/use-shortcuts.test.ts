@@ -649,11 +649,14 @@ describe('a clipboard shortcut', () => {
 
 describe('a key a focused control uses itself', () => {
   /** A reading of `code`, with the modifiers given. */
-  const reading = (code: string, modifiers: { readonly ctrlKey?: boolean } = {}) => ({
+  const reading = (
+    code: string,
+    modifiers: { readonly ctrlKey?: boolean; readonly shiftKey?: boolean } = {},
+  ) => ({
     code,
     key: code,
     ctrlKey: modifiers.ctrlKey ?? false,
-    shiftKey: false,
+    shiftKey: modifiers.shiftKey ?? false,
     altKey: false,
     metaKey: false,
     altGraph: false,
@@ -679,6 +682,15 @@ describe('a key a focused control uses itself', () => {
     expect(ownsItsKeys(inside('toolbar'), reading('ArrowLeft'))).toBe(true);
     expect(ownsItsKeys(inside('menu'), reading('KeyM'))).toBe(true);
     expect(ownsItsKeys(inside('slider'), reading('Home'))).toBe(true);
+  });
+
+  it('is the control’s when it activates or dismisses with it: Enter, Space and Escape', () => {
+    for (const code of ['Enter', 'NumpadEnter', 'Space', 'Escape']) {
+      expect(ownsItsKeys(inside('toolbar'), reading(code))).toBe(true);
+      expect(ownsItsKeys(inside('region'), reading(code, { shiftKey: true }))).toBe(true);
+      expect(ownsItsKeys(inside('application'), reading(code))).toBe(false);
+      expect(ownsItsKeys(document.body, reading(code))).toBe(false);
+    }
   });
 
   it('is the page’s when it scrolls a dialogue or a panel, pressed alone', () => {

@@ -65,7 +65,7 @@ async function punched(): Promise<AudioWindow> {
   const audio = await windowWithAudio();
   const { window } = audio;
   window.context.editorViews.open('editor', audio.asset());
-  window.context.editorViews.measured('editor', 1000, audio.asset().length);
+  window.context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
   window.context.editorViews.focus('editor');
   window.run('editor.select-time', RANGE);
   expect(window.run('recording.arm-punch').kind).toBe('applied');
@@ -80,7 +80,11 @@ describe('a punch and the write lease', () => {
     const audio = await windowWithAudio();
     const { window } = audio;
     window.context.editorViews.open('editor', audio.asset());
-    window.context.editorViews.measured('editor', 1000, audio.asset().length);
+    window.context.editorViews.measured(
+      'editor',
+      { width: 1000, height: 300 },
+      audio.asset().length,
+    );
     window.context.editorViews.focus('editor');
     window.run('editor.select-time', RANGE);
     expect(window.run('recording.arm-punch').kind).toBe('applied');

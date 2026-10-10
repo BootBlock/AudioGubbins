@@ -100,6 +100,7 @@ function overlay(selection: SelectionSet): LaneOverlay {
     grid: undefined,
     spectral: AXIS,
     spectralEdits: [],
+    drawing: undefined,
   };
 }
 
@@ -225,5 +226,48 @@ describe('the spectral selection drawn over a lane', () => {
     expect(
       segments(drawn(scoped, { ...SPECTROGRAM, channel: 1 }), PALETTE.selectionBorder),
     ).toHaveLength(4);
+  });
+});
+
+describe('a spectral shape being drawn from the keyboard', () => {
+  const marks = {
+    channel: 0,
+    points: [
+      { x: 100, y: 80 },
+      { x: 200, y: 120 },
+    ],
+    cursor: { x: 300, y: 150 },
+  };
+  const drawnWith = (lane: Lane): RenderBatch[] => {
+    const out: RenderBatch[] = [];
+    drawLaneOverlay(
+      new BuilderPool(),
+      new MaskPainter(),
+      lane,
+      { ...overlay(EMPTY_SELECTION), drawing: marks },
+      style(VIEW),
+      out,
+    );
+    return out;
+  };
+
+  it('draws the path through its points to the cursor, in its channel’s spectrogram', () => {
+    expect(segments(drawnWith(SPECTROGRAM), PALETTE.snap)).toEqual([
+      [100, 80, 200, 120],
+      [200, 120, 300, 150],
+    ]);
+    const guides = drawnWith(SPECTROGRAM).filter(
+      (batch) => batch.kind === 'rectangles' && batch.colour === PALETTE.snap,
+    );
+    expect(guides.length).toBeGreaterThan(0);
+  });
+
+  it('draws nothing of it in another channel’s lane, or over a waveform', () => {
+    for (const lane of [
+      { ...SPECTROGRAM, channel: 1 },
+      { ...SPECTROGRAM, kind: LaneKind.Waveform },
+    ]) {
+      expect(segments(drawnWith(lane), PALETTE.snap)).toEqual([]);
+    }
   });
 });

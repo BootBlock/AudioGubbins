@@ -35,7 +35,7 @@ function openView(panel: string, asset: string): void {
   const found = context.assets.find(asset);
   if (found === undefined) throw new Error(`No asset ${asset}.`);
   context.editorViews.open(panel, found);
-  context.editorViews.measured(panel, 1000, found.length);
+  context.editorViews.measured(panel, { width: 1000, height: 300 }, found.length);
   context.editorViews.focus(panel);
 }
 

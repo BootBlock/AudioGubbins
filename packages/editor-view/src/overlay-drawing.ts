@@ -11,6 +11,9 @@
  * outlined (`mask-drawing.ts`), and while a spectral tool is dragged, as the
  * selection its shape would leave. The spectral edits of the asset are outlined
  * beneath it in a colour of their own, where the view's overlays include them.
+ * A shape being drawn from the keyboard is drawn in its channel's spectrogram
+ * as the path through the points placed to the cursor, with a guide across the
+ * lane at the cursor's height, so the person sees what the points make.
  */
 
 import type { Colour, RenderBatch } from '@audiogubbins/renderer';
@@ -25,6 +28,7 @@ import {
 
 import type { BuilderPool, RectangleBuilder } from './batch-buffers.js';
 import { frequencyY } from './frequency-axis.js';
+import type { DrawingMarks } from './keyboard-drawing.js';
 import type { Lane } from './lane-layout.js';
 import { outlineMask, type MaskPainter, type SpectralEditOutline } from './mask-drawing.js';
 import type { ToolPreview } from './tool-values.js';
@@ -42,6 +46,8 @@ export interface LaneOverlay {
   readonly spectral: SpectralSettings;
   /** The asset's spectral edits to outline, none where the overlay is off. */
   readonly spectralEdits: readonly SpectralEditOutline[];
+  /** A spectral shape being drawn from the keyboard, if one is. */
+  readonly drawing: DrawingMarks | undefined;
 }
 
 function inScope(channels: readonly number[] | undefined, channel: number): boolean {
@@ -212,6 +218,33 @@ function drawPreview(
   }
 }
 
+/** How far each side of a placed point or the cursor its mark reaches, in CSS pixels. */
+const MARK_REACH = 3;
+
+/** The keyboard's drawing, in the spectrogram lane of its channel. */
+function drawDrawing(
+  pool: BuilderPool,
+  lane: Lane,
+  drawing: DrawingMarks | undefined,
+  style: OverlayStyle,
+  out: RenderBatch[],
+): void {
+  if (drawing?.channel !== lane.channel || lane.kind === 'waveform') {
+    return;
+  }
+  const path = pool.segments(style.palette.snap, 1.5);
+  const marks = pool.rectangles(style.palette.snap);
+  const { area } = lane;
+  let last: DrawingMarks['cursor'] | undefined;
+  for (const point of [...drawing.points, drawing.cursor]) {
+    if (last !== undefined) path.add(last.x, last.y, point.x, point.y);
+    marks.add(point.x - MARK_REACH, point.y - MARK_REACH, 2 * MARK_REACH, 2 * MARK_REACH);
+    last = point;
+  }
+  marks.add(area.x, drawing.cursor.y, area.width, 1 / style.pixelRatio);
+  out.push(path.batch(), marks.batch());
+}
+
 /** Draws a lane's grid, spectral edits, selection, content, preview and playhead. */
 export function drawLaneOverlay(
   pool: BuilderPool,
@@ -230,6 +263,7 @@ export function drawLaneOverlay(
   drawSelection(pool, masks, lane, overlay, style, out);
   drawContent(pool, lane, overlay, style, out);
   drawPreview(pool, lane, overlay.preview, style, out);
+  drawDrawing(pool, lane, overlay.drawing, style, out);
   if (overlay.playhead !== undefined) {
     const playhead = pool.rectangles(style.palette.playhead);
     across(playhead, style, lane, overlay.playhead);

@@ -61,6 +61,23 @@ export {
   withDrawnShape,
 } from './spectral-tools.js';
 
+// The spectral tools drawn from the keyboard: a cursor in a spectrogram lane
+// and the points it places, making what a pointer through them makes
+// (ADR-0082).
+export {
+  CursorStep,
+  type DrawingContext,
+  type DrawingMarks,
+  type KeyboardDrawing,
+  cursorFrequency,
+  cursorStepped,
+  drawingLaneOf,
+  drawingPreview,
+  drawingShape,
+  newDrawing,
+  pointPlaced,
+} from './keyboard-drawing.js';
+
 // A spectral selection widened and narrowed from the keyboard (ADR-0082).
 export {
   SPECTRAL_TIME_STEP_PIXELS,

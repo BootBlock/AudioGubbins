@@ -177,7 +177,7 @@ export class EditorSurface {
       this.#size = { width: entry.contentRect.width, height: entry.contentRect.height };
       const sources = this.#sources();
       if (sources !== undefined) {
-        stores.editorViews.measured(this.#options.panel, this.#size.width, sources.asset.length);
+        stores.editorViews.measured(this.#options.panel, this.#size, sources.asset.length);
       }
       this.redraw();
     });

@@ -11,7 +11,7 @@ async function regionOfLoop(): Promise<{ readonly audio: AudioWindow; readonly r
   const audio = await windowWithAudio({ regions: [{ name: 'Body', start: 48_000, end: 240_000 }] });
   const { context } = audio.window;
   context.editorViews.open('editor', audio.asset());
-  context.editorViews.measured('editor', 1000, audio.asset().length);
+  context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
   context.editorViews.focus('editor');
   const [region] = regionsOf(audio);
   if (region === undefined) throw new Error('No region.');

@@ -60,13 +60,15 @@ function range(one: SampleCount, other: SampleCount): BoundaryRange {
   return one <= other ? { start: one, end: other } : { start: other, end: one };
 }
 
-/** The channels between the lanes a drag started and is over, or every channel. */
-function draggedChannels(
-  context: ToolContext,
+/**
+ * The channels of `visible` between the lanes a drag started and is over, or
+ * every channel where it spans every lane shown.
+ */
+export function draggedChannels(
+  visible: readonly number[],
   from: number | undefined,
   to: number | undefined,
 ): readonly number[] | undefined {
-  const visible = context.visibleChannels;
   const first = from === undefined ? -1 : visible.indexOf(from);
   const last = to === undefined ? first : visible.indexOf(to);
   if (first < 0 || last < 0) return undefined;
@@ -113,7 +115,7 @@ function traced(state: Pressed, input: ToolInput, final: boolean): Pressed {
 /** The shape a spectral drag has drawn by `input`, and how it joins the selection. */
 function drawnShape(state: Pressed, input: ToolInput): DrawnShape | undefined {
   const { context, start, tool, trail } = state;
-  const channels = draggedChannels(context, start.channel, start.channel);
+  const channels = draggedChannels(context.visibleChannels, start.channel, start.channel);
   return drawnShapeOf({ tool, spectral: context.spectral, start, trail, channels }, input);
 }
 
@@ -179,7 +181,7 @@ function dragPreview(state: Pressed, input: ToolInput): ToolPreview | undefined 
       const channels =
         tool === ToolId.TimeSelect || hit.kind === 'selection-edge'
           ? undefined
-          : draggedChannels(context, state.start.channel, input.channel);
+          : draggedChannels(context.visibleChannels, state.start.channel, input.channel);
       return { kind: 'time-range', range: range(anchorOf(state), input.boundary), channels };
     }
     case ToolId.Region:

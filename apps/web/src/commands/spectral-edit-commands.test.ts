@@ -59,7 +59,7 @@ async function selectedLoop(
   const audio = await windowWithAudio(options.world === undefined ? {} : { world: options.world });
   const { context } = audio.window;
   context.editorViews.open('editor', audio.asset());
-  context.editorViews.measured('editor', 1000, audio.asset().length);
+  context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
   context.editorViews.focus('editor');
   const mask = options.mask ?? SELECTED;
   audio.window.run('editor.select-spectral', {

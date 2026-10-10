@@ -701,6 +701,14 @@ describe('the default shortcut profile', () => {
           'editor.tool-spectral-marquee',
           'editor.tool-spectral-lasso',
           'editor.tool-spectral-brush',
+          'editor.spectral-cursor-up',
+          'editor.spectral-cursor-down',
+          'editor.spectral-cursor-up-fine',
+          'editor.spectral-cursor-down-fine',
+          'editor.spectral-cursor-next-channel',
+          'editor.place-spectral-point',
+          'editor.finish-spectral-shape',
+          'editor.cancel-spectral-shape',
         ].map((id) => [id, said(id)]),
       ),
     ).toEqual({
@@ -713,6 +721,14 @@ describe('the default shortcut profile', () => {
       'editor.tool-spectral-marquee': 'Shift+M',
       'editor.tool-spectral-lasso': 'Shift+L',
       'editor.tool-spectral-brush': 'P',
+      'editor.spectral-cursor-up': 'Alt+Up',
+      'editor.spectral-cursor-down': 'Alt+Down',
+      'editor.spectral-cursor-up-fine': 'Alt+Shift+Up',
+      'editor.spectral-cursor-down-fine': 'Alt+Shift+Down',
+      'editor.spectral-cursor-next-channel': 'Shift+C',
+      'editor.place-spectral-point': 'Enter',
+      'editor.finish-spectral-shape': 'Shift+Enter',
+      'editor.cancel-spectral-shape': 'Esc',
     });
   });
 
@@ -990,7 +1006,7 @@ describe('finding the shell commands in the palette', () => {
     const found = context.assets.find(asset);
     if (found === undefined) throw new Error(`No asset ${asset}.`);
     context.editorViews.open('editor', found);
-    context.editorViews.measured('editor', 1000, found.length);
+    context.editorViews.measured('editor', { width: 1000, height: 300 }, found.length);
     context.editorViews.focus('editor');
   }
 
@@ -1004,6 +1020,17 @@ describe('finding the shell commands in the palette', () => {
       },
     };
   }
+
+  /** A view that draws spectrally with `tool`, its surface laid out, so the keyboard can draw. */
+  const drawingWith =
+    (tool: 'lasso' | 'brush'): NonNullable<Scenario['before']> =>
+    (run, context) => {
+      const found = context.assets.find('test:tone-bursts');
+      if (found === undefined) throw new Error('No tone bursts.');
+      context.editorViews.measured('editor', { width: 1000, height: 300 }, found.length);
+      run('editor.display-spectrogram');
+      run(`editor.tool-spectral-${tool}`);
+    };
 
   /** The marked loop of the project open in the editor, its marker at `index` given. */
   const onProjectMarker = (index = 0): Scenario => ({
@@ -1300,6 +1327,28 @@ describe('finding the shell commands in the palette', () => {
       },
       arguments: () => ({ low: 1_000, high: 2_000 }),
     }),
+    ...Object.fromEntries(
+      [
+        'editor.spectral-cursor-up',
+        'editor.spectral-cursor-down',
+        'editor.spectral-cursor-up-fine',
+        'editor.spectral-cursor-down-fine',
+        'editor.spectral-cursor-next-channel',
+        'editor.place-spectral-point',
+      ].map((id) => [id, inEditor({ before: drawingWith('lasso') })]),
+    ),
+    'editor.cancel-spectral-shape': inEditor({
+      before: (run, context) => {
+        drawingWith('lasso')(run, context);
+        run('editor.place-spectral-point');
+      },
+    }),
+    'editor.finish-spectral-shape': inEditor({
+      before: (run, context) => {
+        drawingWith('brush')(run, context);
+        run('editor.place-spectral-point');
+      },
+    }),
     'editor.spectral-combination-replace': inEditor({
       before: (run) => run('editor.spectral-combination-add'),
     }),
@@ -1461,7 +1510,7 @@ describe('finding the shell commands in the palette', () => {
     });
     const { context } = audio.window;
     context.editorViews.open('editor', audio.asset());
-    context.editorViews.measured('editor', 1000, audio.asset().length);
+    context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
     context.editorViews.focus('editor');
     return context;
   }
