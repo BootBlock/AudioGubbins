@@ -14,7 +14,6 @@ import {
   type DitherSettings,
   type ExportFormat,
   type ExportPreset,
-  type ExportRange,
   type ExportSettings,
   type FormatEncoding,
   type MetadataPolicy,
@@ -102,7 +101,7 @@ export const APPLICATION_NAMES = {
 } as const;
 
 /** A format and its encoding: "FLAC, 24-bit, compression level 8". */
-export function encodingWords(settings: FormatEncoding): string {
+function encodingWords(settings: FormatEncoding): string {
   return `${formatName(settings.format)}, ${encodingOnly(settings)}`;
 }
 
@@ -125,7 +124,7 @@ export const MATRIX_NAMES = {
 } as const;
 
 /** What a channel conversion does, as a person reads it. */
-export function conversionWords(conversion: ChannelConversion): string {
+function conversionWords(conversion: ChannelConversion): string {
   switch (conversion.kind) {
     case 'keep':
       return 'the channels kept as they are';
@@ -146,7 +145,7 @@ export const SHAPING_NAMES: Readonly<Record<NoiseShaping, string>> = {
 };
 
 /** What a dither adds, as a person reads it. */
-export function ditherWords(dither: DitherSettings): string {
+function ditherWords(dither: DitherSettings): string {
   if (dither.kind === 'none') return 'no dither';
   return `${dither.kind} dither of ${String(dither.amplitude)} ${dither.amplitude === 1 ? 'step' : 'steps'}, ${SHAPING_NAMES[dither.shaping]}`;
 }
@@ -183,20 +182,6 @@ export const POLICY_WORDS: Readonly<Record<CollisionPolicy, string>> = {
   skip: 'a file whose name is taken is left, and its export skipped',
   rename: 'a file whose name is taken is kept, and the export named “name (2)” and on',
 };
-
-/** What a range covers, as a person reads it. */
-export function rangeWords(range: ExportRange, regionName: (id: string) => string): string {
-  switch (range.kind) {
-    case 'project':
-      return 'the whole asset';
-    case 'region':
-      return `the region ${quoted(regionName(range.region))}`;
-    case 'every-region':
-      return 'every region, a file each';
-    case 'selection':
-      return 'the selection';
-  }
-}
 
 /**
  * What a preset of AudioGubbins sets, in a sentence: the values it chooses,

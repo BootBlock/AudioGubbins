@@ -14,18 +14,20 @@
 
 import type { ReactNode } from 'react';
 
-import { ModalDialog, TabSet, type ThemePreferences } from '@audiogubbins/design-system';
+import { ModalDialog, TabSet } from '@audiogubbins/design-system';
 import type { VerbosityConfiguration } from '@audiogubbins/diagnostics';
 import type { WorkspaceLayout } from '@audiogubbins/workspace';
 
 import type { RecordingParts } from '../recording/recording-part.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { UserPreferences } from '../state/preferences-store.js';
 import { Accessibility, Appearance } from './settings/appearance.js';
 import { Audio } from './settings/audio.js';
 import { Diagnostics } from './settings/diagnostics.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { UnreadText } from '../state/text-custody.js';
 import { Backups } from './settings/backups.js';
+import { ExportPresetsSection } from './settings/export-presets.js';
 import { ProjectSettings } from './settings/projects.js';
 import type { RunCommand } from './settings/section.js';
 import { Shortcuts, type ShortcutsProps } from './settings/shortcuts.js';
@@ -36,7 +38,14 @@ export interface SettingsDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 
-  readonly preferences: ThemePreferences;
+  readonly preferences: UserPreferences;
+
+  /**
+   * The trusted folders' section, shown in the Export tab below the person's
+   * presets, and absent where this browser keeps no projects, since a trusted
+   * folder is kept with them.
+   */
+  readonly trustedFolders: ReactNode;
 
   /** Runs a command by identifier, which is how every control acts. */
   readonly run: RunCommand;
@@ -153,6 +162,16 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
             ),
           },
           ...projectTabs(props),
+          {
+            value: 'export',
+            label: 'Export',
+            content: (
+              <div className="ag-settings-section">
+                <ExportPresetsSection presets={props.preferences.exportPresets} run={props.run} />
+                {props.trustedFolders}
+              </div>
+            ),
+          },
           {
             value: 'audio',
             label: 'Audio',

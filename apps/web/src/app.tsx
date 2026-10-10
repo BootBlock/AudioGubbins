@@ -274,6 +274,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                 if (!open) run(commandId('settings.close'));
               }}
               preferences={preferences}
+              trustedFolders={undefined}
               shortcuts={{
                 profile: shortcuts.profile,
                 available: shortcuts.available,

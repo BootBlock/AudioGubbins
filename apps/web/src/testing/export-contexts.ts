@@ -22,10 +22,10 @@ export function rateOf(hertz: number): SampleRate {
 }
 
 export const FIRST_REGION: RegionId = unsafeBrandId('region-first');
-export const SECOND_REGION: RegionId = unsafeBrandId('region-second');
+const SECOND_REGION: RegionId = unsafeBrandId('region-second');
 
 /** A stereo project of 16-bit audio at `hertz`, a second long, with two regions. */
-export function stereoProject(hertz = 48_000): ExportSource {
+function stereoProject(hertz = 48_000): ExportSource {
   const rate = rateOf(hertz);
   const audio = {
     sampleRate: rate,
