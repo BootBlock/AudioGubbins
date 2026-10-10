@@ -10,8 +10,10 @@
  * in the Library (`library/library-panel.tsx`), the rack of what the editor
  * acts on in the Effects rack (`rack/rack-panel.tsx`), the model packs in the
  * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
- * latency in the Recording panel (`recording/recording-panel.tsx`), and the
- * project system's History and Storage panels (`project-panels.tsx`).
+ * latency in the Recording panel (`recording/recording-panel.tsx`), the
+ * spectral selection, tools and edits in the Spectral panel
+ * (`spectral/spectral-panel.tsx`), and the project system's History and Storage
+ * panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -36,6 +38,7 @@ import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-
 import type { ModelGate } from '../assets/model-gate.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { Hearing } from '../state/hearing-store.js';
+import type { UserPreferences } from '../state/preferences-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
@@ -52,6 +55,7 @@ import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-pa
 import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
 import { RackPanel } from './rack/rack-panel.js';
+import { SpectralPanel } from './spectral/spectral-panel.js';
 import { RecordingDiagnosticsList } from './recording/recording-diagnostics-list.js';
 import { RecordingPanel } from './recording/recording-panel.js';
 import { useRecordingDiagnostics, useWatchedInputs } from './recording/use-recording.js';
@@ -199,6 +203,9 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** The input, monitoring and latency calibration, which the Recording panel shows. */
   readonly recording: RecordingParts;
+
+  /** The person's preferences, whose pressure choice the Spectral panel shows. */
+  readonly preferences: Observable<UserPreferences>;
 }
 
 /**
@@ -234,6 +241,7 @@ export function panelContextOf(
     modelGate: context.modelGate,
     hearing: context.hearing,
     recording: context.recording,
+    preferences: context.preferences,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
@@ -314,6 +322,7 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             labelFor: context.editor.labelFor,
             recording: context.recording,
             audioSettings: context.audioSettings,
+            modelGate: context.modelGate,
           }}
           commands={context}
         />
@@ -359,6 +368,9 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case EditingPanelKinds.Rack:
       return <RackPanel title={title} context={context} />;
+
+    case PanelKinds.Spectral:
+      return <SpectralPanel title={title} context={context} />;
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;

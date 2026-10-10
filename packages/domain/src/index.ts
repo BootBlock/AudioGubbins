@@ -193,7 +193,6 @@ export {
   type RegionOperation,
   MAXIMUM_EDIT_GAIN,
   editChain,
-  isLevelEdit,
   takesChannelScope,
   withEditChain,
 } from './editing/operations.js';

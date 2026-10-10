@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { sampleCount, type EditTarget, type Region } from '@audiogubbins/domain';
+import {
+  MaskEffect,
+  NO_FEATHER,
+  sampleCount,
+  type EditTarget,
+  type Region,
+  type SpectralEdit,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
@@ -84,5 +91,34 @@ describe('processing made on an edit target', () => {
         : next.project.assets.get(rain.id)?.edits.at(-1);
     expect(made).toBeDefined();
     expect(made !== undefined && 'channels' in made).toBe(false);
+  });
+
+  it.each([
+    ['an asset', assetTarget],
+    ['a region', regionTarget],
+  ])('keeps the channel scope on a spectral edit of %s, which acts on channels', (_, target) => {
+    const id = ids.next<'EditOperationId'>();
+    const edit: SpectralEdit = {
+      kind: 'spectral',
+      mask: {
+        shapes: [
+          {
+            kind: 'rectangle',
+            effect: MaskEffect.Add,
+            range: { start: at(100), end: at(700) },
+            band: { low: 100, high: 400 },
+          },
+        ],
+        feather: NO_FEATHER,
+      },
+      resolution: 256,
+      operation: { kind: 'heal' },
+    };
+    const { next } = appliedOf(bus.execute(state, processTargetInvocation(target, id, edit)));
+    const made =
+      target.kind === 'region'
+        ? next.project.regions.get(shower.id)?.operations.at(-1)
+        : next.project.assets.get(rain.id)?.edits.at(-1);
+    expect(made).toMatchObject({ channels: [1], edit });
   });
 });

@@ -1,7 +1,8 @@
 /**
  * A view's options: what it draws over the audio, what it snaps to
- * (REQ-EDIT-013), the format it writes positions in (REQ-EDIT-012) and
- * whether it follows the playhead. Each is the view's own (REQ-EDIT-061),
+ * (REQ-EDIT-013), the format it writes positions in (REQ-EDIT-012), whether
+ * it follows the playhead, and how its spectral tools draw
+ * (`spectral-tool-commands.ts`). Each is the view's own (REQ-EDIT-061),
  * changed through the builder the presentation commands use.
  */
 
@@ -22,6 +23,7 @@ import {
 
 import { frequencyWords } from '../wording.js';
 import { presentationCommand } from './editor-presentation-commands.js';
+import { spectralToolCommands } from './spectral-tool-commands.js';
 import type { ShellContext } from './shell-context.js';
 
 /** What each overlay is called. */
@@ -256,5 +258,6 @@ export function editorOptionCommands(): readonly Command<ShellContext>[] {
     ...timeFormatCommands(),
     ...followCommands(),
     ...spectralCommands(),
+    ...spectralToolCommands(),
   ];
 }

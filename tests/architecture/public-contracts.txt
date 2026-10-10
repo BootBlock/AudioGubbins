@@ -899,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29083: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1190,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29083: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2854,7 +2854,6 @@ Published paths
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
-  function isLevelEdit(edit: RangeEdit): boolean
   function isModelIdentity(identity: ModelIdentity): boolean
   function isRetryable(result: DomainFailureResult): boolean
   function isSpectralReduction(gain: number): boolean
@@ -3007,7 +3006,6 @@ Published paths
 @audiogubbins/editor-view
   const AMPLITUDES: readonly number[]
   const DEFAULT_OVERLAYS: Overlays
-  const DEFAULT_SPECTRAL_TOOL_SETTINGS: SpectralToolSettings
   const DisplayMode: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Stacked: "stacked"; readonly Overlay: "overlay"; }
   type DisplayMode = "overlay" | "spectrogram" | "stacked" | "waveform"
   interface DrawnShape
@@ -3055,6 +3053,7 @@ Published paths
   readonly EditorViewState.timeFormat: TimeFormat
   readonly EditorViewState.follow: FollowMode
   readonly EditorViewState.spectral: SpectralSettings
+  readonly EditorViewState.spectralTools: SpectralToolSettings
   const FollowMode: { readonly Off: "off"; readonly Page: "page"; readonly Centre: "centre"; }
   type FollowMode = "centre" | "off" | "page"
   class FrameComposer
@@ -3095,6 +3094,8 @@ Published paths
   readonly Overlays.regions: boolean
   readonly Overlays.filmstrip: boolean
   readonly Overlays.spectralEdits: boolean
+  const SPECTRAL_TIME_STEP_PIXELS: 10
+  const SPECTRAL_TOOL_RANGES: { readonly brushRadius: { readonly minimum: 2; readonly maximum: 96; readonly step: 1; }; readonly hardness: { readonly minimum: 0; readonly maximum: 0.95; readonly step: 0.05; }; }
   interface SnapSources
   readonly SnapSources.markers: readonly PlacedMarker[]
   readonly SnapSources.regions: readonly PlacedRegion[]
@@ -3111,6 +3112,8 @@ Published paths
   readonly SpectralSettings.frequencyScale: "linear" | "logarithmic"
   readonly SpectralSettings.lowest: number
   readonly SpectralSettings.highest: number
+  const SpectralStep: { readonly Widen: "widen"; readonly Narrow: "narrow"; }
+  type SpectralStep = "narrow" | "widen"
   interface SpectralToolContext
   readonly SpectralToolContext.lane: Lane | undefined
   readonly SpectralToolContext.axis: SpectralSettings
@@ -3175,9 +3178,13 @@ Published paths
   readonly ViewScene.picture: readonly PlacedImage[]
   readonly ViewScene.palette: EditorPalette
   readonly ViewScene.type: EditorType
+  function brushRadiusOf(value: number): number
+  function hardnessOf(value: number): number
   function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
   function laneAt(layout: ViewLayout, y: number): Lane | undefined
   function layoutView(state: EditorViewState, width: number, height: number, channelCount: number, pictureBound: boolean): ViewLayout
+  function maskSteppedInFrequency(mask: SpectralMask, step: SpectralStep, axis: SpectralSettings, highest: number): SpectralMask | undefined
+  function maskSteppedInTime(mask: SpectralMask, step: SpectralStep, by: number, length: SampleCount): SpectralMask | undefined
   function move(interaction: Interaction, input: ToolInput): ToolStep
   function newViewState(length: SampleCount, width: number): EditorViewState
   function press(context: ToolContext, input: ToolInput): ToolStep
@@ -6659,7 +6666,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]

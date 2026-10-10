@@ -24,8 +24,13 @@ import {
   type SpectralFeather,
   type SpectralShape,
 } from '@audiogubbins/domain';
-import { withDrawnShape } from '@audiogubbins/editor-view';
-import { SelectionFacet, SpectralCombination, activeFacet } from '@audiogubbins/timeline';
+import { SPECTRAL_TIME_STEP_PIXELS, withDrawnShape } from '@audiogubbins/editor-view';
+import {
+  SelectionFacet,
+  SpectralCombination,
+  activeFacet,
+  samplesWithin,
+} from '@audiogubbins/timeline';
 
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import type { ShellContext } from './shell-context.js';
@@ -216,6 +221,117 @@ describe('selecting a spectral area', () => {
     expect(selection().spectral?.shapes).toHaveLength(MAXIMUM_MASK_SHAPES);
     expect(refusal(run('editor.select-spectral', drawn(shape, SpectralCombination.Add)))).toBe(
       'The selection has too many shapes.',
+    );
+  });
+});
+
+describe('the spectral selection from the keyboard (REQ-UX-005)', () => {
+  /** The asset's rate, which gives the highest frequency it holds. */
+  const rate = () => context.assets.find(ASSET)?.sampleRate ?? 0;
+
+  it('selects a band of the time selection, the band the spectrogram shows where none is named', () => {
+    expect(refusal(run('editor.select-spectral-band'))).toBe(
+      'Select a time range first, then a band of it.',
+    );
+    run('editor.select-time', { start: 1_000, end: 2_000, channels: '1' });
+    expect(run('editor.select-spectral-band').kind).toBe('applied');
+    const { spectral } = context.editorViews.entry('editor')?.state ?? {};
+    expect(selection().spectral).toEqual({
+      shapes: [rectangle(1_000, 2_000, spectral?.lowest ?? 0, spectral?.highest ?? 0)],
+      feather: NO_FEATHER,
+    });
+    expect(selection().channels).toEqual([1]);
+    expect(activeFacet(selection())).toBe(SelectionFacet.Spectral);
+  });
+
+  it('selects the band named, softened as the view’s marquee is', () => {
+    context.editorViews.change('editor', (state) => ({
+      ...state,
+      spectralTools: { ...state.spectralTools, feather: { time: 48, frequency: 20 } },
+    }));
+    run('editor.select-time', { start: 1_000, end: 2_000 });
+    run('editor.select-spectral-band', { low: 300, high: 3_000 });
+    expect(selection().spectral).toEqual({
+      shapes: [rectangle(1_000, 2_000, 300, 3_000)],
+      feather: { time: 48, frequency: 20 },
+    });
+  });
+
+  it('refuses a band that is no band, or one above what the audio holds', () => {
+    run('editor.select-time', { start: 1_000, end: 2_000 });
+    const reason = `A band is a low frequency below a high one, from nothing to ${String(rate() / 2000)} kHz.`;
+    expect(refusal(run('editor.select-spectral-band', { low: 3_000, high: 300 }))).toBe(reason);
+    expect(refusal(run('editor.select-spectral-band', { low: 300, high: rate() }))).toBe(reason);
+    expect(selection().spectral).toBeUndefined();
+  });
+
+  it('widens and narrows the area in time by a step of the view', () => {
+    run('editor.select-spectral', drawn(rectangle(100_000, 200_000, 100, 400), 'replace'));
+    const viewport = context.editorViews.entry('editor')?.state.viewport;
+    if (viewport === undefined) throw new Error('The view is not open.');
+    const step = samplesWithin(viewport, SPECTRAL_TIME_STEP_PIXELS);
+    run('editor.widen-spectral-time');
+    expect(selection().spectral?.shapes[0]).toEqual(
+      rectangle(100_000 - step, 200_000 + step, 100, 400),
+    );
+    run('editor.narrow-spectral-time');
+    run('editor.narrow-spectral-time');
+    expect(selection().spectral?.shapes[0]).toEqual(
+      rectangle(100_000 + step, 200_000 - step, 100, 400),
+    );
+  });
+
+  it('widens and narrows the band by a step of the spectrogram’s axis', () => {
+    run('editor.select-spectral', drawn(rectangle(100_000, 200_000, 400, 1_600), 'replace'));
+    const before = selection().spectral;
+    run('editor.widen-spectral-band');
+    const [wider] = selection().spectral?.shapes ?? [];
+    if (wider?.kind !== 'rectangle') throw new Error('The rectangle was not kept.');
+    expect(wider.band.low).toBeLessThan(400);
+    expect(wider.band.high).toBeGreaterThan(1_600);
+    run('editor.narrow-spectral-band');
+    const [back] = selection().spectral?.shapes ?? [];
+    if (back?.kind !== 'rectangle' || before?.shapes[0]?.kind !== 'rectangle') {
+      throw new Error('The rectangle was not kept.');
+    }
+    expect(back.band.low).toBeCloseTo(400, 6);
+    expect(back.band.high).toBeCloseTo(1_600, 6);
+  });
+
+  it('refuses a step past the audio or to nothing, leaving the selection as it was', () => {
+    const length = context.assets.find(ASSET)?.length ?? 0;
+    run('editor.select-spectral', drawn(rectangle(0, length, 0, rate() / 2), 'replace'));
+    expect(refusal(run('editor.widen-spectral-time'))).toBe(
+      'The spectral selection reaches as far in time as the audio does.',
+    );
+    expect(refusal(run('editor.widen-spectral-band'))).toBe(
+      'The spectral selection reaches as far in frequency as the audio does.',
+    );
+    run('editor.select-spectral', drawn(rectangle(1_000, 1_001, 100, 400), 'replace'));
+    expect(refusal(run('editor.narrow-spectral-time'))).toBe(
+      'The spectral selection cannot be narrowed in time any further.',
+    );
+    expect(selection().spectral?.shapes[0]).toEqual(rectangle(1_000, 1_001, 100, 400));
+  });
+
+  it('clears the area alone, keeping the time selection', () => {
+    run('editor.select-time', { start: 1_000, end: 2_000 });
+    run('editor.select-spectral-band');
+    run('editor.clear-spectral-selection');
+    expect(selection().spectral).toBeUndefined();
+    expect(selection().time).toEqual({ start: 1_000, end: 2_000 });
+    expect(refusal(run('editor.clear-spectral-selection'))).toBe(
+      'No area of time and frequency is selected.',
+    );
+  });
+
+  it('describes the area in words, for a person who cannot see it', () => {
+    run('editor.time-format-samples');
+    run('editor.select-spectral', drawn(rectangle(1_000, 2_000, 100, 4_000), 'replace', '0'));
+    run('editor.select-spectral', drawn(rectangle(1_200, 1_400, 200, 300), 'subtract'));
+    run('editor.describe-spectral-selection');
+    expect(context.interaction.get().announcement?.text).toBe(
+      'An area from 1,000 to 2,000, 100 Hz to 4 kHz, on channel Left. It is made of a rectangle, with a rectangle taken away. Its rectangles and lasso shapes have hard edges. It is what an edit acts on now.',
     );
   });
 });

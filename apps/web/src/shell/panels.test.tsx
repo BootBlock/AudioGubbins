@@ -167,6 +167,7 @@ describe('every panel', () => {
           modelGate: shell.modelGate,
           hearing: shell.hearing,
           recording: shell.recording,
+          preferences: shell.preferences,
         })}
       </>,
     );

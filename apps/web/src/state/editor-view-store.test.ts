@@ -4,6 +4,7 @@ import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostic
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { DisplayMode, ToolId } from '@audiogubbins/editor-view';
 import { SnapKind, StandardFrameRates, pixelsPerSample } from '@audiogubbins/timeline';
+import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { testAssets } from '../assets/test-assets.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
@@ -114,6 +115,48 @@ describe('the editor views', () => {
       displayMode: DisplayMode.Overlay,
     });
     expect(views.entry('broken')).toBeUndefined();
+  });
+
+  it('keep the settings the spectral tools draw with, the softness in both its parts', () => {
+    const raw = ephemeralStorage();
+    const first = storeOver(raw);
+    first.open('editor', TONES);
+    first.change('editor', (state) => ({
+      ...state,
+      spectralTools: { brushRadius: 30, hardness: 0.25, feather: { time: 480, frequency: 50 } },
+    }));
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual({
+      brushRadius: 30,
+      hardness: 0.25,
+      feather: { time: 480, frequency: 50 },
+    });
+  });
+
+  it('take a stored brush to its control’s steps, and a softness in one part alone as none', () => {
+    const raw = ephemeralStorage();
+    raw.write(
+      EDITOR_VIEWS_KEY,
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
+        views: {
+          editor: {
+            asset: TONES.id,
+            spectralTools: {
+              brushRadius: 500,
+              hardness: 0.333,
+              feather: { time: 480, frequency: 0 },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual({
+      brushRadius: 96,
+      hardness: 0.35,
+      feather: { time: 0, frequency: 0 },
+    });
   });
 
   it('start afresh from views written for another version', () => {

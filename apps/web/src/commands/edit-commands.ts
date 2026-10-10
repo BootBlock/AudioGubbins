@@ -9,7 +9,8 @@
  * sound shown where nothing is selected. Deleting and trimming need a range,
  * so an accidental press never empties a sound. In a region's view a level
  * change is the region's own processing, and a change of time is made on the
- * asset, which is said.
+ * asset, which is said. The spectral edits, which act on an area of time and
+ * frequency, are `spectral-edit-commands.ts`.
  */
 
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
@@ -38,6 +39,7 @@ import {
 import { removeRegions, setRegionBounds } from './region-commands.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { spectralEditCommands } from './spectral-edit-commands.js';
 
 /** An edit command, available where the editor in use shows an asset of the project. */
 function editCommand(
@@ -300,5 +302,6 @@ export function editCommands(): readonly Command<ShellContext>[] {
     gainCommand(),
     gainStep('edit.louder', 'Make louder by 3 dB', 3),
     gainStep('edit.quieter', 'Make quieter by 3 dB', -3),
+    ...spectralEditCommands(),
   ];
 }
