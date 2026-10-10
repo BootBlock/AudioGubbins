@@ -79,6 +79,28 @@ export function quotedCode(code: string): string {
   return `0x${bytes.join('')}`;
 }
 
+/** What `container` is called, in a sentence or a label. */
+export function containerName(container: ContainerId): string {
+  return CONTAINER_NAMES[container];
+}
+
+/**
+ * What a file is in a few words, such as "Ogg, Vorbis", for a list that names
+ * many files' formats beside each other, where the sentence would crowd it.
+ */
+export function formatName(format: RecognisedFormat): string {
+  if (format.kind === 'unknown') return 'Not a recognised audio format';
+  const container = CONTAINER_NAMES[format.container];
+  switch (format.codec.kind) {
+    case 'named':
+      return `${container}, ${codecDescriptor(format.codec.codec).name}`;
+    case 'unnamed':
+      return `${container}, ${format.codec.description}`;
+    case 'unstated':
+      return container;
+  }
+}
+
 /** The sentence naming what a file is, without what can be done with it. */
 export function formatSentence(format: RecognisedFormat): string {
   if (format.kind === 'unknown') {

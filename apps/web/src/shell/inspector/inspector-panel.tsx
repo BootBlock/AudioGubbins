@@ -17,7 +17,7 @@ import { useId, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { shapesOf, type EffectChainId, type ProcessorId } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { targetChains } from '@audiogubbins/project-commands';
-import type { ProjectState } from '@audiogubbins/project-format';
+import type { AssetSource, ProjectState } from '@audiogubbins/project-format';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import { channelNames } from '../../assets/channel-names.js';
@@ -36,7 +36,8 @@ import { operationWords, type EditWording } from './edit-words.js';
 import { inspected, type Inspected } from './inspected.js';
 import { LevelControls } from './level-controls.js';
 import { RegionProperties } from './region-properties.js';
-import { sourceFacts } from './source-words.js';
+import { metadataFacts } from './metadata-words.js';
+import { sourceFacts, type SourceFact } from './source-words.js';
 import { TimeControls } from './time-controls.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
@@ -178,7 +179,34 @@ function RackSummary({
   );
 }
 
-/** The asset of the project: its source, its audio shape and its edits. */
+/** Facts, each a term and its detail. */
+function Facts({ facts }: { readonly facts: readonly SourceFact[] }): ReactNode {
+  return (
+    <dl className="ag-inspector-facts">
+      {facts.map((fact) => (
+        <div key={fact.term}>
+          <dt>{fact.term}</dt>
+          <dd>{fact.detail}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The metadata the asset's file carried, where its provenance kept any. */
+function FileMetadata({ source }: { readonly source: AssetSource | undefined }): ReactNode {
+  const metadata = source?.provenance?.metadata;
+  if (metadata === undefined) return null;
+  const facts = metadataFacts(metadata);
+  return (
+    <>
+      <h4 className="ag-inspector-heading">Its file’s metadata</h4>
+      {facts.length === 0 ? <p>The file carried none.</p> : <Facts facts={facts} />}
+    </>
+  );
+}
+
+/** The asset of the project: its source, its audio shape, its file's metadata and its edits. */
 function AssetProperties({
   subject,
   words,
@@ -193,14 +221,8 @@ function AssetProperties({
       <h3 className="ag-inspector-heading" id={heading}>
         {`Asset: ${asset.displayName}`}
       </h3>
-      <dl className="ag-inspector-facts">
-        {sourceFacts(subject.source, asset).map((fact) => (
-          <div key={fact.term}>
-            <dt>{fact.term}</dt>
-            <dd>{fact.detail}</dd>
-          </div>
-        ))}
-      </dl>
+      <Facts facts={sourceFacts(subject.source, asset)} />
+      <FileMetadata source={subject.source} />
       <h4 className="ag-inspector-heading">Its edits</h4>
       {asset.edits.length === 0 ? (
         <p>None. It plays as its source does.</p>

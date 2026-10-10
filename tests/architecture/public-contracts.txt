@@ -885,7 +885,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35160: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35167: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1180,7 +1180,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35160: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35167: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2124,8 +2124,10 @@ Published paths
   function adtsAudioConfig(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<Uint8Array<ArrayBufferLike>>>
   function codecCapability(environment: CodecEnvironment, codec: CodecId, use: CodecUse): CodecCapability
   function codecDescriptor(id: CodecId): CodecDescriptor
+  function containerName(container: ContainerId): string
   function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
   function createWavWriter(settings: WavWriterSettings): DomainResult<OpenedFileWriter>
+  function formatName(format: RecognisedFormat): string
   function importRoute(format: RecognisedFormat): ImportRoute
   function layoutRead(stated: ChannelLayout | undefined, channelCount: number): DomainResult<ChannelLayout>
   function metadataMapOf(value: unknown, field: string): MetadataMap
