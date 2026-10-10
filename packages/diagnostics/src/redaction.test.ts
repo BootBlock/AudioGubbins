@@ -1739,6 +1739,20 @@ describe('a path among the words after it', () => {
       'Opened <path>',
     );
   });
+
+  it(
+    'reads a line of paths and slashed words in time in proportion to it',
+    { timeout: LONGEST_COST_TEST_MS },
+    () => {
+      // A path reads the words after it to the end of its line before it knows
+      // where it ends, so a line of paths, each ended by a slashed word, would
+      // be read once for each path were the next path not read as a folder of
+      // the one before. This line costs a few times what prose does, and read
+      // once a path, hundreds.
+      const line = '/home/jane/notes and/or 10/10/2026 '.repeat(2_000);
+      expect(costAgainstProse(redacted, line)).toBeLessThan(30);
+    },
+  );
 });
 
 describe('text written in percent-encoding', () => {
