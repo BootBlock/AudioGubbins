@@ -117,3 +117,10 @@ export {
   importProgress,
   nextImportJob,
 } from './import-job.js';
+
+export {
+  type DecodedStreamDescription,
+  type DecodedStreamMessage,
+  type EncodedStreamMessage,
+  type StreamReceiverMessage,
+} from './stream-messages.js';

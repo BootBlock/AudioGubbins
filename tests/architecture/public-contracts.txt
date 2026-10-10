@@ -3537,10 +3537,17 @@ Published paths
   readonly CommonExportSettings.range: ExportRange
   readonly CommonExportSettings.metadata: MetadataSettings
   readonly CommonExportSettings.fileName: string
+  interface DecodedStreamDescription
+  readonly DecodedStreamDescription.sampleRate: number
+  readonly DecodedStreamDescription.layout: ChannelLayout
+  readonly DecodedStreamDescription.statedFrames: SampleCount | undefined
+  readonly DecodedStreamDescription.metadata: MetadataMap
+  type DecodedStreamMessage = { readonly kind: "block"; readonly channels: readonly Float32Array[]; readonly frames: number; } | { readonly kind: "description"; readonly description: DecodedStreamDescription; } | { readonly kind: "end"; readonly frames: SampleCount; } | { readonly kind: "failed"; readonly failure: DomainFailure; }
   interface DeliveryTarget
   readonly DeliveryTarget.kind: "download" | "file" | "folder" | "trusted-folder"
   readonly DeliveryTarget.name: string
   type DitherSettings = { readonly kind: "none"; } | { readonly kind: "rectangular" | "triangular"; readonly amplitude: number; readonly shaping: NoiseShaping; readonly seed: number; }
+  type EncodedStreamMessage = { readonly kind: "body"; readonly bytes: Uint8Array; } | { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "finished"; readonly file: FinishedAudioFile; }
   interface ExportBatch
   readonly ExportBatch.jobs: readonly ExportJob[]
   readonly ExportBatch.remembered: CollisionAnswer | undefined
@@ -3688,6 +3695,7 @@ Published paths
   readonly StagedFile.bytes: number
   readonly StagedFile.hash: string
   readonly StagedFile.reproducible: boolean
+  type StreamReceiverMessage = { readonly kind: "ready"; readonly credit: number; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
   interface TrustedFolder
   readonly TrustedFolder.records: readonly ExportedFileRecord[]
   readonly TrustedFolder.existing: ListedFileContent | undefined
