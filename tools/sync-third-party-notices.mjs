@@ -31,6 +31,13 @@
  * where a repository path it names no longer exists, so a notice cannot
  * outlive or lose the code it is for.
  *
+ * A prebuilt WebAssembly module a package ships, such as LAME's in
+ * `wasm-media-encoders`, holds libraries its package's own licence does not
+ * name, so each module's libraries are listed by hand in
+ * `tools/prebuilt-module-notices.json`: the project, its version, licence and
+ * copyright, and where its source as built is. A module is refused where its
+ * package is not installed at the version listed, or its file is gone.
+ *
  * Usage:
  *   node tools/sync-third-party-notices.mjs           write the notices
  *   node tools/sync-third-party-notices.mjs --check   exit non-zero if stale
@@ -47,6 +54,12 @@ import { lockedPackagesOf } from './read-pnpm-lockfile.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTICES = join(REPO_ROOT, 'THIRD-PARTY-NOTICES.md');
+
+/** The committed, reviewed list of the libraries compiled into prebuilt modules. */
+export const PREBUILT_MODULES = join(REPO_ROOT, 'tools', 'prebuilt-module-notices.json');
+
+/** The workspace package the prebuilt modules' packages are installed for. */
+const PREBUILT_IMPORTER = 'packages/codec-runtime';
 
 /** The committed, reviewed list of the source code ported from other projects. */
 export const PORTED_CODE = join(REPO_ROOT, 'tools', 'ported-code-notices.json');
@@ -103,6 +116,17 @@ export const ALLOWED_LICENCES = Object.freeze([
  * source is known, and the notices name it.
  */
 export const SOURCE_OFFERED = Object.freeze(['MPL-2.0']);
+
+/**
+ * The licences a library in a prebuilt module may carry beyond the
+ * allow-list. ADR-0091 decided on LGPL-2.0-or-later for LAME on the terms the
+ * LGPL sets for a library: it is its own WebAssembly module, loaded from its
+ * own file, so a person can replace it with a build of the same interface;
+ * nothing of it is compiled into AudioGubbins; and the notices name where its
+ * corresponding source is. It is allowed for a prebuilt module's library
+ * alone, never for a package or a port.
+ */
+export const PREBUILT_MODULE_LICENCES = Object.freeze(['LGPL-2.0-or-later']);
 
 /**
  * The exceptions an allowed licence may be taken `WITH`, each of which only
@@ -449,6 +473,131 @@ export function portedNoticesOf(list, exists, standardText) {
 }
 
 /**
+ * What the notices say of one library compiled into a prebuilt module.
+ *
+ * @typedef {object} PrebuiltNotice
+ * @property {string} module the package, its version and the module's file
+ * @property {string} build where the module's build is published
+ * @property {string} project
+ * @property {string} version
+ * @property {string} licence
+ * @property {readonly string[]} copyright
+ * @property {string} source where the library's source, as built, is published
+ * @property {readonly string[]} texts the standard texts of its licence
+ */
+
+/**
+ * Why one library of a prebuilt module is refused, or its notice.
+ *
+ * @param {unknown} part the library as the list writes it
+ * @param {string} module
+ * @param {string} build
+ * @param {(licence: string) => string} standardText
+ * @returns {{ readonly notice: PrebuiltNotice } | { readonly refused: readonly string[] }}
+ */
+function prebuiltLibraryOf(part, module, build, standardText) {
+  /** @type {Record<string, unknown>} */
+  const fields = typeof part === 'object' && part !== null ? part : {};
+  const { project, version, licence, copyright, source } = fields;
+  const named = `the prebuilt ${module}'s ${isText(project) ? project : 'unnamed library'}`;
+  const reasons = [];
+  if (!isText(project) || !isText(version)) reasons.push('names no project and version');
+  const decided = isText(licence) ? listed(PREBUILT_MODULE_LICENCES, licence) : undefined;
+  const decision = isText(licence) ? decideLicence(licence) : undefined;
+  if (decision === undefined) reasons.push('declares no SPDX licence expression');
+  else if (!decision.allowed && decided === undefined) {
+    reasons.push(`is licensed ${String(licence)}: ${decision.reason}`);
+  }
+  const lines = Array.isArray(copyright) ? copyright : [];
+  if (lines.length === 0 || !lines.every((line) => isText(line) && isCopyright(line))) {
+    reasons.push('lists its copyright as anything but lines stating one');
+  }
+  if (!isText(source) || !source.startsWith('https://')) {
+    reasons.push('names no https address of its source');
+  }
+  if (reasons.length > 0) return { refused: reasons.map((reason) => `${named} ${reason}`) };
+  const licences =
+    decided !== undefined ? [decided] : decision?.allowed === true ? decision.licences : [];
+  return {
+    notice: {
+      module,
+      build,
+      project: String(project),
+      version: String(version),
+      licence: String(licence),
+      copyright: lines.map(String),
+      source: String(source),
+      texts: standardTexts(licences, standardText),
+    },
+  };
+}
+
+/**
+ * The notices of the libraries in the prebuilt modules `list` names, read
+ * from `tools/prebuilt-module-notices.json`, or every reason one is refused: a
+ * field missing or malformed, a licence neither allowed nor decided on for a
+ * prebuilt module, a source that is no https address, or a module whose
+ * package is not installed at its version with its file.
+ *
+ * @param {unknown} list the list's parsed JSON
+ * @param {(name: string, version: string, file: string) => boolean} installed
+ *   whether a package is installed at a version with a file
+ * @param {(licence: string) => string} standardText the SPDX text of a licence
+ * @returns {{ readonly notices: readonly PrebuiltNotice[] }
+ *   | { readonly refused: readonly string[] }}
+ */
+export function prebuiltNoticesOf(list, installed, standardText) {
+  const modules =
+    typeof list === 'object' && list !== null && 'modules' in list ? list.modules : undefined;
+  if (!Array.isArray(modules)) return { refused: ['the list holds no `modules` array'] };
+  /** @type {string[]} */
+  const refused = [];
+  /** @type {PrebuiltNotice[]} */
+  const notices = [];
+  for (const [index, entry] of modules.entries()) {
+    /** @type {Record<string, unknown>} */
+    const fields = typeof entry === 'object' && entry !== null ? entry : {};
+    const { package: name, version, file, build, libraries } = fields;
+    if (!isText(name) || !isText(version) || !isText(file) || !REPOSITORY_PATH.test(file)) {
+      refused.push(`prebuilt module ${String(index + 1)} names no package, version and file`);
+      continue;
+    }
+    const module = `${name} ${version} ${file}`;
+    if (!installed(name, version, file)) {
+      refused.push(`the prebuilt ${module} is not installed at that version with that file`);
+      continue;
+    }
+    if (!isText(build) || !build.startsWith('https://')) {
+      refused.push(`the prebuilt ${module} names no https address of its build`);
+      continue;
+    }
+    const parts = Array.isArray(libraries) ? libraries : [];
+    if (parts.length === 0) refused.push(`the prebuilt ${module} lists no library`);
+    for (const part of parts) {
+      const decided = prebuiltLibraryOf(part, module, build, standardText);
+      if ('refused' in decided) refused.push(...decided.refused);
+      else notices.push(decided.notice);
+    }
+  }
+  return refused.length > 0 ? { refused } : { notices };
+}
+
+/**
+ * Whether a package is installed for `importer` at a version, with a file.
+ *
+ * @param {string} importer a workspace package's folder
+ * @returns {(name: string, version: string, file: string) => boolean}
+ */
+function installedFor(importer) {
+  return (name, version, file) => {
+    const folder = join(REPO_ROOT, importer, 'node_modules', name);
+    if (!existsSync(join(folder, 'package.json'))) return false;
+    const manifest = JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8'));
+    return manifest.version === version && existsSync(join(folder, file));
+  };
+}
+
+/**
  * Whether a line of a licence file states a copyright.
  *
  * @param {string} line
@@ -498,9 +647,10 @@ function fenceFor(text) {
  *
  * @param {readonly Notice[]} notices
  * @param {readonly PortedNotice[]} ported
+ * @param {readonly PrebuiltNotice[]} prebuilt
  * @returns {string}
  */
-export function renderNotices(notices, ported = []) {
+export function renderNotices(notices, ported = [], prebuilt = []) {
   const sorted = notices.toSorted(
     (one, other) => compare(one.name, other.name) || compare(one.version, other.version),
   );
@@ -544,6 +694,22 @@ export function renderNotices(notices, ported = []) {
         linksOf(port.texts, `the code ported from ${port.project}`).join(', '),
       ].join(' | '),
     );
+  const libraries = prebuilt
+    .toSorted(
+      (one, other) => compare(one.module, other.module) || compare(one.project, other.project),
+    )
+    .map((library) =>
+      [
+        `\`${cell(library.module)}\``,
+        cell(library.project),
+        cell(library.version),
+        cell(library.licence),
+        library.copyright.map(cell).join('<br>'),
+        `<${library.source}>`,
+        `<${library.build}>`,
+        linksOf(library.texts, `${library.project} in ${library.module}`).join(', '),
+      ].join(' | '),
+    );
   const offered = sorted.flatMap((notice) =>
     notice.source === undefined
       ? []
@@ -566,8 +732,8 @@ export function renderNotices(notices, ported = []) {
     '# Third-party notices',
     '',
     '<!-- Generated by tools/sync-third-party-notices.mjs from pnpm-lock.yaml,',
-    'Cargo.lock and tools/ported-code-notices.json. Do not edit: run',
-    '`pnpm notices:update` and commit the result. -->',
+    'Cargo.lock, tools/ported-code-notices.json and tools/prebuilt-module-notices.json.',
+    'Do not edit: run `pnpm notices:update` and commit the result. -->',
     '',
     'AudioGubbins ships the third-party packages below inside the application. Each',
     'is listed with its version, the SPDX licence expression it declares, the',
@@ -594,6 +760,23 @@ export function renderNotices(notices, ported = []) {
           'shipped unmodified, and its source is published at:',
           '',
           ...offered,
+          '',
+        ]),
+    ...(libraries.length === 0
+      ? []
+      : [
+          '## Libraries in prebuilt WebAssembly modules',
+          '',
+          'Some packages ship prebuilt WebAssembly modules that hold libraries their own',
+          'licence does not name. Each module is a separate file, loaded only when its',
+          'format is used, which can be replaced by a build of the same interface; nothing',
+          'of it is compiled into AudioGubbins. Each library is listed with its version,',
+          'licence and copyright, where its source as built is published, where the',
+          "module's build is published, and the standard text of its licence.",
+          '',
+          '| Module | Library | Version | Licence | Copyright | Source | Build | Licence text |',
+          '| --- | --- | --- | --- | --- | --- | --- | --- |',
+          ...libraries.map((row) => `| ${row} |`),
           '',
         ]),
     '## Ported source code',
@@ -814,7 +997,23 @@ function main(argv) {
     );
     return 1;
   }
-  const desired = renderNotices(notices, ported.notices);
+  const prebuilt = prebuiltNoticesOf(
+    JSON.parse(readFileSync(PREBUILT_MODULES, 'utf8')),
+    installedFor(PREBUILT_IMPORTER),
+    (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+  );
+  if ('refused' in prebuilt) {
+    console.error(
+      `tools/prebuilt-module-notices.json cannot give ${String(prebuilt.refused.length)} notice(s):\n` +
+        prebuilt.refused.map((reason) => `  - ${reason}`).join('\n') +
+        '\n\nEach module names its package, the version installed, its file and an https\n' +
+        'address of its build; each library its project and version, a licence the\n' +
+        'allow-list permits or one decided on for a prebuilt module, the copyright lines\n' +
+        'its source states, and an https address of its source as built.',
+    );
+    return 1;
+  }
+  const desired = renderNotices(notices, ported.notices, prebuilt.notices);
   const traces = localTracesIn(desired);
   if (traces.length > 0) {
     console.error(`The notices would name this machine: ${[...new Set(traces)].join(', ')}`);

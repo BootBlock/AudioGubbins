@@ -7,11 +7,14 @@ import {
   ALLOWED_LICENCES,
   LICENCE_TEXTS,
   PORTED_CODE,
+  PREBUILT_MODULES,
+  PREBUILT_MODULE_LICENCES,
   type CargoMetadata,
   decideLicence,
   linkedCratesOf,
   noticeOf,
   portedNoticesOf,
+  prebuiltNoticesOf,
   renderNotices,
   type PackageSource,
 } from '../tools/sync-third-party-notices.mjs';
@@ -322,12 +325,12 @@ describe('what the licence of a shipped package permits', () => {
     expect('notice' in notice && 'source' in notice.notice).toBe(false);
   });
 
-  it('holds the standard text of every allowed licence, and of no other', () => {
+  it('holds the standard text of every allowed licence and every one decided on for a prebuilt module, and of no other', () => {
     expect(
       readdirSync(LICENCE_TEXTS)
         .map((name) => name.replace(/\.txt$/u, ''))
         .toSorted(),
-    ).toEqual([...ALLOWED_LICENCES].toSorted());
+    ).toEqual([...ALLOWED_LICENCES, ...PREBUILT_MODULE_LICENCES].toSorted());
   });
 });
 
@@ -452,6 +455,107 @@ describe('the notices of ported code', () => {
     const decided = portedNoticesOf(
       list,
       (path) => existsSync(inRepository(path)),
+      (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+    );
+
+    expect('refused' in decided ? decided.refused : []).toEqual([]);
+  });
+});
+
+describe('the notices of the libraries in prebuilt modules', () => {
+  /** A library as the list writes one, which every case changes one field of. */
+  const LIBRARY = {
+    project: 'Encoder',
+    version: '3.1',
+    licence: 'LGPL-2.0-or-later',
+    copyright: ['Copyright (c) 2000 Example Authors'],
+    source: 'https://example.com/encoder/tree/0123456',
+  };
+  const MODULE = {
+    package: 'encoders',
+    version: '1.0.0',
+    file: 'wasm/encoder.wasm',
+    build: 'https://example.com/encoders/tree/abcdef0',
+    libraries: [LIBRARY],
+  };
+  const installed = (name: string, version: string, file: string) =>
+    name === 'encoders' && version === '1.0.0' && file === 'wasm/encoder.wasm';
+
+  it('gives a library its notice, under a licence decided on for a prebuilt module alone', () => {
+    expect(prebuiltNoticesOf({ modules: [MODULE] }, installed, standardText)).toEqual({
+      notices: [
+        {
+          module: 'encoders 1.0.0 wasm/encoder.wasm',
+          build: MODULE.build,
+          project: 'Encoder',
+          version: '3.1',
+          licence: 'LGPL-2.0-or-later',
+          copyright: LIBRARY.copyright,
+          source: LIBRARY.source,
+          texts: ['The LGPL-2.0-or-later text.'],
+        },
+      ],
+    });
+    // A package or a port is never allowed the licence a prebuilt module's library is.
+    expect(decideLicence('LGPL-2.0-or-later').allowed).toBe(false);
+  });
+
+  it('refuses a module not installed as listed, and a library off both lists or with no source', () => {
+    expect(
+      prebuiltNoticesOf({ modules: [{ ...MODULE, version: '2.0.0' }] }, installed, standardText),
+    ).toEqual({
+      refused: [
+        'the prebuilt encoders 2.0.0 wasm/encoder.wasm is not installed at that version with that file',
+      ],
+    });
+    const refused = prebuiltNoticesOf(
+      {
+        modules: [
+          {
+            ...MODULE,
+            libraries: [
+              { ...LIBRARY, licence: 'GPL-3.0-only' },
+              { ...LIBRARY, project: 'Other', source: 'http://example.com/other' },
+            ],
+          },
+        ],
+      },
+      installed,
+      standardText,
+    );
+    expect(refused).toEqual({
+      refused: [
+        "the prebuilt encoders 1.0.0 wasm/encoder.wasm's Encoder is licensed GPL-3.0-only: GPL-3.0-only is not allowed",
+        "the prebuilt encoders 1.0.0 wasm/encoder.wasm's Other names no https address of its source",
+      ],
+    });
+  });
+
+  it('writes the libraries after the packages, with where their source and build are', () => {
+    const decided = prebuiltNoticesOf({ modules: [MODULE] }, installed, standardText);
+    const rendered = renderNotices([], [], 'notices' in decided ? decided.notices : []);
+    expect(rendered).toContain('## Libraries in prebuilt WebAssembly modules');
+    expect(rendered).toContain(
+      '| `encoders 1.0.0 wasm/encoder.wasm` | Encoder | 3.1 | LGPL-2.0-or-later | Copyright (c) 2000 Example Authors | <https://example.com/encoder/tree/0123456> | <https://example.com/encoders/tree/abcdef0> | [1](#text-1) |',
+    );
+    expect(renderNotices([], [])).not.toContain('prebuilt WebAssembly');
+  });
+
+  it('gives every library the committed list names its notice, each module installed as listed', () => {
+    const list: unknown = JSON.parse(readFileSync(PREBUILT_MODULES, 'utf8'));
+    const decided = prebuiltNoticesOf(
+      list,
+      (name, version, file) => {
+        const folder = inRepository(join('packages', 'codec-runtime', 'node_modules', name));
+        const manifest: unknown = JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8'));
+        return (
+          typeof manifest === 'object' &&
+          manifest !== null &&
+          'version' in manifest &&
+          manifest.version === version &&
+          existsSync(join(folder, file))
+        );
+      },
       (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
     );
 
