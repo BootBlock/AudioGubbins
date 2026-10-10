@@ -23,6 +23,9 @@
       "path": "../../packages/diagnostics"
     },
     {
+      "path": "../../packages/import-export"
+    },
+    {
       "path": "../../packages/media-store"
     },
     {

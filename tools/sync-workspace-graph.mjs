@@ -743,6 +743,7 @@ const PACKAGES = [
     jsx: false,
     deps: [
       '@audiogubbins/diagnostics',
+      '@audiogubbins/import-export',
       '@audiogubbins/media-store',
       '@audiogubbins/project-format',
       '@audiogubbins/storage',

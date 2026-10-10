@@ -9,7 +9,7 @@
  * be injected, and another tab's newer version can be announced.
  */
 
-import type { HandleDatabaseFactory } from '../file-handle-keeper.js';
+import type { HandleDatabaseFactory } from '../handle-database.js';
 
 /** The failures to inject. */
 export interface MemoryDatabaseOptions {

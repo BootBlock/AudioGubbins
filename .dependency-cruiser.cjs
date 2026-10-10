@@ -89,7 +89,8 @@
  *   import-export + media-store + model-packs + project-format + version, and
  *   on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
- *   diagnostics + media-store + project-format + storage.
+ *   diagnostics + import-export + media-store + project-format + storage, the
+ *   export records a trusted folder keeps among them.
  * - storage-runtime: the browser host of project storage, its worker, the port
  *   to the page and the page's client (ADR-0022); depends on browser-storage,
  *   capabilities, codecs, commands, diagnostics, domain, history,
@@ -608,7 +609,7 @@ module.exports = {
         'that composes them (ADR-0020).',
       from: { path: '^packages/browser-storage/' },
       to: {
-        path: '^packages/(?!(browser-storage|diagnostics|media-store|project-format|storage)/)',
+        path: '^packages/(?!(browser-storage|diagnostics|import-export|media-store|project-format|storage)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

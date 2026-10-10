@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
     }
   },
   "main": "./src/index.ts",
@@ -22,6 +26,7 @@
   },
   "dependencies": {
     "@audiogubbins/diagnostics": "workspace:*",
+    "@audiogubbins/import-export": "workspace:*",
     "@audiogubbins/media-store": "workspace:*",
     "@audiogubbins/project-format": "workspace:*",
     "@audiogubbins/storage": "workspace:*"

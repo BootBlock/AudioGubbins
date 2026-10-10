@@ -335,6 +335,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/browser-storage': [
     '@audiogubbins/diagnostics',
+    '@audiogubbins/import-export',
     '@audiogubbins/media-store',
     '@audiogubbins/project-format',
     '@audiogubbins/storage',

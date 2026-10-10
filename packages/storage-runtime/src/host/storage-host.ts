@@ -18,6 +18,7 @@ import { backupHandlers } from './backup-area.js';
 import { cacheHandlers } from './cache-area.js';
 import { hostLogs } from './host-logs.js';
 import { hostServices, type HostLogs, type HostParts, type HostServices } from './host-services.js';
+import { exportHandlers } from './export-area.js';
 import { importHandlers } from './import-area.js';
 import { libraryHandlers } from './library-area.js';
 import { mediaHandlers } from './media-area.js';
@@ -58,6 +59,7 @@ export function serveStorage(
     ...sourceHandlers(services, projects, channel),
     ...mediaHandlers(services, projects, channel),
     ...importHandlers(services, projects, channel),
+    ...exportHandlers(services, projects, channel),
     ...cacheHandlers(services),
     ...packHandlers(services, channel),
     ...usageHandlers(services, projects),

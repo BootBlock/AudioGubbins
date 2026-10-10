@@ -15,7 +15,12 @@
 import type { AssetId, DomainResult } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource, ExternalSourceIdentity } from '@audiogubbins/project-format';
-import type { DirectoryReader, DirectoryWriter, ExternalBackupTarget } from '@audiogubbins/storage';
+import type {
+  CollisionPrompt,
+  DirectoryReader,
+  DirectoryWriter,
+  ExternalBackupTarget,
+} from '@audiogubbins/storage';
 
 import { Transferring, type Handlers } from '../protocol/operations.js';
 import type {
@@ -72,6 +77,7 @@ export interface Lender {
   backupFolder(target: ExternalBackupTarget): PagePort;
   locate(locate: PageLocate): PagePort;
   decoder(decoding: PageDecoding): PagePort;
+  prompt(prompt: CollisionPrompt): PagePort;
 }
 
 type PageObject =
@@ -81,7 +87,8 @@ type PageObject =
   | { readonly kind: 'writer'; readonly writer: DirectoryWriter }
   | { readonly kind: 'backupFolder'; readonly target: ExternalBackupTarget }
   | { readonly kind: 'locate'; readonly locate: PageLocate }
-  | { readonly kind: 'decoder'; readonly decoding: PageDecoding };
+  | { readonly kind: 'decoder'; readonly decoding: PageDecoding }
+  | { readonly kind: 'prompt'; readonly prompt: CollisionPrompt };
 
 type ObjectOf<TKind extends PageObject['kind']> = Extract<PageObject, { readonly kind: TKind }>;
 
@@ -196,9 +203,11 @@ export class PagePorts {
     };
   }
 
-  /** The service of the decoders lent. */
-  #decoderHandlers(): PageHandlers<'decoder'> {
+  /** The service of the decoders and the collision prompts lent. */
+  #decoderHandlers(): PageHandlers<'decoder' | 'collision'> {
     return {
+      'collision.ask': async ({ port, name }, { signal }) =>
+        await this.#object(port, 'prompt').prompt(name, signal),
       'decoder.decode': async ({ port, file }, { signal }) => {
         const stream = await this.#object(port, 'decoder').decoding(file, signal);
         return stream.ok ? new Transferring(stream, [stream.value]) : stream;
@@ -221,6 +230,7 @@ export class PagePorts {
       backupFolder: (target) => lend({ kind: 'backupFolder', target }),
       locate: (locate) => lend({ kind: 'locate', locate }),
       decoder: (decoding) => lend({ kind: 'decoder', decoding }),
+      prompt: (prompt) => lend({ kind: 'prompt', prompt }),
     };
   }
 

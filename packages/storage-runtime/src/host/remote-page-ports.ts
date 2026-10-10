@@ -19,6 +19,7 @@ import type { ByteSink, ByteSource } from '@audiogubbins/project-format';
 import { fail, succeed } from '@audiogubbins/domain';
 import {
   decodingUnavailable,
+  type CollisionPrompt,
   type ConsolidationServices,
   type DirectoryReader,
   type DirectoryWriter,
@@ -33,7 +34,7 @@ import type {
   PagePort,
 } from '../protocol/page-operations.js';
 import type { HostChannel } from '../protocol/storage-operations.js';
-import { portDecodedStream } from './decoded-stream-port.js';
+import { portDecodedStream } from './credited-stream-port.js';
 
 /**
  * Why a sink was abandoned, as text, which crosses whatever the reason was: an
@@ -188,6 +189,14 @@ export function pageDecoding(
     const stream = await channel.call('decoder.decode', { port, file }, { signal });
     return stream.ok ? succeed(portDecodedStream(stream.value)) : stream;
   };
+}
+
+/** The collision prompt the page lent as `port`; where it lent none, nobody is asked. */
+export function pagePrompt(channel: HostChannel, port: PagePort | undefined): CollisionPrompt {
+  return async (name, signal) =>
+    port === undefined
+      ? undefined
+      : await channel.call('collision.ask', { port, name }, { signal });
 }
 
 /** The search for linked files the page lent as `port`. */

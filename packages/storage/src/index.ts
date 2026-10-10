@@ -247,6 +247,7 @@ export {
 } from './import-batch.js';
 export { type StorageRoom } from './import-analysis.js';
 export { decodingUnavailable } from './import-failures.js';
+export { stagedExportMissing } from './export-failures.js';
 export { clearStaging } from './staging-paths.js';
 export { type EncodedStream } from './encoded-stream.js';
 export {
