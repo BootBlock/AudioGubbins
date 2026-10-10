@@ -36,7 +36,7 @@ export interface SourceFact {
 const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
   application: 'AudioGubbins itself',
   'codec-module': 'AudioGubbins’s codec module',
-  'prebuilt-module': 'a prebuilt module AudioGubbins carries',
+  'encoder-module': 'an encoder module AudioGubbins carries',
   browser: 'this browser',
 };
 

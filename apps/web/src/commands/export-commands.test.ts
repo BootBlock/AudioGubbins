@@ -77,7 +77,7 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
   it('answers a taken name with the command, keeping both', async () => {
     const audio = await windowWithAudio();
     const folder = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
 
     expect(
@@ -89,17 +89,17 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
           applyToAll: false,
         },
       ),
-    ).toBe('“Loop (2).wav” is exported.');
-    expect(await sizeIn(folder, 'Loop (2).wav')).toBe(WHOLE_BYTES);
+    ).toBe('“Harbour (2).wav” is exported.');
+    expect(await sizeIn(folder, 'Harbour (2).wav')).toBe(WHOLE_BYTES);
   });
 
   it('skips a file whose question is dismissed, and delivers it into a folder chosen anew with no new render', async () => {
     const audio = await windowWithAudio();
     const taken = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     expect(await exported(audio, { kind: 'folder', handle: taken, policy: 'prompt' })).toMatch(
-      /“Loop\.wav” could not be delivered/u,
+      /“Harbour.wav” could not be delivered/u,
     );
     const other = new FakeDirectoryHandle('Elsewhere', []);
     audio.window.exporting.destinations.folder = other;
@@ -109,16 +109,16 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
         job: heldJob(audio),
         to: 'folder',
       }),
-    ).toBe('“Loop.wav” is exported.');
-    expect(await sizeIn(other, 'Loop.wav')).toBe(WHOLE_BYTES);
-    expect(await sizeIn(taken, 'Loop.wav')).toBe(3);
+    ).toBe('“Harbour.wav” is exported.');
+    expect(await sizeIn(other, 'Harbour.wav')).toBe(WHOLE_BYTES);
+    expect(await sizeIn(taken, 'Harbour.wav')).toBe(3);
     expect(audio.window.exporting.render.requests).toHaveLength(1);
   });
 
   it('saves a held file through a save dialog, suggesting its name', async () => {
     const audio = await windowWithAudio();
     const taken = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     await exported(audio, { kind: 'folder', handle: taken, policy: 'skip' });
     const file = new FakeFileHandle(new File([], 'Chosen.wav'));
@@ -128,7 +128,7 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
     expect(
       await audio.window.runAndHear(ExportCommand.DeliverElsewhere, { job: heldJob(audio) }),
     ).toBe('“Chosen.wav” is exported.');
-    expect(destinations.suggested).toEqual(['Loop.wav']);
+    expect(destinations.suggested).toEqual(['Harbour.wav']);
     expect((await file.getFile()).size).toBe(WHOLE_BYTES);
   });
 
@@ -143,16 +143,16 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
     expect(await running).toMatch(/could not be delivered/u);
 
     expect(await audio.window.runAndHear(ExportCommand.Retry, { job: heldJob(audio) })).toBe(
-      '“Loop.wav” is exported.',
+      '“Harbour.wav” is exported.',
     );
     expect(folder.modesAsked).toContain('readwrite');
-    expect(await sizeIn(folder, 'Loop.wav')).toBe(WHOLE_BYTES);
+    expect(await sizeIn(folder, 'Harbour.wav')).toBe(WHOLE_BYTES);
   });
 
   it('cancels a held export, giving its file up', async () => {
     const audio = await windowWithAudio();
     const folder = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     await exported(audio, { kind: 'folder', handle: folder, policy: 'skip' });
 
