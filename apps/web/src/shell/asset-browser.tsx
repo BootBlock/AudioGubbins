@@ -1,9 +1,9 @@
 /**
  * The Asset Browser panel: the open project's audio, each asset with its
  * regions under it in the project's order, any of them opened in the editor in
- * use with a press, and the control that imports a file or calls an import off
- * (REQ-STOR-025, REQ-EDIT-014). An asset that is a take's recording says so,
- * naming its take and stack (ADR-0072).
+ * use with a press, and the controls that import files and list them as they
+ * are imported (REQ-STOR-025, REQ-EDIT-014). An asset that is a take's
+ * recording says so, naming its take and stack (ADR-0072).
  *
  * An entry the page cannot open yet says why, as the editor view of it would.
  * The list follows the project and the catalogue, whose entries keep their
@@ -27,7 +27,8 @@ import type {
 } from '../state/asset-catalogue.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { ProjectStores } from '../state/project-stores.js';
-import { CommandButton, type PanelCommands } from './command-button.js';
+import type { PanelCommands } from './command-button.js';
+import { ImportControl } from './import/import-control.js';
 import { quoted } from '@audiogubbins/text';
 
 /** An asset or region of the project as the browser lists it. */
@@ -134,36 +135,6 @@ function EntryItem({
   );
 }
 
-/**
- * The import control, or the file being imported and the control that calls it
- * off. The two are one button, which the import turns from one into the other
- * and back, so the focus stays on it either way, and one status, there before
- * anything is said in it, so a screen reader hears what is.
- */
-function ImportControls({
-  projects,
-  commands,
-  labelFor,
-}: {
-  readonly projects: ProjectStores;
-  readonly commands: PanelCommands;
-  readonly labelFor: (id: string) => string;
-}): ReactNode {
-  const importing = useSyncExternalStore(projects.imports.subscribe, projects.imports.get);
-  // Followed for the import command's availability, which the open project
-  // decides: the dock mounts a panel once, so nothing above redraws it.
-  useSyncExternalStore(projects.project.subscribe, projects.project.get);
-  const id = importing.kind === 'importing' ? 'file.cancel-import' : 'file.import-audio';
-  return (
-    <div className="ag-asset-import">
-      <CommandButton id={id} label={labelFor(id)} commands={commands} compact />
-      <p role="status">
-        {importing.kind === 'importing' ? `Importing ${quoted(importing.fileName)}…` : ''}
-      </p>
-    </div>
-  );
-}
-
 /** What the browser says, or lists, of the project open or not. */
 function ProjectAudio({
   projects,
@@ -189,7 +160,7 @@ function ProjectAudio({
   if (open.kind === 'none') return <p>Open or create a project to keep audio in it.</p>;
   if (open.kind === 'opening') return <p>The project is opening.</p>;
   if (entries.length === 0) {
-    return <p>This project has no audio yet. Import a WAV or AIFF file to add some.</p>;
+    return <p>This project has no audio yet. Import audio files to add some.</p>;
   }
   return (
     <ul className="ag-editor-assets" aria-label="The project’s audio">
@@ -225,7 +196,7 @@ export function AssetBrowserPanel({
         <p>{projectsUnavailable ?? 'This browser cannot keep projects.'}</p>
       ) : (
         <>
-          <ImportControls projects={projects} commands={commands} labelFor={labelFor} />
+          <ImportControl projects={projects} commands={commands} labelFor={labelFor} />
           <ProjectAudio
             projects={projects}
             catalogue={catalogue}

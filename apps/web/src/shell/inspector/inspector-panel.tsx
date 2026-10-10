@@ -36,7 +36,7 @@ import { operationWords, type EditWording } from './edit-words.js';
 import { inspected, type Inspected } from './inspected.js';
 import { LevelControls } from './level-controls.js';
 import { RegionProperties } from './region-properties.js';
-import { sourceFacts } from './source-words.js';
+import { AssetSourceFacts } from './asset-source.js';
 import { TimeControls } from './time-controls.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
@@ -178,7 +178,7 @@ function RackSummary({
   );
 }
 
-/** The asset of the project: its source, its audio shape and its edits. */
+/** The asset of the project: its source, its audio shape, its file's metadata and its edits. */
 function AssetProperties({
   subject,
   words,
@@ -193,14 +193,7 @@ function AssetProperties({
       <h3 className="ag-inspector-heading" id={heading}>
         {`Asset: ${asset.displayName}`}
       </h3>
-      <dl className="ag-inspector-facts">
-        {sourceFacts(subject.source, asset).map((fact) => (
-          <div key={fact.term}>
-            <dt>{fact.term}</dt>
-            <dd>{fact.detail}</dd>
-          </div>
-        ))}
-      </dl>
+      <AssetSourceFacts source={subject.source} asset={asset} />
       <h4 className="ag-inspector-heading">Its edits</h4>
       {asset.edits.length === 0 ? (
         <p>None. It plays as its source does.</p>

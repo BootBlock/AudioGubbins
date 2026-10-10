@@ -83,6 +83,9 @@ export interface ScriptedFiles extends TransferFiles {
   readonly foldersToWrite: DirectoryWriter[];
   readonly mediaFiles: PageFile[];
 
+  /** What each chooser of several files, or of a folder's, answers in turn: none once it runs out. */
+  readonly mediaBatches: (readonly PageFile[])[];
+
   /** Whether the next save is dismissed. */
   dismissSave: boolean;
 }
@@ -98,6 +101,7 @@ export function scriptedFiles(canWriteFolders = true): ScriptedFiles {
     foldersToRead: [],
     foldersToWrite: [],
     mediaFiles: [],
+    mediaBatches: [],
     dismissSave: false,
     save: (name, mediaType) => {
       if (files.dismissSave) return Promise.resolve(undefined);
@@ -126,6 +130,8 @@ export function scriptedFiles(canWriteFolders = true): ScriptedFiles {
         }
       : undefined,
     chooseMediaFile: () => Promise.resolve(files.mediaFiles.shift()),
+    chooseMediaFiles: () => Promise.resolve(files.mediaBatches.shift() ?? []),
+    chooseMediaFolder: () => Promise.resolve(files.mediaBatches.shift() ?? []),
   };
   return files;
 }

@@ -190,7 +190,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'ExportJobEvent',
         'ExportPreset',
         'ExportSettingsOf',
-        'ImportProgress',
         'MetadataRates',
         'PresetChoices',
         'batchProgress',
@@ -198,7 +197,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'defaultExportSettings',
         'exportBatch',
         'exportMetadata',
-        'importProgress',
         'nextExportBatch',
         'nextExportJob',
         'nextJobToStart',
@@ -346,10 +344,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
   },
-  '@audiogubbins/browser-storage': {
-    "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
-      ['filesInDirectory'],
-  },
+  '@audiogubbins/browser-storage': {},
   '@audiogubbins/storage-runtime': {},
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":

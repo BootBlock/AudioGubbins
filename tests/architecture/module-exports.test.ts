@@ -368,7 +368,6 @@ const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
       'apps/web/src/import-export-words.ts: COLLISION_PROMPT_WORDS',
       'apps/web/src/import-export-words.ts: EXPORT_BUTTON',
       'apps/web/src/import-export-words.ts: EXPORT_DIALOG_WORDS',
-      'apps/web/src/import-export-words.ts: IMPORT_LIST_LABEL',
       'apps/web/src/import-export-words.ts: collisionPromptTitle',
     ],
 };

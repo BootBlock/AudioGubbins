@@ -26,6 +26,8 @@ export {
   type ReadableContainer,
   type RecognisedFormat,
   type StatedCodec,
+  containerName,
+  formatName,
 } from './recognised-format.js';
 
 export { recogniseAudio } from './recognition.js';

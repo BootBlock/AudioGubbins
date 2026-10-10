@@ -6,17 +6,21 @@
  * A port, so every project flow is tested without a browser (REQ-EXEC-136.4).
  * The browser's side asks through the pickers where the browser has them, which
  * write a file as it is made rather than holding it whole, and through the
- * page's own file input and a download everywhere else. Folders are read
- * through the input in every browser, and written only through the directory
- * picker, which alone gives a folder to write into. Each chooser is opened as
- * the first thing the flow does, in the handler of the person's gesture, since
- * a browser opens none outside one. A file or folder the person chose is handed
- * on as the files themselves, for the storage worker to read (`page-files.ts`).
+ * page's own file input and a download everywhere else. A project's folder is
+ * read through the input in every browser, and written only through the
+ * directory picker, which alone gives a folder to write into; a folder of audio
+ * is read through the directory picker where there is one, which alone gives
+ * each file a handle, so a file linked from it is found again. Each chooser is
+ * opened as the first thing the flow does, in the handler of the person's
+ * gesture, since a browser opens none outside one. A file or folder the person
+ * chose is handed on as the files themselves, for the storage worker to read
+ * (`page-files.ts`).
  */
 
 import {
   BlobSink,
   filesFromInput,
+  filesInDirectory,
   openFileSink,
   pickDirectory,
   pickFiles,
@@ -73,10 +77,37 @@ export interface TransferFiles {
 
   /** One audio file, kept to be found again where the browser can, or nothing where dismissed. */
   chooseMediaFile(): Promise<PageFile | undefined>;
+
+  /**
+   * Any number of audio files, each kept to be found again where the browser
+   * can, in the order the person chose them; none where dismissed.
+   */
+  chooseMediaFiles(): Promise<readonly PageFile[]>;
+
+  /**
+   * Every file of a folder and of the folders inside it, each kept to be found
+   * again where the browser can, in the order of where they lie inside it;
+   * none where dismissed. Files of any kind are handed on, so the import says
+   * of each file that is not audio why it was not brought in.
+   */
+  chooseMediaFolder(): Promise<readonly PageFile[]>;
 }
 
 /** What a picker offers for a bundle. */
 const BUNDLE_ACCEPT = '.zip,application/zip';
+
+/** What the input offers for audio. */
+const AUDIO_ACCEPT = 'audio/*';
+
+/** Orders paths as a person reads them, "Take 2" before "Take 10". */
+const PATH_ORDER = new Intl.Collator('en-GB', { numeric: true });
+
+/** A folder's files, in the order of where they lie inside it, as the page lends them. */
+function folderFiles(files: readonly ChosenFile[]): readonly PageFile[] {
+  return files
+    .toSorted((one, other) => PATH_ORDER.compare(one.relativePath ?? '', other.relativePath ?? ''))
+    .map(pageFileOf);
+}
 
 /** A file chosen through the input, as a bundle. */
 function bundleOf(files: readonly File[]): ChosenBundle | undefined {
@@ -105,13 +136,26 @@ function downloadTarget(name: string, mediaType: string): SaveTarget {
   };
 }
 
-/** One file the picker gave, or none where the person dismissed it. */
+/** The files the picker gave, one or `multiple`, or none where the person dismissed it. */
 async function pickedFiles(
   pickers: FilePickers,
   keeper: FileHandleKeeper | undefined,
+  multiple: boolean,
 ): Promise<readonly ChosenFile[]> {
-  const picked = await pickFiles(pickers.openFiles, keeper, { multiple: false });
+  const picked = await pickFiles(pickers.openFiles, keeper, { multiple });
   return picked.kind === 'cancelled' ? [] : picked.chosen;
+}
+
+/** Every file of the folder the picker gave, each handle kept, or none where dismissed. */
+async function pickedFolderFiles(
+  pickers: FilePickers,
+  keeper: FileHandleKeeper | undefined,
+): Promise<readonly ChosenFile[]> {
+  const picked = await pickDirectory(pickers.openDirectory, 'read');
+  if (picked.kind === 'cancelled') return [];
+  const found: ChosenFile[] = [];
+  for await (const file of filesInDirectory(picked.chosen, keeper)) found.push(file);
+  return found;
 }
 
 /** The browser's way of passing files, with the pickers where it has them. */
@@ -144,9 +188,22 @@ export function browserTransferFiles(
     chooseMediaFile: async () => {
       const [chosen] =
         pickers === undefined
-          ? filesFromInput(await chooseThroughInput({ accept: 'audio/*' }))
-          : await pickedFiles(pickers, keeper);
+          ? filesFromInput(await chooseThroughInput({ accept: AUDIO_ACCEPT }))
+          : await pickedFiles(pickers, keeper, false);
       return chosen === undefined ? undefined : pageFileOf(chosen);
     },
+    chooseMediaFiles: async () => {
+      const chosen =
+        pickers === undefined
+          ? filesFromInput(await chooseThroughInput({ accept: AUDIO_ACCEPT, multiple: true }))
+          : await pickedFiles(pickers, keeper, true);
+      return chosen.map(pageFileOf);
+    },
+    chooseMediaFolder: async () =>
+      folderFiles(
+        pickers === undefined
+          ? filesFromInput(await chooseThroughInput({ folder: true }))
+          : await pickedFolderFiles(pickers, keeper),
+      ),
   };
 }

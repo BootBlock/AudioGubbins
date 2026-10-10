@@ -99,21 +99,32 @@ export async function windowWithAudio(
   const session = window.projects.project.session();
   if (session === undefined) throw new Error('The project did not open to change.');
   const name = options.name ?? 'Loop';
-  const imported = await window.services.client.media.importFile(session, {
-    file: {
-      bytes: {
-        kind: 'file',
-        file: new File([wavFile(options.fixture ?? sixSecondsOfStereo())], `${name}.wav`),
-      },
-      fileName: `${name}.wav`,
-      mediaType: 'audio/wav',
-      lastModified: IMPORTED_AT,
+  const ended = await window.services.client.imports.importFiles(
+    session,
+    {
+      files: [
+        {
+          file: {
+            bytes: {
+              kind: 'file',
+              file: new File([wavFile(options.fixture ?? sixSecondsOfStereo())], `${name}.wav`),
+            },
+            fileName: `${name}.wav`,
+            mediaType: 'audio/wav',
+            lastModified: IMPORTED_AT,
+          },
+          assetId: window.storage.ids.next<'AssetId'>(),
+        },
+      ],
+      choice: { mode: SourceHandling.Copy },
+      importedAt: IMPORTED_AT,
     },
-    choice: { mode: SourceHandling.Copy },
-    assetId: window.storage.ids.next<'AssetId'>(),
-    importedAt: IMPORTED_AT,
-  });
-  const assetId = expectSuccess(imported).asset.id;
+    () => undefined,
+  );
+  const [imported] = ended.outcomes;
+  if (imported?.kind !== 'imported')
+    throw new Error(`The fixture was not imported: ${imported?.kind ?? 'no outcome'}.`);
+  const assetId = imported.imported.asset.id;
   const at = (frames: number): SampleCount => expectSuccess(sampleCount(frames));
   for (const marker of options.markers ?? []) {
     expectSuccess(
