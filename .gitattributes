@@ -22,6 +22,7 @@
 *.opus   binary
 *.mp3    binary
 *.m4a    binary
+*.aac    binary
 *.aiff   binary
 *.wasm   binary
 *.mp4    binary
