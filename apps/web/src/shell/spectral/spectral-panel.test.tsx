@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -88,6 +88,51 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
 
     expect(ran).toEqual([['editor.clear-spectral-selection', { view: 'editor' }]]);
     expect(screen.getByText('No area of time and frequency is selected.')).toBeInTheDocument();
+  });
+
+  it('chooses how a shape drawn with no modifier joins the area, for a finger or a pen', async () => {
+    const audio = await selectedLoop();
+    const ran = panelOver(audio);
+    const modes = screen.getByRole('group', { name: 'Combination mode' });
+
+    expect(within(modes).getByRole('button', { name: 'Replace' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(within(modes).getByRole('button', { name: 'Take away' }));
+
+    expect(ran).toEqual([['editor.spectral-combination-subtract', { view: 'editor' }]]);
+    expect(within(modes).getByRole('button', { name: 'Take away' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(modes).getByRole('button', { name: 'Replace' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('adds a band of the time selection to the area, and takes one from it', async () => {
+    const audio = await selectedLoop();
+    audio.window.run('editor.select-time', { start: 100_000, end: 120_000 });
+    const ran = panelOver(audio);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add the band of the time selection' }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Take the band of the time selection away' }),
+    );
+
+    expect(ran).toEqual([
+      ['editor.add-spectral-band', { view: 'editor' }],
+      ['editor.subtract-spectral-band', { view: 'editor' }],
+    ]);
+    expect(
+      audio.window.context.selections
+        .of(audio.asset().id)
+        .spectral?.shapes.map((shape) => shape.effect),
+    ).toEqual(['add', 'add', 'subtract']);
   });
 
   it('attenuates by the decibels typed at the resolution chosen, and lists the edit made', async () => {

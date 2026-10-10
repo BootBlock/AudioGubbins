@@ -205,8 +205,16 @@ function silentSpectrogramWorker(): SpectrogramWorkerPort {
   return { post: () => undefined, listen: () => undefined, terminate: () => undefined };
 }
 
-/** The Editor and Picture panels' parts over `context`, drawing nothing and asking no worker. */
-export function fakePanelParts(context: ShellContext, logger: Logger): EditorPanelParts {
+/**
+ * The Editor and Picture panels' parts over `context`, drawing nothing and
+ * asking no peak worker, the spectrogram's worker `spectrogramWorker`'s,
+ * which answers nothing where it is not given.
+ */
+export function fakePanelParts(
+  context: ShellContext,
+  logger: Logger,
+  spectrogramWorker: () => SpectrogramWorkerPort = silentSpectrogramWorker,
+): EditorPanelParts {
   return panelPartsOf(
     context,
     {
@@ -222,7 +230,7 @@ export function fakePanelParts(context: ShellContext, logger: Logger): EditorPan
         report: () => undefined,
       }),
       spectrograms: new SpectrogramHost({
-        createWorker: silentSpectrogramWorker,
+        createWorker: spectrogramWorker,
         cache: NO_SPECTROGRAM_CACHE,
         report: () => undefined,
         now: () => 0,

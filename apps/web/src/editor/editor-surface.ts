@@ -25,7 +25,7 @@ import type { QualityMode } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { FrameComposer, FollowMode, type ToolPreview } from '@audiogubbins/editor-view';
 import { Renderer, browserBackends, type RendererReport } from '@audiogubbins/renderer';
-import type { SpectrogramHost } from '@audiogubbins/spectral-analysis';
+import type { SpectrogramHost, SpectrogramStatus } from '@audiogubbins/spectral-analysis';
 import type { SnapTarget } from '@audiogubbins/timeline';
 import type { PeakHost, PeakStatus } from '@audiogubbins/waveform';
 
@@ -38,6 +38,7 @@ import { listenToPointers } from './pointer-input.js';
 import { ToolPointer } from './tool-pointer.js';
 import { followingScroll, viewSources, type SurfaceStores } from './view-sources.js';
 import { ViewAudio } from './view-audio.js';
+import { listenToSpaceBar } from './space-panning.js';
 import { ShownSpectrogram } from './view-spectrogram.js';
 import { frameInputsOf, sameInputs, sceneOf, type SceneSources } from './view-scene.js';
 import type { EditorPalette, EditorType } from '@audiogubbins/editor-view';
@@ -56,6 +57,11 @@ export interface SurfaceOptions {
   readonly report: (report: RendererReport) => void;
   /** Told where the peaks of the asset shown are, as that changes. */
   readonly peaksChanged: (status: PeakStatus) => void;
+  /**
+   * Told whether the spectrogram shown is being made or why it cannot be, as
+   * that changes, and told none once the view shows no spectrogram.
+   */
+  readonly spectrogramChanged: (status: SpectrogramStatus | undefined) => void;
   /** Opens the context actions at a point of the page, where a press was held still. */
   readonly contextActions: (clientX: number, clientY: number) => void;
   readonly logger: Logger;
@@ -100,7 +106,11 @@ export class EditorSurface {
   constructor(options: SurfaceOptions) {
     this.#options = options;
     // A redraw composes nothing where nothing the frame shows has changed.
-    this.#spectrogram = new ShownSpectrogram(options.spectrograms, this.redraw);
+    this.#spectrogram = new ShownSpectrogram(
+      options.spectrograms,
+      this.redraw,
+      options.spectrogramChanged,
+    );
     this.#canvases = new EditorCanvases(options.host);
     this.#renderer = new Renderer({
       surface: this.#canvases,
@@ -114,7 +124,11 @@ export class EditorSurface {
     });
     this.#watch();
     this.#listenToPointers();
-    this.#listenToKeys();
+    this.#stops.push(
+      listenToSpaceBar(options.host, (held) => {
+        this.#panning = held;
+      }),
+    );
     this.redraw();
   }
 
@@ -237,28 +251,6 @@ export class EditorSurface {
         contextActions,
       }),
     );
-  }
-
-  /** The held space bar, which makes any tool the hand while the view has the keyboard. */
-  #listenToKeys(): void {
-    const { host } = this.#options;
-    const key = (event: KeyboardEvent): void => {
-      if (event.code !== 'Space' || event.ctrlKey || event.metaKey || event.altKey) return;
-      // The held space bar is the hand, and not the page scrolling.
-      event.preventDefault();
-      this.#panning = event.type === 'keydown';
-    };
-    const blurred = (): void => {
-      this.#panning = false;
-    };
-    host.addEventListener('keydown', key);
-    host.addEventListener('keyup', key);
-    host.addEventListener('blur', blurred);
-    this.#stops.push(() => {
-      host.removeEventListener('keydown', key);
-      host.removeEventListener('keyup', key);
-      host.removeEventListener('blur', blurred);
-    });
   }
 
   /** What the view draws from now, holding the peaks and the spectrogram of the asset it shows. */

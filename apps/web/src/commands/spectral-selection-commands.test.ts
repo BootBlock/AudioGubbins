@@ -14,6 +14,7 @@ import {
   createCommandRegistry,
   type CommandBus,
   type CommandInvocation,
+  type CommandRegistry,
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
@@ -42,6 +43,7 @@ const ASSET = 'test:tone-bursts';
 
 let context: ShellContext;
 let bus: CommandBus<ShellContext>;
+let registry: CommandRegistry<ShellContext>;
 
 function run(id: string, args?: Arguments): ExecutionResult<ShellContext> {
   return bus.execute(context, {
@@ -56,7 +58,7 @@ function refusal(result: ExecutionResult<ShellContext>): string | undefined {
 
 beforeEach(() => {
   context = buildShellContext().context;
-  const registry = createCommandRegistry<ShellContext>();
+  registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
   bus = createCommandBus(
     registry,
@@ -255,6 +257,42 @@ describe('the spectral selection from the keyboard (REQ-UX-005)', () => {
       shapes: [rectangle(1_000, 2_000, 300, 3_000)],
       feather: { time: 48, frequency: 20 },
     });
+  });
+
+  it('adds a band of the time selection to the area, and takes one from it, as a pointer joins a shape', () => {
+    run('editor.select-time', { start: 1_000, end: 2_000 });
+    run('editor.select-spectral-band', { low: 100, high: 400 });
+    run('editor.select-time', { start: 3_000, end: 4_000 });
+    expect(run('editor.add-spectral-band', { low: 200, high: 800 }).kind).toBe('applied');
+    expect(run('editor.subtract-spectral-band', { low: 300, high: 500 }).kind).toBe('applied');
+    expect(selection().spectral?.shapes).toEqual([
+      rectangle(1_000, 2_000, 100, 400),
+      rectangle(3_000, 4_000, 200, 800),
+      { ...rectangle(3_000, 4_000, 300, 500), effect: MaskEffect.Subtract },
+    ]);
+    expect(activeFacet(selection())).toBe(SelectionFacet.Spectral);
+  });
+
+  it('adds the first band where nothing is selected, and refuses to take one from nothing', () => {
+    run('editor.select-time', { start: 1_000, end: 2_000 });
+    expect(refusal(run('editor.subtract-spectral-band', { low: 300, high: 500 }))).toBe(
+      'No area of time and frequency is selected to take a band from.',
+    );
+    expect(selection().spectral).toBeUndefined();
+    run('editor.add-spectral-band', { low: 300, high: 500 });
+    expect(selection().spectral?.shapes).toEqual([rectangle(1_000, 2_000, 300, 500)]);
+  });
+
+  it('offers each way of joining a band in the palette, where a person finds it', () => {
+    for (const id of [
+      'editor.select-spectral-band',
+      'editor.add-spectral-band',
+      'editor.subtract-spectral-band',
+    ]) {
+      const command = registry.get(commandId(id));
+      expect(command).toBeDefined();
+      expect(command?.discoverable).not.toBe(false);
+    }
   });
 
   it('refuses a band that is no band, or one above what the audio holds', () => {

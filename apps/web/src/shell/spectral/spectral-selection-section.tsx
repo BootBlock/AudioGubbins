@@ -1,19 +1,25 @@
 /**
  * The Spectral panel's selection and tools (ADR-0082, REQ-UX-005): the
  * spectral selection in words, with the commands that select a band of the
- * time selection, widen, narrow and clear it; the spectral tools; and the
- * settings they draw with, the brush's radius and hardness and the
- * marquee's and lasso's softness, each set through its command on the view
- * in use.
+ * time selection, add one to it or take one from it, widen, narrow and clear
+ * it; the spectral tools; and the settings they draw with, the combination
+ * mode a shape drawn with no modifier joins the selection by, the brush's
+ * radius and hardness and the marquee's and lasso's softness, each set
+ * through its command on the view in use.
  */
 
 import { useId, useState, type ReactNode } from 'react';
 
-import { TextField, ValueSlider } from '@audiogubbins/design-system';
-import { SPECTRAL_TOOL_RANGES, ToolId } from '@audiogubbins/editor-view';
+import { Button, ButtonTone, TextField, ValueSlider } from '@audiogubbins/design-system';
+import { SPECTRAL_TOOL_RANGES, ToolId, isSpectralTool } from '@audiogubbins/editor-view';
+import { SpectralCombination } from '@audiogubbins/timeline';
 
 import { TOOLS } from '../../commands/editor-presentation-commands.js';
-import { hardnessWords, softnessWords } from '../../commands/spectral-tool-commands.js';
+import {
+  COMBINATIONS,
+  hardnessWords,
+  softnessWords,
+} from '../../commands/spectral-tool-commands.js';
 import { spectralSelectionWords } from '../../commands/spectral-words.js';
 import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
 import { SharedReasonNotes } from '../settings/reasoned-button.js';
@@ -22,6 +28,8 @@ import type { ShownView } from './shown-spectral.js';
 /** The commands that change the spectral selection from the keyboard, and what each button says. */
 const SELECTION: readonly (readonly [id: string, label: string])[] = [
   ['editor.select-spectral-band', 'Select the band of the time selection'],
+  ['editor.add-spectral-band', 'Add the band of the time selection'],
+  ['editor.subtract-spectral-band', 'Take the band of the time selection away'],
   ['editor.widen-spectral-time', 'Widen in time'],
   ['editor.narrow-spectral-time', 'Narrow in time'],
   ['editor.widen-spectral-band', 'Widen the band'],
@@ -123,6 +131,41 @@ function SoftnessControl({
   );
 }
 
+/**
+ * The combination mode, each mode a button pressed while it is the view's:
+ * how a finger or a pen, which holds no key, adds to the area and takes
+ * from it.
+ */
+function CombinationControl({
+  shown,
+  commands,
+}: {
+  readonly shown: ShownView;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const { combination: chosen } = shown.state.spectralTools;
+  return (
+    <>
+      <p>{`A shape drawn with no modifier held ${COMBINATIONS[chosen].does} the spectral selection; Shift adds and Alt takes away.`}</p>
+      <div className="ag-inspector-row" role="group" aria-label="Combination mode">
+        {Object.values(SpectralCombination).map((combination) => (
+          <Button
+            key={combination}
+            compact
+            tone={combination === chosen ? ButtonTone.Primary : ButtonTone.Quiet}
+            aria-pressed={combination === chosen}
+            onClick={() => {
+              commands.run(`editor.spectral-combination-${combination}`, { view: shown.panel });
+            }}
+          >
+            {COMBINATIONS[combination].name}
+          </Button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /** The brush's radius and hardness, each set through its command as its slider moves. */
 function BrushControls({
   shown,
@@ -178,7 +221,7 @@ export function ToolSection({
         Spectral tools
       </h3>
       <p>
-        {SPECTRAL_TOOLS.includes(shown.state.tool)
+        {isSpectralTool(shown.state.tool)
           ? `The ${TOOLS[shown.state.tool].name.toLowerCase()} is in use.`
           : 'No spectral tool is in use.'}
       </p>
@@ -194,6 +237,7 @@ export function ToolSection({
           />
         ))}
       </div>
+      <CombinationControl shown={shown} commands={commands} />
       <BrushControls shown={shown} commands={commands} />
       <SoftnessControl shown={shown} commands={commands} />
     </section>
