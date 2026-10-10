@@ -22,7 +22,7 @@
  * from the texture it holds, and no field is given for a tile out of view.
  */
 
-import type { SampleCount } from '@audiogubbins/domain';
+import { nearestBin, type SampleCount } from '@audiogubbins/domain';
 import type {
   Colour,
   ColourRamp,
@@ -139,8 +139,9 @@ interface RowSource {
   readonly height: number;
   readonly ratio: number;
   readonly axis: SpectralSettings;
-  /** Hertz between two bins. */
-  readonly spacing: number;
+  /** The rate and the window length the spectrogram's bins are of. */
+  readonly sampleRate: number;
+  readonly windowLength: number;
 }
 
 function sameRows(one: RowSource, other: RowSource): boolean {
@@ -148,7 +149,8 @@ function sameRows(one: RowSource, other: RowSource): boolean {
     one.top === other.top &&
     one.height === other.height &&
     one.ratio === other.ratio &&
-    one.spacing === other.spacing &&
+    one.sampleRate === other.sampleRate &&
+    one.windowLength === other.windowLength &&
     one.axis.frequencyScale === other.axis.frequencyScale &&
     one.axis.lowest === other.axis.lowest &&
     one.axis.highest === other.axis.highest
@@ -167,7 +169,7 @@ function rowMap(lane: Lane, source: RowSource): Float32Array {
   const rows = new Float32Array(Math.max(0, count));
   for (let row = 0; row < rows.length; row += 1) {
     const frequency = frequencyAt(lane, (first + row + 0.5) / ratio, source.axis);
-    rows[row] = Math.round(frequency / source.spacing) + 0.5;
+    rows[row] = nearestBin(frequency, source.sampleRate, source.windowLength) + 0.5;
   }
   return rows;
 }
@@ -290,7 +292,8 @@ export class SpectrogramPainter {
       height: area.height,
       ratio: style.pixelRatio,
       axis: style.axis,
-      spacing: known.sampleRate / known.geometry.config.windowLength,
+      sampleRate: known.sampleRate,
+      windowLength: known.geometry.config.windowLength,
     });
     this.#tiles(pool, lane, known, shown, rows, style, out);
   }

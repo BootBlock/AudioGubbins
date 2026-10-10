@@ -215,6 +215,7 @@ export {
   masksEqual,
 } from './spectral/spectral-mask.js';
 export { MaskWeights } from './spectral/mask-weight.js';
+export { binFrequency, nearestBin } from './spectral/bin-frequency.js';
 export { clippedMask } from './spectral/mask-clipping.js';
 export {
   MAXIMUM_MASK_POINTS,
