@@ -236,6 +236,17 @@ describe('AAC exports through the browser’s encoder', () => {
     session.release();
   });
 
+  it('names the browser’s encoder by its family and major version', async () => {
+    const { webCodecs } = fakeWebCodecs({ priming: 0 });
+    const opened = expectSuccess(
+      await openExportEncoder(exportRequest(AAC, RATE), testServices(webCodecs)),
+    );
+    expect(opened.encoder).toEqual({
+      implementation: 'browser',
+      version: 'WebCodecs (Chrome) 131',
+    });
+  });
+
   it('states no priming where the first chunk starts at the first frame', async () => {
     const { webCodecs } = fakeWebCodecs({ priming: 0 });
     const file = await encodeWhole(
@@ -253,7 +264,7 @@ describe('AAC exports through the browser’s encoder', () => {
     const { webCodecs, log } = fakeWebCodecs({ priming: 1_024, failAfter: 3 });
     const writer = expectSuccess(
       await openExportEncoder(exportRequest(AAC, RATE), testServices(webCodecs)),
-    );
+    ).writer;
     const source = testSignal(2, 10_000, RATE);
     const written = await writer.write(source, 10_000);
     const finished = written.ok ? await writer.finish() : written;

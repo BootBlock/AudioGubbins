@@ -50,7 +50,13 @@ export {
 
 export { readFromCodecWorker } from './worker/codec-worker-message-reading.js';
 
-export { type ExportEncoderServices, type OpenExportEncoder } from './worker/encode-job.js';
+export {
+  type ExportEncoderServices,
+  type OpenExportEncoder,
+  type OpenedExportEncoder,
+} from './worker/encode-job.js';
+
+export { type EncoderIdentity } from './encoding/encoder-identity.js';
 
 export { type FileHandleLike, type FileSource } from './files/file-source.js';
 

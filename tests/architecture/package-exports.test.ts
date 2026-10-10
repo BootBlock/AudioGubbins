@@ -242,6 +242,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'MessagePortLike',
         'ModuleSource',
         'OpenExportEncoder',
+        'OpenedExportEncoder',
         'PrebuiltEncoder',
         'ToCodecWorker',
         'ToCodecWorkerKind',

@@ -28,6 +28,9 @@
     },
     {
       "path": "../../../../packages/capabilities"
+    },
+    {
+      "path": "../../../../packages/version"
     }
   ]
 }

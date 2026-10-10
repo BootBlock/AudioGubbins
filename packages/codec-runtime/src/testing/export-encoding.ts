@@ -71,7 +71,10 @@ export function exportRequest(
   };
 }
 
-/** The services of a Node test: the run's codec module, the prebuilt encoders' files, no browser. */
+/**
+ * The services of a Node test: the run's codec module, the prebuilt encoders'
+ * files, and the browser's encoder where a test gives one, said to be Chrome's.
+ */
 export function testServices(
   encoding?: ExportEncoderServices['encoding'],
   signal: CancellationSignal = new AbortController().signal,
@@ -80,6 +83,7 @@ export function testServices(
     codecModule: async () => succeed(await codecModule()),
     prebuiltModule: prebuiltEncoderLoader(),
     encoding,
+    browser: { name: 'Chrome', majorVersion: '131' },
     signal,
   };
 }
@@ -93,7 +97,7 @@ export async function encodeWhole(
 ): Promise<Uint8Array> {
   const opened = await openExportEncoder(request, services);
   if (!opened.ok) throw new Error(opened.failures[0].summary);
-  return (await writeWhole(opened.value, planes, block)).file;
+  return (await writeWhole(opened.value.writer, planes, block)).file;
 }
 
 /** Every frame a session decodes, one plane per channel. */

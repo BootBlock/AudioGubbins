@@ -141,6 +141,23 @@ describe('the codec worker analysing a file', () => {
     expect(environments.at(-1)?.codecModule).toBe('failed');
   });
 
+  it('tells the page at once of each module it was given none of, before any request needs it', async () => {
+    // The harness compiles the codec module before it configures the worker,
+    // so the browser's probe has been answered and told by then: only the
+    // configuration can tell the page of the encoders it gives the worker none of.
+    const harness = await workerHarness();
+    const environments = harness.posted.flatMap((one) =>
+      one.kind === 'environment' ? [one.environment] : [],
+    );
+    expect(environments.at(-1)).toMatchObject({
+      codecModule: 'not-loaded',
+      prebuiltModules: new Map([
+        ['mp3', 'failed'],
+        ['vorbis', 'failed'],
+      ]),
+    });
+  });
+
   it('says why metadata was not read, keeping the audio', async () => {
     const module = await codecModule();
     const file = flacFile(module, [TONE], {

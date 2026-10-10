@@ -26,6 +26,8 @@ import {
   textOf,
 } from '@audiogubbins/domain';
 
+import type { EncoderIdentity } from '../encoding/encoder-identity.js';
+
 /** Every codec the registry names. */
 const CODECS: Readonly<Record<string, CodecId>> = Object.fromEntries(
   [...CODEC_REGISTRY.keys()].map((id) => [id, id]),
@@ -67,7 +69,7 @@ const IMPLEMENTATIONS: Readonly<Record<CodecImplementation, CodecImplementation>
   browser: 'browser',
 };
 
-/** The longest name or version a decoder's identity carries. */
+/** The longest name or version a decoder's or an encoder's identity carries. */
 const MAXIMUM_IDENTITY_CHARACTERS = 128;
 
 export function codecOf(value: unknown, field: string): CodecId {
@@ -129,6 +131,18 @@ function identityTextOf(value: unknown, field: string): string {
     throw new Malformed(field, `text of 1 to ${String(MAXIMUM_IDENTITY_CHARACTERS)} characters`);
   }
   return text;
+}
+
+export function encoderIdentityOf(value: unknown, field: string): EncoderIdentity {
+  const fields = fieldsOf(value, field);
+  return {
+    implementation: oneOfValues(
+      fields['implementation'],
+      `${field}.implementation`,
+      IMPLEMENTATIONS,
+    ),
+    version: identityTextOf(fields['version'], `${field}.version`),
+  };
 }
 
 export function decoderIdentityOf(value: unknown, field: string): DecoderIdentity {

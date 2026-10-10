@@ -28,6 +28,7 @@ import type { DecoderIdentity } from '@audiogubbins/codecs';
 import type { ChannelLayout, DomainFailure, SampleCount, SampleRate } from '@audiogubbins/domain';
 import type { DitherSettings, ExportTarget, FormatEncoding } from '@audiogubbins/import-export';
 
+import type { EncoderIdentity } from '../encoding/encoder-identity.js';
 import type { FileSource } from '../files/file-source.js';
 import type { MessagePortLike } from '../streams/stream-port.js';
 
@@ -205,6 +206,8 @@ export type FromCodecWorker =
       readonly kind: typeof FromCodecWorkerKind.Encoded;
       readonly request: string;
       readonly frames: SampleCount;
+      /** The encoder that wrote them, which the export's record names. */
+      readonly encoder: EncoderIdentity;
     }
   | {
       readonly kind: typeof FromCodecWorkerKind.Failed;

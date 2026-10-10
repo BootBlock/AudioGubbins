@@ -203,6 +203,8 @@ export class CodecWorkerCore {
         vorbis: prebuiltModuleLoad('Vorbis', prebuilt.vorbis, changed),
       },
     };
+    // A module the page had none of has failed already, which the page hears now.
+    this.#tellEnvironment();
   }
 
   /** Serves another client's requests over `port`. */
@@ -307,6 +309,7 @@ export class CodecWorkerCore {
             codecModule: () => modules.codec.get(),
             prebuiltModule: (encoder) => modules.prebuilt[encoder].get(),
             encoding: this.#host.platform.encoding,
+            browser: this.#host.platform.browser,
           },
           context,
         );

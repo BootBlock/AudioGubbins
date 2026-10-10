@@ -217,6 +217,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/codecs',
     '@audiogubbins/import-export',
     '@audiogubbins/capabilities',
+    '@audiogubbins/version',
   ],
   '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
   '@audiogubbins/clipboard': [
