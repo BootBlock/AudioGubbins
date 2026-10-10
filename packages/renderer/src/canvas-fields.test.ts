@@ -159,6 +159,35 @@ describe('a field painted with Canvas 2D', () => {
     expect([...image.data]).toEqual(new Array<number>(24).fill(0));
   });
 
+  it('composes on a new canvas once the browser takes away the context it composed on', () => {
+    // The browser gives the geometry's context back before this one's, and
+    // what is composed on a canvas still lost draws nothing.
+    const made: ReturnType<typeof composing>[] = [];
+    const offscreen = (): HTMLCanvasElement => {
+      const next = composing();
+      made.push(next);
+      return next.offscreen();
+    };
+    const { painter, calls: painted } = painting();
+    const fields = new CanvasFields(offscreen);
+    const { placement, values } = placed(FIELD);
+    fields.paint(painter, placement, values);
+
+    made[0]?.canvas.dispatchEvent(new Event('contextlost'));
+    fields.paint(painter, placement, values);
+    fields.paint(painter, placement, values);
+
+    expect(made).toHaveLength(2);
+    const [first, second] = made;
+    expect(first?.calls.filter(([name]) => name === 'putImageData')).toHaveLength(1);
+    expect(second?.calls.filter(([name]) => name === 'putImageData')).toHaveLength(2);
+    expect(painted.filter(([name]) => name === 'drawImage').map(([, canvas]) => canvas)).toEqual([
+      first?.canvas,
+      second?.canvas,
+      second?.canvas,
+    ]);
+  });
+
   it('answers that it could not paint when its canvas gives no context', () => {
     const canvas = document.createElement('canvas');
     canvas.getContext = () => null;

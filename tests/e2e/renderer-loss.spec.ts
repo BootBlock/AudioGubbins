@@ -8,6 +8,19 @@ import {
   rendererReport,
   webglLoss,
 } from './renderer.js';
+import {
+  TILE_BUDGET,
+  drawPattern,
+  expectPatternDrawn,
+  expectRecovered,
+  expectRedrawnAsBefore,
+  expectTilesWithinBudget,
+  fieldReport,
+  fieldTextures,
+  offeredBackends,
+  openHarness,
+  openOn,
+} from './renderer-field.js';
 import { test } from './test.js';
 
 /**
@@ -50,5 +63,71 @@ test.describe('the editor renderer', () => {
     await expect(rendererReport(page)).toContainText('WebGL 2: stopped');
     await expect(rendererReport(page)).toHaveAttribute('data-ag-renderer', 'canvas-2d');
     await expectDrawnAsShown(page, panel);
+  });
+});
+
+/**
+ * A field batch (ADR-0082) in the same Chromium, drawn by the editor's renderer
+ * on the renderer harness: through its ramp on WebGL 2 and on Canvas 2D, each
+ * read back by pixel, drawn again as it was once a lost context is given back,
+ * drawn by Canvas 2D when it never is, and held within its texture budget.
+ */
+test.describe('a field batch', () => {
+  test('is drawn through its ramp by every backend the browser offers', async ({ page }) => {
+    await openHarness(page);
+    const offered = await offeredBackends(page);
+    expect(offered).toEqual(['webgl2', 'canvas-2d']);
+    for (const kind of offered) {
+      await openOn(page, kind);
+      await drawPattern(page);
+      await expectPatternDrawn(page);
+    }
+  });
+
+  test('is uploaded and drawn again as it was when the WebGL 2 context is given back', async ({
+    page,
+  }) => {
+    await openHarness(page);
+    await openOn(page, 'webgl2');
+    await drawPattern(page);
+    const before = await expectPatternDrawn(page);
+    const uploaded = await fieldTextures(page);
+    expect(uploaded.held).toBe(1);
+
+    await webglLoss(page, 'loseContext');
+    await expect.poll(async () => (await fieldReport(page)).state).toBe('recovering');
+    expect((await fieldTextures(page)).held, 'field textures held while the context is away').toBe(
+      0,
+    );
+    await webglLoss(page, 'restoreContext');
+
+    await expectRecovered(page, 1);
+    await expectRedrawnAsBefore(page, before);
+    const again = await fieldTextures(page);
+    expect(again.made - uploaded.made, 'field textures uploaded again').toBe(1);
+    expect(again.held).toBe(1);
+  });
+
+  test('is drawn by Canvas 2D when the WebGL 2 context never comes back', async ({ page }) => {
+    await openHarness(page);
+    await openOn(page, 'webgl2');
+    await drawPattern(page);
+    await expectPatternDrawn(page);
+
+    await webglLoss(page, 'loseContext');
+
+    await expect
+      .poll(async () => (await fieldReport(page)).active, { timeout: 10_000 })
+      .toBe('canvas-2d');
+    await expectRecovered(page, 1);
+    await expectPatternDrawn(page);
+  });
+
+  test('holds no WebGL 2 texture for a tile it does not draw, beyond its budget', async ({
+    page,
+  }) => {
+    await openHarness(page);
+    await openOn(page, 'webgl2', TILE_BUDGET);
+    await expectTilesWithinBudget(page);
   });
 });

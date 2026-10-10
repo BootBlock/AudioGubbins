@@ -428,5 +428,19 @@ export default defineConfig<SuiteOptions>({
       reuseExistingServer: false,
       timeout: 120_000,
     },
+    {
+      // The renderer harness (`tests/e2e/renderer-harness/`), on a development
+      // server of its own, which builds nothing: the editor's renderer on the
+      // editor's canvases, drawing the field batches the renderer suites read
+      // back by pixel on every backend the browser offers.
+      command:
+        'pnpm --filter @audiogubbins/web exec vite --config renderer-harness.vite.config.ts --host 127.0.0.1 --port 4176 --strictPort',
+      url: 'http://127.0.0.1:4176/',
+      name: 'renderer harness',
+      stdout: 'pipe',
+      stderr: 'pipe',
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
   ],
 });
