@@ -20,7 +20,7 @@
 import { binsOf, hopOf, type SpectrogramConfig } from './spectrogram-config.js';
 
 /** Columns a tile holds; the last tile of a level holds what is left. */
-export const TILE_COLUMNS = 256;
+const TILE_COLUMNS = 256;
 
 /** The most windows a column takes the maximum of. */
 const MOST_WINDOWS_PER_COLUMN = 4;

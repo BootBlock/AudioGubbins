@@ -213,8 +213,6 @@ export {
   maskOutline,
   maskSupport,
   masksEqual,
-  shapeOutline,
-  translatedMask,
 } from './spectral/spectral-mask.js';
 export { MaskWeights } from './spectral/mask-weight.js';
 export { clippedMask } from './spectral/mask-clipping.js';

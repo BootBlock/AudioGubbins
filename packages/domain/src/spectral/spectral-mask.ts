@@ -111,7 +111,7 @@ export interface SpectralBounds {
 }
 
 /** The bounds of a shape's own outline, before any feather or radius. */
-export function shapeOutline(shape: SpectralShape): SpectralBounds {
+function shapeOutline(shape: SpectralShape): SpectralBounds {
   if (shape.kind === 'rectangle') {
     return {
       start: shape.range.start,

@@ -23,7 +23,6 @@ import {
   type SpectrogramConfig,
 } from './spectrogram-config.js';
 import {
-  TILE_COLUMNS,
   levelFor,
   spectrogramGeometry,
   tileCentre,
@@ -31,6 +30,9 @@ import {
   tilesOver,
   windowStart,
 } from './tile-geometry.js';
+
+/** The columns a tile holds, as ADR-0080 states them. */
+const ADR_TILE_COLUMNS = 256;
 
 const SHORT: SpectrogramConfig = { windowLength: 256, window: StftWindow.Hann, overlap: 1 };
 
@@ -116,7 +118,7 @@ describe('the tile pyramid', () => {
     for (const level of geometry.levels) {
       const last = level.tiles - 1;
       const span = tileSpan(level, last);
-      expect(span.start).toBe(last * TILE_COLUMNS * level.columnFrames);
+      expect(span.start).toBe(last * ADR_TILE_COLUMNS * level.columnFrames);
       expect(Number.isSafeInteger(span.start)).toBe(true);
       expect(span.start + span.columns * level.columnFrames).toBeGreaterThanOrEqual(frames);
     }
