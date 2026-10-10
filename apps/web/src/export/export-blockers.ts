@@ -23,7 +23,7 @@ export function unavailableSentence(
   if (names.length === 0) return capability.reason;
   const last = names.at(-1) ?? '';
   const listed = names.length === 1 ? last : `${names.slice(0, -1).join(', ')} and ${last}`;
-  return `${capability.reason} ${listed} can be written here instead.`;
+  return `${capability.reason} This browser can write ${listed} instead.`;
 }
 
 /** The folders kept trusted, as far as they have been read. */

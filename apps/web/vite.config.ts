@@ -156,12 +156,21 @@ const DSP_MODULE_ID = 'virtual:audiogubbins/dsp-module';
 /** The same, marked as no file on disk, so no other plugin tries to read it. */
 const RESOLVED_DSP_MODULE_ID = `\0${DSP_MODULE_ID}`;
 
-/** The crates' sources and manifests, each of which can change the module. */
+/** Every file under `directory` of the repository, recursively: a folder is no file to watch. */
+function filesUnder(directory: string): readonly string[] {
+  return readdirSync(join(REPOSITORY_ROOT, directory), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
+}
+
+/**
+ * The Rust sources and manifests, each of which can change a module: the
+ * crates', and those of the vendored crates the workspace patches in.
+ */
 function crateSources(): readonly string[] {
-  const crates = join(REPOSITORY_ROOT, 'crates');
-  const sources = readdirSync(crates, { recursive: true, encoding: 'utf8' })
-    .filter((path) => path.endsWith('.rs') || path.endsWith('Cargo.toml'))
-    .map((path) => join(crates, path));
+  const sources = [...filesUnder('crates'), ...filesUnder('third_party')].filter(
+    (path) => path.endsWith('.rs') || path.endsWith('Cargo.toml'),
+  );
   return [...sources, join(REPOSITORY_ROOT, 'Cargo.toml'), join(REPOSITORY_ROOT, 'Cargo.lock')];
 }
 
@@ -210,7 +219,7 @@ function bytesModule(name: string, file: string): string {
 
 /** What the application imports the codec module's bytes as, and the same marked as no file. */
 const CODEC_MODULE_ID = 'virtual:audiogubbins/codec-module';
-const RESOLVED_CODEC_MODULE_ID = ` ${CODEC_MODULE_ID}`;
+const RESOLVED_CODEC_MODULE_ID = `\0${CODEC_MODULE_ID}`;
 
 /** What the application imports each encoder module's bytes as, by the encoder's name. */
 const ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map([
@@ -220,17 +229,12 @@ const ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map([
 
 /** The same, marked as no file on disk. */
 const RESOLVED_ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map(
-  [...ENCODER_MODULES].map(([id, encoder]) => [` ${id}`, encoder]),
+  [...ENCODER_MODULES].map(([id, encoder]) => [`\0${id}`, encoder]),
 );
 
 /** The encoders' sources, their interfaces and the vendored libraries, each of which can change a module. */
 function encoderSources(): readonly string[] {
-  return ['native', 'third_party'].flatMap((directory) => {
-    const root = join(REPOSITORY_ROOT, directory);
-    return readdirSync(root, { recursive: true, encoding: 'utf8', withFileTypes: false }).map(
-      (path) => join(root, path),
-    );
-  });
+  return [...filesUnder('native'), ...filesUnder('third_party')];
 }
 
 /**
@@ -251,7 +255,7 @@ function codecModules(): Plugin {
     name: 'audiogubbins:codec-modules',
     resolveId: (id) => {
       if (id === CODEC_MODULE_ID) return RESOLVED_CODEC_MODULE_ID;
-      return ENCODER_MODULES.has(id) ? ` ${id}` : undefined;
+      return ENCODER_MODULES.has(id) ? `\0${id}` : undefined;
     },
     async load(id) {
       if (id === RESOLVED_CODEC_MODULE_ID) {

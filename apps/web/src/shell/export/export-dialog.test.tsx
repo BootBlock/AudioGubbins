@@ -178,7 +178,7 @@ describe('the Export dialog', () => {
 
     expect(
       screen.getAllByText(
-        /The MP3 encoder .*could not be loaded.*can be written here instead\./u,
+        /The MP3 encoder .*could not be loaded.*This browser can write .* instead\./u,
       )[0],
     ).toBeVisible();
   });
