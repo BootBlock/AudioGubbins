@@ -1,7 +1,8 @@
 import { expect, type Locator, type Page, type Worker } from '@playwright/test';
 
 import { sine, wavFile } from '../../packages/test-fixtures/src/index.js';
-import { runCommand } from './editor.js';
+import { openAsset, runCommand } from './editor.js';
+import { framedVideo, openPicturePanel } from './picture.js';
 import { menuBarMenu, openFresh } from './shell.js';
 import { test } from './test.js';
 
@@ -20,7 +21,11 @@ import { test } from './test.js';
  * is answered by the test where a request reaches it, so a worker with no
  * policy would fetch it, and the test would see that it had.
  *
- * The inference worker starts only once a model runs, so the second test
+ * The codec worker starts only when a file is first analysed, decoded or
+ * encoded, so its test opens a reference picture and asks for its sound,
+ * which the codec worker's analysis weighs first.
+ *
+ * The inference worker starts only once a model runs, so the last test
  * installs DeepFilterNet 3 from the application's own origin, puts it on a
  * sound's rack, and waits for the worker its render starts. It needs a build
  * that carries the packs, `AUDIOGUBBINS_PACK_CACHE` naming the pack build's
@@ -115,6 +120,26 @@ test.describe('the workers under the page’s security policy', () => {
     const storage = await workerNamed(page, 'AudioGubbins storage', 30_000);
 
     expect(await fetchElsewhereFrom(storage)).toEqual({
+      outcome: 'refused',
+      directive: 'connect-src',
+    });
+    expect(reached).toEqual([]);
+  });
+
+  test('the codec worker is refused a fetch from another origin', async ({ page }) => {
+    const reached = await answerElsewhere(page);
+    await openAsset(page, 'Tone bursts');
+    const video = await framedVideo(page);
+    const panel = await openPicturePanel(page);
+    await panel
+      .locator('input[type="file"]')
+      .setInputFiles({ name: 'reference.webm', mimeType: 'video/webm', buffer: video });
+    await expect(panel.getByRole('timer')).toBeVisible({ timeout: 15_000 });
+
+    await runCommand(page, 'Open the picture’s sound as an asset');
+    const codecs = await workerNamed(page, 'AudioGubbins codecs', 30_000);
+
+    expect(await fetchElsewhereFrom(codecs)).toEqual({
       outcome: 'refused',
       directive: 'connect-src',
     });
