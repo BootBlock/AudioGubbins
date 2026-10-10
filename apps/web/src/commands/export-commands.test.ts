@@ -192,5 +192,9 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
       await audio.window.runAndHear(ExportCommand.ForgetFolder, { key: kept?.key ?? '' }),
     ).toBe('“Game sounds” is no longer trusted; nothing in it was changed.');
     expect(trustedFolders.get()).toEqual({ kind: 'read', folders: [] });
+    // Let go already, a second time changes nothing, and is refused.
+    expect(
+      await audio.window.runAndHear(ExportCommand.ForgetFolder, { key: kept?.key ?? '' }),
+    ).toBe('No such folder is trusted.');
   });
 });
