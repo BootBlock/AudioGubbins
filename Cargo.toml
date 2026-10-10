@@ -6,6 +6,9 @@
 # the resampler, and the narrow WebAssembly boundary the TypeScript engine
 # reaches them through (ADR-0031, ADR-0032). The analysis crate REQ-REPO-154
 # names is Phase 06's: what measures audio rather than changes it (ADR-0061).
+# The codec module is Phase 09's: decoding and encoding behind a narrow
+# boundary of its own, built into a WebAssembly module apart from the DSP's
+# (ADR-0091), whose objects are named by handle as the DSP module's are.
 
 [workspace]
 resolver = "3"
@@ -14,6 +17,7 @@ members = [
   "crates/audiogubbins-version",
   "crates/codecs",
   "crates/dsp-core",
+  "crates/handle-table",
   "crates/resampling",
   "crates/wasm-bindings",
 ]

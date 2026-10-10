@@ -23,6 +23,10 @@ name = "audiogubbins-dsp-core"
 version = "0.1.0"
 
 [[package]]
+name = "audiogubbins-handle-table"
+version = "0.1.0"
+
+[[package]]
 name = "audiogubbins-resampling"
 version = "0.1.0"
 dependencies = [
@@ -39,6 +43,7 @@ version = "0.1.0"
 dependencies = [
  "audiogubbins-analysis",
  "audiogubbins-dsp-core",
+ "audiogubbins-handle-table",
  "audiogubbins-resampling",
 ]
 
