@@ -308,7 +308,10 @@ describe('an encode through the page’s codecs', () => {
       encoder: { id: 'flac', implementation: 'codec-module', version: 'flacenc 0.5.1' },
     });
     expect(progress).toEqual([10, 30]);
-    expect(stored.at(-1)?.kind).toBe('finished');
+    // The answer and the stream's last message travel over different channels.
+    await vi.waitFor(() => {
+      expect(stored.at(-1)?.kind).toBe('finished');
+    }, PROMPTLY);
     rendered.port2.close();
     stream.port2.close();
   });
