@@ -420,8 +420,7 @@ describe('the spectral tools through the pointer (ADR-0082)', () => {
       TONES,
       gestures,
     );
-    // Each move taken before the next, as a person's are: one overtaken
-    // while the one before it waits is skipped.
+    // Each move taken before the next, as a person's are.
     tool.down(pen(200, 90, 0.2), NONE);
     await everythingQueued();
     tool.moved(pen(240, 95, 0.6), NONE);
@@ -476,6 +475,36 @@ describe('the spectral tools through the pointer (ADR-0082)', () => {
       samplesWithin(brushed.viewport, tools.brushRadius),
     );
     expect(mask.feather).toEqual(tools.feather);
+  });
+
+  it('takes every move of a lasso or a brush, however long the zero-crossing search takes', async () => {
+    for (const traced of [ToolId.SpectralBrush, ToolId.SpectralLasso]) {
+      // Snapped to zero crossings, as a view is unless told otherwise, so
+      // every event waits on the search; every move comes while the press
+      // still waits on its own, as a quick drag's do while the worker is busy.
+      const state = { ...spectral(traced), snapping: viewOf().snapping };
+      const { tool, ran } = pointerOver(
+        state,
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(undefined);
+            }, 1);
+          }),
+      );
+      tool.down({ ...at(200), y: 80 }, NONE);
+      tool.moved({ ...at(260), y: 90 }, NONE);
+      tool.moved({ ...at(300), y: 140 }, NONE);
+      tool.moved({ ...at(220), y: 150 }, NONE);
+      tool.up({ ...at(220), y: 150 }, NONE);
+      await vi.waitFor(() => {
+        expect(ran).toHaveLength(1);
+      });
+      const mask = JSON.parse(String(ran[0]?.args['mask'])) as {
+        shapes: { points: unknown[] }[];
+      };
+      expect(mask.shapes[0]?.points, traced).toHaveLength(4);
+    }
   });
 
   it('selects with the marquee on a spectrogram, as a command joining its shape', async () => {

@@ -3239,6 +3239,7 @@ Published paths
   function shownSpectrogram(state: EditorViewState, geometry: SpectrogramGeometry, length: SampleCount, pixelRatio: number): SpectrogramView | undefined
   function snapInView(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, viewport: ViewportState): SnapResult
   function snapTargetsOf(sources: SnapSources): readonly SnapTarget[]
+  function tracesPath(tool: ToolId): boolean
   function visibleChannels(state: EditorViewState, channelCount: number): readonly number[]
   function withAmplitudeStep(state: EditorViewState, steps: number): EditorViewState
   function withChannelShown(state: EditorViewState, channel: number, shown: boolean, channelCount: number): EditorViewState

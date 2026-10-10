@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { CommandInvocation } from '@audiogubbins/commands';
 
 import type { ModelGate } from '../../assets/model-gate.js';
+import type { VoicedOptions } from '../../commands/voiced-execution.js';
 import { observable } from '../../state/observable.js';
 import {
   holdPlatformFiles,
@@ -16,6 +17,9 @@ import { SpectralPanel } from './spectral-panel.js';
 holdPlatformFiles();
 
 type Ran = (readonly [string, CommandInvocation['arguments']])[];
+
+/** The commands a control asked to be spoken of other than as usual, and how. */
+type Voiced = (readonly [string, VoicedOptions])[];
 
 /** The loop in the editor in use, its spectral selection a rectangle on its right channel. */
 async function selectedLoop(): Promise<AudioWindow> {
@@ -45,9 +49,14 @@ async function selectedLoop(): Promise<AudioWindow> {
 
 /**
  * Draws the panel over the window's stores, its controls running the
- * window's commands, every one recorded.
+ * window's commands, every one recorded, and those run with options in
+ * `voiced` as well.
  */
-function panelOver(audio: AudioWindow, gate: ModelGate = () => undefined): Ran {
+function panelOver(
+  audio: AudioWindow,
+  gate: ModelGate = () => undefined,
+  voiced: Voiced = [],
+): Ran {
   const { context, projects } = audio.window;
   const ran: Ran = [];
   render(
@@ -62,8 +71,9 @@ function panelOver(audio: AudioWindow, gate: ModelGate = () => undefined): Ran {
         modelGate: observable(gate),
         hearing: context.hearing,
         preferences: context.preferences,
-        run: (id, args) => {
+        run: (id, args, options) => {
           ran.push([id, args]);
+          if (options !== undefined) voiced.push([id, options]);
           audio.window.run(id, args);
         },
         unavailableReason: () => undefined,
@@ -154,6 +164,23 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
     await expect
       .poll(() => screen.queryByText(/^Attenuated an area by −6 dB, 48,000 to 96,000, /u) !== null)
       .toBe(true);
+  });
+
+  it('has its comparisons say so when the edit is being compared already, which it does not show', async () => {
+    const audio = await selectedLoop();
+    const voiced: Voiced = [];
+    panelOver(audio, () => undefined, voiced);
+    await audio.window.runAndHear('spectral.attenuate', { view: 'editor' });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Compare with before it' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Compare with before the latest spectral edit' }),
+    );
+
+    expect(voiced).toEqual([
+      ['spectral.compare-before-edit', { sayWhenUnchanged: true }],
+      ['spectral.compare-before-edit', { sayWhenUnchanged: true }],
+    ]);
   });
 
   it('says before cleaning up that a processor whose model cannot run will not be heard, and then cleans up knowingly', async () => {

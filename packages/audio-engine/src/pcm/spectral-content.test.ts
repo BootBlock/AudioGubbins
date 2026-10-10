@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MAXIMUM_QUALITY,
+  MaskEffect,
   QualityLevel,
   StandardLayouts,
+  derivedSampleCount,
   namedQualityMode,
   spectralPlacement,
   unsafeBrandId,
@@ -36,6 +38,22 @@ function sameBits(left: Float32Array, right: Float32Array): boolean {
   const a = new Uint32Array(left.buffer, left.byteOffset, left.length);
   const b = new Uint32Array(right.buffer, right.byteOffset, right.length);
   return a.every((bits, index) => bits === b[index]);
+}
+
+/** The energy of `made` less `expected` from `from` to `to`, as a share of `expected`'s. */
+function relativeError(
+  made: Float32Array,
+  expected: Float32Array,
+  from: number,
+  to: number,
+): number {
+  let error = 0;
+  let energy = 0;
+  for (let n = from; n < to; n += 1) {
+    error += ((made[n] ?? 0) - (expected[n] ?? 0)) ** 2;
+    energy += (expected[n] ?? 0) ** 2;
+  }
+  return error / energy;
 }
 
 describe('the frames of a spectral edit', () => {
@@ -308,6 +326,64 @@ describe('a heal’s borders', () => {
     expect(amplitudeAt(made, 1_000, 36_000 - placed.start, 46_000 - placed.start)).toBeCloseTo(
       0.5,
       1,
+    );
+  });
+});
+
+describe('a heal’s error', () => {
+  it('takes no border from a frame cut short by the stream’s ends', async () => {
+    // A steady tone healed over a mask half a frame from either end of the
+    // stream: every frame bordering it holds samples past the stream, where a
+    // frame cut short measures a spread of magnitude the tone does not have.
+    const input = tones(LENGTH, [440, 0.3]);
+    const resolution = 2_048;
+    const edit = rectangleEdit(
+      { kind: 'heal' },
+      { start: resolution / 2, end: LENGTH - resolution / 2 },
+      { low: 40, high: 10_000 },
+      { resolution },
+    );
+    const [made = new Float32Array()] = await readAllOf(spectralOver([input], edit).content, 4_096);
+    expect(relativeError(made, input, 0, LENGTH)).toBeLessThan(1e-6);
+  });
+
+  it('heals a burst in a tone over the range the domain places a heal of it in', async () => {
+    // A sound longer than the edit's range, as an asset is, and the range
+    // and the mask the domain places a heal of a selection of the burst at.
+    const whole = 4 * LENGTH;
+    const clean = tones(whole, [440, 0.3]);
+    const burst = noise(11, whole);
+    const input = clean.map((sample, n) =>
+      n >= 48_000 && n < 48_200 ? Math.fround(sample + (burst[n] ?? 0)) : sample,
+    );
+    const resolution = 2_048;
+    const placed = spectralPlacement(
+      {
+        shapes: [
+          {
+            kind: 'rectangle',
+            effect: MaskEffect.Add,
+            range: {
+              start: derivedSampleCount(48_000 - resolution / 2),
+              end: derivedSampleCount(48_200 + resolution / 2),
+            },
+            band: { low: 0, high: NYQUIST },
+          },
+        ],
+        feather: { time: 0, frequency: 0 },
+      },
+      resolution,
+      'heal',
+      whole,
+    );
+    const [shape] = placed?.mask.shapes ?? [];
+    if (placed === undefined || shape?.kind !== 'rectangle') throw new Error('Not placed.');
+    const edit = rectangleEdit({ kind: 'heal' }, shape.range, shape.band, { resolution });
+    const range = input.subarray(placed.start, placed.end);
+    const [made = new Float32Array()] = await readAllOf(spectralOver([range], edit).content, 4_096);
+    const cleanRange = clean.subarray(placed.start, placed.end);
+    expect(relativeError(made, cleanRange, 0, range.length)).toBeLessThan(
+      relativeError(range, cleanRange, 0, range.length) * 0.2,
     );
   });
 });

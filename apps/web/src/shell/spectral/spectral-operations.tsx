@@ -225,6 +225,7 @@ export function OperationsSection({
         commands={context}
         args={{ view: shown.panel }}
         compact
+        sayWhenUnchanged
       />
     </section>
   );

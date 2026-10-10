@@ -20,6 +20,7 @@ import {
 } from '@audiogubbins/project-commands';
 
 import type { ModelGate } from '../../assets/model-gate.js';
+import type { VoicedOptions } from '../../commands/voiced-execution.js';
 import { observable } from '../../state/observable.js';
 import {
   holdPlatformFiles,
@@ -33,6 +34,9 @@ holdPlatformFiles();
 const at = derivedSampleCount;
 
 type Ran = (readonly [string, CommandInvocation['arguments']])[];
+
+/** The commands a control asked to be spoken of other than as usual, and how. */
+type Voiced = (readonly [string, VoicedOptions])[];
 
 function processor(audio: AudioWindow, typeKey: string): ProcessorInstance {
   const descriptor = PROCESSOR_CATALOGUE.get(typeKey);
@@ -59,9 +63,14 @@ async function racked(
 
 /**
  * Draws the panel over the window's stores, every command it runs recorded
- * and not run, so nothing but a command could change what it shows.
+ * and not run, so nothing but a command could change what it shows; those
+ * run with options are recorded in `voiced` as well.
  */
-function panelOver(audio: AudioWindow, gate: ModelGate = () => undefined): Ran {
+function panelOver(
+  audio: AudioWindow,
+  gate: ModelGate = () => undefined,
+  voiced: Voiced = [],
+): Ran {
   const { context, projects } = audio.window;
   const ran: Ran = [];
   render(
@@ -76,8 +85,9 @@ function panelOver(audio: AudioWindow, gate: ModelGate = () => undefined): Ran {
         modelGate: observable(gate),
         audioSettings: context.audioSettings,
         hearing: context.hearing,
-        run: (id, args) => {
+        run: (id, args, options) => {
           ran.push([id, args]);
+          if (options !== undefined) voiced.push([id, options]);
         },
         unavailableReason: () => undefined,
       }}
@@ -255,6 +265,18 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
         },
       ],
     ]);
+  });
+
+  it('has its comparison say so when the rack is being compared already, which it does not show', async () => {
+    const { audio } = await racked((made) => [processor(made, 'gain')]);
+    const voiced: Voiced = [];
+    const ran = panelOver(audio, () => undefined, voiced);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Compare with before' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    expect(ran.map(([id]) => id)).toEqual(['rack.compare-before-change', 'rack.copy']);
+    expect(voiced).toEqual([['rack.compare-before-change', { sayWhenUnchanged: true }]]);
   });
 
   it('says a shared chain is shared and where, with the command that makes it independent', async () => {
