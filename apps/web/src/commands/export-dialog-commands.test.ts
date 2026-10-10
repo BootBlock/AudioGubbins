@@ -243,7 +243,7 @@ describe('starting the export', () => {
 
     expect(refusalOf(audio, ExportCommand.Start)).toEqual([
       expect.stringMatching(
-        /^The MP3 encoder .*could not be loaded.*can be written here instead\.$/u,
+        /^The MP3 encoder .*could not be loaded.*This browser can write .* instead\.$/u,
       ),
     ]);
   });
