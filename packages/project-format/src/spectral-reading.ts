@@ -19,6 +19,7 @@ import {
   SMALLEST_SPECTRAL_RESOLUTION,
   type BrushRadius,
   type PlannedSpectralOperation,
+  type SpectralEdit,
   type SpectralEditOperation,
   type SpectralFeather,
   type SpectralMask,
@@ -228,12 +229,7 @@ function readGain(reading: Reading, object: JsonObject, at: string): number | un
 }
 
 /** Reads a spectral edit's operation as an edit holds it, naming its chain. */
-export const readSpectralOperation: Converter<SpectralEditOperation> = (
-  reading,
-  value,
-  parent,
-  key,
-) => {
+const readSpectralOperation: Converter<SpectralEditOperation> = (reading, value, parent, key) => {
   const object = anyObjectOf(reading, value, parent, key);
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);
@@ -254,6 +250,23 @@ export const readSpectralOperation: Converter<SpectralEditOperation> = (
     }
   }
 };
+
+/**
+ * Reads the members of a spectral edit as an edit holds it, from the object
+ * whose kind and members its reader has checked.
+ */
+export function readSpectralEditMembers(
+  reading: Reading,
+  object: JsonObject,
+  at: string,
+): Omit<SpectralEdit, 'kind'> | undefined {
+  const mask = required(reading, object, at, 'mask', readSpectralMask);
+  const resolution = required(reading, object, at, 'resolution', asSpectralResolution);
+  const operation = required(reading, object, at, 'operation', readSpectralOperation);
+  return mask === undefined || resolution === undefined || operation === undefined
+    ? undefined
+    : { mask, resolution, operation };
+}
 
 /** Reads a spectral edit's operation as a plan holds it, carrying its chain whole. */
 export const readPlannedSpectralOperation: Converter<PlannedSpectralOperation> = (

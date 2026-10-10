@@ -76,9 +76,9 @@ export interface ImageBatch {
  * `values[row * width + column]`. Neither side may reach 2^24.
  *
  * `key` names the values. A backend may keep what it made of a field under its
- * key and draw the same key again without reading the values, so a caller
- * that changes the values must change the key: the same key always carries the
- * same width, height and values.
+ * key and draw the same key again without reading the values, so a caller that
+ * changes the values must change the key: the same key always carries the same
+ * width, height and values.
  */
 export interface ScalarField {
   readonly key: string;

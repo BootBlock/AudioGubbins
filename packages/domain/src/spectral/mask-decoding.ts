@@ -16,6 +16,7 @@ import {
   numberOf,
   oneOfValues,
   sampleCountOf,
+  type MessageFields,
 } from '../messages/message-fields.js';
 import { MAXIMUM_MASK_POINTS, MAXIMUM_MASK_SHAPES } from './mask-validation.js';
 import {
@@ -47,55 +48,59 @@ function strokePointOf(value: unknown, field: string): StrokePoint {
   };
 }
 
+function rectangleOf(read: MessageFields, field: string, effect: MaskEffect): SpectralShape {
+  const range = fieldsOf(read['range'], `${field}.range`);
+  const band = fieldsOf(read['band'], `${field}.band`);
+  return {
+    kind: 'rectangle',
+    effect,
+    range: {
+      start: sampleCountOf(range['start'], `${field}.range.start`),
+      end: sampleCountOf(range['end'], `${field}.range.end`),
+    },
+    band: {
+      low: numberOf(band['low'], `${field}.band.low`),
+      high: numberOf(band['high'], `${field}.band.high`),
+    },
+  };
+}
+
+function polygonOf(read: MessageFields, field: string, effect: MaskEffect): SpectralShape {
+  const points = boundedItemsOf(read['points'], `${field}.points`, MAXIMUM_MASK_POINTS, pointOf);
+  const [a, b, c, ...rest] = points;
+  if (a === undefined || b === undefined || c === undefined) {
+    throw new Malformed(`${field}.points`, 'three or more points');
+  }
+  return { kind: 'polygon', effect, points: [a, b, c, ...rest] };
+}
+
+function strokeOf(read: MessageFields, field: string, effect: MaskEffect): SpectralShape {
+  const points = boundedItemsOf(
+    read['points'],
+    `${field}.points`,
+    MAXIMUM_MASK_POINTS,
+    strokePointOf,
+  );
+  const [first, ...rest] = points;
+  if (first === undefined) throw new Malformed(`${field}.points`, 'one or more points');
+  return {
+    kind: 'stroke',
+    effect,
+    hardness: numberOf(read['hardness'], `${field}.hardness`),
+    points: [first, ...rest],
+  };
+}
+
 function shapeOf(value: unknown, field: string): SpectralShape {
   const read = fieldsOf(value, field);
   const effect = oneOfValues(read['effect'], `${field}.effect`, MaskEffect);
   switch (read['kind']) {
-    case 'rectangle': {
-      const range = fieldsOf(read['range'], `${field}.range`);
-      const band = fieldsOf(read['band'], `${field}.band`);
-      return {
-        kind: 'rectangle',
-        effect,
-        range: {
-          start: sampleCountOf(range['start'], `${field}.range.start`),
-          end: sampleCountOf(range['end'], `${field}.range.end`),
-        },
-        band: {
-          low: numberOf(band['low'], `${field}.band.low`),
-          high: numberOf(band['high'], `${field}.band.high`),
-        },
-      };
-    }
-    case 'polygon': {
-      const points = boundedItemsOf(
-        read['points'],
-        `${field}.points`,
-        MAXIMUM_MASK_POINTS,
-        pointOf,
-      );
-      const [a, b, c, ...rest] = points;
-      if (a === undefined || b === undefined || c === undefined) {
-        throw new Malformed(`${field}.points`, 'three or more points');
-      }
-      return { kind: 'polygon', effect, points: [a, b, c, ...rest] };
-    }
-    case 'stroke': {
-      const points = boundedItemsOf(
-        read['points'],
-        `${field}.points`,
-        MAXIMUM_MASK_POINTS,
-        strokePointOf,
-      );
-      const [first, ...rest] = points;
-      if (first === undefined) throw new Malformed(`${field}.points`, 'one or more points');
-      return {
-        kind: 'stroke',
-        effect,
-        hardness: numberOf(read['hardness'], `${field}.hardness`),
-        points: [first, ...rest],
-      };
-    }
+    case 'rectangle':
+      return rectangleOf(read, field, effect);
+    case 'polygon':
+      return polygonOf(read, field, effect);
+    case 'stroke':
+      return strokeOf(read, field, effect);
     default:
       throw new Malformed(`${field}.kind`, 'rectangle, polygon or stroke');
   }

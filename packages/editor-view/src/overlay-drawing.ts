@@ -102,20 +102,42 @@ function drawSelection(
         : style.palette.inactiveSelectionFill;
     wash(pool, style, lane, selection.time, fill, out);
   }
-  const area = selection.spectral;
-  if (area === undefined || lane.kind === 'waveform') return;
+  const mask = selection.spectral;
+  if (mask === undefined || lane.kind === 'waveform') return;
   const colour =
     active === SelectionFacet.Spectral ? style.palette.selectionBorder : style.palette.quietText;
-  const box = pool.segments(colour, 1.5);
-  const x0 = pixelOf(style.viewport, area.range.start);
-  const x1 = pixelOf(style.viewport, area.range.end);
-  const y0 = frequencyY(lane, area.band.high, overlay.spectral);
-  const y1 = frequencyY(lane, area.band.low, overlay.spectral);
-  box.add(x0, y0, x1, y0);
-  box.add(x1, y0, x1, y1);
-  box.add(x1, y1, x0, y1);
-  box.add(x0, y1, x0, y0);
-  out.push(box.batch());
+  const outline = pool.segments(colour, 1.5);
+  const x = (position: number): number => pixelOf(style.viewport, position);
+  const y = (frequency: number): number => frequencyY(lane, frequency, overlay.spectral);
+  // Each shape is outlined as it was drawn: a rectangle's edges, a lasso's
+  // closed path and a brush's path, so a shape taken from the mask is seen
+  // where it was taken.
+  for (const shape of mask.shapes) {
+    if (shape.kind === 'rectangle') {
+      const x0 = x(shape.range.start);
+      const x1 = x(shape.range.end);
+      const y0 = y(shape.band.high);
+      const y1 = y(shape.band.low);
+      outline.add(x0, y0, x1, y0);
+      outline.add(x1, y0, x1, y1);
+      outline.add(x1, y1, x0, y1);
+      outline.add(x0, y1, x0, y0);
+      continue;
+    }
+    const { points } = shape;
+    for (let index = 1; index < points.length; index += 1) {
+      const from = points[index - 1];
+      const to = points[index];
+      if (from === undefined || to === undefined) continue;
+      outline.add(x(from.position), y(from.frequency), x(to.position), y(to.frequency));
+    }
+    if (shape.kind === 'polygon') {
+      const [first] = points;
+      const last = points[points.length - 1] ?? first;
+      outline.add(x(last.position), y(last.frequency), x(first.position), y(first.frequency));
+    }
+  }
+  out.push(outline.batch());
 }
 
 function drawContent(

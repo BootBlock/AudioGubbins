@@ -5,14 +5,13 @@
  * stream's processing, each made once, on the first read that needs it, and
  * released with the source.
  *
- * A processed stream is read from its render where the reading has a cache
- * of renders and the stream is one it would otherwise run from its start, or
- * one a preview cannot run as it is heard (`cached-streams.ts`), and through
- * a run of its own otherwise (`processed-content.ts`); a stream a spectral
- * edit changes likewise (`spectral-content.ts`). The chains are kept
- * as they stand, so a numeric parameter changed while the sound plays
- * reaches the run of the stream it names, and every run made after it
- * (`running-parameters.ts`).
+ * A processed stream is read from its render where the reading has a cache of
+ * renders and the stream is one it would otherwise run from its start, or one a
+ * preview cannot run as it is heard (`cached-streams.ts`), and through a run of
+ * its own otherwise (`processed-content.ts`); a stream a spectral edit changes
+ * likewise (`spectral-content.ts`). The chains are kept as they stand, so a
+ * numeric parameter changed while the sound plays reaches the run of the stream
+ * it names, and every run made after it (`running-parameters.ts`).
  */
 
 import {

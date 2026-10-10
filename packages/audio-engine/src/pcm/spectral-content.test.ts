@@ -117,10 +117,16 @@ describe('a stream changed by a spectral edit', () => {
     const input = clean.map((sample, n) =>
       n >= 12_000 && n < 12_100 ? Math.fround(sample + (burst[n] ?? 0)) : sample,
     );
+    // A frame changes where the mask covers its centre, so the mask covers
+    // the centre of every frame that holds a sample of the burst, half a
+    // resolution either side of it, as the burst drawn on a spectrogram does.
+    const resolution = 1_024;
+    const half = resolution / 2;
     const edit = rectangleEdit(
       { kind: 'heal' },
-      { start: 11_950, end: 12_150 },
+      { start: 12_000 - half, end: 12_100 + half },
       { low: 0, high: NYQUIST },
+      { resolution },
     );
     const [made = new Float32Array()] = await readAllOf(spectralOver([input], edit).content, 4_096);
     const error = (signal: Float32Array): number => {
@@ -161,7 +167,7 @@ describe('a stream changed by a spectral edit', () => {
                 layout: StandardLayouts.mono,
                 sampleRate: SPECTRAL_RATE,
                 length: stream.length,
-                read: stream.read,
+                read: (start, frames, into, signal) => stream.read(start, frames, into, signal),
               },
               StandardLayouts.mono,
               {

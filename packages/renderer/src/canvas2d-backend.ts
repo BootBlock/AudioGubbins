@@ -1,9 +1,9 @@
 /**
  * The reduced backend: geometry drawn with Canvas 2D, for a browser or a device
  * that offers neither WebGPU nor WebGL2 (REQ-AUDIO-152). Slower on a dense
- * frame, and complete: it draws everything the GPU backends draw, a field by
- * an image composed on a canvas it is handed (`canvas-fields.ts`). A browser
- * that loses a 2D context says so with `contextlost` and gives it back with
+ * frame, and complete: it draws everything the GPU backends draw, a field by an
+ * image composed on a canvas it is handed (`canvas-fields.ts`). A browser that
+ * loses a 2D context says so with `contextlost` and gives it back with
  * `contextrestored`, after which the latest frame is drawn again.
  */
 

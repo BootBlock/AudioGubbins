@@ -36,6 +36,7 @@ import { readProjectDocument, writeProjectDocument } from './project-json.js';
 import { storageKeyOf } from './project-state.js';
 import { valueAt, withValue, type Step } from './testing/json-editing.js';
 import {
+  chainedSpectralEdit,
   contentIdOfDigit,
   deeplyRackedState,
   editedReferenceState,
@@ -144,6 +145,7 @@ describe('every edit-model value survives being written and read alone', () => {
         'matrix',
         'process',
         'processing chain',
+        'processing spectral',
         'processing stretch',
         'punch',
         'rack',
@@ -188,9 +190,10 @@ function assetOf(edits: readonly EditOperation[]): Asset {
 
 /**
  * An asset whose chain holds the deepest value an argument carries: a paste of
- * audio racked by the deepest chain the domain accepts, so the paste's plan
- * holds that chain, and already converted to stereo, so each of its segments
- * has a matrix stage too.
+ * audio racked by the deepest chain the domain accepts and processed by it
+ * through a spectral edit, so the paste's plan holds that chain inside the
+ * spectral edit, and already converted to stereo, so each of its segments has
+ * a matrix stage too.
  */
 function deepestAsset(): Asset {
   const conversion: EditOperation = {
@@ -208,8 +211,13 @@ function deepestAsset(): Asset {
     catalogue: TEST_CATALOGUE,
     engine: TEST_ENGINE,
   };
+  const spectral = chainedSpectralEdit(IDS, rack.id, 0, 1_000);
   const payload: EditPlan = expectSuccess(
-    slicePlan(expectSuccess(assetPlan({ ...base, rack: rack.id }, context)), 0, 1_000),
+    slicePlan(
+      expectSuccess(assetPlan({ ...base, rack: rack.id, edits: [conversion, spectral] }, context)),
+      0,
+      1_000,
+    ),
   );
   expect(payload.streams.some((stream) => stream.processing?.kind === 'chain')).toBe(true);
   const paste: EditOperation = {

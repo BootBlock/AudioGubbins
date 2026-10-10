@@ -6,17 +6,17 @@
  * the largest of its subtracting ones.
  *
  * - A rectangle or a polygon weighs 1 inside it, edges included. Outside it,
- *   where the mask has a feather, it weighs `1 − d`, `d` being the distance
- *   to it measured in feathers (a sample's distance over the feather's
- *   samples, a hertz's over its hertz), and nothing from `d = 1` on. A polygon
- *   is inside by the even-odd rule, counting the crossings of its edges above
- *   the point at its position, an edge crossing a position from its start
- *   inclusive to its end exclusive.
- * - A stroke weighs, at each step from one of its points to the next, the
- *   point of the step nearest the given one, measured in the mean of the two
- *   points' radii, with the strength and the radius interpolated there; it
- *   weighs that strength out to `hardness` of the radius and falls linearly
- *   to nothing at the radius.
+ *   where the mask has a feather, it weighs `1 − d`, `d` being the distance to
+ *   it measured in feathers (a sample's distance over the feather's samples, a
+ *   hertz's over its hertz), and nothing from `d = 1` on. A polygon is inside
+ *   by the even-odd rule, counting the crossings of its edges above the point
+ *   at its position, an edge crossing a position from its start inclusive to
+ *   its end exclusive.
+ * - A stroke weighs, at each step from one of its points to the next, the point
+ *   of the step nearest the given one, measured in the mean of the two points'
+ *   radii, with the strength and the radius interpolated there; it weighs that
+ *   strength out to `hardness` of the radius and falls linearly to nothing at
+ *   the radius.
  *
  * Only addition, subtraction, multiplication, division, the square root and
  * comparison are used, each correctly rounded (ADR-0032), so every machine

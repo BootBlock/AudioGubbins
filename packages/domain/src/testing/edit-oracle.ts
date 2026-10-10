@@ -12,9 +12,11 @@
  * is not the plan's to decide, so the oracle is given each as a function
  * (`OracleWorld`): the property tests check where the plan puts processing,
  * in what order and from what start, with any rule for the processing itself.
+ *
  * A spectral edit's change is the engine's too, given as `spectral`, with its
  * mask relative to the range and its channels; the oracle replaces the range
  * by what it makes of it (ADR-0081).
+ *
  * A punch is stated here whole (ADR-0072): the chosen take's recording, read
  * from the end of its pre-roll shifted by its compensation, converted where
  * its rate differs, and crossed into at each boundary by the stack's fades.

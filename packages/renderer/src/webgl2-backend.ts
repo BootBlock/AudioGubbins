@@ -6,8 +6,8 @@
  * across it. A frame's instances go up in one buffer and each batch is one
  * instanced draw with its colour, inside its layer's scissor, so a waveform of
  * thousands of columns is a handful of draws. A field batch is drawn in its
- * place among them by its own program (`webgl2-fields.ts`). Everything it
- * draws with is made again whole on a context given back after a loss
+ * place among them by its own program (`webgl2-fields.ts`). Everything it draws
+ * with is made again whole on a context given back after a loss
  * (`webgl2-context.ts`), the field textures it held lost with the context
  * (ADR-0044, ADR-0082).
  */

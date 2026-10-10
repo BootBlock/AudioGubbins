@@ -4,14 +4,14 @@
  * frames bordering each run of frames the mask covers in that bin.
  *
  * The frames are given in order, once each. A run is the frames one after
- * another whose weight in the bin is above nothing. The border before a run
- * is the mean magnitude of up to four frames just before it that the mask
- * leaves, one after another, and the border after it likewise; where a run
- * has both, frame `k` of the run from `s` to `e` takes
- * `before + t · (after − before)`, `t = (k − s + 1) / (e − s + 2)`, so the
- * heal joins its borders in a straight line; where it has one, it takes that
- * one; where it has none, its frames are left as they are. Each mean is summed
- * in the order of the frames, so every machine finds the same.
+ * another whose weight in the bin is above nothing. The border before a run is
+ * the mean magnitude of up to four frames just before it that the mask leaves,
+ * one after another, and the border after it likewise; where a run has both,
+ * frame `k` of the run from `s` to `e` takes `before + t · (after − before)`,
+ * `t = (k − s + 1) / (e − s + 2)`, so the heal joins its borders in a straight
+ * line; where it has one, it takes that one; where it has none, its frames are
+ * left as they are. Each mean is summed in the order of the frames, so every
+ * machine finds the same.
  */
 
 /** The most frames either border of a run is measured over. */

@@ -58,9 +58,6 @@ function strokePointProblem(point: StrokePoint, length: number): string | undefi
 }
 
 function shapeProblem(shape: SpectralShape, length: number): string | undefined {
-  if (shape.effect !== MaskEffect.Add && shape.effect !== MaskEffect.Subtract) {
-    return 'A shape of the selection neither adds nor takes away.';
-  }
   switch (shape.kind) {
     case 'rectangle':
       if (

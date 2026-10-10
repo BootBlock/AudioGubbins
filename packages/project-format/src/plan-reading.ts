@@ -44,6 +44,7 @@ import {
 } from './edit-value-reading.js';
 import { asBoolean, asId, integerConverter, oneOfConverter } from './scalar-reading.js';
 import {
+  WRITTEN_MASK_DEPTH,
   asSpectralResolution,
   readPlannedSpectralOperation,
   readSpectralMask,
@@ -58,12 +59,11 @@ import {
 /**
  * How many levels of arrays and objects a written plan takes, its own object
  * the first: its list of streams, a stream, the stream's processing, a
- * spectral edit and its operation hold a chain, the deepest thing a plan
- * holds. A stage's matrix row, the deepest thing besides, is at the ninth
- * level, and a spectral mask's radius at the eleventh, which a chain of no
- * group passes.
+ * spectral edit and its operation hold a chain, and the spectral edit holds a
+ * mask, the deepest things a plan holds. A stage's matrix row, the deepest
+ * thing besides, is at the ninth level.
  */
-export const WRITTEN_PLAN_DEPTH = 6 + WRITTEN_CHAIN_DEPTH;
+export const WRITTEN_PLAN_DEPTH = Math.max(6 + WRITTEN_CHAIN_DEPTH, 5 + WRITTEN_MASK_DEPTH);
 
 /**
  * Fewer code units than any stream, segment or stage is written in: the

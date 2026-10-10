@@ -896,10 +896,16 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     // The packages are also compiled without the DOM type definitions, so this
     // would be a type error first. The rule stays because the `lib` setting is
     // one line in a generated file, and this is a test that says why it
-    // matters. A member of that name, such as an analysis's `window`, is not
-    // the global.
-    const forbidden = /(?<![\w$.])(window|document|localStorage|sessionStorage|navigator)\s*\./;
-    expect(FRAMEWORK_FREE.filter((path) => forbidden.test(readCode(path)))).toEqual([]);
+    // matters.
+    //
+    // A member or a private field of that name, such as an analysis's `window`
+    // or a frame source's `#window`, is not the global, and nor is the word
+    // inside a string, such as a module specifier.
+    const forbidden = /(?<![\w$.#])(window|document|localStorage|sessionStorage|navigator)\s*\./;
+    const quoted = /'[^'\n]*'|"[^"\n]*"/g;
+    expect(
+      FRAMEWORK_FREE.filter((path) => forbidden.test(readCode(path).replace(quoted, "''"))),
+    ).toEqual([]);
   });
 
   it('renders nothing, so no component file exists in it', () => {
@@ -1258,9 +1264,11 @@ describe('every colour comes from the token system (REQ-UX-155)', () => {
    * bypassing semantic tokens", and this is the rule that looks for one: a
    * scrim, a shadow or a fallback palette written as a literal is that
    * shortcut. System colour keywords such as `Canvas` are not literals, because
-   * the user's platform chooses them.
+   * the user's platform chooses them. A hexadecimal colour has three, four, six
+   * or eight digits, so a private field such as `#added` is not one.
    */
-  const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\s*\(/;
+  const COLOUR_LITERAL =
+    /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\s*\(/;
 
   /** The modules that compute the palette, which are where colours are made. */
   const TOKEN_MODULES = 'packages/design-system/src/tokens/';
@@ -1277,6 +1285,7 @@ describe('every colour comes from the token system (REQ-UX-155)', () => {
     ['a token', 'color: var(--ag-chrome-text-primary);'],
     ['a system colour', 'background-color: ButtonFace;'],
     ['an identifier', 'const selectionColour = palette.selection.fill;'],
+    ['a private field', 'this.#added = new Float64Array(count);'],
   ])('does not mistake %s for a colour literal', (_form, code) => {
     expect(COLOUR_LITERAL.test(code)).toBe(false);
   });
@@ -2892,6 +2901,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       328,
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
+    'packages/audio-engine/src/pcm/plan-readers.ts': [
+      353,
+      "The one owner of the readers an edited source makes of its plan: each stream's content and output, a file, silence, a conversion of rate, a mix, a chain's run, a stretch and a spectral edit's stream, each made once on the first read that needs it and released with the source. Every reader is a module of its own (`processed-content.ts`, `spectral-content.ts`, `mixed-content.ts`, `stretched-content.ts` and the rest), so what is left is the cache of each kind and the method that makes one; split by kind, a stream that reads another stream processed would need both halves' caches to find it.",
+    ],
+    'packages/domain/src/editing/plan-building.ts': [
+      300,
+      "The fold of an asset's chain into a plan, operation by operation: a cut, a reversal, a level or channel stage, a conversion, an insertion, and the processing of a range by a rack, a punch or a spectral edit. Where a kind's work is more than a few lines it is a module of its own (`processed-streams.ts`, `punch-fold.ts`, `operation-validation.ts`), so what is left is the one switch that applies each operation to the folding and the reading of the chain a range is processed through; split, each half would need the folding the other leaves.",
+    ],
     'packages/domain/src/index.ts': [
       376,
       "The domain package's public contract and nothing else: one export a line, as Prettier writes a list of named exports, grouped by the module each comes from, with no logic of its own. Its size is the size of the domain's contract, which the contract record checks name by name. Split, the package would have two entry points to one contract, and every importer would have to know which half a name is in.",
@@ -3259,6 +3276,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/audio-engine/src/dsp/reference/logarithm.ts: lnParts': [
       61,
       'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
+    ],
+    'packages/project-format/src/edit-reading.ts: readRangeEdit': [
+      50,
+      'An exhaustive switch over the range-edit kinds, each arm the members its kind reads and checks; a spectral edit, the one kind of more than one value of its own, is read by `readSpectralEditMembers`. Split by kind, the switch would be read in ten places to see which members a kind takes.',
     ],
     'packages/model-packs/src/install-state.ts: nextInstallState': [
       75,

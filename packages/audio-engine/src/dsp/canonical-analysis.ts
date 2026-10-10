@@ -13,11 +13,11 @@
 import type { ChannelLayout, SampleRate } from '@audiogubbins/domain';
 
 /**
- * The window a short-time Fourier transform weights each frame by
- * (`StftWindow` in `stft.rs`, ADR-0080): the periodic Hann,
- * `0.5 − 0.5 · cos(2πn/N)`, or the periodic four-term Blackman–Harris,
- * `0.35875 − 0.48829 · cos(2πn/N) + 0.14128 · cos(4πn/N) − 0.01168 · cos(6πn/N)`,
- * whose side lobes lie 92 dB down.
+ * The window a short-time Fourier transform weights each frame by (`StftWindow`
+ * in `stft.rs`, ADR-0080): the periodic Hann, `0.5 − 0.5 · cos(2πn/N)`, or the
+ * periodic four-term Blackman–Harris,
+ * `a₀ − a₁ · cos(2πn/N) + a₂ · cos(4πn/N) − a₃ · cos(6πn/N)`, its `a` 0.35875,
+ * 0.48829, 0.14128 and 0.01168, whose side lobes lie 92 dB down.
  */
 export const StftWindow = {
   Hann: 'hann',

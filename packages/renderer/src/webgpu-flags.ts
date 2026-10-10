@@ -8,9 +8,9 @@
 /**
  * The buffer usage flags the backend asks for, by the values the WebGPU
  * specification fixes. The browser's `GPUBufferUsage`, `GPUTextureUsage` and
- * `GPUShaderStage` namespaces are globals, which the renderer does not read (ADR-0044): it draws
- * with the GPU object it is handed, and a device handed in from anywhere else
- * takes the same numbers.
+ * `GPUShaderStage` namespaces are globals, which the renderer does not read
+ * (ADR-0044): it draws with the GPU object it is handed, and a device handed in
+ * from anywhere else takes the same numbers.
  */
 export const BufferUsage = { CopyDst: 0x08, Vertex: 0x20, Uniform: 0x40, Storage: 0x80 } as const;
 

@@ -3,15 +3,14 @@
  * plus the overlap-added change of each frame the edit's mask reaches
  * (`spectral/spectral-frames.ts`, `spectral/spectral-change.ts`).
  *
- * The output is made a chunk at a time. For a chunk from `p`, every frame
- * that begins before the chunk's end is added, in order, into running sums
- * that reach a frame past it, so a sample is given only once every frame
- * that holds it has been added; each sample is its input plus its sum, and a
- * sample no changed frame reaches is its input, bit for bit. Frames are
- * placed from the stream's start, never from where a read began, and each
- * sample's sum is added frame by frame in the frames' order, so the output is
- * the same however it is read: from the start, part way, or in chunks of any
- * size.
+ * The output is made a chunk at a time. For a chunk from `p`, every frame that
+ * begins before the chunk's end is added, in order, into running sums that
+ * reach a frame past it, so a sample is given only once every frame that holds
+ * it has been added; each sample is its input plus its sum, and a sample no
+ * changed frame reaches is its input, bit for bit. Frames are placed from the
+ * stream's start, never from where a read began, and each sample's sum is added
+ * frame by frame in the frames' order, so the output is the same however it is
+ * read: from the start, part way, or in chunks of any size.
  *
  * Reads are made one at a time, in order, as every reader of a plan makes
  * them: a read behind the last starts again where it asks. The stream's
@@ -260,24 +259,19 @@ export class SpectralContent implements ContentReader {
     const borders = new HealBorders(geometry.bins, this.channels);
     const first = Math.max(geometry.firstFrame, change.first - BORDER_FRAMES);
     const last = Math.min(geometry.lastFrame, change.last + BORDER_FRAMES);
-    const window = this.#dry;
+    const dry = this.#dry;
     for (let k = first; k <= last; k += 1) {
       throwIfCancelled(signal);
       const frameStart = geometry.first(k);
-      await window.hold(frameStart, frameStart + geometry.size, signal);
+      await dry.hold(frameStart, frameStart + geometry.size, signal);
       const weights = change.weights(k);
       for (let channel = 0; channel < this.channels; channel += 1) {
         const x = this.#spectra[channel];
         if (x === undefined) continue;
-        this.#transform.analyse(
-          window.samples(channel),
-          frameStart - window.start,
-          x.real,
-          x.imaginary,
-        );
+        this.#transform.analyse(dry.samples(channel), frameStart - dry.start, x.real, x.imaginary);
       }
       borders.take(k, weights, this.#spectra);
-      window.release(frameStart + geometry.hop);
+      dry.release(frameStart + geometry.hop);
     }
     borders.finish();
     return borders;
