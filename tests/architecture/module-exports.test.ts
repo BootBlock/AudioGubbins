@@ -359,10 +359,8 @@ const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/shell/settings/trusted-folders.tsx: TrustedFoldersSection'],
   'The identities of the import and export commands, and the words the person finds them and their surfaces by, which the commands, the menus, the import list, the Export dialog, the collision prompt and the browser suite name alike.':
     [
-      'apps/web/src/commands/import-export-ids.ts: ImportCommand',
       'apps/web/src/import-export-words.ts: EXPORT_BUTTON',
       'apps/web/src/import-export-words.ts: EXPORT_DIALOG_WORDS',
-      'apps/web/src/import-export-words.ts: IMPORT_EXPORT_MENU',
       'apps/web/src/import-export-words.ts: IMPORT_LIST_LABEL',
     ],
 };
