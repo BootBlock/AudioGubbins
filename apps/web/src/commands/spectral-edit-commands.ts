@@ -18,6 +18,7 @@
  * refused with the reason and nothing changes.
  */
 
+import { decibelsToGain } from '@audiogubbins/audio-engine';
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
   DEFAULT_SPECTRAL_RESOLUTION,
@@ -161,9 +162,10 @@ function applied(
  * it (ADR-0081), or why it makes none an attenuation may apply.
  */
 function reductionOf(decibels: number): number | string {
-  // Converted once, where the decibels are typed: the factor is what is kept,
-  // so the edit gives the same bits on every machine.
-  const factor = 10 ** (decibels / 20);
+  // Converted once, where the decibels are typed, by the engine's canonical
+  // conversion: the factor is what is kept, so the edit gives the same bits on
+  // every machine.
+  const factor = decibelsToGain(decibels);
   return isSpectralReduction(factor)
     ? factor
     : 'A spectral reduction lowers the level: give a number of decibels below nothing.';

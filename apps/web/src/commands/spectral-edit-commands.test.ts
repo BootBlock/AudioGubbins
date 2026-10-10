@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { decibelsToGain } from '@audiogubbins/audio-engine';
 import {
   DEFAULT_SPECTRAL_RESOLUTION,
   MaskEffect,
@@ -80,11 +81,14 @@ function placed(mask: SpectralMask, length: number) {
 
 describe('a spectral edit of the selection', () => {
   it.each([
-    ['spectral.attenuate', {}, { kind: 'attenuate', gain: 10 ** (-12 / 20) }],
-    ['spectral.attenuate', { decibels: -6 }, { kind: 'attenuate', gain: 10 ** (-6 / 20) }],
+    ['spectral.attenuate', {}, { kind: 'attenuate', gain: decibelsToGain(-12) }],
+    ['spectral.attenuate', { decibels: -6 }, { kind: 'attenuate', gain: decibelsToGain(-6) }],
+    // The platform's power of ten gives another last bit at −96 dB: the factor
+    // kept is the engine's canonical conversion, the same on every machine.
+    ['spectral.attenuate', { decibels: -96 }, { kind: 'attenuate', gain: decibelsToGain(-96) }],
     ['spectral.remove', {}, { kind: 'attenuate', gain: 0 }],
     ['spectral.isolate', {}, { kind: 'isolate', gain: 0 }],
-    ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: 10 ** (-20 / 20) }],
+    ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: decibelsToGain(-20) }],
     ['spectral.heal', {}, { kind: 'heal' }],
   ] as const)(
     '%s %o is one change over the area widened by half a frame',
