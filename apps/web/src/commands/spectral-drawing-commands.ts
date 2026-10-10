@@ -17,7 +17,14 @@
  * neither the drawing nor a selection is project content (REQ-EDIT-073).
  */
 
-import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
+import {
+  AVAILABLE,
+  CommandCategory,
+  unavailable,
+  unchanged,
+  type Command,
+  type CommandAvailability,
+} from '@audiogubbins/commands';
 import { channelCount } from '@audiogubbins/domain';
 import {
   CursorStep,
@@ -26,6 +33,7 @@ import {
   cursorStepped,
   drawingLaneOf,
   drawingShape,
+  isSpectralTool,
   layoutView,
   newDrawing,
   pointPlaced,
@@ -40,7 +48,13 @@ import { formatPosition, selectionsEqual } from '@audiogubbins/timeline';
 import { channelNames } from '../assets/channel-names.js';
 import { drawingContextOf } from '../editor/drawing-context.js';
 import { frequencyWords } from '../wording.js';
-import { editorTarget, needsEditor, playheadOf, type EditorTarget } from './editor-target.js';
+import {
+  editorTarget,
+  focusedEditor,
+  needsEditor,
+  playheadOf,
+  type EditorTarget,
+} from './editor-target.js';
 import { shellCommand } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 import { joinedSelection } from './spectral-selection-commands.js';
@@ -108,7 +122,13 @@ function drawingCommand(
     drawn: DrawingContext,
     context: ShellContext,
   ) => KeyboardDrawing | string,
-  options: { readonly keywords: readonly string[]; readonly description?: string },
+  options: {
+    readonly keywords: readonly string[];
+    readonly description?: string;
+    /** When the command can run, where it is more than wherever an editor shows an asset. */
+    readonly availability?: (context: ShellContext) => CommandAvailability;
+    readonly takesItsKeyOnlyWhenAvailable?: boolean;
+  },
 ): Command<ShellContext> {
   return shellCommand(
     id,
@@ -131,9 +151,12 @@ function drawingCommand(
       return undefined;
     },
     {
-      availability: needsEditor,
+      availability: options.availability ?? needsEditor,
       keywords: ['spectral', 'cursor', 'keyboard', 'draw', ...options.keywords],
       ...(options.description === undefined ? {} : { description: options.description }),
+      ...(options.takesItsKeyOnlyWhenAvailable === undefined
+        ? {}
+        : { takesItsKeyOnlyWhenAvailable: options.takesItsKeyOnlyWhenAvailable }),
     },
   );
 }
@@ -190,6 +213,34 @@ function nextChannelCommand(): Command<ShellContext> {
   );
 }
 
+/**
+ * Available where the editor in use draws with a spectral tool: Enter, which
+ * places a point, is a button's everywhere else.
+ */
+function drawsSpectrally(context: ShellContext): CommandAvailability {
+  const target = focusedEditor(context);
+  if (typeof target === 'string') return unavailable(target);
+  return isSpectralTool(target.state.tool)
+    ? AVAILABLE
+    : unavailable('Choose the spectral marquee, lasso or brush to draw with first.');
+}
+
+/**
+ * Available while the editor in use has placed a point of a shape, with
+ * `reason` otherwise: Escape and Shift+Enter, which let the points go and
+ * finish the shape, back out and press elsewhere.
+ */
+function drawingAShape(reason: string): (context: ShellContext) => CommandAvailability {
+  return (context) => {
+    const target = focusedEditor(context);
+    if (typeof target === 'string') return unavailable(target);
+    return (target.entry.drawing?.placed.length ?? 0) > 0 ? AVAILABLE : unavailable(reason);
+  };
+}
+
+const NO_POINT = 'No point of a spectral shape is placed.';
+const PLACE_FIRST = 'Place a point of the shape first.';
+
 function placeCommand(): Command<ShellContext> {
   return drawingCommand(
     'editor.place-spectral-point',
@@ -202,6 +253,8 @@ function placeCommand(): Command<ShellContext> {
     },
     {
       keywords: ['point', 'place', 'corner', 'stamp', 'dab', 'lasso', 'brush', 'marquee'],
+      availability: drawsSpectrally,
+      takesItsKeyOnlyWhenAvailable: true,
       description:
         'Places a point where the cursor is: the marquee’s corner, a corner of the lasso’s shape, or a dab of the brush.',
     },
@@ -212,11 +265,12 @@ function cancelCommand(): Command<ShellContext> {
   return drawingCommand(
     'editor.cancel-spectral-shape',
     'Let go of the spectral shape being drawn',
-    (drawing) =>
-      drawing.placed.length === 0
-        ? 'No point of a spectral shape is placed.'
-        : { ...drawing, placed: [] },
-    { keywords: ['cancel', 'shape', 'points', 'clear'] },
+    (drawing) => (drawing.placed.length === 0 ? NO_POINT : { ...drawing, placed: [] }),
+    {
+      keywords: ['cancel', 'shape', 'points', 'clear'],
+      availability: drawingAShape(NO_POINT),
+      takesItsKeyOnlyWhenAvailable: true,
+    },
   );
 }
 
@@ -233,9 +287,7 @@ function finishCommand(): Command<ShellContext> {
       const target = editorTarget(context, invocation);
       if (typeof target === 'string') return target;
       const drawing = target.entry.drawing;
-      if (drawing === undefined || drawing.placed.length === 0) {
-        return 'Place a point of the shape first.';
-      }
+      if (drawing === undefined || drawing.placed.length === 0) return PLACE_FIRST;
       const drawn = contextOf(drawing, target, context);
       if (typeof drawn === 'string') return drawn;
       const shape = drawingShape(drawing, drawn);
@@ -254,7 +306,8 @@ function finishCommand(): Command<ShellContext> {
       return undefined;
     },
     {
-      availability: needsEditor,
+      availability: drawingAShape(PLACE_FIRST),
+      takesItsKeyOnlyWhenAvailable: true,
       keywords: ['spectral', 'finish', 'close', 'shape', 'lasso', 'brush', 'marquee', 'keyboard'],
       description:
         'Joins the shape the points make, let go at the cursor, to the spectral selection, as the combination mode says.',

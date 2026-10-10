@@ -1694,6 +1694,7 @@ Published paths
   readonly Command.description?: string
   readonly Command.discoverable?: boolean
   readonly Command.changesAppearance?: boolean
+  readonly Command.takesItsKeyOnlyWhenAvailable?: boolean
   readonly Command.undoable: boolean
   Command.availability: (context: TContext) => CommandAvailability
   Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>
@@ -4249,6 +4250,7 @@ Published paths
   readonly ProjectCommand.description?: string
   readonly ProjectCommand.discoverable?: boolean
   readonly ProjectCommand.changesAppearance?: boolean
+  readonly ProjectCommand.takesItsKeyOnlyWhenAvailable?: boolean
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
