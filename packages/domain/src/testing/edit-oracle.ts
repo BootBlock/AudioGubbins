@@ -12,6 +12,9 @@
  * is not the plan's to decide, so the oracle is given each as a function
  * (`OracleWorld`): the property tests check where the plan puts processing,
  * in what order and from what start, with any rule for the processing itself.
+ * A spectral edit's change is the engine's too, given as `spectral`, with its
+ * mask relative to the range and its channels; the oracle replaces the range
+ * by what it makes of it (ADR-0081).
  * A punch is stated here whole (ADR-0072): the chosen take's recording, read
  * from the end of its pre-roll shifted by its compensation, converted where
  * its rate differs, and crossed into at each boundary by the stack's fades.
@@ -21,6 +24,7 @@ import type { FadeShape } from '../editing/fades.js';
 import type { EditOperation, LevelEdit } from '../editing/operations.js';
 import type { AssetId, EffectChainId, TakeStackId } from '../identity/branded-id.js';
 import type { TakeStack } from '../project/take-stack.js';
+import type { SpectralEdit } from '../spectral/spectral-edit.js';
 import { convertedFrameCount } from '../editing/plan.js';
 
 /** Audio as one array per channel. */
@@ -32,6 +36,16 @@ export interface OracleWorld {
   readonly inserted?: Samples;
   /** What a chain makes of audio, the same length. */
   readonly chain?: (chain: EffectChainId, samples: Samples) => Samples;
+  /**
+   * What a spectral edit makes of the range it processes, every channel
+   * given, the same length; `channels` are those it acts on, every one where
+   * absent.
+   */
+  readonly spectral?: (
+    edit: Omit<SpectralEdit, 'kind'>,
+    channels: readonly number[] | undefined,
+    samples: Samples,
+  ) => Samples;
   /** What a stretch makes of audio, `length` frames long. */
   readonly stretch?: (samples: Samples, length: number) => Samples;
   /** What a conversion makes of audio at `from`, at `to`. */
@@ -236,6 +250,10 @@ function processed(
     case 'rack': {
       const chain = given(world.chain, 'a chain');
       return replaced(samples, start, end, (range) => chain(edit.chain, range));
+    }
+    case 'spectral': {
+      const spectral = given(world.spectral, 'a spectral edit');
+      return replaced(samples, start, end, (range) => spectral(edit, operation.channels, range));
     }
     case 'swap-channels':
     case 'copy-channel':

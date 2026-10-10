@@ -15,6 +15,12 @@ import type { Asset } from '../project/asset.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import { MAXIMUM_EDIT_GAIN } from './operations.js';
 import { validateChainShape } from '../processing/chain-validation.js';
+import { maskProblem } from '../spectral/mask-validation.js';
+import {
+  isSpectralReduction,
+  isSpectralResolution,
+  type PlannedSpectralEdit,
+} from '../spectral/spectral-edit.js';
 import {
   convertedFrameCount,
   segmentsLayout,
@@ -211,6 +217,33 @@ function segmentProblem(
     : 'A segment does not end with its stream’s channels.';
 }
 
+/** Why a spectral edit does not hold over `stream`, or `undefined` where it does (ADR-0081). */
+function spectralProblem(edit: PlannedSpectralEdit, stream: PlanStream): string | undefined {
+  if (!isSpectralResolution(edit.resolution)) return 'A spectral edit’s resolution is unknown.';
+  if (edit.channels !== undefined && !isChannelScope(edit.channels, channelCount(stream.layout))) {
+    return 'A spectral edit names channels its stream does not have.';
+  }
+  const mask = maskProblem(edit.mask, segmentsLength(stream));
+  if (mask !== undefined) return mask;
+  const { operation } = edit;
+  switch (operation.kind) {
+    case 'attenuate':
+    case 'isolate':
+      return isSpectralReduction(operation.gain)
+        ? undefined
+        : 'A spectral reduction lies outside what one may be.';
+    case 'heal':
+      return undefined;
+    case 'process':
+      if (!layoutsMatch(operation.input, stream.layout)) {
+        return 'A spectral edit’s chain does not read its stream’s channels.';
+      }
+      return validateChainShape(operation.chain).ok
+        ? undefined
+        : 'A spectral edit’s chain is malformed.';
+  }
+}
+
 /** Why a stream's processing does not hold, or `undefined` where it does. */
 function processingProblem(stream: PlanStream, place: number): string | undefined {
   const { processing } = stream;
@@ -222,6 +255,7 @@ function processingProblem(stream: PlanStream, place: number): string | undefine
   if (processing.kind === 'chain') {
     return validateChainShape(processing.chain).ok ? undefined : 'A stream’s chain is malformed.';
   }
+  if (processing.kind === 'spectral') return spectralProblem(processing.edit, stream);
   const before = segmentsLength(stream);
   return isFrame(processing.length) &&
     processing.length > 0 &&

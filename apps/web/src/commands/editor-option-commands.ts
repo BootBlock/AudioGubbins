@@ -20,6 +20,7 @@ import {
   type TimeFormat,
 } from '@audiogubbins/timeline';
 
+import { frequencyWords } from '../wording.js';
 import { presentationCommand } from './editor-presentation-commands.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -168,10 +169,6 @@ const LOWEST_LOGARITHMIC = 20;
 /** The top of hearing, where the audible band ends. */
 const HIGHEST_AUDIBLE = 20_000;
 
-function hertz(value: number): string {
-  return value >= 1000 ? `${String(value / 1000)} kHz` : `${String(value)} Hz`;
-}
-
 /** `settings` with its band, and its lowest frequency kept above nothing on a logarithmic scale. */
 function withBand(settings: SpectralSettings, lowest: number, highest: number): SpectralSettings {
   const floor = settings.frequencyScale === 'logarithmic' ? LOWEST_LOGARITHMIC : 0;
@@ -195,7 +192,7 @@ function spectralCommands(): readonly Command<ShellContext>[] {
   const changed = (state: EditorViewState, spectral: SpectralSettings): EditorViewState =>
     sameSpectral(spectral, state.spectral) ? state : { ...state, spectral };
   const said = (state: EditorViewState): string =>
-    `The spectrogram shows ${hertz(state.spectral.lowest)} to ${hertz(state.spectral.highest)}, ${state.spectral.frequencyScale}.`;
+    `The spectrogram shows ${frequencyWords(state.spectral.lowest)} to ${frequencyWords(state.spectral.highest)}, ${state.spectral.frequencyScale}.`;
   return [
     ...(['linear', 'logarithmic'] as const).map((scale) =>
       presentationCommand(

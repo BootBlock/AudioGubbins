@@ -26,7 +26,7 @@ import type {
 } from '../identity/branded-id.js';
 import type { SampleRate } from '../time/sample-time.js';
 import type { ChannelLayout } from '../audio/channel-layout.js';
-import type { EditRange, RangeEdit } from '../editing/operations.js';
+import { editChain, type EditRange, type RangeEdit } from '../editing/operations.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from './asset.js';
 import type { Clip, Marker, Region } from './timeline.js';
@@ -209,9 +209,13 @@ export interface TargetChains {
   readonly ranges: readonly RangeRack[];
 }
 
-/** The rack edit `edit` makes as operation `operation` over `range`, where it is one. */
+/**
+ * The chain `edit` names as operation `operation` over `range`, where it
+ * names one: a rack edit's, or a spectral edit's (`editChain`).
+ */
 function rangeRack(operation: EditOperationId, range: EditRange, edit: RangeEdit): RangeRack[] {
-  return edit.kind === 'rack' ? [{ operation, range, chain: edit.chain }] : [];
+  const chain = editChain(edit);
+  return chain === undefined ? [] : [{ operation, range, chain }];
 }
 
 /**

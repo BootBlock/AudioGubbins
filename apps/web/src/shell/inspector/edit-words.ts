@@ -20,11 +20,13 @@ import {
   type LevelEdit,
   type RangeEdit,
   type RegionOperation,
+  type SpectralEdit,
+  maskOutline,
 } from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
-import { sampleRateWords } from '../../wording.js';
+import { frequencyWords, sampleRateWords } from '../../wording.js';
 
 /** What each fade shape is called, in the order a person is offered them. */
 export const FADE_SHAPE_NAMES: ReadonlyMap<FadeShape, string> = new Map([
@@ -83,6 +85,27 @@ function levelWords(edit: LevelEdit): string {
   }
 }
 
+/** A spectral edit, as "Attenuated an area by −12 dB, 100 Hz to 2 kHz". */
+function spectralWords(edit: SpectralEdit, words: EditWording): string {
+  const { low, high } = maskOutline(edit.mask);
+  const band = `${frequencyWords(low)} to ${frequencyWords(high)}`;
+  const { operation } = edit;
+  switch (operation.kind) {
+    case 'attenuate':
+      return operation.gain === 0
+        ? `Removed an area, ${band}`
+        : `Attenuated an area by ${decibelsOf(operation.gain)}, ${band}`;
+    case 'isolate':
+      return operation.gain === 0
+        ? `Isolated an area, ${band}`
+        : `Isolated an area, the rest by ${decibelsOf(operation.gain)}, ${band}`;
+    case 'heal':
+      return `Healed an area, ${band}`;
+    case 'process':
+      return `Cleaned up an area through ${words.chain(operation.chain)}, ${band}`;
+  }
+}
+
 /** A change within a range, on the channels it names, called by `names`, its chain by `words`. */
 function rangeEditWords(
   edit: RangeEdit,
@@ -102,6 +125,8 @@ function rangeEditWords(
       return `Processed through ${words.chain(edit.chain)}`;
     case 'punch':
       return 'Punched in from the chosen take of a take stack';
+    case 'spectral':
+      return `${spectralWords(edit, words)}${scopeWords(channels, names)}`;
     default:
       return `${levelWords(edit)}${scopeWords(channels, names)}`;
   }

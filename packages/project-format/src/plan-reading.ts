@@ -19,6 +19,7 @@ import {
   type PlanSource,
   type PlanStage,
   type PlanStream,
+  type PlannedSpectralEdit,
   type StreamProcessing,
 } from '@audiogubbins/domain';
 
@@ -43,6 +44,11 @@ import {
 } from './edit-value-reading.js';
 import { asBoolean, asId, integerConverter, oneOfConverter } from './scalar-reading.js';
 import {
+  asSpectralResolution,
+  readPlannedSpectralOperation,
+  readSpectralMask,
+} from './spectral-reading.js';
+import {
   LONGEST_PROJECT_DOCUMENT,
   asChannelLayout,
   asSampleCount,
@@ -51,11 +57,13 @@ import {
 
 /**
  * How many levels of arrays and objects a written plan takes, its own object
- * the first: its list of streams, a stream and the stream's processing hold a
- * chain, the deepest thing a plan holds. A stage's matrix row, the deepest
- * thing besides, is at the ninth level, which a chain of no group passes.
+ * the first: its list of streams, a stream, the stream's processing, a
+ * spectral edit and its operation hold a chain, the deepest thing a plan
+ * holds. A stage's matrix row, the deepest thing besides, is at the ninth
+ * level, and a spectral mask's radius at the eleventh, which a chain of no
+ * group passes.
  */
-export const WRITTEN_PLAN_DEPTH = 4 + WRITTEN_CHAIN_DEPTH;
+export const WRITTEN_PLAN_DEPTH = 6 + WRITTEN_CHAIN_DEPTH;
 
 /**
  * Fewer code units than any stream, segment or stage is written in: the
@@ -82,6 +90,13 @@ const STREAM_MEMBERS: ReadonlySet<string> = new Set([
 ]);
 const CHAIN_PROCESSING_MEMBERS: ReadonlySet<string> = new Set(['kind', 'chain', 'input']);
 const STRETCH_PROCESSING_MEMBERS: ReadonlySet<string> = new Set(['kind', 'length']);
+const SPECTRAL_PROCESSING_MEMBERS: ReadonlySet<string> = new Set(['kind', 'edit']);
+const SPECTRAL_EDIT_MEMBERS: ReadonlySet<string> = new Set([
+  'mask',
+  'resolution',
+  'operation',
+  'channels',
+]);
 const SEGMENT_MEMBERS: ReadonlySet<string> = new Set([
   'source',
   'start',
@@ -109,7 +124,7 @@ const FADE_MEMBERS: ReadonlySet<string> = new Set([
 const asSourceKind = oneOfConverter(['media', 'stream', 'silence', 'mix'] as const);
 const asStageKind = oneOfConverter(['gain', 'matrix'] as const);
 const asCurveKind = oneOfConverter(['constant', 'fade'] as const);
-const asProcessingKind = oneOfConverter(['chain', 'stretch'] as const);
+const asProcessingKind = oneOfConverter(['chain', 'stretch', 'spectral'] as const);
 
 /** A stream of the plan a segment reads, by its place among the streams. */
 const asStreamPlace = integerConverter(0, MAXIMUM_PLAN_ITEMS - 1);
@@ -277,7 +292,26 @@ const readProcessing: Converter<StreamProcessing> = (reading, value, parent, key
     const input = required(reading, object, at, 'input', asChannelLayout);
     return chain === undefined || input === undefined ? undefined : { kind, chain, input };
   }
+  if (kind === 'spectral') {
+    checkMembers(reading, object, at, SPECTRAL_PROCESSING_MEMBERS);
+    const edit = required(reading, object, at, 'edit', readPlannedSpectralEdit);
+    return edit === undefined ? undefined : { kind, edit };
+  }
   return undefined;
+};
+
+/** Reads a spectral edit as a stream's processing carries it (ADR-0081). */
+const readPlannedSpectralEdit: Converter<PlannedSpectralEdit> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, SPECTRAL_EDIT_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const mask = required(reading, object, at, 'mask', readSpectralMask);
+  const resolution = required(reading, object, at, 'resolution', asSpectralResolution);
+  const operation = required(reading, object, at, 'operation', readPlannedSpectralOperation);
+  const channels = optional(reading, object, at, 'channels', asChannelScope);
+  return mask === undefined || resolution === undefined || operation === undefined
+    ? undefined
+    : { mask, resolution, operation, ...(channels === undefined ? {} : { channels }) };
 };
 
 const readStream: Converter<PlanStream> = (reading, value, parent, key) => {

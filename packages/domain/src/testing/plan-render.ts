@@ -74,6 +74,19 @@ function renderStream(
   if (processing.kind === 'stretch') {
     return (world.stretch ?? missing('a stretch'))(out, processing.length);
   }
+  if (processing.kind === 'spectral') {
+    const { mask, resolution, operation, channels } = processing.edit;
+    return (world.spectral ?? missing('a spectral edit'))(
+      {
+        mask,
+        resolution,
+        operation:
+          operation.kind === 'process' ? { kind: 'process', chain: operation.chain.id } : operation,
+      },
+      channels,
+      out,
+    );
+  }
   return (world.chain ?? missing('a chain'))(processing.chain.id, out);
 }
 

@@ -22,6 +22,7 @@ import type {
   RegionId,
   TakeStackId,
 } from '../identity/branded-id.js';
+import type { SpectralEdit } from '../spectral/spectral-edit.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import type { FadeDirection, FadeShape } from './fades.js';
 import type { EditPlan } from './plan.js';
@@ -97,9 +98,10 @@ export interface PunchEdit {
 /**
  * A change over a range that moves nothing in time: a level change on the
  * channels an operation names, a change between channels, a chain of
- * processors, or a punch.
+ * processors, a punch, or a change to an area of time and frequency
+ * (`SpectralEdit`, ADR-0081) on the channels an operation names.
  */
-export type RangeEdit = LevelEdit | ChannelEdit | RackEdit | PunchEdit;
+export type RangeEdit = LevelEdit | ChannelEdit | RackEdit | PunchEdit | SpectralEdit;
 
 /** One operation in an asset's chain. */
 export type EditOperation =
@@ -125,9 +127,9 @@ export type EditOperation =
   /** Plays the range backwards. */
   | { readonly id: EditOperationId; readonly kind: 'reverse'; readonly range: EditRange }
   /**
-   * Changes the range in place. A level edit acts on `channels`, or on every
-   * channel where they are absent; a channel edit names its own channels and
-   * takes no scope.
+   * Changes the range in place. A level edit and a spectral edit act on
+   * `channels`, or on every channel where they are absent; a channel edit
+   * names its own channels and takes no scope.
    */
   | {
       readonly id: EditOperationId;
@@ -193,7 +195,7 @@ export type ChannelEditOperation =
   | Extract<EditOperation, { readonly kind: 'convert-layout' }>
   | (Extract<EditOperation, { readonly kind: 'process' }> & { readonly edit: ChannelEdit });
 
-/** Whether an edit changes level, so it takes a channel scope. */
+/** Whether an edit changes level. */
 export function isLevelEdit(edit: RangeEdit): edit is LevelEdit {
   return (
     edit.kind === 'gain' ||
@@ -201,6 +203,32 @@ export function isLevelEdit(edit: RangeEdit): edit is LevelEdit {
     edit.kind === 'silence' ||
     edit.kind === 'invert'
   );
+}
+
+/**
+ * The chain an edit names: a rack edit's, or a spectral edit's that takes a
+ * chain's output (ADR-0060, ADR-0081). The one account of which edits name a
+ * chain, so a chain enters and leaves the project with whichever edit names
+ * it.
+ */
+export function editChain(edit: RangeEdit): EffectChainId | undefined {
+  if (edit.kind === 'rack') return edit.chain;
+  if (edit.kind === 'spectral' && edit.operation.kind === 'process') return edit.operation.chain;
+  return undefined;
+}
+
+/** `edit` naming `chain` in place of the chain it names; an edit that names none, unchanged. */
+export function withEditChain(edit: RangeEdit, chain: EffectChainId): RangeEdit {
+  if (edit.kind === 'rack') return { ...edit, chain };
+  if (edit.kind === 'spectral' && edit.operation.kind === 'process') {
+    return { ...edit, operation: { ...edit.operation, chain } };
+  }
+  return edit;
+}
+
+/** Whether an edit acts on the channels its operation names: a level edit or a spectral one. */
+export function takesChannelScope(edit: RangeEdit): edit is LevelEdit | SpectralEdit {
+  return isLevelEdit(edit) || edit.kind === 'spectral';
 }
 
 /**

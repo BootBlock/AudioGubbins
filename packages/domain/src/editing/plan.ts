@@ -25,6 +25,7 @@
 import { channelCount, type ChannelLayout } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
+import type { PlannedSpectralEdit } from '../spectral/spectral-edit.js';
 import { ZERO_SAMPLES, type SampleCount, type SampleRate } from '../time/sample-time.js';
 import { FadeShape } from './fades.js';
 
@@ -129,10 +130,15 @@ export interface PlanSegment {
  *   the stream's, where the chain changes it.
  * - `stretch`: the segments made `length` frames long without a change of
  *   pitch.
+ * - `spectral`: the segments plus the masked change a spectral edit makes of
+ *   each frame (ADR-0081), keeping their length and layout; a frame's place
+ *   is counted from the stream's first frame, so any part of the stream is
+ *   the same whichever is read first.
  */
 export type StreamProcessing =
   | { readonly kind: 'chain'; readonly chain: EffectChain; readonly input: ChannelLayout }
-  | { readonly kind: 'stretch'; readonly length: SampleCount };
+  | { readonly kind: 'stretch'; readonly length: SampleCount }
+  | { readonly kind: 'spectral'; readonly edit: PlannedSpectralEdit };
 
 /**
  * A run of segments at one rate, and what processes them. Each segment ends

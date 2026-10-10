@@ -40,6 +40,11 @@ import {
   asLevelGain,
 } from './edit-value-reading.js';
 import { WRITTEN_PLAN_DEPTH, readEditPlan } from './plan-reading.js';
+import {
+  asSpectralResolution,
+  readSpectralMask,
+  readSpectralOperation,
+} from './spectral-reading.js';
 import { asId, integerConverter, oneOfConverter } from './scalar-reading.js';
 import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
 
@@ -93,6 +98,7 @@ const RANGE_EDIT_MEMBERS: Readonly<Record<RangeEdit['kind'], ReadonlySet<string>
   'channel-gains': new Set(['kind', 'gains']),
   rack: new Set(['kind', 'chain']),
   punch: new Set(['kind', 'stack']),
+  spectral: new Set(['kind', 'mask', 'resolution', 'operation']),
 };
 
 /** The kinds a table names, which are its own keys. */
@@ -158,6 +164,14 @@ const readRangeEdit: Converter<RangeEdit> = (reading, value, parent, key) => {
     case 'punch': {
       const stack = required(reading, object, at, 'stack', asId<'TakeStackId'>);
       return stack === undefined ? undefined : { kind, stack };
+    }
+    case 'spectral': {
+      const mask = required(reading, object, at, 'mask', readSpectralMask);
+      const resolution = required(reading, object, at, 'resolution', asSpectralResolution);
+      const operation = required(reading, object, at, 'operation', readSpectralOperation);
+      return mask === undefined || resolution === undefined || operation === undefined
+        ? undefined
+        : { kind, mask, resolution, operation };
     }
   }
 };
