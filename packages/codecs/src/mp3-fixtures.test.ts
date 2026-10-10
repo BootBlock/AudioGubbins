@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { concatenate } from './byte-writer.js';
 import { lameCrc } from './mp3-info-frame.js';
-import { readMp3Metadata } from './mp3-metadata-reader.js';
+import { readId3Metadata } from './id3-metadata-reader.js';
 import { Mp3StreamWriter, type Mp3StreamSettings } from './mp3-stream-writer.js';
 import { frames, fullMetadata, memoryBytes, random } from './testing/index.js';
 
@@ -153,7 +153,7 @@ describe('MP3 metadata', () => {
     const { file, finished } = mp3File(constantStream, INPUT_FRAMES, { metadata: fullMetadata() });
     expect(finished.dropped).toEqual([]);
     expect(text(file.subarray(0, 5))).toBe('ID3\x04\x00');
-    expect(expectSuccess(await readMp3Metadata(memoryBytes(file)))).toEqual({
+    expect(expectSuccess(await readId3Metadata(memoryBytes(file)))).toEqual({
       ...fullMetadata(),
       foreign: [{ scheme: 'id3v2', key: 'MOOD', value: 'Calm' }],
     });
@@ -177,7 +177,7 @@ describe('MP3 metadata', () => {
       { kind: 'loops' },
       { kind: 'foreign', scheme: 'vorbis-comment', key: 'LOOP_START' },
     ]);
-    expect(expectSuccess(await readMp3Metadata(memoryBytes(file)))).toEqual({
+    expect(expectSuccess(await readId3Metadata(memoryBytes(file)))).toEqual({
       foreign: [
         { scheme: 'id3v2', key: 'TBPM', value: '120' },
         { scheme: 'id3v2', key: 'TIT2', value: 'shadow' },
@@ -263,7 +263,7 @@ describe('MP3 metadata', () => {
       tagOf(3, 0x80 | 0x40, concatenate([extended, Uint8Array.from(unsynchronised)])),
       constantStream,
     ]);
-    expect(expectSuccess(await readMp3Metadata(memoryBytes(file)))).toEqual({
+    expect(expectSuccess(await readId3Metadata(memoryBytes(file)))).toEqual({
       text: {
         title: 'Héllo',
         genre: 'Rock',
@@ -297,7 +297,7 @@ describe('MP3 metadata', () => {
     v1[126] = 7;
     v1[127] = 26;
     const file = concatenate([tag, constantStream, v1]);
-    expect(expectSuccess(await readMp3Metadata(memoryBytes(file)))).toEqual({
+    expect(expectSuccess(await readId3Metadata(memoryBytes(file)))).toEqual({
       text: {
         title: 'Old',
         artist: 'Artist 1',

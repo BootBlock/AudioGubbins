@@ -24,7 +24,7 @@ import type { MetadataMap } from './metadata-map.js';
 import { box } from './mp4-box.js';
 import { Mp4AacWriter } from './mp4-aac-writer.js';
 import { readMp4Metadata } from './mp4-metadata-reader.js';
-import { readMp3Metadata } from './mp3-metadata-reader.js';
+import { readId3Metadata } from './id3-metadata-reader.js';
 import { Mp3StreamWriter } from './mp3-stream-writer.js';
 import { readOggMetadata } from './ogg-metadata-reader.js';
 import { OggOpusWriter } from './ogg-opus-writer.js';
@@ -174,7 +174,7 @@ const CONTAINERS: readonly (readonly [name: string, make: () => Uint8Array, read
   ['Ogg Vorbis', vorbisFile, readOggMetadata],
   ['FLAC', flacFile, readFlacMetadata],
   ['M4A', m4aFile, readMp4Metadata],
-  ['MP3', mp3File, readMp3Metadata],
+  ['MP3', mp3File, readId3Metadata],
 ];
 
 describe('damaged compressed metadata', () => {
@@ -249,7 +249,7 @@ describe('hostile metadata past the bounds', () => {
     const flac = new ByteWriter().latin1('fLaC').u8(0x80).u24(0xffffff).toBytes();
     expect(expectFailureCode(await readFlacMetadata(memoryBytes(flac)))).toBe('codecs.malformed');
     const id3 = Uint8Array.of(0x49, 0x44, 0x33, 4, 0, 0, 0x7f, 0x7f, 0x7f, 0x7f);
-    expect(expectFailureCode(await readMp3Metadata(memoryBytes(id3)))).toBe('codecs.malformed');
+    expect(expectFailureCode(await readId3Metadata(memoryBytes(id3)))).toBe('codecs.malformed');
   });
 });
 

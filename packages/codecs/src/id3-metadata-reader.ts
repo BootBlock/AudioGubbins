@@ -1,8 +1,11 @@
 /**
- * The metadata of an MP3 file: its leading ID3v2 tag, of version 2.2, 2.3 or
- * 2.4, and its trailing ID3v1 tag, whose fields fill only the text the ID3v2
- * tag does not give (ADR-0093). The ID3v2 tag is read whole within the metadata
- * bound; the ID3v1 tag is the file's last 128 bytes.
+ * The metadata of a stream of MPEG audio or ADTS frames, which carries none of
+ * its own: its leading ID3v2 tag, of version 2.2, 2.3 or 2.4, and its trailing
+ * ID3v1 tag, whose fields fill only the text the ID3v2 tag does not give
+ * (ADR-0093). Taggers write the same tags around an MP3 and an ADTS AAC
+ * stream, and recognition looks past the same tags to name either. The ID3v2
+ * tag is read whole within the metadata bound; the ID3v1 tag is the file's
+ * last 128 bytes.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
@@ -18,8 +21,8 @@ import { MetadataGathering } from './metadata-gathering.js';
 import { MAXIMUM_TAG_METADATA_BYTES } from './metadata-limits.js';
 import type { MetadataMap } from './metadata-map.js';
 
-/** The metadata of an MP3 file's ID3 tags. */
-export async function readMp3Metadata(
+/** The metadata of an MP3 or ADTS file's ID3 tags. */
+export async function readId3Metadata(
   bytes: AudioBytes,
   signal?: CancellationSignal,
 ): Promise<DomainResult<MetadataMap>> {

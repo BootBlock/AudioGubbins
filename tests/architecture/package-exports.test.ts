@@ -206,7 +206,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'importRoute',
         'recogniseAudio',
       ],
-    "The application's own framing of the compressed formats ADR-0091 gives Phase 09 and the per-format metadata readers of ADR-0093, written before the codec worker that composes each with its encoder into an `AudioFileWriter` and the import that reads a file's metadata into its provenance: the framing contract, the Ogg Opus writer, the Vorbis comment rewriter, the FLAC writer and its sample signature, the M4A writer, the MP3 writer, and the Ogg, FLAC, MP4 and MP3 metadata readers.":
+    "The application's own framing of the compressed formats ADR-0091 gives Phase 09, written before the codec worker that composes each with its encoder into an `AudioFileWriter`: the framing contract, the Ogg Opus writer, the Vorbis comment rewriter, the FLAC writer and its sample signature, the M4A writer and the MP3 writer.":
       [
         'EncodedStreamLength',
         'EncodedStreamWriter',
@@ -226,10 +226,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'OggVorbisCommentRewriter',
         'OpusChannelMapping',
         'OpusHeadSettings',
-        'readFlacMetadata',
-        'readMp3Metadata',
-        'readMp4Metadata',
-        'readOggMetadata',
       ],
   },
   '@audiogubbins/import-export': {

@@ -10,9 +10,15 @@ import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
 
 import { readAiffMetadata } from './aiff-metadata.js';
+import { readFlacMetadata } from './flac-metadata-reader.js';
+import { readId3Metadata } from './id3-metadata-reader.js';
+import { encodeId3v2 } from './id3v2-writer.js';
 import { aiffMetadataChunks } from './aiff-metadata-writing.js';
 import type { MetadataMap } from './metadata-map.js';
 import { METADATA_READERS } from './metadata-readers.js';
+import { readMp4Metadata } from './mp4-metadata-reader.js';
+import { readOggMetadata } from './ogg-metadata-reader.js';
+import { recogniseAudio } from './recognition.js';
 import { readRiffMetadata } from './riff-metadata.js';
 import { riffMetadataChunks } from './riff-metadata-writing.js';
 import { memoryBytes, writeAiff, writeWav, type FixtureChunk } from './testing/index.js';
@@ -318,14 +324,40 @@ describe('cancelling', () => {
 });
 
 describe('the readers by container', () => {
-  it('reads each RIFF and IFF form by its own reader', () => {
+  it('reads each container by its own reader, and the ID3 tags of both MPEG audio and ADTS', () => {
     expect([...METADATA_READERS]).toEqual([
       ['wav', readRiffMetadata],
       ['rf64', readRiffMetadata],
       ['bw64', readRiffMetadata],
       ['aiff', readAiffMetadata],
       ['aifc', readAiffMetadata],
+      ['flac', readFlacMetadata],
+      ['ogg', readOggMetadata],
+      ['mp4', readMp4Metadata],
+      ['mp3', readId3Metadata],
+      ['adts', readId3Metadata],
     ]);
+  });
+
+  it('finds the reader of a file by the container recognition names', async () => {
+    const tag = encodeId3v2({ text: { title: 'Tagged' } }).bytes;
+    const streams = [
+      // MPEG 1 Layer III at 128 kbit/s and 44.1 kHz, and ADTS AAC-LC at 44.1 kHz.
+      Uint8Array.of(0xff, 0xfb, 0x90, 0x00),
+      Uint8Array.of(0xff, 0xf1, 0x50, 0x80, 0x2e, 0x7f, 0xfc),
+    ];
+    const containers = [];
+    for (const stream of streams) {
+      const file = memoryBytes(Uint8Array.from([...tag, ...stream]));
+      const format = expectSuccess(await recogniseAudio(file));
+      if (format.kind !== 'audio') throw new Error('The stream was not recognised.');
+      containers.push(format.container);
+      const reader = METADATA_READERS.get(format.container);
+      expect(reader === undefined ? undefined : expectSuccess(await reader(file))).toEqual({
+        text: { title: 'Tagged' },
+      });
+    }
+    expect(containers).toEqual(['mp3', 'adts']);
   });
 });
 

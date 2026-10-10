@@ -883,7 +883,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@34086: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@34085: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1177,7 +1177,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@34086: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@34085: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1927,10 +1927,6 @@ Published paths
   function importRoute(format: RecognisedFormat): ImportRoute
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
   function quantiseSample(value: number, bits: number): number
-  function readFlacMetadata(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<MetadataMap>>
-  function readMp3Metadata(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<MetadataMap>>
-  function readMp4Metadata(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<MetadataMap>>
-  function readOggMetadata(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<MetadataMap>>
   function recogniseAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<RecognisedFormat>>
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
