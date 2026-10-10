@@ -22,6 +22,7 @@ import {
 import type {
   SpectrogramHandle,
   SpectrogramHost,
+  SpectrogramStatus,
   SpectrogramSubject,
   SpectrogramView,
 } from '@audiogubbins/spectral-analysis';
@@ -86,6 +87,11 @@ export class ViewSpectrogram {
     });
   }
 
+  /** Whether the spectrogram is being made, or why it cannot be. */
+  get status(): SpectrogramStatus {
+    return this.#handle.status;
+  }
+
   /** How many times the host has said its tiles or status changed: a frame waiting on tiles draws again when it moves. */
   get version(): number {
     return this.#version;
@@ -139,10 +145,15 @@ const NO_SPECTROGRAM: KnownSpectrogram = {
  * A view's spectrogram held while it draws a spectrogram lane, of the edited
  * sound it shows: made again for another asset, revision or render quality,
  * any of which changes the tiles, and let go of when the view draws none.
+ * Whoever shows the view is told whether it is being made or why it cannot
+ * be, as that changes, and none once the view draws no spectrogram.
  */
 export class ShownSpectrogram {
   readonly #spectrograms: Pick<SpectrogramHost, 'open'>;
   readonly #progressed: () => void;
+  readonly #statusChanged: (status: SpectrogramStatus | undefined) => void;
+  /** What was last told of the status, by the words it would change. */
+  #told = 'none';
   #held:
     | {
         readonly asset: EditorAsset;
@@ -151,9 +162,14 @@ export class ShownSpectrogram {
       }
     | undefined;
 
-  constructor(spectrograms: Pick<SpectrogramHost, 'open'>, progressed: () => void) {
+  constructor(
+    spectrograms: Pick<SpectrogramHost, 'open'>,
+    progressed: () => void,
+    statusChanged: (status: SpectrogramStatus | undefined) => void,
+  ) {
     this.#spectrograms = spectrograms;
     this.#progressed = progressed;
+    this.#statusChanged = statusChanged;
   }
 
   /** What a view of `asset` at `state`, drawn at `ratio`, knows of its spectrogram at `quality`. */
@@ -176,21 +192,40 @@ export class ShownSpectrogram {
     return { spectrogram: view.known(state, ratio), spectrogramVersion: view.version };
   }
 
+  /** Whether the spectrogram held is being made, or why it cannot be; none while none is held. */
+  get status(): SpectrogramStatus | undefined {
+    return this.#held?.view.status;
+  }
+
   #hold(asset: EditorAsset, quality: QualityMode): ViewSpectrogram {
     this.release();
     const view = new ViewSpectrogram({
       spectrograms: this.#spectrograms,
       asset,
       quality,
-      progressed: this.#progressed,
+      progressed: () => {
+        this.#tell();
+        this.#progressed();
+      },
     });
     this.#held = { asset, quality, view };
+    this.#tell();
     return view;
+  }
+
+  /** Tells of the status where it changes what would be said of it. */
+  #tell(): void {
+    const { status } = this;
+    const said = status?.kind === 'failed' ? `failed:${status.reason}` : (status?.kind ?? 'none');
+    if (said === this.#told) return;
+    this.#told = said;
+    this.#statusChanged(status);
   }
 
   /** Lets go of the spectrogram held, if any. */
   release(): void {
     this.#held?.view.release();
     this.#held = undefined;
+    this.#tell();
   }
 }
