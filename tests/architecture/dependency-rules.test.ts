@@ -2768,13 +2768,27 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    *
    * REQ-EXEC-136.7 makes roughly 300 to 400 logical lines a trigger for a
    * cohesion review rather than an automatic failure, and prohibits splitting a
-   * coherent concept into meaningless files to satisfy a number. Nothing is
-   * over the threshold today, and the rule has no list of exceptions: a file
-   * past it fails until it is split, or until a record of reviewed exceptions
-   * is added beside this rule with each one's justification, which keeps an
-   * exception visible rather than raising the number for everything.
+   * coherent concept into meaningless files to satisfy a number. A file past
+   * it fails until it is split, or until its review is recorded in
+   * `REVIEWED_PAST_THRESHOLD` with its justification, which keeps an exception
+   * visible rather than raising the number for everything.
    */
   const THRESHOLD = 400;
+
+  /**
+   * Every production file past the threshold, with the size it was reviewed at
+   * and the review that kept it whole, held to the same tolerance as a file in
+   * the review band (`REVIEWED_IN_BAND`, whose comment says why the number is
+   * never rewritten from the tree).
+   */
+  const REVIEWED_PAST_THRESHOLD: Readonly<
+    Record<string, readonly [lines: number, review: string]>
+  > = {
+    'packages/domain/src/index.ts': [
+      417,
+      "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",
+    ],
+  };
 
   /** Lines that are neither blank nor comment. */
   function logicalLines(source: string): number {
@@ -2809,10 +2823,18 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
   it('has no production file past the cohesion threshold without review', () => {
     const oversized = ALL_SOURCES.map((path) => ({ path, lines: logicalLines(read(path)) }))
-      .filter((entry) => entry.lines > THRESHOLD)
+      .filter((entry) => entry.lines > THRESHOLD && !(entry.path in REVIEWED_PAST_THRESHOLD))
       .map((entry) => `${entry.path} (${String(entry.lines)} logical lines)`);
 
     expect(oversized).toEqual([]);
+  });
+
+  it('records a review past the threshold only for a file still past it', () => {
+    const within = Object.keys(REVIEWED_PAST_THRESHOLD).filter(
+      (path) => logicalLines(read(path)) <= THRESHOLD,
+    );
+
+    expect(within).toEqual([]);
   });
 
   /**
@@ -2923,10 +2945,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       300,
       "The fold of an asset's chain into a plan, operation by operation: a cut, a reversal, a level or channel stage, a conversion, an insertion, and the processing of a range by a rack, a punch or a spectral edit. Where a kind's work is more than a few lines it is a module of its own (`processed-streams.ts`, `punch-fold.ts`, `operation-validation.ts`), so what is left is the one switch that applies each operation to the folding and the reading of the chain a range is processed through; split, each half would need the folding the other leaves.",
     ],
-    'packages/domain/src/index.ts': [
-      376,
-      "The domain package's public contract and nothing else: one export a line, as Prettier writes a list of named exports, grouped by the module each comes from, with no logic of its own. Its size is the size of the domain's contract, which the contract record checks name by name. Split, the package would have two entry points to one contract, and every importer would have to know which half a name is in.",
-    ],
   };
 
   /**
@@ -2945,13 +2963,15 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     expect(inBand.toSorted()).toEqual(Object.keys(REVIEWED_IN_BAND).toSorted());
   });
 
-  it('reviews a file in the band again once it moves from the size it was reviewed at', () => {
-    const moved = Object.entries(REVIEWED_IN_BAND).flatMap(([path, [recorded]]) => {
-      const lines = logicalLines(read(path));
-      return Math.abs(lines - recorded) > FILE_SIZE_TOLERANCE
-        ? [`${path}: reviewed at ${String(recorded)}, now ${String(lines)}`]
-        : [];
-    });
+  it('reviews a recorded file again once it moves from the size it was reviewed at', () => {
+    const moved = Object.entries({ ...REVIEWED_IN_BAND, ...REVIEWED_PAST_THRESHOLD }).flatMap(
+      ([path, [recorded]]) => {
+        const lines = logicalLines(read(path));
+        return Math.abs(lines - recorded) > FILE_SIZE_TOLERANCE
+          ? [`${path}: reviewed at ${String(recorded)}, now ${String(lines)}`]
+          : [];
+      },
+    );
 
     expect(moved).toEqual([]);
   });

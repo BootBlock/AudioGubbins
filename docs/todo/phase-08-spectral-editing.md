@@ -1,7 +1,6 @@
 > **Status:** In progress. 2026-10-10: Phase 08 is `READY` (`d957834e`); the
-> domain, timeline, persistence, engine, STFT window and field batch slices
-> are committed on `phase-08-spectral`. Five architecture tests fail until
-> later slices use the new exports, listed below.
+> slices are merged on `phase-08-spectral`, the architecture tests pass, and
+> the spectral browser suite and the evidence are left.
 
 # Phase 08 — Spectral Editing
 
@@ -45,62 +44,51 @@ a new test sees it fail once against the code it guards.
 6. **The timeline's facet is the domain's `SpectralMask`**;
    `withSpectralShape` joins a tool's shape by replacing, adding (Shift) or
    subtracting (Alt).
+7. **The DSP delivery belongs to the engine**, so
+   `packages/spectral-analysis` takes it without depending on
+   `audio-runtime`; one compiled module per page serves the engine and the
+   spectrogram worker.
+8. **Brush radius, hardness and softness are each editor view's**, as its
+   tool is, in `EditorViewState.spectralTools`; the spectrogram's settings
+   and display range are the view's too. Both are in `editorViews` 2.
+9. **The domain's entry is past the cohesion threshold by review**: every
+   name has a consumer, and its record beside the rule is held to a size.
 
 ## Done
 
 - Readiness: ADRs, packet, ledger (`d957834e`).
 - Domain, timeline, project-format, project-commands, history words and the
-  Inspector's words (`1714422f`).
-- Engine realisation: `spectral/` and `pcm/spectral-content.ts`, plan
-  readers, the preview's stream key and pass memory (`9445b57c`).
-- STFT window on `p08-stft` (`c22898af`, `8b48c2fc`): ABI 6 to 7,
-  `StftSettings.window` required, `dependency-rules.test.ts` probe pattern
-  changed so `typeof StftWindow` is not taken for a browser probe.
-- The renderer's field batch on WebGPU, WebGL2 and Canvas 2D (`p08-field`).
-- Both merged (`f73fc31e`, `20e79c04`), their failures settled (`bc5d602a`),
-  and `ADR-0081` amended for linear gains and stroke softness (`d4251292`).
+  Inspector's words (`1714422f`); engine realisation (`9445b57c`).
+- STFT window, ABI 6 to 7, and the renderer's field batch (`f73fc31e`,
+  `20e79c04`, `bc5d602a`); `ADR-0081` amended (`d4251292`).
+- Spectral golden suite, `pnpm test:spectral-golden` (`fecde8c8`).
+- Persistence round trips, `projectDocument` 7 to 8 (`ff29864e`).
+- Field batch in the renderer's browser suites, a Canvas 2D loss fix
+  (`0ed8d22b`).
+- Spectral tools, mask overlay, edit outlines, inverse frequency mapping,
+  pressure preference, `userPreferences` 1 to 2 (`28e98664`).
+- `test:touch-pen`, `chromium-timeline`, the projects suites and the tablet
+  notice, failing since earlier phases (`bbd02c40`, `71c74157`).
+- `packages/spectral-analysis` (`78e37117`).
+- Spectral commands, keyboard selection, Spectral panel, preset, Inspector,
+  Settings (`23e590d2`).
+- Spectrogram layer, worker, tile cache, display settings, `editorViews` 1
+  to 2 (`2b4f71e8`).
+- Architecture failures settled (`a5479df5`).
 
-## Architecture failures that settle with later slices
+## Known failures outside this phase
 
-Five `pnpm test:architecture` failures are expected until the slices that
-consume the new exports land:
-
-- `package-exports.test.ts`: `@audiogubbins/timeline` exports
-  `SpectralCombination`, `withSpectralMask` and `withSpectralShape` that
-  nothing uses yet; its listed reason still names `withSpectralArea`. The
-  spectral tools use them, and then the listing goes.
-- The same test, `@audiogubbins/domain`: thirteen spectral exports are used
-  only inside the domain. Each ends used by a consumer, or unexported.
-- `dependency-rules.test.ts` cohesion, three cases:
-  `packages/domain/src/index.ts` is 420 logical lines (threshold 400). Once
-  the export set is final, trim it, and record a reviewed exception if it is
-  still past 400. The threshold never rises.
-
-The three failures the merge left are settled (`bc5d602a`): the heal test's
-mask covers every frame holding the burst, the deepest fixtures gain
-`chainedSpectralEdit`, and `WRITTEN_PLAN_DEPTH` is the larger of
-6 + the chain depth and 5 + `WRITTEN_MASK_DEPTH`.
+- WebKit "reports no error when reloaded while it is still starting": the
+  storage worker is sometimes refused by Cross-Origin-Embedder-Policy
+  during the reload.
+- Firefox "keeps a panel the user widened at its width across a reload":
+  the panel returns 240 px wide.
+- The ml-golden projects need `pnpm packs:build` and
+  `AUDIOGUBBINS_PACK_CACHE`; this machine has no pack cache.
 
 ## Left
 
-1. Remove the merged worktrees `../AudioGubbins-p08-stft` and
-   `../AudioGubbins-p08-field` and their branches at the end.
-2. project-format round-trip tests of spectral edits (chain, region, plan)
-   and `projectDocument` 7 to 8 (`version.json`, `pnpm version:sync`).
-3. The golden suite: `pnpm test:spectral-golden` (add the script), every
-   operation's fingerprint from the reference and the WebAssembly DSP.
-4. `packages/spectral-analysis` (new, `ADR-0080`): `SpectrogramConfig`,
-   `SpectralTileKey`, tile geometry, quantisation by threshold table, the
-   codec, the worker and its protocol, the host, the cache under
-   `CacheCategory.Spectrogram`; added through `tools/sync-workspace-graph.mjs`.
-5. `packages/editor-view`: the spectrogram layer from tiles through field
-   batches, the inverse frequency mapping, the mask's overlay, edit
-   outlines, the marquee, lasso and brush tools and their intents.
-6. `packages/input`: persisted gesture settings (`userPreferences` 1 to 2).
-7. `apps/web`: the spectrogram worker and its cache, spectral commands
-   (select, widen, narrow, attenuate, remove, isolate, heal, clean up,
-   compare), the Spectral panel, the Spectral Repair preset, settings,
-   `editorViews` 1 to 2.
-8. `tests/e2e/spectral.spec.ts`, project `chromium-spectral`,
-   `test:e2e:spectral`, and the reduced renderer's spectrogram.
-9. Evidence, review record (lenses deferred), handoff, ledger `PASS`.
+1. `tests/e2e/spectral.spec.ts`, project `chromium-spectral`,
+   `test:e2e:spectral`.
+2. Evidence, review record (lenses deferred), handoff, ledger `PASS`.
+3. Remove every Phase 08 worktree and its branch.

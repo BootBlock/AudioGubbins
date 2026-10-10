@@ -23,7 +23,6 @@ export {
   type FrameRange,
   type LevelGeometry,
   type SpectrogramGeometry,
-  TILE_COLUMNS,
   type TileSpan,
   levelFor,
   tileSpan,

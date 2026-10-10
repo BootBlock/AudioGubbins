@@ -299,8 +299,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":
       ['viewportAtStart'],
-    "The spectral facet's builder, which the spectral marquee and lasso of Phase 08's spectral editing make a selection with (ADR-0042); this phase draws and keeps the facet and has no tool that makes one.":
-      ['withSpectralArea'],
   },
   '@audiogubbins/waveform': {
     "The shape of a source's pyramid, which the editor view's and the application's tests make an empty or a filled pyramid with; the page is handed pyramids whole.":

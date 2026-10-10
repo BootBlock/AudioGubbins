@@ -899,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29082: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1190,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29084: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29082: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2925,7 +2925,6 @@ Published paths
   function segmentsLayout(stream: PlanStream): ChannelLayout
   function segmentsLength(stream: Pick<PlanStream, "segments">): number
   function shapeAfter(shape: EditShape, operation: EditOperation): EditShape
-  function shapeOutline(shape: SpectralShape): SpectralBounds
   function shapesOf(asset: Asset): readonly EditShape[]
   function silencePlan(sampleRate: SampleRate, layout: ChannelLayout, length: SampleCount): EditPlan
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
@@ -2950,7 +2949,6 @@ Published paths
   function textsAt(fields: Readonly<Record<string, unknown>>, field: string): readonly string[]
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
-  function translatedMask(mask: SpectralMask, by: number): SpectralMask
   function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
   function treatmentValues(descriptor: ProcessorDescriptor, step: TreatmentStep): DomainResult<ParameterValues>
   function unheardLive(descriptor: ProcessorDescriptor): string | undefined
@@ -5256,7 +5254,6 @@ Published paths
   SpectrogramWorkerPort.post: (message: ToSpectrogramWorker, transfer: readonly ArrayBuffer[]) => void
   SpectrogramWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
   SpectrogramWorkerPort.terminate: () => void
-  const TILE_COLUMNS: 256
   interface TileSpan
   readonly TileSpan.start: number
   readonly TileSpan.columns: number
