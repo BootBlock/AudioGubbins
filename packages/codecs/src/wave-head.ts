@@ -4,11 +4,12 @@
  *
  * The form is RIFF while every size fits its 32-bit field, and RF64 (EBU Tech
  * 3306) the moment one would not, decided from the whole length; BW64 (ITU-R
- * BS.2088) is always written with its ds64 chunk. Where the ds64 chunk holds the
- * sizes, the form's, the data's and the fact chunk's 32-bit fields state
- * 0xFFFFFFFF, which sends a reader to it. The chunks follow in one order: the
- * form, ds64, `fmt `, `fact`, the caller's chunks, then the data chunk's header;
- * a pad byte follows odd data, counted by the form's size.
+ *       BS.2088) is always written with its ds64 chunk. Where the ds64 chunk
+ *       holds the sizes, the form's, the data's and the fact chunk's 32-bit
+ *       fields state 0xFFFFFFFF, which sends a reader to it. The chunks follow
+ *       in one order: the form, ds64, `fmt `, `fact`, the caller's chunks, then
+ *       the data chunk's header; a pad byte follows odd data, counted by the
+ *       form's size.
  *
  * The recorded-media writer and the export writer both take their heads here,
  * so a recording's header and an export's are one layout.

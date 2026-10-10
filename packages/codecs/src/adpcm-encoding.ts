@@ -2,8 +2,8 @@
  * Encoding IMA and Microsoft ADPCM blocks, in the layouts `adpcm-blocks.ts`
  * reads (ADR-0091).
  *
- * The block size follows Microsoft's own encoders: 256 bytes a channel at
- * 11 025 Hz and below, doubling with the rate up to 1 024 bytes from 44 100 Hz,
+ * The block size follows Microsoft's own encoders: 256 bytes a channel at 11
+ * 025 Hz and below, doubling with the rate up to 1 024 bytes from 44 100 Hz,
  * and never past the 65 535 bytes a WAV block align can state. Each block's
  * header holds what the decoder starts from, the encoder starts from that same
  * state, and each nibble it chooses is expanded by the decoder's own expansion,

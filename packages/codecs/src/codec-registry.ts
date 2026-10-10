@@ -170,8 +170,8 @@ const DESCRIPTORS: Readonly<Record<CodecId, CodecDescriptor>> = {
     write: {
       implementation: 'prebuilt-module',
       containers: ['ogg'],
-      // libvorbis in one fixed WebAssembly build: WebAssembly's floating point is
-      // IEEE-754 without extended precision or fused operations, so the same
+      // libvorbis in one fixed WebAssembly build: WebAssembly's floating point
+      // is IEEE-754 without extended precision or fused operations, so the same
       // samples and settings give the same bytes on every machine.
       reproducible: true,
       licence: 'BSD-3-Clause',
@@ -197,10 +197,10 @@ const DESCRIPTORS: Readonly<Record<CodecId, CodecDescriptor>> = {
     write: {
       implementation: 'prebuilt-module',
       containers: ['mp3'],
-      // LAME 3.100 in one fixed WebAssembly build: its floating point is IEEE-754
-      // without extended precision or fused operations there, and it reads no
-      // clock or random source, so the same samples and settings give the same
-      // bytes on every machine.
+      // LAME 3.100 in one fixed WebAssembly build: its floating point is
+      // IEEE-754 without extended precision or fused operations there, and it
+      // reads no clock or random source, so the same samples and settings give
+      // the same bytes on every machine.
       reproducible: true,
       licence: 'LGPL-2.0-or-later',
       sampleRates: MPEG_RATES,

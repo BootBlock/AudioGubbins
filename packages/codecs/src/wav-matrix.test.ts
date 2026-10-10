@@ -1,7 +1,7 @@
 /**
- * The WAV matrix (Phase 09's acceptance criterion): every sample format the
- * WAV writer writes, at rates from 8 kHz to 384 kHz, for 1, 2, 6, 8, 12, 16 and
- * 24 channels, written block by block, opened by `openAudio` and read back.
+ * The WAV matrix (Phase 09's acceptance criterion): every sample format the WAV
+ * writer writes, at rates from 8 kHz to 384 kHz, for 1, 2, 6, 8, 12, 16 and 24
+ * channels, written block by block, opened by `openAudio` and read back.
  *
  * Integer PCM reads back as the quantisation rule gives it and floating point
  * bit for bit. G.711 reads back as the law's expansion of its compression of

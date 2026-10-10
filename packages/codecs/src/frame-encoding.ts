@@ -4,11 +4,11 @@
  *
  * Integer PCM takes each sample through `quantiseSample`, the one quantisation
  * rule the dither shares (ADR-0092), and nothing else; 32-bit float copies each
- * sample's bits, so a round trip is bit for bit, a NaN's payload included; 64-bit
- * float widens each exactly. G.711 and ADPCM quantise to 16 bits by the same
- * rule and then compand or code. A block code holds frames until a block is
- * whole, and pads the last block with silence when the stream ends; the file's
- * length is stated apart from its blocks (`fact` in WAV).
+ * sample's bits, so a round trip is bit for bit, a NaN's payload included;
+ * 64-bit float widens each exactly. G.711 and ADPCM quantise to 16 bits by the
+ * same rule and then compand or code. A block code holds frames until a block
+ * is whole, and pads the last block with silence when the stream ends; the
+ * file's length is stated apart from its blocks (`fact` in WAV).
  */
 
 import { adpcmEncoder } from './adpcm-encoding.js';

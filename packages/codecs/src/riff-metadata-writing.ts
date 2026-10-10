@@ -4,11 +4,11 @@
  *
  * Each part is written whole or reported dropped whole, never truncated into
  * something the person did not say, and only as the reader in this package
- * reads it back: a value its text rules would change, a count past its bound
- * or a position past 32 bits is dropped and reported. Chunks come in one
- * order, `bext`, `LIST`/`INFO`, `cue `, `LIST`/`adtl`, `smpl`, so the same map
- * gives the same bytes. Text is written as UTF-8: `INFO` and `labl` values as
- * ZSTR, ended by a NUL; `bext` holds ASCII alone, as EBU Tech 3285 requires.
+ * reads it back: a value its text rules would change, a count past its bound or
+ * a position past 32 bits is dropped and reported. Chunks come in one order,
+ * `bext`, `LIST`/`INFO`, `cue `, `LIST`/`adtl`, `smpl`, so the same map gives
+ * the same bytes. Text is written as UTF-8: `INFO` and `labl` values as ZSTR,
+ * ended by a NUL; `bext` holds ASCII alone, as EBU Tech 3285 requires.
  *
  * The `iXML` a map carries is dropped, not written: it describes the recording
  * it was read from, and an export's iXML is written by the WAV writer from the
@@ -304,8 +304,8 @@ function labelEntries(
 
 /**
  * The chunks of a WAV, RF64 or BW64 file holding the map's metadata, and the
- * parts of the map they do not hold. `sampleRate` is the file's, for the
- * sample period `smpl` states, rounded to whole nanoseconds.
+ * parts of the map they do not hold. `sampleRate` is the file's, for the sample
+ * period `smpl` states, rounded to whole nanoseconds.
  */
 export function riffMetadataChunks(
   metadata: MetadataMap,

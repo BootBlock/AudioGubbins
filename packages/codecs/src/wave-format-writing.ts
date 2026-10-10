@@ -5,8 +5,9 @@
  *
  * Integer PCM in the plain form is the 16-byte PCMWAVEFORMAT every reader
  * takes; every other plain code carries the extension size its format defines,
- * none for floating point and G.711, and for IMA and Microsoft ADPCM the samples
- * of each block and, for Microsoft's, the seven standard coefficient pairs.
+ * none for floating point and G.711, and for IMA and Microsoft ADPCM the
+ * samples of each block and, for Microsoft's, the seven standard coefficient
+ * pairs.
  */
 
 import type { ImaAdpcmEncoding, MsAdpcmEncoding, SampleEncoding } from './sample-encoding.js';

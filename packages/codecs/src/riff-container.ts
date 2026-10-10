@@ -229,8 +229,8 @@ async function describeData(
 
 /**
  * Recognises a RIFF form's codec by walking to its format chunk, and, where the
- * samples are in an encoding read in place, offers the rest of the parse, which continues
- * the same walk and so is taken once.
+ * samples are in an encoding read in place, offers the rest of the parse, which
+ * continues the same walk and so is taken once.
  */
 export async function recogniseRiff(
   source: HeaderSource,

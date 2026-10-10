@@ -13,8 +13,8 @@
  *
  * Every count is bounded, and a chunk that breaks its own rules or a bound is
  * refused with `codecs.malformed`, never read in part. An `iXML` chunk larger
- * than its bound is skipped unread: it is kept for its own reader, never
- * needed to read the rest.
+ * than its bound is skipped unread: it is kept for its own reader, never needed
+ * to read the rest.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';

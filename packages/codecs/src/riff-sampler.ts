@@ -4,13 +4,13 @@
  * count. The manufacturer, product, sample period, SMPTE fields and sampler
  * data mean nothing to the map and are not read.
  *
- * The pitch fraction is the part of a semitone above the unity note. It is
- * read in whole cents rounded to the nearest (half a cent up), the unit AIFF
- * and every sampler use. A fraction of more than 50 cents is the next note's
- * unity less the rest, so the fine tune stays within -50 to 50; exactly 50
- * stays +50 on the stated note. A loop of a manufacturer's own type plays in a
- * way the map cannot state, so it is left out rather than refused; a loop that
- * ends before it starts breaks the chunk's rules and is refused.
+ * The pitch fraction is the part of a semitone above the unity note. It is read
+ * in whole cents rounded to the nearest (half a cent up), the unit AIFF and
+ * every sampler use. A fraction of more than 50 cents is the next note's unity
+ * less the rest, so the fine tune stays within -50 to 50; exactly 50 stays +50
+ * on the stated note. A loop of a manufacturer's own type plays in a way the
+ * map cannot state, so it is left out rather than refused; a loop that ends
+ * before it starts breaks the chunk's rules and is refused.
  */
 
 import { fail, succeed, type DomainResult, type SampleCount } from '@audiogubbins/domain';

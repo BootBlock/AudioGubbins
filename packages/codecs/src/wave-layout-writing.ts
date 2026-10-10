@@ -8,9 +8,9 @@
  * first, as every reader of the mask expects. The layout the file states is
  * that order, which reading it gives back. Where no mask can say all of the
  * layout (an ambisonic set, named channels, one or two discrete channels, or a
- * centre alone), the file also states it whole in `iXML` (`ixml-layout.ts`).
- * A header that states no layout serves where the format's default is the
- * layout, as for mono, stereo and three or more discrete channels.
+ * centre alone), the file also states it whole in `iXML` (`ixml-layout.ts`). A
+ * header that states no layout serves where the format's default is the layout,
+ * as for mono, stereo and three or more discrete channels.
  */
 
 import {

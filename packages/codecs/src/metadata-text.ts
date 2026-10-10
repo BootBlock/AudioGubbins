@@ -7,10 +7,10 @@
  * as UTF-8 where all of them are valid UTF-8 (RFC 3629: no overlong form, no
  * surrogate, nothing past U+10FFFF), and otherwise as Latin-1, one byte one
  * character, so legacy ANSI and Mac text still reads as something rather than
- * being refused; a field is never decoded half one way and half the other.
- * C0 and C1 control characters and DEL are then removed, so a value cannot
- * carry an escape sequence to a terminal or a log; long text, such as a comment
- * or a coding history, keeps tab, line feed and carriage return, because the
+ * being refused; a field is never decoded half one way and half the other. C0
+ * and C1 control characters and DEL are then removed, so a value cannot carry
+ * an escape sequence to a terminal or a log; long text, such as a comment or a
+ * coding history, keeps tab, line feed and carriage return, because the
  * Broadcast Wave coding history separates its lines with CR LF. Finally the
  * text is cut at its bound, in characters (code points), so a hostile field
  * costs no more than the bound however long it claims to be.

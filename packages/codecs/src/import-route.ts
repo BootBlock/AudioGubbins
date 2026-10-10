@@ -26,8 +26,8 @@ export type ImportRoute =
       readonly codec: CodecId;
     }
   /**
-   * Decoded once, from start to end, into a rendition. `codec` is the codec
-   * the container states, or `undefined` where it names it only past its start.
+   * Decoded once, from start to end, into a rendition. `codec` is the codec the
+   * container states, or `undefined` where it names it only past its start.
    */
   | {
       readonly kind: 'decode';

@@ -1,6 +1,6 @@
 /**
- * How a file stores its samples: the encodings the read contract reads in
- * place (ADR-0052, ADR-0090).
+ * How a file stores its samples: the encodings the read contract reads in place
+ * (ADR-0052, ADR-0090).
  *
  * Uncompressed PCM, integer or floating point, and the compressed codes WAV and
  * AIFF-C carry that decode in independent blocks: G.711's A-law and µ-law, a
@@ -42,9 +42,9 @@ export interface G711SampleEncoding {
 
 /**
  * IMA ADPCM, four bits a sample in blocks that each restart the predictor.
- * `packing` is how a block lays out its channels: WAV's (code 0x11), a four-byte
- * header per channel and then four-byte words of each channel in turn, or
- * AIFF-C `ima4`'s, one 34-byte packet of 64 samples per channel.
+ * `packing` is how a block lays out its channels: WAV's (code 0x11), a
+ * four-byte header per channel and then four-byte words of each channel in
+ * turn, or AIFF-C `ima4`'s, one 34-byte packet of 64 samples per channel.
  */
 export interface ImaAdpcmEncoding {
   readonly kind: 'ima-adpcm';
@@ -54,8 +54,8 @@ export interface ImaAdpcmEncoding {
 
 /**
  * Microsoft ADPCM (WAV code 2), four bits a sample in blocks that each start
- * from two whole samples, predicted by the pair of coefficients a block's header
- * chooses from the format chunk's table.
+ * from two whole samples, predicted by the pair of coefficients a block's
+ * header chooses from the format chunk's table.
  */
 export interface MsAdpcmEncoding {
   readonly kind: 'ms-adpcm';

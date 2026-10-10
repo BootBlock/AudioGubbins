@@ -1,6 +1,6 @@
 /**
- * The metadata reader of each container (ADR-0093): one entry per container,
- * so a format's reader is added as a line here and nowhere else.
+ * The metadata reader of each container (ADR-0093): one entry per container, so
+ * a format's reader is added as a line here and nowhere else.
  */
 
 import type { ContainerId } from './codec-descriptor.js';

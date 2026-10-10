@@ -2,11 +2,12 @@
  * The layout a WAV file's header states: its speaker mask, and the `iXML`
  * statement AudioGubbins writes for a layout a mask cannot hold (ADR-0093).
  *
- * The statement is honoured where it lies before the samples, where AudioGubbins
- * writes it, so a reader never walks past the data to find it; and only where it
- * agrees with the mask, speaker for speaker, or the mask places none. A mask and
- * a statement that disagree mean another tool changed the channels and left the
- * statement behind, and the mask, which every tool keeps, is believed.
+ * The statement is honoured where it lies before the samples, where
+ * AudioGubbins writes it, so a reader never walks past the data to find it; and
+ * only where it agrees with the mask, speaker for speaker, or the mask places
+ * none. A mask and a statement that disagree mean another tool changed the
+ * channels and left the statement behind, and the mask, which every tool keeps,
+ * is believed.
  */
 
 import {

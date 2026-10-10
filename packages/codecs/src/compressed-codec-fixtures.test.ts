@@ -3,13 +3,13 @@
  * ADPCM in WAV and AIFF-C `ima4`, and Microsoft ADPCM, written by the fixture
  * writers as random coded bytes, opened, and checked sample for sample.
  *
- * The expected samples come from decoders written here from the standards'
- * own descriptions, apart from the package's: G.711's segment and step
- * formulas of ITU-T G.711, checked against values its tables give, and the
- * ADPCM decoders of the IMA's recommended practice and Microsoft's
- * specification, each reading its block layout itself. Any 4-bit code is a
- * valid ADPCM sample, so random blocks drive every step and clamp a decoder
- * has, which a signal written by an encoder would visit only in part.
+ * The expected samples come from decoders written here from the standards' own
+ * descriptions, apart from the package's: G.711's segment and step formulas of
+ * ITU-T G.711, checked against values its tables give, and the ADPCM decoders
+ * of the IMA's recommended practice and Microsoft's specification, each reading
+ * its block layout itself. Any 4-bit code is a valid ADPCM sample, so random
+ * blocks drive every step and clamp a decoder has, which a signal written by an
+ * encoder would visit only in part.
  */
 
 import type { SampleCount } from '@audiogubbins/domain';

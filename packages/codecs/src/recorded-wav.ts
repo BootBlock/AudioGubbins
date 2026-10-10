@@ -131,8 +131,8 @@ function headerPlan(
  * The header of a recording of `frames` frames in `format`, after which the
  * caller writes the samples, or why no WAV file can hold it.
  *
- * A layout is refused whatever the length, so a session can ask with no
- * frames, before it records, whether its recording can be written.
+ * A layout is refused whatever the length, so a session can ask with no frames,
+ * before it records, whether its recording can be written.
  */
 export function recordedWavHeader(
   format: RecordedWavFormat,

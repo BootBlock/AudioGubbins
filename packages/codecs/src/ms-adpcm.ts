@@ -1,7 +1,7 @@
 /**
- * Microsoft ADPCM (WAV code 2), as Microsoft's "Multimedia Standards Update"
- * of 1994 defines it: four bits a sample, each the error of a prediction from
- * the two samples before it, scaled by a delta that adapts by a 16-entry table.
+ * Microsoft ADPCM (WAV code 2), as Microsoft's "Multimedia Standards Update" of
+ * 1994 defines it: four bits a sample, each the error of a prediction from the
+ * two samples before it, scaled by a delta that adapts by a 16-entry table.
  *
  * The prediction is `(sample1 × coefficient1 + sample2 × coefficient2) / 256`,
  * the division truncating toward zero as the reference's C does; a block's

@@ -170,8 +170,8 @@ async function describeSound(
 
 /**
  * Recognises an IFF form's codec by walking to its `COMM` chunk, and, where the
- * samples are in an encoding read in place, offers the rest of the parse, which continues
- * the same walk and so is taken once.
+ * samples are in an encoding read in place, offers the rest of the parse, which
+ * continues the same walk and so is taken once.
  */
 export async function recogniseAiff(
   source: HeaderSource,

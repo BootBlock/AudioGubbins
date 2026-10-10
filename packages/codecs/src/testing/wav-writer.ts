@@ -3,9 +3,9 @@
  *
  * It writes every form the reader must read, and the departures from them a
  * test needs: a format tag or sub-format that names a compressed codec, extra
- * chunks of odd sizes before the format chunk, before the data and after it,
- * a fact chunk, sizes RF64 keeps in its ds64 table, and a file cut short. An
- * RF64 or BW64 fixture is small: what is tested is the form, not the size.
+ * chunks of odd sizes before the format chunk, before the data and after it, a
+ * fact chunk, sizes RF64 keeps in its ds64 table, and a file cut short. An RF64
+ * or BW64 fixture is small: what is tested is the form, not the size.
  */
 
 import {

@@ -3,10 +3,10 @@
  * at (ADR-0050, ADR-0052).
  *
  * Opening parses the header in bounded reads and refuses, before anything is
- * stored, a file this package does not read in place or one whose header
- * breaks its format's rules. A read then fetches only the bytes of the blocks
- * that hold the frames asked for, a block being one frame of uncompressed PCM
- * or G.711 or one ADPCM block, in pieces of at most `MAXIMUM_READ_BYTES`, so
+ * stored, a file this package does not read in place or one whose header breaks
+ * its format's rules. A read then fetches only the bytes of the blocks that
+ * hold the frames asked for, a block being one frame of uncompressed PCM or
+ * G.711 or one ADPCM block, in pieces of at most `MAXIMUM_READ_BYTES`, so
  * neither a long read nor a long file is ever held whole, and decodes them by
  * the rule of their encoding (`block-coding.ts`).
  */

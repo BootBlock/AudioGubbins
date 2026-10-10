@@ -8,8 +8,8 @@
  * frame after it looked for in a bounded window; an Ogg page's first packet
  * lies after a segment table of at most 255 bytes; an EBML header is read to
  * its DocType within its first bytes. The codec is named where these bytes
- * state it, and left unstated where the container states it only further in,
- * as MP4's and Matroska's track lists do, for the decoder to find.
+ * state it, and left unstated where the container states it only further in, as
+ * MP4's and Matroska's track lists do, for the decoder to find.
  */
 
 import { succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';

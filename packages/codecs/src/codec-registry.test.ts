@@ -1,6 +1,6 @@
 /**
- * The registry against ADR-0091's table, its codes against the readers that
- * use them, and the capability a runtime has with each codec.
+ * The registry against ADR-0091's table, its codes against the readers that use
+ * them, and the capability a runtime has with each codec.
  */
 
 import { describe, expect, it } from 'vitest';

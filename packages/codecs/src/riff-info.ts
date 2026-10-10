@@ -1,6 +1,6 @@
 /**
- * A WAV's `LIST`/`INFO` text: the ids with a typed key, and every other id
- * kept by its own four characters under the `riff-info` scheme.
+ * A WAV's `LIST`/`INFO` text: the ids with a typed key, and every other id kept
+ * by its own four characters under the `riff-info` scheme.
  *
  * Each typed key keeps the first value the file gives it; a repeated typed id
  * is kept by its own id, so a second title is not lost. An entry whose id is

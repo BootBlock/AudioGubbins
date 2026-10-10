@@ -1,11 +1,11 @@
 /**
  * G.711's encoders as the ITU's own software gives them (G.191's
  * `alaw_compress` and `ulaw_compress`), and IMA ADPCM encoders written from the
- * IMA's recommended practice of 1992, in
- * WAV's block layout and AIFF-C `ima4`'s packets, apart from the package's own,
- * so a test holds the writer's bytes to the standard's encoder rather than to
- * itself. Microsoft ADPCM has no reference encoder: its specification leaves
- * the choice of each block's coefficients to the encoder.
+ * IMA's recommended practice of 1992, in WAV's block layout and AIFF-C `ima4`'s
+ * packets, apart from the package's own, so a test holds the writer's bytes to
+ * the standard's encoder rather than to itself. Microsoft ADPCM has no
+ * reference encoder: its specification leaves the choice of each block's
+ * coefficients to the encoder.
  */
 
 const STEPS = [

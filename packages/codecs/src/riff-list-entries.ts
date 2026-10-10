@@ -24,8 +24,8 @@ export const LIST_TYPE_BYTES = 4;
 export const ENTRY_HEADER_BYTES = 8;
 
 /**
- * The entries of a list of `type`, refusing one that runs past the list, a
- * list inside it, or more entries than `room` leaves of the file's `bound`.
+ * The entries of a list of `type`, refusing one that runs past the list, a list
+ * inside it, or more entries than `room` leaves of the file's `bound`.
  */
 export function listEntries(
   list: Uint8Array,
