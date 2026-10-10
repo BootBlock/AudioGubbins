@@ -6,16 +6,17 @@
  * The frames are given in order, once each. A run is the frames one after
  * another whose weight in the bin is above nothing. The border before a run is
  * the mean magnitude of up to four frames just before it that the mask leaves,
- * one after another, and the border after it likewise; where a run has both,
- * frame `k` of the run from `s` to `e` takes `before + t · (after − before)`,
+ * one after another, and the border after it likewise. A frame that reaches
+ * outside the stream holds silence there that is not the sound, so it is no
+ * border: it ends the border it would have joined. Where a run has both, frame
+ * `k` of the run from `s` to `e` takes `before + t · (after − before)`,
  * `t = (k − s + 1) / (e − s + 2)`, so the heal joins its borders in a straight
  * line; where it has one, it takes that one; where it has none, its frames are
  * left as they are. Each mean is summed in the order of the frames, so every
  * machine finds the same.
  */
 
-/** The most frames either border of a run is measured over. */
-export const BORDER_FRAMES = 4;
+import { HEAL_BORDER_FRAMES } from '@audiogubbins/domain';
 
 /** One run of masked frames in a bin, and its borders per channel. */
 interface Run {
@@ -46,7 +47,7 @@ export class HealBorders {
   readonly #measuring: (Run | undefined)[];
   /**
    * The magnitudes of the frames just before, per bin and channel, oldest
-   * first: `BORDER_FRAMES` slots of `channels` each.
+   * first: `HEAL_BORDER_FRAMES` slots of `channels` each.
    */
   readonly #recent: Float64Array;
   readonly #recentCount: Int32Array;
@@ -58,20 +59,30 @@ export class HealBorders {
     this.#runs = Array.from({ length: bins }, () => []);
     this.#open = Array.from({ length: bins }, () => undefined);
     this.#measuring = Array.from({ length: bins }, () => undefined);
-    this.#recent = new Float64Array(bins * BORDER_FRAMES * channels);
+    this.#recent = new Float64Array(bins * HEAL_BORDER_FRAMES * channels);
     this.#recentCount = new Int32Array(bins);
     this.#magnitudes = new Float64Array(channels);
   }
 
   /**
    * Takes frame `k`, after every frame before it: its weights, `undefined`
-   * where the mask covers none of it, and each channel's spectrum.
+   * where the mask covers none of it, whether it lies wholly within the
+   * stream, and each channel's spectrum.
    */
-  take(k: number, weights: Float64Array | undefined, spectra: readonly Spectrum[]): void {
+  take(
+    k: number,
+    weights: Float64Array | undefined,
+    within: boolean,
+    spectra: readonly Spectrum[],
+  ): void {
     const channels = this.#channels;
     for (let bin = 0; bin < this.#bins; bin += 1) {
       if (weights !== undefined && (weights[bin] ?? 0) > 0) {
         this.#masked(bin, k);
+        continue;
+      }
+      if (!within) {
+        this.#outside(bin);
         continue;
       }
       const magnitudes = this.#magnitudes;
@@ -117,7 +128,7 @@ export class HealBorders {
     let before: Float64Array | undefined;
     if (count > 0) {
       before = new Float64Array(this.#channels);
-      const base = bin * BORDER_FRAMES * this.#channels;
+      const base = bin * HEAL_BORDER_FRAMES * this.#channels;
       for (let channel = 0; channel < this.#channels; channel += 1) {
         let sum = 0;
         for (let slot = 0; slot < count; slot += 1) {
@@ -138,6 +149,13 @@ export class HealBorders {
     this.#recentCount[bin] = 0;
   }
 
+  /** Records a frame the mask leaves in `bin` that reaches outside the stream: no border. */
+  #outside(bin: number): void {
+    this.#open[bin] = undefined;
+    this.#measuring[bin] = undefined;
+    this.#recentCount[bin] = 0;
+  }
+
   /** Records a frame the mask leaves in `bin`, with each channel's magnitude. */
   #left(bin: number, magnitudes: Float64Array): void {
     const channels = this.#channels;
@@ -152,16 +170,16 @@ export class HealBorders {
         measuring.after[channel] = (measuring.after[channel] ?? 0) + (magnitudes[channel] ?? 0);
       }
       measuring.afterCount += 1;
-      if (measuring.afterCount === BORDER_FRAMES) this.#measuring[bin] = undefined;
+      if (measuring.afterCount === HEAL_BORDER_FRAMES) this.#measuring[bin] = undefined;
     }
-    const base = bin * BORDER_FRAMES * channels;
+    const base = bin * HEAL_BORDER_FRAMES * channels;
     const count = this.#recentCount[bin] ?? 0;
-    if (count === BORDER_FRAMES) {
-      this.#recent.copyWithin(base, base + channels, base + BORDER_FRAMES * channels);
+    if (count === HEAL_BORDER_FRAMES) {
+      this.#recent.copyWithin(base, base + channels, base + HEAL_BORDER_FRAMES * channels);
     }
-    const slot = Math.min(count, BORDER_FRAMES - 1);
+    const slot = Math.min(count, HEAL_BORDER_FRAMES - 1);
     this.#recent.set(magnitudes, base + slot * channels);
-    this.#recentCount[bin] = Math.min(count + 1, BORDER_FRAMES);
+    this.#recentCount[bin] = Math.min(count + 1, HEAL_BORDER_FRAMES);
   }
 
   /** The run of `bin` that holds frame `k`, if any. */

@@ -13,13 +13,15 @@
  * - `process`: `w · (W − X)`, `W` the spectrum of the chain's output.
  *
  * A frame's weights are the mask's at its centre and each bin's centre
- * frequency, `k · rate / N`, from the domain's one statement of them
- * (`MaskWeights`). A frame they leave at nothing, and one centred outside the
- * mask's support, changes nothing, and is not transformed at all.
+ * frequency, `k · rate / N`, from the domain's one statement of each
+ * (`MaskWeights`, `binFrequency`). A frame they leave at nothing, and one
+ * centred outside the mask's support, changes nothing, and is not transformed
+ * at all.
  */
 
 import {
   MaskWeights,
+  binFrequency,
   maskSupport,
   type PlannedSpectralEdit,
   type SpectralBounds,
@@ -53,7 +55,9 @@ export class SpectralChange {
     this.#weights = new MaskWeights(edit.mask);
     this.#support = maskSupport(edit.mask);
     const { size, bins } = geometry;
-    this.#frequencies = Float64Array.from({ length: bins }, (_, bin) => (bin * sampleRate) / size);
+    this.#frequencies = Float64Array.from({ length: bins }, (_, bin) =>
+      binFrequency(bin, sampleRate, size),
+    );
     this.#row = new Float64Array(bins);
     this.#scope = edit.channels === undefined ? undefined : new Set(edit.channels);
     this.first = Math.max(geometry.firstFrame, Math.ceil(this.#support.start / geometry.hop));
