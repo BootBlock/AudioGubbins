@@ -51,7 +51,7 @@ import { runsChains } from '../assets/project-entry.js';
 import type { ExportContextOf } from './export-types.js';
 
 /** The registry, as the lookup every export is checked against. */
-export const EXPORT_CODECS: CodecLookup = (codec) => CODEC_REGISTRY.get(codec);
+const EXPORT_CODECS: CodecLookup = (codec) => CODEC_REGISTRY.get(codec);
 
 /** The bits G.711 and ADPCM decode to, which their exports count as (ADR-0092). */
 const CODED_BITS = 16;
