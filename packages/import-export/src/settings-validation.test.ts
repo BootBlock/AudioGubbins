@@ -78,6 +78,16 @@ describe('validating export settings against the codec', () => {
     expect(checked(downmixed, context)).toEqual([]);
   });
 
+  it('reports a problem every file of a batch shares once', () => {
+    const context = contextOf({ layout: StandardLayouts.surround5_1 });
+    const mp3: ExportSettings = {
+      ...defaultExportSettings('mp3', context),
+      range: { kind: 'every-region' },
+      fileName: '{region}',
+    };
+    expect(checked(mp3, context)).toEqual(['import-export.too-many-channels']);
+  });
+
   it('reports every problem at once', () => {
     const settings = wav({
       sampleRate: rate(400_000),

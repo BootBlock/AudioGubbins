@@ -173,6 +173,22 @@ describe('planning an export', () => {
       type: 'matrix',
       settings: { coefficients: [0.5, 0.5] },
     });
+    const surround = contextOf({ layout: StandardLayouts.surround5_1 });
+    const folded = only(
+      planned(
+        {
+          ...defaultExportSettings('wav', surround),
+          channels: { kind: 'fold', to: StandardLayouts.stereo },
+        },
+        surround,
+      ),
+    );
+    const half = Math.SQRT1_2;
+    expect(folded.render.graph.nodes.find((node) => node.id === 'export-conversion')).toMatchObject(
+      {
+        settings: { coefficients: [1, 0, half, 0, half, 0, 0, 1, half, 0, 0, half] },
+      },
+    );
     const midSide = only(
       planned({
         ...defaultExportSettings('wav', context),

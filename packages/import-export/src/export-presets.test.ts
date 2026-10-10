@@ -88,6 +88,16 @@ describe('the built-in presets', () => {
     }
   });
 
+  it('suit the defaults to a rate the preset chooses', () => {
+    const context = contextOf({ hertz: 44_100 });
+    const settings = resolvePreset(
+      { id: 'low', name: 'Low', format: 'mp3', settings: { sampleRate: rate(22_050) } },
+      context,
+    );
+    expect(settings.encoding).toEqual({ mode: 'constant', bitRate: 160 });
+    expect(validateExportSettings(settings, context).ok).toBe(true);
+  });
+
   it('keep a dither a preset chooses, even where its depth would default to none', () => {
     const context = contextOf();
     const dither = { kind: 'triangular', amplitude: 1, shaping: 'first-order', seed: 7 } as const;

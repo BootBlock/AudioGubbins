@@ -98,6 +98,12 @@ describe('a batch export', () => {
       framesRendered: 150,
       framesTotal: 600,
     });
+    expect(batchProgress(cancelExportBatch(middle))).toEqual({
+      jobsSettled: 3,
+      jobsTotal: 3,
+      framesRendered: 100,
+      framesTotal: 100,
+    });
   });
 
   it('refuses a job it does not have', () => {

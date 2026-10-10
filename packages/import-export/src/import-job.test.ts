@@ -131,6 +131,14 @@ describe('a batch import', () => {
       { kind: 'cancelled', stage: 'copying' },
       { kind: 'cancelled', stage: 'queued' },
     ]);
+    const refused = run(run(job(), 0, [{ kind: 'refused', failure: UNREADABLE }]), 1, [
+      { kind: 'analyse' },
+    ]);
+    expect(cancelImport(refused).entries.map((entry) => entry.state.kind)).toEqual([
+      'refused',
+      'cancelled',
+      'cancelled',
+    ]);
   });
 
   it('refuses a file it does not have', () => {

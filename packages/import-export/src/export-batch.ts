@@ -22,7 +22,11 @@ export interface ExportBatch {
   readonly remembered: CollisionAnswer | undefined;
 }
 
-/** How far a batch has got. */
+/**
+ * How far a batch has got: its jobs settled, and the frames rendered of the
+ * jobs that are still to give a file, so a failed or cancelled job neither
+ * fills the bar nor holds it back.
+ */
 export interface BatchProgress {
   readonly jobsSettled: number;
   readonly jobsTotal: number;
@@ -45,12 +49,14 @@ function framesRendered(job: ExportJob): number {
       return 0;
     case 'rendering':
       return job.state.framesRendered;
-    case 'failed':
-    case 'cancelled':
-      return job.state.stage === 'planned' ? 0 : job.framesTotal;
     default:
       return job.framesTotal;
   }
+}
+
+/** Whether a job ended without its file, whose frames the batch no longer counts on. */
+function abandoned(job: ExportJob): boolean {
+  return job.state.kind === 'failed' || job.state.kind === 'cancelled';
 }
 
 /** A batch of these jobs, with no answer remembered. */
@@ -114,10 +120,11 @@ export function cancelExportBatch(batch: ExportBatch): ExportBatch {
 
 /** How far the batch has got, by jobs settled and by frames rendered. */
 export function batchProgress(batch: ExportBatch): BatchProgress {
+  const counted = batch.jobs.filter((job) => !abandoned(job));
   return {
     jobsSettled: batch.jobs.filter(settled).length,
     jobsTotal: batch.jobs.length,
-    framesRendered: batch.jobs.reduce((sum, job) => sum + framesRendered(job), 0),
-    framesTotal: batch.jobs.reduce((sum, job) => sum + job.framesTotal, 0),
+    framesRendered: counted.reduce((sum, job) => sum + framesRendered(job), 0),
+    framesTotal: counted.reduce((sum, job) => sum + job.framesTotal, 0),
   };
 }

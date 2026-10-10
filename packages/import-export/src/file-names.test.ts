@@ -70,7 +70,17 @@ describe('a safe file name', () => {
   });
 
   it('gives a Windows device name a leading underscore, in any case and before any dot', () => {
-    for (const stem of ['CON', 'con', 'Aux', 'nul.backup', 'COM1', 'lpt9', 'COM¹', 'prn ']) {
+    for (const stem of [
+      'CON',
+      'con',
+      'Aux',
+      'nul.backup',
+      'con .backup',
+      'COM1',
+      'lpt9',
+      'COM¹',
+      'prn ',
+    ]) {
       expect(safeFileName({ stem, extension: 'wav' }).startsWith('_')).toBe(true);
     }
     expect(safeFileName({ stem: 'console', extension: 'wav' })).toBe('console.wav');
@@ -94,6 +104,12 @@ describe('a safe file name', () => {
     const copied = safeFileName({ stem, extension: 'opus' }, 12);
     expect(utf8Bytes(copied)).toBeLessThanOrEqual(255);
     expect(copied.endsWith('🔊 (12).opus')).toBe(true);
+  });
+
+  it('counts a two-byte code point as two bytes', () => {
+    expect(safeFileName({ stem: 'é'.repeat(200), extension: 'wav' })).toBe(
+      `${'é'.repeat(125)}.wav`,
+    );
   });
 
   it('keeps a name of exactly 255 bytes whole', () => {

@@ -59,6 +59,11 @@ describe('deciding a collision', () => {
       kind: 'ask',
       name: 'CAFÉ.wav',
     });
+    const composed = { stem: 'Café', extension: 'wav' };
+    expect(decideCollision(query({ wanted: composed, listing: ['café.wav'] }))).toEqual({
+      kind: 'ask',
+      name: 'café.wav',
+    });
     expect(decideCollision(query({ policy: 'overwrite', listing: ['slam.wav'] }))).toEqual({
       kind: 'overwrite',
       name: 'slam.wav',

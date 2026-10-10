@@ -189,8 +189,15 @@ describe('the dither key', () => {
       'flac',
       contextOf({ precision: { kind: 'integer', bits: 16 } }),
     );
-    const reordered = Object.fromEntries(Object.entries(settings).reverse());
-    expect(ditherKey({ ...settings, ...reordered })).toBe(ditherKey(settings));
+    const { format, encoding, dither, ...rest } = settings;
+    const reordered = {
+      dither: { ...dither },
+      encoding: { compressionLevel: encoding.compressionLevel, bits: encoding.bits },
+      ...rest,
+      format,
+    };
+    expect(Object.keys(reordered)).not.toEqual(Object.keys(settings));
+    expect(ditherKey(reordered)).toBe(ditherKey(settings));
     expect(ditherKey({ ...settings, dither: triangular() })).not.toBe(
       ditherKey({ ...settings, dither: { ...triangular(), seed: 1 } }),
     );
