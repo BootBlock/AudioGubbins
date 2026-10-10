@@ -56,14 +56,21 @@ const LEVELS = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
 
 const SAMPLES = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
-function analysisWords(config: SpectrogramConfig): string {
+/** How a spectrogram is analysed, in a sentence. */
+export function analysisWords(config: SpectrogramConfig): string {
   const overlap =
     config.overlap === 1 ? 'one after another' : `overlapping ${String(config.overlap)} times`;
   return `The spectrogram analyses windows of ${SAMPLES.format(config.windowLength)} samples through the ${WINDOWS[config.window]} window, ${overlap}.`;
 }
 
-function rangeWords(range: DisplayRange): string {
+/** The levels a spectrogram's colours span, in a sentence. */
+export function rangeWords(range: DisplayRange): string {
   return `The spectrogram’s colours span ${LEVELS.format(range.floor)} to ${LEVELS.format(range.ceiling)} dBFS.`;
+}
+
+/** The ramp a spectrogram is drawn in, in a sentence. */
+export function colourWords(colours: SpectrogramColours): string {
+  return `The spectrogram is drawn in ${COLOURS[colours]}.`;
 }
 
 /** `state` with its spectrogram's `change`, or itself where nothing changed. */
@@ -258,7 +265,7 @@ function colourCommands(): readonly Command<ShellContext>[] {
       `Draw the spectrogram in ${COLOURS[colours]}`,
       CommandCategory.View,
       (state) => withDisplay(state, { colours }),
-      () => `The spectrogram is drawn in ${COLOURS[colours]}.`,
+      () => colourWords(colours),
       { keywords: ['spectrogram', 'colours', 'ramp', 'palette', colours] },
     ),
   );
