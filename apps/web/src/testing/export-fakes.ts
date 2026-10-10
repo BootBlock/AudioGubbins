@@ -181,7 +181,7 @@ export function servedEnvironment(browserEncoders: readonly CodecId[] = []): Cod
   return {
     webAssembly: true,
     codecModule: 'loaded',
-    prebuiltModules: new Map(),
+    encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(browserEncoders),
   };

@@ -1,6 +1,8 @@
 /**
  * What an export of an asset is planned against (ADR-0092): the asset's audio
  * as it is heard, its regions each as its own audio, and the codec registry.
+ * The source is named by the project, which a file name's `{project}` fills
+ * with; a region's file is named by its region through `{region}`.
  *
  * The export renders what the person hears. The asset's audio is its plan,
  * racks and edits included, at the rate and layout its plan gives; a region's
@@ -134,7 +136,7 @@ export const exportContextOf: ExportContextOf = (editor, state) => {
     (regions): DomainResult<ExportContext> =>
       succeed({
         source: {
-          name: editor.name,
+          name: state.project.displayName,
           sampleRate: editor.sampleRate,
           layout: editor.layout,
           precision: heardPrecision(state, asset),
