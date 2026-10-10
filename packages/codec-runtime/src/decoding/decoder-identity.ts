@@ -6,9 +6,13 @@
  *
  * The codec module's decoders are the crates `crates/codecs` pins exactly,
  * Symphonia for every codec but Opus and `ropus` for Opus (ADR-0091, amended);
- * a test holds these versions to the pins. A browser's decoder is the
- * browser's own, named by its family and major version, all a user-agent may
- * say without identifying a machine.
+ * a test holds these versions to the pins. Symphonia's Vorbis decoder is the
+ * pinned version vendored with two fixes
+ * (`third_party/symphonia-codec-vorbis`), so its version carries the build
+ * metadata `+patched`: a rendition decoded by it says so, and still names the
+ * release it was made from. A browser's decoder is the browser's own, named by
+ * its family and major version, all a user-agent may say without identifying a
+ * machine.
  */
 
 import type { BrowserFamily } from '@audiogubbins/capabilities';
@@ -24,12 +28,18 @@ const SYMPHONIA: DecoderIdentity = {
   version: '0.6.1',
 };
 
+/** Symphonia's Vorbis decoder, the pinned version patched in from the vendored copy. */
+const SYMPHONIA_PATCHED: DecoderIdentity = {
+  ...SYMPHONIA,
+  version: `${SYMPHONIA.version}+patched`,
+};
+
 /** The module's decoder of each codec it decodes. */
 const MODULE_DECODERS: Readonly<Record<ModuleDecodedCodec, DecoderIdentity>> = {
   flac: SYMPHONIA,
   alac: SYMPHONIA,
   mp3: SYMPHONIA,
-  vorbis: SYMPHONIA,
+  vorbis: SYMPHONIA_PATCHED,
   'aac-lc': SYMPHONIA,
   opus: { implementation: 'codec-module', name: 'ropus', version: '0.12.18' },
 };

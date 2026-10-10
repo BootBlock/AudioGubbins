@@ -49,7 +49,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { MP3_MODULE, SHIPPED_CRATES, VORBIS_MODULE, WASM_TARGET } from './build-wasm.mjs';
@@ -274,6 +274,8 @@ const COPYRIGHT_PROSE =
  * @property {readonly { readonly name: string, readonly text: string }[]} files
  *   its licence files, by name
  * @property {string} [source] where its source is published
+ * @property {string} [modified] the repository folder of the copy AudioGubbins
+ *   modified and builds in its place, for a crate vendored and patched in
  */
 
 /**
@@ -290,6 +292,8 @@ const COPYRIGHT_PROSE =
  *   ones, because the package ships none
  * @property {string} [source] where its source is published, for a package
  *   whose licence asks that a recipient be told
+ * @property {string} [modified] the repository folder of the modified copy
+ *   shipped in its place, whose README states each change
  */
 
 /**
@@ -349,6 +353,7 @@ export function noticeOf(source, standardText) {
       texts: shipped.length > 0 ? shipped : standardTexts(decision.licences, standardText),
       standard: shipped.length === 0,
       ...(offered ? { source: source.source } : {}),
+      ...(source.modified === undefined ? {} : { modified: source.modified }),
     },
   };
 }
@@ -787,11 +792,15 @@ export function renderNotices(notices, ported = [], vendored = []) {
         linksOf(library.texts, `${library.project} ${library.version}`).join(', '),
       ].join(' | '),
     );
-  const offered = sorted.flatMap((notice) =>
-    notice.source === undefined
-      ? []
-      : [`- ${cell(notice.name)} ${cell(notice.version)}: <${notice.source}>`],
-  );
+  const offered = sorted.flatMap((notice) => {
+    if (notice.source === undefined) return [];
+    const named = `- ${cell(notice.name)} ${cell(notice.version)}`;
+    return notice.modified === undefined
+      ? [`${named}: <${notice.source}>`]
+      : [
+          `${named}, modified: the files as shipped are in this repository at \`${cell(notice.modified)}\`, whose README.md states each change and why; the unmodified source is <${notice.source}>`,
+        ];
+  });
   const sections = [...texts.values()].map(({ number, text, users }) => {
     const fence = fenceFor(text);
     return [
@@ -834,7 +843,9 @@ export function renderNotices(notices, ported = [], vendored = []) {
           '',
           'The packages below are licensed under the Mozilla Public License 2.0, which asks',
           'that whoever receives them compiled be told where their source is. Each is',
-          'shipped unmodified, and its source is published at:',
+          'shipped unmodified, and its source is published where it says, but a package',
+          'marked modified, which is shipped as the copy vendored in this repository with',
+          'the changes its README states, each marked in the file it changes:',
           '',
           ...offered,
           '',
@@ -921,13 +932,15 @@ export function renderNotices(notices, ported = [], vendored = []) {
  * Every third-party crate a crate links, transitively: those it takes as
  * normal dependencies, not as development or build dependencies, which run
  * on the machine that builds it and are not in the module. A crate with no
- * source is one of the workspace's own.
+ * source is one of the workspace's own, unless it is a third party's crate
+ * vendored and patched in, which `vendored` recognises.
  *
  * @param {CargoMetadata} metadata
  * @param {string} root the crate's name
+ * @param {(crate: CargoCrate) => boolean} [vendored]
  * @returns {readonly CargoCrate[]}
  */
-export function linkedCratesOf(metadata, root) {
+export function linkedCratesOf(metadata, root, vendored = () => false) {
   const byId = new Map(metadata.packages.map((crate) => [crate.id, crate]));
   const nodes = new Map(metadata.resolve.nodes.map((node) => [node.id, node]));
   const start = metadata.packages.find((crate) => crate.name === root && crate.source === null);
@@ -943,7 +956,7 @@ export function linkedCratesOf(metadata, root) {
   }
   return [...reached]
     .map((id) => byId.get(id))
-    .filter((crate) => crate !== undefined && crate.source !== null)
+    .filter((crate) => crate !== undefined && (crate.source !== null || vendored(crate)))
     .map((crate) => /** @type {CargoCrate} */ (crate));
 }
 
@@ -1025,20 +1038,40 @@ function shippedCrateSources() {
   if (run.error !== undefined) throw new Error(`cargo could not be started: ${run.error.message}`);
   if (run.status !== 0) throw new Error(`cargo metadata failed:\n${run.stderr}`);
   const metadata = /** @type {CargoMetadata} */ (JSON.parse(run.stdout));
+  const vendoredFolderOf = (/** @type {CargoCrate} */ crate) =>
+    vendoredCrateFolder(relative(REPO_ROOT, crate.manifest_path));
   const linked = new Map(
-    SHIPPED_CRATES.flatMap((root) => linkedCratesOf(metadata, root)).map((crate) => [
-      crate.id,
-      crate,
-    ]),
+    SHIPPED_CRATES.flatMap((root) =>
+      linkedCratesOf(metadata, root, (crate) => vendoredFolderOf(crate) !== undefined),
+    ).map((crate) => [crate.id, crate]),
   );
-  return [...linked.values()].map((crate) => ({
-    name: crate.name,
-    version: crate.version,
-    // Cargo's manifests once wrote `MIT/Apache-2.0` for a choice of either.
-    licence: crate.license?.replaceAll('/', ' OR ') ?? undefined,
-    files: licenceFilesIn(dirname(crate.manifest_path)),
-    source: `https://crates.io/crates/${crate.name}/${crate.version}`,
-  }));
+  return [...linked.values()].map((crate) => {
+    const modified = vendoredFolderOf(crate);
+    return {
+      name: crate.name,
+      version: crate.version,
+      // Cargo's manifests once wrote `MIT/Apache-2.0` for a choice of either.
+      licence: crate.license?.replaceAll('/', ' OR ') ?? undefined,
+      files: licenceFilesIn(dirname(crate.manifest_path)),
+      source: `https://crates.io/crates/${crate.name}/${crate.version}`,
+      ...(modified === undefined ? {} : { modified }),
+    };
+  });
+}
+
+/**
+ * The folder of `third_party/` a crate's manifest is vendored in, as
+ * `third_party/<name>/crate/Cargo.toml` lays one out beside the README that
+ * states its changes, or `undefined` for a crate that is not vendored.
+ *
+ * @param {string} manifest the manifest's path from the repository's root
+ * @returns {string | undefined}
+ */
+export function vendoredCrateFolder(manifest) {
+  const parts = manifest.split(/[\\/]/u);
+  return parts.length === 4 && parts[0] === THIRD_PARTY && parts[2] === 'crate'
+    ? `${THIRD_PARTY}/${String(parts[1])}`
+    : undefined;
 }
 
 /**
@@ -1049,7 +1082,9 @@ function shippedCrateSources() {
  */
 function main(argv) {
   const checkOnly = argv.includes('--check');
-  const decided = [...shippedNodeSources(), ...shippedCrateSources()].map((source) =>
+  const crates = shippedCrateSources();
+  const patched = new Set(crates.flatMap((crate) => crate.modified ?? []));
+  const decided = [...shippedNodeSources(), ...crates].map((source) =>
     noticeOf(source, (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8')),
   );
   const refused = decided.flatMap((one) => ('refused' in one ? [one.refused] : []));
@@ -1082,9 +1117,11 @@ function main(argv) {
   const vendored = vendoredNoticesOf(JSON.parse(readFileSync(VENDORED_LIBRARIES, 'utf8')), {
     exists: (path) => existsSync(join(REPO_ROOT, path)),
     read: (path) => readFileSync(join(REPO_ROOT, path), 'utf8'),
+    // A crate patched in has its notice among the packages.
     directories: readdirSync(join(REPO_ROOT, THIRD_PARTY), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => `${THIRD_PARTY}/${entry.name}`),
+      .map((entry) => `${THIRD_PARTY}/${entry.name}`)
+      .filter((directory) => !patched.has(directory)),
     modules: [MP3_MODULE, VORBIS_MODULE].map((module) => basename(module)),
     toolchain: { name: `Zig ${ZIG_VERSION}`, ...ZIG_SOURCE },
     standardText: (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
