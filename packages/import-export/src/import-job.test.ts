@@ -199,6 +199,41 @@ describe('a batch import', () => {
     ).toBe('import-export.import-step-refused');
   });
 
+  it('keeps the storage a file needs on its entry, known or not, whatever the file comes to', () => {
+    const known = run(job(), 0, [
+      { kind: 'analyse' },
+      { kind: 'room', needed: { kind: 'known', bytes: 2_000 } },
+    ]);
+    expect(known.entries[0]).toEqual({
+      file: { name: 'a.flac', bytes: 1_000 },
+      state: { kind: 'analysing' },
+      room: { kind: 'known', bytes: 2_000 },
+    });
+    const refused = run(known, 0, [{ kind: 'refused', failure: UNREADABLE }]);
+    expect(refused.entries[0]?.room).toEqual({ kind: 'known', bytes: 2_000 });
+    const unknown = run(job(), 0, [
+      { kind: 'analyse' },
+      { kind: 'room', needed: { kind: 'unknown', atLeast: 1_000 } },
+      ...IMPORTED.slice(1),
+    ]);
+    expect(unknown.entries[0]?.room).toEqual({ kind: 'unknown', atLeast: 1_000 });
+  });
+
+  it.each([
+    ['before the file is analysed', []],
+    ['a second time', [{ kind: 'analyse' }, { kind: 'room', needed: { kind: 'known', bytes: 1 } }]],
+    ['once the file is copied', [{ kind: 'analyse' }, { kind: 'copy', bytesTotal: 10 }]],
+  ] as const)('refuses the storage a file needs stated %s', (_name, events) => {
+    expect(
+      expectFailureCode(
+        nextImportJob(run(job(), 0, events), 0, {
+          kind: 'room',
+          needed: { kind: 'known', bytes: 1 },
+        }),
+      ),
+    ).toBe('import-export.import-step-refused');
+  });
+
   it('refuses a file it does not have', () => {
     expect(expectFailureCode(nextImportJob(job(), 3, { kind: 'analyse' }))).toBe(
       'import-export.import-file-unknown',

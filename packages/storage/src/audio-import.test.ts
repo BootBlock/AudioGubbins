@@ -9,6 +9,7 @@ import {
   type AssetId,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
+import type { ImportFileEvent } from '@audiogubbins/import-export';
 import { SourceHandling, type ExternalFile } from '@audiogubbins/media-store';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf, type ByteSource } from '@audiogubbins/project-format';
@@ -315,22 +316,30 @@ describe('importing an audio file (ADR-0052)', () => {
       importedAt: IMPORTED_AT,
       decoding: NO_DECODING,
     };
+    const events: ImportFileEvent[] = [];
     const copied = await importAudio(
       scene.session,
       { ...request, choice: { mode: SourceHandling.Copy } },
       services,
+      (event) => events.push(event),
     );
     expect(expectFailureCode(copied)).toBe('import.no-room');
     expect(await storedObjects(scene)).toEqual([]);
+    // The room needed was stated before the refusal.
+    expect(events.map((event) => event.kind)).toEqual(['analyse', 'recognised', 'room']);
+    expect(events[2]).toEqual({ kind: 'room', needed: { kind: 'known', bytes: bytes.length } });
 
     // A link stores nothing of the file, so it needs no room.
+    const linking: ImportFileEvent[] = [];
     expectSuccess(
       await importAudio(
         scene.session,
         { ...request, choice: { mode: SourceHandling.Link, keepProtectedCopy: false } },
         services,
+        (event) => linking.push(event),
       ),
     );
+    expect(linking[2]).toEqual({ kind: 'room', needed: { kind: 'known', bytes: 0 } });
   });
 
   it('reads a file cut short to its last whole frame and says how far short it fell', async () => {

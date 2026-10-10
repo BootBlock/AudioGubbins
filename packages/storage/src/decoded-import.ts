@@ -48,7 +48,7 @@ import type {
   PreparedImport,
 } from './import-contracts.js';
 import type { DecodedStream, StreamAnalysis } from './decoded-stream.js';
-import { checkRoom, keepsCopy, renditionBytes } from './import-analysis.js';
+import { checkRoom, renditionBytes, roomNeeded } from './import-analysis.js';
 import { renditionReadBackDiffers, streamOutOfOrder } from './import-failures.js';
 import { importPlacements } from './import-placements.js';
 import { receiveRendition } from './rendition-receiving.js';
@@ -77,7 +77,7 @@ export async function prepareDecoded(
   const analysed = await request.decoding.analyse(signal);
   if (!analysed.ok) return analysed;
   const analysis = analysed.value;
-  const sized = await sizedFor(request, analysis, services);
+  const sized = await sizedFor(request, analysis, services, observe);
   if (!sized.ok) return sized;
   let kept: ImportedMedia | undefined;
   let stored: StoredWav | undefined;
@@ -137,19 +137,21 @@ function refused(stream: DecodedStream, failure: DomainFailure): DomainResult<ne
 }
 
 /**
- * Whether the storage has room for the file, where a copy of it is kept, and
- * the rendition, where the stream states its length (`import-analysis.ts`).
+ * States the storage the import needs, and whether it has room for the file,
+ * where a copy of it is kept, and the rendition, where the stream states its
+ * length (`import-analysis.ts`).
  */
 async function sizedFor(
   request: DecodedImport,
   analysis: StreamAnalysis,
   services: AudioImportServices,
+  observe: ImportObserver,
 ): Promise<DomainResult<void>> {
   const { sampleRate: rate, layout, statedFrames } = analysis;
   const rendition = renditionBytes({ sampleRate: rate, layout }, statedFrames);
   if (!rendition.ok) return rendition;
-  const file = keepsCopy(request.choice) ? request.file.source.size : 0;
-  return await checkRoom(file + (rendition.value ?? 0), services.room);
+  const needed = roomNeeded(request.file, request.choice, { bytes: rendition.value });
+  return await checkRoom(needed, services.room, observe);
 }
 
 /**

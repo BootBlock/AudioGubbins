@@ -1,7 +1,9 @@
 /**
  * An import as the list of files being imported words it (ADR-0090,
  * REQ-UX-005): each file's format, its stage and how far it has got, or what
- * it came to and why, and the batch as a whole as it begins and once it ends.
+ * it came to and why, the storage it needs as its analysis stated it before
+ * anything of it was stored, and the batch as a whole as it begins and once it
+ * ends.
  *
  * How far a file has got is measured by the stage it is in: the bytes copied
  * while it is copied, the frames decoded while it is decoded, against the
@@ -39,6 +41,26 @@ export function formatWords(entry: ImportEntry): string {
   return entry.state.kind === 'queued' || entry.state.kind === 'analysing'
     ? 'Not known yet'
     : 'Not recognised';
+}
+
+/**
+ * The storage a file needs, as its analysis stated it before storing anything
+ * (ADR-0090): the copy kept and the decoded rendition, which a stream that
+ * states no length leaves unknown beyond the copy. A file that ended before it
+ * was sized stored nothing, since sizing comes before any byte is stored.
+ */
+export function roomWords(entry: ImportEntry): string {
+  const { room, state } = entry;
+  if (room === undefined) {
+    return state.kind === 'queued' || state.kind === 'analysing'
+      ? 'Not known yet'
+      : 'None: nothing of it was stored';
+  }
+  if (room.kind === 'known') return room.bytes === 0 ? 'None' : describeBytes(room.bytes);
+  const unsized = 'its stream does not state its length, so its decoded audio cannot be sized';
+  return room.atLeast === 0
+    ? `Not known: ${unsized}`
+    : `At least ${describeBytes(room.atLeast)}: ${unsized}`;
 }
 
 /** The stage a file is at, or what it came to, in a phrase. */
