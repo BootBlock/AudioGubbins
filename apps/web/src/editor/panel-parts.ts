@@ -11,11 +11,13 @@ import type { Logger } from '@audiogubbins/diagnostics';
 import type { SpectrogramHost } from '@audiogubbins/spectral-analysis';
 import type { PeakHost } from '@audiogubbins/waveform';
 
+import type { SpectrogramDsp } from './spectrogram-reports.js';
 import type { SurfaceStores } from './view-sources.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ChosenFiles } from '../state/chosen-files.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
+import type { Observable } from '../state/observable.js';
 import type { RendererReports } from '../state/renderer-reports.js';
 
 /** What a command a control runs is given. */
@@ -29,6 +31,8 @@ export interface EditorPanelParts {
   readonly chosenFiles: Pick<ChosenFiles, 'offer'>;
   readonly peaks: PeakHost;
   readonly spectrograms: SpectrogramHost;
+  /** Which DSP the spectrogram worker runs, once a view has shown a spectrogram. */
+  readonly spectrogramDsp: Observable<SpectrogramDsp | undefined>;
   readonly graphics: GraphicsPlatform;
   readonly rendererReports: RendererReports;
   readonly logger: Logger;

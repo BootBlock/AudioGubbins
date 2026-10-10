@@ -8,11 +8,15 @@
  * `withDrawnShape`, which the drag's preview showed, so the selection a drag
  * previews is the selection it makes.
  *
- * The keyboard reaches every spectral selection a pointer makes
- * (REQ-UX-005): a band of the time selection selected, the area widened or
- * narrowed in time or in frequency by a step of the view, and cleared; and
- * the selection described in words, for a person who cannot see it. None is
- * undoable: a selection is not project content (REQ-EDIT-073).
+ * The keyboard makes the selections a pointer makes of rectangles
+ * (REQ-UX-005): a band of the time selection replacing the area, added to it
+ * or taken from it, as a marquee's shape is joined, so a compound area is
+ * built a band at a time; the area widened or narrowed in time or in
+ * frequency by a step of the view, and cleared; and the selection described
+ * in words, for a person who cannot see it. A lasso's polygon and a brush's
+ * stroke are drawn by a pointer, a finger or a pen among them, or given as a
+ * mask to `editor.select-spectral`. None is undoable: a selection is not
+ * project content (REQ-EDIT-073).
  */
 
 import { CommandCategory, type Command } from '@audiogubbins/commands';
@@ -38,6 +42,7 @@ import {
   SpectralCombination,
   samplesWithin,
   withSpectralMask,
+  withSpectralShape,
   withoutFacet,
   type SelectionSet,
 } from '@audiogubbins/timeline';
@@ -132,15 +137,49 @@ function withCheckedMask(
   return maskProblem(mask, asset.length) ?? withSpectralMask(current, mask);
 }
 
+/** What each band command does, by how its band joins the area. */
+const BANDS: Readonly<
+  Record<
+    SpectralCombination,
+    {
+      readonly id: string;
+      readonly label: string;
+      readonly keywords: readonly string[];
+      readonly does: string;
+    }
+  >
+> = {
+  [SpectralCombination.Replace]: {
+    id: 'editor.select-spectral-band',
+    label: 'Select a band of frequencies over the time selection',
+    keywords: ['select', 'replace'],
+    does: 'Selects',
+  },
+  [SpectralCombination.Add]: {
+    id: 'editor.add-spectral-band',
+    label: 'Add a band of frequencies over the time selection',
+    keywords: ['add', 'join', 'union', 'compound'],
+    does: 'Adds to the spectral selection',
+  },
+  [SpectralCombination.Subtract]: {
+    id: 'editor.subtract-spectral-band',
+    label: 'Take a band of frequencies over the time selection away',
+    keywords: ['subtract', 'take away', 'remove', 'exclude', 'compound'],
+    does: 'Takes from the spectral selection',
+  },
+};
+
 /**
- * The band of the time selection, as a rectangle: the band the invocation
- * names by `low` and `high` in hertz, or the band the view's spectrogram
- * shows where it names none, softened as the view's marquee softens.
+ * The band of the time selection, as a rectangle joined to the area as
+ * `combination` says, as a marquee's is: the band the invocation names by
+ * `low` and `high` in hertz, or the band the view's spectrogram shows where
+ * it names none, softened as the view's marquee softens.
  */
-function bandCommand(): Command<ShellContext> {
+function bandCommand(combination: SpectralCombination): Command<ShellContext> {
+  const { id, label, keywords, does } = BANDS[combination];
   return selectionCommand(
-    'editor.select-spectral-band',
-    'Select a band of frequencies over the time selection',
+    id,
+    label,
     (current, target, _context, invocation) => {
       const { time } = current;
       if (time === undefined) return 'Select a time range first, then a band of it.';
@@ -151,19 +190,23 @@ function bandCommand(): Command<ShellContext> {
       if (!(low >= 0 && high > low && high <= highest)) {
         return `A band is a low frequency below a high one, from nothing to ${frequencyWords(highest)}.`;
       }
-      return withCheckedMask(
+      const next = withSpectralShape(
         current,
-        {
-          shapes: [{ kind: 'rectangle', effect: MaskEffect.Add, range: time, band: { low, high } }],
-          feather: target.state.spectralTools.feather,
-        },
-        target,
+        { kind: 'rectangle', effect: MaskEffect.Add, range: time, band: { low, high } },
+        combination,
+        target.state.spectralTools.feather,
       );
+      // Only a band taken from no area leaves none.
+      if (next.spectral === undefined) {
+        return 'No area of time and frequency is selected to take a band from.';
+      }
+      // The one check of the band and of what joining it made, as a drawn
+      // shape's: a band may pass the shapes a selection may hold.
+      return maskProblem(next.spectral, target.asset.length) ?? next;
     },
     {
-      keywords: ['spectral', 'band', 'frequency', 'select', 'area', 'time selection'],
-      description:
-        'Selects a band of frequencies over the time selection: the band given, or the band the spectrogram shows.',
+      keywords: ['spectral', 'band', 'frequency', 'area', 'time selection', ...keywords],
+      description: `${does} a band of frequencies over the time selection: the band given, or the band the spectrogram shows.`,
     },
   );
 }
@@ -264,7 +307,7 @@ function describeCommand(): Command<ShellContext> {
 export function spectralSelectionCommands(): readonly Command<ShellContext>[] {
   return [
     drawnShapeCommand(),
-    bandCommand(),
+    ...Object.values(SpectralCombination).map(bandCommand),
     ...STEPS.map(stepCommand),
     clearCommand(),
     describeCommand(),

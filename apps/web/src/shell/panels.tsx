@@ -60,6 +60,7 @@ import { RecordingDiagnosticsList } from './recording/recording-diagnostics-list
 import { RecordingPanel } from './recording/recording-panel.js';
 import { useRecordingDiagnostics, useWatchedInputs } from './recording/use-recording.js';
 import { RendererReportList } from './renderer-report-list.js';
+import { SpectrogramDspReading } from './spectrogram-dsp-reading.js';
 import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
 import { TransportPanel } from './transport-panel.js';
@@ -92,7 +93,7 @@ function RecordingCapability({
 export function CapabilitiesPanel({
   title,
   capabilities,
-  renderers,
+  editor,
   storageAbsences,
   recording,
   audioSettings,
@@ -100,8 +101,8 @@ export function CapabilitiesPanel({
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
-  /** What each editor view's renderer tried and draws with. */
-  readonly renderers: EditorPanelParts['rendererReports'];
+  /** What each editor view's renderer tried and draws with, and which DSP the spectrogram worker runs. */
+  readonly editor: Pick<EditorPanelParts, 'rendererReports' | 'spectrogramDsp'>;
   /** What this browser lacks for keeping projects, and what that costs. */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
   /** The input, for what recording can do here. */
@@ -150,7 +151,8 @@ export function CapabilitiesPanel({
         audioSettings={audioSettings}
         commands={commands}
       />
-      <RendererReportList reports={renderers} />
+      <RendererReportList reports={editor.rendererReports} />
+      <SpectrogramDspReading dsp={editor.spectrogramDsp} />
     </section>
   );
 }
@@ -284,7 +286,7 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
         <CapabilitiesPanel
           title={title}
           capabilities={context.capabilities}
-          renderers={context.editor.rendererReports}
+          editor={context.editor}
           storageAbsences={context.storageAbsences}
           recording={context.recording}
           audioSettings={context.audioSettings}

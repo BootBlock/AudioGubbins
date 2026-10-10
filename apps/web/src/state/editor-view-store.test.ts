@@ -9,7 +9,12 @@ import {
   SpectrogramColours,
   ToolId,
 } from '@audiogubbins/editor-view';
-import { SnapKind, StandardFrameRates, pixelsPerSample } from '@audiogubbins/timeline';
+import {
+  SnapKind,
+  SpectralCombination,
+  StandardFrameRates,
+  pixelsPerSample,
+} from '@audiogubbins/timeline';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { testAssets } from '../assets/test-assets.js';
@@ -127,19 +132,18 @@ describe('the editor views', () => {
     const raw = ephemeralStorage();
     const first = storeOver(raw);
     first.open('editor', TONES);
-    first.change('editor', (state) => ({
-      ...state,
-      spectralTools: { brushRadius: 30, hardness: 0.25, feather: { time: 480, frequency: 50 } },
-    }));
-
-    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual({
+    const tools = {
       brushRadius: 30,
       hardness: 0.25,
       feather: { time: 480, frequency: 50 },
-    });
+      combination: SpectralCombination.Subtract,
+    };
+    first.change('editor', (state) => ({ ...state, spectralTools: tools }));
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual(tools);
   });
 
-  it('take a stored brush to its control’s steps, and a softness in one part alone as none', () => {
+  it('take a stored brush to its control’s steps, a softness in one part alone as none, and an unknown combination as replacing', () => {
     const raw = ephemeralStorage();
     raw.write(
       EDITOR_VIEWS_KEY,
@@ -152,6 +156,7 @@ describe('the editor views', () => {
               brushRadius: 500,
               hardness: 0.333,
               feather: { time: 480, frequency: 0 },
+              combination: 'intersect',
             },
           },
         },
@@ -162,6 +167,7 @@ describe('the editor views', () => {
       brushRadius: 96,
       hardness: 0.35,
       feather: { time: 0, frequency: 0 },
+      combination: SpectralCombination.Replace,
     });
   });
 

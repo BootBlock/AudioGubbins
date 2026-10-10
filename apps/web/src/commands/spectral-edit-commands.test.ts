@@ -18,6 +18,7 @@ import {
   type EditOperation,
   type Region,
   type SpectralMask,
+  type SpectralOperationKind,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleCount } from '@audiogubbins/domain';
@@ -73,29 +74,30 @@ function chainOf(audio: AudioWindow): readonly EditOperation[] {
   return audio.session.getSnapshot().model.state.project.assets.get(audio.assetId)?.edits ?? [];
 }
 
-/** Where the domain places a spectral edit of `mask` at the default resolution. */
-function placed(mask: SpectralMask, length: number) {
-  const placement = spectralPlacement(mask, DEFAULT_SPECTRAL_RESOLUTION, length);
+/** Where the domain places a spectral edit `kind` of `mask` at the default resolution. */
+function placed(mask: SpectralMask, kind: SpectralOperationKind, length: number) {
+  const placement = spectralPlacement(mask, DEFAULT_SPECTRAL_RESOLUTION, kind, length);
   if (placement === undefined) throw new Error('The area reaches no audio.');
   return placement;
 }
 
 describe('a spectral edit of the selection', () => {
   it.each([
-    ['spectral.attenuate', {}, { kind: 'attenuate', gain: decibelsToGain(-12) }],
-    ['spectral.attenuate', { decibels: -6 }, { kind: 'attenuate', gain: decibelsToGain(-6) }],
+    ['spectral.attenuate', {}, { kind: 'attenuate', gain: decibelsToGain(-12) }, 1],
+    ['spectral.attenuate', { decibels: -6 }, { kind: 'attenuate', gain: decibelsToGain(-6) }, 1],
     // The platform's power of ten gives another last bit at −96 dB: the factor
     // kept is the engine's canonical conversion, the same on every machine.
-    ['spectral.attenuate', { decibels: -96 }, { kind: 'attenuate', gain: decibelsToGain(-96) }],
-    ['spectral.remove', {}, { kind: 'attenuate', gain: 0 }],
-    ['spectral.isolate', {}, { kind: 'isolate', gain: 0 }],
-    ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: decibelsToGain(-20) }],
-    ['spectral.heal', {}, { kind: 'heal' }],
+    ['spectral.attenuate', { decibels: -96 }, { kind: 'attenuate', gain: decibelsToGain(-96) }, 1],
+    ['spectral.remove', {}, { kind: 'attenuate', gain: 0 }, 1],
+    ['spectral.isolate', {}, { kind: 'isolate', gain: 0 }, 1],
+    ['spectral.isolate', { decibels: -20 }, { kind: 'isolate', gain: decibelsToGain(-20) }, 1],
+    // A heal's four border frames at the widest hop, half a frame each, too.
+    ['spectral.heal', {}, { kind: 'heal' }, 5],
   ] as const)(
-    '%s %o is one change over the area widened by half a frame',
-    async (id, args, operation) => {
+    '%s %o is one change over the area widened by %i half frames',
+    async (id, args, operation, halves) => {
       const audio = await selectedLoop({ channels: '1' });
-      const { start, end, mask } = placed(SELECTED, audio.asset().length);
+      const { start, end, mask } = placed(SELECTED, operation.kind, audio.asset().length);
 
       await audio.window.runAndHear(id, args);
 
@@ -107,7 +109,7 @@ describe('a spectral edit of the selection', () => {
           edit: { kind: 'spectral', mask, resolution: DEFAULT_SPECTRAL_RESOLUTION, operation },
         }),
       ]);
-      expect(start).toBe(48_000 - DEFAULT_SPECTRAL_RESOLUTION / 2);
+      expect(start).toBe(48_000 - (halves * DEFAULT_SPECTRAL_RESOLUTION) / 2);
       await audio.window.runAndHear('edit.undo');
       expect(chainOf(audio)).toEqual([]);
     },
@@ -118,7 +120,8 @@ describe('a spectral edit of the selection', () => {
     await audio.window.runAndHear('spectral.heal', { resolution: 512 });
     const [operation] = chainOf(audio);
     expect(operation?.kind === 'process' && operation.edit).toMatchObject({ resolution: 512 });
-    expect(operation?.kind === 'process' && operation.range.start).toBe(48_000 - 256);
+    // Half a frame, and a heal's four border frames at the widest hop, a half frame each.
+    expect(operation?.kind === 'process' && operation.range.start).toBe(48_000 - 5 * 256);
   });
 
   it('refuses what the domain refuses, saying why, and changes nothing', async () => {
@@ -177,7 +180,7 @@ describe('a spectral edit of the selection', () => {
 
     await audio.window.runAndHear('spectral.heal');
 
-    const { start, end, mask } = placed(shown, 192_000);
+    const { start, end, mask } = placed(shown, 'heal', 192_000);
     const operations: Region['operations'] | undefined = audio.session
       .getSnapshot()
       .model.state.project.regions.get(region.id)?.operations;

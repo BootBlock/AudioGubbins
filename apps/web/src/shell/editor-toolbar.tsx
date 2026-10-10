@@ -1,8 +1,11 @@
 /**
  * An editor view's toolbar: its tools, zoom, display mode, time format,
- * snapping and channels (REQ-EDIT-062, REQ-EDIT-065). Every control runs the
- * command of the same name, naming this view, so the toolbar, a key and the
- * palette are one action; a control shows the view's state and holds none.
+ * snapping and channels (REQ-EDIT-062, REQ-EDIT-065), and, while a spectral
+ * tool is in use, the combination mode its shapes join the selection by where
+ * no modifier is held, which is how a finger or a pen adds and takes away
+ * (ADR-0082). Every control runs the command of the same name, naming this
+ * view, so the toolbar, a key and the palette are one action; a control shows
+ * the view's state and holds none.
  */
 
 import type { ReactNode } from 'react';
@@ -15,13 +18,19 @@ import {
   ControlBarItem,
   OptionSelect,
 } from '@audiogubbins/design-system';
-import { DisplayMode, ToolId, type EditorViewState } from '@audiogubbins/editor-view';
-import { TimeFormatKind } from '@audiogubbins/timeline';
+import {
+  DisplayMode,
+  ToolId,
+  isSpectralTool,
+  type EditorViewState,
+} from '@audiogubbins/editor-view';
+import { SpectralCombination, TimeFormatKind } from '@audiogubbins/timeline';
 
 import { channelNames } from '../assets/channel-names.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { DISPLAY_MODES, TOOLS } from '../commands/editor-presentation-commands.js';
 import { TIME_FORMATS } from '../commands/editor-option-commands.js';
+import { COMBINATIONS } from '../commands/spectral-tool-commands.js';
 
 /** How the toolbar runs a command, and reads its shortcut and why it cannot run. */
 export interface ToolbarCommands {
@@ -54,6 +63,39 @@ function ToolButtons({
           }}
         >
           {TOOLS[tool].name}
+        </Button>
+      </ControlBarItem>
+    );
+  });
+}
+
+/** The combination mode, each mode a button pressed while it is the view's. */
+function CombinationButtons({
+  panel,
+  state,
+  commands,
+}: {
+  readonly panel: string;
+  readonly state: EditorViewState;
+  readonly commands: ToolbarCommands;
+}): ReactNode {
+  return Object.values(SpectralCombination).map((combination) => {
+    const id = `editor.spectral-combination-${combination}`;
+    const shortcut = commands.shortcutFor(id);
+    const chosen = state.spectralTools.combination === combination;
+    const does = `A shape drawn with no modifier held ${COMBINATIONS[combination].does} the spectral selection.`;
+    return (
+      <ControlBarItem key={combination}>
+        <Button
+          compact
+          tone={chosen ? ButtonTone.Primary : ButtonTone.Quiet}
+          aria-pressed={chosen}
+          title={shortcut === undefined ? does : `${does} (${shortcut})`}
+          onClick={() => {
+            commands.run(id, { view: panel });
+          }}
+        >
+          {COMBINATIONS[combination].name}
         </Button>
       </ControlBarItem>
     );
@@ -192,6 +234,11 @@ export function EditorToolbar({
       <ControlBar label="Tools">
         <ToolButtons panel={panel} state={state} commands={commands} />
       </ControlBar>
+      {isSpectralTool(state.tool) && (
+        <ControlBar label="Combination mode">
+          <CombinationButtons panel={panel} state={state} commands={commands} />
+        </ControlBar>
+      )}
       <ZoomBar panel={panel} state={state} commands={commands} />
       <Choices panel={panel} state={state} commands={commands} />
       <ControlBar label="Channels shown">

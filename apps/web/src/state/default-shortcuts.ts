@@ -318,6 +318,18 @@ export function placeDefaults(
  * X, C and V cuts, copies and pastes, as everywhere. Shift with I turns input
  * monitoring on or off, and Shift with A, P, R and S arms, arms a punch,
  * records and stops.
+ *
+ * The spectral selection is made from the keyboard as a pointer makes one of
+ * rectangles (REQ-UX-005): B selects a band of the time selection, Shift with B
+ * adds one and Shift with X takes one away, since Alt with a letter types a
+ * character on a Mac; Shift with the up and down arrows widens and narrows the
+ * band, as the arrows alone zoom; and Shift with D clears the area, as the
+ * usual modifier with D clears the selection. The spectral tools take the
+ * letters image editors give them, with Shift where the letter alone is the
+ * editor's: M for the marquee and L for the lasso, and P, to paint, for the
+ * brush, as Shift with B adds a band. Widening and narrowing in time are left
+ * to the palette and the Spectral panel, since every arrow across the timeline
+ * is the playhead's, the selection's or the markers'.
  */
 function editorBindings(
   of: (
@@ -390,6 +402,15 @@ function editorBindings(
     bind('editor.toggle-snapping', of(alone('s'))),
     bind('editor.next-display-mode', of(alone('d'))),
     bind('editor.show-all-channels', of(alone('l'))),
+    bind('editor.select-spectral-band', of(alone('b'))),
+    bind('editor.add-spectral-band', of(alone('b', true))),
+    bind('editor.subtract-spectral-band', of(alone('x', true))),
+    bind('editor.widen-spectral-band', of(named('ArrowUp', true))),
+    bind('editor.narrow-spectral-band', of(named('ArrowDown', true))),
+    bind('editor.clear-spectral-selection', of(alone('d', true))),
+    bind('editor.tool-spectral-marquee', of(alone('m', true))),
+    bind('editor.tool-spectral-lasso', of(alone('l', true))),
+    bind('editor.tool-spectral-brush', of(alone('p'))),
     // Input monitoring, one press on or off, as a recording application's input
     // monitoring is: I for input, with Shift, since I alone starts a selection.
     bind('recording.toggle-monitoring', of(alone('i', true))),

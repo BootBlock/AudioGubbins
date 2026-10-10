@@ -38,6 +38,10 @@ test.describe('the editor renderer', () => {
     const panel = await openWithCapabilities(page);
     await expect(rendererReport(page)).toHaveAttribute('data-ag-renderer', 'webgl2');
     await expectSpectrogramDrawn(page, panel);
+    // The worker that made it says which DSP it runs, beside what draws it.
+    await expect(page.locator('.ag-capability[data-ag-dsp]')).toHaveText(
+      'Spectrogram worker: WebAssembly module',
+    );
   });
 
   test('recovers a WebGL 2 context given back, and draws the view as it now is', async ({

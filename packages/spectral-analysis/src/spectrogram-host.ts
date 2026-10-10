@@ -91,20 +91,29 @@ export class SpectrogramHost {
   readonly #memory: TileMemory;
   readonly #shared = new Map<string, Shared>();
   readonly #byName = new Map<string, SpectrogramJob>();
+  readonly #now: () => number;
   #worker: SpectrogramWorkerPort | undefined;
   #jobs = 0;
   #requests = 0;
+  /** When the last job opened, which the next opens after. */
+  #opened = Number.NEGATIVE_INFINITY;
 
   constructor(options: {
     readonly createWorker: () => SpectrogramWorkerPort;
     readonly cache: SpectralTileCache;
     readonly report: (event: SpectrogramHostEvent) => void;
+    /**
+     * The time in milliseconds since 1970, which dates each job, so a cache
+     * the page's windows and visits share keeps the revision opened last.
+     */
+    readonly now: () => number;
     /** The bytes of tiles held in memory: {@link TILE_MEMORY_BUDGET_BYTES} unless a test says. */
     readonly memoryBudget?: number;
   }) {
     this.#createWorker = options.createWorker;
     this.#cache = options.cache;
     this.#report = options.report;
+    this.#now = options.now;
     this.#memory = new TileMemory(options.memoryBudget ?? TILE_MEMORY_BUDGET_BYTES);
   }
 
@@ -152,6 +161,9 @@ export class SpectrogramHost {
 
   #start(key: string, subject: SpectrogramSubject): Shared {
     this.#jobs += 1;
+    // Later than the last job however close they come, so two jobs opened in
+    // one millisecond are still told apart.
+    this.#opened = Math.max(this.#now(), this.#opened + 1);
     const job = new SpectrogramJob(`spectrogram-${String(this.#jobs)}`, subject, {
       post: (message, transfer) => {
         this.#workerPort().post(message, transfer);
@@ -166,6 +178,7 @@ export class SpectrogramHost {
       hold: (tile) => {
         this.#hold(tile);
       },
+      opened: this.#opened,
     });
     const shared: Shared = { job, holders: 0 };
     this.#shared.set(key, shared);
