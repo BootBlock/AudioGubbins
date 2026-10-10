@@ -76,6 +76,8 @@ export {
   type SamplerTuning,
 } from './metadata-map.js';
 
+export { metadataMapOf, metadataPartOf } from './metadata-map-reading.js';
+
 export { type SyncAudioBytes } from './sync-audio-bytes.js';
 
 export { type AudioFileWriter, type FinishedAudioFile } from './audio-file-writer.js';
