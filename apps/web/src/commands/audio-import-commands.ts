@@ -21,9 +21,11 @@ import type { ImportedAudio } from '@audiogubbins/storage';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { assetEntryId } from '../assets/project-entry.js';
+import { IMPORT_EXPORT_MENU } from '../import-export-words.js';
 import { settledEntry } from '../state/asset-catalogue.js';
 import { ONE_AT_A_TIME, type AudioImportOutcome } from '../state/audio-imports.js';
 import { showInEditor } from './editor-asset-commands.js';
+import { ImportCommand } from './import-export-ids.js';
 import { readyProjects, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
 import { shellCommand } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -90,8 +92,8 @@ async function importedSentence(
 
 function importAudioCommand(): Command<ShellContext> {
   return shellCommand(
-    'file.import-audio',
-    'Import audio…',
+    ImportCommand.Files,
+    IMPORT_EXPORT_MENU.importFiles,
     CommandCategory.File,
     (context) => {
       const stores = readyProjects(context);
