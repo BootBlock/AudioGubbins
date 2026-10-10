@@ -38,6 +38,7 @@ import { listenToPointers } from './pointer-input.js';
 import { ToolPointer } from './tool-pointer.js';
 import { followingScroll, viewSources, type SurfaceStores } from './view-sources.js';
 import { ViewAudio } from './view-audio.js';
+import { listenToSpaceBar } from './space-panning.js';
 import { ShownSpectrogram } from './view-spectrogram.js';
 import { frameInputsOf, sameInputs, sceneOf, type SceneSources } from './view-scene.js';
 import type { EditorPalette, EditorType } from '@audiogubbins/editor-view';
@@ -114,7 +115,11 @@ export class EditorSurface {
     });
     this.#watch();
     this.#listenToPointers();
-    this.#listenToKeys();
+    this.#stops.push(
+      listenToSpaceBar(options.host, (held) => {
+        this.#panning = held;
+      }),
+    );
     this.redraw();
   }
 
@@ -237,28 +242,6 @@ export class EditorSurface {
         contextActions,
       }),
     );
-  }
-
-  /** The held space bar, which makes any tool the hand while the view has the keyboard. */
-  #listenToKeys(): void {
-    const { host } = this.#options;
-    const key = (event: KeyboardEvent): void => {
-      if (event.code !== 'Space' || event.ctrlKey || event.metaKey || event.altKey) return;
-      // The held space bar is the hand, and not the page scrolling.
-      event.preventDefault();
-      this.#panning = event.type === 'keydown';
-    };
-    const blurred = (): void => {
-      this.#panning = false;
-    };
-    host.addEventListener('keydown', key);
-    host.addEventListener('keyup', key);
-    host.addEventListener('blur', blurred);
-    this.#stops.push(() => {
-      host.removeEventListener('keydown', key);
-      host.removeEventListener('keyup', key);
-      host.removeEventListener('blur', blurred);
-    });
   }
 
   /** What the view draws from now, holding the peaks and the spectrogram of the asset it shows. */
