@@ -7789,6 +7789,7 @@ Material changes after implementation begins require a change record identifying
 - **Constraints:** every codec runs in the codec worker. `unsafe` is allowed in `crates/codec-bindings` as in `crates/wasm-bindings`, and nowhere else. A dependency enters only with its licence in the third-party notices, its version pinned, and a test that it builds and runs in the suite. A decoder that fails a fixture fails the build; a decoder's output is never repaired after it.
 - **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-141`, `REQ-REPO-033`, `REQ-REPO-142`; affected phase 09; Phase 03's DSP module and its ABI are unchanged. Compatibility impact: none. Public API: the codec module's ABI in `crates/codec-bindings` and its loader in `@audiogubbins/codec-runtime`. Godot interchange and runtime: the exported WAV, Ogg Vorbis and MP3 files are ordinary files Godot imports (`REQ-GODOT-133`). PWA and browser: the codec module and the two encoders are precached with the application. Verification: `cargo test --workspace`; the Opus conformance vectors, fetched on demand with their hashes (`REQ-REPO-191`); round trips of every lossless format bit for bit; lossy round trips within a stated error against the source; the hashes of local exports; a browser test of AAC export where Chromium encodes it.
 - **Amends:** `ADR-0031`, whose rule that only `crates/wasm-bindings` may hold `unsafe` gains `crates/codec-bindings`. Its other clauses stand.
+- **Amended:** on 2026-10-10, by Phase 09's build: `opus-rs` fails the RFC 8251 vectors, and `ropus` (BSD-3-Clause), a fixed-point port, passes all of them, so `ropus` decodes and encodes Opus; the conformance suite uses the RFC 8251 vector set, since the RFC 6716 set's decoded outputs predate it. `flacenc` encodes FLAC at 8, 12, 16, 20 and 24 bits; 32-bit FLAC frames are encoded by the codec module's own encoder, so FLAC export keeps every depth the format allows. Symphonia reads neither Matroska's `DiscardPadding` nor MP4's edit list and `iTunSMPB`, and miscounts Opus pre-skip in Ogg; the codec module reads them itself, so every decoded length is the stated one. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-141`, `REQ-REPO-033`, `REQ-REPO-142`, `REQ-GODOT-133`.
 
 
@@ -11930,4 +11931,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:1739e00c3dccbafddac5dcfb1e2de4a64077fbd52d68f29339b62a681a2cc123`
+`sha256:5a41a3e6852719549afbb8efb6f6eb50c33ac1b000344a6a78e7cbee8008d840`

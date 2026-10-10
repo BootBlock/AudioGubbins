@@ -82,6 +82,23 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    MiB per chunk, 8 MiB per file, 4,096 cues, 1,024 loops, 4,096 markers.
    `importAudio` refuses G.711 and ADPCM files (`storage.source-codec-unrecorded`)
    until S7 records a codec in provenance: S7 removes that refusal.
+3. **S2 (merged `2f694400`).** The codec module's ABI is version 1, with one
+   import, `ag_codec_read(source, offset: f64, dest, len)`; the handle table is
+   `crates/handle-table`, shared with the DSP module, whose ABI is unchanged.
+   Opus is `ropus` (all 24 RFC 8251 vectors pass); its input is rounded to 16
+   bits ties-to-even inside the module and it decodes to 16 bits, as the
+   fixed-point reference does. Channels leave every decoder in speaker-mask
+   order (mono as front centre), and Opus input above two channels is given in
+   that order and reordered to Vorbis order inside. The session applies Opus
+   pre-skip and length, and reads MP4 priming from the edit list or `iTunSMPB`.
+   Implicit HE-AAC is detected when at least 6 of the first 8 packets carry SBR.
+   A stated bit rate is the file's average; an MP3 length counts as stated only
+   with a LAME tag. The ABI also reads undecoded packets and the codec
+   configuration, so the browser's HE-AAC decoder is fed by this demultiplexer.
+   FLAC compression levels 0–8 follow `libFLAC`'s choices. The module is 2.56 MB.
+   Left to S2b: 32-bit FLAC encoding, and Matroska `DiscardPadding`/`CodecDelay`.
+   Left to S6: real-audio fixtures for MP3, Vorbis and AAC decoding, made with
+   the prebuilt encoders and the browser.
 
 ## Left to do
 
