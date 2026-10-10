@@ -164,8 +164,9 @@ describe('FLAC exports, decoded by the codec module', () => {
     'give back every depth bit for bit, in FLAC’s own channel order',
     async () => {
       const module = await codecModule();
-      const cases: readonly (readonly [16 | 24, ChannelLayout, number])[] = [
+      const cases: readonly (readonly [16 | 24 | 32, ChannelLayout, number])[] = [
         [16, StandardLayouts.stereo, 5],
+        [32, StandardLayouts.stereo, 5],
         [24, StandardLayouts.mono, 8],
         [16, StandardLayouts.surround5_1, 0],
         [24, StandardLayouts.surround7_1, 2],
@@ -200,6 +201,31 @@ describe('FLAC exports, decoded by the codec module', () => {
         digest.add(written, FRAMES);
         expect(file.subarray(26, 42)).toEqual(digest.digest());
       }
+    },
+    ENCODING_TIMEOUT_MS,
+  );
+  it(
+    'signs a dithered 32-bit stream with the MD5 of the very integers its dither chose',
+    async () => {
+      const source = testSignal(2, FRAMES, RATE);
+      const dither: DitherSettings = {
+        kind: 'triangular',
+        amplitude: 1,
+        shaping: 'none',
+        seed: 5,
+      };
+      const request = {
+        ...exportRequest({ format: 'flac', encoding: { bits: 32, compressionLevel: 5 } }, RATE),
+        dither,
+        ditherKey: 77,
+      };
+      const file = await encodeWhole(request, source);
+      const expected = quantised(source, 32, dither, 77).map((plane) =>
+        Int32Array.from(plane, (sample) => quantiseSample(sample, 32)),
+      );
+      const digest = new FlacSampleDigest(32);
+      digest.add(expected, FRAMES);
+      expect(file.subarray(26, 42)).toEqual(digest.digest());
     },
     ENCODING_TIMEOUT_MS,
   );
