@@ -2,14 +2,15 @@
  * One editor view's presentation state (REQ-EDIT-061).
  *
  * Each view of an asset keeps its own zoom, scroll, display mode, tool, channel
- * visibility, amplitude, overlays, snapping, time format, frequency axis and
- * spectrogram, so two views of one asset can show it differently while the
- * asset, its content and its selection stay shared. It is a value: every change
- * makes a new one, which the application's view store holds and persists, and
- * nothing about it lives in the renderer.
+ * visibility, amplitude, overlays, snapping, time format, frequency axis,
+ * spectrogram and the settings its spectral tools draw with, so two views of
+ * one asset can show it differently while the asset, its content and its
+ * selection stay shared. It is a value: every change makes a new one, which the
+ * application's view store holds and persists, and nothing about it lives in
+ * the renderer.
  */
 
-import type { SampleCount } from '@audiogubbins/domain';
+import { NO_FEATHER, type SampleCount, type SpectralFeather } from '@audiogubbins/domain';
 import {
   DEFAULT_SPECTROGRAM_CONFIG,
   LEVEL_FLOOR_DECIBELS,
@@ -137,6 +138,59 @@ export const DEFAULT_SPECTROGRAM_DISPLAY: SpectrogramDisplay = {
   colours: SpectrogramColours.Theme,
 };
 
+/**
+ * How a view's spectral tools draw (ADR-0082), which the person sets in the
+ * Spectral panel. They are the view's, as its tool is: a brush's radius is
+ * measured on the view's own axes, so it belongs with the view it is drawn
+ * in, and the panel shows the settings of the editor in use.
+ */
+export interface SpectralToolSettings {
+  /** The brush's radius in CSS pixels. */
+  readonly brushRadius: number;
+  /** How much of the brush's radius is at full strength, from 0 to just below 1. */
+  readonly hardness: number;
+  /** How far past their edges the marquee's and the lasso's shapes fade out. */
+  readonly feather: SpectralFeather;
+}
+
+/** How the spectral tools draw before the person changes anything. */
+const DEFAULT_SPECTRAL_TOOL_SETTINGS: SpectralToolSettings = {
+  brushRadius: 12,
+  hardness: 0.5,
+  feather: NO_FEATHER,
+};
+
+/**
+ * The brush's controls: its radius in whole CSS pixels, and its hardness in
+ * twentieths, below 1 since a hardness of 1 would leave no soft edge for the
+ * mask's weight to fall across (ADR-0081).
+ */
+export const SPECTRAL_TOOL_RANGES = {
+  brushRadius: { minimum: 2, maximum: 96, step: 1 },
+  hardness: { minimum: 0, maximum: 0.95, step: 0.05 },
+} as const;
+
+/** `value` as a brush radius the control offers: the nearest whole pixel within the range. */
+export function brushRadiusOf(value: number): number {
+  const { minimum, maximum } = SPECTRAL_TOOL_RANGES.brushRadius;
+  if (!Number.isFinite(value)) return DEFAULT_SPECTRAL_TOOL_SETTINGS.brushRadius;
+  return Math.min(maximum, Math.max(minimum, Math.round(value)));
+}
+
+/** How many steps the hardness has from nothing to full. */
+const HARDNESS_STEPS = 20;
+
+/**
+ * `value` as a hardness the control offers: the nearest step within the
+ * range. Dividing a whole number of steps by their count rounds once, so a
+ * step has one value everywhere and a stroke drawn with it is one mask.
+ */
+export function hardnessOf(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SPECTRAL_TOOL_SETTINGS.hardness;
+  const stepped = Math.round(value * HARDNESS_STEPS);
+  return Math.min(HARDNESS_STEPS - 1, Math.max(0, stepped)) / HARDNESS_STEPS;
+}
+
 /** Whether and how a view keeps the playhead in sight while it plays. */
 export const FollowMode = {
   Off: 'off',
@@ -163,6 +217,7 @@ export interface EditorViewState {
   readonly follow: FollowMode;
   readonly spectral: SpectralSettings;
   readonly spectrogram: SpectrogramDisplay;
+  readonly spectralTools: SpectralToolSettings;
 }
 
 /** The overlays a new view draws. */
@@ -193,6 +248,7 @@ export function newViewState(length: SampleCount, width: number): EditorViewStat
     follow: FollowMode.Page,
     spectral: { frequencyScale: 'logarithmic', lowest: 20, highest: 20_000 },
     spectrogram: DEFAULT_SPECTROGRAM_DISPLAY,
+    spectralTools: DEFAULT_SPECTRAL_TOOL_SETTINGS,
   };
 }
 

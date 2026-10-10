@@ -46,6 +46,7 @@ function inspectorOver(
         labelFor: (id) => LABELS.get(id) ?? id,
         recording: context.recording,
         audioSettings: context.audioSettings,
+        modelGate: context.modelGate,
       }}
       commands={{
         run: (id, args) => {
@@ -248,6 +249,34 @@ describe('the Inspector panel (WU-05.D)', () => {
     expect(
       screen.getByText('Open the region in a view of its own to loop a part of it.'),
     ).toBeInTheDocument();
+  });
+
+  it('describes a spectral edit by its area, its shapes and its frames, on its channels', async () => {
+    const audio = await loopInView();
+    audio.window.run('editor.time-format-samples');
+    audio.window.run('editor.select-spectral', {
+      mask: JSON.stringify({
+        shapes: [
+          {
+            kind: 'rectangle',
+            effect: 'add',
+            range: { start: 48_000, end: 96_000 },
+            band: { low: 300, high: 2_000 },
+          },
+        ],
+        feather: { time: 0, frequency: 0 },
+      }),
+      combination: 'replace',
+      channels: '1',
+    });
+    await audio.window.runAndHear('spectral.attenuate', { decibels: -6, resolution: 1024 });
+    inspectorOver(audio.window);
+
+    await expect
+      .poll(() => editsUnder('Its edits').textContent)
+      .toBe(
+        'Attenuated an area by −6 dB, 48,000 to 96,000, 300 Hz to 2 kHz, a rectangle, in frames of 1,024 samples on Right, from 47,488 to 96,512',
+      );
   });
 
   it('names the channels each edit changed by the layout it was made on', async () => {

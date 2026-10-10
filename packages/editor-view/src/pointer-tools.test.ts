@@ -13,9 +13,11 @@ import type { HitTarget } from './hit-testing.js';
 import { LaneKind, type Lane } from './lane-layout.js';
 import { move, press, release } from './pointer-tools.js';
 import type { ToolContext, ToolInput, ToolIntent } from './tool-values.js';
-import { DEFAULT_SPECTRAL_TOOL_SETTINGS } from './spectral-tools.js';
 import { at } from './testing/scene.js';
-import { ToolId } from './view-state.js';
+import { ToolId, newViewState } from './view-state.js';
+
+/** How the spectral tools draw in a new view. */
+const DEFAULT_TOOLS = newViewState(at(0), 0).spectralTools;
 
 function lane(channel: number): Lane {
   return {
@@ -53,7 +55,7 @@ function context(tool: ToolId, hit: HitTarget, overrides: Partial<ToolContext> =
       length: at(100_000),
       channelCount: 3,
       selection: EMPTY_SELECTION,
-      settings: DEFAULT_SPECTRAL_TOOL_SETTINGS,
+      settings: DEFAULT_TOOLS,
     },
     ...overrides,
   };

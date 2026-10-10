@@ -123,6 +123,48 @@ describe('the editor views', () => {
     expect(views.entry('broken')).toBeUndefined();
   });
 
+  it('keep the settings the spectral tools draw with, the softness in both its parts', () => {
+    const raw = ephemeralStorage();
+    const first = storeOver(raw);
+    first.open('editor', TONES);
+    first.change('editor', (state) => ({
+      ...state,
+      spectralTools: { brushRadius: 30, hardness: 0.25, feather: { time: 480, frequency: 50 } },
+    }));
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual({
+      brushRadius: 30,
+      hardness: 0.25,
+      feather: { time: 480, frequency: 50 },
+    });
+  });
+
+  it('take a stored brush to its control’s steps, and a softness in one part alone as none', () => {
+    const raw = ephemeralStorage();
+    raw.write(
+      EDITOR_VIEWS_KEY,
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
+        views: {
+          editor: {
+            asset: TONES.id,
+            spectralTools: {
+              brushRadius: 500,
+              hardness: 0.333,
+              feather: { time: 480, frequency: 0 },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual({
+      brushRadius: 96,
+      hardness: 0.35,
+      feather: { time: 0, frequency: 0 },
+    });
+  });
+
   it('keep each view’s spectrogram between visits: its analysis, range, ramp and axis', () => {
     const raw = ephemeralStorage();
     const first = storeOver(raw);
@@ -192,7 +234,7 @@ describe('the editor views', () => {
     }
   });
 
-  it('refuse views of the first schema, which held no spectrogram, and start afresh', () => {
+  it('refuse views of the first schema, which held no spectrogram or spectral tools, and start afresh', () => {
     // Before 1.0 a raised schema is refused rather than migrated (REQ-STOR-052).
     const raw = ephemeralStorage();
     raw.write(

@@ -6,13 +6,19 @@
  * made it, and its channels are named by the layout there, so a later edit, a
  * layout conversion among them, never rewrites what an earlier one says. A gain
  * is kept as a linear factor (ADR-0032) and shown in decibels, to one place, as
- * the person typed it.
+ * the person typed it. A spectral edit is described by its area: its span of
+ * time and its band, the shapes it is made of, and the frames it is analysed
+ * in, and one whose chain cannot run says why it is not heard (ADR-0081).
  */
 
 import {
   FadeShape,
   channelCount,
   planIsSilence,
+  shapesOf,
+  type Asset,
+  type EffectChain,
+  type SampleRate,
   streamLength,
   type EditOperation,
   type EditRange,
@@ -24,8 +30,12 @@ import {
   maskOutline,
 } from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
+import { formatPosition, type TimeFormat } from '@audiogubbins/timeline';
 
 import { channelNames } from '../../assets/channel-names.js';
+import { chainModelRefusal, type ModelGate } from '../../assets/model-gate.js';
+import { chainWords } from '../../commands/rack-words.js';
+import { maskShapesWords } from '../../commands/spectral-words.js';
 import { frequencyWords, sampleRateWords } from '../../wording.js';
 
 /** What each fade shape is called, in the order a person is offered them. */
@@ -57,7 +67,39 @@ export interface EditWording {
   readonly channelsAt: (basis: number) => readonly string[];
   /** The chain `chain` names, by what it runs, as "Gain, then Compressor". */
   readonly chain: (chain: EffectChainId) => string;
+  /** Why the chain `chain` names cannot run, for want of a model, or nothing where it can. */
+  readonly chainRefusal: (chain: EffectChainId) => string | undefined;
 }
+
+/**
+ * How the edits of `asset` are worded in a view at `sampleRate` writing
+ * positions in `format`, its chains read from `chains` and asked of `gate`.
+ * Each edit is worded by the layout its place in the chain had, a conversion
+ * before it included, so the names are read once for the whole chain.
+ */
+export function editWording(
+  asset: Asset,
+  view: { readonly sampleRate: SampleRate; readonly format: TimeFormat },
+  chains: ReadonlyMap<EffectChainId, EffectChain> | undefined,
+  gate: ModelGate,
+): EditWording {
+  const names = shapesOf(asset).map((shape) => channelNames(shape.layout));
+  return {
+    position: (frames) => formatPosition(frames, view.sampleRate, view.format),
+    channelsAt: (basis) => names[basis] ?? [],
+    chain: (id) => {
+      const chain = chains?.get(id);
+      return chain === undefined ? 'a chain the project does not hold' : chainWords(chain);
+    },
+    chainRefusal: (id) => {
+      const chain = chains?.get(id);
+      return chain === undefined ? undefined : chainModelRefusal(chain, gate);
+    },
+  };
+}
+
+/** A count of samples, grouped as British English groups it. */
+const SAMPLES = new Intl.NumberFormat('en-GB');
 
 /** A range, as "from 0:01.000 to 0:02.000". */
 function rangeWords(range: EditRange, words: EditWording): string {
@@ -85,30 +127,47 @@ function levelWords(edit: LevelEdit): string {
   }
 }
 
-/** A spectral edit, as "Attenuated an area by −12 dB, 100 Hz to 2 kHz". */
-function spectralWords(edit: SpectralEdit, words: EditWording): string {
-  const { low, high } = maskOutline(edit.mask);
-  const band = `${frequencyWords(low)} to ${frequencyWords(high)}`;
+/** What a spectral edit does, as "Attenuated an area by −12 dB". */
+function spectralDoing(edit: SpectralEdit, words: EditWording): string {
   const { operation } = edit;
   switch (operation.kind) {
     case 'attenuate':
       return operation.gain === 0
-        ? `Removed an area, ${band}`
-        : `Attenuated an area by ${decibelsOf(operation.gain)}, ${band}`;
+        ? 'Removed an area'
+        : `Attenuated an area by ${decibelsOf(operation.gain)}`;
     case 'isolate':
       return operation.gain === 0
-        ? `Isolated an area, ${band}`
-        : `Isolated an area, the rest by ${decibelsOf(operation.gain)}, ${band}`;
+        ? 'Isolated an area'
+        : `Isolated an area, the rest by ${decibelsOf(operation.gain)}`;
     case 'heal':
-      return `Healed an area, ${band}`;
-    case 'process':
-      return `Cleaned up an area through ${words.chain(operation.chain)}, ${band}`;
+      return 'Healed an area';
+    case 'process': {
+      const refusal = words.chainRefusal(operation.chain);
+      const through = `Cleaned up an area through ${words.chain(operation.chain)}`;
+      return refusal === undefined ? through : `${through} (not heard: ${refusal})`;
+    }
   }
 }
 
-/** A change within a range, on the channels it names, called by `names`, its chain by `words`. */
+/**
+ * A spectral edit over a range starting at `start`, as "Attenuated an area
+ * by −12 dB, 0:01.000 to 0:02.000, 100 Hz to 2 kHz, a rectangle, in frames
+ * of 2,048 samples": its mask is stated from the range's start.
+ */
+function spectralWords(edit: SpectralEdit, start: number, words: EditWording): string {
+  const outline = maskOutline(edit.mask);
+  const span = `${words.position(start + outline.start)} to ${words.position(start + outline.end)}`;
+  const band = `${frequencyWords(outline.low)} to ${frequencyWords(outline.high)}`;
+  return `${spectralDoing(edit, words)}, ${span}, ${band}, ${maskShapesWords(edit.mask)}, in frames of ${SAMPLES.format(edit.resolution)} samples`;
+}
+
+/**
+ * A change within a range from `start`, on the channels it names, called by
+ * `names`, its chain by `words`.
+ */
 function rangeEditWords(
   edit: RangeEdit,
+  start: number,
   channels: readonly number[] | undefined,
   names: readonly string[],
   words: EditWording,
@@ -126,7 +185,7 @@ function rangeEditWords(
     case 'punch':
       return 'Punched in from the chosen take of a take stack';
     case 'spectral':
-      return `${spectralWords(edit, words)}${scopeWords(channels, names)}`;
+      return `${spectralWords(edit, start, words)}${scopeWords(channels, names)}`;
     default:
       return `${levelWords(edit)}${scopeWords(channels, names)}`;
   }
@@ -153,7 +212,7 @@ export function operationWords(
         : `Pasted ${frames} at ${words.position(operation.at)}`;
     }
     case 'process':
-      return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(basis), words)}, ${rangeWords(operation.range, words)}`;
+      return `${rangeEditWords(operation.edit, operation.range.start, operation.channels, words.channelsAt(basis), words)}, ${rangeWords(operation.range, words)}`;
     case 'convert-layout': {
       const names = channelNames(operation.layout);
       return `Converted to ${counted(channelCount(operation.layout), 'channel', 'channels')}: ${names.join(', ')}`;
@@ -167,5 +226,5 @@ export function operationWords(
 
 /** One operation of a region's own processing, in a phrase. */
 export function regionOperationWords(operation: RegionOperation, words: EditWording): string {
-  return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(operation.basis), words)}, ${rangeWords(operation.range, words)}`;
+  return `${rangeEditWords(operation.edit, operation.range.start, operation.channels, words.channelsAt(operation.basis), words)}, ${rangeWords(operation.range, words)}`;
 }

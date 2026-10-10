@@ -448,6 +448,26 @@ describe('the spectral tools through the pointer (ADR-0082)', () => {
     expect(await strokeStrengths(fixed)).toEqual([0.4, 0.4, 0.4]);
   });
 
+  it('draws with the brush and softness the view keeps, as the Spectral panel set them', async () => {
+    const tools = { brushRadius: 30, hardness: 0.25, feather: { time: 480, frequency: 50 } };
+    const brushed = { ...spectral(ToolId.SpectralBrush), spectralTools: tools };
+    const { tool, ran } = pointerOver(brushed, () => Promise.resolve(undefined));
+    tool.down({ ...at(200), y: 90 }, NONE);
+    tool.up({ ...at(200), y: 90 }, NONE);
+    await vi.waitFor(() => {
+      expect(ran).toHaveLength(1);
+    });
+    const mask = JSON.parse(String(ran[0]?.args['mask'])) as {
+      shapes: { hardness: number; points: { radius: { time: number } }[] }[];
+      feather: unknown;
+    };
+    expect(mask.shapes[0]?.hardness).toBe(0.25);
+    expect(mask.shapes[0]?.points[0]?.radius.time).toBe(
+      samplesWithin(brushed.viewport, tools.brushRadius),
+    );
+    expect(mask.feather).toEqual(tools.feather);
+  });
+
   it('selects with the marquee on a spectrogram, as a command joining its shape', async () => {
     const state = spectral(ToolId.SpectralMarquee);
     const { tool, ran } = pointerOver(state, () => Promise.resolve(undefined));

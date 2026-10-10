@@ -789,6 +789,9 @@ describe('finding the shell commands in the palette', () => {
     // Full screen is the browser's to grant, outside every store, and asked
     // for again is asked again.
     'picture.full-screen',
+    // Saying the spectral selection is what it does, so asked again it says
+    // it again.
+    'editor.describe-spectral-selection',
   ]);
 
   /**
@@ -1248,6 +1251,34 @@ describe('finding the shell commands in the palette', () => {
         combination: 'replace',
         channels: '1',
       }),
+    }),
+    'editor.select-spectral-band': inEditor({
+      before: (run) => run('editor.select-time', { start: 1_000, end: 96_000 }),
+    }),
+    ...Object.fromEntries(
+      [
+        'editor.widen-spectral-time',
+        'editor.narrow-spectral-time',
+        'editor.widen-spectral-band',
+        'editor.narrow-spectral-band',
+        'editor.clear-spectral-selection',
+      ].map((id) => [
+        id,
+        inEditor({
+          before: (run) => {
+            run('editor.select-time', { start: 100_000, end: 200_000 });
+            run('editor.select-spectral-band', { low: 400, high: 4_000 });
+          },
+        }),
+      ]),
+    ),
+    'editor.set-brush-radius': inEditor({ arguments: () => ({ pixels: 30 }) }),
+    'editor.set-brush-hardness': inEditor({ arguments: () => ({ hardness: 0.25 }) }),
+    'editor.set-spectral-softness': inEditor({
+      arguments: () => ({ milliseconds: 10, hertz: 50 }),
+    }),
+    'editor.hard-spectral-edges': inEditor({
+      before: (run) => run('editor.set-spectral-softness', { milliseconds: 10, hertz: 50 }),
     }),
     'editor.select-marker': onProjectMarker(),
     'editor.select-region': {

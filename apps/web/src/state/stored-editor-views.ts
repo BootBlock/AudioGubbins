@@ -1,8 +1,8 @@
 /**
  * How each editor view's presentation is written to storage and read back
  * (schema `editorViews`), so a view reopens at the zoom, scroll, display mode,
- * tool, channels, overlays, snapping, time format, frequency axis and
- * spectrogram it was left at (REQ-EDIT-061, ADR-0082).
+ * tool, channels, overlays, snapping, time format, frequency axis, spectrogram
+ * and spectral tool settings it was left at (REQ-EDIT-061, ADR-0082).
  *
  * Read field by field, as every stored format here is: a stored view that has
  * lost or gained a field costs that field and not the view, and a value
@@ -11,7 +11,7 @@
  * measured again when the view is drawn.
  */
 
-import { ZERO_SAMPLES, sampleCount } from '@audiogubbins/domain';
+import { HIGHEST_MASK_FREQUENCY, ZERO_SAMPLES, sampleCount } from '@audiogubbins/domain';
 import {
   DisplayMode,
   FollowMode,
@@ -20,12 +20,15 @@ import {
   AMPLITUDES,
   DEFAULT_OVERLAYS,
   isDisplayRange,
+  brushRadiusOf,
+  hardnessOf,
   newViewState,
   type EditorViewState,
   type DisplayRange,
   type Overlays,
   type SpectralSettings,
   type SpectrogramDisplay,
+  type SpectralToolSettings,
 } from '@audiogubbins/editor-view';
 import { spectrogramConfig, type SpectrogramConfig } from '@audiogubbins/spectral-analysis';
 import {
@@ -179,6 +182,38 @@ function spectrogramOf(value: unknown): SpectrogramDisplay {
   };
 }
 
+/**
+ * A stored softness: none, or both its parts above nothing, as a mask's
+ * feather must be (ADR-0081), each within what a mask may name.
+ */
+function featherOf(value: unknown): SpectralToolSettings['feather'] {
+  const fallback = DEFAULTS.spectralTools.feather;
+  if (!isRecord(value)) return fallback;
+  const { time, frequency } = value;
+  if (typeof time !== 'number' || typeof frequency !== 'number') return fallback;
+  const within =
+    Number.isSafeInteger(time) &&
+    time >= 0 &&
+    Number.isFinite(frequency) &&
+    frequency >= 0 &&
+    frequency <= HIGHEST_MASK_FREQUENCY;
+  return within && time > 0 === frequency > 0 ? { time, frequency } : fallback;
+}
+
+/** Stored spectral tool settings, each taken to the step its control offers. */
+function spectralToolsOf(value: unknown): SpectralToolSettings {
+  if (!isRecord(value)) return DEFAULTS.spectralTools;
+  const { brushRadius, hardness } = value;
+  return {
+    brushRadius:
+      typeof brushRadius === 'number'
+        ? brushRadiusOf(brushRadius)
+        : DEFAULTS.spectralTools.brushRadius,
+    hardness: typeof hardness === 'number' ? hardnessOf(hardness) : DEFAULTS.spectralTools.hardness,
+    feather: featherOf(value['feather']),
+  };
+}
+
 function hiddenOf(value: unknown): readonly number[] {
   if (!Array.isArray(value)) return [];
   const indices = value.filter(
@@ -212,6 +247,7 @@ export function readStoredView(value: unknown): StoredView | undefined {
       follow: isMemberOf(FollowMode, value['follow']) ? value['follow'] : DEFAULTS.follow,
       spectral: spectralOf(value['spectral']),
       spectrogram: spectrogramOf(value['spectrogram']),
+      spectralTools: spectralToolsOf(value['spectralTools']),
     },
   };
 }

@@ -20,10 +20,14 @@ export {
   type EditorViewState,
   FollowMode,
   type Overlays,
+  SPECTRAL_TOOL_RANGES,
   type SpectralSettings,
+  type SpectralToolSettings,
   SpectrogramColours,
   type SpectrogramDisplay,
   ToolId,
+  brushRadiusOf,
+  hardnessOf,
   isDisplayRange,
   newViewState,
   visibleChannels,
@@ -50,13 +54,15 @@ export { move, press, release } from './pointer-tools.js';
 // The spectral marquee, lasso and brush, and the one account of what their
 // intent makes of a selection, which the selection command and the drag's
 // preview share (ADR-0082).
+export { type DrawnShape, type SpectralToolContext, withDrawnShape } from './spectral-tools.js';
+
+// A spectral selection widened and narrowed from the keyboard (ADR-0082).
 export {
-  DEFAULT_SPECTRAL_TOOL_SETTINGS,
-  type DrawnShape,
-  type SpectralToolContext,
-  type SpectralToolSettings,
-  withDrawnShape,
-} from './spectral-tools.js';
+  SPECTRAL_TIME_STEP_PIXELS,
+  SpectralStep,
+  maskSteppedInFrequency,
+  maskSteppedInTime,
+} from './spectral-steps.js';
 
 export { type SpectralEditOutline } from './mask-drawing.js';
 
