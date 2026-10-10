@@ -15,7 +15,9 @@
  * FLAC and Opus by the module, MP3 and Vorbis by the prebuilt LAME and
  * libvorbis modules, each loaded from its own file, and AAC by the browser's
  * WebCodecs encoder, each quantised through the export's dither where its
- * samples are integers.
+ * samples are integers. `encodeRenderedBlocks` feeds such a writer the blocks
+ * the render worker sends over a rendered-block channel, granting credit as
+ * they are written.
  */
 
 export { type CodecModule, instantiateCodecModule } from './codec-module.js';
@@ -54,3 +56,5 @@ export {
 } from './encoding/webcodecs-port.js';
 
 export { openExportEncoder } from './encoding/open-export-encoder.js';
+
+export { type EncodedRender, encodeRenderedBlocks } from './encoding/rendered-block-intake.js';

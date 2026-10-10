@@ -25,6 +25,9 @@
       "path": "../../packages/codecs"
     },
     {
+      "path": "../../packages/audio-engine"
+    },
+    {
       "path": "../../packages/import-export"
     }
   ]

@@ -497,6 +497,9 @@ importers:
 
   packages/codec-runtime:
     dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
       '@audiogubbins/codecs':
         specifier: workspace:*
         version: link:../codecs

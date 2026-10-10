@@ -27,6 +27,7 @@
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/codecs": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/import-export": "workspace:*",
     "wasm-media-encoders": "0.7.0"
   },
