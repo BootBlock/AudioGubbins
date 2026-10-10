@@ -2877,8 +2877,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Where a location starts and where it stops, for every form one is written in: a root of any kind, a path in quotes, a path without them, an address, and a file name written with no path at all. It is one algorithm read from both ends, and almost every line is a rule about a character a name can hold. Split by form, each part would need the others: a quoted path ends by the quote index the unquoted rules also read, an address ends where a path ends, and a file name ends before the name after it.',
     ],
     'packages/diagnostics/src/redaction.ts': [
-      323,
-      'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it. The finding of each is elsewhere \u2014 credentials in `credentials.ts` and every location in `path-finding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
+      349,
+      'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it; and the text read as written before it is read through its percent-encoding, so an address keeps the extent it is written with. The finding of each is elsewhere \u2014 credentials in `credentials.ts`, every location in `path-finding.ts` and the layers of encoding in `percent-decoding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
     ],
     'packages/workspace/src/adapter/dockview-adapter.tsx': [
       328,

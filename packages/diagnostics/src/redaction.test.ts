@@ -1696,10 +1696,10 @@ describe('a path among the words after it', () => {
     redactOne(record({ message }), keepFileNames).record.message;
 
   it('ends a path before a date or "and/or" that follows it, from every root', () => {
-    // A word after a path that held a slash was taken for a folder of it, so the
-    // path ran on through the date or the "and/or" and the words after it, and
-    // the rules that end a path at its file's extension or at a clause's mark
-    // were never read.
+    // A word after a path that held a slash was taken for a folder of it, so
+    // the path ran on through the date or the "and/or" and the words after it,
+    // and the rules that end a path at its file's extension or at a clause's
+    // mark were never read.
     const cases: readonly [string, string][] = [
       [
         'Imported C:\\Users\\jane\\take.wav on 10/10/2026 at noon.',

@@ -12,6 +12,7 @@
  * `text-runs.ts`.
  */
 
+import { isSlashedProse } from './slashed-prose.js';
 import { SCHEME_RUN, WORD_CHARACTER } from './text-runs.js';
 
 /** A character a path's folder or file name can hold, apostrophes included. */
@@ -241,37 +242,12 @@ function firstAtOrAfter(sorted: readonly number[], from: number): number {
 /** The marks that can open a word in a sentence: a bracket or a quote. */
 const LEADING_PUNCTUATION = /^[([{'"]+/;
 
-/** A date or a fraction written with slashes: `10/10/2026`, `2026/10/10`, `50/50`, `24/7`. */
-const SLASHED_NUMBER = /^\d+(?:\/\d+)+$/;
-
 /**
- * The words of a sentence that are written with a slash, lower-cased: each is
- * the slash's own meaning in prose, and never how a folder is named.
+ * Whether a word, read without the marks of the sentence around it, is a
+ * slashed word of prose ({@link isSlashedProse}) rather than more of a path.
  */
-const SLASHED_WORDS: ReadonlySet<string> = new Set([
-  'and/or',
-  'either/or',
-  'n/a',
-  'w/o',
-  'i/o',
-  'on/off',
-  'yes/no',
-  'read/write',
-]);
-
-/**
- * Whether a word is one whose slash a sentence writes, a date, a fraction or
- * one of {@link SLASHED_WORDS}, rather than a path.
- *
- * No folder's or file's name holds a slash, so a slashed word after a path is
- * either more of its folders or prose, and only these are read as prose: each
- * is made only of digits or of the words on the list, so where one is misread,
- * a folder named `10` or `and` with one named `or` inside it, what the reader
- * sees is those digits or those words and never a name.
- */
-function isSlashedProse(word: string): boolean {
-  const bare = word.replace(LEADING_PUNCTUATION, '').replace(TRAILING_PUNCTUATION, '');
-  return SLASHED_NUMBER.test(bare) || SLASHED_WORDS.has(bare.toLowerCase());
+function readsAsSlashedProse(word: string): boolean {
+  return isSlashedProse(word.replace(LEADING_PUNCTUATION, '').replace(TRAILING_PUNCTUATION, ''));
 }
 
 /**
@@ -282,14 +258,13 @@ function isSlashedProse(word: string): boolean {
  * no-break space would leave the rest of a name standing after it. Every run up
  * to the last that holds a separator is part of the path: `Alex Bloggs\Music`
  * is one folder, not the end of the path and a word. A run whose slash is
- * prose's ({@link isSlashedProse}) is not counted as holding one: counted, a
- * date or an `and/or` after a path would carry the path on through the
+ * prose's ({@link readsAsSlashedProse}) is not counted as holding one: counted,
+ * a date or an `and/or` after a path would carry the path on through the
  * sentence to the end of the line, past the extension and the clause's mark
  * that end it. A folder after such a run still carries the path on through it,
  * and so does a path of its own: a slashed word between two paths goes with
- * them.
- * The final segment, after the last separator, is where a path and a sentence
- * meet. Its words are read in turn, and the path ends:
+ * them. The final segment, after the last separator, is where a path and a
+ * sentence meet. Its words are read in turn, and the path ends:
  *
  * - after a word ending in a user file's extension, so `take 3.wav for import`
  *   keeps `for import`;
@@ -325,7 +300,7 @@ function unquotedEnd(text: string, from: number): number {
   // The first run follows the root, and is the path's whatever it holds.
   const lastFolder = runs.findLastIndex((run, position) => {
     const words = text.slice(run.start, run.end);
-    return SEPARATOR.test(words) && (position === 0 || !isSlashedProse(words));
+    return SEPARATOR.test(words) && (position === 0 || !readsAsSlashedProse(words));
   });
 
   for (let position = Math.max(0, lastFolder); position < runs.length; position += 1) {
@@ -334,13 +309,8 @@ function unquotedEnd(text: string, from: number): number {
 
     // Past the last folder, a run with a separator in it is a slashed word of
     // prose, and the path ends with the run before it.
-    const previous = runs[position - 1];
-    if (
-      position > lastFolder &&
-      previous !== undefined &&
-      SEPARATOR.test(text.slice(run.start, run.end))
-    ) {
-      return previous.end;
+    if (position > lastFolder && SEPARATOR.test(text.slice(run.start, run.end))) {
+      return runs[position - 1]?.end ?? from;
     }
 
     // The final segment begins after the last separator of the last run that

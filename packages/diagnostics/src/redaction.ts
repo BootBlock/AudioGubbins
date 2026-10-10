@@ -32,7 +32,7 @@ import {
   lastSeparatorIn,
   userFileNamesIn,
 } from './path-finding.js';
-import { decodedOnce, holdsPercentEncoding } from './percent-decoding.js';
+import { holdsPercentEncoding, readEachLayer } from './percent-decoding.js';
 import { SCHEME_RUN, fieldWords } from './text-runs.js';
 
 /** What a redaction replaced. */
@@ -280,11 +280,11 @@ function replaceAll(
   return result;
 }
 
-/** What a credential is replaced with, counted as it is. */
-function credentialRemoved(counts: Record<RedactionReason, number>): () => string {
+/** What a thing removed for `reason` is replaced with, counted as it is. */
+function removedAs(reason: RedactionReason, counts: Record<RedactionReason, number>): () => string {
   return () => {
-    counts[RedactionReason.Credential] += 1;
-    return PLACEHOLDER[RedactionReason.Credential];
+    counts[reason] += 1;
+    return PLACEHOLDER[reason];
   };
 }
 
@@ -312,7 +312,7 @@ function redactedLocation(
     // it is, so a reader sees what was removed rather than being told a field
     // holding an address was a file.
     const cleaned = replaceAll(
-      withoutCredentials(location, credentialRemoved(counts)),
+      withoutCredentials(location, removedAs(RedactionReason.Credential, counts)),
       [EMAIL_PATTERN],
       RedactionReason.EmailAddress,
       counts,
@@ -385,31 +385,15 @@ export function previewRedaction(
 }
 
 /**
- * How many layers of percent-encoding are decoded for the rules to read.
- *
- * A bound, because a layer is a pass of every rule over the text, and a text
- * can be encoded as many times as it is long: `%252525…41` loses one `25` a
- * layer, so decoded until nothing changed, it would be read once for each of
- * its characters. Three is a layer more than anything writes in practice, an
- * address encoded again as a parameter of another.
- */
-const DECODING_LAYERS = 3;
-
-/** A word: a run of anything but white space. */
-const WORD = /\S+/g;
-
-/**
  * Removes sensitive content from a string.
  *
  * The text is read as written, and then, where it holds runs of `%XX`, as each
- * layer of percent-encoding decodes it (`percent-decoding.ts`), up to
- * {@link DECODING_LAYERS}, every rule read again over each layer. As written
- * first, so an address keeps the extent it is written with: decoded first, the
- * `%20` inside `https://host/Jane%20Smith/take` would end it at a space and
- * leave the folder after it. Each layer is read by every rule, so nothing a
- * rule finds can be hidden from it by encoding: a path, an address, a secret's
- * name or an e-mail address. A word still encoded past the last layer is
- * removed whole, since what it hides cannot be read.
+ * layer of percent-encoding decodes it, every rule read again over each layer
+ * ({@link readEachLayer}), and a word still encoded past the last layer
+ * removed whole as inline data is. As written first, so an address keeps the
+ * extent it is written with: decoded first, the `%20` inside
+ * `https://host/Jane%20Smith/take` would end it at a space and leave the
+ * folder after it.
  *
  * Where decoding shows nothing more to remove, the text keeps the encoding it
  * was written in, so a report differs from its log only where a rule found
@@ -425,22 +409,15 @@ export function redactText(
   if (!holdsPercentEncoding(asWritten)) return asWritten;
 
   const found = emptyCounts();
-  let decoded = asWritten;
-  for (let layer = 0; layer < DECODING_LAYERS && holdsPercentEncoding(decoded); layer += 1) {
-    decoded = redactAsWritten(decodedOnce(decoded), found, options);
-  }
-  decoded = decoded.replace(WORD, (word) => {
-    if (!holdsPercentEncoding(word)) return word;
-    found[RedactionReason.EmbeddedData] += 1;
-    return PLACEHOLDER[RedactionReason.EmbeddedData];
-  });
+  const decoded = readEachLayer(
+    asWritten,
+    (layer) => redactAsWritten(layer, found, options),
+    removedAs(RedactionReason.EmbeddedData, found),
+  );
+  if (Object.values(found).every((count) => count === 0)) return asWritten;
 
-  let removed = 0;
-  for (const reason of Object.values(RedactionReason)) {
-    removed += found[reason];
-    counts[reason] += found[reason];
-  }
-  return removed === 0 ? asWritten : decoded;
+  for (const reason of Object.values(RedactionReason)) counts[reason] += found[reason];
+  return decoded;
 }
 
 /**
@@ -482,7 +459,7 @@ function redactAsWritten(
       : undefined;
 
   let result = replaceAll(text, [EMBEDDED_DATA_PATTERN], RedactionReason.EmbeddedData, counts);
-  result = withoutCredentials(result, credentialRemoved(counts));
+  result = withoutCredentials(result, removedAs(RedactionReason.Credential, counts));
   result = replaceAll(
     result,
     [URL_PATTERN],

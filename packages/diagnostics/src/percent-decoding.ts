@@ -18,13 +18,12 @@ const PERCENT_RUN = /(?:%[0-9A-Fa-f]{2})+/g;
 const HOLDS_A_PERCENT_RUN = /%[0-9A-Fa-f]{2}/;
 
 /** What a byte that cannot be read as UTF-8 is decoded as. */
-const REPLACEMENT = '�';
+const REPLACEMENT = '\uFFFD';
 
 /**
- * How many bytes a character takes whose first byte is the index, and the
- * range its second byte must be in, as RFC 3629 bounds it: no overlong form, no
- * surrogate and nothing past U+10FFFF. A byte with no entry begins no
- * character.
+ * How many bytes a character takes that a lead byte begins, and the range its
+ * second byte must be in, as RFC 3629 bounds it: no overlong form, no surrogate
+ * and nothing past U+10FFFF.
  */
 interface Lead {
   readonly length: 2 | 3 | 4;
@@ -106,11 +105,44 @@ function decodedRun(run: string): string {
 }
 
 /** `text` with one layer of percent-encoding decoded, every run of it at once. */
-export function decodedOnce(text: string): string {
+function decodedOnce(text: string): string {
   return text.replace(PERCENT_RUN, decodedRun);
 }
 
 /** Whether `text` still holds a run that decoding would change. */
 export function holdsPercentEncoding(text: string): boolean {
   return HOLDS_A_PERCENT_RUN.test(text);
+}
+
+/**
+ * How many layers of percent-encoding are decoded for the rules to read.
+ *
+ * A bound, because a layer is a pass of every rule over the text, and a text
+ * can be encoded as many times as it is long: `%252525…41` loses one `25` a
+ * layer, so decoded until nothing changed, it would be read once for each of
+ * its characters. Three is a layer more than anything writes in practice, an
+ * address encoded again as a parameter of another.
+ */
+const DECODING_LAYERS = 3;
+
+/** A word: a run of anything but white space. */
+const WORD = /\S+/g;
+
+/**
+ * `text` as each layer of its percent-encoding decodes it, up to
+ * {@link DECODING_LAYERS}, each layer handed to `read` and read on from what
+ * `read` makes of it, so a rule reads every layer and nothing can be hidden
+ * from it by encoding. A word still encoded past the last layer is replaced by
+ * what `unreadable` gives, since what it hides cannot be read.
+ */
+export function readEachLayer(
+  text: string,
+  read: (layer: string) => string,
+  unreadable: () => string,
+): string {
+  let layer = text;
+  for (let count = 0; count < DECODING_LAYERS && holdsPercentEncoding(layer); count += 1) {
+    layer = read(decodedOnce(layer));
+  }
+  return layer.replace(WORD, (word) => (holdsPercentEncoding(word) ? unreadable() : word));
 }
