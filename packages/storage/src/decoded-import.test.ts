@@ -279,6 +279,14 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
       'import.stream-out-of-order',
     ],
     [
+      'a stream of no audio at all',
+      [
+        { kind: 'description', description: DESCRIPTION },
+        { kind: 'end', frames: derivedSampleCount(0) },
+      ],
+      'import.stream-empty',
+    ],
+    [
       'a stream that does not begin with its description',
       [block(0, 1_000)],
       'import.stream-out-of-order',

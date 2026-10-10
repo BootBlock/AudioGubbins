@@ -63,6 +63,7 @@ import {
   type ProjectCommandDeclaration,
 } from './project-command.js';
 import { setAssetMediaInvocation } from './project-invocations.js';
+import { renditionMediaRefusal } from './rendition-media.js';
 import { withMedia } from './state-edits.js';
 import { quoted } from '@audiogubbins/text';
 
@@ -192,25 +193,12 @@ function setMedia(
   const { asset, source } = target.value;
   const media = readNested(readMediaSource, value.value, 'media');
   if (!media.ok) return refusedBy(media);
-  // A rendition is the audio decoded from a compressed file, which only the
-  // media store keeps; the file itself is linked or copied apart (ADR-0090).
-  if (source.provenance?.rendition !== undefined && media.value.kind !== 'managed') {
-    return refusal(
-      'source.rendition-kept-in-store',
-      `${quoted(asset.displayName)} is audio decoded from a compressed file, which is kept in the project and cannot be linked to a file.`,
-    );
-  }
-  if (sameMedia(source.media, media.value)) {
-    return unchanged(
-      'source.media-unchanged',
-      `${quoted(asset.displayName)} is already kept that way.`,
-    );
-  }
-  return changedMedia(
-    state,
-    target.value,
-    media.value,
-    `Change where ${quoted(asset.displayName)} is kept`,
+  const name = quoted(asset.displayName);
+  return (
+    renditionMediaRefusal(asset, source, media.value) ??
+    (sameMedia(source.media, media.value)
+      ? unchanged('source.media-unchanged', `${name} is already kept that way.`)
+      : changedMedia(state, target.value, media.value, `Change where ${name} is kept`))
   );
 }
 

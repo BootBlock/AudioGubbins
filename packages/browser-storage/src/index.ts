@@ -64,7 +64,7 @@ export {
 export { BlobSink } from './blob-sink.js';
 
 export { fileDestination, folderDestination } from './delivery-destinations.js';
-export { MOST_RECORDS, type TrustedFolder, TrustedFolders } from './trusted-folders.js';
+export { type TrustedFolder, TrustedFolders } from './trusted-folders.js';
 
 export { type WebLeaseServices, createLeaseCoordinator } from './web-lock-leases.js';
 export { type LeaseLockOptions, type LeaseLocks } from './lock-manager.js';

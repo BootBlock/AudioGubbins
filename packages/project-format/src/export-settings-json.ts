@@ -12,43 +12,31 @@
  * codecs, by `validateExportSettings` before an export begins.
  */
 
-import type { FixedNamedMatrix } from '@audiogubbins/audio-engine';
 import type { MetadataTextKey } from '@audiogubbins/codecs';
 import { MAXIMUM_CHANNEL_COUNT, unsafeBrandId } from '@audiogubbins/domain';
 import type {
   ChannelConversion,
-  CommonExportSettings,
   DitherSettings,
   ExportFormat,
   ExportRange,
   ExportSettings,
-  FormatEncodings,
   MetadataEdit,
   MetadataSettings,
   NoiseShaping,
-  OpusApplication,
 } from '@audiogubbins/import-export';
 
-import type { JsonObject, JsonValue } from './canonical-json.js';
-import {
-  anyObjectOf,
-  checkMembers,
-  listConverter,
-  objectOf,
-  pathOf,
-  required,
-  type Converter,
-  type Reading,
-} from './document-reading.js';
+import type { JsonObject } from './canonical-json.js';
+import { listConverter, objectOf, pathOf, required, type Converter } from './document-reading.js';
 import { presentMembers } from './document-writing.js';
 import {
   asId,
   integerConverter,
   namedValueConverter,
-  numberConverter,
   oneOfConverter,
   textConverter,
 } from './scalar-reading.js';
+import { asFinite, formatSettings } from './export-encoding-json.js';
+import { kindOf, members } from './variant-reading.js';
 import { writeLayout } from './value-writing.js';
 import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
 
@@ -75,6 +63,9 @@ const asFormat = namedValueConverter<ExportFormat>({
   aac: true,
 });
 
+/** The matrices a conversion may name: the engine's fixed ones, as the settings type them. */
+type FixedNamedMatrix = Extract<ChannelConversion, { readonly kind: 'matrix' }>['matrix'];
+
 const asMatrix = namedValueConverter<FixedNamedMatrix>({
   'itu-bs775-5.1-to-stereo': true,
   'mid-side-encode': true,
@@ -85,12 +76,6 @@ const asShaping = namedValueConverter<NoiseShaping>({
   none: true,
   'first-order': true,
   'lipshitz-e-weighted': true,
-});
-
-const asApplication = namedValueConverter<OpusApplication>({
-  audio: true,
-  voip: true,
-  'restricted-low-delay': true,
 });
 
 const asTextKey = namedValueConverter<MetadataTextKey>({
@@ -110,278 +95,11 @@ const asTextKey = namedValueConverter<MetadataTextKey>({
   isrc: true,
 });
 
-/** Converters of numbers to the literal values a type allows. */
-function literalConverter<TValue extends number>(values: readonly TValue[]): Converter<TValue> {
-  return (reading, value, parent, key) => {
-    const found = values.find((candidate) => candidate === value);
-    if (found === undefined) {
-      reading.refuse(
-        'schema.unknown-value',
-        `One of ${values.join(', ')} is expected here.`,
-        pathOf(parent, key),
-      );
-    }
-    return found;
-  };
-}
-
-const asIntegerBits = literalConverter([8, 16, 24, 32] as const);
-const asFloatBits = literalConverter([32, 64] as const);
-const asFlacBits = literalConverter([16, 24, 32] as const);
-const asFrameDuration = literalConverter([2.5, 5, 10, 20, 40, 60] as const);
-
-/** A count or a level a setting takes: whole, and far within what any codec states. */
-const asWhole = integerConverter(-(2 ** 31), 2 ** 31);
-
-/** A rate, quality or amplitude: finite, and far within what any codec states. */
-const asFinite = numberConverter(-(2 ** 31), 2 ** 31);
 const asSeed = integerConverter(0, 2 ** 32 - 1);
 const asMetadataText = textConverter({ maximumLength: 65_536 });
 const asTemplate = textConverter({ maximumLength: 1_024 });
 const asChannelIndex = integerConverter(0, MAXIMUM_CHANNEL_COUNT - 1);
 const asChannelIndices = listConverter(MAXIMUM_CHANNEL_COUNT, asChannelIndex);
-
-/** An object whose members depend on its `kind`, read as `members` of that kind say. */
-function kindOf<TKind extends string>(
-  reading: Reading,
-  value: JsonValue,
-  parent: string,
-  key: string | number,
-  member: string,
-  kinds: Readonly<Record<TKind, ReadonlySet<string>>>,
-): { readonly object: JsonObject; readonly at: string; readonly kind: TKind } | undefined {
-  const object = anyObjectOf(reading, value, parent, key);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-  const named = Object.keys(kinds).filter((kind): kind is TKind => kind in kinds);
-  const kind = required(reading, object, at, member, oneOfConverter(named));
-  if (kind === undefined) return undefined;
-  checkMembers(reading, object, at, kinds[kind]);
-  return { object, at, kind };
-}
-
-const members = (...names: string[]): ReadonlySet<string> => new Set(names);
-
-const asPcm: Converter<FormatEncodings['wav']> = (reading, value, parent, key) => {
-  const read = kindOf(reading, value, parent, key, 'kind', {
-    integer: members('kind', 'bits'),
-    float: members('kind', 'bits'),
-    'a-law': members('kind'),
-    'mu-law': members('kind'),
-    'ima-adpcm': members('kind'),
-    'ms-adpcm': members('kind'),
-  });
-  if (read === undefined) return undefined;
-  const { object, at, kind } = read;
-  switch (kind) {
-    case 'integer': {
-      const bits = required(reading, object, at, 'bits', asIntegerBits);
-      return bits === undefined ? undefined : { kind, bits };
-    }
-    case 'float': {
-      const bits = required(reading, object, at, 'bits', asFloatBits);
-      return bits === undefined ? undefined : { kind, bits };
-    }
-    default:
-      return { kind };
-  }
-};
-
-/**
- * Reads the encoding of `format` and joins it to `common`, the settings every
- * format shares, refusing an encoding the format does not hold. Answers
- * nothing where either could not be read.
- */
-function formatSettings(
-  reading: Reading,
-  format: ExportFormat,
-  object: JsonObject,
-  at: string,
-  common: CommonExportSettings | undefined,
-): ExportSettings | undefined {
-  const value = object['encoding'];
-  if (value === undefined) {
-    reading.refuse(
-      'schema.missing-member',
-      'The member "encoding" is required.',
-      pathOf(at, 'encoding'),
-    );
-    return undefined;
-  }
-  switch (format) {
-    case 'wav': {
-      const encoding = asPcm(reading, value, at, 'encoding');
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'aiff': {
-      const encoding = heldPcm(reading, value, at, (pcm) =>
-        pcm.kind === 'integer' ? pcm : undefined,
-      );
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'aifc': {
-      const encoding = heldPcm(reading, value, at, (pcm): FormatEncodings['aifc'] | undefined => {
-        switch (pcm.kind) {
-          case 'ms-adpcm':
-            return undefined;
-          case 'integer':
-          case 'float':
-            return pcm;
-          default:
-            return { kind: pcm.kind };
-        }
-      });
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'flac': {
-      const encoding = readFlac(reading, value, at);
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'mp3': {
-      const encoding = readMp3(reading, value, at);
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'ogg-vorbis': {
-      const encoding = readVorbis(reading, value, at);
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'opus': {
-      const encoding = readOpus(reading, value, at);
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-    case 'aac': {
-      const encoding = readAac(reading, value, at);
-      return encoding === undefined || common === undefined
-        ? undefined
-        : { ...common, format, encoding };
-    }
-  }
-}
-
-/** A PCM encoding the format holds, as `held` answers, refusing one it does not. */
-function heldPcm<TEncoding>(
-  reading: Reading,
-  value: JsonValue,
-  at: string,
-  held: (pcm: FormatEncodings['wav']) => TEncoding | undefined,
-): TEncoding | undefined {
-  const pcm = asPcm(reading, value, at, 'encoding');
-  if (pcm === undefined) return undefined;
-  const encoding = held(pcm);
-  if (encoding === undefined) {
-    reading.refuse(
-      'export-settings.encoding-not-held',
-      'The format does not hold this encoding.',
-      pathOf(at, 'encoding'),
-    );
-  }
-  return encoding;
-}
-
-function readAac(
-  reading: Reading,
-  value: JsonValue,
-  at: string,
-): FormatEncodings['aac'] | undefined {
-  const object = objectOf(reading, value, at, 'encoding', members('bitRate'));
-  if (object === undefined) return undefined;
-  const bitRate = required(reading, object, pathOf(at, 'encoding'), 'bitRate', asFinite);
-  return bitRate === undefined ? undefined : { bitRate };
-}
-
-function readFlac(
-  reading: Reading,
-  value: JsonValue,
-  at: string,
-): FormatEncodings['flac'] | undefined {
-  const object = objectOf(reading, value, at, 'encoding', members('bits', 'compressionLevel'));
-  if (object === undefined) return undefined;
-  const inner = pathOf(at, 'encoding');
-  const bits = required(reading, object, inner, 'bits', asFlacBits);
-  const compressionLevel = required(reading, object, inner, 'compressionLevel', asWhole);
-  return bits === undefined || compressionLevel === undefined
-    ? undefined
-    : { bits, compressionLevel };
-}
-
-function readMp3(
-  reading: Reading,
-  value: JsonValue,
-  at: string,
-): FormatEncodings['mp3'] | undefined {
-  const read = kindOf(reading, value, at, 'encoding', 'mode', {
-    constant: members('mode', 'bitRate'),
-    average: members('mode', 'bitRate'),
-    variable: members('mode', 'quality'),
-  });
-  if (read === undefined) return undefined;
-  const { object, at: inner, kind: mode } = read;
-  if (mode === 'variable') {
-    const quality = required(reading, object, inner, 'quality', asWhole);
-    return quality === undefined ? undefined : { mode, quality };
-  }
-  const bitRate = required(reading, object, inner, 'bitRate', asFinite);
-  return bitRate === undefined ? undefined : { mode, bitRate };
-}
-
-function readVorbis(
-  reading: Reading,
-  value: JsonValue,
-  at: string,
-): FormatEncodings['ogg-vorbis'] | undefined {
-  const read = kindOf(reading, value, at, 'encoding', 'mode', {
-    quality: members('mode', 'quality'),
-    'bit-rate': members('mode', 'nominalBitRate'),
-  });
-  if (read === undefined) return undefined;
-  const { object, at: inner, kind: mode } = read;
-  if (mode === 'quality') {
-    const quality = required(reading, object, inner, 'quality', asFinite);
-    return quality === undefined ? undefined : { mode, quality };
-  }
-  const nominalBitRate = required(reading, object, inner, 'nominalBitRate', asFinite);
-  return nominalBitRate === undefined ? undefined : { mode, nominalBitRate };
-}
-
-function readOpus(
-  reading: Reading,
-  value: JsonValue,
-  at: string,
-): FormatEncodings['opus'] | undefined {
-  const object = objectOf(
-    reading,
-    value,
-    at,
-    'encoding',
-    members('bitRate', 'application', 'frameDuration', 'complexity'),
-  );
-  if (object === undefined) return undefined;
-  const inner = pathOf(at, 'encoding');
-  const bitRate = required(reading, object, inner, 'bitRate', asFinite);
-  const application = required(reading, object, inner, 'application', asApplication);
-  const frameDuration = required(reading, object, inner, 'frameDuration', asFrameDuration);
-  const complexity = required(reading, object, inner, 'complexity', asWhole);
-  return bitRate === undefined ||
-    application === undefined ||
-    frameDuration === undefined ||
-    complexity === undefined
-    ? undefined
-    : { bitRate, application, frameDuration, complexity };
-}
 
 const asChannels: Converter<ChannelConversion> = (reading, value, parent, key) => {
   const read = kindOf(reading, value, parent, key, 'kind', {

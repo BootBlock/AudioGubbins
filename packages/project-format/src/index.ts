@@ -77,9 +77,9 @@ export {
   type DecoderIdentity,
   type KeptCompressedSource,
 } from './decoded-rendition.js';
-export { readDecodedRendition, writeDecodedRendition } from './decoded-rendition-json.js';
+export { writeDecodedRendition } from './decoded-rendition-json.js';
 export { type KeptCoverArt, type KeptMetadata, keptMetadata } from './kept-metadata.js';
-export { readKeptMetadata, writeKeptMetadata } from './kept-metadata-json.js';
+export { writeKeptMetadata } from './kept-metadata-json.js';
 export { readExportSettings, writeExportSettings } from './export-settings-json.js';
 
 export {

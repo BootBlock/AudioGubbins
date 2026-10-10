@@ -22,7 +22,7 @@ import { whileAlone, type Alone } from './storage-sharing.js';
 import type { LeaseCoordinator } from './write-lease.js';
 
 /** The directory the storage stages its work in. */
-export const STAGING_DIRECTORY = `${CACHE_DIRECTORY}/${CacheCategory.Staging}`;
+const STAGING_DIRECTORY = `${CACHE_DIRECTORY}/${CacheCategory.Staging}`;
 
 /** The scratch file a rendition of `project` is decoded into, named by `token`. */
 export function renditionScratchPath(project: ProjectId, token: string): string {

@@ -33,6 +33,7 @@ import {
   type ByteSource,
   type ContentIdentity,
   type Digest,
+  type ManagedMedia,
 } from '@audiogubbins/project-format';
 
 /** The media type a stored WAV file is kept as, RF64 among them. */
@@ -120,6 +121,12 @@ async function readBack(
   return succeed(
     difference === undefined ? { kind: 'read', format } : { kind: 'differs', difference },
   );
+}
+
+/** Where an asset whose media is a stored WAV file finds its bytes. */
+export function storedWavMedia(stored: StoredWav): ManagedMedia {
+  const { contentId, byteLength } = stored.identity;
+  return { kind: 'managed', contentId, byteLength, mediaType: STORED_WAV_MEDIA_TYPE };
 }
 
 /** `header` followed by `data`, as one source. */

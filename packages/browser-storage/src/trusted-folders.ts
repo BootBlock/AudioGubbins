@@ -47,7 +47,7 @@ const LIST_KEY = `${FOLDER_KEY_PREFIX}trusted-folders`;
 const FOLDER_PREFIX = `${FOLDER_KEY_PREFIX}trusted-`;
 
 /** The most records a folder keeps, one for each name exported there last. */
-export const MOST_RECORDS = 1_024;
+const MOST_RECORDS = 1_024;
 
 /** A member of an object, where the value is one. */
 function member(host: unknown, name: string): unknown {

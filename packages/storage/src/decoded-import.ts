@@ -61,7 +61,7 @@ import { importPlacements } from './import-placements.js';
 import { receiveRendition } from './rendition-receiving.js';
 import { renditionScratchPath } from './staging-paths.js';
 import { mediaSharingOf } from './storage-sharing.js';
-import { STORED_WAV_MEDIA_TYPE, storeFloatWav, type StoredWav } from './stored-wav.js';
+import { storeFloatWav, storedWavMedia, type StoredWav } from './stored-wav.js';
 
 /** A file the analysis routed to a decode, ready to be decoded. */
 export interface DecodedImport extends AudioImport {
@@ -230,27 +230,9 @@ function prepared(
   services: AudioImportServices,
 ): PreparedImport {
   const { description } = described;
-  const { contentId, byteLength } = stored.identity;
-  const media = {
-    kind: 'managed',
-    contentId,
-    byteLength,
-    mediaType: STORED_WAV_MEDIA_TYPE,
-  } as const;
-  const frames = stored.format.frames;
-  const rendition: DecodedRendition = {
-    container: request.route.container,
-    codec: description.codec,
-    sampleRate: described.sampleRate,
-    layout: described.layout,
-    frames,
-    ...(description.statedFrames === undefined ? {} : { statedFrames: description.statedFrames }),
-    ...(description.bitRate === undefined ? {} : { bitRate: description.bitRate }),
-    leadingFrames: description.leadingFrames,
-    decoder: { ...description.decoder },
-    kept: keptSource(kept.source),
-  };
+  const media = storedWavMedia(stored);
   const fileProvenance = kept.source.provenance;
+  const rendition = renditionRecord(request, described, kept, stored);
   const source = withFileMetadata(
     {
       media,
@@ -264,25 +246,43 @@ function prepared(
     origin: AssetOrigin.Imported,
     sampleRate: described.sampleRate,
     channelLayout: described.layout,
-    length: frames,
+    length: rendition.frames,
     storageKey: storageKeyOf(request.assetId, media),
     edits: [],
   };
+  const { metadata, leadingFrames } = description;
   return {
     asset,
     source,
-    placements: importPlacements(
-      asset,
-      description.metadata,
-      description.leadingFrames,
-      services.ids,
-    ),
+    placements: importPlacements(asset, metadata, leadingFrames, services.ids),
     shortfall: 0,
     metadataRefused: undefined,
     release: () => {
       stored.release();
       if (kept.held !== undefined) services.store.release(kept.held);
     },
+  };
+}
+
+/** What the asset's provenance records of the file its rendition was decoded from. */
+function renditionRecord(
+  request: DecodedImport,
+  described: Described,
+  kept: ImportedMedia,
+  stored: StoredWav,
+): DecodedRendition {
+  const { description } = described;
+  return {
+    container: request.route.container,
+    codec: description.codec,
+    sampleRate: described.sampleRate,
+    layout: described.layout,
+    frames: stored.format.frames,
+    ...(description.statedFrames === undefined ? {} : { statedFrames: description.statedFrames }),
+    ...(description.bitRate === undefined ? {} : { bitRate: description.bitRate }),
+    leadingFrames: description.leadingFrames,
+    decoder: { ...description.decoder },
+    kept: keptSource(kept.source),
   };
 }
 

@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FileHandleKeeper } from './file-handle-keeper.js';
 import { FakeDirectoryHandle, FakeFileHandle, installFakeHandles } from './testing/file-handles.js';
 import { MemoryDatabases } from './testing/memory-indexed-db.js';
-import { MOST_RECORDS, TrustedFolders } from './trusted-folders.js';
+import { TrustedFolders } from './trusted-folders.js';
+
+/** The most records a folder keeps, as `trusted-folders.ts` bounds them. */
+const MOST_RECORDS = 1_024;
 
 /**
  * The folders kept trusted for exports (ADR-0092): each kept with the records

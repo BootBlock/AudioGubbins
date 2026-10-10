@@ -123,51 +123,64 @@ export function exportsClient(channel: ClientChannel, call: LendingCall): Export
         stop();
       }
     },
-    deliver: async (session, token, destination, signal) => {
-      if (destination.kind !== 'trusted-folder') {
-        const { prompt, crossing } = crossingOf(destination, undefined);
-        return await call(
-          'exports.deliver',
-          (lend) => ({
-            handle: session.handle,
-            token,
-            destination: crossing,
-            ...(prompt === undefined ? {} : { prompt: lend.prompt(prompt) }),
-          }),
-          signal,
-        );
-      }
-      const kept = await destination.folders.find(destination.key);
-      if (kept === undefined) return trustedFolderMissing();
-      const { prompt, crossing } = crossingOf(
-        { ...destination, kind: 'folder', handle: kept.folder },
-        kept.records,
-      );
-      const delivered = await call(
-        'exports.deliver',
-        (lend) => ({
-          handle: session.handle,
-          token,
-          destination: crossing,
-          ...(prompt === undefined ? {} : { prompt: lend.prompt(prompt) }),
-        }),
-        signal,
-      );
-      if (delivered.ok && delivered.value.kind === 'delivered') {
-        const { name, record } = delivered.value;
-        const file = record.file;
-        if (file !== undefined) {
-          await destination.folders.record(destination.key, [
-            { name, size: file.byteLength, hash: file.sha256 },
-          ]);
-        }
-      }
-      return delivered;
-    },
+    deliver: async (session, token, destination, signal) =>
+      destination.kind === 'trusted-folder'
+        ? await deliveredTrusted(call, session, token, destination, signal)
+        : await delivered(call, session, token, crossingOf(destination, undefined), signal),
     discard: async (token) => {
       await channel.call('exports.discard', { token });
     },
   };
+}
+
+/** Delivers a staged export to a destination as it crosses, lending its prompt where it asks. */
+async function delivered(
+  call: LendingCall,
+  session: RemoteProjectSession,
+  token: string,
+  { crossing, prompt }: ReturnType<typeof crossingOf>,
+  signal: AbortSignal | undefined,
+): Promise<DomainResult<DeliveryAnswer>> {
+  return await call(
+    'exports.deliver',
+    (lend) => ({
+      handle: session.handle,
+      token,
+      destination: crossing,
+      ...(prompt === undefined ? {} : { prompt: lend.prompt(prompt) }),
+    }),
+    signal,
+  );
+}
+
+/**
+ * Delivers a staged export into a folder kept trusted, with the records of
+ * what was exported there before, and keeps the record of the file written.
+ */
+async function deliveredTrusted(
+  call: LendingCall,
+  session: RemoteProjectSession,
+  token: string,
+  destination: Extract<PageDestination, { readonly kind: 'trusted-folder' }>,
+  signal: AbortSignal | undefined,
+): Promise<DomainResult<DeliveryAnswer>> {
+  const kept = await destination.folders.find(destination.key);
+  if (kept === undefined) return trustedFolderMissing();
+  const crossing = crossingOf(
+    { ...destination, kind: 'folder', handle: kept.folder },
+    kept.records,
+  );
+  const answer = await delivered(call, session, token, crossing, signal);
+  if (answer.ok && answer.value.kind === 'delivered') {
+    const { name, record } = answer.value;
+    const file = record.file;
+    if (file !== undefined) {
+      await destination.folders.record(destination.key, [
+        { name, size: file.byteLength, hash: file.sha256 },
+      ]);
+    }
+  }
+  return answer;
 }
 
 /**

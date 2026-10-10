@@ -50,7 +50,12 @@ import { writeManifest, type RecordingFiles } from './recording-manifests.js';
 import { takeChange, type RecordingCommands } from './recording-takes.js';
 import type { ChangeOutcome } from './session-contracts.js';
 import { refusalsReported } from './storage-failures.js';
-import { STORED_WAV_MEDIA_TYPE, storeFloatWav, type StoredWav } from './stored-wav.js';
+import {
+  STORED_WAV_MEDIA_TYPE,
+  storeFloatWav,
+  storedWavMedia,
+  type StoredWav,
+} from './stored-wav.js';
 
 /** What finishing a recording works with, each made once by the composition root. */
 export interface FinishingServices extends RecordingServices {
@@ -144,14 +149,8 @@ async function added(
   recording: RecordedProvenance,
   services: FinishingServices,
 ): Promise<DomainResult<FinishedRecording>> {
-  const { contentId, byteLength } = stored.identity;
   const audio = audioShape(stored.format);
-  const media = {
-    kind: 'managed',
-    contentId,
-    byteLength,
-    mediaType: STORED_WAV_MEDIA_TYPE,
-  } as const;
+  const media = storedWavMedia(stored);
   const asset: Asset = {
     id,
     displayName: kept.manifest.take.name,
@@ -166,7 +165,7 @@ async function added(
     media,
     provenance: {
       importedAt: services.clock.now(),
-      byteLength,
+      byteLength: media.byteLength,
       mediaType: STORED_WAV_MEDIA_TYPE,
       originProjectId: session.project,
       audio,

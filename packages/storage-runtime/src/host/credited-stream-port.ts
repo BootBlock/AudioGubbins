@@ -84,60 +84,66 @@ export function portEncodedStream(port: StreamPort): EncodedStream {
 function portStream<TMessage>(
   port: StreamPort,
   kind: StreamKind<TMessage>,
-): {
-  next(): Promise<TMessage | undefined>;
-  refuse(failure: DomainFailure): void;
-  close(): void;
-} {
-  const queued: TMessage[] = [];
-  let waiting: ((message: TMessage | undefined) => void) | undefined;
-  let open = true;
-  let granted = 0;
-  let received = 0;
-  let begun = false;
-
-  const grant = (credit: number): void => {
-    granted += credit;
-    port.postMessage({ kind: 'ready', credit });
-  };
-  const end = (): void => {
-    if (!open) return;
-    open = false;
-    port.close();
-    waiting?.(undefined);
-    waiting = undefined;
-  };
+): CreditedStream<TMessage> {
+  const stream = new CreditedStream<TMessage>(port);
   port.addEventListener('message', (event) => {
-    if (!open) return;
-    received += 1;
-    const message: TMessage = isMessage(event.data, kind) ? event.data : kind.unreadable;
-    if (waiting === undefined) {
-      queued.push(message);
-      return;
-    }
-    const resolve = waiting;
-    waiting = undefined;
-    resolve(message);
+    stream.arrived(isMessage(event.data, kind) ? event.data : kind.unreadable);
   });
   port.start();
-  grant(1);
+  return stream;
+}
 
-  return {
-    next: () => {
-      if (begun && granted - received < CREDIT_WINDOW / 2) {
-        grant(CREDIT_WINDOW - (granted - received));
-      }
-      begun = true;
-      const message = queued.shift();
-      if (message !== undefined || !open) return Promise.resolve(message);
-      return new Promise((resolve) => {
-        waiting = resolve;
-      });
-    },
-    refuse: (failure: DomainFailure) => {
-      if (open) port.postMessage({ kind: 'refused', failure });
-      end();
-    },
-    close: end,
+/** A stream's messages as they arrive, read in order, with credit given as they are. */
+class CreditedStream<TMessage> {
+  readonly #port: StreamPort;
+  readonly #queued: TMessage[] = [];
+  #waiting: ((message: TMessage | undefined) => void) | undefined;
+  #open = true;
+  #granted = 0;
+  #received = 0;
+  #begun = false;
+
+  constructor(port: StreamPort) {
+    this.#port = port;
+    this.#grant(1);
+  }
+
+  /** Takes a message that arrived, to a read waiting or the queue. */
+  arrived(message: TMessage): void {
+    if (!this.#open) return;
+    this.#received += 1;
+    const waiting = this.#waiting;
+    this.#waiting = undefined;
+    if (waiting === undefined) this.#queued.push(message);
+    else waiting(message);
+  }
+
+  readonly next = (): Promise<TMessage | undefined> => {
+    const asked = this.#granted - this.#received;
+    if (this.#begun && asked < CREDIT_WINDOW / 2) this.#grant(CREDIT_WINDOW - asked);
+    this.#begun = true;
+    const message = this.#queued.shift();
+    if (message !== undefined || !this.#open) return Promise.resolve(message);
+    return new Promise((resolve) => {
+      this.#waiting = resolve;
+    });
   };
+
+  readonly refuse = (failure: DomainFailure): void => {
+    if (this.#open) this.#port.postMessage({ kind: 'refused', failure });
+    this.close();
+  };
+
+  readonly close = (): void => {
+    if (!this.#open) return;
+    this.#open = false;
+    this.#port.close();
+    this.#waiting?.(undefined);
+    this.#waiting = undefined;
+  };
+
+  #grant(credit: number): void {
+    this.#granted += credit;
+    this.#port.postMessage({ kind: 'ready', credit });
+  }
 }

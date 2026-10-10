@@ -90,10 +90,6 @@ export async function receiveRendition(
         return fail(received.failure);
       }
       if (received.kind === 'ended') {
-        if (received.frames === 0) {
-          stream.refuse(streamEmpty());
-          return fail(streamEmpty());
-        }
         await sink.close();
         closed = true;
         stream.close();
@@ -105,20 +101,7 @@ export async function receiveRendition(
       decoded(writer.frames);
     }
   } catch (error) {
-    // Whatever ended the stream, the codec worker is told, so it stops
-    // decoding: a cancelled import rejects with the cancellation, a write the
-    // storage refused is the import's failure, and anything else is a defect.
-    if (signal?.aborted === true) {
-      stream.refuse(importCancelled());
-      throw error;
-    }
-    if (!(error instanceof TreeFailure)) {
-      stream.refuse(streamOutOfOrder('the storage failed to write it'));
-      throw error;
-    }
-    const refused = storageRefused(error);
-    stream.refuse(refused);
-    return fail(refused);
+    return refusedFor(stream, error, signal);
   } finally {
     if (!closed) await abandon(sink, discard);
   }
@@ -138,6 +121,7 @@ async function receiveOne(
     case 'failed':
       return { kind: 'failed', failure: message.failure };
     case 'end':
+      if (writer.frames === 0) return { kind: 'failed', failure: streamEmpty() };
       return message.frames === writer.frames
         ? { kind: 'ended', frames: writer.frames }
         : {
@@ -163,6 +147,29 @@ async function receiveOne(
       return { kind: 'more' };
     }
   }
+}
+
+/**
+ * Tells the codec worker the stream is refused, whatever ended it, so it stops
+ * decoding: a cancelled import rejects with the cancellation, a write the
+ * storage refused is the import's failure, and anything else is a defect.
+ */
+function refusedFor(
+  stream: DecodedStream,
+  error: unknown,
+  signal: AbortSignal | undefined,
+): DomainResult<never> {
+  if (signal?.aborted === true) {
+    stream.refuse(importCancelled());
+    throw error;
+  }
+  if (!(error instanceof TreeFailure)) {
+    stream.refuse(streamOutOfOrder('the storage failed to write it'));
+    throw error;
+  }
+  const refused = storageRefused(error);
+  stream.refuse(refused);
+  return fail(refused);
 }
 
 /** Abandons a scratch file part written, and removes it. */
