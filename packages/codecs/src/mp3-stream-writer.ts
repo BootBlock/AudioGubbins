@@ -134,14 +134,30 @@ export class Mp3StreamWriter implements EncodedStreamWriter<EncodedStreamLength>
     ) {
       return fail(invalidEncodedStream('The MP3 stream ends inside a frame.'));
     }
+    const info = this.informationFrame(end.inputFrames);
+    if (!info.ok) return info;
+    const tag = encodeId3v2(this.settings.metadata);
+    return succeed({
+      head: concatenate([tag.bytes, info.value]),
+      body: [],
+      tail: new Uint8Array(),
+      dropped: tag.dropped,
+    });
+  }
+
+  /**
+   * The information frame of the frames written, refused where they decode to
+   * fewer samples than the encoder was given or the padding is past what the
+   * tag states.
+   */
+  private informationFrame(inputFrames: number): DomainResult<Uint8Array> {
     const model = this.model;
     if (model === undefined)
       return fail(invalidEncodedStream('The MP3 encoder answered no frame.'));
     const frames = this.sizes.length;
-    const decoded = frames * model.samples;
     const delay = this.settings.encoderDelay;
-    const padding = decoded - delay - end.inputFrames;
-    if (!Number.isSafeInteger(end.inputFrames) || end.inputFrames < 0 || padding < 0) {
+    const padding = frames * model.samples - delay - inputFrames;
+    if (!Number.isSafeInteger(inputFrames) || inputFrames < 0 || padding < 0) {
       return fail(
         invalidEncodedStream('The MP3 frames decode to fewer samples than the encoder was given.'),
       );
@@ -152,8 +168,9 @@ export class Mp3StreamWriter implements EncodedStreamWriter<EncodedStreamLength>
       );
     }
     const offsets = new Float64Array(frames + 1);
-    for (let index = 0; index < frames; index += 1)
+    for (let index = 0; index < frames; index += 1) {
       offsets[index + 1] = (offsets[index] ?? 0) + this.sizes.at(index);
+    }
     const info = encodeInfoFrame({
       model,
       constantBitrate: this.constantBitrate,
@@ -165,16 +182,9 @@ export class Mp3StreamWriter implements EncodedStreamWriter<EncodedStreamLength>
       padding,
       musicCrc: this.musicCrc,
     });
-    if (info === undefined) {
-      return fail(unwritableStream('No frame of this MP3 format holds the information frame.'));
-    }
-    const tag = encodeId3v2(this.settings.metadata);
-    return succeed({
-      head: concatenate([tag.bytes, info]),
-      body: [],
-      tail: new Uint8Array(),
-      dropped: tag.dropped,
-    });
+    return info === undefined
+      ? fail(unwritableStream('No frame of this MP3 format holds the information frame.'))
+      : succeed(info);
   }
 
   /** Counts an audio frame, refusing one of another version or rate than the first. */

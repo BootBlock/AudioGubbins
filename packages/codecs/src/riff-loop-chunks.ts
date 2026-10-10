@@ -81,61 +81,74 @@ export function encodeRiffLoopChunks(map: MetadataMap, sampleRate: number): Writ
   const loops = map.loops ?? [];
   const writable = loops.filter(loopFits);
   const tuning = map.tuning === undefined ? undefined : chunkTuning(map.tuning);
-  const tuningDropped = map.tuning !== undefined && tuning === undefined;
-
   if (writable.length > 0 || tuning !== undefined) {
-    const [note, fraction] = tuning ?? chunkTuning(DEFAULT_TUNING) ?? [60, 0];
-    const smpl = new ByteWriter()
-      .u32(0, true)
-      .u32(0, true)
-      .u32(Math.round(1e9 / sampleRate), true)
-      .u32(note, true)
-      .u32(fraction, true)
-      .u32(0, true)
-      .u32(0, true)
-      .u32(writable.length, true)
-      .u32(0, true);
-    for (const loop of writable) {
-      smpl
-        .u32(0, true)
-        .u32(LOOP_TYPES.indexOf(loop.direction), true)
-        .u32(loop.start, true)
-        .u32(loop.start + loop.length - 1, true)
-        .u32(0, true)
-        .u32(loop.playCount === 'endless' ? 0 : loop.playCount, true);
-    }
-    chunks.push({ id: 'smpl', body: smpl.toBytes().slice() });
+    chunks.push(
+      samplerChunk(writable, tuning ?? chunkTuning(DEFAULT_TUNING) ?? [60, 0], sampleRate),
+    );
   }
-
   const cues = map.cues ?? [];
   const placed = cues.filter((cue) => cue.position <= LARGEST_POSITION);
-  if (placed.length > 0) {
-    const cue = new ByteWriter().u32(placed.length, true);
-    const labels = new ByteWriter().latin1('adtl');
-    placed.forEach((point, index) => {
-      const id = index + 1;
-      cue
-        .u32(id, true)
-        .u32(index, true)
-        .latin1('data')
-        .u32(0, true)
-        .u32(0, true)
-        .u32(point.position, true);
-      if (point.name !== '') {
-        const text = encodeUtf8(point.name);
-        const size = 4 + text.length + 1;
-        labels.latin1('labl').u32(size, true).u32(id, true).bytes(text).u8(0);
-        if (size % 2 === 1) labels.u8(0);
-      }
-    });
-    chunks.push({ id: 'cue ', body: cue.toBytes().slice() });
-    if (labels.length > 4) chunks.push({ id: 'LIST', body: labels.toBytes().slice() });
-  }
+  if (placed.length > 0) chunks.push(...cueChunks(placed));
+  return {
+    chunks,
+    // A loop's name has no place in the chunk.
+    loopsPartial: writable.length < loops.length || loops.some((loop) => loop.name !== undefined),
+    cuesDropped: placed.length < cues.length,
+    tuningDropped: map.tuning !== undefined && tuning === undefined,
+  };
+}
 
-  // A loop's name has no place in the chunk.
-  const loopsPartial =
-    writable.length < loops.length || loops.some((loop) => loop.name !== undefined);
-  return { chunks, loopsPartial, cuesDropped: placed.length < cues.length, tuningDropped };
+/** The `smpl` chunk of loops the chunk can state and a tuning as its note and fraction. */
+function samplerChunk(
+  loops: readonly MetadataLoop[],
+  [note, fraction]: readonly [note: number, fraction: number],
+  sampleRate: number,
+): RiffChunk {
+  const smpl = new ByteWriter()
+    .u32(0, true)
+    .u32(0, true)
+    .u32(Math.round(1e9 / sampleRate), true)
+    .u32(note, true)
+    .u32(fraction, true)
+    .u32(0, true)
+    .u32(0, true)
+    .u32(loops.length, true)
+    .u32(0, true);
+  for (const loop of loops) {
+    smpl
+      .u32(0, true)
+      .u32(LOOP_TYPES.indexOf(loop.direction), true)
+      .u32(loop.start, true)
+      .u32(loop.start + loop.length - 1, true)
+      .u32(0, true)
+      .u32(loop.playCount === 'endless' ? 0 : loop.playCount, true);
+  }
+  return { id: 'smpl', body: smpl.toBytes().slice() };
+}
+
+/** The `cue ` chunk of cue points within 32-bit positions, and the `LIST`/`adtl` chunk of their names. */
+function cueChunks(cues: readonly CuePoint[]): readonly RiffChunk[] {
+  const cue = new ByteWriter().u32(cues.length, true);
+  const labels = new ByteWriter().latin1('adtl');
+  cues.forEach((point, index) => {
+    const id = index + 1;
+    cue
+      .u32(id, true)
+      .u32(index, true)
+      .latin1('data')
+      .u32(0, true)
+      .u32(0, true)
+      .u32(point.position, true);
+    if (point.name !== '') {
+      const text = encodeUtf8(point.name);
+      const size = 4 + text.length + 1;
+      labels.latin1('labl').u32(size, true).u32(id, true).bytes(text).u8(0);
+      if (size % 2 === 1) labels.u8(0);
+    }
+  });
+  const chunks: RiffChunk[] = [{ id: 'cue ', body: cue.toBytes().slice() }];
+  if (labels.length > 4) chunks.push({ id: 'LIST', body: labels.toBytes().slice() });
+  return chunks;
 }
 
 /** The cue points and their labels a file's chunks state, gathered until every chunk is read. */

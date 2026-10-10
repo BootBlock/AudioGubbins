@@ -16,7 +16,7 @@ import { ByteWriter, concatenate } from './byte-writer.js';
 import { writableMediaType } from './flac-picture.js';
 import { NUMBER_FRAMES, TEXT_FRAMES, WRITTEN_FRAMES } from './id3v2-frames.js';
 import { LOOP_LENGTH_TAG, LOOP_START_TAG, loopTagPart, taggedLoop } from './loop-tags.js';
-import type { MetadataMap, MetadataPart } from './metadata-map.js';
+import type { CoverArt, MetadataMap, MetadataPart } from './metadata-map.js';
 import { ALL_TEXT_KEYS, partsNotHeld } from './metadata-parts.js';
 import { encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
@@ -25,8 +25,8 @@ const UTF8 = 3;
 /** The front cover, in `APIC`'s numbering. */
 const FRONT_COVER = 3;
 
-/** The language of a comment whose language is not stated. */
-const UNKNOWN_LANGUAGE = 'XXX';
+/** The language of a comment whose language is not stated: ISO 639-2's undetermined. */
+const UNKNOWN_LANGUAGE = 'und';
 
 /** The timestamps `TDRC` holds: a year, then month, day, hour, minute and second, as far as known. */
 const ID3_TIMESTAMP = /^\d{4}(-\d{2}(-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?)?)?$/;
@@ -80,6 +80,47 @@ export interface WrittenId3v2 {
 
 /** The ID3v2.4 tag of `map`, or no bytes where the map holds nothing the tag carries. */
 export function encodeId3v2(map: MetadataMap): WrittenId3v2 {
+  const { frames, dropped } = textFrames(map);
+
+  const { loop, partial } = taggedLoop(map.loops);
+  if (loop !== undefined) {
+    frames.push(
+      userText(LOOP_START_TAG, String(loop.start)),
+      userText(LOOP_LENGTH_TAG, String(loop.length)),
+    );
+  }
+  if (partial) dropped.push({ kind: 'loops' });
+
+  for (const field of map.foreign ?? []) {
+    if (field.key === '' || loopTagPart(field.key) !== undefined || field.key.includes('\0')) {
+      dropped.push({ kind: 'foreign', scheme: field.scheme, key: field.key });
+    } else if (TEXT_FRAME_ID.test(field.key) && !WRITTEN_FRAMES.has(field.key)) {
+      frames.push(textFrame(field.key, field.value));
+    } else {
+      frames.push(userText(field.key, field.value));
+    }
+  }
+
+  let size = frames.reduce((sum, one) => sum + one.length, 0);
+  if (map.coverArt !== undefined) {
+    const picture = pictureFrame(map.coverArt);
+    // A picture past what a synchsafe size states has no place in the tag.
+    if (picture === undefined || size + picture.length > LARGEST_SYNCHSAFE) {
+      dropped.push({ kind: 'coverArt' });
+    } else {
+      frames.push(picture);
+      size += picture.length;
+    }
+  }
+  if (frames.length === 0) return { bytes: new Uint8Array(), dropped };
+  // Text alone this large has no tag to go in: nothing of the map is written.
+  if (size > LARGEST_SYNCHSAFE) return { bytes: new Uint8Array(), dropped: everyPart(map) };
+  const header = synchsafe(new ByteWriter().latin1('ID3').u8(4).u8(0).u8(0), size).toBytes();
+  return { bytes: concatenate([header, ...frames]), dropped };
+}
+
+/** The frames of the map's text, and the text keys they cannot hold, with every part no frame holds. */
+function textFrames(map: MetadataMap): { frames: Uint8Array[]; dropped: MetadataPart[] } {
   const dropped: MetadataPart[] = partsNotHeld(map, {
     text: ALL_TEXT_KEYS,
     broadcast: false,
@@ -105,80 +146,37 @@ export function encodeId3v2(map: MetadataMap): WrittenId3v2 {
     else if (present(total)) dropped.push({ kind: 'text', key: totalKey });
   }
   if (present(text.comment)) {
-    frames.push(
-      frame(
-        'COMM',
-        concatenate([
-          Uint8Array.of(UTF8),
-          encodeLatin1(UNKNOWN_LANGUAGE) ?? new Uint8Array(3),
-          Uint8Array.of(0),
-          encodeUtf8(text.comment),
-        ]),
-      ),
-    );
+    const language = encodeLatin1(UNKNOWN_LANGUAGE) ?? new Uint8Array(3);
+    const body = [Uint8Array.of(UTF8), language, Uint8Array.of(0), encodeUtf8(text.comment)];
+    frames.push(frame('COMM', concatenate(body)));
   }
+  return { frames, dropped };
+}
 
-  const { loop, partial } = taggedLoop(map.loops);
-  if (loop !== undefined) {
-    frames.push(
-      userText(LOOP_START_TAG, String(loop.start)),
-      userText(LOOP_LENGTH_TAG, String(loop.length)),
-    );
-  }
-  if (partial) dropped.push({ kind: 'loops' });
+/** The cover as an `APIC` front cover, or `undefined` where its media type is not printable ASCII. */
+function pictureFrame(cover: CoverArt): Uint8Array | undefined {
+  const mediaType = writableMediaType(cover.mediaType) ? encodeLatin1(cover.mediaType) : undefined;
+  if (mediaType === undefined) return undefined;
+  return frame(
+    'APIC',
+    concatenate([
+      Uint8Array.of(UTF8),
+      mediaType,
+      Uint8Array.of(0, FRONT_COVER),
+      encodeUtf8(cover.description),
+      Uint8Array.of(0),
+      cover.bytes,
+    ]),
+  );
+}
 
-  for (const field of map.foreign ?? []) {
-    if (field.key === '' || loopTagPart(field.key) !== undefined || field.key.includes('\0')) {
-      dropped.push({ kind: 'foreign', scheme: field.scheme, key: field.key });
-    } else if (TEXT_FRAME_ID.test(field.key) && !WRITTEN_FRAMES.has(field.key)) {
-      frames.push(textFrame(field.key, field.value));
-    } else {
-      frames.push(userText(field.key, field.value));
-    }
-  }
-
-  let size = frames.reduce((sum, one) => sum + one.length, 0);
-  const cover = map.coverArt;
-  if (cover !== undefined) {
-    const mediaType = writableMediaType(cover.mediaType)
-      ? encodeLatin1(cover.mediaType)
-      : undefined;
-    const picture =
-      mediaType === undefined
-        ? undefined
-        : frame(
-            'APIC',
-            concatenate([
-              Uint8Array.of(UTF8),
-              mediaType,
-              Uint8Array.of(0, FRONT_COVER),
-              encodeUtf8(cover.description),
-              Uint8Array.of(0),
-              cover.bytes,
-            ]),
-          );
-    // A picture past what a synchsafe size states has no place in the tag.
-    if (picture === undefined || size + picture.length > LARGEST_SYNCHSAFE) {
-      dropped.push({ kind: 'coverArt' });
-    } else {
-      frames.push(picture);
-      size += picture.length;
-    }
-  }
-  if (frames.length === 0) return { bytes: new Uint8Array(), dropped };
-  if (size > LARGEST_SYNCHSAFE) {
-    // Text alone this large has no tag to go in: nothing of the map is written.
-    return {
-      bytes: new Uint8Array(),
-      dropped: [
-        ...partsNotHeld(map, NOTHING_HELD),
-        ...((map.loops?.length ?? 0) > 0 ? [{ kind: 'loops' } as const] : []),
-        ...(map.foreign ?? []).map(
-          (field) => ({ kind: 'foreign', scheme: field.scheme, key: field.key }) as const,
-        ),
-      ],
-    };
-  }
-  const header = synchsafe(new ByteWriter().latin1('ID3').u8(4).u8(0).u8(0), size).toBytes();
-  return { bytes: concatenate([header, ...frames]), dropped };
+/** Every part of the map, as a tag that writes none of it reports them. */
+function everyPart(map: MetadataMap): MetadataPart[] {
+  return [
+    ...partsNotHeld(map, NOTHING_HELD),
+    ...((map.loops?.length ?? 0) > 0 ? [{ kind: 'loops' } as const] : []),
+    ...(map.foreign ?? []).map(
+      (field) => ({ kind: 'foreign', scheme: field.scheme, key: field.key }) as const,
+    ),
+  ];
 }

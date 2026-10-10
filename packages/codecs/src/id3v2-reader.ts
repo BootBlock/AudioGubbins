@@ -164,55 +164,69 @@ export function readId3v2Frames(
 ): DomainResult<undefined> {
   // Version 2.2's compression flag names a scheme no one defined, so its frames cannot be read.
   if (header.version === 2 && (header.flags & 0x40) !== 0) return succeed(undefined);
-  let year: string | undefined;
-  let dayMonth: string | undefined;
+  const dates: VersionThreeDate = {};
   for (const frame of framesOf(header, tag)) {
     const counted = gathering.countField();
     if (!counted.ok) return counted;
-    const { id, body } = frame;
-    if (id === 'APIC') {
-      const read = readPicture(header.version, body, gathering);
-      if (!read.ok) return read;
-      continue;
-    }
-    if (body.length > MAXIMUM_TEXT_BYTES)
-      return fail(metadataOverBound('ID3v2 frame', MAXIMUM_TEXT_BYTES));
-    if (id === 'COMM') {
-      readComment(body, gathering);
-      continue;
-    }
-    if (!id.startsWith('T')) continue;
-    if (id === 'TXXX') {
-      readUserText(body, gathering);
-      continue;
-    }
-    const values = textValues(body);
-    if (values.length === 0) continue;
-    if (id === 'TYER') {
-      year = values[0];
-      continue;
-    }
-    if (id === 'TDAT') {
-      dayMonth = values[0];
-      continue;
-    }
-    if (id === 'TRCK' || id === 'TPOS') {
-      readNumber(id, values[0] ?? '', gathering);
-      continue;
-    }
+    const read = readFrame(header.version, frame, gathering, dates);
+    if (!read.ok) return read;
+  }
+  if (dates.year !== undefined) {
+    const day = dates.dayMonth === undefined ? null : DAY_MONTH.exec(dates.dayMonth);
+    gathering.addText(
+      'date',
+      day === null ? dates.year : `${dates.year}-${day[2] ?? ''}-${day[1] ?? ''}`,
+    );
+  } else if (dates.dayMonth !== undefined) {
+    gathering.addForeign(ID3V2_SCHEME, 'TDAT', dates.dayMonth);
+  }
+  return succeed(undefined);
+}
+
+/** Version 2.3's year and day, read from two frames and made one date once both are read. */
+interface VersionThreeDate {
+  year?: string;
+  dayMonth?: string;
+}
+
+/** Reads one frame into `gathering`, or its part of a version 2.3 date into `dates`. */
+function readFrame(
+  version: number,
+  { id, body }: Id3Frame,
+  gathering: MetadataGathering,
+  dates: VersionThreeDate,
+): DomainResult<undefined> {
+  if (id === 'APIC') return readPicture(version, body, gathering);
+  if (body.length > MAXIMUM_TEXT_BYTES)
+    return fail(metadataOverBound('ID3v2 frame', MAXIMUM_TEXT_BYTES));
+  if (id === 'COMM') readComment(body, gathering);
+  else if (id === 'TXXX') readUserText(body, gathering);
+  else if (id.startsWith('T')) readTextFrame(id, textValues(body), gathering, dates);
+  return succeed(undefined);
+}
+
+/** Reads a text frame's values. */
+function readTextFrame(
+  id: string,
+  values: readonly string[],
+  gathering: MetadataGathering,
+  dates: VersionThreeDate,
+): void {
+  const [first] = values;
+  if (first === undefined) return;
+  if (id === 'TYER') {
+    dates.year = first;
+  } else if (id === 'TDAT') {
+    dates.dayMonth = first;
+  } else if (id === 'TRCK' || id === 'TPOS') {
+    readNumber(id, first, gathering);
+  } else {
     const key = KEY_OF_FRAME.get(id);
     for (const value of values) {
       if (key === undefined) gathering.addForeign(ID3V2_SCHEME, id, value);
       else gathering.addText(key, key === 'genre' ? genreName(value) : value);
     }
   }
-  if (year !== undefined) {
-    const day = dayMonth === undefined ? null : DAY_MONTH.exec(dayMonth);
-    gathering.addText('date', day === null ? year : `${year}-${day[2] ?? ''}-${day[1] ?? ''}`);
-  } else if (dayMonth !== undefined) {
-    gathering.addForeign(ID3V2_SCHEME, 'TDAT', dayMonth);
-  }
-  return succeed(undefined);
 }
 
 /** A genre's name, where it is given as an ID3v1 number alone or in brackets before no text. */

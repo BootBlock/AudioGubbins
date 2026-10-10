@@ -21,7 +21,7 @@ import {
 } from './ogg-page.js';
 
 /** The body a page is filled to before another is begun, as libogg fills them. */
-export const PAGE_TARGET_BYTES = 4_096;
+const PAGE_TARGET_BYTES = 4_096;
 
 /** The pages of one logical stream, made as its packets are added. */
 export class OggPageWriter {

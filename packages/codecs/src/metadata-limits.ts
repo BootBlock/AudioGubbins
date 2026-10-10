@@ -17,6 +17,3 @@ export const MAXIMUM_TEXT_BYTES = 1024 * 1024;
 
 /** The most bytes of an embedded picture. */
 export const MAXIMUM_PICTURE_BYTES = 32 * 1024 * 1024;
-
-/** The deepest a reader descends into nested boxes or blocks. */
-export const MAXIMUM_NESTING = 16;

@@ -60,3 +60,39 @@ export { type SyncAudioBytes } from './sync-audio-bytes.js';
 export { type AudioFileWriter, type FinishedAudioFile } from './audio-file-writer.js';
 
 export { quantiseSample } from './sample-quantisation.js';
+
+export {
+  type EncodedStreamLength,
+  type EncodedStreamWriter,
+  type FinishedEncodedStream,
+} from './encoded-stream-writer.js';
+
+export { OggOpusWriter, type OggOpusSettings } from './ogg-opus-writer.js';
+
+export { type OpusChannelMapping, type OpusHeadSettings } from './opus-header.js';
+
+export { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
+
+export { type FlacStreamFormat } from './flac-frame-header.js';
+
+export { type FlacMetadataSettings } from './flac-metadata-blocks.js';
+
+export { FlacSampleDigest } from './flac-sample-digest.js';
+
+export {
+  FlacStreamWriter,
+  type FlacStreamEnd,
+  type FlacStreamSettings,
+} from './flac-stream-writer.js';
+
+export { Mp4AacWriter, type Mp4AacSettings } from './mp4-aac-writer.js';
+
+export { Mp3StreamWriter, type Mp3StreamSettings } from './mp3-stream-writer.js';
+
+export { readOggMetadata } from './ogg-metadata-reader.js';
+
+export { readFlacMetadata } from './flac-metadata-reader.js';
+
+export { readMp4Metadata } from './mp4-metadata-reader.js';
+
+export { readMp3Metadata } from './mp3-metadata-reader.js';

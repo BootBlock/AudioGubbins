@@ -38,7 +38,7 @@ import { ALL_TEXT_KEYS, partsNotHeld, textEntries } from './metadata-parts.js';
 import { decodeUtf8, encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
 /** The scheme a foreign comment is kept under. */
-export const VORBIS_COMMENT_SCHEME = 'vorbis-comment';
+const VORBIS_COMMENT_SCHEME = 'vorbis-comment';
 
 /** The field each text key is written under. */
 const FIELD_NAMES: Readonly<Record<MetadataTextKey, string>> = {
@@ -172,11 +172,7 @@ export function decodeVorbisComment(
   let offset = 4 + vendorLength;
   const count = view.getUint32(offset, true);
   offset += 4;
-  const numbered: {
-    key: 'trackNumber' | 'discNumber';
-    total: 'trackTotal' | 'discTotal';
-    value: string;
-  }[] = [];
+  const numbered: NumberComment[] = [];
   const totals = new Set<MetadataTextKey>();
 
   for (let index = 0; index < count; index += 1) {
@@ -191,38 +187,8 @@ export function decodeVorbisComment(
     }
     const comment = block.subarray(offset, offset + length);
     offset += length;
-    const separator = comment.indexOf(0x3d);
-    if (separator <= 0) continue;
-    const key = decodeUtf8(comment.subarray(0, separator));
-    const upper = key.toUpperCase();
-    const valueBytes = comment.subarray(separator + 1);
-
-    if (upper === PICTURE_FIELD) {
-      const picture = readPictureField(valueBytes);
-      if (!picture.ok) return picture;
-      if (picture.value !== undefined) gatherPicture(gathering, picture.value);
-      continue;
-    }
-    if (valueBytes.length > MAXIMUM_TEXT_BYTES) {
-      return fail(metadataOverBound('Vorbis comment', MAXIMUM_TEXT_BYTES));
-    }
-    const value = decodeUtf8(valueBytes);
-    const textKey = TEXT_KEY_OF.get(upper);
-    const loopPart = loopTagPart(upper);
-    if (textKey === 'trackNumber' || textKey === 'discNumber') {
-      numbered.push({
-        key: textKey,
-        total: textKey === 'trackNumber' ? 'trackTotal' : 'discTotal',
-        value,
-      });
-    } else if (textKey !== undefined) {
-      if (textKey === 'trackTotal' || textKey === 'discTotal') totals.add(textKey);
-      gathering.addText(textKey, value);
-    } else if (loopPart !== undefined) {
-      gathering.addLoopTag(loopPart, VORBIS_COMMENT_SCHEME, key, value);
-    } else {
-      gathering.addForeign(VORBIS_COMMENT_SCHEME, key, value);
-    }
+    const read = readComment(comment, gathering, numbered, totals);
+    if (!read.ok) return read;
   }
 
   for (const { key, total, value } of numbered) {
@@ -236,6 +202,57 @@ export function decodeVorbisComment(
     }
   }
   return succeed(offset);
+}
+
+/** A track or disc number read, kept until every comment is read to learn whether a total was given. */
+interface NumberComment {
+  readonly key: 'trackNumber' | 'discNumber';
+  readonly total: 'trackTotal' | 'discTotal';
+  readonly value: string;
+}
+
+/**
+ * Reads one comment into `gathering`, or a number into `numbered` and a total's
+ * key into `totals`; a comment with no `=` names nothing and is passed over.
+ */
+function readComment(
+  comment: Uint8Array,
+  gathering: MetadataGathering,
+  numbered: NumberComment[],
+  totals: Set<MetadataTextKey>,
+): DomainResult<undefined> {
+  const separator = comment.indexOf(0x3d);
+  if (separator <= 0) return succeed(undefined);
+  const key = decodeUtf8(comment.subarray(0, separator));
+  const upper = key.toUpperCase();
+  const valueBytes = comment.subarray(separator + 1);
+  if (upper === PICTURE_FIELD) {
+    const picture = readPictureField(valueBytes);
+    if (!picture.ok) return picture;
+    if (picture.value !== undefined) gatherPicture(gathering, picture.value);
+    return succeed(undefined);
+  }
+  if (valueBytes.length > MAXIMUM_TEXT_BYTES) {
+    return fail(metadataOverBound('Vorbis comment', MAXIMUM_TEXT_BYTES));
+  }
+  const value = decodeUtf8(valueBytes);
+  const textKey = TEXT_KEY_OF.get(upper);
+  const loopPart = loopTagPart(upper);
+  if (textKey === 'trackNumber' || textKey === 'discNumber') {
+    numbered.push({
+      key: textKey,
+      total: textKey === 'trackNumber' ? 'trackTotal' : 'discTotal',
+      value,
+    });
+  } else if (textKey !== undefined) {
+    if (textKey === 'trackTotal' || textKey === 'discTotal') totals.add(textKey);
+    gathering.addText(textKey, value);
+  } else if (loopPart !== undefined) {
+    gathering.addLoopTag(loopPart, VORBIS_COMMENT_SCHEME, key, value);
+  } else {
+    gathering.addForeign(VORBIS_COMMENT_SCHEME, key, value);
+  }
+  return succeed(undefined);
 }
 
 /** The picture a `METADATA_BLOCK_PICTURE` value holds, or `undefined` where it is not base64. */

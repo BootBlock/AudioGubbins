@@ -34,13 +34,13 @@ import { box, fullBox } from './mp4-box.js';
 import { decodeUtf8, encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
 /** The scheme a foreign item is kept under. */
-export const ILST_SCHEME = 'ilst';
+const ILST_SCHEME = 'ilst';
 
 /** iTunes's mean for its free-form items. */
-export const ITUNES_MEAN = 'com.apple.iTunes';
+const ITUNES_MEAN = 'com.apple.iTunes';
 
 /** The free-form name of the gapless playback information. */
-export const GAPLESS_NAME = 'iTunSMPB';
+const GAPLESS_NAME = 'iTunSMPB';
 
 /** The text items, by the key each holds. */
 const TEXT_ITEMS: Readonly<Partial<Record<MetadataTextKey, string>>> = {
@@ -105,13 +105,24 @@ const textItem = (item: string, value: string): Uint8Array =>
   box(item, dataBox(DataType.Utf8, encodeUtf8(value)));
 
 /** A free-form item of `mean` and `name` holding text. */
-export function freeFormItem(mean: string, name: string, value: string): Uint8Array {
+function freeFormItem(mean: string, name: string, value: string): Uint8Array {
   return box(
     '----',
     fullBox('mean', 0, 0, encodeUtf8(mean)),
     fullBox('name', 0, 0, encodeUtf8(name)),
     dataBox(DataType.Utf8, encodeUtf8(value)),
   );
+}
+
+/**
+ * The `iTunSMPB` item: iTunes's statement of the encoder's priming, its padding
+ * and the length between them, in hexadecimal among fields of zeros.
+ */
+export function gaplessItem(priming: number, padding: number, length: number): Uint8Array {
+  const word = (value: number) => value.toString(16).toUpperCase().padStart(8, '0');
+  const total = length.toString(16).toUpperCase().padStart(16, '0');
+  const value = ` ${word(0)} ${word(priming)} ${word(padding)} ${total}${' 00000000'.repeat(8)}`;
+  return freeFormItem(ITUNES_MEAN, GAPLESS_NAME, value);
 }
 
 /** The `ilst` box written, and the parts of the map it could not hold. */
@@ -136,25 +147,9 @@ export function encodeIlstItems(map: MetadataMap): WrittenIlst {
     const item = TEXT_ITEMS[key];
     if (item !== undefined) items.push(textItem(item, value));
   }
-  const pairs = [
-    ['trkn', 'trackNumber', 'trackTotal', 8],
-    ['disk', 'discNumber', 'discTotal', 6],
-  ] as const;
-  for (const [item, numberKey, totalKey, length] of pairs) {
-    const number = text[numberKey];
-    const total = text[totalKey];
-    if ((number ?? '') === '' && (total ?? '') === '') continue;
-    const numbered = number === undefined || number === '' ? 0 : itemNumber(number);
-    const totalled = total === undefined || total === '' ? 0 : itemNumber(total);
-    if (numbered === undefined || totalled === undefined) {
-      if (numbered === undefined) dropped.push({ kind: 'text', key: numberKey });
-      if (totalled === undefined) dropped.push({ kind: 'text', key: totalKey });
-      continue;
-    }
-    const body = new ByteWriter().u16(0).u16(numbered).u16(totalled);
-    if (length === 8) body.u16(0);
-    items.push(box(item, dataBox(DataType.Binary, body.toBytes())));
-  }
+  const numbers = numberItems(text);
+  items.push(...numbers.items);
+  dropped.push(...numbers.dropped);
   if (text.isrc !== undefined && text.isrc !== '')
     items.push(freeFormItem(ITUNES_MEAN, 'ISRC', text.isrc));
 
@@ -174,13 +169,33 @@ export function encodeIlstItems(map: MetadataMap): WrittenIlst {
 
   if (map.coverArt !== undefined) {
     const type = PICTURE_TYPES.get(map.coverArt.mediaType);
-    if (type === undefined) {
-      dropped.push({ kind: 'coverArt' });
-    } else {
-      items.push(box('covr', dataBox(type, map.coverArt.bytes)));
-      // The item has no place for the description.
-      if (map.coverArt.description !== '') dropped.push({ kind: 'coverArt' });
-    }
+    if (type !== undefined) items.push(box('covr', dataBox(type, map.coverArt.bytes)));
+    // A picture of another kind has no data type, and the item has no place for a description.
+    if (type === undefined || map.coverArt.description !== '') dropped.push({ kind: 'coverArt' });
+  }
+  return { items, dropped };
+}
+
+/** The `trkn` and `disk` items, which hold whole numbers to 65,535 alone, and the keys they cannot hold. */
+function numberItems(text: Readonly<Partial<Record<MetadataTextKey, string>>>): WrittenIlst {
+  const items: Uint8Array[] = [];
+  const dropped: MetadataPart[] = [];
+  const pairs = [
+    ['trkn', 'trackNumber', 'trackTotal', 8],
+    ['disk', 'discNumber', 'discTotal', 6],
+  ] as const;
+  for (const [item, numberKey, totalKey, length] of pairs) {
+    const number = text[numberKey] ?? '';
+    const total = text[totalKey] ?? '';
+    if (number === '' && total === '') continue;
+    const numbered = number === '' ? 0 : itemNumber(number);
+    const totalled = total === '' ? 0 : itemNumber(total);
+    if (numbered === undefined) dropped.push({ kind: 'text', key: numberKey });
+    if (totalled === undefined) dropped.push({ kind: 'text', key: totalKey });
+    if (numbered === undefined || totalled === undefined) continue;
+    const body = new ByteWriter().u16(0).u16(numbered).u16(totalled);
+    if (length === 8) body.u16(0);
+    items.push(box(item, dataBox(DataType.Binary, body.toBytes())));
   }
   return { items, dropped };
 }
@@ -303,24 +318,34 @@ function readItem(
     else gathering.addText(key, value);
     return succeed(undefined);
   }
-  if (mean === undefined || name === undefined) return succeed(undefined);
+  if (mean !== undefined && name !== undefined) readFreeForm(mean, name, value, gathering);
+  return succeed(undefined);
+}
+
+/** Reads a free-form item's text: the ISRC, a loop tag, or a foreign field keyed as it is written back. */
+function readFreeForm(
+  mean: string,
+  name: string,
+  value: string,
+  gathering: MetadataGathering,
+): void {
   if (mean === ITUNES_MEAN) {
     const upper = name.toUpperCase();
-    if (upper === GAPLESS_NAME.toUpperCase()) return succeed(undefined);
+    // The stream's gapless information is the writer's, never the person's metadata.
+    if (upper === GAPLESS_NAME.toUpperCase()) return;
     if (upper === 'ISRC') {
       gathering.addText('isrc', value);
-      return succeed(undefined);
+      return;
     }
     const part = loopTagPart(name);
     if (part !== undefined) {
       gathering.addLoopTag(part, ILST_SCHEME, name, value);
-      return succeed(undefined);
+      return;
     }
     if (name.length !== 4) {
       gathering.addForeign(ILST_SCHEME, name, value);
-      return succeed(undefined);
+      return;
     }
   }
   gathering.addForeign(ILST_SCHEME, `----:${mean}:${name}`, value);
-  return succeed(undefined);
 }

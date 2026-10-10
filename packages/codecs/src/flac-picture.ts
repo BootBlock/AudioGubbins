@@ -23,7 +23,7 @@ import type { CoverArt } from './metadata-map.js';
 import { decodeLatin1, decodeUtf8, encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
 /** The picture type of a front cover, in ID3v2's `APIC` numbering, which FLAC shares. */
-export const FRONT_COVER = 3;
+const FRONT_COVER = 3;
 
 /** A media type as the block holds one: printable ASCII. */
 const PRINTABLE_ASCII = /^[\x20-\x7e]*$/;
@@ -55,61 +55,59 @@ export interface FlacPicture {
   readonly cover: CoverArt;
 }
 
+/** A position in a block's body, read forward. */
+class FieldCursor {
+  private readonly bytes: Uint8Array;
+  private offset = 0;
+
+  constructor(bytes: Uint8Array) {
+    this.bytes = bytes;
+  }
+
+  /** The next `length` bytes, or `undefined` where the body ends first. */
+  take(length: number): Uint8Array | undefined {
+    if (length > this.bytes.length - this.offset) return undefined;
+    const taken = this.bytes.subarray(this.offset, this.offset + length);
+    this.offset += length;
+    return taken;
+  }
+
+  /** The bytes a 32-bit big-endian length before them states, refused past `bound` or the body. */
+  prefixed(bound: number, what: string): DomainResult<Uint8Array> {
+    const length = this.take(4);
+    if (length === undefined) return SHORT_PICTURE;
+    const stated = viewOf(length).getUint32(0);
+    if (stated > bound) return fail(metadataOverBound(what, bound));
+    const bytes = this.take(stated);
+    return bytes === undefined ? SHORT_PICTURE : succeed(bytes);
+  }
+}
+
+const SHORT_PICTURE = fail(malformed('A picture block is shorter than the lengths it states.'));
+
 /** The picture a block's body states, refusing one whose lengths run past it or past the bounds. */
 export function decodeFlacPicture(body: Uint8Array): DomainResult<FlacPicture> {
-  const view = viewOf(body);
-  let offset = 0;
-  const field = (): number | undefined => {
-    if (offset + 4 > body.length) return undefined;
-    const value = view.getUint32(offset);
-    offset += 4;
-    return value;
-  };
-  const span = (length: number | undefined): Uint8Array | undefined => {
-    if (length === undefined || length > body.length - offset) return undefined;
-    const bytes = body.subarray(offset, offset + length);
-    offset += length;
-    return bytes;
-  };
-  const short = fail(malformed('A picture block is shorter than the lengths it states.'));
-
-  const pictureType = field();
-  const mediaTypeLength = field();
-  if (mediaTypeLength !== undefined && mediaTypeLength > MAXIMUM_TEXT_BYTES) {
-    return fail(metadataOverBound("picture's media type", MAXIMUM_TEXT_BYTES));
-  }
-  const mediaType = span(mediaTypeLength);
-  const descriptionLength = field();
-  if (descriptionLength !== undefined && descriptionLength > MAXIMUM_TEXT_BYTES) {
-    return fail(metadataOverBound("picture's description", MAXIMUM_TEXT_BYTES));
-  }
-  const description = span(descriptionLength);
+  const cursor = new FieldCursor(body);
+  const pictureType = cursor.take(4);
+  if (pictureType === undefined) return SHORT_PICTURE;
+  const mediaType = cursor.prefixed(MAXIMUM_TEXT_BYTES, "picture's media type");
+  if (!mediaType.ok) return mediaType;
+  const description = cursor.prefixed(MAXIMUM_TEXT_BYTES, "picture's description");
+  if (!description.ok) return description;
   // Width, height, colour depth and palette size: the picture's own header states them.
-  const dimensions = span(16);
-  const dataLength = field();
-  if (dataLength !== undefined && dataLength > MAXIMUM_PICTURE_BYTES) {
-    return fail(metadataOverBound('picture', MAXIMUM_PICTURE_BYTES));
-  }
-  const data = span(dataLength);
-  if (
-    pictureType === undefined ||
-    mediaType === undefined ||
-    description === undefined ||
-    dimensions === undefined ||
-    data === undefined
-  ) {
-    return short;
-  }
-  const mediaText = decodeLatin1(mediaType);
+  if (cursor.take(16) === undefined) return SHORT_PICTURE;
+  const data = cursor.prefixed(MAXIMUM_PICTURE_BYTES, 'picture');
+  if (!data.ok) return data;
+  const mediaText = decodeLatin1(mediaType.value);
   if (!PRINTABLE_ASCII.test(mediaText)) {
     return fail(malformed("A picture's media type is not printable ASCII."));
   }
   return succeed({
-    pictureType,
+    pictureType: viewOf(pictureType).getUint32(0),
     cover: {
       mediaType: mediaText,
-      description: decodeUtf8(description),
-      bytes: data.slice(),
+      description: decodeUtf8(description.value),
+      bytes: data.value.slice(),
     },
   });
 }

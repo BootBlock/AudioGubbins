@@ -184,6 +184,8 @@ function exportsNoFileTakes(
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
   "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
     ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  'The Ogg page checksum on its own, which its test holds to the published check value of the CRC it is; pages are checksummed through `encodeOggPage` and checked through `readOggPage`.':
+    ['packages/codecs/src/ogg-page.ts: oggCrc'],
   'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':
     ['packages/audio-engine/src/pcm/stretched-content.ts: stretchCentre'],
   'The most unflagged frames inside one click, which the click tests place flags either side of; the de-click and the click detector read it through `joinsClick`.':

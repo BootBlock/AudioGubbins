@@ -15,16 +15,13 @@ import { viewOf } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
 
 /** `OggS`, which begins every page. */
-export const OGG_CAPTURE = Uint8Array.from([0x4f, 0x67, 0x67, 0x53]);
+const OGG_CAPTURE = Uint8Array.from([0x4f, 0x67, 0x67, 0x53]);
 
 /** The header's fixed bytes, before the lacing values. */
 export const OGG_HEADER_BYTES = 27;
 
 /** The most segments, and so lacing values, one page holds. */
 export const MAXIMUM_SEGMENTS = 255;
-
-/** The largest page: a full header, full lacing and full segments. */
-export const MAXIMUM_PAGE_BYTES = OGG_HEADER_BYTES + MAXIMUM_SEGMENTS + MAXIMUM_SEGMENTS * 255;
 
 /** The header type flags. */
 export const CONTINUED_PACKET = 0x01;

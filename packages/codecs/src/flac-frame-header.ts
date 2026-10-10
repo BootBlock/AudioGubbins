@@ -96,44 +96,10 @@ export function readFlacFrameHeader(
     return invalid('A FLAC frame header holds a reserved or invalid value.');
   }
 
-  // The frame or sample number, coded as UTF-8 codes its characters, up to 36 bits.
-  let at = 4;
-  const lead = byte(at) ?? 0xff;
-  let extra = 0;
-  while (extra < 8 && (lead & (0x80 >> extra)) !== 0) extra += 1;
   // A frame number takes at most 31 bits, six bytes; a sample number 36 bits, seven.
-  if (extra === 1 || extra > (fixedBlockSize ? 6 : 7)) {
-    return invalid('A FLAC frame header codes its number wrongly.');
-  }
-  const length = extra === 0 ? 1 : extra;
-  let number = lead & (0xff >> (extra + 1));
-  for (let index = 1; index < length; index += 1) {
-    const next = byte(at + index);
-    if (next === undefined || (next & 0xc0) !== 0x80)
-      return invalid('A FLAC frame header codes its number wrongly.');
-    number = number * 64 + (next & 0x3f);
-  }
-  at += length;
-
-  let blockSize: number;
-  if (sizeCode === 1) blockSize = 192;
-  else if (sizeCode <= 5) blockSize = 144 * 2 ** sizeCode;
-  else if (sizeCode === 6) {
-    blockSize = (byte(at) ?? 0) + 1;
-    at += 1;
-  } else if (sizeCode === 7) {
-    blockSize = (((byte(at) ?? 0) << 8) | (byte(at + 1) ?? 0)) + 1;
-    at += 2;
-  } else blockSize = 2 ** sizeCode;
-
-  let rate = RATES[rateCode];
-  if (rateCode === 12) {
-    rate = (byte(at) ?? 0) * 1_000;
-    at += 1;
-  } else if (rateCode === 13 || rateCode === 14) {
-    rate = (((byte(at) ?? 0) << 8) | (byte(at + 1) ?? 0)) * (rateCode === 13 ? 1 : 10);
-    at += 2;
-  }
+  const coded = codedNumber(frame, 4, fixedBlockSize ? 6 : 7);
+  if (coded === undefined) return invalid('A FLAC frame header codes its number wrongly.');
+  const { blockSize, rate, end: at } = uncommonFields(frame, 4 + coded.length, sizeCode, rateCode);
   if (at >= frame.length) return invalid('A FLAC frame is shorter than its header.');
   if (crc8(frame.subarray(0, at)) !== byte(at)) {
     return invalid("A FLAC frame header's checksum disagrees with it.");
@@ -147,5 +113,63 @@ export function readFlacFrameHeader(
   ) {
     return invalid("A FLAC frame states a format other than the stream's.");
   }
-  return succeed({ blockSize, fixedBlockSize, number });
+  return succeed({ blockSize, fixedBlockSize, number: coded.value });
+}
+
+/**
+ * The frame or sample number at `at`, coded as UTF-8 codes a character, in
+ * at most `longest` bytes, or `undefined` where it is coded wrongly.
+ */
+function codedNumber(
+  frame: Uint8Array,
+  at: number,
+  longest: number,
+): { readonly value: number; readonly length: number } | undefined {
+  const lead = frame[at] ?? 0xff;
+  let extra = 0;
+  while (extra < 8 && (lead & (0x80 >> extra)) !== 0) extra += 1;
+  if (extra === 1 || extra > longest) return undefined;
+  const length = extra === 0 ? 1 : extra;
+  let value = lead & (0xff >> (extra + 1));
+  for (let index = 1; index < length; index += 1) {
+    const next = frame[at + index];
+    if (next === undefined || (next & 0xc0) !== 0x80) return undefined;
+    value = value * 64 + (next & 0x3f);
+  }
+  return { value, length };
+}
+
+/**
+ * The block size and the rate, either from their codes or from the bytes the
+ * codes defer them to, which follow the number from `at`, and where the
+ * header's checksum then lies.
+ */
+function uncommonFields(
+  frame: Uint8Array,
+  at: number,
+  sizeCode: number,
+  rateCode: number,
+): { readonly blockSize: number; readonly rate: number | undefined; readonly end: number } {
+  const byte = (offset: number): number => frame[offset] ?? 0;
+  let end = at;
+  let blockSize: number;
+  if (sizeCode === 1) blockSize = 192;
+  else if (sizeCode <= 5) blockSize = 144 * 2 ** sizeCode;
+  else if (sizeCode === 6) {
+    blockSize = byte(end) + 1;
+    end += 1;
+  } else if (sizeCode === 7) {
+    blockSize = ((byte(end) << 8) | byte(end + 1)) + 1;
+    end += 2;
+  } else blockSize = 2 ** sizeCode;
+
+  let rate = RATES[rateCode];
+  if (rateCode === 12) {
+    rate = byte(end) * 1_000;
+    end += 1;
+  } else if (rateCode === 13 || rateCode === 14) {
+    rate = ((byte(end) << 8) | byte(end + 1)) * (rateCode === 13 ? 1 : 10);
+    end += 2;
+  }
+  return { blockSize, rate, end };
 }

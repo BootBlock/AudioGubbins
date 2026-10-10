@@ -4,15 +4,8 @@
  * The frames are the body, each written as the encoder answered it. The head
  * waits for the end, since its stream information states what only the whole
  * stream shows: the smallest and largest frame, the count of samples, and the
- * MD5 signature of the samples. After it come the map's Vorbis comments, the
- * cover as a `PICTURE` block, the WAV `smpl`, `cue ` and label chunks in
- * `APPLICATION` `riff` blocks where the person keeps them, and 8 KiB of
- * `PADDING`, as the reference encoder leaves, so a tag editor can change the
- * metadata without rewriting the audio.
- *
- * The first loop is also written as `LOOPSTART` and `LOOPLENGTH` comments,
- * which game engines read where they read no RIFF chunk. Every frame is
- * checked: its header's checksum, its format against the stream's, its number
+ * MD5 signature of the samples. The map's metadata blocks follow it. Every
+ * frame is checked: its header's checksum, its format against the stream's, its number
  * in sequence, and its block size, which only the last frame may make smaller.
  */
 
@@ -21,40 +14,20 @@ import { fail, succeed, type DomainFailureResult, type DomainResult } from '@aud
 import { ByteWriter } from './byte-writer.js';
 import type { EncodedStreamWriter, FinishedEncodedStream } from './encoded-stream-writer.js';
 import { readFlacFrameHeader, type FlacStreamFormat } from './flac-frame-header.js';
-import { encodeFlacPicture, writableMediaType } from './flac-picture.js';
-import { riffApplicationBodies } from './flac-riff-blocks.js';
+import {
+  FlacBlockType,
+  encodeFlacBlock,
+  flacMetadataBlocks,
+  type FlacBlock,
+  type FlacMetadataSettings,
+} from './flac-metadata-blocks.js';
 import type { FlacSampleDigest } from './flac-sample-digest.js';
 import { invalidEncodedStream, unwritableStream, writerEnded } from './framing-failures.js';
-import type { MetadataMap, MetadataPart } from './metadata-map.js';
-import { encodeRiffLoopChunks } from './riff-loop-chunks.js';
-import { encodeVorbisComment } from './vorbis-comment.js';
-
-/** The metadata block types the writer writes. */
-export const FlacBlockType = {
-  StreamInfo: 0,
-  Padding: 1,
-  Application: 2,
-  VorbisComment: 4,
-  Picture: 6,
-} as const;
-
-/** The largest block body: its length is a 24-bit field. */
-const MAXIMUM_BLOCK_BYTES = 0xffffff;
-
-/** The padding left for a tag editor, as the reference encoder leaves it. */
-const PADDING_BYTES = 8_192;
 
 /** What a FLAC file states beyond its frames. */
-export interface FlacStreamSettings extends FlacStreamFormat {
+export interface FlacStreamSettings extends FlacStreamFormat, FlacMetadataSettings {
   /** The block size of every frame but the last, which the encoder keeps fixed. */
   readonly blockSize: number;
-
-  /** The encoder's name and version, written as the comments' vendor string. */
-  readonly vendor: string;
-  readonly metadata: MetadataMap;
-
-  /** Whether the WAV loop, tuning and cue chunks are carried in `riff` blocks. */
-  readonly keepRiffChunks: boolean;
 }
 
 /** The end of a FLAC stream: the signature of the samples the frames were encoded from. */
@@ -73,15 +46,6 @@ function settingsProblem(settings: FlacStreamSettings): string | undefined {
   if (!inRange(settings.bitsPerSample, 4, 32)) return 'A FLAC sample is 4 to 32 bits.';
   if (!inRange(settings.blockSize, 16, 0xffff)) return 'A FLAC block is 16 to 65,535 samples.';
   return undefined;
-}
-
-/** A metadata block: its header, then its body. */
-function block(type: number, body: Uint8Array, last: boolean): Uint8Array {
-  return new ByteWriter()
-    .u8((last ? 0x80 : 0) | type)
-    .u24(body.length)
-    .bytes(body)
-    .toBytes();
 }
 
 /** A FLAC file being written. */
@@ -146,65 +110,24 @@ export class FlacStreamWriter implements EncodedStreamWriter<FlacStreamEnd> {
         ),
       );
     }
-    const dropped: MetadataPart[] = [];
-    const blocks: [type: number, body: Uint8Array][] = [this.streamInfo(end.samples.digest())];
-
-    const settings = this.settings;
-    const map = settings.metadata;
-    const riff = settings.keepRiffChunks
-      ? encodeRiffLoopChunks(map, settings.sampleRate)
-      : undefined;
-    const riffBodies =
-      riff === undefined || riff.chunks.length === 0
-        ? undefined
-        : riffApplicationBodies(riff.chunks, { ...settings, totalSamples: this.samples });
-
-    const comments = encodeVorbisComment(map, { vendor: settings.vendor, pictureField: false });
-    if (comments.bytes.length > MAXIMUM_BLOCK_BYTES) {
-      return fail(unwritableStream('The metadata is too large for a FLAC comment block.'));
-    }
-    blocks.push([FlacBlockType.VorbisComment, comments.bytes]);
-    // The comments answer for text and foreign fields; the blocks below hold the other parts, and
-    // the loops are the sampler chunk's where it is carried, the comments holding the first alone.
-    dropped.push(
-      ...comments.dropped.filter(
-        (part) =>
-          part.kind === 'text' ||
-          part.kind === 'foreign' ||
-          (part.kind === 'loops' && riffBodies === undefined),
-      ),
-    );
-
-    if (map.coverArt !== undefined) {
-      const picture = writableMediaType(map.coverArt.mediaType)
-        ? encodeFlacPicture(map.coverArt)
-        : undefined;
-      if (picture === undefined || picture.length > MAXIMUM_BLOCK_BYTES)
-        dropped.push({ kind: 'coverArt' });
-      else blocks.push([FlacBlockType.Picture, picture]);
-    }
-
-    if (riffBodies === undefined) {
-      if ((map.cues?.length ?? 0) > 0) dropped.push({ kind: 'cues' });
-      if (map.tuning !== undefined) dropped.push({ kind: 'tuning' });
-    } else {
-      for (const body of riffBodies) blocks.push([FlacBlockType.Application, body]);
-      if (riff?.loopsPartial === true) dropped.push({ kind: 'loops' });
-      if (riff?.cuesDropped === true) dropped.push({ kind: 'cues' });
-      if (riff?.tuningDropped === true) dropped.push({ kind: 'tuning' });
-    }
-    if (map.broadcast !== undefined) dropped.push({ kind: 'broadcast' });
-    blocks.push([FlacBlockType.Padding, new Uint8Array(PADDING_BYTES)]);
-
+    const metadata = flacMetadataBlocks(this.settings, {
+      ...this.settings,
+      totalSamples: this.samples,
+    });
+    if (!metadata.ok) return metadata;
+    const blocks = [this.streamInfo(end.samples.digest()), ...metadata.value.blocks];
     const head = new ByteWriter().latin1('fLaC');
-    blocks.forEach(([type, body], index) =>
-      head.bytes(block(type, body, index === blocks.length - 1)),
-    );
-    return succeed({ head: head.toBytes(), body: [], tail: new Uint8Array(), dropped });
+    blocks.forEach((one, index) => head.bytes(encodeFlacBlock(one, index === blocks.length - 1)));
+    return succeed({
+      head: head.toBytes(),
+      body: [],
+      tail: new Uint8Array(),
+      dropped: metadata.value.dropped,
+    });
   }
 
   /** The stream information block, its fields packed as the format lays them. */
-  private streamInfo(signature: Uint8Array): [number, Uint8Array] {
+  private streamInfo(signature: Uint8Array): FlacBlock {
     const { sampleRate, channels, bitsPerSample, blockSize } = this.settings;
     // A field too narrow for what it would state says the value is unknown, as the format allows.
     const frameBytes = (bytes: number) => (bytes <= 0xffffff && Number.isFinite(bytes) ? bytes : 0);

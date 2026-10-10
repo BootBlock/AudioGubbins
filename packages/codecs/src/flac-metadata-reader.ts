@@ -16,7 +16,7 @@ import { fourCharacterCode, readExactly } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
 import { decodeFlacPicture, gatherPicture } from './flac-picture.js';
 import { RIFF_APPLICATION, riffChunkOfApplication } from './flac-riff-blocks.js';
-import { FlacBlockType } from './flac-stream-writer.js';
+import { FlacBlockType } from './flac-metadata-blocks.js';
 import { metadataOverBound } from './framing-failures.js';
 import { id3v2TagLength } from './id3v2-header.js';
 import { MetadataGathering } from './metadata-gathering.js';
@@ -34,16 +34,9 @@ export async function readFlacMetadata(
   bytes: AudioBytes,
   signal?: CancellationSignal,
 ): Promise<DomainResult<MetadataMap>> {
-  const start = await id3v2TagLength(bytes, signal);
-  if (!start.ok) return start;
-  let offset = start.value;
-  if (offset + 4 > bytes.size) return fail(malformed('The file ends before its FLAC marker.'));
-  const marker = await readExactly(bytes, offset, 4, signal);
-  if (!marker.ok) return marker;
-  if (fourCharacterCode(marker.value, 0) !== 'fLaC') {
-    return fail(malformed("The file does not begin with FLAC's marker, 'fLaC'."));
-  }
-  offset += 4;
+  const first = await firstBlockOffset(bytes, signal);
+  if (!first.ok) return first;
+  let offset = first.value;
 
   const gathering = new MetadataGathering();
   const riff = new RiffLoopChunkReading();
@@ -55,24 +48,10 @@ export async function readFlacMetadata(
     if (offset + BLOCK_HEADER_BYTES > bytes.size) {
       return fail(malformed('The FLAC file ends inside its metadata.'));
     }
-    const header = await readExactly(bytes, offset, BLOCK_HEADER_BYTES, signal);
+    const header = await blockHeader(bytes, offset, index === 0, signal);
     if (!header.ok) return header;
-    const [flags = 0, high = 0, middle = 0, low = 0] = header.value;
-    const type = flags & 0x7f;
-    const length = (high << 16) | (middle << 8) | low;
+    const { last, type, length } = header.value;
     const body = offset + BLOCK_HEADER_BYTES;
-    if (body + length > bytes.size)
-      return fail(malformed('A FLAC metadata block runs past the end of the file.'));
-    if (type === RESERVED_BLOCK_TYPE)
-      return fail(malformed('A FLAC metadata block has the reserved type 127.'));
-    if (
-      (index === 0) !== (type === FlacBlockType.StreamInfo) ||
-      (type === FlacBlockType.StreamInfo && length !== STREAM_INFO_BYTES)
-    ) {
-      return fail(
-        malformed('A FLAC file must begin with one stream information block of 34 bytes.'),
-      );
-    }
 
     const kept = await keptBody(bytes, type, body, length, gathering, signal);
     if (!kept.ok) return kept;
@@ -84,10 +63,63 @@ export async function readFlacMetadata(
       if (!taken.ok) return taken;
     }
     offset = body + length;
-    if ((flags & 0x80) !== 0) break;
+    if (last) break;
   }
   riff.finish(gathering);
   return succeed(gathering.toMap());
+}
+
+/** Where the first metadata block begins: after the `fLaC` marker and any ID3v2 tag before it. */
+async function firstBlockOffset(
+  bytes: AudioBytes,
+  signal: CancellationSignal | undefined,
+): Promise<DomainResult<number>> {
+  const start = await id3v2TagLength(bytes, signal);
+  if (!start.ok) return start;
+  if (start.value + 4 > bytes.size) return fail(malformed('The file ends before its FLAC marker.'));
+  const marker = await readExactly(bytes, start.value, 4, signal);
+  if (!marker.ok) return marker;
+  if (fourCharacterCode(marker.value, 0) !== 'fLaC') {
+    return fail(malformed("The file does not begin with FLAC's marker, 'fLaC'."));
+  }
+  return succeed(start.value + 4);
+}
+
+/** A block's header: whether it is the last, its type and its body's length. */
+interface BlockHeader {
+  readonly last: boolean;
+  readonly type: number;
+  readonly length: number;
+}
+
+/**
+ * The header of the block at `offset`, refusing one past the file, of the
+ * reserved type, or out of place: the stream information first, and only first.
+ */
+async function blockHeader(
+  bytes: AudioBytes,
+  offset: number,
+  first: boolean,
+  signal: CancellationSignal | undefined,
+): Promise<DomainResult<BlockHeader>> {
+  if (offset + BLOCK_HEADER_BYTES > bytes.size) {
+    return fail(malformed('The FLAC file ends inside its metadata.'));
+  }
+  const header = await readExactly(bytes, offset, BLOCK_HEADER_BYTES, signal);
+  if (!header.ok) return header;
+  const [flags = 0, high = 0, middle = 0, low = 0] = header.value;
+  const type = flags & 0x7f;
+  const length = (high << 16) | (middle << 8) | low;
+  if (offset + BLOCK_HEADER_BYTES + length > bytes.size) {
+    return fail(malformed('A FLAC metadata block runs past the end of the file.'));
+  }
+  if (type === RESERVED_BLOCK_TYPE) {
+    return fail(malformed('A FLAC metadata block has the reserved type 127.'));
+  }
+  if (first !== (type === FlacBlockType.StreamInfo) || (first && length !== STREAM_INFO_BYTES)) {
+    return fail(malformed('A FLAC file must begin with one stream information block of 34 bytes.'));
+  }
+  return succeed({ last: (flags & 0x80) !== 0, type, length });
 }
 
 /** The body of a block the reader keeps, or `undefined` for a block it passes over. */
