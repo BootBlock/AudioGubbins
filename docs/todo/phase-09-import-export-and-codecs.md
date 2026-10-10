@@ -125,6 +125,26 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    encoder. Left to S6: `AudioFileWriter.write` must take `Float64Array` for a
    dithered 32-bit integer export, since a float32 cannot hold every k/2^31; and
    the check that a layout can be stated by the format, against the writers.
+6. **S3 (merged through `p09-s3i`).** Framers take encoded units and read each
+   unit's duration from the unit; lossy framers are told `inputFrames` at the
+   end, which sets end trimming. Opus serial `0x41474f70`, MP4 times 0, so
+   output is reproducible. The Vorbis comment rewriter keeps the encoder's
+   vendor string and refuses chained or multiplexed streams. Loop tags read
+   `LOOPSTART`/`LOOPLENGTH`, `LOOP_START`/`LOOP_LENGTH`, and `LOOPEND`/`LOOP_END`
+   as the first frame after the loop; one forward endless loop is written, the
+   rest reported dropped. A foreign field is written in the target's free-form
+   field. FLAC writes loops as comments and, kept, a `smpl` in `riff` blocks
+   framed by the WAV writer's own code; `smpl` wins on read. MP4 uses `co64` only
+   past 4 GiB and accepts only AAC-LC with a stated channel configuration. One
+   text module (`metadata-text.ts`: end at NUL, decode by the format's stated
+   coding, RIFF/IFF UTF-8 else Latin-1, strip C0/C1/DEL, bound) and one limits
+   module (`metadata-limits.ts`: 1 MiB per item, 32 MiB per picture, 8 MiB of
+   RIFF/IFF chunks, 64 MiB per tagged file, 4,096 fields). Tuning is whole
+   cents (AIFF holds no more); a fractional tuning is reported dropped. Writers
+   drop and report a value that would not read back unchanged.
+   `METADATA_READERS` maps wav, rf64, bw64, aiff, aifc, flac, ogg, mp4, mp3 and
+   adts; WebM and Matroska have none. Left to S6: Ogg FLAC metadata, which the
+   Ogg reader refuses.
 
 ## Left to do
 
