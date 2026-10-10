@@ -161,14 +161,16 @@ ESLint, Playwright, TypeScript and Vite, are not shipped and are not listed.
 
 The packages below are licensed under the Mozilla Public License 2.0, which asks
 that whoever receives them compiled be told where their source is. Each is
-shipped unmodified, and its source is published at:
+shipped unmodified, and its source is published where it says, but a package
+marked modified, which is shipped as the copy vendored in this repository with
+the changes its README states, each marked in the file it changes:
 
 - symphonia 0.6.1: <https://crates.io/crates/symphonia/0.6.1>
 - symphonia-bundle-flac 0.6.1: <https://crates.io/crates/symphonia-bundle-flac/0.6.1>
 - symphonia-bundle-mp3 0.6.1: <https://crates.io/crates/symphonia-bundle-mp3/0.6.1>
 - symphonia-codec-aac 0.6.1: <https://crates.io/crates/symphonia-codec-aac/0.6.1>
 - symphonia-codec-alac 0.6.1: <https://crates.io/crates/symphonia-codec-alac/0.6.1>
-- symphonia-codec-vorbis 0.6.1: <https://crates.io/crates/symphonia-codec-vorbis/0.6.1>
+- symphonia-codec-vorbis 0.6.1, modified: the files as shipped are in this repository at `third_party/symphonia-codec-vorbis`, whose README.md states each change and why; the unmodified source is <https://crates.io/crates/symphonia-codec-vorbis/0.6.1>
 - symphonia-common 0.6.1: <https://crates.io/crates/symphonia-common/0.6.1>
 - symphonia-core 0.6.1: <https://crates.io/crates/symphonia-core/0.6.1>
 - symphonia-format-isomp4 0.6.1: <https://crates.io/crates/symphonia-format-isomp4/0.6.1>
