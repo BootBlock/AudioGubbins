@@ -1,9 +1,10 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { DspImplementation } from '@audiogubbins/audio-engine';
 import { FailureKind, failure } from '@audiogubbins/domain';
 import {
   ALL_FEATURES,
@@ -15,12 +16,13 @@ import {
 import { PanelKinds } from '@audiogubbins/workspace';
 
 import type { Detections } from '../analysis/detection-control.js';
+import type { SpectrogramDsp } from '../editor/spectrogram-reports.js';
 import type { PackManagerState } from '../ml/pack-manager.js';
 import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
-import type { Observable } from '../state/observable.js';
+import { observable, type Observable } from '../state/observable.js';
 import {
   createRenderStrategyStore,
   type RenderStrategyView,
@@ -306,6 +308,14 @@ describe('the diagnostic log panel', () => {
   });
 });
 
+/** What the editor reports to the Capabilities panel, before it has drawn or analysed anything. */
+function editorReports() {
+  return {
+    rendererReports: createRendererReports(),
+    spectrogramDsp: observable<SpectrogramDsp | undefined>(undefined),
+  };
+}
+
 /**
  * The capability surface, with something to report.
  *
@@ -325,7 +335,7 @@ describe('the capability panel', () => {
       <CapabilitiesPanel
         title="Capabilities"
         capabilities={registry}
-        renderers={createRendererReports()}
+        editor={editorReports()}
         storageAbsences={[]}
         {...recordingParts()}
       />,
@@ -361,7 +371,7 @@ describe('the capability panel', () => {
       <CapabilitiesPanel
         title="Capabilities"
         capabilities={registry}
-        renderers={createRendererReports()}
+        editor={editorReports()}
         storageAbsences={[]}
         {...recordingParts()}
       />,
@@ -397,7 +407,7 @@ describe('the capability panel', () => {
       <CapabilitiesPanel
         title="Capabilities"
         capabilities={registry}
-        renderers={createRendererReports()}
+        editor={editorReports()}
         storageAbsences={[]}
         {...recordingParts()}
       />,
@@ -427,7 +437,7 @@ describe("the capability panel's recording diagnostics", () => {
       <CapabilitiesPanel
         title="Capabilities"
         capabilities={registry}
-        renderers={createRendererReports()}
+        editor={editorReports()}
         storageAbsences={[]}
         {...parts}
       />,
@@ -447,6 +457,43 @@ describe("the capability panel's recording diagnostics", () => {
     ).toBeInTheDocument();
   });
 
+  it('says which DSP the spectrogram worker runs once it has said, and why the reference path runs', () => {
+    const registry = createCapabilityRegistry(
+      bareEnvironment(),
+      createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+    );
+    const spectrogramDsp = observable<SpectrogramDsp | undefined>(undefined);
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        editor={{ ...editorReports(), spectrogramDsp }}
+        storageAbsences={[]}
+        {...recordingParts()}
+      />,
+    );
+    // No view has shown a spectrogram, so no worker has been made to say.
+    expect(screen.queryByText(/Spectrogram worker/u)).toBeNull();
+
+    act(() => {
+      spectrogramDsp.set({
+        implementation: DspImplementation.Reference,
+        fallbackReason: 'This browser cannot compile the WebAssembly module.',
+      });
+    });
+    expect(screen.getByText('Spectrogram worker: Reference path')).toBeVisible();
+    expect(screen.getByText('This browser cannot compile the WebAssembly module.')).toBeVisible();
+
+    act(() => {
+      spectrogramDsp.set({
+        implementation: DspImplementation.WebAssembly,
+        fallbackReason: undefined,
+      });
+    });
+    expect(screen.getByText('Spectrogram worker: WebAssembly module')).toBeVisible();
+    expect(screen.queryByText('This browser cannot compile the WebAssembly module.')).toBeNull();
+  });
+
   it('says at once that the microphone is refused', async () => {
     const registry = createCapabilityRegistry(
       bareEnvironment(),
@@ -459,7 +506,7 @@ describe("the capability panel's recording diagnostics", () => {
       <CapabilitiesPanel
         title="Capabilities"
         capabilities={registry}
-        renderers={createRendererReports()}
+        editor={editorReports()}
         storageAbsences={[]}
         {...parts}
       />,
@@ -539,7 +586,7 @@ describe('what the browser lacks for keeping projects', () => {
       <CapabilitiesPanel
         title="Capabilities"
         capabilities={registry}
-        renderers={createRendererReports()}
+        editor={editorReports()}
         storageAbsences={absences}
         {...recordingParts()}
       />,
