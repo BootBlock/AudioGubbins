@@ -310,7 +310,7 @@
     "08": {
       "phase": 8,
       "name": "Spectral Editing",
-      "status": "NOT_READY",
+      "status": "READY",
       "hard_dependencies": [
         3,
         4,
