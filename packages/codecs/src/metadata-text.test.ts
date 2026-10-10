@@ -1,17 +1,21 @@
 /**
- * The text codings metadata is read in, against the platform's own decoder
- * where it has one, and base64 against RFC 4648's vectors.
+ * The text rule every metadata reader shares: each coding against the
+ * platform's own decoder where it has one, what keeping removes and bounds, and
+ * base64 against RFC 4648's vectors.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { decodeBase64, encodeBase64 } from './base64.js';
 import {
-  decodeLatin1,
-  decodeUtf16,
-  decodeUtf8,
+  DOCUMENT_TEXT,
+  LINE_TEXT,
+  LONG_TEXT,
+  decodeText,
   encodeLatin1,
   encodeUtf8,
+  keptText,
+  readText,
 } from './metadata-text.js';
 
 const ascii = (text: string) => Uint8Array.from(text, (character) => character.charCodeAt(0));
@@ -39,22 +43,22 @@ describe('metadata text', () => {
       Uint8Array.of(0xf0, 0x9d, 0x84, 0x61),
       Uint8Array.of(0xff, 0xfe, 0x61),
     ];
-    for (const bytes of cases) expect(decodeUtf8(bytes)).toBe(decoder.decode(bytes));
+    for (const bytes of cases) expect(decodeText(bytes, 'utf-8')).toBe(decoder.decode(bytes));
     const long = Uint8Array.from({ length: 20_000 }, (_, index) => 0x41 + (index % 26));
-    expect(decodeUtf8(long)).toBe(decoder.decode(long));
+    expect(decodeText(long, 'utf-8')).toBe(decoder.decode(long));
   });
 
   it('decodes UTF-16 by its byte order mark or the default order', () => {
-    expect(decodeUtf16(Uint8Array.of(0xff, 0xfe, 0x41, 0x00, 0x3d, 0xd8, 0x00, 0xde), true)).toBe(
-      'A😀',
-    );
-    expect(decodeUtf16(Uint8Array.of(0xfe, 0xff, 0x00, 0x41), false)).toBe('A');
-    expect(decodeUtf16(Uint8Array.of(0x00, 0x41, 0xd8, 0x00), true)).toBe('A�');
-    expect(decodeUtf16(Uint8Array.of(0x41, 0x00, 0x42), false)).toBe('A�');
+    expect(
+      decodeText(Uint8Array.of(0xff, 0xfe, 0x41, 0x00, 0x3d, 0xd8, 0x00, 0xde), 'utf-16be'),
+    ).toBe('A😀');
+    expect(decodeText(Uint8Array.of(0xfe, 0xff, 0x00, 0x41), 'utf-16')).toBe('A');
+    expect(decodeText(Uint8Array.of(0x00, 0x41, 0xd8, 0x00), 'utf-16be')).toBe('A�');
+    expect(decodeText(Uint8Array.of(0x41, 0x00, 0x42), 'utf-16')).toBe('A�');
   });
 
   it('decodes and encodes Latin-1, refusing a character it has no byte for', () => {
-    expect(decodeLatin1(Uint8Array.of(0x41, 0xe9, 0xff))).toBe('Aéÿ');
+    expect(decodeText(Uint8Array.of(0x41, 0xe9, 0xff), 'latin-1')).toBe('Aéÿ');
     expect(encodeLatin1('Aéÿ')).toEqual(Uint8Array.of(0x41, 0xe9, 0xff));
     expect(encodeLatin1('Ā')).toBeUndefined();
   });
@@ -78,5 +82,44 @@ describe('metadata text', () => {
     }
     const bytes = Uint8Array.from({ length: 1_000 }, (_, index) => (index * 151) & 0xff);
     expect(decodeBase64(encodeBase64(bytes))).toEqual(bytes);
+  });
+});
+
+describe('the text rule', () => {
+  it('ends a value at its first NUL in every coding', () => {
+    expect(decodeText(Uint8Array.of(0x41, 0x00, 0x42), 'utf-8')).toBe('A');
+    expect(decodeText(Uint8Array.of(0x41, 0x00, 0xff), 'unstated')).toBe('A');
+    expect(decodeText(Uint8Array.of(0x41, 0x00, 0x42), 'latin-1')).toBe('A');
+    expect(decodeText(Uint8Array.of(0x00, 0x41, 0x00, 0x00, 0x00, 0x42), 'utf-16be')).toBe('A');
+    expect(
+      decodeText(Uint8Array.of(0xff, 0xfe, 0x41, 0x00, 0x00, 0x00, 0x42, 0x00), 'utf-16'),
+    ).toBe('A');
+  });
+
+  it('removes control characters from every coding, keeping line breaks in long text', () => {
+    const controlled = '\u001b[31mRed\u007f\u0085\tTab\r\nLine';
+    expect(keptText(controlled, LINE_TEXT)).toBe('[31mRedTabLine');
+    expect(keptText(controlled, LONG_TEXT)).toBe('[31mRed\tTab\r\nLine');
+    expect(readText(encodeUtf8(controlled), 'utf-8', LINE_TEXT)).toBe('[31mRedTabLine');
+  });
+
+  it('decodes UTF-8 only where every byte is valid, else every byte as Latin-1', () => {
+    expect(readText(encodeUtf8('Zoë 🌧'), 'unstated', LINE_TEXT)).toBe('Zoë 🌧');
+    // An overlong slash, an encoded surrogate and a truncated sequence are not UTF-8.
+    expect(readText(Uint8Array.of(0x41, 0xc0, 0xaf), 'unstated', LINE_TEXT)).toBe('AÀ¯');
+    // As Latin-1, 0xA0 is a no-break space, kept, and 0x80 a C1 control, removed.
+    expect(readText(Uint8Array.of(0xed, 0xa0, 0x80), 'unstated', LINE_TEXT)).toBe('í ');
+    expect(readText(Uint8Array.of(0x41, 0xe2, 0x82), 'unstated', LINE_TEXT)).toBe('Aâ');
+  });
+
+  it('bounds text in characters, never splitting one', () => {
+    const long = '🌧'.repeat(LINE_TEXT.maximumCharacters + 10);
+    expect(readText(encodeUtf8(long), 'unstated', LINE_TEXT)).toBe(
+      '🌧'.repeat(LINE_TEXT.maximumCharacters),
+    );
+    expect(readText(encodeUtf8('a'.repeat(300_000)), 'unstated', DOCUMENT_TEXT)).toHaveLength(
+      262_144,
+    );
+    expect(readText(encodeUtf8('a\nb'), 'unstated', LONG_TEXT)).toBe('a\nb');
   });
 });

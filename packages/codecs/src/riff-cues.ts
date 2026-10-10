@@ -13,9 +13,7 @@ import { fail, succeed, type DomainResult, type SampleCount } from '@audiogubbin
 import { viewOf } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
 import { countRefusal, statedFrames } from './metadata-reading.js';
-
-/** The most cue points a `cue ` chunk may list. */
-export const MAXIMUM_CUE_POINTS = 4_096;
+import { MAXIMUM_CUE_POINTS } from './metadata-limits.js';
 
 /** The count, each point's bytes, and where its fields lie. */
 export const CUE_COUNT_BYTES = 4;

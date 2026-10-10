@@ -19,9 +19,7 @@ import { viewOf } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
 import type { LoopDirection, SamplerTuning } from './metadata-map.js';
 import { countRefusal, statedFrames } from './metadata-reading.js';
-
-/** The most loops a `smpl` chunk may list. */
-export const MAXIMUM_LOOPS = 1_024;
+import { MAXIMUM_LOOPS } from './metadata-limits.js';
 
 /** The fields before the loops and where they lie, and each loop's bytes and fields. */
 export const SAMPLER_HEADER_BYTES = 36;

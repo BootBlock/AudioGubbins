@@ -15,7 +15,7 @@ import { ID3V1_BYTES, readId3v1 } from './id3v1-reader.js';
 import { ID3V2_HEADER_BYTES, readId3v2Header } from './id3v2-header.js';
 import { readId3v2Frames } from './id3v2-reader.js';
 import { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_METADATA_BYTES } from './metadata-limits.js';
+import { MAXIMUM_TAG_METADATA_BYTES } from './metadata-limits.js';
 import type { MetadataMap } from './metadata-map.js';
 
 /** The metadata of an MP3 file's ID3 tags. */
@@ -33,8 +33,8 @@ export async function readMp3Metadata(
     if (header.value !== undefined) {
       if (header.value.length > bytes.size)
         return fail(malformed('The ID3v2 tag runs past the end of the file.'));
-      if (header.value.size > MAXIMUM_METADATA_BYTES)
-        return fail(metadataOverBound('ID3v2 tag', MAXIMUM_METADATA_BYTES));
+      if (header.value.size > MAXIMUM_TAG_METADATA_BYTES)
+        return fail(metadataOverBound('ID3v2 tag', MAXIMUM_TAG_METADATA_BYTES));
       const tag = await readExactly(bytes, ID3V2_HEADER_BYTES, header.value.size, signal);
       if (!tag.ok) return tag;
       const read = readId3v2Frames(header.value, tag.value, tags);

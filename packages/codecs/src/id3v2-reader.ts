@@ -24,8 +24,8 @@ import { ID3V2_SCHEME, KEY_OF_FRAME, NUMBER_FRAMES, VERSION_2_FRAMES } from './i
 import { synchsafe, type Id3v2Header } from './id3v2-header.js';
 import { loopTagPart } from './loop-tags.js';
 import type { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_PICTURE_BYTES, MAXIMUM_TEXT_BYTES } from './metadata-limits.js';
-import { decodeLatin1, decodeUtf16, decodeUtf8 } from './metadata-text.js';
+import { MAXIMUM_PICTURE_BYTES, MAXIMUM_ITEM_BYTES } from './metadata-limits.js';
+import { decodeText, type TextCoding } from './metadata-text.js';
 
 const UNSYNCHRONISED = 0x80;
 const EXTENDED_HEADER = 0x40;
@@ -64,18 +64,16 @@ function resynchronised(bytes: Uint8Array): Uint8Array {
   return out.subarray(0, written);
 }
 
-/** Text in an ID3v2 encoding. */
-function decodeText(encoding: number, bytes: Uint8Array): string {
-  switch (encoding) {
-    case 1:
-      return decodeUtf16(bytes, false);
-    case 2:
-      return decodeUtf16(bytes, true);
-    case 3:
-      return decodeUtf8(bytes);
-    default:
-      return decodeLatin1(bytes);
-  }
+/** The coding of each ID3v2 text encoding byte: UTF-16 with a byte order mark, UTF-16 big-endian, UTF-8. */
+const CODINGS: ReadonlyMap<number, TextCoding> = new Map<number, TextCoding>([
+  [1, 'utf-16'],
+  [2, 'utf-16be'],
+  [3, 'utf-8'],
+]);
+
+/** Text in an ID3v2 encoding; 0, and any encoding the version does not define, is Latin-1. */
+function id3Text(encoding: number, bytes: Uint8Array): string {
+  return decodeText(bytes, CODINGS.get(encoding) ?? 'latin-1');
 }
 
 /** Where the text that starts at `offset` ends: its terminator, one byte or two by encoding. */
@@ -98,7 +96,7 @@ function textValues(body: Uint8Array): string[] {
   const values: string[] = [];
   for (let offset = 1; offset < body.length;) {
     const end = terminatorAt(encoding, body, offset);
-    const value = decodeText(encoding, body.subarray(offset, end));
+    const value = id3Text(encoding, body.subarray(offset, end));
     if (value !== '') values.push(value);
     offset = end + terminatorBytes(encoding);
   }
@@ -197,8 +195,8 @@ function readFrame(
   dates: VersionThreeDate,
 ): DomainResult<undefined> {
   if (id === 'APIC') return readPicture(version, body, gathering);
-  if (body.length > MAXIMUM_TEXT_BYTES)
-    return fail(metadataOverBound('ID3v2 frame', MAXIMUM_TEXT_BYTES));
+  if (body.length > MAXIMUM_ITEM_BYTES)
+    return fail(metadataOverBound('ID3v2 frame', MAXIMUM_ITEM_BYTES));
   if (id === 'COMM') readComment(body, gathering);
   else if (id === 'TXXX') readUserText(body, gathering);
   else if (id.startsWith('T')) readTextFrame(id, textValues(body), gathering, dates);
@@ -250,8 +248,8 @@ function readNumber(id: 'TRCK' | 'TPOS', value: string, gathering: MetadataGathe
 function readUserText(body: Uint8Array, gathering: MetadataGathering): void {
   const encoding = body[0] ?? 0;
   const end = terminatorAt(encoding, body, 1);
-  const description = decodeText(encoding, body.subarray(1, end));
-  const value = decodeText(
+  const description = id3Text(encoding, body.subarray(1, end));
+  const value = id3Text(
     encoding,
     body.subarray(Math.min(body.length, end + terminatorBytes(encoding))),
   );
@@ -263,8 +261,8 @@ function readUserText(body: Uint8Array, gathering: MetadataGathering): void {
 function readComment(body: Uint8Array, gathering: MetadataGathering): void {
   const encoding = body[0] ?? 0;
   const end = terminatorAt(encoding, body, 4);
-  const description = decodeText(encoding, body.subarray(4, end));
-  const text = decodeText(
+  const description = id3Text(encoding, body.subarray(4, end));
+  const text = id3Text(
     encoding,
     body.subarray(Math.min(body.length, end + terminatorBytes(encoding))),
   );
@@ -290,17 +288,17 @@ function readPicture(
   let offset: number;
   let mediaType: string;
   if (version === 2) {
-    const format = decodeLatin1(body.subarray(1, 4));
+    const format = decodeText(body.subarray(1, 4), 'latin-1');
     mediaType = VERSION_2_IMAGE_TYPES.get(format.toUpperCase()) ?? `image/${format.toLowerCase()}`;
     offset = 4;
   } else {
     const end = terminatorAt(0, body, 1);
-    mediaType = decodeLatin1(body.subarray(1, end));
+    mediaType = decodeText(body.subarray(1, end), 'latin-1');
     offset = end + 1;
   }
   const pictureType = body[offset];
   const descriptionEnd = terminatorAt(encoding, body, offset + 1);
-  const description = decodeText(
+  const description = id3Text(
     encoding,
     body.subarray(Math.min(body.length, offset + 1), descriptionEnd),
   );

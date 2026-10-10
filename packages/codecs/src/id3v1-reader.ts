@@ -4,18 +4,16 @@
  * (ADR-0093). Read only, and only for what an ID3v2 tag does not say.
  */
 
-import { decodeLatin1 } from './metadata-text.js';
 import { id3Genre } from './id3-genres.js';
 import type { MetadataGathering } from './metadata-gathering.js';
+import { decodeText } from './metadata-text.js';
 
 /** The tag's length. */
 export const ID3V1_BYTES = 128;
 
 /** A field's text: up to its first NUL, without trailing spaces. */
 function field(tag: Uint8Array, offset: number, length: number): string {
-  const bytes = tag.subarray(offset, offset + length);
-  const end = bytes.indexOf(0);
-  return decodeLatin1(end < 0 ? bytes : bytes.subarray(0, end)).trimEnd();
+  return decodeText(tag.subarray(offset, offset + length), 'latin-1').trimEnd();
 }
 
 /** Reads a tag, the file's last 128 bytes, into `gathering`, or nothing where they are not one. */

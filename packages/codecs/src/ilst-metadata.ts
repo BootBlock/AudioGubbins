@@ -27,11 +27,11 @@ import { metadataOverBound } from './framing-failures.js';
 import { id3Genre } from './id3-genres.js';
 import { LOOP_LENGTH_TAG, LOOP_START_TAG, loopTagPart, taggedLoop } from './loop-tags.js';
 import type { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_PICTURE_BYTES, MAXIMUM_TEXT_BYTES } from './metadata-limits.js';
+import { MAXIMUM_PICTURE_BYTES, MAXIMUM_ITEM_BYTES } from './metadata-limits.js';
 import type { MetadataMap, MetadataPart, MetadataTextKey } from './metadata-map.js';
-import { ALL_TEXT_KEYS, partsNotHeld, textEntries } from './metadata-parts.js';
+import { ALL_TEXT_KEYS, partsNotHeld, readableParts, textEntries } from './metadata-parts.js';
 import { box, fullBox } from './mp4-box.js';
-import { decodeUtf8, encodeLatin1, encodeUtf8 } from './metadata-text.js';
+import { decodeText, encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
 /** The scheme a foreign item is kept under. */
 const ILST_SCHEME = 'ilst';
@@ -132,14 +132,18 @@ export interface WrittenIlst {
 }
 
 /** The items of `map`, before any the writer adds of the stream's own. */
-export function encodeIlstItems(map: MetadataMap): WrittenIlst {
-  const dropped = partsNotHeld(map, {
-    text: ALL_TEXT_KEYS,
-    broadcast: false,
-    cues: false,
-    tuning: false,
-    coverArt: true,
-  });
+export function encodeIlstItems(given: MetadataMap): WrittenIlst {
+  const { map, dropped: unreadable } = readableParts(given);
+  const dropped = [...unreadable];
+  dropped.push(
+    ...partsNotHeld(map, {
+      text: ALL_TEXT_KEYS,
+      broadcast: false,
+      cues: false,
+      tuning: false,
+      coverArt: true,
+    }),
+  );
   const items: Uint8Array[] = [];
   const text = map.text ?? {};
 
@@ -259,8 +263,8 @@ export function decodeIlst(
     let data: ItemData | undefined;
     for (const part of parts.value) {
       if (part.body.length < 4) continue;
-      if (part.type === 'mean') mean = decodeUtf8(part.body.subarray(4));
-      else if (part.type === 'name') name = decodeUtf8(part.body.subarray(4));
+      if (part.type === 'mean') mean = decodeText(part.body.subarray(4), 'utf-8');
+      else if (part.type === 'name') name = decodeText(part.body.subarray(4), 'utf-8');
       else if (part.type === 'data' && data === undefined && part.body.length >= 8) {
         data = { type: viewOf(part.body).getUint32(0) & 0xffffff, value: part.body.subarray(8) };
       }
@@ -308,9 +312,9 @@ function readItem(
     return succeed(undefined);
   }
   if (data.type !== DataType.Utf8) return succeed(undefined);
-  if (data.value.length > MAXIMUM_TEXT_BYTES)
-    return fail(metadataOverBound('MP4 metadata item', MAXIMUM_TEXT_BYTES));
-  const value = decodeUtf8(data.value);
+  if (data.value.length > MAXIMUM_ITEM_BYTES)
+    return fail(metadataOverBound('MP4 metadata item', MAXIMUM_ITEM_BYTES));
+  const value = decodeText(data.value, 'utf-8');
 
   if (type !== '----') {
     const key = KEY_OF_ITEM.get(type);

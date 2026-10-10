@@ -78,7 +78,7 @@ const samplerMetadata = (): MetadataMap => ({
     { start: frames(2_000), length: frames(500), playCount: 3, direction: 'alternating' },
     { start: frames(3_000), length: frames(1), playCount: 1, direction: 'backward' },
   ],
-  tuning: { unityNote: 62, fineTuneCents: -12.5 },
+  tuning: { unityNote: 62, fineTuneCents: -12 },
   cues: [
     { position: frames(10), name: 'Attack' },
     { position: frames(5_000), name: '' },
@@ -240,7 +240,7 @@ describe('FLAC metadata', () => {
     const ascii = (bytes: Uint8Array | undefined) => String.fromCharCode(...(bytes ?? []));
     expect(
       blocks.filter((block) => block.type === 2).map((block) => ascii(block.body.subarray(0, 8))),
-    ).toEqual(['riffRIFF', 'rifffmt ', 'riffsmpl', 'riffcue ', 'riffLIST', 'riffdata']);
+    ).toEqual(['riffRIFF', 'rifffmt ', 'riffcue ', 'riffLIST', 'riffsmpl', 'riffdata']);
     // The form's size counts every chunk and the samples the stream decodes to, as a WAV file would.
     const riffBlocks = blocks.filter((block) => block.type === 2);
     const chunkBytes = riffBlocks
@@ -303,14 +303,22 @@ describe('FLAC metadata', () => {
     });
   });
 
-  it('reads a fine tuning of fifty cents above a note as fifty below the next, the same pitch', async () => {
+  it('reads a fine tuning of fifty cents above a note back on the note the chunk states', async () => {
     const { file } = flacFile([4_096], {
       metadata: { tuning: { unityNote: 60, fineTuneCents: 50 } },
       keepRiffChunks: true,
     });
     expect(expectSuccess(await readFlacMetadata(memoryBytes(file))).tuning).toEqual({
-      unityNote: 61,
-      fineTuneCents: -50,
+      unityNote: 60,
+      fineTuneCents: 50,
     });
+  });
+
+  it('reports a fine tuning of part of a cent, which the WAV chunk is read back from in whole cents', () => {
+    const { finished } = flacFile([4_096], {
+      metadata: { tuning: { unityNote: 62, fineTuneCents: -12.5 } },
+      keepRiffChunks: true,
+    });
+    expect(finished.dropped).toEqual([{ kind: 'tuning' }]);
   });
 });

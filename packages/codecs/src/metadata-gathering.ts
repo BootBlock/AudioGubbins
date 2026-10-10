@@ -4,9 +4,13 @@
  * Every compressed format's reader meets the same questions: what a repeated
  * field becomes, how many fields a file may hold, and how the loop tags, which
  * arrive as separate fields in any order, become one loop. They are answered
- * once here. A repeated text field, such as the several `ARTIST` comments a
- * Vorbis file may hold, is kept as one value joined by `; `, so nothing read is
- * lost and the value stays legible.
+ * once here. Every value is kept here by the text rule of `metadata-text.ts`,
+ * so a reader decodes in its format's coding and keeps nothing else: a typed
+ * key's value by its key's rules, a foreign field's key as a line and its value
+ * as long text, a picture's media type and description as lines. A repeated
+ * text field, such as the several `ARTIST` comments a Vorbis file may hold, is
+ * kept as one value joined by `; `, cut to its key's bound, so nothing read
+ * within the bound is lost and the value stays legible.
  */
 
 import { fail, sampleCount, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -23,6 +27,7 @@ import type {
   SamplerTuning,
 } from './metadata-map.js';
 import { MAXIMUM_METADATA_FIELDS } from './metadata-limits.js';
+import { LINE_TEXT, LONG_TEXT, cutText, keptText, textRulesOf } from './metadata-text.js';
 
 /** What joins the values of a text field a file repeats. */
 const REPEAT_SEPARATOR = '; ';
@@ -54,12 +59,19 @@ export class MetadataGathering {
   }
 
   addText(key: MetadataTextKey, value: string): void {
+    const rules = textRulesOf(key);
+    const kept = keptText(value, rules);
     const before = this.text[key];
-    this.text[key] = before === undefined ? value : `${before}${REPEAT_SEPARATOR}${value}`;
+    this.text[key] =
+      before === undefined ? kept : cutText(`${before}${REPEAT_SEPARATOR}${kept}`, rules);
   }
 
   addForeign(scheme: string, key: string, value: string): void {
-    this.foreign.push({ scheme, key, value });
+    this.foreign.push({
+      scheme,
+      key: keptText(key, LINE_TEXT),
+      value: keptText(value, LONG_TEXT),
+    });
   }
 
   /** A loop tag's value: a tag that states no count of frames is kept as a foreign field. */
@@ -69,7 +81,10 @@ export class MetadataGathering {
       this.addForeign(scheme, key, value);
       return;
     }
-    this.loopTags[part] = { frames, field: { scheme, key, value } };
+    this.loopTags[part] = {
+      frames,
+      field: { scheme, key: keptText(key, LINE_TEXT), value: keptText(value, LONG_TEXT) },
+    };
   }
 
   /** Loops a format states fully, as a sampler chunk does, which take the place of loop tags. */
@@ -91,7 +106,11 @@ export class MetadataGathering {
    */
   addCoverArt(coverArt: CoverArt, frontCover: boolean): void {
     if (this.coverArt === undefined || (frontCover && !this.frontCover)) {
-      this.coverArt = coverArt;
+      this.coverArt = {
+        mediaType: keptText(coverArt.mediaType, LINE_TEXT),
+        description: keptText(coverArt.description, LINE_TEXT),
+        bytes: coverArt.bytes,
+      };
       this.frontCover = frontCover;
     }
   }

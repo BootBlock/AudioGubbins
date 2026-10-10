@@ -127,6 +127,41 @@ describe('Vorbis comments', () => {
     });
   });
 
+  it('keeps what it reads by the one text rule: no control character, and each key within its bound', () => {
+    const long = 'a'.repeat(1_000);
+    expect(
+      read(
+        block([
+          'TITLE=\u001b[2JRed\u0007',
+          'COMMENT=one\r\ntwo\u0085',
+          'MOOD\u0001=\u009bcalm',
+          `ARTIST=${long}`,
+          `ARTIST=${long}`,
+        ]),
+      ),
+    ).toEqual({
+      text: { title: '[2JRed', comment: 'one\r\ntwo', artist: `${long}; ${'a'.repeat(22)}` },
+      foreign: [{ scheme: 'vorbis-comment', key: 'MOOD', value: 'calm' }],
+    });
+  });
+
+  it('drops, and reports, a value it would not read back unchanged', () => {
+    const written = encodeVorbisComment(
+      {
+        text: { title: 'Bell\u0007', comment: 'Two\nlines' },
+        foreign: [{ scheme: 'vorbis-comment', key: 'MOOD', value: '\u001b[1m' }],
+        coverArt: { mediaType: 'image/png', description: 'Two\nlines', bytes: Uint8Array.of(1) },
+      },
+      { vendor: 'v', pictureField: true },
+    );
+    expect(written.dropped).toEqual([
+      { kind: 'text', key: 'title' },
+      { kind: 'foreign', scheme: 'vorbis-comment', key: 'MOOD' },
+      { kind: 'coverArt' },
+    ]);
+    expect(read(written.bytes)).toEqual({ text: { comment: 'Two\nlines' } });
+  });
+
   it('keeps a front cover over a picture of another kind, whichever comes first', () => {
     const picture = (type: number, byte: number) => {
       const body = new ByteWriter()

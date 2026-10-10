@@ -3,8 +3,8 @@
  * 9639, section 8), from a map, and the parts of the map they cannot hold.
  *
  * The map's Vorbis comments come first, then the cover as a `PICTURE` block,
- * then, where the person keeps them, the WAV `smpl`, `cue ` and label chunks in
- * `APPLICATION` `riff` blocks, and last 8 KiB of `PADDING`, as the reference
+ * then, where the person keeps them, the WAV `cue `, label and `smpl` chunks in
+ * `APPLICATION` `riff` blocks, written by the WAV writer's own code, and last 8 KiB of `PADDING`, as the reference
  * encoder leaves, so a tag editor can change the metadata without rewriting the
  * audio. The comments carry the first loop as `LOOPSTART` and `LOOPLENGTH` as
  * well, which game engines read where they read no RIFF chunk.
@@ -13,11 +13,11 @@
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import { ByteWriter } from './byte-writer.js';
-import { encodeFlacPicture, writableMediaType } from './flac-picture.js';
+import { encodeFlacPicture, writablePicture } from './flac-picture.js';
 import { riffApplicationBodies, type FlacPcmFormat } from './flac-riff-blocks.js';
 import { unwritableStream } from './framing-failures.js';
 import type { MetadataMap, MetadataPart } from './metadata-map.js';
-import { encodeRiffLoopChunks } from './riff-loop-chunks.js';
+import { riffSamplerChunks } from './riff-metadata-writing.js';
 import { encodeVorbisComment } from './vorbis-comment.js';
 
 /** The metadata block types the writer writes and the reader reads. */
@@ -75,7 +75,7 @@ export function flacMetadataBlocks(
   const map = settings.metadata;
   const dropped: MetadataPart[] = [];
   const blocks: FlacBlock[] = [];
-  const riff = settings.keepRiffChunks ? encodeRiffLoopChunks(map, format.sampleRate) : undefined;
+  const riff = settings.keepRiffChunks ? riffSamplerChunks(map, format.sampleRate) : undefined;
   const riffBodies =
     riff === undefined || riff.chunks.length === 0
       ? undefined
@@ -99,9 +99,7 @@ export function flacMetadataBlocks(
   );
 
   if (map.coverArt !== undefined) {
-    const picture = writableMediaType(map.coverArt.mediaType)
-      ? encodeFlacPicture(map.coverArt)
-      : undefined;
+    const picture = writablePicture(map.coverArt) ? encodeFlacPicture(map.coverArt) : undefined;
     if (picture === undefined || picture.length > MAXIMUM_BLOCK_BYTES) {
       dropped.push({ kind: 'coverArt' });
     } else {
@@ -114,9 +112,7 @@ export function flacMetadataBlocks(
     if (map.tuning !== undefined) dropped.push({ kind: 'tuning' });
   } else {
     for (const body of riffBodies) blocks.push([FlacBlockType.Application, body]);
-    if (riff?.loopsPartial === true) dropped.push({ kind: 'loops' });
-    if (riff?.cuesDropped === true) dropped.push({ kind: 'cues' });
-    if (riff?.tuningDropped === true) dropped.push({ kind: 'tuning' });
+    dropped.push(...(riff?.dropped ?? []));
   }
   if (map.broadcast !== undefined) dropped.push({ kind: 'broadcast' });
   blocks.push([FlacBlockType.Padding, new Uint8Array(PADDING_BYTES)]);

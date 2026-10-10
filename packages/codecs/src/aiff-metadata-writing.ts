@@ -25,9 +25,9 @@ import {
   LOOP_FIELDS,
   MARKER_COUNT_BYTES,
   MARKER_FIXED_BYTES,
-  MAXIMUM_MARKERS,
   PLAY_MODES,
 } from './aiff-metadata.js';
+import { MAXIMUM_MARKERS } from './metadata-limits.js';
 import type {
   CuePoint,
   MetadataLoop,
@@ -39,7 +39,7 @@ import type {
 import {
   LINE_TEXT,
   TEXT_KEYS,
-  encodeText,
+  encodeUtf8,
   readsBackUnchanged,
   textRulesOf,
 } from './metadata-text.js';
@@ -82,7 +82,7 @@ interface MarkerEntry {
 
 /** Whether a name fits a marker's Pascal string and reads back unchanged. */
 function writableMarkerName(name: string): boolean {
-  return readsBackUnchanged(name, LINE_TEXT) && encodeText(name).length <= LARGEST_MARKER_NAME;
+  return readsBackUnchanged(name, LINE_TEXT) && encodeUtf8(name).length <= LARGEST_MARKER_NAME;
 }
 
 /** Whether every cue point fits a marker. */
@@ -130,7 +130,7 @@ function textChunks(metadata: MetadataMap, dropped: MetadataPart[]): WrittenChun
     if (id === undefined || !readsBackUnchanged(value, textRulesOf(key))) {
       dropped.push({ kind: 'text', key });
     } else {
-      chunks.push({ id, body: encodeText(value) });
+      chunks.push({ id, body: encodeUtf8(value) });
     }
   }
   // Written in the reader's chunk order, not the keys' order.
@@ -140,7 +140,7 @@ function textChunks(metadata: MetadataMap, dropped: MetadataPart[]): WrittenChun
 
 /** The `MARK` chunk: each marker's id, from 1, its position and its padded Pascal-string name. */
 function markerChunk(markers: readonly MarkerEntry[]): WrittenChunk {
-  const names = markers.map((marker) => encodeText(marker.name));
+  const names = markers.map((marker) => encodeUtf8(marker.name));
   const size = names.reduce(
     (total, name) => total + MARKER_FIXED_BYTES + 1 + name.length + ((name.length + 1) % 2),
     MARKER_COUNT_BYTES,

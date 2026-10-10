@@ -16,7 +16,7 @@ import { readExactly } from './byte-reading.js';
 import { concatenate } from './byte-writer.js';
 import { malformed } from './codec-failures.js';
 import { metadataOverBound } from './framing-failures.js';
-import { MAXIMUM_METADATA_BYTES } from './metadata-limits.js';
+import { MAXIMUM_TAG_METADATA_BYTES } from './metadata-limits.js';
 import { OggPacketAssembler } from './ogg-packet-assembly.js';
 import {
   BEGINNING_OF_STREAM,
@@ -40,7 +40,7 @@ export async function readOggHeaderPackets(
   count: number,
   signal?: CancellationSignal,
 ): Promise<DomainResult<readonly Uint8Array[]>> {
-  const assembler = new OggPacketAssembler(MAXIMUM_METADATA_BYTES);
+  const assembler = new OggPacketAssembler(MAXIMUM_TAG_METADATA_BYTES);
   const packets: Uint8Array[] = [];
   let serial: number | undefined;
   let offset = 0;
@@ -51,8 +51,8 @@ export async function readOggHeaderPackets(
     }
     const located = await pageAt(bytes, offset, signal);
     if (!located.ok) return located;
-    if (located.value.end > MAXIMUM_METADATA_BYTES) {
-      return fail(metadataOverBound('Ogg headers', MAXIMUM_METADATA_BYTES));
+    if (located.value.end > MAXIMUM_TAG_METADATA_BYTES) {
+      return fail(metadataOverBound('Ogg headers', MAXIMUM_TAG_METADATA_BYTES));
     }
     const { header } = located.value;
     if (serial === undefined) {

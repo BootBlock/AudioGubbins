@@ -11,7 +11,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
 
 import type { MetadataMap } from './metadata-map.js';
-import { DOCUMENT_TEXT, LINE_TEXT, LONG_TEXT, decodeText, encodeText } from './metadata-text.js';
+import { LINE_TEXT } from './metadata-text.js';
 import { readRiffMetadata } from './riff-metadata.js';
 import { riffMetadataChunks } from './riff-metadata-writing.js';
 import { memoryBytes, writeWav, type FixtureChunk } from './testing/index.js';
@@ -445,23 +445,5 @@ describe('chunks other writers leave', () => {
     expect((await read(wavWith([{ id: 'cue ', body: cue }]))).cues).toEqual([
       { position: 42, name: '' },
     ]);
-  });
-});
-
-describe('the text rule', () => {
-  it('decodes UTF-8 only where every byte is valid, else every byte as Latin-1', () => {
-    expect(decodeText(encodeText('Zoë 🌧'), LINE_TEXT)).toBe('Zoë 🌧');
-    // An overlong slash, an encoded surrogate and a truncated sequence are not UTF-8.
-    expect(decodeText(Uint8Array.of(0x41, 0xc0, 0xaf), LINE_TEXT)).toBe('AÀ¯');
-    // As Latin-1, 0xA0 is a no-break space, kept, and 0x80 a C1 control, removed.
-    expect(decodeText(Uint8Array.of(0xed, 0xa0, 0x80), LINE_TEXT)).toBe('í ');
-    expect(decodeText(Uint8Array.of(0x41, 0xe2, 0x82), LINE_TEXT)).toBe('Aâ');
-  });
-
-  it('bounds text in characters, never splitting one', () => {
-    const long = '🌧'.repeat(LINE_TEXT.maximumCharacters + 10);
-    expect(decodeText(encodeText(long), LINE_TEXT)).toBe('🌧'.repeat(LINE_TEXT.maximumCharacters));
-    expect(decodeText(encodeText('a'.repeat(300_000)), DOCUMENT_TEXT)).toHaveLength(262_144);
-    expect(decodeText(encodeText('a\nb'), LONG_TEXT)).toBe('a\nb');
   });
 });

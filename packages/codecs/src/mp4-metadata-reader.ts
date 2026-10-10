@@ -17,7 +17,7 @@ import { malformed } from './codec-failures.js';
 import { metadataOverBound } from './framing-failures.js';
 import { decodeIlst } from './ilst-metadata.js';
 import { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_METADATA_BYTES, MAXIMUM_METADATA_FIELDS } from './metadata-limits.js';
+import { MAXIMUM_TAG_METADATA_BYTES, MAXIMUM_METADATA_FIELDS } from './metadata-limits.js';
 import type { MetadataMap } from './metadata-map.js';
 
 /** Where a box's body lies. */
@@ -111,8 +111,8 @@ export async function readMp4Metadata(
   if (!ilst.ok) return ilst;
   if (ilst.value === undefined) return succeed(gathering.toMap());
   const length = ilst.value.end - ilst.value.start;
-  if (length > MAXIMUM_METADATA_BYTES)
-    return fail(metadataOverBound('metadata', MAXIMUM_METADATA_BYTES));
+  if (length > MAXIMUM_TAG_METADATA_BYTES)
+    return fail(metadataOverBound('metadata', MAXIMUM_TAG_METADATA_BYTES));
   const body = await readExactly(bytes, ilst.value.start, length, signal);
   if (!body.ok) return body;
   const read = decodeIlst(body.value, gathering);

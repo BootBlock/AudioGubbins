@@ -18,9 +18,15 @@ import { ByteWriter } from './byte-writer.js';
 import { malformed } from './codec-failures.js';
 import { metadataOverBound } from './framing-failures.js';
 import type { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_PICTURE_BYTES, MAXIMUM_TEXT_BYTES } from './metadata-limits.js';
+import { MAXIMUM_PICTURE_BYTES, MAXIMUM_ITEM_BYTES } from './metadata-limits.js';
 import type { CoverArt } from './metadata-map.js';
-import { decodeLatin1, decodeUtf8, encodeLatin1, encodeUtf8 } from './metadata-text.js';
+import {
+  LINE_TEXT,
+  decodeText,
+  encodeLatin1,
+  encodeUtf8,
+  readsBackUnchanged,
+} from './metadata-text.js';
 
 /** The picture type of a front cover, in ID3v2's `APIC` numbering, which FLAC shares. */
 const FRONT_COVER = 3;
@@ -28,12 +34,15 @@ const FRONT_COVER = 3;
 /** A media type as the block holds one: printable ASCII. */
 const PRINTABLE_ASCII = /^[\x20-\x7e]*$/;
 
-/** Whether a picture's media type can be written in a picture block. */
-export function writableMediaType(mediaType: string): boolean {
-  return PRINTABLE_ASCII.test(mediaType);
+/**
+ * Whether a picture can be written in a picture block and read back unchanged:
+ * its media type printable ASCII, and its description one line of text.
+ */
+export function writablePicture(cover: CoverArt): boolean {
+  return PRINTABLE_ASCII.test(cover.mediaType) && readsBackUnchanged(cover.description, LINE_TEXT);
 }
 
-/** The picture block's body for a cover whose media type {@link writableMediaType} accepts. */
+/** The picture block's body for a cover {@link writablePicture} accepts. */
 export function encodeFlacPicture(cover: CoverArt): Uint8Array {
   const mediaType = encodeLatin1(cover.mediaType) ?? new Uint8Array();
   const description = encodeUtf8(cover.description);
@@ -90,15 +99,15 @@ export function decodeFlacPicture(body: Uint8Array): DomainResult<FlacPicture> {
   const cursor = new FieldCursor(body);
   const pictureType = cursor.take(4);
   if (pictureType === undefined) return SHORT_PICTURE;
-  const mediaType = cursor.prefixed(MAXIMUM_TEXT_BYTES, "picture's media type");
+  const mediaType = cursor.prefixed(MAXIMUM_ITEM_BYTES, "picture's media type");
   if (!mediaType.ok) return mediaType;
-  const description = cursor.prefixed(MAXIMUM_TEXT_BYTES, "picture's description");
+  const description = cursor.prefixed(MAXIMUM_ITEM_BYTES, "picture's description");
   if (!description.ok) return description;
   // Width, height, colour depth and palette size: the picture's own header states them.
   if (cursor.take(16) === undefined) return SHORT_PICTURE;
   const data = cursor.prefixed(MAXIMUM_PICTURE_BYTES, 'picture');
   if (!data.ok) return data;
-  const mediaText = decodeLatin1(mediaType.value);
+  const mediaText = decodeText(mediaType.value, 'latin-1');
   if (!PRINTABLE_ASCII.test(mediaText)) {
     return fail(malformed("A picture's media type is not printable ASCII."));
   }
@@ -106,7 +115,7 @@ export function decodeFlacPicture(body: Uint8Array): DomainResult<FlacPicture> {
     pictureType: viewOf(pictureType).getUint32(0),
     cover: {
       mediaType: mediaText,
-      description: decodeUtf8(description.value),
+      description: decodeText(description.value, 'utf-8'),
       bytes: data.value.slice(),
     },
   });

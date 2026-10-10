@@ -23,9 +23,9 @@ import { viewOf } from './byte-reading.js';
 import { concatenate } from './byte-writer.js';
 import type { EncodedStreamWriter, FinishedEncodedStream } from './encoded-stream-writer.js';
 import { invalidEncodedStream, writerEnded } from './framing-failures.js';
-import { MAXIMUM_METADATA_BYTES } from './metadata-limits.js';
+import { MAXIMUM_TAG_METADATA_BYTES } from './metadata-limits.js';
 import type { MetadataMap, MetadataPart } from './metadata-map.js';
-import { decodeUtf8 } from './metadata-text.js';
+import { decodeText } from './metadata-text.js';
 import {
   BEGINNING_OF_STREAM,
   END_OF_STREAM,
@@ -160,7 +160,7 @@ export class OggVorbisCommentRewriter implements EncodedStreamWriter<undefined> 
     let offset = 0;
     for (let segment = 0; segment < page.lacing.length; segment += 1) {
       const length = page.lacing[segment] ?? 0;
-      if (this.openBytes + length > MAXIMUM_METADATA_BYTES) {
+      if (this.openBytes + length > MAXIMUM_TAG_METADATA_BYTES) {
         return fail(
           invalidEncodedStream('A Vorbis header packet is larger than any encoder writes.'),
         );
@@ -234,7 +234,7 @@ export class OggVorbisCommentRewriter implements EncodedStreamWriter<undefined> 
     const length = viewOf(comment).getUint32(PREFIX_BYTES, true);
     const start = PREFIX_BYTES + 4;
     if (length > comment.length - start) return undefined;
-    return decodeUtf8(comment.subarray(start, start + length));
+    return decodeText(comment.subarray(start, start + length), 'utf-8');
   }
 
   /** A page of the encoder's stream as it is written, given the next sequence number. */

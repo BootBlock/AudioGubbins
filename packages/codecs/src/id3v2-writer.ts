@@ -13,11 +13,11 @@
  */
 
 import { ByteWriter, concatenate } from './byte-writer.js';
-import { writableMediaType } from './flac-picture.js';
+import { writablePicture } from './flac-picture.js';
 import { NUMBER_FRAMES, TEXT_FRAMES, WRITTEN_FRAMES } from './id3v2-frames.js';
 import { LOOP_LENGTH_TAG, LOOP_START_TAG, loopTagPart, taggedLoop } from './loop-tags.js';
 import type { CoverArt, MetadataMap, MetadataPart } from './metadata-map.js';
-import { ALL_TEXT_KEYS, partsNotHeld } from './metadata-parts.js';
+import { ALL_TEXT_KEYS, partsNotHeld, readableParts } from './metadata-parts.js';
 import { encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
 const UTF8 = 3;
@@ -79,8 +79,10 @@ export interface WrittenId3v2 {
 }
 
 /** The ID3v2.4 tag of `map`, or no bytes where the map holds nothing the tag carries. */
-export function encodeId3v2(map: MetadataMap): WrittenId3v2 {
-  const { frames, dropped } = textFrames(map);
+export function encodeId3v2(given: MetadataMap): WrittenId3v2 {
+  const { map, dropped: unreadable } = readableParts(given);
+  const { frames, dropped: unheld } = textFrames(map);
+  const dropped = [...unreadable, ...unheld];
 
   const { loop, partial } = taggedLoop(map.loops);
   if (loop !== undefined) {
@@ -92,7 +94,7 @@ export function encodeId3v2(map: MetadataMap): WrittenId3v2 {
   if (partial) dropped.push({ kind: 'loops' });
 
   for (const field of map.foreign ?? []) {
-    if (field.key === '' || loopTagPart(field.key) !== undefined || field.key.includes('\0')) {
+    if (field.key === '' || loopTagPart(field.key) !== undefined) {
       dropped.push({ kind: 'foreign', scheme: field.scheme, key: field.key });
     } else if (TEXT_FRAME_ID.test(field.key) && !WRITTEN_FRAMES.has(field.key)) {
       frames.push(textFrame(field.key, field.value));
@@ -114,7 +116,7 @@ export function encodeId3v2(map: MetadataMap): WrittenId3v2 {
   }
   if (frames.length === 0) return { bytes: new Uint8Array(), dropped };
   // Text alone this large has no tag to go in: nothing of the map is written.
-  if (size > LARGEST_SYNCHSAFE) return { bytes: new Uint8Array(), dropped: everyPart(map) };
+  if (size > LARGEST_SYNCHSAFE) return { bytes: new Uint8Array(), dropped: everyPart(given) };
   const header = synchsafe(new ByteWriter().latin1('ID3').u8(4).u8(0).u8(0), size).toBytes();
   return { bytes: concatenate([header, ...frames]), dropped };
 }
@@ -153,9 +155,9 @@ function textFrames(map: MetadataMap): { frames: Uint8Array[]; dropped: Metadata
   return { frames, dropped };
 }
 
-/** The cover as an `APIC` front cover, or `undefined` where its media type is not printable ASCII. */
+/** The cover as an `APIC` front cover, or `undefined` where the frame cannot hold it to be read back. */
 function pictureFrame(cover: CoverArt): Uint8Array | undefined {
-  const mediaType = writableMediaType(cover.mediaType) ? encodeLatin1(cover.mediaType) : undefined;
+  const mediaType = writablePicture(cover) ? encodeLatin1(cover.mediaType) : undefined;
   if (mediaType === undefined) return undefined;
   return frame(
     'APIC',

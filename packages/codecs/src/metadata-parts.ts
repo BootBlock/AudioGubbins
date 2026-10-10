@@ -9,6 +9,13 @@
  */
 
 import type { MetadataMap, MetadataPart, MetadataTextKey } from './metadata-map.js';
+import {
+  LINE_TEXT,
+  LONG_TEXT,
+  TEXT_KEYS,
+  readsBackUnchanged,
+  textRulesOf,
+} from './metadata-text.js';
 
 /** The parts beyond text, foreign fields and loops that a format holds. */
 export interface FormatHolds {
@@ -42,23 +49,40 @@ export function textEntries(map: MetadataMap): readonly (readonly [MetadataTextK
   return entries;
 }
 
-/** Every text key, in the order writers write them, so output never depends on an object's key order. */
-const TEXT_KEYS: readonly MetadataTextKey[] = [
-  'title',
-  'artist',
-  'album',
-  'albumArtist',
-  'trackNumber',
-  'trackTotal',
-  'discNumber',
-  'discTotal',
-  'date',
-  'genre',
-  'comment',
-  'copyright',
-  'encoder',
-  'isrc',
-];
+/**
+ * The map without the text values and foreign fields its readers would not give
+ * back unchanged (`metadata-text.ts`), and those parts, as a tag writer reports
+ * them: a value with a control character or past its bound in characters is
+ * dropped whole rather than written as something the person did not say.
+ */
+export function readableParts(map: MetadataMap): {
+  readonly map: MetadataMap;
+  readonly dropped: readonly MetadataPart[];
+} {
+  const dropped: MetadataPart[] = [];
+  const text: Partial<Record<MetadataTextKey, string>> = {};
+  for (const key of TEXT_KEYS) {
+    const value = map.text?.[key];
+    if (value === undefined) continue;
+    if (readsBackUnchanged(value, textRulesOf(key))) text[key] = value;
+    else dropped.push({ kind: 'text', key });
+  }
+  const foreign = (map.foreign ?? []).filter((field) => {
+    const readable =
+      readsBackUnchanged(field.key, LINE_TEXT) && readsBackUnchanged(field.value, LONG_TEXT);
+    if (!readable) dropped.push({ kind: 'foreign', scheme: field.scheme, key: field.key });
+    return readable;
+  });
+  if (dropped.length === 0) return { map, dropped };
+  return {
+    map: {
+      ...map,
+      ...(map.text === undefined ? {} : { text }),
+      ...(map.foreign === undefined ? {} : { foreign }),
+    },
+    dropped,
+  };
+}
 
 /** Every text key, as a set a format holding all of them states. */
 export const ALL_TEXT_KEYS: ReadonlySet<MetadataTextKey> = new Set(TEXT_KEYS);

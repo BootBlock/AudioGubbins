@@ -26,16 +26,16 @@ import {
   decodeFlacPicture,
   encodeFlacPicture,
   gatherPicture,
-  writableMediaType,
+  writablePicture,
   type FlacPicture,
 } from './flac-picture.js';
 import { metadataOverBound } from './framing-failures.js';
 import { LOOP_LENGTH_TAG, LOOP_START_TAG, loopTagPart, taggedLoop } from './loop-tags.js';
 import type { MetadataGathering } from './metadata-gathering.js';
-import { MAXIMUM_PICTURE_BYTES, MAXIMUM_TEXT_BYTES } from './metadata-limits.js';
+import { MAXIMUM_PICTURE_BYTES, MAXIMUM_ITEM_BYTES } from './metadata-limits.js';
 import type { MetadataMap, MetadataPart, MetadataTextKey } from './metadata-map.js';
-import { ALL_TEXT_KEYS, partsNotHeld, textEntries } from './metadata-parts.js';
-import { decodeUtf8, encodeLatin1, encodeUtf8 } from './metadata-text.js';
+import { ALL_TEXT_KEYS, partsNotHeld, readableParts, textEntries } from './metadata-parts.js';
+import { decodeText, encodeLatin1, encodeUtf8 } from './metadata-text.js';
 
 /** The scheme a foreign comment is kept under. */
 const VORBIS_COMMENT_SCHEME = 'vorbis-comment';
@@ -99,16 +99,20 @@ function reservedKey(key: string): boolean {
 
 /** The comment block of `map`. */
 export function encodeVorbisComment(
-  map: MetadataMap,
+  given: MetadataMap,
   options: VorbisCommentOptions,
 ): WrittenVorbisComment {
-  const dropped: MetadataPart[] = partsNotHeld(map, {
-    text: ALL_TEXT_KEYS,
-    broadcast: false,
-    cues: false,
-    tuning: false,
-    coverArt: true,
-  });
+  const { map, dropped: unreadable } = readableParts(given);
+  const dropped: MetadataPart[] = [...unreadable];
+  dropped.push(
+    ...partsNotHeld(map, {
+      text: ALL_TEXT_KEYS,
+      broadcast: false,
+      cues: false,
+      tuning: false,
+      coverArt: true,
+    }),
+  );
   const comments: Uint8Array[] = [];
   const add = (key: string, value: Uint8Array): void => {
     const name = encodeLatin1(key) ?? new Uint8Array();
@@ -137,7 +141,7 @@ export function encodeVorbisComment(
   }
 
   if (options.pictureField && map.coverArt !== undefined) {
-    if (writableMediaType(map.coverArt.mediaType)) {
+    if (writablePicture(map.coverArt)) {
       add(PICTURE_FIELD, encodeBase64(encodeFlacPicture(map.coverArt)));
     } else {
       dropped.push({ kind: 'coverArt' });
@@ -154,7 +158,7 @@ export function encodeVorbisComment(
 const MAXIMUM_PICTURE_COMMENT_BYTES =
   PICTURE_FIELD.length +
   1 +
-  Math.ceil((MAXIMUM_PICTURE_BYTES + MAXIMUM_TEXT_BYTES * 2 + 32) / 3) * 4;
+  Math.ceil((MAXIMUM_PICTURE_BYTES + MAXIMUM_ITEM_BYTES * 2 + 32) / 3) * 4;
 
 /**
  * Reads a comment block into `gathering`, answering how many bytes it took. A
@@ -223,7 +227,7 @@ function readComment(
 ): DomainResult<undefined> {
   const separator = comment.indexOf(0x3d);
   if (separator <= 0) return succeed(undefined);
-  const key = decodeUtf8(comment.subarray(0, separator));
+  const key = decodeText(comment.subarray(0, separator), 'utf-8');
   const upper = key.toUpperCase();
   const valueBytes = comment.subarray(separator + 1);
   if (upper === PICTURE_FIELD) {
@@ -232,10 +236,10 @@ function readComment(
     if (picture.value !== undefined) gatherPicture(gathering, picture.value);
     return succeed(undefined);
   }
-  if (valueBytes.length > MAXIMUM_TEXT_BYTES) {
-    return fail(metadataOverBound('Vorbis comment', MAXIMUM_TEXT_BYTES));
+  if (valueBytes.length > MAXIMUM_ITEM_BYTES) {
+    return fail(metadataOverBound('Vorbis comment', MAXIMUM_ITEM_BYTES));
   }
-  const value = decodeUtf8(valueBytes);
+  const value = decodeText(valueBytes, 'utf-8');
   const textKey = TEXT_KEY_OF.get(upper);
   const loopPart = loopTagPart(upper);
   if (textKey === 'trackNumber' || textKey === 'discNumber') {
