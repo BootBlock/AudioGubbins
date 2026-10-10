@@ -1,13 +1,14 @@
 /**
- * The WAV `fmt ` chunk: which codec the samples are in and, for uncompressed
- * PCM, how they are stored.
+ * The WAV `fmt ` chunk: which codec the samples are in and, for one this
+ * package reads in place, how they are stored.
  *
- * Three format tags are uncompressed: 1, integer PCM; 3, IEEE floating point;
- * and 0xFFFE, WAVE_FORMAT_EXTENSIBLE, whose sub-format GUID carries one of the
- * other two codes and which adds the valid bits within each container and the
- * speaker mask. Every other tag, and an extensible sub-format outside the
- * standard GUID family, is a compressed or foreign codec this package names and
- * refuses. Plain PCM wider than a whole number of bytes is held left-justified
+ * The format tag names the codec through the registry's codes. 0xFFFE,
+ * WAVE_FORMAT_EXTENSIBLE, is a wrapper whose sub-format GUID carries the code
+ * and which adds the valid bits within each container and the speaker mask.
+ * Uncompressed PCM and G.711 need nothing past the plain fields; IMA and
+ * Microsoft ADPCM add their samples per block, and Microsoft's its table of
+ * coefficient pairs, after the plain fields, which the extensible form has no
+ * room for. Plain PCM wider than a whole number of bytes is held left-justified
  * in the next whole byte, as the extensible form's valid bits are, so both
  * become the same encoding.
  */
@@ -15,11 +16,20 @@
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import { viewOf } from './byte-reading.js';
+import type { CodecId } from './codec-descriptor.js';
+import { WAVE_TAG_CODECS } from './codec-registry.js';
 import { malformed } from './codec-failures.js';
-import { floatEncoding, integerEncoding, type SampleEncoding } from './format-descriptor.js';
-import type { CompressedWaveFormat, RiffContainer } from './recognised-format.js';
+import { floatEncoding, integerEncoding } from './format-descriptor.js';
+import {
+  hexCode,
+  namedFormat,
+  unnamedFormat,
+  type RecognisedFormat,
+  type RiffContainer,
+} from './recognised-format.js';
+import type { SampleEncoding } from './sample-encoding.js';
 
-const WAVE_FORMAT_PCM = 0x0001;
+export const WAVE_FORMAT_PCM = 0x0001;
 export const WAVE_FORMAT_IEEE_FLOAT = 0x0003;
 export const WAVE_FORMAT_EXTENSIBLE = 0xfffe;
 
@@ -27,6 +37,15 @@ export const WAVE_FORMAT_EXTENSIBLE = 0xfffe;
 const PLAIN_FORMAT_BYTES = 16;
 export const EXTENSIBLE_FORMAT_BYTES = 40;
 export const EXTENSION_BYTES = 22;
+
+/**
+ * The most coefficient pairs a Microsoft ADPCM format chunk is read with: the
+ * seven every file holds, and room for far more than any encoder adds.
+ */
+const MAXIMUM_COEFFICIENTS = 256;
+
+/** The format chunk's longest body read: Microsoft ADPCM's, with its largest table. */
+export const FORMAT_BYTES_READ = 22 + 4 * MAXIMUM_COEFFICIENTS;
 
 /**
  * The last twelve bytes of the GUID family KSDATAFORMAT_SUBTYPE_PCM and
@@ -38,7 +57,10 @@ export const STANDARD_SUBTYPE_TAIL: readonly number[] = [
   0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71,
 ];
 
-/** How the samples of an uncompressed WAV are stored. */
+/** The codes no descriptor covers that a refusal still names, by their documentation's names. */
+const OTHER_CODE_NAMES: ReadonlyMap<number, string> = new Map([[0x0050, 'MPEG']]);
+
+/** How the samples of a WAV this package reads are stored. */
 export interface WaveShape {
   readonly sampleRate: number;
   readonly channelCount: number;
@@ -49,16 +71,36 @@ export interface WaveShape {
   readonly channelMask: number | undefined;
 }
 
-/** What a format chunk says: an uncompressed shape, or the codec it is not. */
+/** What a format chunk says: a shape read in place, or the format it is instead. */
 export type WaveFormatReading =
   | { readonly readable: true; readonly shape: WaveShape }
-  | { readonly readable: false; readonly format: CompressedWaveFormat };
+  | { readonly readable: false; readonly format: RecognisedFormat };
 
-/** The codec code of a format chunk, the valid bits in each container and the speaker mask. */
-interface CodeFacts {
+/** The fields of a format chunk an encoding is read from. */
+interface FormatFields {
+  readonly body: Uint8Array;
+  readonly view: DataView;
+  readonly container: RiffContainer;
   readonly code: number;
+  readonly containerBits: number;
   readonly validBits: number;
-  readonly mask: number | undefined;
+  readonly extensible: boolean;
+}
+
+/** An encoding read from a format chunk, or the format the chunk names instead. */
+type EncodingReading = DomainResult<
+  | { readonly readable: true; readonly encoding: SampleEncoding }
+  | { readonly readable: false; readonly format: RecognisedFormat }
+>;
+
+/** A reading of an encoding read in place. */
+function inPlace(encoding: DomainResult<SampleEncoding>): EncodingReading {
+  return encoding.ok ? succeed({ readable: true, encoding: encoding.value }) : encoding;
+}
+
+/** A reading of a format the chunk names but this package does not read in place. */
+function namedInstead(format: RecognisedFormat): EncodingReading {
+  return succeed({ readable: false, format });
 }
 
 /** A GUID in its registry form, from the mixed-endian bytes Windows stores it in. */
@@ -69,32 +111,106 @@ function guidText(bytes: Uint8Array): string {
   return `${hex(view.getUint32(0, true), 8)}-${hex(view.getUint16(4, true), 4)}-${hex(view.getUint16(6, true), 4)}-${tail.slice(0, 4)}-${tail.slice(4)}`;
 }
 
-/** The encoding of a format code's samples of these bits, or `undefined` where the code is compressed. */
-function uncompressedEncoding(
-  code: number,
-  containerBits: number,
-  validBits: number,
-): DomainResult<SampleEncoding> | undefined {
+/** Uncompressed PCM, integer or floating point. */
+function pcmEncoding(fields: FormatFields): EncodingReading {
+  const { code, containerBits, validBits } = fields;
   if (code === WAVE_FORMAT_IEEE_FLOAT) {
     if (validBits !== containerBits) {
       return fail(
         malformed('Floating-point samples cannot have fewer valid bits than they occupy.'),
       );
     }
-    return floatEncoding(containerBits, 'little');
+    return inPlace(floatEncoding(containerBits, 'little'));
   }
-  if (code !== WAVE_FORMAT_PCM) return undefined;
   const bytes = Math.ceil(containerBits / 8);
   // WAV stores eight-bit samples as offset binary and wider ones as two's complement.
-  return integerEncoding(validBits, bytes, 'little', bytes !== 1);
+  return inPlace(integerEncoding(validBits, bytes, 'little', bytes !== 1));
 }
 
-/** The code, valid bits and speaker mask of the extensible form, or the codec it is not. */
+/** G.711, whose samples are always one byte. */
+function g711Encoding(kind: 'g711-alaw' | 'g711-ulaw'): (fields: FormatFields) => EncodingReading {
+  return ({ containerBits }) =>
+    containerBits === 8
+      ? inPlace(succeed({ kind }))
+      : fail(
+          malformed(
+            `The header states ${String(containerBits)}-bit G.711 samples, which are always 8 bits.`,
+          ),
+        );
+}
+
+/**
+ * Reads an ADPCM format chunk's samples per block, after `extraBytes` of its
+ * own fields are checked present, into an encoding; or names the format where
+ * it is not four-bit ADPCM in the plain form, which are the only ADPCM forms
+ * whose block layout the chunk can state.
+ */
+function adpcmEncoding(
+  fields: FormatFields,
+  name: string,
+  extraBytes: number,
+  encoding: (framesPerBlock: number) => DomainResult<SampleEncoding>,
+): EncodingReading {
+  if (fields.extensible)
+    return namedInstead(unnamedFormat(fields.container, `${name} in the extensible form`));
+  if (fields.containerBits !== 4) {
+    return namedInstead(
+      unnamedFormat(fields.container, `${name} of ${String(fields.containerBits)} bits a sample`),
+    );
+  }
+  if (fields.body.length < 18 + extraBytes || fields.view.getUint16(16, true) < extraBytes) {
+    return fail(malformed(`The format chunk is too short to hold ${name}'s block layout.`));
+  }
+  return inPlace(encoding(fields.view.getUint16(18, true)));
+}
+
+/** IMA ADPCM in WAV's packing. */
+function imaEncoding(fields: FormatFields): EncodingReading {
+  return adpcmEncoding(fields, 'IMA ADPCM', 2, (framesPerBlock) =>
+    succeed({ kind: 'ima-adpcm', packing: 'wav', framesPerBlock }),
+  );
+}
+
+/** Microsoft ADPCM, with the coefficient table its blocks choose from. */
+function msEncoding(fields: FormatFields): EncodingReading {
+  const { body, view } = fields;
+  return adpcmEncoding(fields, 'Microsoft ADPCM', 4, (framesPerBlock) => {
+    const count = view.getUint16(20, true);
+    const held = Math.max(0, Math.floor((body.length - 22) / 4));
+    if (count === 0 || count > MAXIMUM_COEFFICIENTS || count > held) {
+      return fail(
+        malformed(
+          `The format chunk states ${String(count)} Microsoft ADPCM coefficient pairs, where it holds 1 to ${String(Math.min(MAXIMUM_COEFFICIENTS, held))}.`,
+        ),
+      );
+    }
+    const coefficients = Array.from(
+      { length: count },
+      (_, pair) =>
+        [view.getInt16(22 + 4 * pair, true), view.getInt16(24 + 4 * pair, true)] as const,
+    );
+    return succeed({ kind: 'ms-adpcm', framesPerBlock, coefficients });
+  });
+}
+
+/** How each codec this package reads in place is read from a format chunk. */
+const IN_PLACE: ReadonlyMap<CodecId, (fields: FormatFields) => EncodingReading> = new Map([
+  ['pcm', pcmEncoding],
+  ['g711-alaw', g711Encoding('g711-alaw')],
+  ['g711-ulaw', g711Encoding('g711-ulaw')],
+  ['ima-adpcm', imaEncoding],
+  ['ms-adpcm', msEncoding],
+]);
+
+/** The codecs this package reads in place from a WAV file. */
+export const WAVE_IN_PLACE_CODECS: ReadonlySet<CodecId> = new Set(IN_PLACE.keys());
+
+/** The code, valid bits and speaker mask of the extensible form, or the format it names instead. */
 function readExtension(
   body: Uint8Array,
   container: RiffContainer,
   containerBits: number,
-): DomainResult<CodeFacts | CompressedWaveFormat> {
+): DomainResult<{ code: number; validBits: number; mask: number } | RecognisedFormat> {
   const view = viewOf(body);
   if (body.length < EXTENSIBLE_FORMAT_BYTES || view.getUint16(16, true) < EXTENSION_BYTES) {
     return fail(
@@ -104,14 +220,8 @@ function readExtension(
     );
   }
   const subFormat = body.subarray(24, 40);
-  const code = view.getUint32(24, true);
   if (!STANDARD_SUBTYPE_TAIL.every((byte, index) => subFormat[index + 4] === byte)) {
-    return succeed({
-      kind: 'compressed-wav',
-      container,
-      formatTag: WAVE_FORMAT_EXTENSIBLE,
-      subFormat: guidText(subFormat),
-    });
+    return succeed(unnamedFormat(container, `sub-format ${guidText(subFormat)}`));
   }
   if (containerBits % 8 !== 0) {
     return fail(
@@ -123,13 +233,54 @@ function readExtension(
   // Some writers leave the valid bits at zero, meaning every bit of the container.
   const validBits = view.getUint16(18, true);
   return succeed({
-    code,
+    code: view.getUint32(24, true),
     validBits: validBits === 0 ? containerBits : validBits,
     mask: view.getUint32(20, true),
   });
 }
 
-/** Reads a format chunk's body, at least the first `EXTENSIBLE_FORMAT_BYTES` of it. */
+/** The code and fields of a format chunk, unwrapped from the extensible form, or the format it names instead. */
+function codeFields(
+  body: Uint8Array,
+  container: RiffContainer,
+): DomainResult<
+  | { readonly fields: FormatFields; readonly mask: number | undefined }
+  | { readonly named: RecognisedFormat }
+> {
+  const view = viewOf(body);
+  const tag = view.getUint16(0, true);
+  const containerBits = view.getUint16(14, true);
+  const fields: FormatFields = {
+    body,
+    view,
+    container,
+    code: tag,
+    containerBits,
+    validBits: containerBits,
+    extensible: false,
+  };
+  if (tag !== WAVE_FORMAT_EXTENSIBLE) return succeed({ fields, mask: undefined });
+  const extension = readExtension(body, container, containerBits);
+  if (!extension.ok) return extension;
+  if ('kind' in extension.value) return succeed({ named: extension.value });
+  return succeed({
+    fields: { ...fields, ...extension.value, extensible: true },
+    mask: extension.value.mask,
+  });
+}
+
+/** The format a code names where this package does not read it in place. */
+function formatOfCode(
+  container: RiffContainer,
+  code: number,
+  codec: CodecId | undefined,
+): RecognisedFormat {
+  return codec === undefined
+    ? unnamedFormat(container, OTHER_CODE_NAMES.get(code) ?? `code ${hexCode(code)}`)
+    : namedFormat(container, codec);
+}
+
+/** Reads a format chunk's body, at least the first `FORMAT_BYTES_READ` of it. */
 export function readWaveFormat(
   body: Uint8Array,
   container: RiffContainer,
@@ -137,32 +288,28 @@ export function readWaveFormat(
   if (body.length < PLAIN_FORMAT_BYTES) {
     return fail(malformed('The format chunk is shorter than the 16 bytes every WAV format holds.'));
   }
-  const view = viewOf(body);
-  const tag = view.getUint16(0, true);
-  const containerBits = view.getUint16(14, true);
-  let facts: CodeFacts = { code: tag, validBits: containerBits, mask: undefined };
-  if (tag === WAVE_FORMAT_EXTENSIBLE) {
-    const extension = readExtension(body, container, containerBits);
-    if (!extension.ok) return extension;
-    if ('kind' in extension.value) return succeed({ readable: false, format: extension.value });
-    facts = extension.value;
+  const unwrapped = codeFields(body, container);
+  if (!unwrapped.ok) return unwrapped;
+  if ('named' in unwrapped.value)
+    return succeed({ readable: false, format: unwrapped.value.named });
+  const { fields, mask } = unwrapped.value;
+  const codec = WAVE_TAG_CODECS.get(fields.code);
+  const read = codec === undefined ? undefined : IN_PLACE.get(codec);
+  if (read === undefined) {
+    return succeed({ readable: false, format: formatOfCode(container, fields.code, codec) });
   }
-  const encoding = uncompressedEncoding(facts.code, containerBits, facts.validBits);
-  if (encoding === undefined) {
-    return succeed({
-      readable: false,
-      format: { kind: 'compressed-wav', container, formatTag: facts.code },
-    });
-  }
-  if (!encoding.ok) return encoding;
+  const reading = read(fields);
+  if (!reading.ok) return reading;
+  if (!reading.value.readable) return succeed(reading.value);
+  const { view } = fields;
   return succeed({
     readable: true,
     shape: {
       sampleRate: view.getUint32(4, true),
       channelCount: view.getUint16(2, true),
       blockAlign: view.getUint16(12, true),
-      encoding: encoding.value,
-      channelMask: facts.mask,
+      encoding: reading.value.encoding,
+      channelMask: mask,
     },
   });
 }

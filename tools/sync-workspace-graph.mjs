@@ -212,12 +212,13 @@ const PACKAGES = [
   {
     // The read contract for audio files: recognition by content, the format
     // descriptor and readers that read frames on demand at the native rate
-    // (ADR-0050, ADR-0052). Bytes reach it through a port, so it runs in any
-    // scope.
+    // (ADR-0050, ADR-0052); the codec registry, the import route, the WAV,
+    // AIFF and AIFF-C writers and their metadata (ADR-0090 to ADR-0093).
+    // Bytes reach it through a port, so it runs in any scope.
     dir: 'packages/codecs',
     name: '@audiogubbins/codecs',
     description:
-      'The read contract for audio files: recognising a format by its contents, describing it, and reading its frames on demand at the rate it was recorded at.',
+      'The codecs: recognising a format by its contents, the registry of codecs and what a runtime can do with each, reading audio in place at the rate it was recorded at, and writing WAV, AIFF and AIFF-C with their metadata and channel layouts.',
     dom: false,
     jsx: false,
     portable: true,

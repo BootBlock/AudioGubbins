@@ -34,6 +34,12 @@ export interface AiffOptions {
   /** Replaces the frames and channels `COMM` states, to state what the samples are not. */
   readonly commonOverrides?: { readonly declaredFrames?: number; readonly channelCount?: number };
 
+  /**
+   * The bytes `SSND` holds after its offset, in place of samples encoded from
+   * `channels`, for a compressed type whose bytes the test makes itself.
+   */
+  readonly encodedSamples?: Uint8Array;
+
   /** A `CHAN` chunk's body, from `channelLayoutBody`. */
   readonly channelLayout?: Uint8Array;
 
@@ -133,7 +139,8 @@ export function channelLayoutBody(layout: {
 export function writeAiff(options: AiffOptions): Uint8Array {
   const encoding = typeEncoding(options.compressionType ?? 'NONE', options.sampleSize);
   const samples =
-    encoding === undefined ? new Uint8Array(0) : encodeFrames(options.channels, encoding);
+    options.encodedSamples ??
+    (encoding === undefined ? new Uint8Array(0) : encodeFrames(options.channels, encoding));
   const offset = options.soundOffset ?? 0;
   const sound: FixtureChunk = {
     id: 'SSND',

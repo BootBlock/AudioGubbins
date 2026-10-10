@@ -19,7 +19,8 @@ import {
   type FixtureChunk,
 } from './testing/index.js';
 
-const READABLE = 'AudioGubbins reads WAV (including RF64 and BW64), AIFF and uncompressed AIFF-C.';
+const READABLE =
+  'AudioGubbins reads WAV (including RF64 and BW64), AIFF and AIFF-C, uncompressed or compressed as A-law, µ-law, IMA ADPCM or Microsoft ADPCM, and decodes FLAC, Apple Lossless (ALAC), Opus, Vorbis, MP3 and AAC-LC, and HE-AAC where the browser decodes it.';
 
 /** A deterministic generator of 32-bit fractions. */
 function random(seed: number): () => number {
@@ -92,72 +93,93 @@ function firstFailure<T>(result: DomainResult<T>) {
   return result.failures[0];
 }
 
-describe('a format AudioGubbins does not read', () => {
+describe('a format AudioGubbins does not read in place', () => {
   const ascii = (text: string) => Uint8Array.from(text, (character) => character.charCodeAt(0));
   const padded = (head: Uint8Array) => {
     const file = new Uint8Array(256);
     file.set(head);
     return file;
   };
-  const foreign: readonly [string, Uint8Array, string, string][] = [
-    ['FLAC', padded(ascii('fLaC\0\0\0"')), 'flac', 'This file is FLAC audio.'],
-    ['MP3 with an ID3 tag', padded(ascii('ID3\x04\0\0')), 'mp3', 'This file is MP3 audio.'],
+  const unstated = (container: string) => ({
+    kind: 'audio',
+    container,
+    codec: { kind: 'unstated' },
+  });
+  const named = (container: string, codec: string) => ({
+    kind: 'audio',
+    container,
+    codec: { kind: 'named', codec },
+  });
+  const unnamed = (container: string, description: string) => ({
+    kind: 'audio',
+    container,
+    codec: { kind: 'unnamed', description },
+  });
+  const unknown = { kind: 'unknown' };
+  const foreign: readonly [string, Uint8Array, object, string][] = [
+    [
+      'FLAC',
+      padded(ascii('fLaC\0\0\0"')),
+      named('flac', 'flac'),
+      'This file is FLAC audio encoded as FLAC.',
+    ],
+    [
+      'MP3 with an ID3 tag and no frame after it',
+      padded(ascii('ID3\x04\0\0')),
+      unstated('mp3'),
+      'This file is MPEG audio.',
+    ],
     [
       'MP3 from its first frame',
       padded(Uint8Array.of(0xff, 0xfb, 0x90, 0x64)),
-      'mp3',
-      'This file is MP3 audio.',
+      named('mp3', 'mp3'),
+      'This file is MPEG audio encoded as MP3.',
     ],
-    ['Ogg', padded(ascii('OggS\0\x02')), 'ogg', 'This file is Ogg audio.'],
     [
-      'M4A',
-      padded(ascii('\0\0\0\x20ftypM4A ')),
-      'mp4',
-      'This file is MPEG-4 audio, such as M4A or AAC.',
+      'Ogg whose first packet names no codec',
+      padded(ascii('OggS\0\x02')),
+      unnamed('ogg', 'a codec AudioGubbins does not know'),
+      'This file is Ogg audio compressed as a codec AudioGubbins does not know.',
     ],
+    ['M4A', padded(ascii('\0\0\0\x20ftypM4A ')), unstated('mp4'), 'This file is MPEG-4 audio.'],
     [
       'text',
       padded(ascii('Nothing to hear here, only words.')),
-      'unknown',
+      unknown,
       'This file is not in an audio format AudioGubbins recognises.',
     ],
     [
       'a RIFF that is not WAVE',
       padded(ascii('RIFF\x10\0\0\0AVI LIST')),
-      'unknown',
+      unknown,
       'not in an audio format',
     ],
-    ['an empty file', new Uint8Array(0), 'unknown', 'not in an audio format'],
+    ['an empty file', new Uint8Array(0), unknown, 'not in an audio format'],
   ];
 
-  it.each(foreign)('names %s and the formats that can be read', async (_, file, kind, sentence) => {
-    expect(expectSuccess(await recogniseAudio(memoryBytes(file))).kind).toBe(kind);
-    const refusal = firstFailure(await openAudio(memoryBytes(file)));
-    expect(refusal.code).toBe('codecs.unsupported-format');
-    expect(refusal.kind).toBe('rejected');
-    expect(refusal.summary).toContain(sentence);
-    expect(refusal.summary).toContain(READABLE);
-  });
+  it.each(foreign)(
+    'names %s and the formats that can be read',
+    async (_, file, format, sentence) => {
+      expect(expectSuccess(await recogniseAudio(memoryBytes(file)))).toEqual(format);
+      const refusal = firstFailure(await openAudio(memoryBytes(file)));
+      expect(refusal.code).toBe('codecs.unsupported-format');
+      expect(refusal.kind).toBe('rejected');
+      expect(refusal.summary).toContain(sentence);
+      expect(refusal.summary).toContain(READABLE);
+    },
+  );
 
-  const wavCodecs: readonly [number, string][] = [
-    [0x0002, 'Microsoft ADPCM'],
-    [0x0006, 'A-law'],
-    [0x0007, 'µ-law'],
-    [0x0011, 'IMA ADPCM'],
-    [0x0050, 'MPEG'],
-    [0x0055, 'MPEG Layer III'],
-    [0x1234, 'code 0x1234'],
+  const wavCodecs: readonly [number, object, string][] = [
+    [0x0050, unnamed('wav', 'MPEG'), 'compressed as MPEG'],
+    [0x0055, named('wav', 'mp3'), 'encoded as MP3'],
+    [0x1234, unnamed('wav', 'code 0x1234'), 'compressed as code 0x1234'],
   ];
 
-  it.each(wavCodecs)('names a WAV compressed with format tag %i as %s', async (formatTag, name) => {
+  it.each(wavCodecs)('names a WAV whose format tag is %i', async (formatTag, format, name) => {
     const refusal = firstFailure(await openAudio(memoryBytes(wav16({ formatTag }))));
     expect(refusal.code).toBe('codecs.unsupported-format');
-    expect(refusal.summary).toBe(`This file is WAV audio compressed as ${name}. ${READABLE}`);
-    expect(expectSuccess(await recogniseAudio(memoryBytes(wav16({ formatTag }))))).toEqual({
-      kind: 'compressed-wav',
-      container: 'wav',
-      formatTag,
-    });
+    expect(refusal.summary).toBe(`This file is WAV audio ${name}. ${READABLE}`);
+    expect(expectSuccess(await recogniseAudio(memoryBytes(wav16({ formatTag }))))).toEqual(format);
   });
 
   it('names the codec of an extensible sub-format and of a compressed RF64', async () => {
@@ -179,9 +201,10 @@ describe('a format AudioGubbins does not read', () => {
       0x9b,
       0x71,
     );
+    // The extensible form has no room for an ADPCM block layout, so it is named, not read.
     const extensible = wav16({ extensible: { channelMask: 3, subFormat: adpcm } });
     expect(firstFailure(await openAudio(memoryBytes(extensible))).summary).toContain(
-      'WAV audio compressed as Microsoft ADPCM.',
+      'WAV audio compressed as Microsoft ADPCM in the extensible form.',
     );
     const ambisonic = Uint8Array.of(
       1,
@@ -205,16 +228,18 @@ describe('a format AudioGubbins does not read', () => {
     expect(firstFailure(await openAudio(memoryBytes(foreignGuid))).summary).toContain(
       'compressed as sub-format 00000001-0721-11d3-8644-c8c1ca000000.',
     );
-    const rf64 = wav16({ form: 'rf64', formatTag: 0x0011 });
+    const rf64 = wav16({ form: 'rf64', formatTag: 0x0050 });
     expect(firstFailure(await openAudio(memoryBytes(rf64))).summary).toContain(
-      'This file is RF64 audio compressed as IMA ADPCM.',
+      'This file is RF64 audio compressed as MPEG.',
+    );
+    // A 16-bit sample is no IMA ADPCM this package reads: only the four-bit form is.
+    const wideIma = wav16({ formatTag: 0x0011 });
+    expect(firstFailure(await openAudio(memoryBytes(wideIma))).summary).toContain(
+      'This file is WAV audio compressed as IMA ADPCM of 16 bits a sample.',
     );
   });
 
   const aifcCodecs: readonly [string, string][] = [
-    ['ulaw', 'µ-law'],
-    ['alaw', 'A-law'],
-    ['ima4', 'IMA 4:1 ADPCM'],
     ['MAC3', 'MACE 3:1'],
     ['MAC6', 'MACE 6:1'],
     ['GSM ', 'GSM'],
@@ -234,7 +259,11 @@ describe('a format AudioGubbins does not read', () => {
       ...memoryBytes(Uint8Array.of(0x66, 0x4c, 0x61, 0x43, 0, 0)),
       name: 'take-1.wav',
     };
-    expect(expectSuccess(await recogniseAudio(named)).kind).toBe('flac');
+    expect(expectSuccess(await recogniseAudio(named))).toEqual({
+      kind: 'audio',
+      container: 'flac',
+      codec: { kind: 'named', codec: 'flac' },
+    });
   });
 });
 

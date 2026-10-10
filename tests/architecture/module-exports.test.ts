@@ -182,8 +182,11 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
-  "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
-    ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  "The codecs each container's reader reads in place, which the registry's test holds equal to the codecs whose descriptors name the application as their reader there; a reader reaches them through `openAudio`.":
+    [
+      'packages/codecs/src/aiff-common.ts: AIFC_IN_PLACE_CODECS',
+      'packages/codecs/src/wave-format.ts: WAVE_IN_PLACE_CODECS',
+    ],
   'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':
     ['packages/audio-engine/src/pcm/stretched-content.ts: stretchCentre'],
   'The most unflagged frames inside one click, which the click tests place flags either side of; the de-click and the click detector read it through `joinsClick`.':

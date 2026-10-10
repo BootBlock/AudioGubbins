@@ -27,34 +27,14 @@ import {
 } from '@audiogubbins/domain';
 
 import { malformed, unsupportedSampleRate } from './codec-failures.js';
-import type { ReadableContainer, ReadableFormat, RecognisedFormat } from './recognised-format.js';
-
-/** The order of a sample's bytes. */
-export type ByteOrder = 'little' | 'big';
-
-/**
- * Integer PCM: `bits` valid bits, left-justified in `bytes` container bytes.
- * `signed` is false only for offset-binary samples, WAV's and AIFF-C `raw `'s
- * eight-bit form.
- */
-export interface IntegerSampleEncoding {
-  readonly kind: 'integer';
-  readonly bits: number;
-  readonly bytes: number;
-  readonly byteOrder: ByteOrder;
-  readonly signed: boolean;
-}
-
-/** IEEE-754 floating-point PCM. */
-export interface FloatSampleEncoding {
-  readonly kind: 'float';
-  readonly bits: 32 | 64;
-  readonly bytes: 4 | 8;
-  readonly byteOrder: ByteOrder;
-}
-
-/** How each sample is stored. */
-export type SampleEncoding = IntegerSampleEncoding | FloatSampleEncoding;
+import type { ReadableContainer, RecognisedFormat } from './recognised-format.js';
+import type {
+  ByteOrder,
+  FloatSampleEncoding,
+  IntegerSampleEncoding,
+  SampleEncoding,
+} from './sample-encoding.js';
+import { blockCoding } from './sample-coding.js';
 
 /** What a reader found in a file's header. */
 export interface AudioFormatDescriptor {
@@ -78,7 +58,11 @@ export interface AudioFormatDescriptor {
   /** The offset in the file of the first frame's first byte. */
   readonly dataOffset: number;
 
-  /** The bytes of one frame: one sample of each channel. */
+  /**
+   * The bytes of one block, the unit the samples are decoded in: one frame of
+   * uncompressed PCM or G.711, one sample of each channel, or one ADPCM block
+   * of the frames its encoding states.
+   */
   readonly blockAlign: number;
 }
 
@@ -87,10 +71,10 @@ export interface AudioFormatDescriptor {
  * reads, the rest of the parse.
  */
 export type FormatStage =
-  | { readonly readable: false; readonly format: Exclude<RecognisedFormat, ReadableFormat> }
+  | { readonly readable: false; readonly format: RecognisedFormat }
   | {
       readonly readable: true;
-      readonly format: ReadableFormat;
+      readonly format: RecognisedFormat;
       readonly describe: (
         signal: CancellationSignal | undefined,
       ) => Promise<DomainResult<AudioFormatDescriptor>>;
@@ -105,8 +89,14 @@ export interface HeaderFacts {
   readonly blockAlign: number;
   readonly dataOffset: number;
 
-  /** The frames the header declares, whole frames only. */
-  readonly declaredFrames: number;
+  /**
+   * How long the header says the samples are: in frames, where it states them,
+   * or as the bytes of its data, which hold the frames the encoding's blocks
+   * make of them.
+   */
+  readonly declared:
+    | { readonly kind: 'frames'; readonly frames: number }
+    | { readonly kind: 'bytes'; readonly bytes: number };
 
   /** The bytes of sample data the file holds from `dataOffset`, up to what was declared. */
   readonly presentBytes: number;
@@ -153,16 +143,11 @@ export function floatEncoding(
   );
 }
 
-/** Why a frame of these channels and samples cannot be, or `undefined` where it can. */
-function shapeProblem(facts: HeaderFacts): string | undefined {
-  const { channelCount, blockAlign, encoding } = facts;
+/** Why a file of these channels cannot be, or `undefined` where it can. */
+function channelProblem(channelCount: number): string | undefined {
   if (channelCount < 1) return 'The header states that the file has no channels.';
   if (channelCount > MAXIMUM_CHANNEL_COUNT) {
     return `The header states ${String(channelCount)} channels, more than the ${String(MAXIMUM_CHANNEL_COUNT)} AudioGubbins can hold.`;
-  }
-  if (blockAlign === 0) return 'The header states that each frame takes no bytes.';
-  if (blockAlign !== channelCount * encoding.bytes) {
-    return `The header states ${String(blockAlign)} bytes per frame, but ${String(channelCount)} channels of ${String(encoding.bytes)}-byte samples take ${String(channelCount * encoding.bytes)}.`;
   }
   return undefined;
 }
@@ -199,15 +184,21 @@ export function describeAudio(
   facts: HeaderFacts,
   statedLayout: (channelCount: number) => ChannelLayout | undefined,
 ): DomainResult<AudioFormatDescriptor> {
-  const problem = shapeProblem(facts);
+  const problem = channelProblem(facts.channelCount);
   if (problem !== undefined) return fail(malformed(problem));
+  const coding = blockCoding(facts.encoding, facts.channelCount, facts.blockAlign);
+  if (!coding.ok) return coding;
   const rate = sampleRate(facts.sampleRate);
   if (!rate.ok) return fail(unsupportedSampleRate(String(facts.sampleRate), rate.failures[0]));
   const stated = statedLayout(facts.channelCount);
-  const present = Math.min(facts.declaredFrames, Math.floor(facts.presentBytes / facts.blockAlign));
+  const declared =
+    facts.declared.kind === 'frames'
+      ? facts.declared.frames
+      : coding.value.framesIn(facts.declared.bytes);
+  const present = Math.min(declared, coding.value.framesIn(facts.presentBytes));
   return flatMapResult(layoutRead(stated, facts.channelCount), (layout) =>
     flatMapResult(sampleCount(present), (frames) =>
-      flatMapResult(sampleCount(facts.declaredFrames), (declaredFrames) =>
+      flatMapResult(sampleCount(declared), (declaredFrames) =>
         succeed({
           container: facts.container,
           sampleRate: rate.value,

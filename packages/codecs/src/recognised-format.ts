@@ -1,94 +1,65 @@
 /**
  * What a file is, as its contents say, and the sentence that names it.
  *
- * Recognition names the formats this package cannot read as well as those it
- * can, because REQ-AUDIO-220 refuses an unreadable file with a sentence naming
- * what it is: a person told "this is FLAC" knows what to convert, where one
- * told only "unsupported" does not.
+ * Recognition names every container it finds and the codec where the bytes it
+ * reads state one, including those no implementation serves, because a refused
+ * file is refused with a sentence naming what it is (REQ-AUDIO-220): a person
+ * told "this is Speex in Ogg" knows what to convert, where one told only
+ * "unsupported" does not. Whether a file is read in place, decoded or refused
+ * is the registry's answer, asked by the import route, never decided here.
  */
 
-/** The containers this package reads. */
+import type { CodecId, ContainerId } from './codec-descriptor.js';
+import { codecDescriptor } from './codec-registry.js';
+
+/** The containers this package reads samples from in place. */
 export type ReadableContainer = 'wav' | 'rf64' | 'bw64' | 'aiff' | 'aifc';
 
 /** The RIFF forms, which share one format chunk and one walk. */
 export type RiffContainer = 'wav' | 'rf64' | 'bw64';
 
-/** A file in a container whose samples this package reads. */
-export interface ReadableFormat {
-  readonly kind: ReadableContainer;
-}
-
-/** A file in a format of its own that this package does not read. */
-export interface ForeignFormat {
-  readonly kind: 'flac' | 'mp3' | 'ogg' | 'mp4';
-}
-
-/**
- * A RIFF file whose samples are compressed. `formatTag` is the format code,
- * from the extensible sub-format where the file uses one; `subFormat` is the
- * whole sub-format identifier where it is not one of the standard codes.
- */
-export interface CompressedWaveFormat {
-  readonly kind: 'compressed-wav';
-  readonly container: RiffContainer;
-  readonly formatTag: number;
-  readonly subFormat?: string;
-}
-
-/** An AIFF-C file whose compression type is not one of the uncompressed ones. */
-export interface CompressedAifcFormat {
-  readonly kind: 'compressed-aifc';
-  readonly compressionType: string;
-}
-
-/** A file whose contents name no format this package knows. */
-export interface UnknownFormat {
-  readonly kind: 'unknown';
-}
+/** A codec, as a file's contents state it. */
+export type StatedCodec =
+  /** A codec the registry names. */
+  | { readonly kind: 'named'; readonly codec: CodecId }
+  /** The container names its codec only past the bytes recognition reads, as MP4 and Matroska do. */
+  | { readonly kind: 'unstated' }
+  /** A code no descriptor covers, by the name its documentation gives it, or its code. */
+  | { readonly kind: 'unnamed'; readonly description: string };
 
 /** What a file is, as its contents say. */
 export type RecognisedFormat =
-  ReadableFormat | ForeignFormat | CompressedWaveFormat | CompressedAifcFormat | UnknownFormat;
+  | { readonly kind: 'audio'; readonly container: ContainerId; readonly codec: StatedCodec }
+  | { readonly kind: 'unknown' };
 
-/** The formats a refusal tells the person can be read. */
-export const READABLE_FORMATS_SENTENCE =
-  'AudioGubbins reads WAV (including RF64 and BW64), AIFF and uncompressed AIFF-C.';
+/** The format of a file whose container states a codec the registry names. */
+export function namedFormat(container: ContainerId, codec: CodecId): RecognisedFormat {
+  return { kind: 'audio', container, codec: { kind: 'named', codec } };
+}
 
-/** The common WAV compression codes, by the names their documentation gives them. */
-const WAVE_CODEC_NAMES: ReadonlyMap<number, string> = new Map([
-  [0x0002, 'Microsoft ADPCM'],
-  [0x0006, 'A-law'],
-  [0x0007, 'µ-law'],
-  [0x0011, 'IMA ADPCM'],
-  [0x0050, 'MPEG'],
-  [0x0055, 'MPEG Layer III'],
-]);
+/** The format of a file whose container states a code no descriptor covers. */
+export function unnamedFormat(container: ContainerId, description: string): RecognisedFormat {
+  return { kind: 'audio', container, codec: { kind: 'unnamed', description } };
+}
 
-/** The common AIFF-C compression types, by the names their documentation gives them. */
-const AIFC_CODEC_NAMES: ReadonlyMap<string, string> = new Map([
-  ['ulaw', 'µ-law'],
-  ['alaw', 'A-law'],
-  ['ima4', 'IMA 4:1 ADPCM'],
-  ['MAC3', 'MACE 3:1'],
-  ['MAC6', 'MACE 6:1'],
-  ['GSM ', 'GSM'],
-]);
-
-const CONTAINER_NAMES: Readonly<Record<RiffContainer, string>> = {
+/** Each container as a sentence names it. */
+const CONTAINER_NAMES: Readonly<Record<ContainerId, string>> = {
   wav: 'WAV',
   rf64: 'RF64',
   bw64: 'BW64',
-};
-
-const FOREIGN_NAMES: Readonly<Record<ForeignFormat['kind'], string>> = {
-  flac: 'FLAC audio',
-  mp3: 'MP3 audio',
-  ogg: 'Ogg audio',
-  mp4: 'MPEG-4 audio, such as M4A or AAC',
+  aiff: 'AIFF',
+  aifc: 'AIFF-C',
+  flac: 'FLAC',
+  mp3: 'MPEG',
+  ogg: 'Ogg',
+  mp4: 'MPEG-4',
+  adts: 'ADTS',
+  webm: 'WebM',
+  matroska: 'Matroska',
 };
 
 /** A format code as its documentation writes it, four hexadecimal digits. */
-function hexCode(value: number): string {
+export function hexCode(value: number): string {
   return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
 }
 
@@ -108,28 +79,18 @@ export function quotedCode(code: string): string {
   return `0x${bytes.join('')}`;
 }
 
-/**
- * The sentence naming a format this package does not read, without the list of
- * the formats it does.
- */
-export function formatSentence(format: Exclude<RecognisedFormat, ReadableFormat>): string {
-  switch (format.kind) {
-    case 'compressed-wav': {
-      const codec =
-        format.subFormat === undefined
-          ? (WAVE_CODEC_NAMES.get(format.formatTag) ?? `code ${hexCode(format.formatTag)}`)
-          : `sub-format ${format.subFormat}`;
-      return `This file is ${CONTAINER_NAMES[format.container]} audio compressed as ${codec}.`;
-    }
-    case 'compressed-aifc': {
-      const codec =
-        AIFC_CODEC_NAMES.get(format.compressionType) ??
-        `type ${quotedCode(format.compressionType)}`;
-      return `This file is AIFF-C audio compressed as ${codec}.`;
-    }
-    case 'unknown':
-      return 'This file is not in an audio format AudioGubbins recognises.';
-    default:
-      return `This file is ${FOREIGN_NAMES[format.kind]}.`;
+/** The sentence naming what a file is, without what can be done with it. */
+export function formatSentence(format: RecognisedFormat): string {
+  if (format.kind === 'unknown') {
+    return 'This file is not in an audio format AudioGubbins recognises.';
+  }
+  const container = CONTAINER_NAMES[format.container];
+  switch (format.codec.kind) {
+    case 'named':
+      return `This file is ${container} audio encoded as ${codecDescriptor(format.codec.codec).name}.`;
+    case 'unnamed':
+      return `This file is ${container} audio compressed as ${format.codec.description}.`;
+    case 'unstated':
+      return `This file is ${container} audio.`;
   }
 }
