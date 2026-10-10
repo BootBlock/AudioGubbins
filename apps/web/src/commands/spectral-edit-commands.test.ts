@@ -215,10 +215,25 @@ describe('cleaning up the spectral selection', () => {
     );
   });
 
-  it('says a model it cannot run is not heard, and the sound says why it cannot be heard', async () => {
+  it('says first that a model it cannot run would not be heard, changing nothing until told knowingly', async () => {
     const audio = await selectedLoop();
 
-    const said = await audio.window.runAndHear('spectral.process', { typeKey: 'deepfilternet-3' });
+    expect(audio.window.run('spectral.process', { typeKey: 'deepfilternet-3' })).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary: expect.stringMatching(
+            /^DeepFilterNet 3 cannot run because the model it needs is not available\. .+ Nothing changed: clean up with it knowingly to apply it now, heard once it can run\.$/,
+          ),
+        },
+      ],
+    });
+    expect(chainOf(audio)).toEqual([]);
+
+    const said = await audio.window.runAndHear('spectral.process', {
+      typeKey: 'deepfilternet-3',
+      knowingly: true,
+    });
 
     expect(said).toMatch(
       /It is not heard yet: DeepFilterNet 3 cannot run because the model it needs is not available\./,

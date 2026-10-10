@@ -4,7 +4,8 @@
  * decibels typed or removed, healing, and cleaning up with a restoration
  * processor, each analysed at the resolution chosen and run as the
  * `spectral.*` command of the same name; a processor whose model cannot run
- * says so before it is applied. Comparing the latest spectral edit with
+ * says so before it is applied, and its button then cleans up knowingly, as
+ * the command asks. Comparing the latest spectral edit with
  * before it, and hearing the original beside it, follow.
  */
 
@@ -89,7 +90,7 @@ function OperationButton({
 }: {
   readonly id: string;
   readonly label: string;
-  readonly args: Readonly<Record<string, string | number>>;
+  readonly args: Readonly<Record<string, string | number | boolean>>;
   readonly parts: RowParts;
 }): ReactNode {
   return (
@@ -149,7 +150,10 @@ function IsolateRow({ parts }: { readonly parts: RowParts }): ReactNode {
   );
 }
 
-/** Cleaning up with the restoration processor chosen, saying first where it cannot run. */
+/**
+ * Cleaning up with the restoration processor chosen, saying first where it
+ * cannot run, and then cleaning up with it knowingly.
+ */
 function CleanUpRow({ parts }: { readonly parts: RowParts }): ReactNode {
   const [typeKey, setTypeKey] = useState(CLEANUP_PROCESSORS[0]?.typeKey ?? '');
   useSyncExternalStore(parts.context.modelGate.subscribe, parts.context.modelGate.get);
@@ -165,8 +169,12 @@ function CleanUpRow({ parts }: { readonly parts: RowParts }): ReactNode {
         />
         <OperationButton
           id="spectral.process"
-          label="Clean up"
-          args={{ ...parts.base, typeKey }}
+          label={cannot === undefined ? 'Clean up' : 'Clean up anyway'}
+          args={
+            cannot === undefined
+              ? { ...parts.base, typeKey }
+              : { ...parts.base, typeKey, knowingly: true }
+          }
           parts={parts}
         />
       </div>

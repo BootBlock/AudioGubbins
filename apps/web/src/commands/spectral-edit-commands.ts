@@ -12,8 +12,9 @@
  * is typed in decibels and kept as the linear factor the domain holds,
  * converted once here. Cleaning up runs a restoration or model processor, new
  * to the project in a chain of its own that enters and leaves with the edit; a
- * processor whose model this page cannot run is applied all the same, as the
- * project keeps it, and the person is told why it is not heard. An edit the
+ * processor whose model this page cannot run is refused with the reason first,
+ * as ADR-0081 asks, and applied only when the invocation says `knowingly`, the
+ * project keeping it to be heard once it can run. An edit the
  * domain refuses, for its mask, its resolution, its gain or its chain, is
  * refused with the reason and nothing changes.
  */
@@ -278,6 +279,9 @@ function cleanUpCommand(): Command<ShellContext> {
       const processor = instantiateProcessor(context.ids.next<'ProcessorId'>(), descriptor);
       const chain: EffectChain = { id: context.ids.next<'EffectChainId'>(), slots: [processor] };
       const cannot = context.modelGate.get()(processor);
+      if (cannot !== undefined && invocation.arguments?.['knowingly'] !== true) {
+        return `${cannot} Nothing changed: clean up with it knowingly to apply it now, heard once it can run.`;
+      }
       const name = processorLabel(descriptor.typeKey);
       return applied(
         context,
@@ -291,7 +295,7 @@ function cleanUpCommand(): Command<ShellContext> {
     {
       keywords: ['clean', 'cleanup', 'repair', 'denoise', 'restore', 'model', 'spectral'],
       description:
-        'Runs a restoration processor over the spectral selection and takes its output there, in a chain of its own the Effects rack shows.',
+        'Runs a restoration processor over the spectral selection and takes its output there, in a chain of its own the Effects rack shows. One whose model cannot run here is applied only knowingly.',
     },
   );
 }
