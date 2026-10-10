@@ -4,10 +4,11 @@
  *
  * The map's Vorbis comments come first, then the cover as a `PICTURE` block,
  * then, where the person keeps them, the WAV `cue `, label and `smpl` chunks in
- * `APPLICATION` `riff` blocks, written by the WAV writer's own code, and last 8 KiB of `PADDING`, as the reference
- * encoder leaves, so a tag editor can change the metadata without rewriting the
- * audio. The comments carry the first loop as `LOOPSTART` and `LOOPLENGTH` as
- * well, which game engines read where they read no RIFF chunk.
+ * `APPLICATION` `riff` blocks, written by the WAV writer's own code, and last
+ * `PADDING` of 8 KiB, as the reference encoder leaves, so a tag editor can
+ * change the metadata without rewriting the audio. The comments carry the first
+ * loop as `LOOPSTART` and `LOOPLENGTH` as well, which game engines read where
+ * they read no RIFF chunk.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';

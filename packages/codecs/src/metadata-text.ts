@@ -10,8 +10,8 @@
  *   ID3v2 encoding 3. Each maximal ill-formed sequence is read as one U+FFFD,
  *   as the WHATWG decoder does, so a tag with one bad byte is still a tag.
  * - `utf-16` and `utf-16be`: ID3v2 encodings 1 and 2, in the order a leading
- *   byte order mark states, else little- or big-endian; a lone surrogate and
- *   an odd last byte are read as U+FFFD.
+ *   byte order mark states, else little- or big-endian; a lone surrogate and an
+ *   odd last byte are read as U+FFFD.
  * - `latin-1`: ID3v1, ID3v2 encoding 0 and media types, one byte one character.
  * - `unstated`: RIFF and IFF text, whose formats name no coding. The bytes are
  *   read as UTF-8 where all of them are valid UTF-8 (RFC 3629), and otherwise

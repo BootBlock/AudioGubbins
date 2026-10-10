@@ -135,8 +135,8 @@ export {
   missingStorageCapabilities,
 } from './storage-capabilities.js';
 
-// The browser's codecs and WebAssembly, read from a worker's or the page's scope
-// and probed, for the codec worker (ADR-0090, ADR-0091).
+// The browser's codecs and WebAssembly, read from a worker's or the page's
+// scope and probed, for the codec worker (ADR-0090, ADR-0091).
 export {
   type AudioDataClass,
   type AudioDataInit,

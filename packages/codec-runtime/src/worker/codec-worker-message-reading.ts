@@ -2,9 +2,9 @@
  * Reading a codec worker's message that crossed a thread, field by field
  * (REQ-EXEC-136.12): what the page and a connected client ask of the worker,
  * read by the worker before it acts, and what the worker answers, read by the
- * client before it shows or records anything. A file, a module and a port
- * are told by the members a reader uses, as the worker uses them; everything
- * else is rebuilt from its fields.
+ * client before it shows or records anything. A file, a module and a port are
+ * told by the members a reader uses, as the worker uses them; everything else
+ * is rebuilt from its fields.
  */
 
 import { metadataMapOf } from '@audiogubbins/codecs';

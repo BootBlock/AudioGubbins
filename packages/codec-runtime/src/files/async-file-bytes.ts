@@ -1,7 +1,7 @@
 /**
- * A file read synchronously, offered through the read contract's
- * asynchronous port, so the codecs' recognition and metadata readers read the
- * same file the codec module decodes, through the same reads (ADR-0090).
+ * A file read synchronously, offered through the read contract's asynchronous
+ * port, so the codecs' recognition and metadata readers read the same file the
+ * codec module decodes, through the same reads (ADR-0090).
  *
  * In a dedicated worker a synchronous read is allowed and as fast as it gets,
  * so each read is answered at once. A read that throws, as a file removed or

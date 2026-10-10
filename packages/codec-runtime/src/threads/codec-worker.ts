@@ -2,11 +2,11 @@
  * The codec worker: a module the browser loads as a dedicated worker, where
  * every file is analysed, decoded and encoded, never on the page (ADR-0090).
  *
- * It only connects the worker's global scope to `CodecWorkerCore`, which
- * holds everything the worker does, so that behaviour is tested without a
- * worker. What the scope offers the codecs is read through the capabilities
- * package, the one place the browser is asked (REQ-EXEC-136.4); the core is
- * handed that, the scope's synchronous file reader, and the factory that opens each export's
+ * It only connects the worker's global scope to `CodecWorkerCore`, which holds
+ * everything the worker does, so that behaviour is tested without a worker.
+ * What the scope offers the codecs is read through the capabilities package,
+ * the one place the browser is asked (REQ-EXEC-136.4); the core is handed that,
+ * the scope's synchronous file reader, and the factory that opens each export's
  * encoder. It is compiled again, with everything it imports, by
  * `scopes/dedicated-worker`, against a worker's definitions alone.
  */

@@ -405,7 +405,7 @@ module.exports = {
       severity: 'error',
       comment:
         'Import and export as values: the settings and their validation against a codec ' +
-        "descriptor, the presets, dither, naming, collision rules and the job machines, and the " +
+        'descriptor, the presets, dither, naming, collision rules and the job machines, and the ' +
         'graph an export renders through (ADR-0090, ADR-0092). It depends on the domain, the ' +
         "codecs' contracts and the engine's and graph's, and knows no browser, storage or worker; " +
         'the codec and storage workers run its jobs.',

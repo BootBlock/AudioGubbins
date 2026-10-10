@@ -3,14 +3,14 @@
  * rendered floating-point blocks into values each exactly `k / 2^(bits-1)`
  * for an integer `k` of the target depth (ADR-0092).
  *
- * Each sample is quantised by `quantiseSample`, the rule the writers apply,
- * so a writer given these values writes `k` back unchanged. Before it, the
- * sample has the dither added, rectangular or triangular noise drawn from the
- * counter-based generator under the export's key, one stream for each
- * channel, and, where noise shaping is asked, the filtered errors of the
- * samples before it subtracted (`noise-shaping.ts`). The error fed back is the
- * quantiser's own: where a sample is clipped at the depth's end, the overload
- * is not fed back, since a filter driven by it would ring.
+ * Each sample is quantised by `quantiseSample`, the rule the writers apply, so
+ * a writer given these values writes `k` back unchanged. Before it, the sample
+ * has the dither added, rectangular or triangular noise drawn from the
+ * counter-based generator under the export's key, one stream for each channel,
+ * and, where noise shaping is asked, the filtered errors of the samples before
+ * it subtracted (`noise-shaping.ts`). The error fed back is the quantiser's
+ * own: where a sample is clipped at the depth's end, the overload is not fed
+ * back, since a filter driven by it would ring.
  *
  * The step keeps its place and its filters' errors across blocks, and a draw
  * depends on the frame's place alone, so the blocks an export is rendered in

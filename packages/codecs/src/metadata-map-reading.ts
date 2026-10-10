@@ -4,12 +4,12 @@
  * read from a file to the storage worker beside the decoded audio, and the
  * parts an encoder could not write beside the encoded file.
  *
- * Each part is read field by field with the domain's message readers and
- * built again, never taken as it arrived, and every list and value is held to
- * the bounds the metadata readers keep (`metadata-limits.ts`), so a forged map
+ * Each part is read field by field with the domain's message readers and built
+ * again, never taken as it arrived, and every list and value is held to the
+ * bounds the metadata readers keep (`metadata-limits.ts`), so a forged map
  * costs a receiver no more than one read from a file could. A text value is
- * bounded in code units at twice its bound in characters, since a character
- * is at most two.
+ * bounded in code units at twice its bound in characters, since a character is
+ * at most two.
  */
 
 import {

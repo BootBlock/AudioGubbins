@@ -3,14 +3,14 @@
  * ADR-0091, ADR-0092).
  *
  * The worker's module (`threads/codec-worker.ts`) only connects this to its
- * global scope and hands it the scope's codec classes, file reader and
- * the export encoders' factory, so the whole of its behaviour runs in a test.
- * The page configures it once, with its compiled modules; each module loads
- * on the first request that needs it, and a load that fails makes only its
- * own formats unavailable. The browser's codecs are probed once, at start,
- * and every request waits for the probe, so no request is answered from a
- * guess. The page hears what the worker can do with each codec at first and
- * whenever a load changes it.
+ * global scope and hands it the scope's codec classes, file reader and the
+ * export encoders' factory, so the whole of its behaviour runs in a test. The
+ * page configures it once, with its compiled modules; each module loads on the
+ * first request that needs it, and a load that fails makes only its own formats
+ * unavailable. The browser's codecs are probed once, at start, and every
+ * request waits for the probe, so no request is answered from a guess. The page
+ * hears what the worker can do with each codec at first and whenever a load
+ * changes it.
  *
  * Requests come from the page and from each client the page connects, each
  * named by its client and answered to it once: analysed, decoded, encoded,

@@ -148,8 +148,8 @@ describe('the codec worker analysing a file', () => {
       bitsPerSample: 16,
       blockSize: 4_096,
     });
-    // A Vorbis comment block of more comments than the metadata readers' bound, which the
-    // decoder passes over.
+    // A Vorbis comment block of more comments than the metadata readers' bound,
+    // which the decoder passes over.
     const comments = 5_000;
     const body = new Uint8Array(8 + comments * 7);
     const view = new DataView(body.buffer);

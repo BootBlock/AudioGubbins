@@ -6,10 +6,9 @@
  * hands the encoders' modules to the encoders that instantiate them.
  *
  * A load that fails stays failed, and says why: the formats the module serves
- * are unavailable here with that reason, and every other format keeps
- * working (the packet's failure behaviour). Each load's progress is reported
- * as the registry's `ModuleLoad`, so the worker tells the page whenever one
- * changes.
+ * are unavailable here with that reason, and every other format keeps working
+ * (the packet's failure behaviour). Each load's progress is reported as the
+ * registry's `ModuleLoad`, so the worker tells the page whenever one changes.
  */
 
 import type { ModuleLoad } from '@audiogubbins/codecs';

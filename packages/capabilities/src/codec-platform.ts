@@ -279,9 +279,9 @@ const STEREO_44K = { sampleRate: 44_100, numberOfChannels: 2 } as const;
 const STEREO_48K = { sampleRate: 48_000, numberOfChannels: 2 } as const;
 
 /**
- * FLAC's `fLaC` and a stream information block for 16-bit stereo at
- * 44.1 kHz, which the registry asks a FLAC decoder's configuration to carry:
- * blocks of 4,096, frames and length unknown, no signature.
+ * FLAC's `fLaC` and a stream information block for 16-bit stereo at 44.1 kHz,
+ * which the registry asks a FLAC decoder's configuration to carry: blocks of
+ * 4,096, frames and length unknown, no signature.
  */
 const FLAC_DESCRIPTION = new Uint8Array([
   0x66, 0x4c, 0x61, 0x43, 0x80, 0x00, 0x00, 0x22, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00,
