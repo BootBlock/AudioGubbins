@@ -207,7 +207,12 @@ export function decodedReceiver(policy: CreditPolicy): DecodedReceiver {
     if (!read.ok) throw new Error(read.failures[0].summary);
     messages.push(read.value);
     if (read.value.kind === 'end' || read.value.kind === 'failed') finish(read.value);
-    else grant(1);
+    // Credit is granted a turn after a message is taken, as a write takes its time, so a
+    // sender that ran ahead of it would be seen to.
+    else
+      setTimeout(() => {
+        grant(1);
+      }, 1);
   });
   port2.start();
   grant(policy.window);
