@@ -39,3 +39,10 @@ export {
   oggPages,
   random,
 } from './compressed-fixtures.js';
+
+export {
+  vorbisAudioPacket,
+  vorbisComment,
+  vorbisIdentification,
+  vorbisSetup,
+} from './vorbis-packets.js';

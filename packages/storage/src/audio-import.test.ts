@@ -13,7 +13,7 @@ import { SourceHandling, type ExternalFile } from '@audiogubbins/media-store';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf, type ByteSource } from '@audiogubbins/project-format';
 
-import { importAudio } from './audio-import.js';
+import { importAudio } from './testing/one-file-import.js';
 import type { AudioImportServices } from './import-contracts.js';
 import { bytesSource } from './byte-streams.js';
 import { FillableTree } from './testing/fillable-tree.js';

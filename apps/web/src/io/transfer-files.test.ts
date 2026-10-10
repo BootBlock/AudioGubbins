@@ -110,6 +110,42 @@ describe('passing files where the browser has no pickers', () => {
     });
   });
 
+  it('hands over every audio file chosen through an input that takes several', async () => {
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+    const files = browserTransferFiles(undefined, undefined);
+
+    const media = files.chooseMediaFiles();
+    expect([openInput().multiple, openInput().accept]).toEqual([true, 'audio/*']);
+    const takes = ['take 1.wav', 'take 2.flac'].map((name) => {
+      const take = new File([name], name, { lastModified: 9 });
+      Object.defineProperty(take, 'webkitRelativePath', { value: '' });
+      return take;
+    });
+    choose(takes);
+
+    expect((await media).map((file) => file.fileName)).toEqual(['take 1.wav', 'take 2.flac']);
+  });
+
+  it('hands over every file of a folder chosen through the input, in the order they lie in it', async () => {
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+    const files = browserTransferFiles(undefined, undefined);
+
+    const folder = files.chooseMediaFolder();
+    expect(openInput().webkitdirectory).toBe(true);
+    const inside = ['Takes/Take 10.wav', 'notes.txt', 'Takes/Take 2.ogg'].map((path) => {
+      const file = new File([path], path.split('/').at(-1) ?? path);
+      Object.defineProperty(file, 'webkitRelativePath', { value: `Session/${path}` });
+      return file;
+    });
+    choose(inside);
+
+    expect((await folder).map((file) => file.relativePath)).toEqual([
+      'notes.txt',
+      'Takes/Take 2.ogg',
+      'Takes/Take 10.wav',
+    ]);
+  });
+
   it('brings nothing in where the person chooses nothing', async () => {
     vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
     const files = browserTransferFiles(undefined, undefined);
@@ -117,5 +153,9 @@ describe('passing files where the browser has no pickers', () => {
     const bundle = files.chooseBundle();
     openInput().dispatchEvent(new Event('cancel'));
     expect(await bundle).toBeUndefined();
+
+    const several = files.chooseMediaFiles();
+    openInput().dispatchEvent(new Event('cancel'));
+    expect(await several).toEqual([]);
   });
 });

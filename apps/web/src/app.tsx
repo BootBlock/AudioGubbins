@@ -274,7 +274,6 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                 if (!open) run(commandId('settings.close'));
               }}
               preferences={preferences}
-              trustedFolders={undefined}
               shortcuts={{
                 profile: shortcuts.profile,
                 available: shortcuts.available,
@@ -328,6 +327,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               projects={context.projects}
               exports={context.exports}
               presets={preferences.exportPresets}
+              codecs={context.codecs}
               section={interaction.projectsSection}
               run={runNamed}
               unavailableReason={unavailableReason}

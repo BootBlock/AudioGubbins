@@ -38,7 +38,6 @@ import {
   hexOf,
   type ByteSink,
   type ByteSource,
-  type ExportCodec,
   type StateFingerprint,
   type StorageTree,
 } from '@audiogubbins/project-format';
@@ -48,10 +47,14 @@ import { encodedOutOfOrder, exportCancelled } from './export-failures.js';
 import { stagedExportPaths, type StagedExportPaths } from './staging-paths.js';
 import { storageRefused } from './storage-failures.js';
 
-/** What an export was made from and with, which its record names once it is delivered. */
+/**
+ * What an export was made from and with, which its record names once it is
+ * delivered. The encoder that wrote it is not among them: the codec worker
+ * names it only once the file is encoded, as the staging finishes, so each
+ * delivery is given it (`deliverStaged`).
+ */
 export interface ExportOrigin {
   readonly settings: ExportSettings;
-  readonly codec: ExportCodec;
 
   /** Whether the codec gives the same bytes on every machine. */
   readonly reproducible: boolean;

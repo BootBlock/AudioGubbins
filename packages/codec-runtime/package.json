@@ -32,10 +32,10 @@
     "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/codecs": "workspace:*",
     "@audiogubbins/import-export": "workspace:*",
-    "@audiogubbins/capabilities": "workspace:*"
+    "@audiogubbins/capabilities": "workspace:*",
+    "@audiogubbins/version": "workspace:*"
   },
   "devDependencies": {
-    "vitest": "5.0.1",
-    "wasm-media-encoders": "0.7.0"
+    "vitest": "5.0.1"
   }
 }

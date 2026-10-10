@@ -146,7 +146,11 @@ function startCommand(): Command<ShellContext> {
       const [first] = dialog.planned.ok ? dialog.planned.value : [];
       if (first === undefined) return 'This export makes no file.';
       // Asked now, inside the person's gesture, which is when a browser opens its dialogs.
-      const destination = chooseDestination(dialog.destination, first, parts.exports.destinations);
+      const destination = chooseDestination(
+        dialog.destination,
+        first,
+        parts.stores.exportDestinations,
+      );
       sayWhenSettled(context, started(dialog, parts, destination), (said) => said);
       return undefined;
     },

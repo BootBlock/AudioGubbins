@@ -5,16 +5,16 @@
  * with a name taken in a folder.
  */
 
-import { useSyncExternalStore, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import type { CollisionPolicy } from '@audiogubbins/import-export';
 
-import type { ExportServices } from '../../export/export-types.js';
 import type {
   ExportDestinationDraft,
   ExportDialogStore,
   OpenExportDialog,
 } from '../../state/export-dialog-store.js';
+import type { KeptTrustedFolder } from '../../state/trusted-folders-store.js';
 import { POLICY_WORDS } from './export-words.js';
 import { ChoiceField, type Choice } from './setting-fields.js';
 
@@ -35,7 +35,7 @@ interface DestinationChoice {
 /** The destinations this browser offers: a file and a folder where it gives dialogs, each trusted folder, a download. */
 function destinationChoices(
   dialogs: boolean,
-  trusted: readonly { readonly key: string; readonly name: string }[],
+  trusted: readonly KeptTrustedFolder[],
 ): readonly DestinationChoice[] {
   return [
     ...(dialogs
@@ -66,17 +66,13 @@ function destinationKey(destination: ExportDestinationDraft): string {
 /** Where the files go, and what is done with a name taken there. */
 export function DestinationControls({
   open,
-  exports,
+  trusted,
   dialog,
 }: {
   readonly open: OpenExportDialog;
-  readonly exports: ExportServices;
+  readonly trusted: readonly KeptTrustedFolder[];
   readonly dialog: ExportDialogStore;
 }): ReactNode {
-  const trusted = useSyncExternalStore(
-    exports.destinations.trusted.subscribe,
-    exports.destinations.trusted.get,
-  );
   const choices = destinationChoices(open.dialogs, trusted);
   const { destination } = open;
   const policy =

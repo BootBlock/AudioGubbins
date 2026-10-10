@@ -36,9 +36,10 @@ import type {
 import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
+import type { CodecServices } from '../codecs/codec-services.js';
+import type { ExportControl } from '../export/export-types.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
-import type { ExportServices } from '../export/export-types.js';
 import type { PackManager } from '../ml/pack-manager.js';
 import type { RecordingParts } from '../recording/recording-part.js';
 import type { PictureSoundDecoder } from '../picture/picture-sound.js';
@@ -119,13 +120,6 @@ export interface ShellContext {
   /** What this browser lacks for keeping projects, and what that costs (REQ-EXEC-216). */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
 
-  /**
-   * The page's export: its control, what it is planned against, the codecs
-   * and the destinations (ADR-0092); absent where this browser cannot keep
-   * projects, since an export is staged in their storage.
-   */
-  readonly exports: ExportServices | undefined;
-
   /** What the audio engine is doing. */
   readonly audio: AudioViewStore;
 
@@ -165,6 +159,19 @@ export interface ShellContext {
   /** The reference picture, and the decoding of its sound. */
   readonly picture: ReferencePicture;
   readonly pictureSound: PictureSoundDecoder;
+
+  /**
+   * The page's export, one batch at a time (ADR-0092), absent where this
+   * browser cannot keep projects, since an export is staged in their storage.
+   */
+  readonly exports: ExportControl | undefined;
+
+  /**
+   * The codecs: what this browser can do with each, and the codec worker that
+   * analyses, decodes and encodes files, started on first use (ADR-0090).
+   * Present whether or not projects can be kept here.
+   */
+  readonly codecs: CodecServices;
 
   /** Files the person chose, held for the command that opens each. */
   readonly chosenFiles: ChosenFiles;

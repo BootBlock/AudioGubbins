@@ -8,7 +8,7 @@ import { SourceHandling, type ExternalFile, type ImportChoice } from '@audiogubb
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf } from '@audiogubbins/project-format';
 
-import { importAudio } from './audio-import.js';
+import { importAudio } from './testing/one-file-import.js';
 import type { StreamAnalysis } from './decoded-stream.js';
 import { bytesSource } from './byte-streams.js';
 import type { AudioImportServices } from './import-contracts.js';
@@ -160,8 +160,13 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
     );
     expect(staged(scene)).toEqual([]);
     expect(stream.refusals).toEqual([]);
+    expect(events[1]).toEqual({
+      kind: 'recognised',
+      format: { kind: 'audio', container: 'flac', codec: { kind: 'named', codec: 'flac' } },
+    });
     expect(events.map((event) => event.kind)).toEqual([
       'analyse',
+      'recognised',
       'copy',
       'copy-progress',
       'decode',

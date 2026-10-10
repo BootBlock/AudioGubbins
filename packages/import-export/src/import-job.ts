@@ -5,7 +5,9 @@
  * skipping a stage it does not need, a file linked rather than copied, or one
  * read in place rather than decoded to a rendition, but never going back; or it
  * is `refused` with the reason, or `cancelled`. One file's refusal stops
- * nothing else.
+ * nothing else. The format its analysis recognised is kept on its entry from
+ * then on, whatever the file comes to, so the job a page shows names what each
+ * file is without analysing any file a second time.
  *
  * Files run one at a time, with the codec worker decoding ahead by at most one:
  * a file leaves the queue only once every file before it has ended, save the
@@ -14,6 +16,7 @@
  * imported before stays.
  */
 
+import type { RecognisedFormat } from '@audiogubbins/codecs';
 import { fail, succeed, type DomainFailure, type DomainResult } from '@audiogubbins/domain';
 
 import { conflict } from './refusal.js';
@@ -44,10 +47,13 @@ export type ImportFileState =
   | { readonly kind: 'refused'; readonly stage: ImportStage; readonly failure: DomainFailure }
   | { readonly kind: 'cancelled'; readonly stage: ImportStage };
 
-/** One file of an import, and where it is. */
+/** One file of an import, where it is, and what its analysis recognised it to be. */
 export interface ImportEntry {
   readonly file: ImportFile;
   readonly state: ImportFileState;
+
+  /** The file's format as its bytes say, once its analysis recognised one. */
+  readonly format?: RecognisedFormat;
 }
 
 /** An import of a list of files, in the order they run. */
@@ -58,6 +64,8 @@ export interface ImportJob {
 /** What the workers report of one file. */
 export type ImportFileEvent =
   | { readonly kind: 'analyse' }
+  /** The format the analysis recognised, told once while the file is analysed. */
+  | { readonly kind: 'recognised'; readonly format: RecognisedFormat }
   | { readonly kind: 'copy'; readonly bytesTotal: number }
   | { readonly kind: 'copy-progress'; readonly bytesCopied: number }
   | { readonly kind: 'decode'; readonly framesTotal: number | undefined }
@@ -174,6 +182,11 @@ export function nextImportJob(
   if (reason !== undefined) return refused(entry.state, event, reason);
   if (event.kind === 'add' && job.entries.slice(0, index).some((one) => !isEnded(one.state))) {
     return refused(entry.state, event, 'files are added in order, one at a time.');
+  }
+  if (event.kind === 'recognised') {
+    return entry.state.kind === 'analysing' && entry.format === undefined
+      ? succeed({ entries: job.entries.with(index, { ...entry, format: event.format }) })
+      : refused(entry.state, event, "a file's format is recognised once, while it is analysed.");
   }
   const next = stepped(entry.state, event);
   if (!next.ok) return next;

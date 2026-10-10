@@ -28,6 +28,7 @@ import type { ProjectStores } from '../state/project-stores.js';
 import type { UnreadText } from '../state/text-custody.js';
 import { Backups } from './settings/backups.js';
 import { ExportPresetsSection } from './settings/export-presets.js';
+import { TrustedFoldersSection } from './settings/trusted-folders.js';
 import { ProjectSettings } from './settings/projects.js';
 import type { RunCommand } from './settings/section.js';
 import { Shortcuts, type ShortcutsProps } from './settings/shortcuts.js';
@@ -39,13 +40,6 @@ export interface SettingsDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 
   readonly preferences: UserPreferences;
-
-  /**
-   * The trusted folders' section, shown in the Export tab below the person's
-   * presets, and absent where this browser keeps no projects, since a trusted
-   * folder is kept with them.
-   */
-  readonly trustedFolders: ReactNode;
 
   /** Runs a command by identifier, which is how every control acts. */
   readonly run: RunCommand;
@@ -110,7 +104,10 @@ function projectTabs(props: SettingsDialogProps) {
   ];
 }
 
-/** The Export tab: the person's own presets, and the trusted folders' section where projects are kept. */
+/**
+ * The Export tab: the person's own presets, and where this browser keeps
+ * projects, the folders kept trusted, which are kept with them.
+ */
 function exportTab(props: SettingsDialogProps) {
   return {
     value: 'export',
@@ -118,7 +115,9 @@ function exportTab(props: SettingsDialogProps) {
     content: (
       <div className="ag-settings-section">
         <ExportPresetsSection presets={props.preferences.exportPresets} run={props.run} />
-        {props.trustedFolders}
+        {props.projects !== undefined && (
+          <TrustedFoldersSection store={props.projects.trustedFolders} run={props.run} />
+        )}
       </div>
     ),
   };

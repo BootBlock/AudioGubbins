@@ -26,6 +26,8 @@ import {
   textOf,
 } from '@audiogubbins/domain';
 
+import type { EncoderIdentity } from '../encoding/encoder-identity.js';
+
 /** Every codec the registry names. */
 const CODECS: Readonly<Record<string, CodecId>> = Object.fromEntries(
   [...CODEC_REGISTRY.keys()].map((id) => [id, id]),
@@ -63,11 +65,11 @@ const MODULE_LOADS: Readonly<Record<ModuleLoad, ModuleLoad>> = {
 const IMPLEMENTATIONS: Readonly<Record<CodecImplementation, CodecImplementation>> = {
   application: 'application',
   'codec-module': 'codec-module',
-  'prebuilt-module': 'prebuilt-module',
+  'encoder-module': 'encoder-module',
   browser: 'browser',
 };
 
-/** The longest name or version a decoder's identity carries. */
+/** The longest name or version a decoder's or an encoder's identity carries. */
 const MAXIMUM_IDENTITY_CHARACTERS = 128;
 
 export function codecOf(value: unknown, field: string): CodecId {
@@ -98,7 +100,7 @@ function codecSetOf(value: unknown, field: string): ReadonlySet<CodecId> {
   );
 }
 
-/** The load of each prebuilt module, by the codec it encodes. */
+/** The load of each encoder module, by the codec it encodes. */
 function moduleLoadsOf(value: unknown, field: string): ReadonlyMap<CodecId, ModuleLoad> {
   const entries = membersOf(value, field, 'Map');
   return new Map(
@@ -117,7 +119,7 @@ export function codecEnvironmentOf(value: unknown, field: string): CodecEnvironm
   return {
     webAssembly: flagOf(fields['webAssembly'], `${field}.webAssembly`),
     codecModule: oneOfValues(fields['codecModule'], `${field}.codecModule`, MODULE_LOADS),
-    prebuiltModules: moduleLoadsOf(fields['prebuiltModules'], `${field}.prebuiltModules`),
+    encoderModules: moduleLoadsOf(fields['encoderModules'], `${field}.encoderModules`),
     browserDecoders: codecSetOf(fields['browserDecoders'], `${field}.browserDecoders`),
     browserEncoders: codecSetOf(fields['browserEncoders'], `${field}.browserEncoders`),
   };
@@ -129,6 +131,18 @@ function identityTextOf(value: unknown, field: string): string {
     throw new Malformed(field, `text of 1 to ${String(MAXIMUM_IDENTITY_CHARACTERS)} characters`);
   }
   return text;
+}
+
+export function encoderIdentityOf(value: unknown, field: string): EncoderIdentity {
+  const fields = fieldsOf(value, field);
+  return {
+    implementation: oneOfValues(
+      fields['implementation'],
+      `${field}.implementation`,
+      IMPLEMENTATIONS,
+    ),
+    version: identityTextOf(fields['version'], `${field}.version`),
+  };
 }
 
 export function decoderIdentityOf(value: unknown, field: string): DecoderIdentity {

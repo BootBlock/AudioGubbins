@@ -25,7 +25,6 @@ import type { CollisionReply } from '@audiogubbins/storage';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
-import type { CodecServices } from '../codecs/codec-services.js';
 import type { Observable } from '../state/observable.js';
 
 /**
@@ -145,49 +144,3 @@ export type ExportContextOf = (
   asset: EditorAsset,
   state: ProjectState,
 ) => DomainResult<ExportContext>;
-
-/** A folder kept trusted for exports, as the Export dialog offers it. */
-export interface TrustedFolderEntry {
-  /** The key it is kept under, which a delivery into it names. */
-  readonly key: string;
-
-  /** Its name, as the browser gives it. */
-  readonly name: string;
-}
-
-/**
- * Where this browser lets an export be delivered, and the person asked where,
- * inside the gesture that starts the export: a save dialog's file, a folder
- * they choose, a folder they keep trusted, or a download where the browser
- * gives no dialog (REQ-GODOT-046, REQ-EXEC-216).
- */
-export interface ExportDestinations {
-  /** Whether the browser gives a save dialog and a folder dialog; where not, an export is downloaded. */
-  readonly dialogs: boolean;
-
-  /** The folders kept trusted, in the order each was marked. */
-  readonly trusted: Observable<readonly TrustedFolderEntry[]>;
-
-  /**
-   * Asks the person for the file to save `suggested` as, granted to be
-   * written; `undefined` where they dismissed the dialog. Refused where the
-   * browser gives no dialog or refuses the grant.
-   */
-  chooseFile(suggested: string): Promise<DomainResult<FileSystemFileHandle | undefined>>;
-
-  /** Asks the person for a folder to deliver into, granted to be written, as `chooseFile` asks. */
-  chooseFolder(): Promise<DomainResult<FileSystemDirectoryHandle | undefined>>;
-}
-
-/**
- * The page's export, as its commands and the Export dialog reach it: the
- * control that runs it, what it is planned against, what this browser's
- * codecs can write, and where it may be delivered. Made by the composition
- * root where projects are kept, since an export is staged in their storage.
- */
-export interface ExportServices {
-  readonly control: ExportControl;
-  readonly contextOf: ExportContextOf;
-  readonly codecs: CodecServices;
-  readonly destinations: ExportDestinations;
-}

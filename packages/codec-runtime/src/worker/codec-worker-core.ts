@@ -9,7 +9,8 @@
  * first request that needs it, and a load that fails makes only its own formats
  * unavailable. The browser's codecs are probed once, at start, and every
  * request waits for the probe, so no request is answered from a guess. The page
- * hears what the worker can do with each codec at first and whenever a load
+ * hears what the worker can do with each codec once it is both probed and
+ * configured, so the first word it hears is whole, and again whenever a load
  * changes it.
  *
  * Requests come from the page and from each client the page connects, each
@@ -42,7 +43,7 @@ import {
   type CodecRequest,
   type FromCodecWorker,
   type ModuleSource,
-  type PrebuiltEncoder,
+  type EncoderModuleName,
 } from './codec-worker-messages.js';
 import { readCodecRequest, readToCodecWorker } from './codec-worker-message-reading.js';
 import { runDecode } from './decode-job.js';
@@ -50,7 +51,7 @@ import { runEncode, type OpenExportEncoder } from './encode-job.js';
 import type { ImportServices } from './import-opening.js';
 import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
 import { JobQueue, abandonStreams, answerJob, type Client, type Job } from './job-queue.js';
-import { codecModuleLoad, prebuiltModuleLoad, type OnceLoaded } from './module-loading.js';
+import { codecModuleLoad, encoderModuleLoad, type OnceLoaded } from './module-loading.js';
 
 /** What the worker's scope gives the core. */
 export interface CodecWorkerHost {
@@ -74,16 +75,16 @@ export interface CodecWorkerHost {
 /** The modules, once the page has said where they are. */
 interface Modules {
   readonly codec: OnceLoaded<CodecModule>;
-  readonly prebuilt: Readonly<Record<PrebuiltEncoder, OnceLoaded<WebAssembly.Module>>>;
+  readonly encoders: Readonly<Record<EncoderModuleName, OnceLoaded<WebAssembly.Module>>>;
 }
 
-/** The prebuilt encoders, by the codec each encodes. */
-const PREBUILT_CODECS: Readonly<Record<PrebuiltEncoder, CodecId>> = {
+/** The encoder modules, by the codec each encodes. */
+const ENCODER_MODULE_CODECS: Readonly<Record<EncoderModuleName, CodecId>> = {
   mp3: 'mp3',
   vorbis: 'vorbis',
 };
 
-const PREBUILT_ENCODERS: readonly PrebuiltEncoder[] = ['mp3', 'vorbis'];
+const ENCODER_MODULES: readonly EncoderModuleName[] = ['mp3', 'vorbis'];
 
 const UNCONFIGURED: DomainFailure = failure(
   'codec-runtime.worker-unconfigured',
@@ -128,7 +129,7 @@ export class CodecWorkerCore {
     };
     this.#probed = host.probe().then((probes) => {
       this.#probes = probes;
-      this.#tellEnvironment();
+      if (this.#modules !== undefined) this.#tellEnvironment();
       return probes;
     });
     this.#analyses = new JobQueue((job) => this.#runJob(job));
@@ -137,15 +138,15 @@ export class CodecWorkerCore {
 
   /** What the worker can do with each codec now. */
   environment(): CodecEnvironment {
-    const prebuilt = new Map<CodecId, ModuleLoad>();
-    for (const encoder of PREBUILT_ENCODERS) {
-      const state = this.#modules?.prebuilt[encoder].state ?? 'not-loaded';
-      if (state !== 'not-loaded') prebuilt.set(PREBUILT_CODECS[encoder], state);
+    const encoders = new Map<CodecId, ModuleLoad>();
+    for (const encoder of ENCODER_MODULES) {
+      const state = this.#modules?.encoders[encoder].state ?? 'not-loaded';
+      if (state !== 'not-loaded') encoders.set(ENCODER_MODULE_CODECS[encoder], state);
     }
     return {
       ...this.#probes,
       codecModule: this.#modules?.codec.state ?? 'not-loaded',
-      prebuiltModules: prebuilt,
+      encoderModules: encoders,
     };
   }
 
@@ -163,7 +164,7 @@ export class CodecWorkerCore {
     const message = read.value;
     switch (message.kind) {
       case ToCodecWorkerKind.Configure:
-        this.#configure(message.codecModule, message.prebuiltEncoders);
+        this.#configure(message.codecModule, message.encoderModules);
         return;
       case ToCodecWorkerKind.Connect:
         this.#connect(message.port);
@@ -180,7 +181,7 @@ export class CodecWorkerCore {
 
   #configure(
     codecModule: ModuleSource,
-    prebuilt: Readonly<Record<PrebuiltEncoder, ModuleSource>>,
+    encoderSources: Readonly<Record<EncoderModuleName, ModuleSource>>,
   ): void {
     if (this.#modules !== undefined) {
       this.#page.post({
@@ -198,11 +199,16 @@ export class CodecWorkerCore {
     };
     this.#modules = {
       codec: codecModuleLoad(codecModule, changed),
-      prebuilt: {
-        mp3: prebuiltModuleLoad('MP3', prebuilt.mp3, changed),
-        vorbis: prebuiltModuleLoad('Vorbis', prebuilt.vorbis, changed),
+      encoders: {
+        mp3: encoderModuleLoad('MP3', encoderSources.mp3, changed),
+        vorbis: encoderModuleLoad('Vorbis', encoderSources.vorbis, changed),
       },
     };
+    // A module the page had none of has failed already, which the page hears
+    // with the probe's findings, as its first word or straight after it.
+    void this.#probed.then(() => {
+      this.#tellEnvironment();
+    });
   }
 
   /** Serves another client's requests over `port`. */
@@ -305,8 +311,9 @@ export class CodecWorkerCore {
           this.#host.openExportEncoder,
           {
             codecModule: () => modules.codec.get(),
-            prebuiltModule: (encoder) => modules.prebuilt[encoder].get(),
+            encoderModule: (encoder) => modules.encoders[encoder].get(),
             encoding: this.#host.platform.encoding,
+            browser: this.#host.platform.browser,
           },
           context,
         );

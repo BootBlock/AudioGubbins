@@ -36,6 +36,7 @@ import {
   codecOf,
   containerOf,
   decoderIdentityOf,
+  encoderIdentityOf,
   readableContainerOf,
 } from './codec-values-reading.js';
 import {
@@ -47,7 +48,7 @@ import {
   type ImportAnalysis,
   type MetadataOutcome,
   type ModuleSource,
-  type PrebuiltEncoder,
+  type EncoderModuleName,
   type ToCodecWorker,
 } from './codec-worker-messages.js';
 import { exportEncodeRequestOf } from './encode-request-reading.js';
@@ -127,13 +128,13 @@ function moduleSourceOf(value: unknown, field: string): ModuleSource {
   }
 }
 
-function prebuiltEncodersAt(
+function encoderModulesAt(
   fields: MessageFields,
-): Readonly<Record<PrebuiltEncoder, ModuleSource>> {
-  const encoders = fieldsAt(fields, 'prebuiltEncoders');
+): Readonly<Record<EncoderModuleName, ModuleSource>> {
+  const encoders = fieldsAt(fields, 'encoderModules');
   return {
-    mp3: moduleSourceOf(encoders['mp3'], 'prebuiltEncoders.mp3'),
-    vorbis: moduleSourceOf(encoders['vorbis'], 'prebuiltEncoders.vorbis'),
+    mp3: moduleSourceOf(encoders['mp3'], 'encoderModules.mp3'),
+    vorbis: moduleSourceOf(encoders['vorbis'], 'encoderModules.vorbis'),
   };
 }
 
@@ -172,7 +173,7 @@ export function readToCodecWorker(value: unknown): DomainResult<ToCodecWorker> {
         return {
           kind: ToCodecWorkerKind.Configure,
           codecModule: moduleSourceOf(fields['codecModule'], 'codecModule'),
-          prebuiltEncoders: prebuiltEncodersAt(fields),
+          encoderModules: encoderModulesAt(fields),
         };
       case ToCodecWorkerKind.Connect:
         return { kind: ToCodecWorkerKind.Connect, port: portAt(fields, 'port') };
@@ -281,6 +282,7 @@ const ANSWER_READERS: Readonly<
     kind: FromCodecWorkerKind.Encoded,
     request: requestAt(fields),
     frames: sampleCountAt(fields, 'frames'),
+    encoder: encoderIdentityOf(fields['encoder'], 'encoder'),
   }),
   [FromCodecWorkerKind.Failed]: (fields) => ({
     kind: FromCodecWorkerKind.Failed,

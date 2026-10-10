@@ -30,6 +30,9 @@ export interface SettingsProps {
 /** What a format's encoding controls are given: its settings, and how to set its encoding. */
 export interface EncodingProps<F extends ExportFormat> {
   readonly settings: ExportSettingsOf<F>;
+
+  /** What the settings are planned against, whose codecs state the bit rates they take. */
+  readonly context: ExportContext;
   readonly onEncoding: (encoding: FormatEncodings[F]) => void;
 }
 

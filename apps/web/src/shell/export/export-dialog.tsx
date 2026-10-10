@@ -15,11 +15,12 @@ import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Button, ButtonTone, ModalDialog, TextField } from '@audiogubbins/design-system';
 
 import { ExportCommand } from '../../commands/import-export-ids.js';
-import { exportBlockers } from '../../export/export-blockers.js';
-import type { ExportServices } from '../../export/export-types.js';
+import { exportBlockers, keptFolders } from '../../export/export-blockers.js';
+import type { CodecServices } from '../../codecs/codec-services.js';
 import { EXPORT_DIALOG_WORDS } from '../../import-export-words.js';
 import type { ExportDialogStore, OpenExportDialog } from '../../state/export-dialog-store.js';
 import type { OwnExportPreset } from '../../state/stored-export-presets.js';
+import type { TrustedFoldersStore } from '../../state/trusted-folders-store.js';
 import { NotedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 import { CommonControls } from './common-controls.js';
@@ -33,7 +34,11 @@ import { RangeControl } from './range-control.js';
 /** What the dialog reads and runs. */
 export interface ExportDialogProps {
   readonly dialog: ExportDialogStore;
-  readonly exports: ExportServices;
+  /** What this browser's codecs can write, which the formats are offered by. */
+  readonly codecs: CodecServices;
+
+  /** The folders kept trusted, offered as destinations. */
+  readonly trusted: TrustedFoldersStore;
 
   /** The person's own presets, as their preferences keep them. */
   readonly presets: readonly OwnExportPreset[];
@@ -83,7 +88,7 @@ function EverySetting({
       <summary>{EXPORT_DIALOG_WORDS.everySetting}</summary>
       <fieldset className="ag-settings-group">
         <legend>Encoding</legend>
-        <EncodingControls settings={open.settings} onSettings={set} />
+        <EncodingControls settings={open.settings} context={open.context} onSettings={set} />
       </fieldset>
       <CommonControls settings={open.settings} context={open.context} onSettings={set} />
       <SavePreset run={run} />
@@ -99,14 +104,12 @@ function OpenDialogBody({
   readonly open: OpenExportDialog;
   readonly props: ExportDialogProps;
 }): ReactNode {
-  const { dialog, exports, presets } = props;
-  const trusted = useSyncExternalStore(
-    exports.destinations.trusted.subscribe,
-    exports.destinations.trusted.get,
-  );
+  const { dialog, codecs, presets } = props;
+  const trustedState = useSyncExternalStore(props.trusted.subscribe, props.trusted.get);
+  const trusted = keptFolders(trustedState);
   // Followed so the formats this browser cannot write are said as a module fails to load.
-  useSyncExternalStore(exports.codecs.environment.subscribe, exports.codecs.environment.get);
-  const blockers = exportBlockers(open, exports);
+  useSyncExternalStore(codecs.environment.subscribe, codecs.environment.get);
+  const blockers = exportBlockers(open, codecs, trustedState);
   const sentence =
     blockers.length === 0 && open.planned.ok
       ? whatWillHappen(
@@ -125,9 +128,9 @@ function OpenDialogBody({
         onRange={dialog.chooseRange}
       />
       <Presets open={open} own={presets} dialog={dialog} />
-      <FormatControl open={open} exports={exports} dialog={dialog} />
+      <FormatControl open={open} codecs={codecs} dialog={dialog} />
       <EverySetting open={open} dialog={dialog} run={props.run} />
-      <DestinationControls open={open} exports={exports} dialog={dialog} />
+      <DestinationControls open={open} trusted={trusted} dialog={dialog} />
       <Outcome blockers={blockers} sentence={sentence} />
     </>
   );

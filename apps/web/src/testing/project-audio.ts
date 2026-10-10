@@ -34,7 +34,7 @@ import { sine, stereo, wavFile, type SignalFixture } from '@audiogubbins/test-fi
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { assetEntryId } from '../assets/project-entry.js';
 import { projectWorld, type ProjectWindow, type ProjectWorld } from './project-context.js';
-import type { ExportServices } from '../export/export-types.js';
+import type { ExportControl } from '../export/export-types.js';
 
 /** When every import here happens. */
 const IMPORTED_AT = 1_790_000_000_000;
@@ -85,7 +85,7 @@ export async function windowWithAudio(
   options: {
     readonly world?: ProjectWorld;
     /** The page's export the window offers, where a test gives one. */
-    readonly exports?: ExportServices;
+    readonly exports?: ExportControl;
     readonly fixture?: SignalFixture;
     readonly name?: string;
     readonly markers?: readonly { readonly name: string; readonly at: number }[];
@@ -104,21 +104,32 @@ export async function windowWithAudio(
   const session = window.projects.project.session();
   if (session === undefined) throw new Error('The project did not open to change.');
   const name = options.name ?? 'Loop';
-  const imported = await window.services.client.media.importFile(session, {
-    file: {
-      bytes: {
-        kind: 'file',
-        file: new File([wavFile(options.fixture ?? sixSecondsOfStereo())], `${name}.wav`),
-      },
-      fileName: `${name}.wav`,
-      mediaType: 'audio/wav',
-      lastModified: IMPORTED_AT,
+  const ended = await window.services.client.imports.importFiles(
+    session,
+    {
+      files: [
+        {
+          file: {
+            bytes: {
+              kind: 'file',
+              file: new File([wavFile(options.fixture ?? sixSecondsOfStereo())], `${name}.wav`),
+            },
+            fileName: `${name}.wav`,
+            mediaType: 'audio/wav',
+            lastModified: IMPORTED_AT,
+          },
+          assetId: window.storage.ids.next<'AssetId'>(),
+        },
+      ],
+      choice: { mode: SourceHandling.Copy },
+      importedAt: IMPORTED_AT,
     },
-    choice: { mode: SourceHandling.Copy },
-    assetId: window.storage.ids.next<'AssetId'>(),
-    importedAt: IMPORTED_AT,
-  });
-  const assetId = expectSuccess(imported).asset.id;
+    () => undefined,
+  );
+  const [imported] = ended.outcomes;
+  if (imported?.kind !== 'imported')
+    throw new Error(`The fixture was not imported: ${imported?.kind ?? 'no outcome'}.`);
+  const assetId = imported.imported.asset.id;
   const at = (frames: number): SampleCount => expectSuccess(sampleCount(frames));
   for (const marker of options.markers ?? []) {
     expectSuccess(

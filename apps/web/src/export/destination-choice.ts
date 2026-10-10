@@ -10,7 +10,8 @@ import { succeed, type DomainResult } from '@audiogubbins/domain';
 import type { PlannedFile } from '@audiogubbins/import-export';
 
 import type { ExportDestinationDraft } from '../state/export-dialog-store.js';
-import type { ExportDestinationChoice, ExportDestinations } from './export-types.js';
+import type { ExportDestinations } from '../io/export-destinations.js';
+import type { ExportDestinationChoice } from './export-types.js';
 
 /** Why a save dialog's one file cannot take an export of several. */
 function oneFileProblem(files: number): string {
@@ -57,11 +58,9 @@ export async function chooseDestination(
       return succeed({ kind: 'download' });
     case 'trusted-folder':
       return succeed(draft);
-    case 'file': {
-      const chosen = await destinations.chooseFile(suggestedName(first));
-      if (!chosen.ok || chosen.value === undefined) return chosen.ok ? succeed(undefined) : chosen;
-      return succeed({ kind: 'file', handle: chosen.value });
-    }
+    case 'file':
+      // A download, where the browser gives no save dialog.
+      return succeed(await destinations.chooseFile(suggestedName(first)));
     case 'folder': {
       const chosen = await destinations.chooseFolder();
       if (!chosen.ok || chosen.value === undefined) return chosen.ok ? succeed(undefined) : chosen;

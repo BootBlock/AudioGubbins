@@ -14,7 +14,7 @@ import {
 } from '@audiogubbins/import-export';
 
 import { unavailableSentence } from '../../export/export-blockers.js';
-import type { ExportServices } from '../../export/export-types.js';
+import type { CodecServices } from '../../codecs/codec-services.js';
 import type { ExportDialogStore, OpenExportDialog } from '../../state/export-dialog-store.js';
 import { FORMAT_ORDER } from './export-words.js';
 import { ChoiceField, type Choice } from './setting-fields.js';
@@ -22,11 +22,11 @@ import { ChoiceField, type Choice } from './setting-fields.js';
 /** Each format, saying where this browser cannot write it. */
 function formatChoices(
   open: OpenExportDialog,
-  exports: ExportServices,
+  codecs: CodecServices,
 ): readonly Choice<ExportFormat>[] {
   return FORMAT_ORDER.map((format) => {
     const codec = exportTarget(defaultExportSettings(format, open.context)).codec;
-    const capability = exports.codecs.capability(codec, 'write');
+    const capability = codecs.capability(codec, 'write');
     return {
       value: format,
       label:
@@ -40,20 +40,20 @@ function formatChoices(
 /** The format, and why this browser cannot write it where it cannot. */
 export function FormatControl({
   open,
-  exports,
+  codecs,
   dialog,
 }: {
   readonly open: OpenExportDialog;
-  readonly exports: ExportServices;
+  readonly codecs: CodecServices;
   readonly dialog: ExportDialogStore;
 }): ReactNode {
-  const capability = exports.codecs.capability(exportTarget(open.settings).codec, 'write');
+  const capability = codecs.capability(exportTarget(open.settings).codec, 'write');
   return (
     <>
       <ChoiceField
         label="Format"
         value={open.settings.format}
-        choices={formatChoices(open, exports)}
+        choices={formatChoices(open, codecs)}
         onChoose={dialog.chooseFormat}
       />
       {capability.kind === 'unavailable' && (

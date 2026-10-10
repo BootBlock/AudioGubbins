@@ -10,7 +10,8 @@ import { ExportDialogStore } from '../../state/export-dialog-store.js';
 import { observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { EXPORT_CLOCK, exportContextOver } from '../../testing/export-contexts.js';
-import { LOADED_CODECS, scriptedExport } from '../../testing/export-services.js';
+import { TrustedFoldersStore } from '../../state/trusted-folders-store.js';
+import { ScriptedCodecs } from '../../testing/codec-fakes.js';
 import { renderInTheShell } from '../../testing/in-the-shell.js';
 import { ExportDialog } from './export-dialog.js';
 
@@ -30,12 +31,13 @@ function shown(dialogs = true) {
     kept: undefined,
     dialogs,
   });
-  const exporting = scriptedExport(undefined, dialogs);
+  const codecs = new ScriptedCodecs();
   const ran: { readonly id: string; readonly args: unknown }[] = [];
   renderInTheShell(
     <ExportDialog
       dialog={dialog}
-      exports={exporting.services}
+      codecs={codecs}
+      trusted={new TrustedFoldersStore(undefined)}
       presets={[]}
       run={(id, args) => {
         ran.push({ id, args });
@@ -44,7 +46,7 @@ function shown(dialogs = true) {
       unavailableReason={() => undefined}
     />,
   );
-  return { dialog, exporting, ran };
+  return { dialog, codecs, ran };
 }
 
 function settingsOf(dialog: ExportDialogStore) {
@@ -163,10 +165,10 @@ describe('the Export dialog', () => {
   });
 
   it('names a format this browser cannot write, and what it can instead', async () => {
-    const { exporting } = shown();
-    exporting.environment.set({
-      ...LOADED_CODECS,
-      prebuiltModules: new Map([
+    const { codecs } = shown();
+    codecs.adopt({
+      ...codecs.environment.get(),
+      encoderModules: new Map([
         ['mp3', 'failed'],
         ['vorbis', 'loaded'],
       ]),
@@ -175,7 +177,9 @@ describe('the Export dialog', () => {
     await choose('Format', 'MP3, which this browser cannot write');
 
     expect(
-      screen.getAllByText(/The MP3 encoder could not be loaded.*can be written here instead\./u)[0],
+      screen.getAllByText(
+        /The MP3 encoder .*could not be loaded.*can be written here instead\./u,
+      )[0],
     ).toBeVisible();
   });
 

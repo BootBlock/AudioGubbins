@@ -1,23 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
 import { FakeDirectoryHandle, FakeFileHandle } from '@audiogubbins/browser-storage/testing';
+import { commandId } from '@audiogubbins/commands';
 import { fail, failure, FailureKind } from '@audiogubbins/domain';
 import { exportBatch } from '@audiogubbins/import-export';
 
 import type { OpenExportDialog } from '../state/export-dialog-store.js';
+import { ScriptedCodecs } from '../testing/codec-fakes.js';
+import { busOfShellCommands } from '../testing/command-availability.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
-import { LOADED_CODECS, scriptedExport, type ScriptedExport } from '../testing/export-services.js';
+import { ScriptedExportControl } from '../testing/scripted-export-control.js';
 import { ExportCommand } from './import-export-ids.js';
 
 holdPlatformFiles();
 
 /** A window with audio in the editor, offering `exporting`, with two regions where asked. */
 async function editing(
-  exporting: ScriptedExport = scriptedExport(),
+  exporting: ScriptedExportControl = new ScriptedExportControl(),
   regions = false,
 ): Promise<AudioWindow> {
   const audio = await windowWithAudio({
-    exports: exporting.services,
+    exports: exporting,
     ...(regions
       ? {
           regions: [
@@ -41,6 +44,13 @@ function dialogOf(audio: AudioWindow): OpenExportDialog {
   return shown;
 }
 
+/** The window's codecs, as the test scripts them. */
+function codecsOf(audio: AudioWindow): ScriptedCodecs {
+  const { codecs } = audio.window.context;
+  if (!(codecs instanceof ScriptedCodecs)) throw new Error('The window has no scripted codecs.');
+  return codecs;
+}
+
 /** Why `id` was refused, or `undefined` where it ran. */
 function refusalOf(audio: AudioWindow, id: string, args?: Record<string, string>) {
   const ran = audio.window.run(id, args);
@@ -60,8 +70,17 @@ describe('opening the Export dialog', () => {
     expect(dialog.planned.ok).toBe(true);
   });
 
+  it('starts the codec worker as it opens, so the formats it can write are known', async () => {
+    const audio = await editing();
+    const before = codecsOf(audio).readied;
+
+    audio.window.run(ExportCommand.Audio);
+
+    expect(codecsOf(audio).readied).toBe(before + 1);
+  });
+
   it('opens over one region its row names, and over every region a file each', async () => {
-    const audio = await editing(scriptedExport(), true);
+    const audio = await editing(new ScriptedExportControl(), true);
     const [splash] = audio.session.getSnapshot().model.state.project.regions.values();
     if (splash === undefined) throw new Error('No region.');
 
@@ -101,11 +120,13 @@ describe('opening the Export dialog', () => {
   });
 
   it('is unavailable, saying why, where the page offers no export', async () => {
-    const audio = await windowWithAudio();
-    audio.window.context.editorViews.open('editor', audio.asset());
-    audio.window.context.editorViews.focus('editor');
+    const audio = await editing();
+    const ran = busOfShellCommands().execute(
+      { ...audio.window.context, exports: undefined },
+      { commandId: commandId(ExportCommand.Audio) },
+    );
 
-    expect(refusalOf(audio, ExportCommand.Audio)).toEqual([
+    expect(ran.kind === 'refused' ? ran.failures.map((one) => one.summary) : []).toEqual([
       'This browser offers no export here, since it cannot keep projects.',
     ]);
   });
@@ -113,16 +134,19 @@ describe('opening the Export dialog', () => {
 
 describe('starting the export', () => {
   it('keeps the settings as the project’s last, then starts the export with them', async () => {
-    const exporting = scriptedExport();
+    const exporting = new ScriptedExportControl();
     const audio = await editing(exporting);
     audio.window.run(ExportCommand.Audio);
     const dialog = dialogOf(audio);
     const chosen = new FakeFileHandle(new File([], 'Harbour.wav'));
-    exporting.files.push(chosen);
+    const { destinations } = audio.window.exporting;
+    destinations.file = chosen;
 
     expect(await audio.window.runAndHear(ExportCommand.Start)).toBe('The export is done.');
 
-    expect(exporting.suggested).toEqual(['Harbour.wav']);
+    expect(destinations.suggested).toEqual([
+      `${dialog.planned.ok ? (dialog.planned.value[0]?.name.stem ?? '') : ''}.wav`,
+    ]);
     expect(audio.session.getSnapshot().model.state.exportSettings).toEqual(dialog.settings);
     expect(exporting.started).toHaveLength(1);
     const [started] = exporting.started;
@@ -135,13 +159,13 @@ describe('starting the export', () => {
     expect(dialogOf(audio).source).toEqual({ kind: 'kept' });
   });
 
-  it('delivers to a folder with its policy, and downloads where the browser gives no dialog', async () => {
-    const exporting = scriptedExport();
+  it('delivers to a folder with its policy, and as a download where asked', async () => {
+    const exporting = new ScriptedExportControl();
     const audio = await editing(exporting);
     audio.window.run(ExportCommand.Audio);
     audio.window.projects.exportDialog.chooseDestination({ kind: 'folder', policy: 'rename' });
     const folder = new FakeDirectoryHandle('Sounds', []);
-    exporting.folders.push(folder);
+    audio.window.exporting.destinations.folder = folder;
     await audio.window.runAndHear(ExportCommand.Start);
     expect(exporting.started[0]?.start.destination).toEqual({
       kind: 'folder',
@@ -149,21 +173,19 @@ describe('starting the export', () => {
       policy: 'rename',
     });
 
-    const downloading = scriptedExport(undefined, false);
-    const other = await editing(downloading);
-    other.window.run(ExportCommand.Audio);
-    expect(dialogOf(other).destination).toEqual({ kind: 'download' });
-    await other.window.runAndHear(ExportCommand.Start);
-    expect(downloading.started[0]?.start.destination).toEqual({ kind: 'download' });
+    audio.window.run(ExportCommand.Audio);
+    audio.window.projects.exportDialog.chooseDestination({ kind: 'download' });
+    await audio.window.runAndHear(ExportCommand.Start);
+    expect(exporting.started[1]?.start.destination).toEqual({ kind: 'download' });
   });
 
   it('leaves the dialog open and keeps nothing where the person dismisses the save dialog', async () => {
-    const exporting = scriptedExport();
+    const exporting = new ScriptedExportControl();
     const audio = await editing(exporting);
     audio.window.run(ExportCommand.Audio);
 
     expect(audio.window.run(ExportCommand.Start).kind).toBe('applied');
-    await expect.poll(() => exporting.suggested).toHaveLength(1);
+    await expect.poll(() => audio.window.exporting.destinations.suggested).toHaveLength(1);
     await Promise.resolve();
 
     expect(audio.window.projects.exportDialog.get().kind).toBe('open');
@@ -181,13 +203,17 @@ describe('starting the export', () => {
         : settings,
     );
 
-    expect(refusalOf(audio, ExportCommand.Start)).toEqual([
-      expect.stringContaining('An MP3 at 48000 Hz codes at one of'),
+    const planned = dialogOf(audio).planned;
+    expect(planned.ok ? [] : planned.failures.map((one) => one.code)).toEqual([
+      'import-export.encoding-invalid',
     ]);
+    expect(refusalOf(audio, ExportCommand.Start)).toEqual(
+      planned.ok ? [] : planned.failures.map((one) => one.summary),
+    );
   });
 
   it('refuses a save dialog for several files, and an export while another runs', async () => {
-    const exporting = scriptedExport();
+    const exporting = new ScriptedExportControl();
     const audio = await editing(exporting, true);
     audio.window.run(ExportCommand.EveryRegion);
     audio.window.projects.exportDialog.chooseDestination({ kind: 'file' });
@@ -203,32 +229,32 @@ describe('starting the export', () => {
   });
 
   it('refuses a format this browser cannot write, naming those it can', async () => {
-    const exporting = scriptedExport();
-    exporting.environment.set({
-      ...LOADED_CODECS,
-      prebuiltModules: new Map([
+    const audio = await editing();
+    const codecs = codecsOf(audio);
+    codecs.adopt({
+      ...codecs.environment.get(),
+      encoderModules: new Map([
         ['mp3', 'failed'],
         ['vorbis', 'loaded'],
       ]),
     });
-    const audio = await editing(exporting);
     audio.window.run(ExportCommand.Audio);
     audio.window.projects.exportDialog.chooseFormat('mp3');
 
     expect(refusalOf(audio, ExportCommand.Start)).toEqual([
       expect.stringMatching(
-        /^The MP3 encoder could not be loaded.*can be written here instead\.$/u,
+        /^The MP3 encoder .*could not be loaded.*can be written here instead\.$/u,
       ),
     ]);
   });
 
   it('says why the export control refused to start', async () => {
-    const exporting = scriptedExport(
+    const exporting = new ScriptedExportControl(
       fail(failure('test.no-room', FailureKind.Rejected, 'There is no room for this export.')),
-      false,
     );
     const audio = await editing(exporting);
     audio.window.run(ExportCommand.Audio);
+    audio.window.projects.exportDialog.chooseDestination({ kind: 'download' });
 
     expect(await audio.window.runAndHear(ExportCommand.Start)).toBe(
       'There is no room for this export.',
@@ -260,8 +286,7 @@ describe('the person’s presets', () => {
 
 describe('running each a second time', () => {
   it('changes something only the first time', async () => {
-    const exporting = scriptedExport(undefined, false);
-    const audio = await editing(exporting);
+    const audio = await editing();
     const twice = async (id: string, args?: Record<string, string>) => {
       await audio.window.runAndHear(id, args);
       return audio.window.run(id, args).kind;
@@ -269,6 +294,7 @@ describe('running each a second time', () => {
 
     audio.window.run(ExportCommand.Audio);
     audio.window.projects.exportDialog.chooseFormat('flac');
+    audio.window.projects.exportDialog.chooseDestination({ kind: 'download' });
     expect(audio.window.run(ExportCommand.Audio).kind).toBe('unchanged');
     expect(dialogOf(audio).settings.format).toBe('flac');
 

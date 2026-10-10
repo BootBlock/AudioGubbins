@@ -4,7 +4,8 @@
  *
  * The file is analysed first (`import-analysis.ts`), so a file in a format no
  * implementation reads, a malformed one, or one the storage has no room for, is
- * refused with the sentence that names why before a byte is stored. A file the
+ * refused with the sentence that names why before a byte is stored; the format
+ * its bytes were recognised as is reported as soon as it is known. A file the
  * read contract reads where it lies is then brought in by copy or by link as
  * the person's setting says, through the media store's own pipeline, and the
  * asset is built from what the reader found: the rate, the layout and the whole
@@ -15,12 +16,13 @@
  * (`import-placements.ts`), added with the asset as one change; the commands
  * are the caller's, since the storage does not depend on the project commands.
  *
- * An import is prepared, everything it stores stored and held, then added, so
- * a batch prepares one file while the one before it is added (ADR-0090). A
- * managed object the import stored is held in the media store until storage
- * holds the change that refers to it, and released at once where the change is
- * not made, so collection never takes it in between and a refused or cancelled
- * import keeps nothing.
+ * An import is prepared, everything it stores stored and held, then added, so a
+ * batch prepares one file while the one before it is added (ADR-0090); every
+ * import is a batch's, one file or many (`import-batch.ts`). A managed object
+ * the import stored is held in the media store until storage holds the change
+ * that refers to it, and released at once where the change is not made, so
+ * collection never takes it in between and a refused or cancelled import keeps
+ * nothing.
  */
 
 import { succeed, type DomainResult } from '@audiogubbins/domain';
@@ -41,20 +43,6 @@ import { prepareInPlace } from './in-place-import.js';
 import { runHolding } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
 
-/** Imports `request.file` into the session's project (see the module comment). */
-export async function importAudio(
-  session: ProjectSession,
-  request: AudioImport,
-  services: AudioImportServices,
-  observe: ImportObserver = () => undefined,
-  signal?: AbortSignal,
-): Promise<DomainResult<ImportedAudio>> {
-  const prepared = await prepareImport(session, request, services, observe, signal);
-  if (!prepared.ok) return prepared;
-  observe({ kind: 'add' });
-  return await addPrepared(session, prepared.value, services.commands);
-}
-
 /**
  * Analyses, keeps and, where it needs it, decodes `request.file`, ready to be
  * added to the session's project (see the module comment). Rejects with the
@@ -70,6 +58,7 @@ export async function prepareImport(
   observe({ kind: 'analyse' });
   const analysis = await analyseFile(request.file, signal);
   if (!analysis.ok) return analysis;
+  observe({ kind: 'recognised', format: analysis.value.recognised });
   const name = nameFromFile('asset', request.file.fileName);
   if (!name.ok) return name;
   const project = session.getSnapshot().model.state.project.id;

@@ -228,12 +228,9 @@ export { type ListedEntry } from './library-entry-files.js';
 export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
-export { importAudio } from './audio-import.js';
 export {
-  type AudioImport,
   type AudioImportServices,
   type ImportCommands,
-  type ImportObserver,
   type ImportedAudio,
 } from './import-contracts.js';
 export { type DecodedStream, type FileDecoding, type StreamAnalysis } from './decoded-stream.js';
@@ -257,9 +254,8 @@ export {
   type StagedExport,
   type StagingServices,
 } from './export-staging.js';
+export { type CollisionPrompt, type CollisionReply } from './export-collision.js';
 export {
-  type CollisionPrompt,
-  type CollisionReply,
   type Delivery,
   type DeliveryDestination,
   type DeliveryFile,

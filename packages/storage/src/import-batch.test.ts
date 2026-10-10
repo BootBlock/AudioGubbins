@@ -111,6 +111,15 @@ describe('a batch import (ADR-0090)', () => {
       'imported',
     ]);
     expect(last).toEqual(ended.job);
+    // Each format is the storage's own analysis, reported once it is known; a
+    // file whose format no implementation reads is refused by that analysis,
+    // whose reason names what it is.
+    expect(ended.job.entries.map((each) => each.format)).toEqual([
+      { kind: 'audio', container: 'wav', codec: { kind: 'named', codec: 'pcm' } },
+      undefined,
+      { kind: 'audio', container: 'flac', codec: { kind: 'named', codec: 'flac' } },
+      { kind: 'audio', container: 'wav', codec: { kind: 'named', codec: 'pcm' } },
+    ]);
     expect(ended.outcomes.map((outcome) => outcome.kind)).toEqual([
       'imported',
       'refused',
@@ -130,6 +139,7 @@ describe('a batch import (ADR-0090)', () => {
     // The second file is analysed as the first is added, before it is imported.
     expect(reported.indexOf('1:analyse')).toBeGreaterThan(reported.indexOf('0:add'));
     expect(reported.indexOf('1:analyse')).toBeLessThan(reported.indexOf('0:imported'));
+    expect(reported.indexOf('0:recognised')).toBe(reported.indexOf('0:analyse') + 1);
     expect(reported.indexOf('3:add')).toBeGreaterThan(reported.indexOf('2:imported'));
   });
 

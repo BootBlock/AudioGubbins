@@ -44,14 +44,18 @@ export function startable(context: ShellContext): Startable {
   if (parts.session.project !== dialog.project) {
     return refused('The Export dialog is of another project.');
   }
-  const run = parts.exports.control.get();
+  const run = parts.control.get();
   if (run.kind === 'running') return refused('An export is under way; wait for it, or cancel it.');
   if (run.kind === 'held') {
     return refused(
       'An export waits for a file to be delivered; retry it, deliver it elsewhere, or cancel it.',
     );
   }
-  const [first, ...rest] = exportBlockers(dialog, parts.exports);
+  const [first, ...rest] = exportBlockers(
+    dialog,
+    context.codecs,
+    parts.stores.trustedFolders.get(),
+  );
   return first === undefined ? { kind: 'ready', dialog, parts } : refused([first, ...rest]);
 }
 
@@ -74,7 +78,7 @@ export async function started(
   parts.stores.exportDialog.close();
   const kept = await parts.session.run(setExportSettingsInvocation(dialog.settings));
   if (!kept.ok) return kept;
-  return await parts.exports.control.start(parts.session, {
+  return await parts.control.start(parts.session, {
     asset: dialog.asset,
     settings: dialog.settings,
     destination: where,

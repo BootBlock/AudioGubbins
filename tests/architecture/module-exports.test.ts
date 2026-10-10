@@ -187,6 +187,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/codecs/src/aiff-common.ts: AIFC_IN_PLACE_CODECS',
       'packages/codecs/src/wave-format.ts: WAVE_IN_PLACE_CODECS',
     ],
+  "The WASI functions the host gives an encoder module, which the encoder modules' test holds each module's imports within, so a new import is seen; the host instantiates a module through `encoderModuleImports`.":
+    ['packages/codec-runtime/src/encoding/encoder-host.ts: ENCODER_MODULE_IMPORTS'],
   'The Ogg page checksum on its own, which its test holds to the published check value of the CRC it is; pages are checksummed through `encodeOggPage` and checked through `readOggPage`.':
     ['packages/codecs/src/ogg-page.ts: oggCrc'],
   'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':
@@ -354,19 +356,7 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * An entry leaves the list once a module takes it, as the rule that lists
  * only what no module takes holds.
  */
-const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
-  "The page's codecs and export as Phase 09 composes them (ADR-0090, ADR-0092): the codec services the codec worker's start implements and the import, the picture's sound and the export take; the export's control, its start and destinations and the context it is planned against, which the export pipeline implements and its commands, dialog and progress take.":
-    [
-      'apps/web/src/export/export-types.ts: ExportContextOf',
-      'apps/web/src/export/export-types.ts: ExportControl',
-    ],
-  'The identities of the import and export commands, and the words the person finds them and their surfaces by, which the commands, the menus, the import list, the Export dialog, the collision prompt and the browser suite name alike.':
-    [
-      'apps/web/src/import-export-words.ts: COLLISION_PROMPT_WORDS',
-      'apps/web/src/import-export-words.ts: IMPORT_LIST_LABEL',
-      'apps/web/src/import-export-words.ts: collisionPromptTitle',
-    ],
-};
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {};
 
 /**
  * Each export of a test-support module that no test takes by name, under the

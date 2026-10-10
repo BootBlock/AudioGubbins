@@ -13,7 +13,7 @@
  */
 
 import type { AudioFileWriter } from '@audiogubbins/codecs';
-import type { BrowserAudioEncoding } from '@audiogubbins/capabilities';
+import type { BrowserAudioEncoding, BrowserFamily } from '@audiogubbins/capabilities';
 import {
   FailureKind,
   failure,
@@ -29,31 +29,40 @@ import {
 } from '@audiogubbins/import-export';
 
 import type { CodecModule } from '../codec-module.js';
+import type { EncoderIdentity } from '../encoding/encoder-identity.js';
 import { CreditedReceiver } from '../streams/credited-receiver.js';
 import { CreditedSender } from '../streams/credited-sender.js';
 import type { MessagePortLike } from '../streams/stream-port.js';
 import { WORK_CANCELLED } from '../work-cancelled.js';
-import type { ExportEncodeRequest, PrebuiltEncoder } from './codec-worker-messages.js';
+import type { ExportEncodeRequest, EncoderModuleName } from './codec-worker-messages.js';
 import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
 
 /** What an export's encoder may use, each loaded on first use. */
 export interface ExportEncoderServices {
   readonly codecModule: () => Promise<DomainResult<CodecModule>>;
-  readonly prebuiltModule: (encoder: PrebuiltEncoder) => Promise<DomainResult<WebAssembly.Module>>;
+  readonly encoderModule: (encoder: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>;
   /** The browser's encoding classes, where the scope has them; AAC-LC is encoded by them alone. */
   readonly encoding: BrowserAudioEncoding | undefined;
+  /** The browser's family and major version, which names its encoder's version. */
+  readonly browser: BrowserFamily | undefined;
   readonly signal: CancellationSignal;
+}
+
+/** An export's encoder, opened: the writer it writes through, and which encoder it is. */
+export interface OpenedExportEncoder {
+  readonly writer: AudioFileWriter;
+  readonly encoder: EncoderIdentity;
 }
 
 /**
  * Opens the encoder of an export's file: the factory the worker is given,
- * which answers the writer the format's encoder writes through, or why the
- * format cannot be encoded here.
+ * which answers the writer the format's encoder writes through and the
+ * encoder's identity, or why the format cannot be encoded here.
  */
 export type OpenExportEncoder = (
   request: ExportEncodeRequest,
   services: ExportEncoderServices,
-) => Promise<DomainResult<AudioFileWriter>>;
+) => Promise<DomainResult<OpenedExportEncoder>>;
 
 /** How many rendered blocks may wait unread: enough to keep the encoder busy, few enough to bound them. */
 const RENDERED_WINDOW = 4;
@@ -103,12 +112,12 @@ export async function runEncode(
 ): Promise<JobEnd> {
   const streams = new EncodeStreams(rendered, stream);
   try {
-    const writer = await open(request, { ...services, signal: context.signal });
-    if (!writer.ok) {
-      const reason = writer.failures[0];
+    const opened = await open(request, { ...services, signal: context.signal });
+    if (!opened.ok) {
+      const reason = opened.failures[0];
       return await streams.fail(reason, { kind: 'failed', failure: reason });
     }
-    return await encodeThrough(writer.value, streams, context);
+    return await encodeThrough(opened.value, streams, context);
   } catch (error) {
     const end = endOfThrown(error, context.signal);
     if (end === undefined) throw error;
@@ -118,12 +127,13 @@ export async function runEncode(
   }
 }
 
-/** Moves the rendered blocks through `writer` until the render ends. */
+/** Moves the rendered blocks through the opened encoder's writer until the render ends. */
 async function encodeThrough(
-  writer: AudioFileWriter,
+  opened: OpenedExportEncoder,
   streams: EncodeStreams,
   context: JobContext,
 ): Promise<JobEnd> {
+  const { writer } = opened;
   const { signal } = context;
   let frames = 0;
   for (;;) {
@@ -141,7 +151,7 @@ async function encodeThrough(
         const reason = framesDisagree(frames, rendered.frames);
         return await streams.fail(reason, { kind: 'failed', failure: reason });
       }
-      return await finish(writer, streams, signal, rendered.frames);
+      return await finish(opened, streams, signal, rendered.frames);
     }
     const written = await writer.write(rendered.channels, rendered.frames, signal);
     if (!written.ok) {
@@ -165,7 +175,7 @@ async function encodeThrough(
 
 /** Ends the file: its head and tail, after every body byte. */
 async function finish(
-  writer: AudioFileWriter,
+  { writer, encoder }: OpenedExportEncoder,
   streams: EncodeStreams,
   signal: CancellationSignal,
   frames: number,
@@ -179,6 +189,6 @@ async function finish(
   if (!sent.ok) return { kind: 'failed', failure: sent.failures[0] };
   const total = sampleCount(frames);
   return total.ok
-    ? { kind: 'encoded', frames: total.value }
+    ? { kind: 'encoded', frames: total.value, encoder }
     : { kind: 'failed', failure: total.failures[0] };
 }

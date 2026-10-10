@@ -33,7 +33,7 @@ export {
 export { type FolderFile, type HeldFile } from './protocol/page-operations.js';
 export { type RootClient } from './client/root-client.js';
 export { type SourcesClient } from './client/sources-client.js';
-export { type AudioFileImport, type MediaClient } from './client/media-client.js';
+export { type MediaClient } from './client/media-client.js';
 export { type FilesImport, type ImportsClient } from './client/imports-client.js';
 export { type ImportReport } from './protocol/import-operations.js';
 export {

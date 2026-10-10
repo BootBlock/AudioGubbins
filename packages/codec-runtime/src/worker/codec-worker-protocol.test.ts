@@ -31,7 +31,8 @@ import {
   readToCodecWorker,
 } from './codec-worker-message-reading.js';
 import type { ExportEncodeRequest, FromCodecWorker } from './codec-worker-messages.js';
-import type { OpenExportEncoder } from './encode-job.js';
+import type { OpenExportEncoder, OpenedExportEncoder } from './encode-job.js';
+import { FLACENC_ENCODER } from '../encoding/encoder-identity.js';
 import { openExportEncoder } from '../encoding/open-export-encoder.js';
 import { encodeWhole, testSignal } from '../testing/export-encoding.js';
 
@@ -114,7 +115,7 @@ describe('the codec worker’s messages', () => {
         readToCodecWorker({
           kind: 'configure',
           codecModule: { kind: 'url', url: 'https://example.com/codecs.wasm' },
-          prebuiltEncoders: {},
+          encoderModules: {},
         }),
       ),
     ).toBe('codecModule.kind');
@@ -131,7 +132,7 @@ describe('the codec worker’s messages', () => {
         environment: {
           webAssembly: true,
           codecModule: 'failed',
-          prebuiltModules: new Map([['mp3', 'loaded']]),
+          encoderModules: new Map([['mp3', 'loaded']]),
           browserDecoders: new Set(['he-aac']),
           browserEncoders: new Set(['aac-lc']),
         },
@@ -171,7 +172,12 @@ describe('the codec worker’s messages', () => {
         frames: frames.value,
         decoder: { implementation: 'browser', name: 'WebCodecs', version: 'unknown' },
       },
-      { kind: 'encoded', request: 'e', frames: frames.value },
+      {
+        kind: 'encoded',
+        request: 'e',
+        frames: frames.value,
+        encoder: { implementation: 'codec-module', version: 'flacenc 0.5.1' },
+      },
       { kind: 'cancelled', request: 'c' },
       { kind: 'refused', failure: failure('x.y', FailureKind.Rejected, 'No.') },
     ];
@@ -187,7 +193,7 @@ describe('the codec worker’s messages', () => {
             ...answers[0],
             webAssembly: true,
             codecModule: 'loaded',
-            prebuiltModules: new Map(),
+            encoderModules: new Map(),
             browserDecoders: new Set(['speex']),
             browserEncoders: new Set(),
           },
@@ -203,7 +209,7 @@ describe('the codec worker’s requests', () => {
     harness.core.receive({
       kind: 'configure',
       codecModule: { kind: 'unavailable', reason: 'Again.' },
-      prebuiltEncoders: {
+      encoderModules: {
         mp3: { kind: 'unavailable', reason: 'Again.' },
         vorbis: { kind: 'unavailable', reason: 'Again.' },
       },
@@ -244,9 +250,15 @@ describe('the codec worker’s requests', () => {
   });
 });
 
-/** A writer that writes each block's frame count as one byte, and a head and tail. */
-function countingWriter(log: number[]): AudioFileWriter {
-  return {
+/** The encoder a test's writer is said to be. */
+const COUNTING_ENCODER = { implementation: 'application', version: 'Counting 1.0' } as const;
+
+/**
+ * An encoder whose writer writes each block's frame count as one byte, and a
+ * head and tail.
+ */
+function countingWriter(log: number[]): OpenedExportEncoder {
+  const writer: AudioFileWriter = {
     write: (_channels, frames) => {
       log.push(frames);
       return Promise.resolve(succeed([Uint8Array.of(frames & 0xff)]));
@@ -254,6 +266,7 @@ function countingWriter(log: number[]): AudioFileWriter {
     finish: () =>
       Promise.resolve(succeed({ head: Uint8Array.of(1), tail: Uint8Array.of(2), dropped: [] })),
   };
+  return { writer, encoder: COUNTING_ENCODER };
 }
 
 /** Plays the render worker and the storage worker around an encode, answering what the storage worker received. */
@@ -322,7 +335,13 @@ describe('the codec worker encoding an export', () => {
       [block(100), block(200), block(300), { kind: 'end', frames: ended.value }],
     );
     expect(opened).toEqual(ENCODE);
-    expect(answer).toEqual({ kind: 'encoded', request: 'e', frames: 600 });
+    // The answer names the encoder the factory opened, which the export's record keeps.
+    expect(answer).toEqual({
+      kind: 'encoded',
+      request: 'e',
+      frames: 600,
+      encoder: COUNTING_ENCODER,
+    });
     expect(written).toEqual([100, 200, 300]);
     // Bytes that crossed a channel are of the channel's realm, so they are compared as numbers.
     expect(
@@ -349,7 +368,12 @@ describe('the codec worker encoding an export', () => {
       ...blocks,
       { kind: 'end', frames: frames.value },
     ]);
-    expect(answer).toEqual({ kind: 'encoded', request: 'e', frames: 9_000 });
+    expect(answer).toEqual({
+      kind: 'encoded',
+      request: 'e',
+      frames: 9_000,
+      encoder: FLACENC_ENCODER,
+    });
     const finished = received.at(-1);
     if (finished?.kind !== 'finished') throw new Error('The encode did not finish.');
     const parts = [

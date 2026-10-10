@@ -8,17 +8,19 @@
 
 import { unchanged } from '@audiogubbins/commands';
 import { derivedSampleCount, type AssetId } from '@audiogubbins/domain';
-import type { ExportClock, ExportRange } from '@audiogubbins/import-export';
+import type { ExportRange } from '@audiogubbins/import-export';
 import { canonicalJson, writeExportSettings } from '@audiogubbins/project-format';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
 import { assetEntryId } from '../assets/project-entry.js';
-import type { ExportServices } from '../export/export-types.js';
+import { exportContextOf } from '../export/export-context.js';
+import type { ExportControl } from '../export/export-types.js';
+import { exportClockAt } from '../export/page-export.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import { reasonsOf } from '../state/reasons.js';
 import { focusedEditor, selectedTarget } from './editor-target.js';
-import { readyProjects, sessionOf } from './project-access.js';
+import { readyProjects, sayWhenSettled, sessionOf } from './project-access.js';
 import { onAsset } from './project-edits.js';
 import type { BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -32,18 +34,10 @@ const SELECTED_RANGE: TargetRequest = {
   whenNothing: 'refuse',
 };
 
-/** The moment `now`, with the offset from UTC this page's clock is set to then, for `{date}`. */
-function exportClockAt(now: number): ExportClock {
-  return {
-    epochMilliseconds: now,
-    utcOffsetMinutes: -new Date(now).getTimezoneOffset(),
-  };
-}
-
 /** What an export from the open project is made with: its stores, the page's export and its session. */
 export interface ExportParts {
   readonly stores: ProjectStores;
-  readonly exports: ExportServices;
+  readonly control: ExportControl;
   readonly session: RemoteProjectSession;
 }
 
@@ -54,7 +48,7 @@ export function exportParts(context: ShellContext): ExportParts | string {
   if (context.exports === undefined) return NO_EXPORT;
   const session = sessionOf(context);
   if (typeof session === 'string') return session;
-  return { stores, exports: context.exports, session };
+  return { stores, control: context.exports, session };
 }
 
 /** The asset of the open project the editor last in use shows, a region's asset for a region. */
@@ -126,14 +120,14 @@ function showing(
 export function openOver(context: ShellContext, target: DialogTarget): BodyAnswer {
   const parts = exportParts(context);
   if (typeof parts === 'string') return parts;
-  const { stores, exports, session } = parts;
+  const { stores, session } = parts;
   if (showing(stores.exportDialog.get(), session, target)) {
     return unchanged('export.dialog-open-already', 'The Export dialog shows this already.');
   }
   const editorAsset = context.assets.find(assetEntryId(target.asset));
   if (editorAsset === undefined) return 'The asset to export is not open in this session yet.';
   const { state } = session.getSnapshot().model;
-  const planned = exports.contextOf(editorAsset, state);
+  const planned = exportContextOf(editorAsset, state);
   if (!planned.ok) return reasonsOf(planned.failures);
   stores.exportDialog.open({
     project: session.project,
@@ -143,7 +137,11 @@ export function openOver(context: ShellContext, target: DialogTarget): BodyAnswe
     range: target.range,
     selection: target.selection,
     kept: state.exportSettings,
-    dialogs: exports.destinations.dialogs,
+    // A save and a folder dialog are what let a browser give AudioGubbins
+    // files it finds again, so the two are offered alike.
+    dialogs: stores.preferences.get().canLink,
   });
+  // The codecs say what they can write only once their worker has started.
+  sayWhenSettled(context, context.codecs.ready(), () => undefined);
   return undefined;
 }

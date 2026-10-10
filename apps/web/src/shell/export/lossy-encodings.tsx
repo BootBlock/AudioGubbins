@@ -7,15 +7,15 @@
 
 import type { ReactNode } from 'react';
 
+import { constantBitRates } from '@audiogubbins/codecs';
+import { channelCount } from '@audiogubbins/domain';
 import {
-  mp3BitRates,
+  type ExportContext,
   type Mp3Encoding,
   type OpusApplication,
   type OpusFrameDuration,
   type VorbisEncoding,
 } from '@audiogubbins/import-export';
-
-import type { SampleRate } from '@audiogubbins/domain';
 
 import { APPLICATION_NAMES } from './export-words.js';
 import {
@@ -53,19 +53,30 @@ function mp3Of(
   return { mode, bitRate: held.mode === 'variable' ? (rates.at(-1) ?? 320) : held.bitRate };
 }
 
+/**
+ * The constant bit rates MP3's encoder codes at `sampleRate`, as its
+ * descriptor states them, for the source's channels; none where it states none.
+ */
+function mp3Rates(sampleRate: number, context: ExportContext): readonly number[] {
+  const write = context.codecs('mp3')?.write;
+  if (write === undefined) return [];
+  return (
+    constantBitRates(write, { sampleRate, channels: channelCount(context.source.layout) }) ?? []
+  );
+}
+
 /** What MP3's mode sets: a constant rate the MPEG table holds, an average rate, or a quality. */
 function Mp3Value({
   encoding,
-  sampleRate,
+  rates,
   onEncoding,
 }: {
   readonly encoding: Mp3Encoding;
-  readonly sampleRate: SampleRate;
+  readonly rates: readonly number[];
   readonly onEncoding: (encoding: Mp3Encoding) => void;
 }): ReactNode {
   switch (encoding.mode) {
     case 'constant': {
-      const rates = mp3BitRates(sampleRate);
       return (
         <ChoiceField
           label="Bit rate"
@@ -109,23 +120,22 @@ function Mp3Value({
 
 /** The rows of the lossy formats. */
 export const LOSSY_ROWS: Pick<EncodingRows, 'mp3' | 'ogg-vorbis' | 'opus' | 'aac'> = {
-  mp3: ({ settings, onEncoding }) => (
-    <>
-      <ChoiceField
-        label="Bit rate mode"
-        value={settings.encoding.mode}
-        choices={MP3_MODES}
-        onChoose={(mode) => {
-          onEncoding(mp3Of(mode, settings.encoding, mp3BitRates(settings.sampleRate)));
-        }}
-      />
-      <Mp3Value
-        encoding={settings.encoding}
-        sampleRate={settings.sampleRate}
-        onEncoding={onEncoding}
-      />
-    </>
-  ),
+  mp3: ({ settings, context, onEncoding }) => {
+    const rates = mp3Rates(settings.sampleRate, context);
+    return (
+      <>
+        <ChoiceField
+          label="Bit rate mode"
+          value={settings.encoding.mode}
+          choices={MP3_MODES}
+          onChoose={(mode) => {
+            onEncoding(mp3Of(mode, settings.encoding, rates));
+          }}
+        />
+        <Mp3Value encoding={settings.encoding} rates={rates} onEncoding={onEncoding} />
+      </>
+    );
+  },
   'ogg-vorbis': ({ settings, onEncoding }) => {
     const { encoding } = settings;
     return (

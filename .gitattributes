@@ -30,3 +30,6 @@
 # Lockfiles are generated; keep them out of diff noise but still merge-conflict aware.
 pnpm-lock.yaml  -diff
 Cargo.lock      -diff
+
+# Vendored source is kept byte for byte as its release archive holds it, line endings included.
+third_party/** -text

@@ -30,6 +30,7 @@ import {
   type CodecId,
   type ContainerId,
   type MetadataMap,
+  type RecognisedFormat,
   type RecordedWavFormat,
 } from '@audiogubbins/codecs';
 import {
@@ -48,17 +49,23 @@ export type FileMetadata =
   | { readonly kind: 'read'; readonly metadata: MetadataMap }
   | { readonly kind: 'refused'; readonly failure: DomainFailure };
 
-/** What an import is (see the module comment). */
+/**
+ * What an import is (see the module comment), with the format its bytes were
+ * recognised as, which the import reports so the person sees what each file
+ * is while it is brought in.
+ */
 export type ImportAnalysis =
   | {
       /** Read where it lies, by the read contract. */
       readonly kind: 'in-place';
+      readonly recognised: RecognisedFormat;
       readonly format: AudioFormatDescriptor;
       readonly metadata: FileMetadata;
     }
   | {
       /** Decoded once into a rendition; `codec` is the codec its container states, where it states one. */
       readonly kind: 'decode';
+      readonly recognised: RecognisedFormat;
       readonly container: ContainerId;
       readonly codec: CodecId | undefined;
     };
@@ -78,13 +85,19 @@ export async function analyseFile(
     case 'refuse':
       return fail(route.failure);
     case 'decode':
-      return succeed({ kind: 'decode', container: route.container, codec: route.codec });
+      return succeed({
+        kind: 'decode',
+        recognised: recognised.value,
+        container: route.container,
+        codec: route.codec,
+      });
     case 'read-in-place': {
       const opened = await openAudio(file.source, signal);
       if (!opened.ok) return opened;
       const { format } = opened.value;
       return succeed({
         kind: 'in-place',
+        recognised: recognised.value,
         format,
         metadata: await metadataOf(file, format.container, signal),
       });

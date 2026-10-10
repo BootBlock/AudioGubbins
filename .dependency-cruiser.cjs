@@ -366,10 +366,13 @@ module.exports = {
         'read files through the synchronous byte port of the read contract (ADR-0090, ' +
         'ADR-0091). It depends on the domain, whose results it answers in, the codecs, whose ' +
         "contracts it serves, import and export's stream messages, which its streams carry, and " +
-        "the capabilities, which read the browser's codecs it calls; the storage worker and the " +
-        'page that drive it sit above it.',
+        "the capabilities, which read the browser's codecs it calls, and the version, whose " +
+        "release names AudioGubbins' own encoders; the storage worker and the page that drive " +
+        'it sit above it.',
       from: { path: '^packages/codec-runtime/' },
-      to: { path: '^packages/(?!(capabilities|codec-runtime|codecs|domain|import-export)/)' },
+      to: {
+        path: '^packages/(?!(capabilities|codec-runtime|codecs|domain|import-export|version)/)',
+      },
     },
     {
       name: 'clipboard-owns-nothing-else',

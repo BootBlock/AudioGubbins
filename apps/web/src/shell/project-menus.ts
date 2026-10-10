@@ -89,6 +89,7 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
         items: [
           dialogueEntry(builders, ProjectsSection.Current, 'Rename, fork or export…'),
           entry(ImportCommand.Files),
+          entry(ImportCommand.Folder),
           entry(ExportCommand.Audio),
           entry(ExportCommand.EveryRegion),
           entry(ExportCommand.Selection),

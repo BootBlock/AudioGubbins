@@ -181,29 +181,9 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'wavFile',
       ],
   },
-  '@audiogubbins/codecs': {
-    'The registry ADR-0090 gives Phase 09, written before the import and export jobs and the storage that look a codec up by its identifier: the descriptor of each codec.':
-      ['codecDescriptor'],
-  },
   '@audiogubbins/import-export': {
     "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":
-      [
-        'BatchProgress',
-        'ExportJobEvent',
-        'ImportProgress',
-        'MetadataRates',
-        'batchProgress',
-        'cancelExportBatch',
-        'exportBatch',
-        'exportMetadata',
-        'importProgress',
-        'nextExportBatch',
-        'nextExportJob',
-        'nextJobToStart',
-        'plannedExport',
-        'rememberCollisionAnswer',
-        'validateExportSettings',
-      ],
+      ['rememberCollisionAnswer', 'validateExportSettings'],
     "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
       [],
   },
@@ -227,17 +207,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     'The single-stream Opus packet decoder, taken by the conformance run alone (`pnpm test:opus-conformance`), which fetches the vectors on demand and so is no project the suite runs.':
       ['MAX_OPUS_PACKET_FRAMES', 'OpusPacketDecoder'],
-    "The codec worker's protocol ADR-0090 to ADR-0092 give Phase 09, written before the page that starts and configures the worker, the storage worker that asks it to analyse and decode imports, and the export encoders opened through its factory: the messages each way with their reader, the analysis and the encoder factory's shape, and the files, ports and decoder names the messages carry.":
-      [
-        'CodecRequest',
-        'ExportEncoderServices',
-        'MessagePortLike',
-        'ModuleSource',
-        'OpenExportEncoder',
-        'PrebuiltEncoder',
-        'ToCodecWorker',
-        'ToCodecWorkerKind',
-      ],
+    "The shape of the codec worker's export encoder factory (ADR-0092), which the worker is given and its own thread alone gives it today: a host that opens export encoders of its own, such as a test of the worker, implements it.":
+      ['ExportEncoderServices', 'OpenExportEncoder', 'OpenedExportEncoder'],
   },
   '@audiogubbins/input': {
     'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
@@ -347,10 +318,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
   },
-  '@audiogubbins/browser-storage': {
-    "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
-      ['filesInDirectory'],
-  },
+  '@audiogubbins/browser-storage': {},
   '@audiogubbins/storage-runtime': {},
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":

@@ -9,9 +9,10 @@
 import type { CodecCapability } from '@audiogubbins/codecs';
 import type { CodecLookup } from '@audiogubbins/import-export';
 
+import type { CodecServices } from '../codecs/codec-services.js';
 import type { OpenExportDialog } from '../state/export-dialog-store.js';
+import type { KeptTrustedFolder, TrustedFoldersState } from '../state/trusted-folders-store.js';
 import { destinationProblem } from './destination-choice.js';
-import type { ExportServices } from './export-types.js';
 
 /** Why a codec cannot write here, with the codecs that can instead, by their names. */
 export function unavailableSentence(
@@ -25,21 +26,23 @@ export function unavailableSentence(
   return `${capability.reason} ${listed} can be written here instead.`;
 }
 
+/** The folders kept trusted, as far as they have been read. */
+export function keptFolders(state: TrustedFoldersState): readonly KeptTrustedFolder[] {
+  return state.kind === 'read' ? state.folders : [];
+}
+
 /** Every reason the dialog's export cannot start, in the order to read them; none where it can. */
 export function exportBlockers(
   dialog: OpenExportDialog,
-  exports: Pick<ExportServices, 'codecs' | 'destinations'>,
+  codecs: Pick<CodecServices, 'capability'>,
+  trusted: TrustedFoldersState,
 ): readonly string[] {
   if (!dialog.planned.ok) return dialog.planned.failures.map((failure) => failure.summary);
   const files = dialog.planned.value;
   const [first] = files;
   const capability =
-    first === undefined ? undefined : exports.codecs.capability(first.target.codec, 'write');
-  const destination = destinationProblem(
-    dialog.destination,
-    files,
-    exports.destinations.trusted.get(),
-  );
+    first === undefined ? undefined : codecs.capability(first.target.codec, 'write');
+  const destination = destinationProblem(dialog.destination, files, keptFolders(trusted));
   return [
     ...(capability?.kind === 'unavailable'
       ? [unavailableSentence(capability, dialog.context.codecs)]

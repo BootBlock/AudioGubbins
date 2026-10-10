@@ -5,37 +5,30 @@
 
 import { FailureKind, failure, type DomainFailure } from '@audiogubbins/domain';
 
-/**
- * A setting the export's settings name that the encoder AudioGubbins ships
- * cannot express, refused rather than replaced by one it can.
- */
-export function unexpressible(summary: string, setting: string): DomainFailure {
-  return failure('codec-runtime.setting-unexpressible', FailureKind.Rejected, summary, {
-    details: { setting },
-  });
-}
-
 /** An encoder the format needs that this worker has not got. */
 export function encoderUnavailable(summary: string): DomainFailure {
   return failure('codec-runtime.encoder-unavailable', FailureKind.Rejected, summary);
 }
 
-/** A prebuilt encoder's module that is not the build AudioGubbins drives. */
-export function prebuiltRefused(summary: string, details?: Record<string, string>): DomainFailure {
+/** An encoder module that is not one whose interface this runtime speaks. */
+export function encoderModuleRefused(
+  summary: string,
+  details?: Record<string, string>,
+): DomainFailure {
   return failure(
-    'codec-runtime.prebuilt-encoder-refused',
+    'codec-runtime.encoder-module-refused',
     FailureKind.Unrecoverable,
     summary,
     details === undefined ? undefined : { details },
   );
 }
 
-/** A call a prebuilt encoder refused or trapped in. */
-export function prebuiltFailed(call: string, reason: string): DomainFailure {
+/** A call an encoder module refused or trapped in. */
+export function encoderModuleFailed(call: string, reason: string): DomainFailure {
   return failure(
-    'codec-runtime.prebuilt-encoder-failed',
+    'codec-runtime.encoder-module-failed',
     FailureKind.Unrecoverable,
-    `The prebuilt encoder failed in ${call}: ${reason}.`,
+    `The encoder module failed in ${call}: ${reason}.`,
     { details: { call } },
   );
 }
