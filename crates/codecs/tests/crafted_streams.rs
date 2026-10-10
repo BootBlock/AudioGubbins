@@ -80,7 +80,8 @@ fn recognises_implicit_sbr_as_he_aac_and_gives_its_packets_undecoded() {
     let mut reader = DecodeSession::open(MemorySource(adts(20, 6, &block))).expect("recognised");
     let mut packets = 0;
     while let Some(packet) = reader.read_packet().expect("readable") {
-        assert_eq!(&packet.data[..], &block[..]);
+        assert_eq!(packet.data, &block[..]);
+        assert_eq!(packet.frames, 1_024);
         packets += 1;
     }
     assert_eq!(packets, 20);

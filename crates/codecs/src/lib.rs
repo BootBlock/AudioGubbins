@@ -36,11 +36,13 @@ mod track_decoder;
 mod vorbis_order;
 
 pub use byte_source::{ByteSource, ReadFailure};
-pub use decode_session::DecodeSession;
+pub use decode_session::{DecodeSession, EncodedPacket};
 pub use description::{Codec, Container, StatedLayout, StreamDescription};
 pub use failure::CodecFailure;
 pub use flac_frames::{FlacFrameEncoder, FlacSettings, MAX_LEVEL as MAX_FLAC_LEVEL};
-pub use opus_decoding::{OPUS_RATE, OpusPacketDecoder};
+pub use opus_decoding::{
+    MAX_PACKET_FRAMES as MAX_OPUS_PACKET_FRAMES, OPUS_RATE, OpusPacketDecoder,
+};
 pub use opus_encoding::{
     OpusApplication, OpusEncoder, OpusFrameDuration, OpusPacket, OpusRateControl, OpusSettings,
 };

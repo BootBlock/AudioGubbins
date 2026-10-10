@@ -10,6 +10,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audiogubbins-codec-bindings"
+version = "0.1.0"
+dependencies = [
+ "audiogubbins-codecs",
+ "audiogubbins-handle-table",
+]
+
+[[package]]
 name = "audiogubbins-codecs"
 version = "0.1.0"
 dependencies = [

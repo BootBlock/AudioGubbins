@@ -15,6 +15,7 @@ resolver = "3"
 members = [
   "crates/analysis",
   "crates/audiogubbins-version",
+  "crates/codec-bindings",
   "crates/codecs",
   "crates/dsp-core",
   "crates/handle-table",

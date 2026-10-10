@@ -117,6 +117,15 @@ enum Recognised {
     HighEfficiencyAac(AacForm),
 }
 
+/// One packet of the track as its container carries it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EncodedPacket<'a> {
+    /// The packet's bytes.
+    pub data: &'a [u8],
+    /// The frames it presents, in the track's own frames.
+    pub frames: u64,
+}
+
 /// How the session is being used: decoded, or read packet by packet for a
 /// decoder elsewhere. A session is one or the other, never both.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -297,16 +306,16 @@ impl DecodeSession {
         Ok(())
     }
 
-    /// The track's next packet as the container carries it, for a decoder
-    /// outside the module; `None` at the end. Its bytes hold until the next
-    /// call.
+    /// Reads the track's next packet as the container carries it, for a
+    /// decoder outside the module, answering it, or `None` at the end. It is
+    /// [`last_packet`](Self::last_packet) until the next call.
     ///
     /// # Errors
     ///
     /// [`CodecFailure::Refused`] for a session already decoded, and
     /// [`CodecFailure::Malformed`] or a read failure, which every later call
     /// answers too.
-    pub fn read_packet(&mut self) -> Result<Option<&Packet>, CodecFailure> {
+    pub fn read_packet(&mut self) -> Result<Option<EncodedPacket<'_>>, CodecFailure> {
         if let Some(failure) = self.failure {
             return Err(failure);
         }
@@ -317,13 +326,24 @@ impl DecodeSession {
         match next_packet(self.reader.as_mut(), &mut self.held, self.track_id) {
             Ok(packet) => {
                 self.packet = packet;
-                Ok(self.packet.as_ref())
+                Ok(self.last_packet())
             }
             Err(failure) => {
                 self.failure = Some(failure);
                 Err(failure)
             }
         }
+    }
+}
+
+impl DecodeSession {
+    /// The packet [`read_packet`](Self::read_packet) last read.
+    #[must_use]
+    pub fn last_packet(&self) -> Option<EncodedPacket<'_>> {
+        self.packet.as_ref().map(|packet| EncodedPacket {
+            data: &packet.data,
+            frames: packet.dur.get(),
+        })
     }
 }
 

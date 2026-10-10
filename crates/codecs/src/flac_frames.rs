@@ -124,6 +124,12 @@ impl FlacFrameEncoder {
         })
     }
 
+    /// The bytes of the frame last encoded.
+    #[must_use]
+    pub fn last_frame(&self) -> &[u8] {
+        self.encoded.as_slice()
+    }
+
     /// The settings the encoder was made with.
     #[must_use]
     pub const fn settings(&self) -> FlacSettings {
