@@ -35,8 +35,8 @@ export interface FlacFrameSettings {
   /**
    * How hard the encoder searches, 0 to 8, after `libFLAC`'s levels: up to 2
    * the fixed predictors alone, from 3 linear prediction of order 6, 8 and
-   * from 7 of 12; stereo decorrelation at every level but 0 and 3, and
-   * below 32 bits a sample.
+   * from 7 of 12; stereo decorrelation at every level but 0 and 3, and below
+   * 32 bits a sample.
    */
   readonly level: number;
 }
