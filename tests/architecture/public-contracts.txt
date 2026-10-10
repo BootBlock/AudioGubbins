@@ -899,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29082: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29109: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1190,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29082: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29109: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2423,6 +2423,7 @@ Published paths
   readonly FrequencyBand.low: number
   readonly FrequencyBand.high: number
   type GainCurve = FadeCurve | { readonly kind: "constant"; readonly gain: number; }
+  const HEAL_BORDER_FRAMES: 4
   const HIGHEST_MASK_FREQUENCY: number
   interface IdGenerator
   IdGenerator.next: <TBrand extends string>() => Branded<TBrand>
@@ -2790,6 +2791,7 @@ Published paths
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
+  function binFrequency(bin: number, sampleRate: number, size: number): number
   function boundedItemsOf<TItem>(value: unknown, field: string, most: number, read: (item: unknown, name: string) => TItem): readonly TItem[]
   function bypassedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function bypassedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
@@ -2875,6 +2877,7 @@ Published paths
   function masksEqual(left: SpectralMask, right: SpectralMask): boolean
   function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string
   function namedQualityMode(level: NamedQualityLevel): QualityMode
+  function nearestBin(frequency: number, sampleRate: number, size: number): number
   function nonEmptyObjectsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: MessageFields, name: string) => TItem): readonly [TItem, ...TItem[]]
   function numberAt(fields: Readonly<Record<string, unknown>>, field: string): number
   function numberOf(value: unknown, field: string): number
@@ -2933,7 +2936,7 @@ Published paths
   function sourceStreams(source: PlanSource): readonly number[]
   function spectralEditProblem(edit: SpectralEdit, length: number, chains: ReadonlyMap<EffectChainId, EffectChain>): string | undefined
   function spectralMaskOf(value: unknown, field: string): SpectralMask
-  function spectralPlacement(mask: SpectralMask, resolution: number, length: number): SpectralPlacement | undefined
+  function spectralPlacement(mask: SpectralMask, resolution: number, kind: "attenuate" | "heal" | "isolate" | "process", length: number): SpectralPlacement | undefined
   function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
   function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
   function stackUsers(project: Project, stack: TakeStackId): readonly StackUse[]
@@ -7442,7 +7445,8 @@ packages/editor-view/src/spectrogram-drawing.ts
   readonly RowSource.height: number
   readonly RowSource.ratio: number
   readonly RowSource.axis: SpectralSettings
-  readonly RowSource.spacing: number
+  readonly RowSource.sampleRate: number
+  readonly RowSource.windowLength: number
   class SpectrogramPainter
   new SpectrogramPainter(): SpectrogramPainter
   SpectrogramPainter.#waiting: boolean
