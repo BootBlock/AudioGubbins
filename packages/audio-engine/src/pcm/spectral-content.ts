@@ -20,6 +20,7 @@
  */
 
 import {
+  HEAL_BORDER_FRAMES,
   throwIfCancelled,
   type CancellationSignal,
   type ChannelLayout,
@@ -30,7 +31,7 @@ import {
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
 import { ForwardWindow, type WindowSource } from '../spectral/forward-window.js';
-import { BORDER_FRAMES, HealBorders, type Spectrum } from '../spectral/heal-borders.js';
+import { HealBorders, type Spectrum } from '../spectral/heal-borders.js';
 import { SpectralChange } from '../spectral/spectral-change.js';
 import { FrameGeometry, FrameTransform } from '../spectral/spectral-frames.js';
 import { MediaReadFailure, type ContentReader } from './plan-content.js';
@@ -251,14 +252,15 @@ export class SpectralContent implements ContentReader {
   /**
    * The heal's borders: every frame from four before the first the mask may
    * reach to four after the last, walked once, in order, through a window of
-   * its own, since the frames' window is then read again from the start.
+   * its own, since the frames' window is then read again from the start. A
+   * frame that reaches outside the stream is no border (`heal-borders.ts`).
    */
   async #healBorders(signal: CancellationSignal | undefined): Promise<HealBorders> {
     const geometry = this.#geometry;
     const change = this.#change;
     const borders = new HealBorders(geometry.bins, this.channels);
-    const first = Math.max(geometry.firstFrame, change.first - BORDER_FRAMES);
-    const last = Math.min(geometry.lastFrame, change.last + BORDER_FRAMES);
+    const first = Math.max(geometry.firstFrame, change.first - HEAL_BORDER_FRAMES);
+    const last = Math.min(geometry.lastFrame, change.last + HEAL_BORDER_FRAMES);
     const dry = this.#dry;
     for (let k = first; k <= last; k += 1) {
       throwIfCancelled(signal);
@@ -270,7 +272,7 @@ export class SpectralContent implements ContentReader {
         if (x === undefined) continue;
         this.#transform.analyse(dry.samples(channel), frameStart - dry.start, x.real, x.imaginary);
       }
-      borders.take(k, weights, this.#spectra);
+      borders.take(k, weights, geometry.within(k), this.#spectra);
       dry.release(frameStart + geometry.hop);
     }
     borders.finish();

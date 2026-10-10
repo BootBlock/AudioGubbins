@@ -5,6 +5,7 @@ import {
   QualityLevel,
   StandardLayouts,
   namedQualityMode,
+  spectralPlacement,
   unsafeBrandId,
   type EffectChain,
 } from '@audiogubbins/domain';
@@ -267,5 +268,46 @@ describe('a stream changed by a spectral edit', () => {
     );
     expect(draft.spectralOverlap).not.toBe(MAXIMUM_QUALITY.settings.spectralOverlap);
     expect(sameBits(maximum, drafted)).toBe(false);
+  });
+});
+
+describe('a heal’s borders', () => {
+  const resolution = 4_096;
+  const draft = namedQualityMode(QualityLevel.Draft).settings;
+  const band = { low: 500, high: 1_500 };
+
+  it.each([
+    ['start', 1_000, 3_000],
+    ['end', LENGTH - 3_000, LENGTH - 1_000],
+  ])(
+    'are measured only from frames within the sound, so a tone healed near its %s keeps its level',
+    async (_, start, end) => {
+      const input = tones(LENGTH, [1_000, 0.5]);
+      const edit = rectangleEdit({ kind: 'heal' }, { start, end }, band, { resolution });
+      const [made = new Float32Array()] = await readAllOf(
+        spectralOver([input], edit, { quality: draft }).content,
+        4_096,
+      );
+      expect(amplitudeAt(made, 1_000, start, end)).toBeCloseTo(0.5, 2);
+    },
+  );
+
+  it('lie within the range a command places a heal over, so a dropout is healed into the tone', async () => {
+    const length = 96_000;
+    const clean = tones(length, [1_000, 0.5]);
+    const input = clean.map((sample, n) => (n >= 40_000 && n < 42_000 ? 0 : sample));
+    const area = rectangleEdit({ kind: 'heal' }, { start: 36_000, end: 46_000 }, band);
+    const placed = spectralPlacement(area.mask, resolution, 'heal', length);
+    if (placed === undefined) throw new Error('The area lies over the sound.');
+    const range = input.subarray(placed.start, placed.end);
+    const edit = { mask: placed.mask, resolution, operation: { kind: 'heal' } } as const;
+    const [made = new Float32Array()] = await readAllOf(
+      spectralOver([range], edit, { quality: draft }).content,
+      4_096,
+    );
+    expect(amplitudeAt(made, 1_000, 36_000 - placed.start, 46_000 - placed.start)).toBeCloseTo(
+      0.5,
+      1,
+    );
   });
 });
