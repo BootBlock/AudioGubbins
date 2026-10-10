@@ -26,7 +26,12 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { frameBlock, type RenderSink } from '@audiogubbins/audio-engine';
+import {
+  frameBlock,
+  type RenderSink,
+  deliveredAs,
+  type DspDelivery,
+} from '@audiogubbins/audio-engine';
 
 import {
   FromRenderWorkerKind,
@@ -35,7 +40,7 @@ import {
   type FromRenderWorker,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
-import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import { sourceTransferables } from '../protocol/source-descriptions.js';
 import type { RenderRequest, RenderRunOptions, WorkerRenderSummary } from './render-request.js';
 import type { Schedule } from '../schedule.js';

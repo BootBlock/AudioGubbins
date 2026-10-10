@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from './dsp-delivery.js';
+import { DspDeliveryKind } from '@audiogubbins/audio-engine';
+
 import { compileDspModule } from './dsp-module.js';
 
 const EVERYTHING: AudioRuntimeCapabilities = {

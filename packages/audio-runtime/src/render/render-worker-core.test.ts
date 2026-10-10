@@ -27,6 +27,8 @@ import {
   type RenderSink,
   toneRecipe,
   PcmDescriptionKind,
+  DspDeliveryKind,
+  type DspDelivery,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -39,7 +41,6 @@ import {
   wire,
 } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind, type DspDelivery } from '../dsp/dsp-delivery.js';
 import { scopeDsp, type DspChooser } from '../dsp/dsp-instance.js';
 import {
   FromRenderWorkerKind,
