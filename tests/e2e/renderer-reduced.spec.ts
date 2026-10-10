@@ -4,6 +4,7 @@ import {
   crashGpuProcess,
   expectDrawnAsShown,
   expectLabelled,
+  expectSpectrogramDrawn,
   openWithCapabilities,
   rendererReport,
 } from './renderer.js';
@@ -35,6 +36,12 @@ test.describe('the editor renderer', () => {
     await expect(rendererReport(page)).toContainText('WebGL 2: not available');
     await expectDrawnAsShown(page, panel);
     await expectLabelled(page, panel);
+  });
+
+  test('draws the spectrogram the worker makes with Canvas 2D', async ({ page }) => {
+    const panel = await openWithCapabilities(page);
+    await expect(rendererReport(page)).toContainText('Drawn with Canvas 2D.');
+    await expectSpectrogramDrawn(page, panel);
   });
 
   test('draws the view and its labels again when the GPU process crashes', async ({

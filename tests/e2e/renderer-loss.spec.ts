@@ -4,6 +4,7 @@ import { readingOf, surfaceOf } from './editor.js';
 import {
   expectDrawnAsShown,
   expectLabelled,
+  expectSpectrogramDrawn,
   openWithCapabilities,
   rendererReport,
   webglLoss,
@@ -33,6 +34,12 @@ import { test } from './test.js';
  * change made while the context was away.
  */
 test.describe('the editor renderer', () => {
+  test('draws the spectrogram the worker makes with WebGL 2', async ({ page }) => {
+    const panel = await openWithCapabilities(page);
+    await expect(rendererReport(page)).toHaveAttribute('data-ag-renderer', 'webgl2');
+    await expectSpectrogramDrawn(page, panel);
+  });
+
   test('recovers a WebGL 2 context given back, and draws the view as it now is', async ({
     page,
   }) => {
