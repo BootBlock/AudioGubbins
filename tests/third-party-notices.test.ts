@@ -309,6 +309,19 @@ describe('what the licence of a shipped package permits', () => {
     });
   });
 
+  it('refuses a package under a licence that asks its source be offered, unless its source is known', () => {
+    const mpl = { name: 'decoder', version: '0.6.1', licence: 'MPL-2.0', files: [] };
+    expect(noticeOf(mpl, standardText)).toEqual({
+      refused:
+        'decoder 0.6.1 is licensed MPL-2.0, which asks that its source be offered, and states none',
+    });
+    const source = 'https://crates.io/crates/decoder/0.6.1';
+    expect(noticeOf({ ...mpl, source }, standardText)).toMatchObject({ notice: { source } });
+    // A licence that asks nothing of the kind keeps no source.
+    const notice = noticeOf({ ...mpl, licence: 'MIT', source }, standardText);
+    expect('notice' in notice && 'source' in notice.notice).toBe(false);
+  });
+
   it('holds the standard text of every allowed licence, and of no other', () => {
     expect(
       readdirSync(LICENCE_TEXTS)
@@ -321,6 +334,17 @@ describe('what the licence of a shipped package permits', () => {
 describe('the notices file', () => {
   /** The notices of the fixture's packages a licence allows. */
   const allowed = () => decide(LOCKFILE).flatMap((one) => ('notice' in one ? [one.notice] : []));
+
+  it('says where the source of each package under the Mozilla Public License is, and of no other', () => {
+    const source = 'https://crates.io/crates/decoder/0.6.1';
+    const decided = noticeOf(
+      { name: 'decoder', version: '0.6.1', licence: 'MPL-2.0', files: [], source },
+      standardText,
+    );
+    const mpl = 'notice' in decided ? [decided.notice] : [];
+    expect(renderNotices([...allowed(), ...mpl])).toContain(`- decoder 0.6.1: <${source}>`);
+    expect(renderNotices(allowed())).not.toContain('Mozilla Public License');
+  });
 
   it('writes a text two packages share once, naming both', () => {
     const rendered = renderNotices(allowed());

@@ -41,7 +41,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } fr
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { WASM_CRATE, WASM_TARGET } from './build-wasm.mjs';
+import { SHIPPED_CRATES, WASM_TARGET } from './build-wasm.mjs';
 import { localTracesIn } from './local-traces.mjs';
 import { lockedPackagesOf } from './read-pnpm-lockfile.mjs';
 
@@ -67,12 +67,17 @@ const SHIPPED_IMPORTER = 'apps/web';
  * licensed under Apache-2.0 and in minified form, on the condition that its
  * notice and terms travel with it, which this file is how the application
  * meets. None asks for the work's own source to be offered or its licence to
- * change. A weak copyleft licence (MPL-2.0, LGPL) and a strong one (GPL, AGPL)
- * do, and a licence that restricts use (CC-BY-NC, SSPL, BUSL) or names no
- * terms at all (UNLICENSED, `SEE LICENSE IN`) is not permission, so each is
- * refused here for a person to decide on, rather than added unread. Each has
- * its standard text in `LICENCE_TEXTS`, to quote for a package that ships no
- * licence file of its own.
+ * change. A weak copyleft licence (LGPL) and a strong one (GPL, AGPL) do, and
+ * a licence that restricts use (CC-BY-NC, SSPL, BUSL) or names no terms at all
+ * (UNLICENSED, `SEE LICENSE IN`) is not permission, so each is refused here
+ * for a person to decide on, rather than added unread. Each has its standard
+ * text in `LICENCE_TEXTS`, to quote for a package that ships no licence file
+ * of its own.
+ *
+ * MPL-2.0 was decided on by ADR-0091, for Symphonia: its copyleft reaches the
+ * files it covers and no further, those files are used unmodified, and it asks
+ * only that whoever receives them compiled be told where their source is,
+ * which the notices say of each package under it ({@link SOURCE_OFFERED}).
  */
 export const ALLOWED_LICENCES = Object.freeze([
   '0BSD',
@@ -85,11 +90,19 @@ export const ALLOWED_LICENCES = Object.freeze([
   'ISC',
   'MIT',
   'MIT-0',
+  'MPL-2.0',
   'Unicode-3.0',
   'Unicode-DFS-2016',
   'Unlicense',
   'Zlib',
 ]);
+
+/**
+ * The allowed licences that ask that a recipient of the compiled package be
+ * told where its source is: a package taken under one is refused unless its
+ * source is known, and the notices name it.
+ */
+export const SOURCE_OFFERED = Object.freeze(['MPL-2.0']);
 
 /**
  * The exceptions an allowed licence may be taken `WITH`, each of which only
@@ -230,6 +243,7 @@ const COPYRIGHT_PROSE =
  * @property {unknown} licence the manifest's `license` field, as written
  * @property {readonly { readonly name: string, readonly text: string }[]} files
  *   its licence files, by name
+ * @property {string} [source] where its source is published
  */
 
 /**
@@ -244,6 +258,8 @@ const COPYRIGHT_PROSE =
  *   them, or the standard texts of the licences it is taken under
  * @property {boolean} standard whether the texts are the licences' standard
  *   ones, because the package ships none
+ * @property {string} [source] where its source is published, for a package
+ *   whose licence asks that a recipient be told
  */
 
 /**
@@ -283,6 +299,12 @@ export function noticeOf(source, standardText) {
   if (!decision.allowed) {
     return { refused: `${named} is licensed ${source.licence}: ${decision.reason}` };
   }
+  const offered = decision.licences.some((licence) => listed(SOURCE_OFFERED, licence));
+  if (offered && source.source === undefined) {
+    return {
+      refused: `${named} is licensed ${source.licence}, which asks that its source be offered, and states none`,
+    };
+  }
   const shipped = source.files
     .filter((file) => LICENCE_FILE.test(file.name))
     .toSorted((one, other) => compare(one.name, other.name))
@@ -296,6 +318,7 @@ export function noticeOf(source, standardText) {
       copyright: [...new Set(lines.filter(isCopyright))],
       texts: shipped.length > 0 ? shipped : standardTexts(decision.licences, standardText),
       standard: shipped.length === 0,
+      ...(offered ? { source: source.source } : {}),
     },
   };
 }
@@ -521,6 +544,11 @@ export function renderNotices(notices, ported = []) {
         linksOf(port.texts, `the code ported from ${port.project}`).join(', '),
       ].join(' | '),
     );
+  const offered = sorted.flatMap((notice) =>
+    notice.source === undefined
+      ? []
+      : [`- ${cell(notice.name)} ${cell(notice.version)}: <${notice.source}>`],
+  );
   const sections = [...texts.values()].map(({ number, text, users }) => {
     const fence = fenceFor(text);
     return [
@@ -547,7 +575,7 @@ export function renderNotices(notices, ported = []) {
     'none, the standard text of its licence. A package is listed when the published',
     'application runs with it: the production dependencies of `apps/web`, through',
     'every workspace package it uses, and the Rust crates linked into its WebAssembly',
-    'module. Tools used only to develop, test and build AudioGubbins, such as Vitest,',
+    'modules. Tools used only to develop, test and build AudioGubbins, such as Vitest,',
     'ESLint, Playwright, TypeScript and Vite, are not shipped and are not listed.',
     '',
     '## Packages',
@@ -556,6 +584,18 @@ export function renderNotices(notices, ported = []) {
     '| --- | --- | --- | --- | --- |',
     ...rows.map((row) => `| ${row} |`),
     '',
+    ...(offered.length === 0
+      ? []
+      : [
+          '## Source of the packages under the Mozilla Public License',
+          '',
+          'The packages below are licensed under the Mozilla Public License 2.0, which asks',
+          'that whoever receives them compiled be told where their source is. Each is',
+          'shipped unmodified, and its source is published at:',
+          '',
+          ...offered,
+          '',
+        ]),
     '## Ported source code',
     '',
     'AudioGubbins also ships source code rewritten in TypeScript from the projects',
@@ -690,13 +730,14 @@ function shippedNodeSources() {
       version: one.version,
       licence: manifest.license,
       files: licenceFilesIn(folder),
+      source: `https://www.npmjs.com/package/${one.name}/v/${one.version}`,
     });
   }
   return [...sources.values()];
 }
 
 /**
- * The third-party crates the WebAssembly module links, from `cargo metadata`
+ * The third-party crates the WebAssembly modules link, each once, from `cargo metadata`
  * held to `Cargo.lock` and run offline, so it neither changes the lockfile
  * nor reaches the network.
  *
@@ -719,12 +760,19 @@ function shippedCrateSources() {
   if (run.error !== undefined) throw new Error(`cargo could not be started: ${run.error.message}`);
   if (run.status !== 0) throw new Error(`cargo metadata failed:\n${run.stderr}`);
   const metadata = /** @type {CargoMetadata} */ (JSON.parse(run.stdout));
-  return linkedCratesOf(metadata, WASM_CRATE).map((crate) => ({
+  const linked = new Map(
+    SHIPPED_CRATES.flatMap((root) => linkedCratesOf(metadata, root)).map((crate) => [
+      crate.id,
+      crate,
+    ]),
+  );
+  return [...linked.values()].map((crate) => ({
     name: crate.name,
     version: crate.version,
     // Cargo's manifests once wrote `MIT/Apache-2.0` for a choice of either.
     licence: crate.license?.replaceAll('/', ' OR ') ?? undefined,
     files: licenceFilesIn(dirname(crate.manifest_path)),
+    source: `https://crates.io/crates/${crate.name}/${crate.version}`,
   }));
 }
 
