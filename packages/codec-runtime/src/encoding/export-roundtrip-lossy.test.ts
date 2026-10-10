@@ -33,6 +33,9 @@ import {
 } from '../testing/export-encoding.js';
 import { memoryBytes } from '../testing/memory-bytes.js';
 
+/** Each case encodes and decodes seconds of audio, several times over, in WebAssembly. */
+const ENCODING_TIMEOUT_MS = 60_000;
+
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 
 /** One lossy export: what is encoded, at what rate and layout, and the SNR it must keep. */
@@ -120,30 +123,34 @@ const CASES: readonly LossyCase[] = [
 ];
 
 describe('lossy exports, decoded by the codec module', () => {
-  it.each(CASES)('$name keeps every frame and the stated error', async (one) => {
-    const module = await codecModule();
-    const frames = one.rate * 2 + 123;
-    // Opus codes its low-frequency channel band-limited, so that channel carries a low tone.
-    const source = testSignal(one.layout.roles.length, frames, one.rate).map((plane, channel) =>
-      one.layout.roles[channel] === ChannelRole.LowFrequency
-        ? plane.map((_, frame) => 0.5 * Math.sin((2 * Math.PI * 50 * frame) / one.rate))
-        : plane,
-    );
-    const file = await encodeWhole(exportRequest(one.encoding, one.rate, one.layout), source);
-    const session = expectSuccess(module.openDecoder(memoryBytes(file)));
-    expect(session.description).toMatchObject({
-      sampleRate: one.encoding.format === 'opus' ? 48_000 : one.rate,
-      channelCount: one.layout.roles.length,
-      totalFrames: frames,
-    });
-    const decoded = decodeAll(session);
-    session.release();
-    expect(decoded.map((plane) => plane.length)).toEqual(source.map(() => frames));
-    const target = exportTarget(one.encoding);
-    const order = expectSuccess(writtenChannelOrder(target.codec, target.container, one.layout));
-    const written = order.map((index) => source[index] ?? new Float32Array(frames));
-    expect(snrDb(written, decoded)).toBeGreaterThan(one.floorDb);
-  });
+  it.each(CASES)(
+    '$name keeps every frame and the stated error',
+    async (one) => {
+      const module = await codecModule();
+      const frames = one.rate * 2 + 123;
+      // Opus codes its low-frequency channel band-limited, so that channel carries a low tone.
+      const source = testSignal(one.layout.roles.length, frames, one.rate).map((plane, channel) =>
+        one.layout.roles[channel] === ChannelRole.LowFrequency
+          ? plane.map((_, frame) => 0.5 * Math.sin((2 * Math.PI * 50 * frame) / one.rate))
+          : plane,
+      );
+      const file = await encodeWhole(exportRequest(one.encoding, one.rate, one.layout), source);
+      const session = expectSuccess(module.openDecoder(memoryBytes(file)));
+      expect(session.description).toMatchObject({
+        sampleRate: one.encoding.format === 'opus' ? 48_000 : one.rate,
+        channelCount: one.layout.roles.length,
+        totalFrames: frames,
+      });
+      const decoded = decodeAll(session);
+      session.release();
+      expect(decoded.map((plane) => plane.length)).toEqual(source.map(() => frames));
+      const target = exportTarget(one.encoding);
+      const order = expectSuccess(writtenChannelOrder(target.codec, target.container, one.layout));
+      const written = order.map((index) => source[index] ?? new Float32Array(frames));
+      expect(snrDb(written, decoded)).toBeGreaterThan(one.floorDb);
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 });
 
 describe('the reproducibility of lossy exports', () => {
@@ -170,17 +177,21 @@ describe('the reproducibility of lossy exports', () => {
     ],
   ];
 
-  it('gives the same bytes for the same blocks and settings, however they are blocked', async () => {
-    const source = testSignal(2, 48_000, 48_000);
-    const hashes: string[] = [];
-    for (const [encoding] of HASHES) {
-      const request = exportRequest(encoding, 48_000);
-      const first = await encodeWhole(request, source);
-      for (const block of [1_777, 512, 48_000]) {
-        expect(await encodeWhole(request, source, undefined, block)).toEqual(first);
+  it(
+    'gives the same bytes for the same blocks and settings, however they are blocked',
+    async () => {
+      const source = testSignal(2, 48_000, 48_000);
+      const hashes: string[] = [];
+      for (const [encoding] of HASHES) {
+        const request = exportRequest(encoding, 48_000);
+        const first = await encodeWhole(request, source);
+        for (const block of [1_777, 512, 48_000]) {
+          expect(await encodeWhole(request, source, undefined, block)).toEqual(first);
+        }
+        hashes.push(sha256(first));
       }
-      hashes.push(sha256(first));
-    }
-    expect(hashes).toEqual(HASHES.map(([, hash]) => hash));
-  });
+      expect(hashes).toEqual(HASHES.map(([, hash]) => hash));
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 });

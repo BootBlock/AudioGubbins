@@ -27,6 +27,9 @@ import { memoryBytes } from '../testing/memory-bytes.js';
 const RATE = 48_000;
 const FRAMES = 30_011;
 
+/** Each case encodes and decodes seconds of audio, several times over, in WebAssembly. */
+const ENCODING_TIMEOUT_MS = 60_000;
+
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 
 /** The source as the export's quantiser makes it: each sample `k / 2^(bits-1)`. */
@@ -59,127 +62,147 @@ const integers = (plane: ArrayLike<number>, bits: number): Int32Array =>
   Int32Array.from(plane, (sample) => sample * 2 ** (bits - 1));
 
 describe('WAV, AIFF and AIFF-C exports, read back by the codecs', () => {
-  it('give back integer samples bit for bit, as the quantiser made them', async () => {
-    const source = testSignal(2, FRAMES, RATE);
-    const cases: readonly (readonly [FormatEncoding, number])[] = [
-      [{ format: 'wav', encoding: { kind: 'integer', bits: 16 } }, 16],
-      [{ format: 'wav', encoding: { kind: 'integer', bits: 24 } }, 24],
-      [{ format: 'wav', encoding: { kind: 'integer', bits: 8 } }, 8],
-      [{ format: 'aiff', encoding: { kind: 'integer', bits: 24 } }, 24],
-      [{ format: 'aifc', encoding: { kind: 'integer', bits: 16 } }, 16],
-    ];
-    for (const [encoding, bits] of cases) {
-      const file = await encodeWhole(exportRequest(encoding, RATE), source);
-      const read = await readWhole(file);
-      quantised(source, bits).forEach((plane, channel) => {
-        expect(integers(read[channel] ?? [], bits)).toEqual(integers(plane, bits));
+  it(
+    'give back integer samples bit for bit, as the quantiser made them',
+    async () => {
+      const source = testSignal(2, FRAMES, RATE);
+      const cases: readonly (readonly [FormatEncoding, number])[] = [
+        [{ format: 'wav', encoding: { kind: 'integer', bits: 16 } }, 16],
+        [{ format: 'wav', encoding: { kind: 'integer', bits: 24 } }, 24],
+        [{ format: 'wav', encoding: { kind: 'integer', bits: 8 } }, 8],
+        [{ format: 'aiff', encoding: { kind: 'integer', bits: 24 } }, 24],
+        [{ format: 'aifc', encoding: { kind: 'integer', bits: 16 } }, 16],
+      ];
+      for (const [encoding, bits] of cases) {
+        const file = await encodeWhole(exportRequest(encoding, RATE), source);
+        const read = await readWhole(file);
+        quantised(source, bits).forEach((plane, channel) => {
+          expect(integers(read[channel] ?? [], bits)).toEqual(integers(plane, bits));
+        });
+      }
+    },
+    ENCODING_TIMEOUT_MS,
+  );
+
+  it(
+    'dithers before quantising, the noise drawn under the file’s key',
+    async () => {
+      const source = testSignal(2, FRAMES, RATE);
+      const dither: DitherSettings = {
+        kind: 'triangular',
+        amplitude: 1,
+        shaping: 'first-order',
+        seed: 0,
+      };
+      const request = {
+        ...exportRequest({ format: 'wav', encoding: { kind: 'integer', bits: 16 } }, RATE),
+        dither,
+        ditherKey: 0x5eed,
+      };
+      const read = await readWhole(await encodeWhole(request, source));
+      const expected = quantised(source, 16, dither, 0x5eed);
+      expected.forEach((plane, channel) => {
+        expect(integers(read[channel] ?? [], 16)).toEqual(integers(plane, 16));
       });
-    }
-  });
+      // Dither changes the integers an undithered export writes.
+      expect(integers(expected[0] ?? [], 16)).not.toEqual(
+        integers(quantised(source, 16)[0] ?? [], 16),
+      );
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 
-  it('dithers before quantising, the noise drawn under the file’s key', async () => {
-    const source = testSignal(2, FRAMES, RATE);
-    const dither: DitherSettings = {
-      kind: 'triangular',
-      amplitude: 1,
-      shaping: 'first-order',
-      seed: 0,
-    };
-    const request = {
-      ...exportRequest({ format: 'wav', encoding: { kind: 'integer', bits: 16 } }, RATE),
-      dither,
-      ditherKey: 0x5eed,
-    };
-    const read = await readWhole(await encodeWhole(request, source));
-    const expected = quantised(source, 16, dither, 0x5eed);
-    expected.forEach((plane, channel) => {
-      expect(integers(read[channel] ?? [], 16)).toEqual(integers(plane, 16));
-    });
-    // Dither changes the integers an undithered export writes.
-    expect(integers(expected[0] ?? [], 16)).not.toEqual(
-      integers(quantised(source, 16)[0] ?? [], 16),
-    );
-  });
+  it(
+    'writes a 32-bit integer export exactly, every sample the integer its dither chose',
+    async () => {
+      const source = testSignal(1, 4_001, RATE);
+      const dither: DitherSettings = { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 7 };
+      const request = {
+        ...exportRequest(
+          { format: 'wav', encoding: { kind: 'integer', bits: 32 } },
+          RATE,
+          StandardLayouts.mono,
+        ),
+        dither,
+        ditherKey: 99,
+      };
+      const file = await encodeWhole(request, source);
+      const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
+      const data = file.length - 4_001 * 4;
+      const written = Int32Array.from({ length: 4_001 }, (_, frame) =>
+        view.getInt32(data + frame * 4, true),
+      );
+      const expected = Int32Array.from(quantised(source, 32, dither, 99)[0] ?? [], (sample) =>
+        quantiseSample(sample, 32),
+      );
+      expect(written).toEqual(expected);
+      // A 32-bit float could not have held these: some are not k / 2^31 in single precision.
+      expect(expected.some((value) => Math.fround(value / 2 ** 31) * 2 ** 31 !== value)).toBe(true);
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 
-  it('writes a 32-bit integer export exactly, every sample the integer its dither chose', async () => {
-    const source = testSignal(1, 4_001, RATE);
-    const dither: DitherSettings = { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 7 };
-    const request = {
-      ...exportRequest(
-        { format: 'wav', encoding: { kind: 'integer', bits: 32 } },
-        RATE,
-        StandardLayouts.mono,
-      ),
-      dither,
-      ditherKey: 99,
-    };
-    const file = await encodeWhole(request, source);
-    const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
-    const data = file.length - 4_001 * 4;
-    const written = Int32Array.from({ length: 4_001 }, (_, frame) =>
-      view.getInt32(data + frame * 4, true),
-    );
-    const expected = Int32Array.from(quantised(source, 32, dither, 99)[0] ?? [], (sample) =>
-      quantiseSample(sample, 32),
-    );
-    expect(written).toEqual(expected);
-    // A 32-bit float could not have held these: some are not k / 2^31 in single precision.
-    expect(expected.some((value) => Math.fround(value / 2 ** 31) * 2 ** 31 !== value)).toBe(true);
-  });
-
-  it('gives back floating-point samples bit for bit', async () => {
-    const source = testSignal(2, FRAMES, RATE);
-    for (const encoding of [
-      { format: 'wav', encoding: { kind: 'float', bits: 32 } },
-      { format: 'wav', encoding: { kind: 'float', bits: 64 } },
-      { format: 'aifc', encoding: { kind: 'float', bits: 32 } },
-    ] as const) {
-      const read = await readWhole(await encodeWhole(exportRequest(encoding, RATE), source));
-      expect(read).toEqual(source);
-    }
-  });
+  it(
+    'gives back floating-point samples bit for bit',
+    async () => {
+      const source = testSignal(2, FRAMES, RATE);
+      for (const encoding of [
+        { format: 'wav', encoding: { kind: 'float', bits: 32 } },
+        { format: 'wav', encoding: { kind: 'float', bits: 64 } },
+        { format: 'aifc', encoding: { kind: 'float', bits: 32 } },
+      ] as const) {
+        const read = await readWhole(await encodeWhole(exportRequest(encoding, RATE), source));
+        expect(read).toEqual(source);
+      }
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 });
 
 describe('FLAC exports, decoded by the codec module', () => {
-  it('give back every depth bit for bit, in FLAC’s own channel order', async () => {
-    const module = await codecModule();
-    const cases: readonly (readonly [16 | 24, ChannelLayout, number])[] = [
-      [16, StandardLayouts.stereo, 5],
-      [24, StandardLayouts.mono, 8],
-      [16, StandardLayouts.surround5_1, 0],
-      [24, StandardLayouts.surround7_1, 2],
-    ];
-    for (const [bits, layout, level] of cases) {
-      const source = testSignal(layout.roles.length, FRAMES, RATE);
-      const file = await encodeWhole(
-        exportRequest(
-          { format: 'flac', encoding: { bits, compressionLevel: level } },
-          RATE,
-          layout,
-        ),
-        source,
-      );
-      const session = expectSuccess(module.openDecoder(memoryBytes(file)));
-      expect(session.description).toMatchObject({
-        codec: 'flac',
-        bitsPerSample: bits,
-        totalFrames: FRAMES,
-        channelCount: layout.roles.length,
-      });
-      const decoded = decodeAll(session);
-      session.release();
-      const order = expectSuccess(writtenChannelOrder('flac', 'flac', layout));
-      const expected = quantised(source, bits);
-      const written = order.map((index) => integers(expected[index] ?? [], bits));
-      written.forEach((plane, channel) => {
-        expect(integers(decoded[channel] ?? [], bits)).toEqual(plane);
-      });
-      // STREAMINFO's signature, after `fLaC`, the block's header and 18 bytes of fields.
-      const digest = new FlacSampleDigest(bits);
-      digest.add(written, FRAMES);
-      expect(file.subarray(26, 42)).toEqual(digest.digest());
-    }
-  });
+  it(
+    'give back every depth bit for bit, in FLAC’s own channel order',
+    async () => {
+      const module = await codecModule();
+      const cases: readonly (readonly [16 | 24, ChannelLayout, number])[] = [
+        [16, StandardLayouts.stereo, 5],
+        [24, StandardLayouts.mono, 8],
+        [16, StandardLayouts.surround5_1, 0],
+        [24, StandardLayouts.surround7_1, 2],
+      ];
+      for (const [bits, layout, level] of cases) {
+        const source = testSignal(layout.roles.length, FRAMES, RATE);
+        const file = await encodeWhole(
+          exportRequest(
+            { format: 'flac', encoding: { bits, compressionLevel: level } },
+            RATE,
+            layout,
+          ),
+          source,
+        );
+        const session = expectSuccess(module.openDecoder(memoryBytes(file)));
+        expect(session.description).toMatchObject({
+          codec: 'flac',
+          bitsPerSample: bits,
+          totalFrames: FRAMES,
+          channelCount: layout.roles.length,
+        });
+        const decoded = decodeAll(session);
+        session.release();
+        const order = expectSuccess(writtenChannelOrder('flac', 'flac', layout));
+        const expected = quantised(source, bits);
+        const written = order.map((index) => integers(expected[index] ?? [], bits));
+        written.forEach((plane, channel) => {
+          expect(integers(decoded[channel] ?? [], bits)).toEqual(plane);
+        });
+        // STREAMINFO's signature, after `fLaC`, the block's header and 18 bytes of fields.
+        const digest = new FlacSampleDigest(bits);
+        digest.add(written, FRAMES);
+        expect(file.subarray(26, 42)).toEqual(digest.digest());
+      }
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 });
 
 describe('the reproducibility of lossless exports', () => {
@@ -207,24 +230,28 @@ describe('the reproducibility of lossless exports', () => {
     ],
   ];
 
-  it('gives the same bytes for the same blocks and settings, however they are blocked', async () => {
-    const source = testSignal(2, FRAMES, RATE);
-    const dither: DitherSettings = { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 3 };
-    const hashes: string[] = [];
-    for (const [encoding] of HASHES) {
-      // Dither is added before an integer encoder alone.
-      const floating = encoding.format === 'aifc' && encoding.encoding.kind === 'float';
-      const request = {
-        ...exportRequest(encoding, RATE),
-        dither: floating ? { kind: 'none' as const } : dither,
-        ditherKey: 1234,
-      };
-      const first = await encodeWhole(request, source);
-      for (const block of [1_777, 512, 48_000]) {
-        expect(await encodeWhole(request, source, undefined, block)).toEqual(first);
+  it(
+    'gives the same bytes for the same blocks and settings, however they are blocked',
+    async () => {
+      const source = testSignal(2, FRAMES, RATE);
+      const dither: DitherSettings = { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 3 };
+      const hashes: string[] = [];
+      for (const [encoding] of HASHES) {
+        // Dither is added before an integer encoder alone.
+        const floating = encoding.format === 'aifc' && encoding.encoding.kind === 'float';
+        const request = {
+          ...exportRequest(encoding, RATE),
+          dither: floating ? { kind: 'none' as const } : dither,
+          ditherKey: 1234,
+        };
+        const first = await encodeWhole(request, source);
+        for (const block of [1_777, 512, 48_000]) {
+          expect(await encodeWhole(request, source, undefined, block)).toEqual(first);
+        }
+        hashes.push(sha256(first));
       }
-      hashes.push(sha256(first));
-    }
-    expect(hashes).toEqual(HASHES.map(([, hash]) => hash));
-  });
+      expect(hashes).toEqual(HASHES.map(([, hash]) => hash));
+    },
+    ENCODING_TIMEOUT_MS,
+  );
 });
