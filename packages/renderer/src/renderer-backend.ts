@@ -51,7 +51,7 @@ export function drawFailed(reason: string): DrawOutcome {
   return { kind: 'failed', reason };
 }
 
-/** Draws a frame's rectangles and segments on its canvas. */
+/** Draws a frame's rectangles, segments and fields on its canvas. */
 export interface RendererBackend {
   readonly kind: RendererKind;
   /** Draws `frame`, sizing the canvas to it, and answers what became of it. */

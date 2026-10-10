@@ -96,7 +96,9 @@ export class EditorSurface {
     this.#canvases = new EditorCanvases(options.host);
     this.#renderer = new Renderer({
       surface: this.#canvases,
-      backends: browserBackends(options.graphics.gpu, browserSchedule),
+      backends: browserBackends(options.graphics.gpu, browserSchedule, () =>
+        this.#canvases.offscreen(),
+      ),
     });
     this.#stops.push(this.#renderer.subscribe(this.#reported));
     void this.#renderer.start().then(() => {

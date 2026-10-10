@@ -881,7 +881,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27349: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@28544: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1175,7 +1175,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27349: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@28544: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2266,6 +2266,9 @@ Published paths
   readonly BlockPlace.step: -1 | 1
   readonly BlockPlace.frames: number
   type Branded<TBrand extends string> = string & { readonly [BrandTag]: TBrand; }
+  interface BrushRadius
+  readonly BrushRadius.time: number
+  readonly BrushRadius.frequency: number
   interface Bus
   readonly Bus.id: BusId
   readonly Bus.displayName: string
@@ -2328,6 +2331,7 @@ Published paths
   readonly Clip.fadeOutLength: SampleCount
   readonly Clip.muted: boolean
   type ClipId = string & { readonly [BrandTag]: "ClipId"; }
+  const DEFAULT_SPECTRAL_RESOLUTION: 2048
   interface DetectorFinding
   readonly DetectorFinding.kind: FindingKind
   readonly DetectorFinding.range: EditRange
@@ -2400,9 +2404,14 @@ Published paths
   interface FoundSlot
   readonly FoundSlot.slot: ChainSlot
   readonly FoundSlot.place: SlotPlace
+  interface FrequencyBand
+  readonly FrequencyBand.low: number
+  readonly FrequencyBand.high: number
   type GainCurve = FadeCurve | { readonly kind: "constant"; readonly gain: number; }
+  const HIGHEST_MASK_FREQUENCY: number
   interface IdGenerator
   IdGenerator.next: <TBrand extends string>() => Branded<TBrand>
+  const LARGEST_SPECTRAL_RESOLUTION: 16384
   const LONGEST_SAVED_NAME: 120
   type LevelEdit = { readonly kind: "fade"; readonly direction: FadeDirection; readonly shape: FadeShape; } | { readonly kind: "gain"; readonly gain: number; } | { readonly kind: "invert"; } | { readonly kind: "silence"; }
   type LibraryContent = { readonly kind: "chain"; readonly chain: EffectChain; } | { readonly kind: "preset"; readonly processor: ProcessorInstance; }
@@ -2426,6 +2435,8 @@ Published paths
   const MAXIMUM_EDIT_GAIN: 1000
   const MAXIMUM_GROUP_BRANCHES: 16
   const MAXIMUM_GROUP_DEPTH: 8
+  const MAXIMUM_MASK_POINTS: 65536
+  const MAXIMUM_MASK_SHAPES: 1024
   const MAXIMUM_QUALITY: QualityMode
   const MAXIMUM_STATE_VALUES: 262144
   const MAXIMUM_STRETCH_RATIO: 8
@@ -2440,6 +2451,20 @@ Published paths
   readonly Marker.position: SampleCount
   readonly Marker.paletteKey?: string
   type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
+  const MaskEffect: { readonly Add: "add"; readonly Subtract: "subtract"; }
+  type MaskEffect = "add" | "subtract"
+  class MaskWeights
+  new MaskWeights(mask: SpectralMask): MaskWeights
+  readonly MaskWeights.#mask: SpectralMask
+  readonly MaskWeights.#shapes: readonly PreparedShape[]
+  MaskWeights.#added: Float64Array<ArrayBuffer>
+  MaskWeights.#taken: Float64Array<ArrayBuffer>
+  MaskWeights.#crossings: number[]
+  MaskWeights.row: (position: number, frequencies: Float64Array, into: Float64Array) => void
+  MaskWeights.at: (position: number, frequency: number) => number
+  MaskWeights.#shapeRow: (shape: SpectralShape, position: number, frequencies: Float64Array, from: number, to: number, target: Float64Array) => void
+  MaskWeights.#rectangleRow: (shape: Extract<SpectralShape, { readonly kind: "rectangle"; }>, position: number, frequencies: Float64Array, from: number, to: number, target: Float64Array) => void
+  MaskWeights.#polygonRow: (points: readonly SpectralPoint[], position: number, frequencies: Float64Array, from: number, to: number, target: Float64Array) => void
   const MeasureUnit: { readonly Dbfs: "dbfs"; readonly Decibels: "decibels"; readonly Hertz: "hertz"; readonly Linear: "linear"; }
   type MeasureUnit = "dbfs" | "decibels" | "hertz" | "linear"
   type MediaShape = { readonly length: import("packages/domain/src/index").SampleCount; readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly channelLayout: import("packages/domain/src/index").ChannelLayout; }
@@ -2450,6 +2475,7 @@ Published paths
   readonly ModelIdentity.modelHash: string
   readonly ModelIdentity.runtimeHash: string
   const NAMED_QUALITY_LEVELS: readonly NamedQualityLevel[]
+  const NO_FEATHER: SpectralFeather
   type NamedQualityLevel = "draft" | "high" | "maximum" | "standard"
   interface NumericParameterDescriptor
   readonly NumericParameterDescriptor.kind: "numeric"
@@ -2510,6 +2536,12 @@ Published paths
   readonly PlanStream.layout: ChannelLayout
   readonly PlanStream.segments: readonly PlanSegment[]
   readonly PlanStream.processing?: StreamProcessing
+  interface PlannedSpectralEdit
+  readonly PlannedSpectralEdit.mask: SpectralMask
+  readonly PlannedSpectralEdit.resolution: number
+  readonly PlannedSpectralEdit.operation: PlannedSpectralOperation
+  readonly PlannedSpectralEdit.channels?: readonly number[]
+  type PlannedSpectralOperation = { readonly kind: "attenuate"; readonly gain: number; } | { readonly kind: "heal"; } | { readonly kind: "isolate"; readonly gain: number; } | { readonly kind: "process"; readonly chain: EffectChain; readonly input: ChannelLayout; }
   type ProcessorCatalogue = ReadonlyMap<string, ProcessorDescriptor>
   const ProcessorCategory: { readonly Level: "level"; readonly Equalisation: "equalisation"; readonly Dynamics: "dynamics"; readonly Time: "time"; readonly Pitch: "pitch"; readonly Space: "space"; readonly Restoration: "restoration"; readonly Separation: "separation"; }
   type ProcessorCategory = "dynamics" | "equalisation" | "level" | "pitch" | "restoration" | "separation" | "space" | "time"
@@ -2596,7 +2628,7 @@ Published paths
   interface RackEdit
   readonly RackEdit.kind: "rack"
   readonly RackEdit.chain: EffectChainId
-  type RangeEdit = ChannelEdit | LevelEdit | PunchEdit | RackEdit
+  type RangeEdit = ChannelEdit | LevelEdit | PunchEdit | RackEdit | SpectralEdit
   interface RangeRack
   readonly RangeRack.operation: EditOperationId
   readonly RangeRack.range: EditRange
@@ -2633,6 +2665,7 @@ Published paths
   const ResamplingGrade: { readonly Draft: "draft"; readonly High: "high"; readonly Maximum: "maximum"; }
   type ResamplingGrade = "draft" | "high" | "maximum"
   type RoutingTarget = { readonly kind: "bus"; readonly busId: BusId; } | { readonly kind: "main-output"; }
+  const SMALLEST_SPECTRAL_RESOLUTION: 256
   type SampleCount = number & { readonly [SampleCountTag]: "SampleCount"; }
   type SampleRate = number & { readonly [SampleRateTag]: "SampleRate"; }
   interface SlotPlace
@@ -2641,6 +2674,32 @@ Published paths
   interface Span
   readonly Span.start: number
   readonly Span.end: number
+  interface SpectralBounds
+  readonly SpectralBounds.start: number
+  readonly SpectralBounds.end: number
+  readonly SpectralBounds.low: number
+  readonly SpectralBounds.high: number
+  interface SpectralEdit
+  readonly SpectralEdit.kind: "spectral"
+  readonly SpectralEdit.mask: SpectralMask
+  readonly SpectralEdit.resolution: number
+  readonly SpectralEdit.operation: SpectralEditOperation
+  type SpectralEditOperation = { readonly kind: "attenuate"; readonly gain: number; } | { readonly kind: "heal"; } | { readonly kind: "isolate"; readonly gain: number; } | { readonly kind: "process"; readonly chain: EffectChainId; }
+  interface SpectralFeather
+  readonly SpectralFeather.time: number
+  readonly SpectralFeather.frequency: number
+  interface SpectralMask
+  readonly SpectralMask.shapes: readonly [SpectralShape, ...SpectralShape[]]
+  readonly SpectralMask.feather: SpectralFeather
+  type SpectralOperationKind = "attenuate" | "heal" | "isolate" | "process"
+  interface SpectralPlacement
+  readonly SpectralPlacement.start: SampleCount
+  readonly SpectralPlacement.end: SampleCount
+  readonly SpectralPlacement.mask: SpectralMask
+  interface SpectralPoint
+  readonly SpectralPoint.position: SampleCount
+  readonly SpectralPoint.frequency: number
+  type SpectralShape = { readonly kind: "polygon"; readonly effect: MaskEffect; readonly points: readonly [SpectralPoint, SpectralPoint, SpectralPoint, ...SpectralPoint[]]; } | { readonly kind: "rectangle"; readonly effect: MaskEffect; readonly range: { readonly start: SampleCount; readonly end: SampleCount; }; readonly band: FrequencyBand; } | { readonly kind: "stroke"; readonly effect: MaskEffect; readonly hardness: number; readonly points: readonly [StrokePoint, ...StrokePoint[]]; }
   interface StackUse
   readonly StackUse.asset: AssetId
   readonly StackUse.operation: EditOperationId
@@ -2650,7 +2709,12 @@ Published paths
   readonly StateRequirement.kind: string
   readonly StateRequirement.missing: string
   StateRequirement.check: (state: ProcessorState, input: ChannelLayout, sampleRate: SampleRate, values: ParameterValues) => DomainResult<void>
-  type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "stretch"; readonly length: SampleCount; }
+  type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "spectral"; readonly edit: PlannedSpectralEdit; } | { readonly kind: "stretch"; readonly length: SampleCount; }
+  interface StrokePoint extends SpectralPoint
+  readonly StrokePoint.strength: number
+  readonly StrokePoint.radius: BrushRadius
+  readonly StrokePoint.position: SampleCount
+  readonly StrokePoint.frequency: number
   const SummingLaw: { readonly Sum: "sum"; readonly Mean: "mean"; readonly EqualPower: "equal-power"; }
   type SummingLaw = "equal-power" | "mean" | "sum"
   interface Take
@@ -2731,6 +2795,7 @@ Published paths
   function chosenTake(stack: TakeStack): Take | undefined
   function clipAssetId(clip: Clip): AssetId
   function clipEnd(clip: Clip): number
+  function clippedMask(mask: SpectralMask, length: number): SpectralMask | undefined
   function clipsOnTrack(project: Project, trackId: TrackId): readonly Clip[]
   function clipsOverlap(left: Clip, right: Clip): boolean
   function combine<TValue>(results: readonly DomainResult<TValue>[]): DomainResult<readonly TValue[]>
@@ -2754,6 +2819,7 @@ Published paths
   function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
   function domainFailuresAt(fields: Readonly<Record<string, unknown>>, field: string): readonly [DomainFailure, ...DomainFailure[]]
+  function editChain(edit: RangeEdit): EffectChainId | undefined
   function editPlanOf(value: unknown, field: string): EditPlan
   function effectChainOf(value: unknown, field: string): DomainResult<EffectChain>
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
@@ -2776,6 +2842,8 @@ Published paths
   function isLevelEdit(edit: RangeEdit): boolean
   function isModelIdentity(identity: ModelIdentity): boolean
   function isRetryable(result: DomainFailureResult): boolean
+  function isSpectralReduction(gain: number): boolean
+  function isSpectralResolution(value: number): boolean
   function isSuccess<TValue>(result: DomainResult<TValue>): boolean
   function isTagged(value: unknown, tag: string): boolean
   function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
@@ -2787,6 +2855,10 @@ Published paths
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
+  function maskOutline(mask: SpectralMask): SpectralBounds
+  function maskProblem(mask: SpectralMask, length: number): string | undefined
+  function maskSupport(mask: SpectralMask): SpectralBounds
+  function masksEqual(left: SpectralMask, right: SpectralMask): boolean
   function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string
   function namedQualityMode(level: NamedQualityLevel): QualityMode
   function nonEmptyObjectsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: MessageFields, name: string) => TItem): readonly [TItem, ...TItem[]]
@@ -2839,12 +2911,16 @@ Published paths
   function segmentsLayout(stream: PlanStream): ChannelLayout
   function segmentsLength(stream: Pick<PlanStream, "segments">): number
   function shapeAfter(shape: EditShape, operation: EditOperation): EditShape
+  function shapeOutline(shape: SpectralShape): SpectralBounds
   function shapesOf(asset: Asset): readonly EditShape[]
   function silencePlan(sampleRate: SampleRate, layout: ChannelLayout, length: SampleCount): EditPlan
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
   function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
   function slotsAt(chain: Pick<EffectChain, "slots">, group: undefined | { readonly id: ProcessorGroupId; readonly branch: number; }): readonly ChainSlot[] | undefined
   function sourceStreams(source: PlanSource): readonly number[]
+  function spectralEditProblem(edit: SpectralEdit, length: number, chains: ReadonlyMap<EffectChainId, EffectChain>): string | undefined
+  function spectralMaskOf(value: unknown, field: string): SpectralMask
+  function spectralPlacement(mask: SpectralMask, resolution: number, length: number): SpectralPlacement | undefined
   function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
   function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
   function stackUsers(project: Project, stack: TakeStackId): readonly StackUse[]
@@ -2854,11 +2930,13 @@ Published paths
   function sumInto(sum: readonly Float32Array<ArrayBufferLike>[], addend: readonly Float32Array<ArrayBufferLike>[], frames: number): void
   function summingFactor(law: SummingLaw, count: number): number
   function takeOf(stack: TakeStack, id: TakeId): Take | undefined
+  function takesChannelScope(edit: RangeEdit): boolean
   function textAt(fields: Readonly<Record<string, unknown>>, field: string): string
   function textOf(value: unknown, field: string): string
   function textsAt(fields: Readonly<Record<string, unknown>>, field: string): readonly string[]
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
+  function translatedMask(mask: SpectralMask, by: number): SpectralMask
   function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
   function treatmentValues(descriptor: ProcessorDescriptor, step: TreatmentStep): DomainResult<ParameterValues>
   function unheardLive(descriptor: ProcessorDescriptor): string | undefined
@@ -2875,6 +2953,7 @@ Published paths
   function validateRegion(asset: Asset, region: Region, chains: ProjectChains): DomainResult<Region>
   function validateTakeStack(stack: TakeStack, assets: ReadonlyMap<AssetId, Asset>): DomainResult<TakeStack>
   function validateTakeStackInProject(stack: TakeStack, project: Project): DomainResult<TakeStack>
+  function withEditChain(edit: RangeEdit, chain: EffectChainId): RangeEdit
   function withPreset(instance: ProcessorInstance, preset: ProcessorInstance): DomainResult<ProcessorInstance>
   function withRack(plan: EditPlan, rack: EffectChainId | undefined, context: PlanContext): DomainResult<EditPlan>
   function withSlotAt<T extends Pick<EffectChain, "slots">>(chain: T, place: SlotPlace, slot: ChainSlot): T | undefined
@@ -2889,6 +2968,7 @@ Published paths
   interface OracleWorld
   readonly OracleWorld.inserted?: Samples
   readonly OracleWorld.chain?: (chain: EffectChainId, samples: Samples) => Samples
+  readonly OracleWorld.spectral?: (edit: Omit<SpectralEdit, "kind">, channels: readonly number[] | undefined, samples: Samples) => Samples
   readonly OracleWorld.stretch?: (samples: Samples, length: number) => Samples
   readonly OracleWorld.convert?: (samples: Samples, from: number, to: number, length: number) => Samples
   readonly OracleWorld.takes?: { readonly stacks: ReadonlyMap<TakeStackId, TakeStack>; readonly recordings: ReadonlyMap<AssetId, { readonly samples: Samples; readonly rate: number; }>; }
@@ -4899,13 +4979,23 @@ Published paths
   readonly BackendFactory.kind: RendererKind
   BackendFactory.create: (canvas: HTMLCanvasElement, events: BackendEvents) => Promise<DomainResult<RendererBackend>>
   type Colour = readonly [number, number, number, number]
+  interface ColourRamp
+  readonly ColourRamp.key: string
+  readonly ColourRamp.colours: Uint8Array<ArrayBuffer>
+  interface FieldBatch
+  readonly FieldBatch.kind: "field"
+  readonly FieldBatch.field: ScalarField
+  readonly FieldBatch.ramp: ColourRamp
+  readonly FieldBatch.at: Rectangle
+  readonly FieldBatch.columns: { readonly from: number; readonly to: number; }
+  readonly FieldBatch.rows: Float32Array<ArrayBufferLike>
   interface ImageBatch
   readonly ImageBatch.kind: "images"
   readonly ImageBatch.images: readonly PlacedImage[]
   interface OverlayEvents
   readonly OverlayEvents.lost: () => void
   readonly OverlayEvents.restored: () => void
-  type Painter = { moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; save: () => void; rect: (x: number, y: number, w: number, h: number) => void; font: string; stroke: { (): void; (path: Path2D): void; }; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
+  type Painter = { stroke: { (): void; (path: Path2D): void; }; moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; save: () => void; rect: (x: number, y: number, w: number, h: number) => void; font: string; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
   interface PlacedImage
   readonly PlacedImage.image: CanvasImageSource
   readonly PlacedImage.at: Rectangle
@@ -4919,7 +5009,7 @@ Published paths
   readonly RectangleBatch.colour: Colour
   readonly RectangleBatch.values: Float32Array<ArrayBufferLike>
   readonly RectangleBatch.count: number
-  type RenderBatch = ImageBatch | RectangleBatch | SegmentBatch | TextBatch
+  type RenderBatch = FieldBatch | ImageBatch | RectangleBatch | SegmentBatch | TextBatch
   interface RenderFrame
   readonly RenderFrame.width: number
   readonly RenderFrame.height: number
@@ -4975,6 +5065,11 @@ Published paths
   readonly RendererReport.recoveries: number
   const RendererState: { readonly Starting: "starting"; readonly Drawing: "drawing"; readonly Recovering: "recovering"; readonly Unavailable: "unavailable"; }
   type RendererState = "drawing" | "recovering" | "starting" | "unavailable"
+  interface ScalarField
+  readonly ScalarField.key: string
+  readonly ScalarField.width: number
+  readonly ScalarField.height: number
+  readonly ScalarField.values: Uint8Array<ArrayBuffer>
   interface SegmentBatch
   readonly SegmentBatch.kind: "segments"
   readonly SegmentBatch.colour: Colour
@@ -4992,7 +5087,7 @@ Published paths
   readonly TextLabel.font: string
   readonly TextLabel.align: "centre" | "left" | "right"
   readonly TextLabel.baseline: "bottom" | "middle" | "top"
-  function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
+  function browserBackends(gpu: unknown, schedule: Schedule, offscreen: () => HTMLCanvasElement): readonly BackendFactory[]
 
 @audiogubbins/storage
   type Alone<TValue> = { readonly kind: "busy"; } | { readonly kind: "done"; readonly value: TValue; } | { readonly kind: "unavailable"; }
@@ -6034,9 +6129,6 @@ Published paths
   readonly FrameRate.numerator: number
   readonly FrameRate.denominator: number
   readonly FrameRate.dropFrame: boolean
-  interface FrequencyBand
-  readonly FrequencyBand.low: number
-  readonly FrequencyBand.high: number
   type MadeFacet = "objects" | "spectral" | "time"
   type ObjectSelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
   interface PixelsPerSample
@@ -6060,11 +6152,11 @@ Published paths
   type SelectionFacet = "none" | "objects" | "spectral" | "time"
   interface SelectionSet
   readonly SelectionSet.time?: BoundaryRange
-  readonly SelectionSet.spectral?: SpectralArea
+  readonly SelectionSet.spectral?: SpectralMask
   readonly SelectionSet.objects?: ObjectSelection
   readonly SelectionSet.channels?: readonly [number, ...number[]]
   readonly SelectionSet.recency: readonly MadeFacet[]
-  type SelectionTarget = { readonly kind: "objects"; readonly objects: ObjectSelection; } | { readonly kind: "spectral"; readonly area: SpectralArea; readonly channels: readonly number[]; } | { readonly kind: "time"; readonly range: BoundaryRange; readonly channels: readonly number[]; } | { readonly kind: "whole-asset"; readonly range: BoundaryRange; readonly channels: readonly number[]; }
+  type SelectionTarget = { readonly kind: "objects"; readonly objects: ObjectSelection; } | { readonly kind: "spectral"; readonly mask: SpectralMask; readonly channels: readonly number[]; } | { readonly kind: "time"; readonly range: BoundaryRange; readonly channels: readonly number[]; } | { readonly kind: "whole-asset"; readonly range: BoundaryRange; readonly channels: readonly number[]; }
   const SnapKind: { readonly Marker: "marker"; readonly RegionBoundary: "region-boundary"; readonly LoopBoundary: "loop-boundary"; readonly SelectionEdge: "selection-edge"; readonly Playhead: "playhead"; readonly Frame: "frame"; readonly ZeroCrossing: "zero-crossing"; readonly Grid: "grid"; }
   type SnapKind = "frame" | "grid" | "loop-boundary" | "marker" | "playhead" | "region-boundary" | "selection-edge" | "zero-crossing"
   interface SnapResult
@@ -6078,14 +6170,8 @@ Published paths
   readonly SnapTarget.kind: SnapKind
   readonly SnapTarget.position: SampleCount
   readonly SnapTarget.label?: string
-  interface SpectralArea
-  readonly SpectralArea.range: BoundaryRange
-  readonly SpectralArea.band: FrequencyBand
-  readonly SpectralArea.shape: SpectralShape
-  interface SpectralPoint
-  readonly SpectralPoint.position: SampleCount
-  readonly SpectralPoint.frequency: number
-  type SpectralShape = { readonly kind: "lasso"; readonly points: readonly [SpectralPoint, SpectralPoint, SpectralPoint, ...SpectralPoint[]]; } | { readonly kind: "rectangle"; }
+  const SpectralCombination: { readonly Replace: "replace"; readonly Add: "add"; readonly Subtract: "subtract"; }
+  type SpectralCombination = "add" | "replace" | "subtract"
   const StandardFrameRates: { readonly film: FrameRate; readonly filmPulledDown: FrameRate; readonly pal: FrameRate; readonly ntscDropFrame: FrameRate; readonly ntscNonDrop: FrameRate; readonly thirty: FrameRate; readonly palDouble: FrameRate; readonly ntscDoubleDropFrame: FrameRate; readonly ntscDoubleNonDrop: FrameRate; readonly sixty: FrameRate; }
   interface TargetAsset
   readonly TargetAsset.length: SampleCount
@@ -6151,7 +6237,8 @@ Published paths
   function visibleRange(view: ViewportState, length: SampleCount): BoundaryRange
   function withChannels(set: SelectionSet, channels: readonly number[], channelCount: number): SelectionSet
   function withObjects(set: SelectionSet, objects: ObjectSelection): SelectionSet
-  function withSpectralArea(set: SelectionSet, area: SpectralArea): SelectionSet
+  function withSpectralMask(set: SelectionSet, mask: SpectralMask): SelectionSet
+  function withSpectralShape(set: SelectionSet, shape: SpectralShape, combination: SpectralCombination, feather: SpectralFeather): SelectionSet
   function withTimeRange(set: SelectionSet, time: BoundaryRange): SelectionSet
   function withoutFacet(set: SelectionSet, facet: SelectionFacet): SelectionSet
   function zoomScaled(zoom: Zoom, factor: number): Zoom
@@ -7036,6 +7123,11 @@ packages/domain/src/processing/effect-chain.ts
   readonly SlotControls.enabled: boolean
   readonly SlotControls.soloed: boolean
   readonly SlotControls.mix: number
+
+packages/domain/src/spectral/mask-weight.ts
+  interface PreparedShape
+  readonly PreparedShape.shape: SpectralShape
+  readonly PreparedShape.support: SpectralBounds
 
 packages/editor-view/src/batch-buffers.ts
   class BuilderPool

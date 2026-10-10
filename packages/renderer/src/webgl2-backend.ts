@@ -1,35 +1,34 @@
 /**
- * The WebGL2 backend, the production baseline (REQ-AUDIO-152).
+ * The WebGL2 backend's drawing, the production baseline (REQ-AUDIO-152).
  *
  * Every rectangle and segment is one instance of a unit quad: a rectangle is
  * the quad scaled and placed, a segment the quad stretched along it and widened
  * across it. A frame's instances go up in one buffer and each batch is one
  * instanced draw with its colour, inside its layer's scissor, so a waveform of
- * thousands of columns is a handful of draws.
- *
- * A lost context is announced by `webglcontextlost`, whose default the backend
- * prevents so the browser may give it back; `webglcontextrestored` then
- * rebuilds the program and buffers, and the renderer draws the latest frame
- * again (ADR-0044). If it is not given back in time, the renderer steps down to
- * Canvas 2D.
+ * thousands of columns is a handful of draws. A field batch is drawn in its
+ * place among them by its own program (`webgl2-fields.ts`). Everything it
+ * draws with is made again whole on a context given back after a loss
+ * (`webgl2-context.ts`), the field textures it held lost with the context
+ * (ADR-0044, ADR-0082).
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
-
-import { backingSize, type Rectangle, type RenderFrame } from './render-frame.js';
+import { FieldLookups, paints } from './field-pixels.js';
+import {
+  backingSize,
+  type Rectangle,
+  type RectangleBatch,
+  type RenderFrame,
+  type SegmentBatch,
+} from './render-frame.js';
 import {
   AWAY,
   DRAWN,
   RendererKind,
   drawFailed,
-  type BackendFactory,
   type DrawOutcome,
   type RendererBackend,
-  type Schedule,
 } from './renderer-backend.js';
-
-/** How long a lost context is waited for before the renderer steps down. */
-const RESTORE_WAIT_MS = 3000;
+import { GlFields } from './webgl2-fields.js';
 
 const VERTEX = `#version 300 es
 in vec2 corner;
@@ -58,9 +57,10 @@ void main() {
   result = colour;
 }`;
 
-/** The program and buffers, made again after a restore. */
-interface Resources {
+/** The programs, buffers and field textures, made again after a restore. */
+export interface Resources {
   readonly program: WebGLProgram;
+  readonly fields: GlFields;
   readonly vertices: WebGLVertexArrayObject;
   readonly instances: WebGLBuffer;
   readonly uniforms: {
@@ -82,7 +82,8 @@ function shader(gl: WebGL2RenderingContext, type: number, source: string): WebGL
   return made;
 }
 
-function build(gl: WebGL2RenderingContext): Resources | string {
+/** Everything the backend draws with on `gl`, or why it cannot be made. */
+export function build(gl: WebGL2RenderingContext, fieldBudget: number): Resources | string {
   const vertex = shader(gl, gl.VERTEX_SHADER, VERTEX);
   const fragment = shader(gl, gl.FRAGMENT_SHADER, FRAGMENT);
   if (typeof vertex === 'string') return vertex;
@@ -94,6 +95,8 @@ function build(gl: WebGL2RenderingContext): Resources | string {
   if (gl.getProgramParameter(program, gl.LINK_STATUS) !== true) {
     return gl.getProgramInfoLog(program) ?? 'The program did not link.';
   }
+  const fields = GlFields.build(gl, (type, source) => shader(gl, type, source), fieldBudget);
+  if (typeof fields === 'string') return fields;
   const vertices = gl.createVertexArray();
   gl.bindVertexArray(vertices);
   const corners = gl.createBuffer();
@@ -111,6 +114,7 @@ function build(gl: WebGL2RenderingContext): Resources | string {
   gl.bindVertexArray(null);
   return {
     program,
+    fields,
     vertices,
     instances,
     uniforms: {
@@ -149,31 +153,36 @@ class InstanceData {
   }
 }
 
-class WebGl2Backend implements RendererBackend {
+/** Draws frames on a WebGL2 context with what was built on it. */
+export class WebGl2Backend implements RendererBackend {
   readonly kind = RendererKind.WebGl2;
   readonly #gl: WebGL2RenderingContext;
+  readonly #fieldBudget: number;
   readonly #data = new InstanceData();
+  readonly #lookups = new FieldLookups();
   #resources: Resources | undefined;
   /** Whether the next draw is the first with the resources last built. */
   #unproven = true;
   #disposed = false;
 
-  constructor(gl: WebGL2RenderingContext, resources: Resources) {
+  constructor(gl: WebGL2RenderingContext, resources: Resources, fieldBudget: number) {
     this.#gl = gl;
     this.#resources = resources;
+    this.#fieldBudget = fieldBudget;
   }
 
   get disposed(): boolean {
     return this.#disposed;
   }
 
+  /** Lets go of everything made on the lost context, its field textures with the rest. */
   lose(): void {
     this.#resources = undefined;
   }
 
   /** Rebuilds after a restore; answers why it could not, or nothing. */
   restore(): string | undefined {
-    const rebuilt = build(this.#gl);
+    const rebuilt = build(this.#gl, this.#fieldBudget);
     if (typeof rebuilt === 'string') return rebuilt;
     this.#resources = rebuilt;
     this.#unproven = true;
@@ -223,7 +232,8 @@ class WebGl2Backend implements RendererBackend {
     return drawFailed(`The first WebGL2 draw raised error ${String(error)}.`);
   }
 
-  #encode(gl: WebGL2RenderingContext, resources: Resources, frame: RenderFrame): void {
+  /** Sizes the canvas to the frame, clears it, and sets the blending every batch is drawn with. */
+  #begin(gl: WebGL2RenderingContext, frame: RenderFrame): { readonly height: number } {
     const size = backingSize(frame);
     const canvas = gl.canvas;
     if (canvas.width !== size.width) canvas.width = size.width;
@@ -234,35 +244,69 @@ class WebGl2Backend implements RendererBackend {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    return size;
+  }
+
+  #encode(gl: WebGL2RenderingContext, resources: Resources, frame: RenderFrame): void {
+    const size = this.#begin(gl, frame);
+    const lookups = this.#lookups.pack(frame);
+    resources.fields.prepare(lookups.values);
     gl.useProgram(resources.program);
-    gl.bindVertexArray(resources.vertices);
     const { values, firsts } = this.#data.pack(frame);
     gl.bindBuffer(gl.ARRAY_BUFFER, resources.instances);
     gl.bufferData(gl.ARRAY_BUFFER, values, gl.DYNAMIC_DRAW);
     gl.uniform2f(resources.uniforms.scale, 2 / frame.width, -2 / frame.height);
     let batchIndex = 0;
+    let fieldIndex = 0;
     for (const layer of frame.layers) {
-      this.#scissor(layer.clip, frame, size.height);
+      // The geometry program, its vertices and the layer's scissor, bound
+      // before the layer's first geometry and again after any field.
+      let bound = false;
       for (const batch of layer.batches) {
+        if (batch.kind === 'field') {
+          const placement = lookups.placements[fieldIndex];
+          fieldIndex += 1;
+          if (placement === undefined || !paints(placement)) continue;
+          resources.fields.draw(placement, size.height);
+          bound = false;
+          continue;
+        }
         if (batch.kind !== 'rectangles' && batch.kind !== 'segments') continue;
         const first = firsts[batchIndex] ?? 0;
         batchIndex += 1;
         if (batch.count === 0) continue;
-        gl.uniform1f(resources.uniforms.mode, batch.kind === 'rectangles' ? 0 : 1);
-        gl.uniform1f(resources.uniforms.halfWidth, batch.kind === 'segments' ? batch.width / 2 : 0);
-        gl.uniform4f(resources.uniforms.colour, ...batch.colour);
-        gl.vertexAttribPointer(
-          gl.getAttribLocation(resources.program, 'instance'),
-          4,
-          gl.FLOAT,
-          false,
-          0,
-          first * 16,
-        );
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, batch.count);
+        if (!bound) {
+          gl.useProgram(resources.program);
+          gl.bindVertexArray(resources.vertices);
+          this.#scissor(layer.clip, frame, size.height);
+          bound = true;
+        }
+        this.#drawGeometry(gl, resources, batch, first);
       }
     }
     gl.bindVertexArray(null);
+    resources.fields.trim();
+  }
+
+  /** Draws one batch of geometry, whose instances start at `first`, with the geometry program bound. */
+  #drawGeometry(
+    gl: WebGL2RenderingContext,
+    resources: Resources,
+    batch: RectangleBatch | SegmentBatch,
+    first: number,
+  ): void {
+    gl.uniform1f(resources.uniforms.mode, batch.kind === 'rectangles' ? 0 : 1);
+    gl.uniform1f(resources.uniforms.halfWidth, batch.kind === 'segments' ? batch.width / 2 : 0);
+    gl.uniform4f(resources.uniforms.colour, ...batch.colour);
+    gl.vertexAttribPointer(
+      gl.getAttribLocation(resources.program, 'instance'),
+      4,
+      gl.FLOAT,
+      false,
+      0,
+      first * 16,
+    );
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, batch.count);
   }
 
   dispose(): void {
@@ -270,50 +314,4 @@ class WebGl2Backend implements RendererBackend {
     this.#gl.getExtension('WEBGL_lose_context')?.loseContext();
     this.#resources = undefined;
   }
-}
-
-function unavailable(reason: string): DomainResult<never> {
-  return fail(failure('renderer.webgl2-unavailable', FailureKind.Unrecoverable, reason));
-}
-
-/** The WebGL2 backend's factory, which waits for a lost context by `schedule`. */
-export function webGl2Backend(schedule: Schedule): BackendFactory {
-  return {
-    kind: RendererKind.WebGl2,
-    create: (canvas, events) => {
-      const gl = canvas.getContext('webgl2', {
-        alpha: false,
-        antialias: false,
-        premultipliedAlpha: false,
-        preserveDrawingBuffer: false,
-      });
-      if (gl === null) return Promise.resolve(unavailable('The browser gave no WebGL2 context.'));
-      const resources = build(gl);
-      if (typeof resources === 'string') return Promise.resolve(unavailable(resources));
-      const backend = new WebGl2Backend(gl, resources);
-      let giveUp: (() => void) | undefined;
-      canvas.addEventListener('webglcontextlost', (event) => {
-        // A disposed backend takes its own context away, and says nothing of it.
-        if (backend.disposed) return;
-        // Prevented, or the browser never gives the context back.
-        event.preventDefault();
-        backend.lose();
-        events.lost('The browser took the WebGL2 context away.');
-        giveUp = schedule(() => {
-          events.failed(
-            `The WebGL2 context was not given back within ${String(RESTORE_WAIT_MS / 1000)} seconds.`,
-          );
-        }, RESTORE_WAIT_MS);
-      });
-      canvas.addEventListener('webglcontextrestored', () => {
-        if (backend.disposed) return;
-        giveUp?.();
-        giveUp = undefined;
-        const problem = backend.restore();
-        if (problem === undefined) events.restored();
-        else events.failed(`The WebGL2 context came back and could not be rebuilt: ${problem}`);
-      });
-      return Promise.resolve(succeed(backend));
-    },
-  };
 }
