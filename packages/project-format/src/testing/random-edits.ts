@@ -8,7 +8,9 @@
  * of range edit, inserted silence, pastes whose plans carry fades, matrices,
  * reversed segments, generated silence, converted, stretched and processed
  * streams, rack edits naming the project's chains, punches naming its take
- * stacks, and positions stated at every basis of a chain.
+ * stacks, spectral edits of every operation and every kind of shape (in a
+ * chain, in a region's processing, and so in the plans of pastes), and
+ * positions stated at every basis of a chain.
  */
 
 import {
@@ -53,6 +55,7 @@ import {
   randomName,
   type Random,
 } from './random-values.js';
+import { randomSpectralEdit } from './random-spectral.js';
 
 /** Gains from silence to the bound an edit allows, with an awkward fraction. */
 const GAINS = [0, 1e-7, 0.5, 1, 2, 0.1 + 0.2, MAXIMUM_EDIT_GAIN];
@@ -194,17 +197,23 @@ function channelPair(random: Random, count: number): readonly [number, number] |
   return [first, (first + 1 + random.below(count - 1)) % count];
 }
 
-/** A random range edit for `count` channels, with a channel scope where it takes one. */
+/**
+ * A random range edit for `count` channels over a range of `length`, with a
+ * channel scope where it takes one.
+ */
 function randomRangeEdit(
   random: Random,
   count: number,
+  length: number,
   context: PlanContext,
 ): { readonly edit: RangeEdit; readonly channels?: readonly number[] } | undefined {
   const scope = (edit: RangeEdit) => {
     const channels = maybe(random, () => randomScope(random, count));
     return { edit, ...(channels === undefined ? {} : { channels }) };
   };
-  switch (random.below(8)) {
+  switch (random.below(9)) {
+    case 8:
+      return scope(randomSpectralEdit(random, length, [...context.chains.keys()]));
     case 7: {
       const chains = [...context.chains.keys()];
       return chains.length === 0
@@ -267,10 +276,9 @@ function proposeOperation(
     }
     case 2: {
       const range = randomRange(random, shape.length);
-      const edit = randomRangeEdit(random, count, context);
-      return range === undefined || edit === undefined
-        ? undefined
-        : { id, kind: 'process', range, ...edit };
+      if (range === undefined) return undefined;
+      const edit = randomRangeEdit(random, count, range.end - range.start, context);
+      return edit === undefined ? undefined : { id, kind: 'process', range, ...edit };
     }
     case 3:
     case 4:
@@ -411,8 +419,14 @@ function proposeRegionOperation(
   const shape = shapes[basis];
   if (shape === undefined) return undefined;
   const range = randomRange(random, shape.length);
-  const edit = randomRangeEdit(random, channelCount(shape.layout), context);
-  return range === undefined || edit === undefined
+  if (range === undefined) return undefined;
+  const edit = randomRangeEdit(
+    random,
+    channelCount(shape.layout),
+    range.end - range.start,
+    context,
+  );
+  return edit === undefined
     ? undefined
     : { id: ids.next<'EditOperationId'>(), basis, range, ...edit };
 }
