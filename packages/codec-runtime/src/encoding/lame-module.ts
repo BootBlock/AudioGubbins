@@ -3,13 +3,13 @@
  * encoder of one or two channels, opened from the export's MP3 encoding and
  * answering the MP3 frames each block completes.
  *
- * The encoding maps onto LAME exactly: a constant bit rate is LAME's
- * `vbr_off` at that rate, an average one its ABR (`vbr_abr`) at that mean, and
- * a variable one its default variable mode (`vbr_mtrh`) at the quality asked,
- * 0 to 9. The output rate is the input's, so LAME never resamples what the
- * engine rendered, and two channels are coded as joint stereo, LAME's own
- * choice. LAME writes no tag or information frame: the application's MP3
- * writer writes both from the whole stream.
+ * The encoding maps onto LAME exactly: a constant bit rate is LAME's `vbr_off`
+ * at that rate, an average one its ABR (`vbr_abr`) at that mean, and a variable
+ * one its default variable mode (`vbr_mtrh`) at the quality asked, 0 to 9. The
+ * output rate is the input's, so LAME never resamples what the engine rendered,
+ * and two channels are coded as joint stereo, LAME's own choice. LAME writes no
+ * tag or information frame: the application's MP3 writer writes both from the
+ * whole stream.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';

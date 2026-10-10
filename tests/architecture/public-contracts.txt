@@ -885,7 +885,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35160: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35405: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1180,7 +1180,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35160: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35405: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1733,6 +1733,7 @@ Published paths
   interface EncodedPacket
   readonly EncodedPacket.data: Uint8Array<ArrayBufferLike>
   readonly EncodedPacket.frames: number
+  type EncoderModuleName = "mp3" | "vorbis"
   interface ExportEncodeRequest
   readonly ExportEncodeRequest.target: ExportTarget
   readonly ExportEncodeRequest.encoding: FormatEncoding
@@ -1742,7 +1743,7 @@ Published paths
   readonly ExportEncodeRequest.dither: { readonly settings: DitherSettings; readonly key: number; }
   interface ExportEncoderServices
   readonly ExportEncoderServices.codecModule: () => Promise<DomainResult<CodecModule>>
-  readonly ExportEncoderServices.prebuiltModule: (encoder: PrebuiltEncoder) => Promise<DomainResult<WebAssembly.Module>>
+  readonly ExportEncoderServices.encoderModule: (encoder: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>
   readonly ExportEncoderServices.encoding: BrowserAudioEncoding | undefined
   readonly ExportEncoderServices.signal: CancellationSignal
   interface FileHandleLike
@@ -1794,7 +1795,6 @@ Published paths
   OpusPacketDecoder.finalRange: () => number
   OpusPacketDecoder.release: () => void
   type OpusRateControl = "constant" | "constrained-variable" | "variable"
-  type PrebuiltEncoder = "mp3" | "vorbis"
   type StatedLayout = { readonly kind: "ambisonic"; readonly order: number; } | { readonly kind: "speakers"; readonly mask: number; } | { readonly kind: "unstated"; }
   interface StreamDescription
   readonly StreamDescription.codec: CodecId
@@ -1809,7 +1809,7 @@ Published paths
   readonly StreamDescription.bitsPerSample: number | undefined
   readonly StreamDescription.decodable: boolean
   readonly StreamDescription.codecConfig: Uint8Array<ArrayBufferLike>
-  type ToCodecWorker = CodecRequest | { readonly kind: typeof ToCodecWorkerKind.Configure; readonly codecModule: ModuleSource; readonly prebuiltEncoders: Readonly<Record<PrebuiltEncoder, ModuleSource>>; } | { readonly kind: typeof ToCodecWorkerKind.Connect; readonly port: MessagePortLike; }
+  type ToCodecWorker = CodecRequest | { readonly kind: typeof ToCodecWorkerKind.Configure; readonly codecModule: ModuleSource; readonly encoderModules: Readonly<Record<EncoderModuleName, ModuleSource>>; } | { readonly kind: typeof ToCodecWorkerKind.Connect; readonly port: MessagePortLike; }
   const ToCodecWorkerKind: { readonly Configure: "configure"; readonly Connect: "connect"; readonly Analyse: "analyse"; readonly Decode: "decode"; readonly Encode: "encode"; readonly Cancel: "cancel"; }
   function instantiateCodecModule(code: BufferSource | WebAssembly.Module): Promise<DomainResult<CodecModule>>
   function readFromCodecWorker(value: unknown): DomainResult<FromCodecWorker>
@@ -1822,11 +1822,11 @@ Published paths
   readonly FlacFixture.metadata?: MetadataMap
   function codecModule(): Promise<CodecModule>
   function codecModuleBytes(): Uint8Array<ArrayBuffer>
+  function encoderModuleBytes(name: EncoderModuleName): Uint8Array<ArrayBuffer>
+  function encoderModuleLoader(): (name: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>
   function flacFile(module: CodecModule, planes: readonly Int32Array<ArrayBufferLike>[], fixture: FlacFixture): Uint8Array<ArrayBufferLike>
   function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, reads?: number[] | undefined): SyncAudioBytes
   function oggOpusFile(module: CodecModule, planes: readonly Float32Array<ArrayBufferLike>[], settings: Omit<OpusEncoderSettings, "channels" | "sampleRate">): Uint8Array<ArrayBufferLike>
-  function prebuiltEncoderBytes(name: PrebuiltEncoder): Uint8Array<ArrayBuffer>
-  function prebuiltEncoderLoader(): (name: PrebuiltEncoder) => Promise<DomainResult<WebAssembly.Module>>
 
 @audiogubbins/codecs
   type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; readonly byteOrder: "big" | "little"; }
@@ -1856,6 +1856,14 @@ Published paths
   interface AudioReader
   readonly AudioReader.format: AudioFormatDescriptor
   AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<DomainResult<number>>
+  interface BitRateBand
+  readonly BitRateBand.channels?: number
+  readonly BitRateBand.sampleRates: NumberRange
+  readonly BitRateBand.constant?: readonly number[]
+  readonly BitRateBand.average?: NumberRange & { readonly per: "channel" | "stream"; }
+  interface BitRateStream
+  readonly BitRateStream.sampleRate: number
+  readonly BitRateStream.channels: number
   interface BroadcastDescription
   readonly BroadcastDescription.description: string
   readonly BroadcastDescription.originator: string
@@ -1884,14 +1892,15 @@ Published paths
   readonly CodecDirection.licence: string
   readonly CodecDirection.sampleRates: SampleRateSupport
   readonly CodecDirection.maximumChannels: number
+  readonly CodecDirection.bitRates?: readonly BitRateBand[]
   interface CodecEnvironment
   readonly CodecEnvironment.webAssembly: boolean
   readonly CodecEnvironment.codecModule: ModuleLoad
-  readonly CodecEnvironment.prebuiltModules: ReadonlyMap<CodecId, ModuleLoad>
+  readonly CodecEnvironment.encoderModules: ReadonlyMap<CodecId, ModuleLoad>
   readonly CodecEnvironment.browserDecoders: ReadonlySet<CodecId>
   readonly CodecEnvironment.browserEncoders: ReadonlySet<CodecId>
   type CodecId = "aac-lc" | "alac" | "flac" | "g711-alaw" | "g711-ulaw" | "he-aac" | "ima-adpcm" | "mp3" | "ms-adpcm" | "opus" | "pcm" | "vorbis"
-  type CodecImplementation = "application" | "browser" | "codec-module" | "prebuilt-module"
+  type CodecImplementation = "application" | "browser" | "codec-module" | "encoder-module"
   type CodecUse = "read" | "write"
   type ContainerId = "adts" | "aifc" | "aiff" | "bw64" | "flac" | "matroska" | "mp3" | "mp4" | "ogg" | "rf64" | "wav" | "webm"
   interface CoverArt
@@ -2039,6 +2048,9 @@ Published paths
   readonly MsAdpcmEncoding.kind: "ms-adpcm"
   readonly MsAdpcmEncoding.framesPerBlock: number
   readonly MsAdpcmEncoding.coefficients: readonly (readonly [number, number])[]
+  interface NumberRange
+  readonly NumberRange.minimum: number
+  readonly NumberRange.maximum: number
   interface OggOpusSettings extends OpusHeadSettings
   readonly OggOpusSettings.vendor: string
   readonly OggOpusSettings.metadata: MetadataMap
@@ -2059,29 +2071,21 @@ Published paths
   OggOpusWriter.add: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
   OggOpusWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
   OggOpusWriter.failed: (result: DomainFailureResult) => DomainFailureResult
-  class OggVorbisCommentRewriter
-  new OggVorbisCommentRewriter(metadata: MetadataMap): OggVorbisCommentRewriter
-  readonly OggVorbisCommentRewriter.metadata: MetadataMap
-  OggVorbisCommentRewriter.phase: Phase
-  OggVorbisCommentRewriter.started: boolean
-  OggVorbisCommentRewriter.failedOrFinished: boolean
-  OggVorbisCommentRewriter.pending: Uint8Array<ArrayBufferLike>
-  OggVorbisCommentRewriter.serial: number
-  OggVorbisCommentRewriter.expectedSequence: number
-  OggVorbisCommentRewriter.sequence: number
-  readonly OggVorbisCommentRewriter.headers: Uint8Array<ArrayBufferLike>[]
-  OggVorbisCommentRewriter.open: Uint8Array<ArrayBufferLike>[]
-  OggVorbisCommentRewriter.openBytes: number
-  OggVorbisCommentRewriter.dropped: readonly MetadataPart[]
-  OggVorbisCommentRewriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
-  OggVorbisCommentRewriter.finish: () => DomainResult<FinishedEncodedStream>
-  OggVorbisCommentRewriter.pageLength: (offset: number) => DomainResult<number> | undefined
-  OggVorbisCommentRewriter.page: (page: OggPage) => DomainResult<readonly Uint8Array[]>
-  OggVorbisCommentRewriter.headerPage: (page: OggPage) => DomainResult<readonly Uint8Array[]>
-  OggVorbisCommentRewriter.writeHeaders: () => DomainResult<readonly Uint8Array[]>
-  OggVorbisCommentRewriter.vendorOf: (comment: Uint8Array) => string | undefined
-  OggVorbisCommentRewriter.renumbered: (page: OggPage, lacing: Uint8Array, body: Uint8Array, headerType: number) => Uint8Array
-  OggVorbisCommentRewriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  class OggVorbisWriter
+  new OggVorbisWriter(metadata: MetadataMap): OggVorbisWriter
+  readonly OggVorbisWriter.metadata: MetadataMap
+  readonly OggVorbisWriter.pages: OggPageWriter
+  readonly OggVorbisWriter.headers: Uint8Array<ArrayBufferLike>[]
+  OggVorbisWriter.sizes: VorbisBlockSizes | undefined
+  OggVorbisWriter.previousBlock: number | undefined
+  OggVorbisWriter.held: HeldPacket | undefined
+  OggVorbisWriter.decoded: number
+  OggVorbisWriter.dropped: readonly MetadataPart[]
+  OggVorbisWriter.ended: boolean
+  OggVorbisWriter.add: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggVorbisWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  OggVorbisWriter.header: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggVorbisWriter.failed: (result: DomainFailureResult) => DomainFailureResult
   interface OpenedFileWriter
   readonly OpenedFileWriter.writer: AudioFileWriter
   readonly OpenedFileWriter.layout: ChannelLayout
@@ -2122,8 +2126,10 @@ Published paths
   readonly WavWriterSettings.metadata: MetadataMap
   type WrittenChannelOrder = readonly number[]
   function adtsAudioConfig(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<Uint8Array<ArrayBufferLike>>>
+  function averageBitRateRanges(direction: CodecDirection, stream: BitRateStream): readonly NumberRange[]
   function codecCapability(environment: CodecEnvironment, codec: CodecId, use: CodecUse): CodecCapability
   function codecDescriptor(id: CodecId): CodecDescriptor
+  function constantBitRates(direction: CodecDirection, stream: BitRateStream): readonly number[] | undefined
   function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
   function createWavWriter(settings: WavWriterSettings): DomainResult<OpenedFileWriter>
   function importRoute(format: RecognisedFormat): ImportRoute
@@ -2137,6 +2143,7 @@ Published paths
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
   function speakerMaskLayout(mask: number, channelCount: number): ChannelLayout | undefined
+  function takesAverageBitRate(direction: CodecDirection, stream: BitRateStream, kbps: number): boolean | undefined
   function writtenChannelOrder(codec: CodecId, container: ContainerId, layout: ChannelLayout): DomainResult<WrittenChannelOrder>
 
 @audiogubbins/codecs/testing
@@ -2213,6 +2220,10 @@ Published paths
   function oggFlacFile(head: Uint8Array<ArrayBufferLike>, frames: readonly OggFlacFrame[], statedHeaders?: number | undefined): Uint8Array<ArrayBufferLike>
   function oggPages(file: Uint8Array<ArrayBufferLike>): OggPage[]
   function random(seed: number): () => number
+  function vorbisAudioPacket(mode: number, modes: number, length: number, seed?: number): Uint8Array<ArrayBufferLike>
+  function vorbisComment(vendor: string): Uint8Array<ArrayBufferLike>
+  function vorbisIdentification(channels: number, short?: number, long?: number): Uint8Array<ArrayBufferLike>
+  function vorbisSetup(modes: readonly boolean[]): Uint8Array<ArrayBufferLike>
   function writeAiff(options: AiffOptions): Uint8Array<ArrayBufferLike>
   function writeCompressedWav(options: CompressedWavOptions): Uint8Array<ArrayBufferLike>
   function writeWav(options: WavOptions): Uint8Array<ArrayBufferLike>
@@ -3902,6 +3913,10 @@ Published paths
   readonly DeliveryTarget.name: string
   type DitherSettings = { readonly kind: "none"; } | { readonly kind: "rectangular" | "triangular"; readonly amplitude: number; readonly shaping: NoiseShaping; readonly seed: number; }
   type EncodedStreamMessage = { readonly kind: "body"; readonly bytes: Uint8Array; } | { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "finished"; readonly file: FinishedAudioFile; }
+  interface EncodingFacts
+  readonly EncodingFacts.sampleRate: SampleRate
+  readonly EncodingFacts.channels: number
+  readonly EncodingFacts.write: CodecDirection | undefined
   interface ExportBatch
   readonly ExportBatch.jobs: readonly ExportJob[]
   readonly ExportBatch.remembered: CollisionAnswer | undefined
@@ -4064,13 +4079,13 @@ Published paths
   function cancelImport(job: ImportJob): ImportJob
   function decideCollision(query: CollisionQuery): CollisionDecision
   function defaultExportSettings<F extends ExportFormat>(format: F, context: ExportContext): SettingsByFormat[F]
+  function encodingProblems(encoding: FormatEncoding, facts: EncodingFacts): readonly DomainFailure[]
   function exportBatch(jobs: readonly ExportJob[]): ExportBatch
   function exportMetadata(project: MetadataMap, region: MetadataMap | undefined, settings: MetadataSettings, rates: MetadataRates): DomainResult<MetadataMap>
   function exportTarget(settings: FormatEncoding): ExportTarget
   function formatName(format: ExportFormat): string
   function importJob(files: readonly ImportFile[]): ImportJob
   function importProgress(job: ImportJob): ImportProgress
-  function mp3BitRates(sampleRate: SampleRate): readonly number[]
   function nextExportBatch(batch: ExportBatch, jobId: string, event: ExportJobEvent): DomainResult<ExportBatch>
   function nextExportJob(job: ExportJob, event: ExportJobEvent): DomainResult<ExportJob>
   function nextImportJob(job: ImportJob, index: number, event: ImportFileEvent): DomainResult<ImportJob>
@@ -8029,8 +8044,11 @@ packages/codecs/src/ogg-page.ts
   readonly OggPage.lacing: Uint8Array<ArrayBufferLike>
   readonly OggPage.body: Uint8Array<ArrayBufferLike>
 
-packages/codecs/src/ogg-vorbis-comment-rewriter.ts
-  type Phase = "audio" | "ended" | "headers"
+packages/codecs/src/ogg-vorbis-writer.ts
+  interface HeldPacket
+  readonly HeldPacket.packet: Uint8Array<ArrayBufferLike>
+  readonly HeldPacket.start: number
+  readonly HeldPacket.end: number
 
 packages/codecs/src/size-list.ts
   class SizeList
@@ -8043,6 +8061,12 @@ packages/codecs/src/size-list.ts
 
 packages/codecs/src/testing/wav-writer.ts
   type RiffFraming = { readonly form?: "bw64" | "rf64" | "wav"; readonly beforeFormat?: readonly FixtureChunk[]; readonly beforeData?: readonly FixtureChunk[]; readonly afterData?: readonly FixtureChunk[]; readonly factFrames?: number; readonly sizesInDs64?: readonly string[]; readonly truncate?: number; }
+
+packages/codecs/src/vorbis-headers.ts
+  interface VorbisBlockSizes
+  readonly VorbisBlockSizes.short: number
+  readonly VorbisBlockSizes.long: number
+  readonly VorbisBlockSizes.modeIsLong: readonly boolean[]
 
 packages/design-system/src/primitives/button.tsx
   type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }

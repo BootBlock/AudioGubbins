@@ -7,11 +7,12 @@
  * as https://ziglang.org/download/index.json states them, so every machine
  * compiles the modules with the same compiler and the same C library. The
  * archive is downloaded once into `target/toolchains/`, which the ignore rules
- * keep out of the tree, by the download the pack build uses (the tools' one
- * way to the network), checked against its length and hash before anything is
- * extracted from it, and extracted by the host's own `tar`: Windows 10 and later ship
- * bsdtar, which reads the `.zip` Zig publishes for Windows, and every other
- * host's `tar` reads `.tar.xz`. Nothing is fetched when the cache holds it.
+ * keep out of the tree, by the download the pack build uses (the tools' one way
+ * to the network), checked against its length and hash before anything is
+ * extracted from it, and extracted by the host's own `tar`: Windows 10 and
+ * later ship bsdtar, which reads the `.zip` Zig publishes for Windows, and
+ * every other host's `tar` reads `.tar.xz`. Nothing is fetched when the cache
+ * holds it.
  *
  * `ZIG` may name a compiler already installed instead, which is used only if
  * it is the pinned version.
@@ -149,7 +150,8 @@ function tarCommand() {
  * Downloads, checks and extracts the pinned release for `host` into the cache.
  *
  * @param {string} host
- * @param {{ readonly file: string, readonly bytes: number, readonly sha256: string }} archive
+ * @param {{ readonly file: string, readonly bytes: number,
+ *   readonly sha256: string }} archive
  */
 async function install(host, archive) {
   const parent = dirname(ZIG_CACHE);

@@ -10,12 +10,12 @@ import { read } from './source-reading.js';
  * encoder modules use, held to the browser floor (REQ-EXEC-184, ADR-0031,
  * ADR-0091).
  *
- * `tools/build-wasm.mjs` names the features it builds with, but each
- * toolchain compiles its standard library with its own, and Rust's follows the
- * stable channel. Each module the run's global setup built from its source
- * lists every feature its code uses in its `target_features` section, so this
- * reads that list and holds each feature to the first version of each engine
- * at the floor the build declares.
+ * `tools/build-wasm.mjs` names the features it builds with, but each toolchain
+ * compiles its standard library with its own, and Rust's follows the stable
+ * channel. Each module the run's global setup built from its source lists every
+ * feature its code uses in its `target_features` section, so this reads that
+ * list and holds each feature to the first version of each engine at the floor
+ * the build declares.
  */
 
 /** The floor as the build declares it: each engine, and its first version. */

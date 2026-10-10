@@ -1,8 +1,9 @@
 /**
- * What another package's tests may take from the codec runtime's test
- * support: the codec module and the encoder modules the run built, the files
- * the application loads, and a file in memory to read through them. The codec worker's tests and the import and export tests read
- * the same module the same way as the runtime's own.
+ * What another package's tests may take from the codec runtime's test support:
+ * the codec module and the encoder modules the run built, the files the
+ * application loads, and a file in memory to read through them. The codec
+ * worker's tests and the import and export tests read the same module the same
+ * way as the runtime's own.
  *
  * Apart from the package's own entry point, and staying apart: an
  * architecture rule refuses any production module that reaches test support.

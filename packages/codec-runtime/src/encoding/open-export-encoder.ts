@@ -9,12 +9,12 @@
  * than the one planned. Its layout and its encoding's values are refused here
  * by the rules validation refused them by, should a request reach the worker
  * unvalidated (`writtenChannelOrder`, `encodingProblems`), so no encoder is
- * asked for what it would replace or refuse. An
- * integer target is dithered and quantised by one `Quantiser` for the file,
- * seeded by the planned file's dither key, before the writer takes a block.
- * Each format is a row of the table below, which loads only what its format
- * needs: the codec module for FLAC and Opus, LAME for MP3, libvorbis for
- * Vorbis, and the browser's encoder for AAC.
+ * asked for what it would replace or refuse. An integer target is dithered and
+ * quantised by one `Quantiser` for the file, seeded by the planned file's
+ * dither key, before the writer takes a block. Each format is a row of the
+ * table below, which loads only what its format needs: the codec module for
+ * FLAC and Opus, LAME for MP3, libvorbis for Vorbis, and the browser's encoder
+ * for AAC.
  */
 
 import {

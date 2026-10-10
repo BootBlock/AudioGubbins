@@ -2,13 +2,13 @@
  * What a Vorbis stream's headers say of the samples each audio packet decodes
  * to (Vorbis I, sections 4.2 and 4.3).
  *
- * The identification header states the two block sizes. The setup header
- * ends with the modes, each naming one of the two, but its codebooks, floors,
+ * The identification header states the two block sizes. The setup header ends
+ * with the modes, each naming one of the two, but its codebooks, floors,
  * residues and mappings come first and are as long as their contents say, so
  * the whole header is read, field by field, to reach them. An audio packet
- * names its mode in the bits after its type bit; it decodes to a quarter of
- * the previous packet's block and a quarter of its own, and the first audio
- * packet to none, so a stream's granule positions follow from its packets.
+ * names its mode in the bits after its type bit; it decodes to a quarter of the
+ * previous packet's block and a quarter of its own, and the first audio packet
+ * to none, so a stream's granule positions follow from its packets.
  *
  * Every read is bounded by the packet: a header that ends before its fields
  * do, or states a value the specification forbids, is refused.

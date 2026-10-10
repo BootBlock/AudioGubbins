@@ -488,14 +488,14 @@ export function portedNoticesOf(list, exists, standardText) {
  * @property {string} version
  * @property {string} licence
  * @property {readonly string[]} copyright
- * @property {{ readonly directory: string } | { readonly bundledBy: string }} source
- *   the repository folder its source is vendored in, or the toolchain whose
- *   release holds it
+ * @property {{ readonly directory: string }
+ *   | { readonly bundledBy: string }} source the repository folder its source
+ *   is vendored in, or the toolchain whose release holds it
  * @property {readonly string[]} modules the module files it is built into
  * @property {string} origin the release archive its source was taken from
  * @property {string} sha256 that archive's SHA-256
- * @property {readonly string[]} texts its licence's text: as a vendored
- *   library ships it, or the standard text for a toolchain's
+ * @property {readonly string[]} texts its licence's text: as a vendored library
+ *   ships it, or the standard text for a toolchain's
  */
 
 /** A SHA-256, written in lower-case hexadecimal. */
@@ -512,7 +512,8 @@ const SHA256 = /^[0-9a-f]{64}$/u;
  * @property {(path: string) => string} read
  * @property {readonly string[]} directories
  * @property {readonly string[]} modules
- * @property {{ readonly name: string, readonly url: string, readonly sha256: string }} toolchain
+ * @property {{ readonly name: string, readonly url: string,
+ *   readonly sha256: string }} toolchain
  * @property {(licence: string) => string} standardText
  */
 
@@ -521,7 +522,8 @@ const SHA256 = /^[0-9a-f]{64}$/u;
  *
  * @param {Record<string, unknown>} fields
  * @param {VendoredTree} tree
- * @returns {{ readonly directory: string, readonly texts: readonly string[], readonly reasons: readonly string[] }}
+ * @returns {{ readonly directory: string, readonly texts: readonly string[],
+ *   readonly reasons: readonly string[] }}
  */
 function vendoredSourceOf(fields, tree) {
   const { directory, licenceFiles, version, origin, sha256 } = fields;
@@ -633,9 +635,9 @@ function vendoredLibraryOf(entry, index, tree) {
  * The notices of the libraries built into the encoder modules that `list`
  * names, read from `tools/vendored-library-notices.json`, or every reason one
  * is refused: a field missing or malformed, a licence neither allowed nor
- * decided on for a vendored library, a module the build does not write; for
- * a vendored library a folder or licence file that does not exist, or a
- * folder whose README does not record the release archive and its hash; for a
+ * decided on for a vendored library, a module the build does not write; for a
+ * vendored library a folder or licence file that does not exist, or a folder
+ * whose README does not record the release archive and its hash; for a
  * toolchain's, a toolchain or archive other than the pinned compiler's; and a
  * folder of `third_party/` the list does not name.
  *

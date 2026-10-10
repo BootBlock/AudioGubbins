@@ -1,11 +1,11 @@
 /**
- * Lossy exports, round trip and reproducibility (ADR-0091): MP3 by LAME,
- * Ogg Vorbis by libvorbis and Opus by the codec module, each decoded by the
- * codec module, which gives back exactly as many frames as were exported,
- * the encoder's priming and padding trimmed by what the file states, and
- * within a stated error of the source. Every bit-rate mode of each encoder is
- * here, and Vorbis in three, six and eight channels, each channel its own
- * tones, so a channel written in the wrong place fails the error.
+ * Lossy exports, round trip and reproducibility (ADR-0091): MP3 by LAME, Ogg
+ * Vorbis by libvorbis and Opus by the codec module, each decoded by the codec
+ * module, which gives back exactly as many frames as were exported, the
+ * encoder's priming and padding trimmed by what the file states, and within a
+ * stated error of the source. Every bit-rate mode of each encoder is here, and
+ * Vorbis in three, six and eight channels, each channel its own tones, so a
+ * channel written in the wrong place fails the error.
  *
  * The error is the signal-to-noise ratio of the decoded audio against the
  * source, sample for sample over every channel, with no alignment searched

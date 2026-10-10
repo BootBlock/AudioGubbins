@@ -4,11 +4,10 @@
  * what an encoder would otherwise replace by its nearest or refuse at encode.
  *
  * LAME 3.100 codes the bit rates of its MPEG version's table at a sample rate
- * (`bitrate_table` in `libmp3lame/tables.c`): MPEG-1's at 32, 44.1 and
- * 48 kHz, MPEG-2's at 16, 22.05 and 24 kHz, and at MPEG-2.5's 8, 11.025 and
- * 12 kHz only MPEG-2's up to 64 kbit/s, though the format codes up to 160. An
- * average bit rate is held to the same bounds (`lame_init_params`), for the
- * whole stream.
+ * (`bitrate_table` in `libmp3lame/tables.c`): MPEG-1's at 32, 44.1 and 48 kHz,
+ * MPEG-2's at 16, 22.05 and 24 kHz, and at MPEG-2.5's 8, 11.025 and 12 kHz only
+ * MPEG-2's up to 64 kbit/s, though the format codes up to 160. An average bit
+ * rate is held to the same bounds (`lame_init_params`), for the whole stream.
  *
  * libvorbis 1.3.7 sets up its encoder from the first of its templates that
  * serves the stream's rate and channel count and holds the bit rate asked for

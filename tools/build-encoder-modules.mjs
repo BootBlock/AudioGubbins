@@ -8,13 +8,13 @@
  * Each is compiled by the pinned Zig (`zig-toolchain.mjs`) for `wasm32-wasi`
  * against Zig's wasi-libc, as a reactor with no `_start`, with the WebAssembly
  * features the Rust modules are held to (`WASM_FEATURES` in `build-wasm.mjs`,
- * which passes them), and without fused
- * floating-point contractions, so its arithmetic is IEEE-754 as written on
- * every machine. Our interface is compiled with every warning an error; the
- * vendored libraries are compiled unmodified, their warnings silenced.
- * Sources are named relative to the repository, so the file names their
- * checks embed say nothing of the machine that built them, and the debugging
- * sections are dropped from the module, keeping its `target_features`.
+ * which passes them), and without fused floating-point contractions, so its
+ * arithmetic is IEEE-754 as written on every machine. Our interface is compiled
+ * with every warning an error; the vendored libraries are compiled unmodified,
+ * their warnings silenced. Sources are named relative to the repository, so the
+ * file names their checks embed say nothing of the machine that built them, and
+ * the debugging sections are dropped from the module, keeping its
+ * `target_features`.
  *
  * A module is rebuilt only when what it is built from changed: a stamp beside
  * it holds the SHA-256 of the compiler's version, the flags, this file and
@@ -343,7 +343,8 @@ async function buildModule(zig, flags, module) {
  * compiler is obtained, and downloaded where it is not cached, only when one
  * has to be built.
  *
- * @param {readonly string[]} features the WebAssembly features the modules may use
+ * @param {readonly string[]} features the WebAssembly features the modules
+ *   may use
  * @returns {Promise<{ readonly mp3: string, readonly vorbis: string }>}
  */
 export async function buildEncoderModules(features) {

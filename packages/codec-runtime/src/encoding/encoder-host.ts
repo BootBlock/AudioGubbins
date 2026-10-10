@@ -11,7 +11,7 @@
  */
 
 /** The WASI module the imports are named under. */
-export const WASI_MODULE = 'wasi_snapshot_preview1';
+const WASI_MODULE = 'wasi_snapshot_preview1';
 
 /** WASI's `EBADF`: no such file. */
 const BAD_DESCRIPTOR = 8;
