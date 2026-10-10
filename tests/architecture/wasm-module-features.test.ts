@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
+import { codecModuleBytes } from '@audiogubbins/codec-runtime/testing';
 
 import { read } from './source-reading.js';
 
 /**
- * The WebAssembly features the canonical DSP module uses, held to the browser
- * floor (REQ-EXEC-184, ADR-0031).
+ * The WebAssembly features the canonical DSP module and the codec module use,
+ * held to the browser floor (REQ-EXEC-184, ADR-0031, ADR-0091).
  *
  * `tools/build-wasm.mjs` names the features it builds with, but the standard
  * library is compiled by the toolchain with its own, and the toolchain follows
- * the stable channel. The module the run's global setup built from the crates
+ * the stable channel. Each module the run's global setup built from the crates
  * lists every feature its code uses in its `target_features` section, so this
  * reads that list and holds each feature to the first version of each engine
  * at the floor the build declares.
@@ -103,8 +104,11 @@ function featuresUsed(section: ArrayBuffer): string[] {
   return used;
 }
 
-describe('the canonical DSP module', () => {
-  const module = new WebAssembly.Module(dspModuleBytes());
+describe.each([
+  ['the canonical DSP module', dspModuleBytes],
+  ['the codec module', codecModuleBytes],
+])('%s', (_name, bytes) => {
+  const module = new WebAssembly.Module(bytes());
   const sections = WebAssembly.Module.customSections(module, 'target_features');
 
   it('says which WebAssembly features it uses', () => {

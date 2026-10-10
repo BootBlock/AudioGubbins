@@ -68,6 +68,7 @@
   "devDependencies": {
     "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/capabilities": "workspace:*",
+    "@audiogubbins/codec-runtime": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/input": "workspace:*",
     "@audiogubbins/ml-runtime": "workspace:*",

@@ -9,6 +9,8 @@ Published paths
   @audiogubbins/browser-storage
   @audiogubbins/capabilities
   @audiogubbins/clipboard
+  @audiogubbins/codec-runtime
+  @audiogubbins/codec-runtime/testing
   @audiogubbins/codecs
   @audiogubbins/codecs/testing
   @audiogubbins/commands
@@ -878,7 +880,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27462: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27478: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1172,7 +1174,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27462: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27478: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1557,6 +1559,76 @@ Published paths
   function copyProcessing(slots: readonly ChainSlot[], wholeChain: boolean): DomainResult<ProcessingPayload>
   function pastedSlots(payload: ProcessingPayload, ids: IdGenerator): readonly [ChainSlot, ...ChainSlot[]]
   function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
+
+@audiogubbins/codec-runtime
+  interface CodecModule
+  CodecModule.openDecoder: (source: SyncAudioBytes) => DomainResult<DecoderSession>
+  CodecModule.createFlacFrameEncoder: (settings: FlacFrameSettings) => DomainResult<FlacFrameEncoder>
+  CodecModule.createOpusEncoder: (settings: OpusEncoderSettings) => DomainResult<OpusEncoder>
+  CodecModule.createOpusPacketDecoder: (channels: 1 | 2) => DomainResult<OpusPacketDecoder>
+  interface DecoderSession
+  readonly DecoderSession.description: StreamDescription
+  DecoderSession.decode: (into: readonly Float32Array[]) => DomainResult<number>
+  DecoderSession.readPacket: () => DomainResult<EncodedPacket | undefined>
+  DecoderSession.release: () => void
+  interface EncodedPacket
+  readonly EncodedPacket.data: Uint8Array<ArrayBufferLike>
+  readonly EncodedPacket.frames: number
+  interface FlacFrameEncoder
+  FlacFrameEncoder.encodeFrame: (planes: readonly Int32Array[], frameNumber: number) => DomainResult<Uint8Array>
+  FlacFrameEncoder.release: () => void
+  interface FlacFrameSettings
+  readonly FlacFrameSettings.channels: number
+  readonly FlacFrameSettings.bitsPerSample: 12 | 16 | 20 | 24 | 8
+  readonly FlacFrameSettings.sampleRate: number
+  readonly FlacFrameSettings.blockSize: number
+  readonly FlacFrameSettings.level: number
+  const MAX_OPUS_PACKET_FRAMES: 5760
+  type OpusApplication = "audio" | "restricted-low-delay" | "voip"
+  interface OpusEncoder
+  readonly OpusEncoder.head: Uint8Array<ArrayBufferLike>
+  readonly OpusEncoder.preSkip: number
+  OpusEncoder.push: (planes: readonly Float32Array[]) => DomainResult<readonly OpusPacket[]>
+  OpusEncoder.finish: () => DomainResult<{ readonly packets: readonly OpusPacket[]; readonly endGranule: number; }>
+  OpusEncoder.release: () => void
+  interface OpusEncoderSettings
+  readonly OpusEncoderSettings.sampleRate: 12000 | 16000 | 24000 | 48000 | 8000
+  readonly OpusEncoderSettings.channels: number
+  readonly OpusEncoderSettings.bitRate: number
+  readonly OpusEncoderSettings.application: OpusApplication
+  readonly OpusEncoderSettings.frameDuration: OpusFrameDuration
+  readonly OpusEncoderSettings.complexity: number
+  readonly OpusEncoderSettings.rateControl: OpusRateControl
+  readonly OpusEncoderSettings.inputSampleRate?: number
+  type OpusFrameDuration = 10 | 100 | 120 | 2.5 | 20 | 40 | 5 | 60 | 80
+  interface OpusPacket
+  readonly OpusPacket.bytes: Uint8Array<ArrayBufferLike>
+  readonly OpusPacket.frames: number
+  interface OpusPacketDecoder
+  OpusPacketDecoder.decode: (packet: Uint8Array, into: readonly Float32Array[]) => DomainResult<number>
+  OpusPacketDecoder.finalRange: () => number
+  OpusPacketDecoder.release: () => void
+  type OpusRateControl = "constant" | "constrained-variable" | "variable"
+  type StatedLayout = { readonly kind: "ambisonic"; readonly order: number; } | { readonly kind: "speakers"; readonly mask: number; } | { readonly kind: "unstated"; }
+  interface StreamDescription
+  readonly StreamDescription.codec: CodecId
+  readonly StreamDescription.container: ContainerId
+  readonly StreamDescription.sampleRate: number
+  readonly StreamDescription.channelCount: number
+  readonly StreamDescription.layout: StatedLayout
+  readonly StreamDescription.totalFrames: number | undefined
+  readonly StreamDescription.priming: number | undefined
+  readonly StreamDescription.padding: number | undefined
+  readonly StreamDescription.bitRate: number | undefined
+  readonly StreamDescription.bitsPerSample: number | undefined
+  readonly StreamDescription.decodable: boolean
+  readonly StreamDescription.codecConfig: Uint8Array<ArrayBufferLike>
+  function instantiateCodecModule(code: BufferSource | WebAssembly.Module): Promise<DomainResult<CodecModule>>
+
+@audiogubbins/codec-runtime/testing
+  function codecModule(): Promise<CodecModule>
+  function codecModuleBytes(): Uint8Array<ArrayBuffer>
+  function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, reads?: number[] | undefined): SyncAudioBytes
 
 @audiogubbins/codecs
   interface AudioBytes

@@ -70,9 +70,10 @@ export default defineConfig({
       },
     ],
 
-    // Builds the canonical DSP module from the crates before any test runs,
-    // so no test reads a module older than its source (ADR-0031).
-    globalSetup: ['./tests/setup/dsp-module.ts'],
+    // Builds the canonical DSP module and the codec module from the crates
+    // before any test runs, so no test reads a module older than its source
+    // (ADR-0031, ADR-0091).
+    globalSetup: ['./tests/setup/wasm-modules.ts'],
 
     // No test imports the crates, so an edit to one is not a change Vitest
     // follows; naming them reruns every test in watch mode, and the global
