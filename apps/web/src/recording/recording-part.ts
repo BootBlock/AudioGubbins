@@ -50,6 +50,8 @@ export interface RecordingParts {
   readonly engineRate: EngineRate;
   /** Whether recording is the Inspector's subject. */
   readonly focus: Observable<boolean>;
+  /** How many times recording has made itself the Inspector's subject (`recording-focus.ts`). */
+  readonly claimed: Observable<number>;
   /** The take or stack the Inspector shows while recording is its subject, if any. */
   readonly inspected: Observable<TakeSubject | undefined>;
   /** Makes recording the Inspector's subject, showing a take or stack, or the configuration. */
@@ -179,6 +181,7 @@ export function startRecording(options: RecordingPartOptions): {
         playback: options.playback,
       }),
       focus: focus.focus,
+      claimed: focus.claimed,
       inspected: focus.subject,
       inspect: focus.inspect,
       storage,

@@ -350,7 +350,7 @@ export class PageExportControl implements ExportControl {
       this.#settle(run);
       return writable;
     }
-    if (elsewhere !== undefined) parts.destination = elsewhere;
+    if (elsewhere !== undefined) run.redirect(id, elsewhere);
     await this.#deliver(run, id, parts);
     if (run.cancel.signal.aborted) await this.#giveUp(run);
     return succeed(this.#settle(run));
