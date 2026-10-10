@@ -13,6 +13,7 @@ import {
   channelCount,
   derivedSampleCount,
   maskOutline,
+  type SpectralMask,
   type SpectralShape,
 } from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
@@ -57,6 +58,16 @@ function shapesWords(shapes: readonly SpectralShape[], effect: MaskEffect): stri
   );
 }
 
+/**
+ * The shapes of `mask` in words: those adding to it, and those taken away,
+ * as `a rectangle and 2 brush strokes, with a lasso shape taken away`.
+ */
+export function maskShapesWords(mask: SpectralMask): string {
+  const taken = shapesWords(mask.shapes, MaskEffect.Subtract);
+  const made = shapesWords(mask.shapes, MaskEffect.Add);
+  return taken === '' ? made : `${made}, with ${taken} taken away`;
+}
+
 /** The channels a selection covers, by name. */
 function channelsWords(set: SelectionSet, asset: EditorAsset): string {
   const { channels } = set;
@@ -82,11 +93,10 @@ export function spectralSelectionWords(
   const { start, end, low, high } = maskOutline(mask);
   const at = (frames: number): string =>
     formatPosition(derivedSampleCount(frames), asset.sampleRate, format);
-  const taken = shapesWords(mask.shapes, MaskEffect.Subtract);
   const softness = softnessWords(mask.feather, asset.sampleRate);
   const sentences = [
     `An area from ${at(start)} to ${at(end)}, ${frequencyWords(low)} to ${frequencyWords(high)}, on ${channelsWords(set, asset)}.`,
-    `It is made of ${shapesWords(mask.shapes, MaskEffect.Add)}${taken === '' ? '' : `, with ${taken} taken away`}.`,
+    `It is made of ${maskShapesWords(mask)}.`,
     softness === 'none'
       ? 'Its rectangles and lasso shapes have hard edges.'
       : `Its rectangles and lasso shapes fade out over ${softness}.`,

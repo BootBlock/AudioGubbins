@@ -314,6 +314,7 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             labelFor: context.editor.labelFor,
             recording: context.recording,
             audioSettings: context.audioSettings,
+            modelGate: context.modelGate,
           }}
           commands={context}
         />

@@ -36,6 +36,11 @@ function slotsRefusal(slots: readonly ChainSlot[], gate: ModelGate): string | un
   return undefined;
 }
 
+/** Why `chain` cannot run, the first processor's reason, or nothing where every one can. */
+export function chainModelRefusal(chain: EffectChain, gate: ModelGate): string | undefined {
+  return slotsRefusal(chain.slots, gate);
+}
+
 /**
  * The chain a stream's processing runs: a chain's own, or the chain a
  * spectral `process` edit runs inside its frames (ADR-0081), which needs its
@@ -53,7 +58,7 @@ function streamChain(processing: StreamProcessing | undefined): EffectChain | un
 export function planModelRefusal(plan: EditPlan, gate: ModelGate): string | undefined {
   for (const stream of plan.streams) {
     const chain = streamChain(stream.processing);
-    const refusal = chain === undefined ? undefined : slotsRefusal(chain.slots, gate);
+    const refusal = chain === undefined ? undefined : chainModelRefusal(chain, gate);
     if (refusal !== undefined) return refusal;
   }
   return undefined;
