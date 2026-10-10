@@ -15,7 +15,7 @@ export const PRODUCT_VERSION = '0.1.0' as const;
  * independently of the product version and of every other entry.
  */
 export const SCHEMA_VERSIONS = {
-  userPreferences: 1,
+  userPreferences: 2,
   workspaceLayout: 1,
   shortcutProfile: 1,
   logVerbosity: 1,

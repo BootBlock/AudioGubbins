@@ -2,12 +2,24 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { sampleCount, unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { layoutView, newViewState, type EditorViewState } from '@audiogubbins/editor-view';
-import { PointerKind, type PointerSample } from '@audiogubbins/input';
+import {
+  DisplayMode,
+  ToolId,
+  layoutView,
+  newViewState,
+  type EditorViewState,
+} from '@audiogubbins/editor-view';
+import {
+  DEFAULT_GESTURE_SETTINGS,
+  PointerKind,
+  type GestureSettings,
+  type PointerSample,
+} from '@audiogubbins/input';
 import { EMPTY_SELECTION, boundaryAt, samplesWithin } from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { testAssets } from '../assets/test-assets.js';
+import { everythingQueued } from '../testing/waiting.js';
 import type { IntentCommand } from './intent-commands.js';
 import { ToolPointer, type ToolPointerHost } from './tool-pointer.js';
 
@@ -41,6 +53,7 @@ function pointerOver(
   state: EditorViewState,
   answer: (position: number) => Promise<number | undefined>,
   asset: EditorAsset = TONES,
+  gestures: GestureSettings = DEFAULT_GESTURE_SETTINGS,
 ) {
   const asked: Asked[] = [];
   const ran: IntentCommand[] = [];
@@ -59,6 +72,7 @@ function pointerOver(
       layout: layoutView(state, 1000, 200, 2, false),
     }),
     panning: () => false,
+    gestures: () => gestures,
     run: (command) => {
       ran.push(command);
     },
@@ -370,5 +384,95 @@ describe('dragging the end of a region in the strip (REQ-EDIT-014)', () => {
     // Shown, the same drag moves what it grabbed, so hiding it is what stops it.
     expect(whenShown.map((command) => command.id)).toContain(moved);
     expect(whenHidden.map((command) => command.id)).not.toContain(moved);
+  });
+});
+
+describe('the spectral tools through the pointer (ADR-0082)', () => {
+  /** A spectrogram view of the tone bursts, with snapping off so a stroke lands where drawn. */
+  const spectral = (tool: ToolId) =>
+    viewOf((view) => ({
+      ...view,
+      tool,
+      displayMode: DisplayMode.Spectrogram,
+      snapping: { ...view.snapping, enabled: false },
+    }));
+
+  /** A pen at `x`, `y`, pressing `pressure`. */
+  const pen = (x: number, y: number, pressure: number): PointerSample => ({
+    pointerId: 1,
+    kind: PointerKind.Pen,
+    x,
+    y,
+    pressure,
+    timestamp: 0,
+  });
+
+  /** The strengths of the stroke the brush made, as the command it ran was given it. */
+  async function strokeStrengths(gestures: GestureSettings): Promise<readonly number[]> {
+    const { tool, ran } = pointerOver(
+      spectral(ToolId.SpectralBrush),
+      () => Promise.resolve(undefined),
+      TONES,
+      gestures,
+    );
+    // Each move taken before the next, as a person's are: one overtaken
+    // while the one before it waits is skipped.
+    tool.down(pen(200, 90, 0.2), NONE);
+    await everythingQueued();
+    tool.moved(pen(240, 95, 0.6), NONE);
+    await everythingQueued();
+    tool.moved(pen(280, 100, 0.9), NONE);
+    await everythingQueued();
+    tool.up(pen(280, 100, 0.9), NONE);
+    await vi.waitFor(() => {
+      expect(ran).toHaveLength(1);
+    });
+    const [command] = ran;
+    expect(command?.id).toBe('editor.select-spectral');
+    const mask = JSON.parse(String(command?.args['mask'])) as {
+      shapes: { points: { strength: number }[] }[];
+    };
+    return mask.shapes[0]?.points.map((point) => point.strength) ?? [];
+  }
+
+  it('strokes with a pen’s pressure where the person lets pressure set the strength', async () => {
+    expect(await strokeStrengths(DEFAULT_GESTURE_SETTINGS)).toEqual([0.2, 0.6, 0.9]);
+  });
+
+  it('strokes at the fixed strength, whatever the pen presses, where the person turns pressure off', async () => {
+    const fixed: GestureSettings = {
+      ...DEFAULT_GESTURE_SETTINGS,
+      usePenPressure: false,
+      fixedStrength: 0.4,
+    };
+    expect(await strokeStrengths(fixed)).toEqual([0.4, 0.4, 0.4]);
+  });
+
+  it('selects with the marquee on a spectrogram, as a command joining its shape', async () => {
+    const state = spectral(ToolId.SpectralMarquee);
+    const { tool, ran } = pointerOver(state, () => Promise.resolve(undefined));
+    tool.down({ ...at(200), y: 80 }, { shift: true, alt: false });
+    tool.moved({ ...at(260), y: 100 }, NONE);
+    tool.up({ ...at(300), y: 120 }, NONE);
+    await vi.waitFor(() => {
+      expect(ran).toHaveLength(1);
+    });
+    const { viewport } = state;
+    expect(ran[0]).toMatchObject({
+      id: 'editor.select-spectral',
+      args: { view: 'editor', combination: 'add', channels: '0' },
+    });
+    const mask = JSON.parse(String(ran[0]?.args['mask'])) as {
+      shapes: { kind: string; range: { start: number; end: number } }[];
+      feather: unknown;
+    };
+    expect(mask.shapes[0]).toMatchObject({
+      kind: 'rectangle',
+      range: {
+        start: boundaryAt(viewport, 200, TONES.length),
+        end: boundaryAt(viewport, 300, TONES.length),
+      },
+    });
+    expect(mask.feather).toEqual({ time: 0, frequency: 0 });
   });
 });

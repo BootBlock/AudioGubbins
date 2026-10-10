@@ -7,17 +7,13 @@ import { describe, expect, it } from 'vitest';
 
 import { RegionBoundary, unsafeBrandId, type MarkerId } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
+import { EMPTY_SELECTION, samplesPerPixel, viewportAtStart } from '@audiogubbins/timeline';
 
 import type { HitTarget } from './hit-testing.js';
 import { LaneKind, type Lane } from './lane-layout.js';
-import {
-  move,
-  press,
-  release,
-  type ToolContext,
-  type ToolInput,
-  type ToolIntent,
-} from './pointer-tools.js';
+import { move, press, release } from './pointer-tools.js';
+import type { ToolContext, ToolInput, ToolIntent } from './tool-values.js';
+import { DEFAULT_SPECTRAL_TOOL_SETTINGS } from './spectral-tools.js';
 import { at } from './testing/scene.js';
 import { ToolId } from './view-state.js';
 
@@ -38,6 +34,7 @@ function input(x: number, overrides: Partial<ToolInput> = {}): ToolInput {
     channel: 0,
     shift: false,
     alt: false,
+    strength: 0.75,
     ...overrides,
   };
 }
@@ -49,6 +46,15 @@ function context(tool: ToolId, hit: HitTarget, overrides: Partial<ToolContext> =
     hit,
     selection: undefined,
     visibleChannels: [0, 1, 2],
+    spectral: {
+      lane: lane(0),
+      axis: { frequencyScale: 'logarithmic', lowest: 20, highest: 20_000 },
+      viewport: viewportAtStart(samplesPerPixel(10), 1000),
+      length: at(100_000),
+      channelCount: 3,
+      selection: EMPTY_SELECTION,
+      settings: DEFAULT_SPECTRAL_TOOL_SETTINGS,
+    },
     ...overrides,
   };
 }

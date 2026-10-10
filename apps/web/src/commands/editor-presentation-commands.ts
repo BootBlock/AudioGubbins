@@ -86,6 +86,18 @@ export const TOOLS: Readonly<Record<ToolId, { readonly name: string; readonly do
     name: 'Region',
     does: 'Makes a region of the range it is dragged over, selects a region where it is clicked in the strip, and moves the ends of regions.',
   },
+  [ToolId.SpectralMarquee]: {
+    name: 'Spectral marquee',
+    does: 'Selects the time and frequencies of the rectangle it is dragged over on a spectrogram, adding with Shift and taking away with Alt.',
+  },
+  [ToolId.SpectralLasso]: {
+    name: 'Spectral lasso',
+    does: 'Selects the area of a spectrogram its path encloses, adding with Shift and taking away with Alt.',
+  },
+  [ToolId.SpectralBrush]: {
+    name: 'Spectral brush',
+    does: 'Paints a selection on a spectrogram, as hard as a pen presses or at the fixed strength, adding with Shift and taking away with Alt.',
+  },
 };
 
 /** What each display mode is called. */

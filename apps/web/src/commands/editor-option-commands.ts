@@ -32,6 +32,7 @@ const OVERLAYS: Readonly<Record<keyof Overlays, string>> = {
   markers: 'Markers',
   regions: 'Regions',
   filmstrip: 'Picture strip',
+  spectralEdits: 'Spectral edit outlines',
 };
 
 const OVERLAY_ORDER: readonly (keyof Overlays)[] = [
@@ -41,6 +42,7 @@ const OVERLAY_ORDER: readonly (keyof Overlays)[] = [
   'markers',
   'regions',
   'filmstrip',
+  'spectralEdits',
 ];
 
 /** What each snap target is called. */
@@ -112,11 +114,19 @@ function snappingCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** A capital letter, where an overlay's name joins two words. */
+const CAPITAL = /[A-Z]/g;
+
+/** An overlay's name as a command identifier writes it: `spectralEdits` as `spectral-edits`. */
+function identifierOf(overlay: keyof Overlays): string {
+  return overlay.replace(CAPITAL, (letter) => `-${letter.toLowerCase()}`);
+}
+
 function overlayCommands(): readonly Command<ShellContext>[] {
   return [
     ...OVERLAY_ORDER.map((overlay) =>
       presentationCommand(
-        `editor.overlay-${overlay}`,
+        `editor.overlay-${identifierOf(overlay)}`,
         `Show ${OVERLAYS[overlay].toLowerCase()}`,
         CommandCategory.View,
         (state) => ({

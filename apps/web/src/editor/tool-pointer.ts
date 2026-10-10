@@ -16,8 +16,9 @@
  */
 
 import { SnapKind, boundaryAt, samplesWithin, type SnapTarget } from '@audiogubbins/timeline';
-import type { PointerSample } from '@audiogubbins/input';
+import { toolStrength, type GestureSettings, type PointerSample } from '@audiogubbins/input';
 import {
+  DEFAULT_SPECTRAL_TOOL_SETTINGS,
   IDLE,
   hitTest,
   laneAt,
@@ -54,6 +55,8 @@ export interface ToolPointerHost {
   readonly snapshot: () => PointerSnapshot | undefined;
   /** Whether the space bar is held, which makes any tool the hand. */
   readonly panning: () => boolean;
+  /** How gestures are read, whose pressure choice gives a pointer its strength. */
+  readonly gestures: () => GestureSettings;
   readonly run: (command: IntentCommand) => void;
   /** Shows the drag in progress, and the target a position snapped to. */
   readonly show: (preview: ToolPreview | undefined, snap: SnapTarget | undefined) => void;
@@ -131,6 +134,17 @@ export class ToolPointer {
             hit,
             selection: selection.time,
             visibleChannels: shownChannels(state, snapshot.sources.asset),
+            spectral: {
+              lane: laneAt(snapshot.layout, sample.y),
+              axis: state.spectral,
+              viewport: state.viewport,
+              length: snapshot.sources.asset.length,
+              channelCount: snapshot.sources.asset.layout.roles.length,
+              selection,
+              // The Spectral panel's brush and softness are not yet the
+              // person's to set, so the tools draw with their defaults.
+              settings: DEFAULT_SPECTRAL_TOOL_SETTINGS,
+            },
           },
           input,
         ),
@@ -256,6 +270,7 @@ export class ToolPointer {
       channel: laneAt(snapshot.layout, sample.y)?.channel,
       shift: modifiers.shift,
       alt: modifiers.alt,
+      strength: toolStrength(sample, this.#host.gestures()),
       snap: result.target,
     };
   }

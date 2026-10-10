@@ -95,6 +95,7 @@ function frameOf(
           tags: [],
         },
       ],
+      spectralEdits: [],
     },
     audio,
     selection: EMPTY_SELECTION,

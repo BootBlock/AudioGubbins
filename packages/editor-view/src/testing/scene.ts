@@ -49,6 +49,7 @@ export const PALETTE: EditorPalette = {
   spectrogramBackground: named(22),
   rulerText: named(23),
   selectedRegion: named(24),
+  spectralEdit: named(25),
 };
 
 const TYPE: EditorType = { label: '12px sans-serif', small: '11px sans-serif' };
@@ -89,6 +90,7 @@ export function scene(
       channelNames: Array.from({ length: channels }, (_, index) => `Channel ${String(index + 1)}`),
       markers: [],
       regions: [],
+      spectralEdits: [],
     },
     audio: options.audio ?? { pyramid: undefined, buckets: undefined, samples: undefined, length },
     selection: options.selection ?? EMPTY_SELECTION,

@@ -37,6 +37,7 @@ import {
 
 import { channelNames } from '../assets/channel-names.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
+import { spectralEditOutlines } from './spectral-edit-outlines.js';
 
 /** The fewest CSS pixels between two labelled ticks of the ruler. */
 const LABEL_SPACING = 88;
@@ -135,6 +136,7 @@ export function sceneOf(
       channelNames: namesOf(asset),
       markers: asset.markers,
       regions: asset.regions,
+      spectralEdits: asset.owner.kind === 'project' ? spectralEditOutlines(asset.owner) : [],
     },
     audio: sources.audio,
     selection: sources.selection,

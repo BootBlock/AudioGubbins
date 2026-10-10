@@ -62,3 +62,13 @@ export {
   sampleFromPointerEvent,
   toolStrength,
 } from './pointer.js';
+
+// The pressure choice a person's preferences persist, and the fixed
+// strength's control (REQ-UX-068, ADR-0082).
+export {
+  DEFAULT_PRESSURE_PREFERENCE,
+  FIXED_STRENGTH_RANGE,
+  type PressurePreference,
+  fixedStrengthOf,
+  pressurePreferenceOf,
+} from './pressure-preference.js';

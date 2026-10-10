@@ -1021,6 +1021,9 @@ describe('finding the shell commands in the palette', () => {
       }),
     },
     'view.density-comfortable': { before: (run) => run('view.density-compact') },
+    'tools.use-pen-pressure': { before: (run) => run('tools.use-fixed-strength') },
+    // A step the control offers, so the second run meets the value itself.
+    'tools.set-fixed-strength': { arguments: () => ({ strength: 0.4 }) },
     'view.contrast-system': { before: (run) => run('view.high-contrast') },
     'view.motion-system': { before: (run) => run('view.motion-reduced') },
     'view.accent-blue': { before: (run) => run('view.accent-teal') },
@@ -1212,6 +1215,23 @@ describe('finding the shell commands in the palette', () => {
       before: (run) => run('editor.spectral-band-whole'),
     }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
+    'editor.select-spectral': inEditor({
+      arguments: () => ({
+        mask: JSON.stringify({
+          shapes: [
+            {
+              kind: 'rectangle',
+              effect: 'add',
+              range: { start: 100, end: 200 },
+              band: { low: 100, high: 400 },
+            },
+          ],
+          feather: { time: 0, frequency: 0 },
+        }),
+        combination: 'replace',
+        channels: '1',
+      }),
+    }),
     'editor.select-marker': onProjectMarker(),
     'editor.select-region': {
       inProject: true,

@@ -202,6 +202,7 @@ export class EditorSurface {
         return sources === undefined ? undefined : { sources, layout: this.#scene(sources).layout };
       },
       panning: () => this.#panning,
+      gestures: this.#options.stores.gestures,
       run,
       show: (preview, snap) => {
         this.#preview = preview;
