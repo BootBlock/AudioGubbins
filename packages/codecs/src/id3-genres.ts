@@ -1,7 +1,7 @@
 /**
  * The genres ID3v1 numbers, with Winamp's extensions, which ID3v1 tags, the
- * `(n)` references of ID3v2 `TCON` frames and MP4's `gnre` atom name by
- * number. Read only: AudioGubbins writes a genre as its text.
+ * `(n)` references of ID3v2 `TCON` frames and MP4's `gnre` atom name by number.
+ * Read only: AudioGubbins writes a genre as its text.
  */
 
 const GENRES: readonly string[] = [

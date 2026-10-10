@@ -3,9 +3,9 @@
  * ID3v2 writer and reader share (ADR-0093).
  *
  * The track and disc numbers share `TRCK` and `TPOS`, written `n/m`; the
- * comment is a `COMM` frame with no description; the date is `TDRC`, read
- * from version 2.3's `TYER` and `TDAT` as well; and ID3v2.2's three-character
- * frames are read as the frames they became.
+ * comment is a `COMM` frame with no description; the date is `TDRC`, read from
+ * version 2.3's `TYER` and `TDAT` as well; and ID3v2.2's three-character frames
+ * are read as the frames they became.
  */
 
 import type { MetadataTextKey } from './metadata-map.js';

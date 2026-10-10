@@ -5,8 +5,9 @@
  * waits for the end, since its stream information states what only the whole
  * stream shows: the smallest and largest frame, the count of samples, and the
  * MD5 signature of the samples. The map's metadata blocks follow it. Every
- * frame is checked: its header's checksum, its format against the stream's, its number
- * in sequence, and its block size, which only the last frame may make smaller.
+ * frame is checked: its header's checksum, its format against the stream's, its
+ * number in sequence, and its block size, which only the last frame may make
+ * smaller.
  */
 
 import { fail, succeed, type DomainFailureResult, type DomainResult } from '@audiogubbins/domain';

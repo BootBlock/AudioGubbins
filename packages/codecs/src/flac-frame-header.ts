@@ -117,8 +117,8 @@ export function readFlacFrameHeader(
 }
 
 /**
- * The frame or sample number at `at`, coded as UTF-8 codes a character, in
- * at most `longest` bytes, or `undefined` where it is coded wrongly.
+ * The frame or sample number at `at`, coded as UTF-8 codes a character, in at
+ * most `longest` bytes, or `undefined` where it is coded wrongly.
  */
 function codedNumber(
   frame: Uint8Array,

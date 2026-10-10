@@ -50,8 +50,8 @@ const LARGEST_32 = 0xffffffff;
 
 /**
  * The bytes before the samples: `ftyp`, the movie box and the `mdat` header.
- * The movie box's size depends on whether its chunk offsets are 64-bit, and
- * the offsets on its size, so it is measured before it is placed.
+ * The movie box's size depends on whether its chunk offsets are 64-bit, and the
+ * offsets on its size, so it is measured before it is placed.
  */
 function fileHead(movie: Mp4MovieDescription): Uint8Array {
   const { dataBytes } = movie.stream;

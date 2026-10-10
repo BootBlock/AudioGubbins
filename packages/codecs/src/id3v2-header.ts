@@ -3,8 +3,8 @@
  * carry and some taggers put before a FLAC file's marker too.
  *
  * The tag's size is a "synchsafe" integer, seven bits in each of four bytes,
- * counting what follows the header and not a footer, which version 2.4 may
- * add after the tag.
+ * counting what follows the header and not a footer, which version 2.4 may add
+ * after the tag.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';

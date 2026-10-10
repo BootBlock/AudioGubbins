@@ -1,14 +1,14 @@
 /**
  * The segmentation of one logical stream's packets into Ogg pages (RFC 3533).
  *
- * A packet is laced as segments of 255 bytes and a last one shorter, zero
- * bytes long where the packet is a multiple of 255. Segments fill a page until
- * it holds 255 of them or its body reaches the target, about 4 KiB as libogg
- * makes them, so a long packet continues over pages and a page holds many
- * short ones. A page's granule position is that of the last packet completed
- * on it, and -1 where none is. The first page is marked as the stream's
- * beginning; a caller ends a page at a packet boundary, as headers need, with
- * `flush`, and marks the last page as the stream's end.
+ * A packet is laced as segments of 255 bytes and a last one shorter, zero bytes
+ * long where the packet is a multiple of 255. Segments fill a page until it
+ * holds 255 of them or its body reaches the target, about 4 KiB as libogg makes
+ * them, so a long packet continues over pages and a page holds many short ones.
+ * A page's granule position is that of the last packet completed on it, and -1
+ * where none is. The first page is marked as the stream's beginning; a caller
+ * ends a page at a packet boundary, as headers need, with `flush`, and marks
+ * the last page as the stream's end.
  */
 
 import {
@@ -52,8 +52,9 @@ export class OggPageWriter {
     for (;;) {
       if (this.lacing.length === MAXIMUM_SEGMENTS || this.bodyBytes >= PAGE_TARGET_BYTES) {
         pages.push(this.page(0));
-        // The page just ended inside this packet where it has bytes left, or where its
-        // last segment was full and the zero-length segment that ends it is still to come.
+        // The page just ended inside this packet where it has bytes left, or
+        // where its last segment was full and the zero-length segment that ends
+        // it is still to come.
         this.continued = offset > 0;
       }
       const length = Math.min(255, packet.length - offset);

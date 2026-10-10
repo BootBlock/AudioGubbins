@@ -34,9 +34,9 @@ export interface FinishedEncodedStream extends FinishedAudioFile {
 }
 
 /**
- * The end of a lossy stream: how many frames the encoder was given, at the
- * rate the format counts in, so the priming before them and the padding after
- * them are trimmed by every player that reads the file's statement of them.
+ * The end of a lossy stream: how many frames the encoder was given, at the rate
+ * the format counts in, so the priming before them and the padding after them
+ * are trimmed by every player that reads the file's statement of them.
  */
 export interface EncodedStreamLength {
   readonly inputFrames: number;

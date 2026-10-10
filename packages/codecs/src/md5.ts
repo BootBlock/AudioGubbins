@@ -1,12 +1,12 @@
 /**
- * MD5 (RFC 1321), which FLAC's stream information states of the samples it
- * was encoded from.
+ * MD5 (RFC 1321), which FLAC's stream information states of the samples it was
+ * encoded from.
  *
- * Written in portable TypeScript because this package runs in workers and
- * tests with no host's crypto, and a FLAC file must carry the same signature
- * on every machine. MD5 is here a checksum the format names, never a defence
- * against tampering. The digest is incremental: the samples arrive a block at
- * a time and are never held whole.
+ * Written in portable TypeScript because this package runs in workers and tests
+ * with no host's crypto, and a FLAC file must carry the same signature on every
+ * machine. MD5 is here a checksum the format names, never a defence against
+ * tampering. The digest is incremental: the samples arrive a block at a time
+ * and are never held whole.
  */
 
 /** The per-round shift amounts, RFC 1321 section 3.4. */

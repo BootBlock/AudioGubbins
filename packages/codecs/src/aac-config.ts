@@ -1,13 +1,13 @@
 /**
- * The AudioSpecificConfig an AAC encoder states (ISO/IEC 14496-3, 1.6.2.1),
- * and the `esds` descriptor that carries it in an MP4 sample entry
- * (ISO/IEC 14496-1, 7.2.6).
+ * The AudioSpecificConfig an AAC encoder states (ISO/IEC 14496-3, 1.6.2.1), and
+ * the `esds` descriptor that carries it in an MP4 sample entry (ISO/IEC
+ * 14496-1, 7.2.6).
  *
- * The browser's encoder answers the configuration beside its first access
- * unit; the MP4 writer reads from it what the file must state elsewhere, the
- * object type, rate, channel configuration and frame length, and refuses one
- * that is not AAC-LC with a stated channel configuration, the only AAC this
- * application encodes (ADR-0091).
+ * The browser's encoder answers the configuration beside its first access unit;
+ * the MP4 writer reads from it what the file must state elsewhere, the object
+ * type, rate, channel configuration and frame length, and refuses one that is
+ * not AAC-LC with a stated channel configuration, the only AAC this application
+ * encodes (ADR-0091).
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';

@@ -3,10 +3,10 @@
  *
  * The walk reads box headers alone, from the top level down the path iTunes
  * writes, `moov`/`udta`/`meta`/`ilst`, or `moov`/`meta`/`ilst` as some writers
- * place it, and reads only the `ilst` box's body. A `meta` box is a full box
- * in ISO files and a plain one in QuickTime's, and both are read. Each level
- * stops after a bound of boxes, a box whose size runs past its parent is
- * refused, and the `ilst` body is read only within the metadata bound.
+ * place it, and reads only the `ilst` box's body. A `meta` box is a full box in
+ * ISO files and a plain one in QuickTime's, and both are read. Each level stops
+ * after a bound of boxes, a box whose size runs past its parent is refused, and
+ * the `ilst` body is read only within the metadata bound.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';

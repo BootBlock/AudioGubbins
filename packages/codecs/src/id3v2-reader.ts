@@ -2,12 +2,12 @@
  * The frames of an ID3v2.2, 2.3 or 2.4 tag read into a map (ADR-0093).
  *
  * The tag is held whole, within the metadata bound, and read in memory:
- * unsynchronisation is undone for the whole tag (2.2 and 2.3, and 2.4 where
- * the header says every frame is) or per frame (2.4), an extended header is
- * passed over, and each frame's size is held within the tag. Text is read in
- * each of the four encodings, Latin-1, UTF-16 with a byte order mark, UTF-16
- * big-endian and UTF-8, and a frame of several values gives each. A frame that
- * is compressed or encrypted is passed over, since its bytes are not text.
+ * unsynchronisation is undone for the whole tag (2.2 and 2.3, and 2.4 where the
+ * header says every frame is) or per frame (2.4), an extended header is passed
+ * over, and each frame's size is held within the tag. Text is read in each of
+ * the four encodings, Latin-1, UTF-16 with a byte order mark, UTF-16 big-endian
+ * and UTF-8, and a frame of several values gives each. A frame that is
+ * compressed or encrypted is passed over, since its bytes are not text.
  *
  * A genre given as ID3v1 numbers, `(17)` or `17`, is read as the genre's name;
  * version 2.3's `TYER` and `TDAT` are read as one date; a text frame with no

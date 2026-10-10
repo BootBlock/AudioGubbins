@@ -2,11 +2,11 @@
  * The metadata of a FLAC file: its Vorbis comments, its pictures, and the WAV
  * chunks its `APPLICATION` `riff` blocks carry (ADR-0093).
  *
- * The walk reads each block's four-byte header and only the bodies it keeps,
- * so a large block of another kind costs one small read. It refuses a file
- * whose first block is not the stream information, a block that runs past the
- * file, the reserved block type, and more blocks or bytes than the bounds, and
- * it skips an ID3v2 tag some taggers put before the `fLaC` marker.
+ * The walk reads each block's four-byte header and only the bodies it keeps, so
+ * a large block of another kind costs one small read. It refuses a file whose
+ * first block is not the stream information, a block that runs past the file,
+ * the reserved block type, and more blocks or bytes than the bounds, and it
+ * skips an ID3v2 tag some taggers put before the `fLaC` marker.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';

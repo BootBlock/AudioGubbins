@@ -1,13 +1,13 @@
 /**
  * MP4 metadata as iTunes lays it out: the items of the `ilst` box (ADR-0093).
  *
- * Each item is a box named for its field holding a `data` box, whose type
- * says how its value is coded: UTF-8 text, a JPEG or PNG picture, or bytes.
- * The map's text is written in the items players read (`©nam`, `©ART`,
- * `©alb`, `aART`, `©day`, `©gen`, `©cmt`, `cprt`, `©too`), the track and disc
- * numbers in the binary `trkn` and `disk` items, which hold numbers alone, and
- * the cover in `covr`, which holds no description. Free-form `----` items,
- * named by a `mean` and a `name`, carry the ISRC, the loop as `LOOPSTART` and
+ * Each item is a box named for its field holding a `data` box, whose type says
+ * how its value is coded: UTF-8 text, a JPEG or PNG picture, or bytes. The
+ * map's text is written in the items players read (`©nam`, `©ART`, `©alb`,
+ * `aART`, `©day`, `©gen`, `©cmt`, `cprt`, `©too`), the track and disc numbers
+ * in the binary `trkn` and `disk` items, which hold numbers alone, and the
+ * cover in `covr`, which holds no description. Free-form `----` items, named by
+ * a `mean` and a `name`, carry the ISRC, the loop as `LOOPSTART` and
  * `LOOPLENGTH`, the gapless playback information `iTunSMPB` the writer adds,
  * and foreign fields.
  *

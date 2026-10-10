@@ -86,8 +86,8 @@ export class MetadataGathering {
   }
 
   /**
-   * A picture of the file. A map holds one: the first front cover, or the
-   * first picture where the file states no front cover.
+   * A picture of the file. A map holds one: the first front cover, or the first
+   * picture where the file states no front cover.
    */
   addCoverArt(coverArt: CoverArt, frontCover: boolean): void {
     if (this.coverArt === undefined || (frontCover && !this.frontCover)) {
@@ -105,8 +105,9 @@ export class MetadataGathering {
   toMap(): MetadataMap {
     const tagged = this.taggedLoops();
     const loops = this.loops ?? tagged;
-    // Tags that state no loop are kept as the fields they are. Where a sampler chunk states
-    // the loops, the tags are the same loop told more briefly, as the writers write both.
+    // Tags that state no loop are kept as the fields they are. Where a sampler
+    // chunk states the loops, the tags are the same loop told more briefly, as
+    // the writers write both.
     const foreign =
       tagged !== undefined || this.loops !== undefined
         ? this.foreign

@@ -4,15 +4,14 @@
  *
  * libvorbis answers a complete Ogg stream with its own comment header. The
  * rewriter takes that stream's bytes in pieces of any size, reads its three
- * header packets, and writes them again with the map's comments in place of
- * the encoder's, keeping its vendor string: the identification header alone on
- * the first page and the comment and setup headers on the pages after it,
- * ending on a page of their own, as the Vorbis specification requires. Every
- * audio page then follows as it was, with its granule position, its flags and
- * its packets unchanged, renumbered after the new header pages and given a new
- * checksum. A page that ends the setup header and begins audio is cut after
- * the header, its audio segments kept on a page of their own with its granule
- * position.
+ * header packets, and writes them again with the map's comments in place of the
+ * encoder's, keeping its vendor string: the identification header alone on the
+ * first page and the comment and setup headers on the pages after it, ending on
+ * a page of their own, as the Vorbis specification requires. Every audio page
+ * then follows as it was, with its granule position, its flags and its packets
+ * unchanged, renumbered after the new header pages and given a new checksum. A
+ * page that ends the setup header and begins audio is cut after the header, its
+ * audio segments kept on a page of their own with its granule position.
  *
  * Only one logical stream is read: a chained or multiplexed stream is not what
  * the encoder makes, and is refused.

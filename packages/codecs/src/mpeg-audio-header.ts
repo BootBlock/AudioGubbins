@@ -93,8 +93,8 @@ export function readMpegAudioHeader(bytes: Uint8Array): MpegAudioHeader | undefi
 }
 
 /**
- * The header of a frame like `model` at another bit rate index, with no CRC
- * and no padding, as an information frame takes it.
+ * The header of a frame like `model` at another bit rate index, with no CRC and
+ * no padding, as an information frame takes it.
  */
 export function headerAtBitrate(
   model: MpegAudioHeader,

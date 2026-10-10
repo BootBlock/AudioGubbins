@@ -1,16 +1,16 @@
 /**
  * A WAV file's loops, tuning and cue points as its RIFF chunks state them:
  * `smpl`, `cue ` and the `labl` entries of a `LIST`/`adtl` chunk, for a
- * container that carries those chunks, as FLAC's `APPLICATION` `riff` blocks
- * do (ADR-0093).
+ * container that carries those chunks, as FLAC's `APPLICATION` `riff` blocks do
+ * (ADR-0093).
  *
  * Positions are 32-bit frame counts, and a loop's end is its last frame. A
  * `smpl` chunk always states a tuning, so a map with loops and no tuning is
  * written with the sampler's default, MIDI note 60 played unchanged, and reads
  * back with it. A fine tuning below zero is written, as the chunk's unsigned
- * fraction requires, as the note below and the cents above it, and read back
- * in the range from -50 up to but not including 50 cents, so 50 cents above a
- * note reads as 50 below the next, the same pitch. Labels are UTF-8.
+ * fraction requires, as the note below and the cents above it, and read back in
+ * the range from -50 up to but not including 50 cents, so 50 cents above a note
+ * reads as 50 below the next, the same pitch. Labels are UTF-8.
  */
 
 import { sampleCount, type SampleCount } from '@audiogubbins/domain';

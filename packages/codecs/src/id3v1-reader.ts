@@ -1,7 +1,7 @@
 /**
  * The ID3v1 tag at the end of an MP3 file: 128 bytes after `TAG` of fixed
- * Latin-1 fields, and in version 1.1 a track number in the comment's last
- * byte (ADR-0093). Read only, and only for what an ID3v2 tag does not say.
+ * Latin-1 fields, and in version 1.1 a track number in the comment's last byte
+ * (ADR-0093). Read only, and only for what an ID3v2 tag does not say.
  */
 
 import { decodeLatin1 } from './metadata-text.js';

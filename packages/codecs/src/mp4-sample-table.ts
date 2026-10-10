@@ -1,8 +1,8 @@
 /**
- * The sample table of an M4A file's one audio track (ISO/IEC 14496-12,
- * section 8.5): the `mp4a` sample entry with its decoder configuration, and
- * every access unit's duration, size and place, the units grouped about a
- * second's worth to a chunk.
+ * The sample table of an M4A file's one audio track (ISO/IEC 14496-12, section
+ * 8.5): the `mp4a` sample entry with its decoder configuration, and every
+ * access unit's duration, size and place, the units grouped about a second's
+ * worth to a chunk.
  */
 
 import { elementaryStreamDescriptor, type AacConfig } from './aac-config.js';

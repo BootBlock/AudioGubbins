@@ -2,10 +2,10 @@
  * The parts of a map a format cannot hold, as its writer reports them
  * (ADR-0093): nothing is dropped without the person being told.
  *
- * A writer states what its format holds as a value, and the parts it holds
- * only in part (a text value its field cannot state, a foreign key its format
- * cannot name, loops beyond the one the tags carry) it adds itself, since only
- * it knows the value's limits.
+ * A writer states what its format holds as a value, and the parts it holds only
+ * in part (a text value its field cannot state, a foreign key its format cannot
+ * name, loops beyond the one the tags carry) it adds itself, since only it
+ * knows the value's limits.
  */
 
 import type { MetadataMap, MetadataPart, MetadataTextKey } from './metadata-map.js';

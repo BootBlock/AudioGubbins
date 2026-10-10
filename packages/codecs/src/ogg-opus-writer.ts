@@ -4,15 +4,15 @@
  * The identification header goes alone on the first page and the comment
  * header, the map's Vorbis comments, on the pages after it, ending on a page of
  * its own; these are the head, since they depend on nothing the encoder says.
- * The audio packets follow with granule positions counting every decoded
- * sample at 48 kHz, the pre-skip included.
+ * The audio packets follow with granule positions counting every decoded sample
+ * at 48 kHz, the pre-skip included.
  *
  * End trimming: the last page's granule position is the pre-skip plus the
- * frames the encoder was given, so a player discards the encoder's padding.
- * RFC 7845 asks that no more be trimmed than the last packet decodes to, and a
- * trim may not reach back past a page already written, so the last packet is
- * held back until the stream ends, and a stream padded by more than its last
- * packet is refused as one no player can trim exactly.
+ * frames the encoder was given, so a player discards the encoder's padding. RFC
+ * 7845 asks that no more be trimmed than the last packet decodes to, and a trim
+ * may not reach back past a page already written, so the last packet is held
+ * back until the stream ends, and a stream padded by more than its last packet
+ * is refused as one no player can trim exactly.
  *
  * The stream's serial number is fixed, so the same packets and settings give
  * the same file on every machine (ADR-0091).

@@ -5,10 +5,10 @@
  * version 2.4 allows of any player that reads it. The tag carries `TIT2`,
  * `TPE1`, `TALB`, `TPE2`, `TRCK` and `TPOS` as `n/m`, `TDRC`, `TCON`, `COMM`
  * with no description, `TCOP`, `TSSE`, `TSRC`, the cover as an `APIC` front
- * cover, the loop as `TXXX` `LOOPSTART` and `LOOPLENGTH`, and foreign fields
- * as their own text frame where the key names a text frame the writer does
- * not write itself, and as `TXXX` with the key as its description otherwise.
- * A date that is not the ISO 8601 form `TDRC` requires is reported rather than
+ * cover, the loop as `TXXX` `LOOPSTART` and `LOOPLENGTH`, and foreign fields as
+ * their own text frame where the key names a text frame the writer does not
+ * write itself, and as `TXXX` with the key as its description otherwise. A date
+ * that is not the ISO 8601 form `TDRC` requires is reported rather than
  * written, as is a total with no number to go with it.
  */
 

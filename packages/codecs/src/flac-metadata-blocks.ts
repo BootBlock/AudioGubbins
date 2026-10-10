@@ -1,13 +1,13 @@
 /**
- * The metadata blocks a FLAC file carries after its stream information
- * (RFC 9639, section 8), from a map, and the parts of the map they cannot hold.
+ * The metadata blocks a FLAC file carries after its stream information (RFC
+ * 9639, section 8), from a map, and the parts of the map they cannot hold.
  *
  * The map's Vorbis comments come first, then the cover as a `PICTURE` block,
- * then, where the person keeps them, the WAV `smpl`, `cue ` and label chunks
- * in `APPLICATION` `riff` blocks, and last 8 KiB of `PADDING`, as the
- * reference encoder leaves, so a tag editor can change the metadata without
- * rewriting the audio. The comments carry the first loop as `LOOPSTART` and
- * `LOOPLENGTH` as well, which game engines read where they read no RIFF chunk.
+ * then, where the person keeps them, the WAV `smpl`, `cue ` and label chunks in
+ * `APPLICATION` `riff` blocks, and last 8 KiB of `PADDING`, as the reference
+ * encoder leaves, so a tag editor can change the metadata without rewriting the
+ * audio. The comments carry the first loop as `LOOPSTART` and `LOOPLENGTH` as
+ * well, which game engines read where they read no RIFF chunk.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -86,8 +86,9 @@ export function flacMetadataBlocks(
     return fail(unwritableStream('The metadata is too large for a FLAC comment block.'));
   }
   blocks.push([FlacBlockType.VorbisComment, comments.bytes]);
-  // The comments answer for text and foreign fields; the blocks below hold the other parts, and
-  // the loops are the sampler chunk's where it is carried, the comments holding the first alone.
+  // The comments answer for text and foreign fields; the blocks below hold the
+  // other parts, and the loops are the sampler chunk's where it is carried, the
+  // comments holding the first alone.
   dropped.push(
     ...comments.dropped.filter(
       (part) =>

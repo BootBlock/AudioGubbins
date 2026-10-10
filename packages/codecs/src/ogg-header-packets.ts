@@ -3,10 +3,10 @@
  * from its bytes, where a codec keeps its headers and its comments.
  *
  * Each page is read as its 27-byte header, its lacing and the body the lacing
- * states, at most 65,307 bytes, and its checksum is checked before any of it
- * is used. Pages of other logical streams multiplexed beside the first are
- * passed over. The walk stops at the bound on metadata bytes and on pages, so
- * a hostile file cannot make it read without end.
+ * states, at most 65,307 bytes, and its checksum is checked before any of it is
+ * used. Pages of other logical streams multiplexed beside the first are passed
+ * over. The walk stops at the bound on metadata bytes and on pages, so a
+ * hostile file cannot make it read without end.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
@@ -32,8 +32,8 @@ import {
 const MAXIMUM_HEADER_PAGES = 4_096;
 
 /**
- * The first `count` packets of the file's first logical stream, refusing a
- * file that does not begin with that stream's first page or ends before them.
+ * The first `count` packets of the file's first logical stream, refusing a file
+ * that does not begin with that stream's first page or ends before them.
  */
 export async function readOggHeaderPackets(
   bytes: AudioBytes,

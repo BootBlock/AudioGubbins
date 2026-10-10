@@ -1,7 +1,7 @@
 /**
- * The movie box of an M4A file (ISO/IEC 14496-12): the movie and track
- * headers, the edit list that trims the encoder's priming and padding, the
- * media of the one audio track with its sample table, and the iTunes metadata.
+ * The movie box of an M4A file (ISO/IEC 14496-12): the movie and track headers,
+ * the edit list that trims the encoder's priming and padding, the media of the
+ * one audio track with its sample table, and the iTunes metadata.
  *
  * Every time is the one given, so the same stream and settings give the same
  * box; a duration or time past 32 bits takes the version 1 boxes.

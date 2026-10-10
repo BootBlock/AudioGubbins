@@ -3,11 +3,11 @@
  *
  * A block is a vendor string and a list of `KEY=value` comments in UTF-8, each
  * length a 32-bit little-endian count. The map's text keys are written under
- * the field names the Xiph recommendations and common taggers use, the loop
- * as `LOOPSTART` and `LOOPLENGTH`, and the cover, where the format has no
- * picture block of its own, as `METADATA_BLOCK_PICTURE`. A foreign field is
- * written under its own key where that is a legal comment key, whatever format
- * it came from, and is read back as a `vorbis-comment` field.
+ * the field names the Xiph recommendations and common taggers use, the loop as
+ * `LOOPSTART` and `LOOPLENGTH`, and the cover, where the format has no picture
+ * block of its own, as `METADATA_BLOCK_PICTURE`. A foreign field is written
+ * under its own key where that is a legal comment key, whatever format it came
+ * from, and is read back as a `vorbis-comment` field.
  *
  * On reading, keys are matched without regard to case, as the specification
  * says, and these other names are accepted: `DESCRIPTION` for the comment,

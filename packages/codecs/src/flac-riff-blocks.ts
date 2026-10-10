@@ -70,9 +70,9 @@ function formatBody(format: FlacPcmFormat): Uint8Array {
 }
 
 /**
- * The bodies of the `APPLICATION` blocks carrying `chunks`, each beginning
- * with the application id, or `undefined` where the WAV file they describe
- * would be too large for a plain RIFF form.
+ * The bodies of the `APPLICATION` blocks carrying `chunks`, each beginning with
+ * the application id, or `undefined` where the WAV file they describe would be
+ * too large for a plain RIFF form.
  */
 export function riffApplicationBodies(
   chunks: readonly RiffChunk[],

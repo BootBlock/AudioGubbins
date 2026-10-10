@@ -1,6 +1,6 @@
 /**
- * The information frame that opens an MP3 stream: the Xing header, `Info` for
- * a constant bit rate and `Xing` otherwise, with LAME's extension.
+ * The information frame that opens an MP3 stream: the Xing header, `Info` for a
+ * constant bit rate and `Xing` otherwise, with LAME's extension.
  *
  * It is a silent Layer III frame of the stream's own version, rate and channel
  * mode whose side information is followed by the frame count, the byte count

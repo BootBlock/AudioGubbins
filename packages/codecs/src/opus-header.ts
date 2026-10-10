@@ -1,12 +1,12 @@
 /**
- * The Opus identification header (RFC 7845, section 5.1) and the duration of
- * an Opus packet read from its table-of-contents byte (RFC 6716, section 3.1).
+ * The Opus identification header (RFC 7845, section 5.1) and the duration of an
+ * Opus packet read from its table-of-contents byte (RFC 6716, section 3.1).
  *
  * The header states the channel count, the pre-skip the decoder discards, the
- * rate the source was at, the output gain and the channel mapping: family 0
- * for mono and stereo in one stream, family 1 for up to eight channels in
- * Vorbis order across several streams. Settings the header cannot state are
- * refused before anything is written.
+ * rate the source was at, the output gain and the channel mapping: family 0 for
+ * mono and stereo in one stream, family 1 for up to eight channels in Vorbis
+ * order across several streams. Settings the header cannot state are refused
+ * before anything is written.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';

@@ -86,8 +86,8 @@ function byteAt(bytes: Uint8Array, offset: number): number {
 }
 
 /**
- * Decodes UTF-8, each maximal ill-formed subpart read as one U+FFFD (the
- * WHATWG decoder's rule, from Unicode's "best practice" for replacement).
+ * Decodes UTF-8, each maximal ill-formed subpart read as one U+FFFD (the WHATWG
+ * decoder's rule, from Unicode's "best practice" for replacement).
  */
 export function decodeUtf8(bytes: Uint8Array): string {
   const text = new UnitText();

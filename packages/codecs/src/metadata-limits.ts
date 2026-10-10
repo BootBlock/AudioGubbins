@@ -1,9 +1,9 @@
 /**
  * The bounds every metadata reader holds a file to (ADR-0093, REQ-EXEC-136).
  *
- * Each is far past what a real file carries and small enough that a hostile
- * one cannot make a reader hold much memory or loop long: a reader refuses a
- * file past a bound rather than reading on.
+ * Each is far past what a real file carries and small enough that a hostile one
+ * cannot make a reader hold much memory or loop long: a reader refuses a file
+ * past a bound rather than reading on.
  */
 
 /** The most bytes of metadata one reader reads from a file, pictures included. */

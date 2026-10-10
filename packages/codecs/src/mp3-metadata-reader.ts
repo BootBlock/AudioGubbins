@@ -1,8 +1,8 @@
 /**
  * The metadata of an MP3 file: its leading ID3v2 tag, of version 2.2, 2.3 or
  * 2.4, and its trailing ID3v1 tag, whose fields fill only the text the ID3v2
- * tag does not give (ADR-0093). The ID3v2 tag is read whole within the
- * metadata bound; the ID3v1 tag is the file's last 128 bytes.
+ * tag does not give (ADR-0093). The ID3v2 tag is read whole within the metadata
+ * bound; the ID3v1 tag is the file's last 128 bytes.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
