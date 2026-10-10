@@ -2768,8 +2768,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    *
    * REQ-EXEC-136.7 makes roughly 300 to 400 logical lines a trigger for a
    * cohesion review rather than an automatic failure, and prohibits splitting a
-   * coherent concept into meaningless files to satisfy a number. A file past
-   * it fails until it is split, or until its review is recorded in
+   * coherent concept into meaningless files to satisfy a number. A file past it
+   * fails until it is split, or until its review is recorded in
    * `REVIEWED_PAST_THRESHOLD` with its justification, which keeps an exception
    * visible rather than raising the number for everything.
    */
