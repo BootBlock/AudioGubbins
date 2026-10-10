@@ -883,7 +883,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@30987: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@34085: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1177,7 +1177,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@30987: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@34085: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1706,10 +1706,59 @@ Published paths
   interface CuePoint
   readonly CuePoint.position: SampleCount
   readonly CuePoint.name: string
+  interface EncodedStreamLength
+  readonly EncodedStreamLength.inputFrames: number
+  interface EncodedStreamWriter<TEnd>
+  EncodedStreamWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  EncodedStreamWriter.finish: (end: TEnd) => DomainResult<FinishedEncodedStream>
   interface FinishedAudioFile
   readonly FinishedAudioFile.head: Uint8Array<ArrayBufferLike>
   readonly FinishedAudioFile.tail: Uint8Array<ArrayBufferLike>
   readonly FinishedAudioFile.dropped: readonly MetadataPart[]
+  interface FinishedEncodedStream extends FinishedAudioFile
+  readonly FinishedEncodedStream.body: readonly Uint8Array<ArrayBufferLike>[]
+  readonly FinishedEncodedStream.head: Uint8Array<ArrayBufferLike>
+  readonly FinishedEncodedStream.tail: Uint8Array<ArrayBufferLike>
+  readonly FinishedEncodedStream.dropped: readonly import("packages/codecs/src/metadata-map").MetadataPart[]
+  interface FlacMetadataSettings
+  readonly FlacMetadataSettings.metadata: MetadataMap
+  readonly FlacMetadataSettings.vendor: string
+  readonly FlacMetadataSettings.keepRiffChunks: boolean
+  class FlacSampleDigest
+  new FlacSampleDigest(bitsPerSample: number): FlacSampleDigest
+  readonly FlacSampleDigest.md5: Md5
+  readonly FlacSampleDigest.bytesPerSample: number
+  FlacSampleDigest.counted: number
+  FlacSampleDigest.frames: number
+  FlacSampleDigest.add: (channels: readonly Int32Array[], frames: number) => void
+  FlacSampleDigest.digest: () => Uint8Array
+  interface FlacStreamEnd
+  readonly FlacStreamEnd.samples: FlacSampleDigest
+  interface FlacStreamFormat
+  readonly FlacStreamFormat.sampleRate: number
+  readonly FlacStreamFormat.channels: number
+  readonly FlacStreamFormat.bitsPerSample: number
+  interface FlacStreamSettings extends FlacStreamFormat, FlacMetadataSettings
+  readonly FlacStreamSettings.blockSize: number
+  readonly FlacStreamSettings.sampleRate: number
+  readonly FlacStreamSettings.channels: number
+  readonly FlacStreamSettings.bitsPerSample: number
+  readonly FlacStreamSettings.metadata: import("packages/codecs/src/metadata-map").MetadataMap
+  readonly FlacStreamSettings.vendor: string
+  readonly FlacStreamSettings.keepRiffChunks: boolean
+  class FlacStreamWriter
+  new FlacStreamWriter(settings: FlacStreamSettings): FlacStreamWriter
+  readonly FlacStreamWriter.settings: FlacStreamSettings
+  FlacStreamWriter.ended: boolean
+  FlacStreamWriter.frames: number
+  FlacStreamWriter.samples: number
+  FlacStreamWriter.shortFrameSeen: boolean
+  FlacStreamWriter.minimumFrameBytes: number
+  FlacStreamWriter.maximumFrameBytes: number
+  FlacStreamWriter.add: (frame: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  FlacStreamWriter.finish: (end: FlacStreamEnd) => DomainResult<FinishedEncodedStream>
+  FlacStreamWriter.streamInfo: (signature: Uint8Array) => FlacBlock
+  FlacStreamWriter.failed: (result: DomainFailureResult) => DomainFailureResult
   interface FloatSampleEncoding
   readonly FloatSampleEncoding.kind: "float"
   readonly FloatSampleEncoding.bits: 32 | 64
@@ -1752,13 +1801,98 @@ Published paths
   type MetadataReader = (bytes: AudioBytes, signal?: CancellationSignal) => Promise<DomainResult<MetadataMap>>
   type MetadataTextKey = "album" | "albumArtist" | "artist" | "comment" | "copyright" | "date" | "discNumber" | "discTotal" | "encoder" | "genre" | "isrc" | "title" | "trackNumber" | "trackTotal"
   type ModuleLoad = "failed" | "loaded" | "not-loaded"
+  interface Mp3StreamSettings
+  readonly Mp3StreamSettings.metadata: MetadataMap
+  readonly Mp3StreamSettings.encoderDelay: number
+  readonly Mp3StreamSettings.encoder: string
+  class Mp3StreamWriter
+  new Mp3StreamWriter(settings: Mp3StreamSettings): Mp3StreamWriter
+  readonly Mp3StreamWriter.settings: Mp3StreamSettings
+  readonly Mp3StreamWriter.sizes: SizeList
+  Mp3StreamWriter.pending: Uint8Array<ArrayBufferLike>
+  Mp3StreamWriter.model: MpegAudioHeader | undefined
+  Mp3StreamWriter.constantBitrate: boolean
+  Mp3StreamWriter.audioBytes: number
+  Mp3StreamWriter.musicCrc: number
+  Mp3StreamWriter.atStart: boolean
+  Mp3StreamWriter.ended: boolean
+  Mp3StreamWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  Mp3StreamWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  Mp3StreamWriter.informationFrame: (inputFrames: number) => DomainResult<Uint8Array>
+  Mp3StreamWriter.accept: (frame: Uint8Array, header: MpegAudioHeader) => DomainResult<undefined>
+  Mp3StreamWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  interface Mp4AacSettings
+  readonly Mp4AacSettings.audioSpecificConfig: Uint8Array<ArrayBufferLike>
+  readonly Mp4AacSettings.primingFrames: number
+  readonly Mp4AacSettings.metadata: MetadataMap
+  readonly Mp4AacSettings.time?: number
+  class Mp4AacWriter
+  new Mp4AacWriter(settings: Mp4AacSettings, config: AacConfig): Mp4AacWriter
+  readonly Mp4AacWriter.settings: Mp4AacSettings
+  readonly Mp4AacWriter.config: AacConfig
+  readonly Mp4AacWriter.sizes: SizeList
+  Mp4AacWriter.dataBytes: number
+  Mp4AacWriter.ended: boolean
+  Mp4AacWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  Mp4AacWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  Mp4AacWriter.failed: (result: DomainFailureResult) => DomainFailureResult
   interface MsAdpcmEncoding
   readonly MsAdpcmEncoding.kind: "ms-adpcm"
   readonly MsAdpcmEncoding.framesPerBlock: number
   readonly MsAdpcmEncoding.coefficients: readonly (readonly [number, number])[]
+  interface OggOpusSettings extends OpusHeadSettings
+  readonly OggOpusSettings.vendor: string
+  readonly OggOpusSettings.metadata: MetadataMap
+  readonly OggOpusSettings.channels: number
+  readonly OggOpusSettings.preSkip: number
+  readonly OggOpusSettings.inputRate: number
+  readonly OggOpusSettings.outputGain: number
+  readonly OggOpusSettings.mapping: import("packages/codecs/src/opus-header").OpusChannelMapping
+  class OggOpusWriter
+  new OggOpusWriter(settings: OggOpusSettings, pages: OggPageWriter, head: Uint8Array<ArrayBufferLike>, dropped: readonly import("packages/codecs/src/metadata-map").MetadataPart[]): OggOpusWriter
+  readonly OggOpusWriter.pages: OggPageWriter
+  readonly OggOpusWriter.head: Uint8Array<ArrayBufferLike>
+  readonly OggOpusWriter.settings: OggOpusSettings
+  readonly OggOpusWriter.dropped: readonly import("packages/codecs/src/metadata-map").MetadataPart[]
+  OggOpusWriter.held: HeldPacket | undefined
+  OggOpusWriter.decoded: number
+  OggOpusWriter.ended: boolean
+  OggOpusWriter.add: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggOpusWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  OggOpusWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  class OggVorbisCommentRewriter
+  new OggVorbisCommentRewriter(metadata: MetadataMap): OggVorbisCommentRewriter
+  readonly OggVorbisCommentRewriter.metadata: MetadataMap
+  OggVorbisCommentRewriter.phase: Phase
+  OggVorbisCommentRewriter.started: boolean
+  OggVorbisCommentRewriter.failedOrFinished: boolean
+  OggVorbisCommentRewriter.pending: Uint8Array<ArrayBufferLike>
+  OggVorbisCommentRewriter.serial: number
+  OggVorbisCommentRewriter.expectedSequence: number
+  OggVorbisCommentRewriter.sequence: number
+  readonly OggVorbisCommentRewriter.headers: Uint8Array<ArrayBufferLike>[]
+  OggVorbisCommentRewriter.open: Uint8Array<ArrayBufferLike>[]
+  OggVorbisCommentRewriter.openBytes: number
+  OggVorbisCommentRewriter.dropped: readonly MetadataPart[]
+  OggVorbisCommentRewriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggVorbisCommentRewriter.finish: () => DomainResult<FinishedEncodedStream>
+  OggVorbisCommentRewriter.pageLength: (offset: number) => DomainResult<number> | undefined
+  OggVorbisCommentRewriter.page: (page: OggPage) => DomainResult<readonly Uint8Array[]>
+  OggVorbisCommentRewriter.headerPage: (page: OggPage) => DomainResult<readonly Uint8Array[]>
+  OggVorbisCommentRewriter.writeHeaders: () => DomainResult<readonly Uint8Array[]>
+  OggVorbisCommentRewriter.vendorOf: (comment: Uint8Array) => string | undefined
+  OggVorbisCommentRewriter.renumbered: (page: OggPage, lacing: Uint8Array, body: Uint8Array, headerType: number) => Uint8Array
+  OggVorbisCommentRewriter.failed: (result: DomainFailureResult) => DomainFailureResult
   interface OpenedFileWriter
   readonly OpenedFileWriter.writer: AudioFileWriter
   readonly OpenedFileWriter.layout: ChannelLayout
+  type OpusChannelMapping = { readonly family: 0; } | { readonly family: 1; readonly streams: number; readonly coupledStreams: number; readonly table: readonly number[]; }
+  interface OpusHeadSettings
+  readonly OpusHeadSettings.channels: number
+  readonly OpusHeadSettings.preSkip: number
+  readonly OpusHeadSettings.inputRate: number
+  readonly OpusHeadSettings.outputGain: number
+  readonly OpusHeadSettings.mapping: OpusChannelMapping
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
   type RecognisedFormat = { readonly kind: "audio"; readonly container: ContainerId; readonly codec: StatedCodec; } | { readonly kind: "unknown"; }
   interface RecordedWavFormat
@@ -1812,6 +1946,7 @@ Published paths
   readonly AiffOptions.beforeSound?: readonly FixtureChunk[]
   readonly AiffOptions.afterSound?: readonly FixtureChunk[]
   readonly AiffOptions.truncate?: number
+  const COVER_BYTES: Uint8Array<ArrayBuffer>
   interface CompressedWavOptions extends RiffFraming
   readonly CompressedWavOptions.sampleRate: number
   readonly CompressedWavOptions.channelCount: number
@@ -1860,7 +1995,12 @@ Published paths
   readonly WrittenFile.file: Uint8Array<ArrayBufferLike>
   readonly WrittenFile.finished: FinishedAudioFile
   function channelLayoutBody(layout: { readonly tag: number; readonly bitmap?: number; readonly labels?: readonly number[]; }): Uint8Array<ArrayBufferLike>
+  const frames: (count: number) => SampleCount
+  function fullMetadata(): MetadataMap
   function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, options?: MemoryBytesOptions): MemoryBytes
+  function mutations(file: Uint8Array<ArrayBufferLike>, span: number, count: number, seed: number): Uint8Array<ArrayBufferLike>[]
+  function oggPages(file: Uint8Array<ArrayBufferLike>): OggPage[]
+  function random(seed: number): () => number
   function writeAiff(options: AiffOptions): Uint8Array<ArrayBufferLike>
   function writeCompressedWav(options: CompressedWavOptions): Uint8Array<ArrayBufferLike>
   function writeWav(options: WavOptions): Uint8Array<ArrayBufferLike>
@@ -7358,6 +7498,86 @@ packages/audio-runtime/src/testing/local-chain-workers.ts
   interface Core
   Core.receive: (data: unknown) => void
   type PostToPage = (message: unknown, transfer: readonly unknown[]) => void
+
+packages/codecs/src/aac-config.ts
+  interface AacConfig
+  readonly AacConfig.objectType: number
+  readonly AacConfig.sampleRate: number
+  readonly AacConfig.channels: number
+  readonly AacConfig.frameLength: number
+
+packages/codecs/src/flac-metadata-blocks.ts
+  type FlacBlock = readonly [type: number, body: Uint8Array<ArrayBufferLike>]
+
+packages/codecs/src/md5.ts
+  class Md5
+  new Md5(): Md5
+  readonly Md5.state: Int32Array<ArrayBuffer>
+  readonly Md5.block: Uint8Array<ArrayBuffer>
+  readonly Md5.words: Int32Array<ArrayBuffer>
+  Md5.buffered: number
+  Md5.total: number
+  Md5.update: (bytes: Uint8Array) => void
+  Md5.digest: () => Uint8Array
+  Md5.compress: (bytes: Uint8Array, offset: number) => void
+
+packages/codecs/src/mpeg-audio-header.ts
+  interface MpegAudioHeader
+  readonly MpegAudioHeader.version: MpegVersion
+  readonly MpegAudioHeader.bitrateIndex: number
+  readonly MpegAudioHeader.bitrate: number
+  readonly MpegAudioHeader.sampleRate: number
+  readonly MpegAudioHeader.padding: boolean
+  readonly MpegAudioHeader.protectedByCrc: boolean
+  readonly MpegAudioHeader.channelMode: number
+  readonly MpegAudioHeader.bytes: Uint8Array<ArrayBufferLike>
+  readonly MpegAudioHeader.frameBytes: number
+  readonly MpegAudioHeader.samples: number
+  readonly MpegAudioHeader.sideInfoEnd: number
+  type MpegVersion = 1 | 2 | 25
+
+packages/codecs/src/ogg-opus-writer.ts
+  interface HeldPacket
+  readonly HeldPacket.packet: Uint8Array<ArrayBufferLike>
+  readonly HeldPacket.start: number
+  readonly HeldPacket.end: number
+
+packages/codecs/src/ogg-page-writer.ts
+  class OggPageWriter
+  new OggPageWriter(serial: number): OggPageWriter
+  readonly OggPageWriter.serial: number
+  OggPageWriter.sequence: number
+  OggPageWriter.lacing: number[]
+  OggPageWriter.parts: Uint8Array<ArrayBufferLike>[]
+  OggPageWriter.bodyBytes: number
+  OggPageWriter.granule: GranulePosition
+  OggPageWriter.continued: boolean
+  OggPageWriter.nextSequence: number
+  OggPageWriter.addPacket: (packet: Uint8Array, granule: number) => Uint8Array[]
+  OggPageWriter.flush: (endOfStream?: boolean) => Uint8Array[]
+  OggPageWriter.page: (flags: number) => Uint8Array
+
+packages/codecs/src/ogg-page.ts
+  type GranulePosition = "none" | number
+  interface OggPage
+  readonly OggPage.headerType: number
+  readonly OggPage.granule: GranulePosition
+  readonly OggPage.serial: number
+  readonly OggPage.sequence: number
+  readonly OggPage.lacing: Uint8Array<ArrayBufferLike>
+  readonly OggPage.body: Uint8Array<ArrayBufferLike>
+
+packages/codecs/src/ogg-vorbis-comment-rewriter.ts
+  type Phase = "audio" | "ended" | "headers"
+
+packages/codecs/src/size-list.ts
+  class SizeList
+  new SizeList(): SizeList
+  SizeList.sizes: Uint32Array<ArrayBuffer>
+  SizeList.count: number
+  SizeList.length: number
+  SizeList.push: (size: number) => void
+  SizeList.at: (index: number) => number
 
 packages/codecs/src/testing/wav-writer.ts
   type RiffFraming = { readonly form?: "bw64" | "rf64" | "wav"; readonly beforeFormat?: readonly FixtureChunk[]; readonly beforeData?: readonly FixtureChunk[]; readonly afterData?: readonly FixtureChunk[]; readonly factFrames?: number; readonly sizesInDs64?: readonly string[]; readonly truncate?: number; }

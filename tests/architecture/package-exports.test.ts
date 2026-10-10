@@ -206,6 +206,27 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'importRoute',
         'recogniseAudio',
       ],
+    "The application's own framing of the compressed formats ADR-0091 gives Phase 09, written before the codec worker that composes each with its encoder into an `AudioFileWriter`: the framing contract, the Ogg Opus writer, the Vorbis comment rewriter, the FLAC writer and its sample signature, the M4A writer and the MP3 writer.":
+      [
+        'EncodedStreamLength',
+        'EncodedStreamWriter',
+        'FinishedEncodedStream',
+        'FlacMetadataSettings',
+        'FlacSampleDigest',
+        'FlacStreamEnd',
+        'FlacStreamFormat',
+        'FlacStreamSettings',
+        'FlacStreamWriter',
+        'Mp3StreamSettings',
+        'Mp3StreamWriter',
+        'Mp4AacSettings',
+        'Mp4AacWriter',
+        'OggOpusSettings',
+        'OggOpusWriter',
+        'OggVorbisCommentRewriter',
+        'OpusChannelMapping',
+        'OpusHeadSettings',
+      ],
   },
   '@audiogubbins/import-export': {
     "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":

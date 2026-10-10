@@ -11,7 +11,9 @@
  * than adding a second one: G.711 and ADPCM are read in place, every other
  * compressed format is routed by the registry to a decoded rendition, and the
  * WAV, AIFF and AIFF-C writers serve the streaming write contract, the WAV
- * writer built on Phase 07's recorded-media header (ADR-0071).
+ * writer built on Phase 07's recorded-media header (ADR-0071). The Ogg, FLAC,
+ * M4A and MP3 framers wrap an encoder's packets in their containers, and every
+ * container's metadata is read through `METADATA_READERS`.
  *
  * Portable: no browser or Node global, so the same readers serve the storage
  * worker, the feeder, render and peak workers, and a test. Depends on the
@@ -102,3 +104,31 @@ export {
   type AiffWriterSettings,
   createAiffWriter,
 } from './aiff-file-writer.js';
+
+export {
+  type EncodedStreamLength,
+  type EncodedStreamWriter,
+  type FinishedEncodedStream,
+} from './encoded-stream-writer.js';
+
+export { OggOpusWriter, type OggOpusSettings } from './ogg-opus-writer.js';
+
+export { type OpusChannelMapping, type OpusHeadSettings } from './opus-header.js';
+
+export { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
+
+export { type FlacStreamFormat } from './flac-frame-header.js';
+
+export { type FlacMetadataSettings } from './flac-metadata-blocks.js';
+
+export { FlacSampleDigest } from './flac-sample-digest.js';
+
+export {
+  FlacStreamWriter,
+  type FlacStreamEnd,
+  type FlacStreamSettings,
+} from './flac-stream-writer.js';
+
+export { Mp4AacWriter, type Mp4AacSettings } from './mp4-aac-writer.js';
+
+export { Mp3StreamWriter, type Mp3StreamSettings } from './mp3-stream-writer.js';

@@ -23,12 +23,17 @@ import type {
   MetadataPart,
   SamplerTuning,
 } from './metadata-map.js';
-import { METADATA_CHUNK_BYTES } from './metadata-reading.js';
+import {
+  MAXIMUM_CUE_POINTS,
+  MAXIMUM_INFO_FIELDS,
+  MAXIMUM_ITEM_BYTES,
+  MAXIMUM_LOOPS,
+} from './metadata-limits.js';
 import {
   LINE_TEXT,
   LONG_TEXT,
   TEXT_KEYS,
-  encodeText,
+  encodeUtf8,
   readsBackUnchanged,
   textRulesOf,
 } from './metadata-text.js';
@@ -38,15 +43,14 @@ import {
   BEXT_TIME_REFERENCE,
   BEXT_VERSION_OFFSET,
 } from './riff-broadcast.js';
-import { CUE_COUNT_BYTES, CUE_FIELDS, CUE_POINT_BYTES, MAXIMUM_CUE_POINTS } from './riff-cues.js';
-import { INFO_FIELDS, INFO_SCHEME, MAXIMUM_INFO_FIELDS, PRINTABLE_ID } from './riff-info.js';
+import { CUE_COUNT_BYTES, CUE_FIELDS, CUE_POINT_BYTES } from './riff-cues.js';
+import { INFO_FIELDS, INFO_SCHEME, PRINTABLE_ID } from './riff-info.js';
 import { LABEL_CUE_ID_BYTES } from './riff-labels.js';
 import { ENTRY_HEADER_BYTES, LIST_TYPE_BYTES } from './riff-list-entries.js';
 import {
   CENTS_PER_SEMITONE,
   HIGHEST_NOTE,
   LOOP_FIELDS,
-  MAXIMUM_LOOPS,
   PITCH_FRACTION_WHOLE,
   SAMPLER_FIELDS,
   SAMPLER_HEADER_BYTES,
@@ -114,7 +118,7 @@ function joined(parts: readonly Uint8Array[]): Uint8Array {
 
 /** A list entry: its id, its size, a ZSTR after `prefix`, and the pad byte an odd size needs. */
 function zstrEntry(id: string, prefix: Uint8Array, text: string): Uint8Array {
-  const value = encodeText(text);
+  const value = encodeUtf8(text);
   const size = prefix.length + value.length + 1;
   const entry = new Uint8Array(ENTRY_HEADER_BYTES + size + (size % 2));
   entry.set(codeBytes(id), 0);
@@ -136,7 +140,7 @@ class ListBuilder {
 
   /** Adds the entry where the list has room for it, answering whether it did. */
   add(entry: Uint8Array): boolean {
-    if (this.bytes + entry.length > METADATA_CHUNK_BYTES) return false;
+    if (this.bytes + entry.length > MAXIMUM_ITEM_BYTES) return false;
     this.entries.push(entry);
     this.bytes += entry.length;
     return true;
@@ -145,7 +149,7 @@ class ListBuilder {
   /** Whether entries of these sizes all fit beside those already added. */
   fits(entries: readonly Uint8Array[]): boolean {
     return (
-      this.bytes + entries.reduce((total, entry) => total + entry.length, 0) <= METADATA_CHUNK_BYTES
+      this.bytes + entries.reduce((total, entry) => total + entry.length, 0) <= MAXIMUM_ITEM_BYTES
     );
   }
 }
@@ -303,21 +307,17 @@ function labelEntries(
 }
 
 /**
- * The chunks of a WAV, RF64 or BW64 file holding the map's metadata, and the
- * parts of the map they do not hold. `sampleRate` is the file's, for the sample
- * period `smpl` states, rounded to whole nanoseconds.
+ * The `cue `, `LIST`/`adtl` and `smpl` chunks of the map's cue points, loops
+ * and tuning, and which of those parts they do not hold. A WAV file writes them
+ * among its other metadata; FLAC carries them in its `riff` blocks, so the two
+ * formats state a sampler's loops in the same bytes. `sampleRate` is the
+ * file's, for the sample period `smpl` states, rounded to whole nanoseconds.
  */
-export function riffMetadataChunks(
+export function riffSamplerChunks(
   metadata: MetadataMap,
   sampleRate: number,
 ): { readonly chunks: readonly WrittenChunk[]; readonly dropped: readonly MetadataPart[] } {
   const dropped: MetadataPart[] = [];
-  const info = infoChunk(metadata, dropped);
-  const broadcast =
-    metadata.broadcast === undefined ? undefined : broadcastChunk(metadata.broadcast);
-  if (metadata.broadcast !== undefined && broadcast === undefined)
-    dropped.push({ kind: 'broadcast' });
-
   const labels = new ListBuilder();
   const givenCues = metadata.cues ?? [];
   const cueLabels = labelEntries(
@@ -340,7 +340,6 @@ export function riffMetadataChunks(
 
   const pitch = metadata.tuning === undefined ? undefined : pitchFields(metadata.tuning);
   if (metadata.tuning !== undefined && pitch === undefined) dropped.push({ kind: 'tuning' });
-  if (metadata.coverArt !== undefined) dropped.push({ kind: 'coverArt' });
 
   const sampler =
     loops.length === 0 && pitch === undefined
@@ -352,11 +351,31 @@ export function riffMetadataChunks(
           sampleRate,
         );
   const chunks = [
-    broadcast,
-    info,
     cues.length === 0 ? undefined : cueChunk(cues),
     labels.entries.length === 0 ? undefined : listChunk('adtl', labels.entries),
     sampler,
   ].filter((chunk) => chunk !== undefined);
   return { chunks, dropped };
+}
+
+/**
+ * The chunks of a WAV, RF64 or BW64 file holding the map's metadata, and the
+ * parts of the map they do not hold. `sampleRate` is the file's, for the sample
+ * period `smpl` states, rounded to whole nanoseconds.
+ */
+export function riffMetadataChunks(
+  metadata: MetadataMap,
+  sampleRate: number,
+): { readonly chunks: readonly WrittenChunk[]; readonly dropped: readonly MetadataPart[] } {
+  const dropped: MetadataPart[] = [];
+  const info = infoChunk(metadata, dropped);
+  const broadcast =
+    metadata.broadcast === undefined ? undefined : broadcastChunk(metadata.broadcast);
+  if (metadata.broadcast !== undefined && broadcast === undefined)
+    dropped.push({ kind: 'broadcast' });
+  const sampler = riffSamplerChunks(metadata, sampleRate);
+  dropped.push(...sampler.dropped);
+  if (metadata.coverArt !== undefined) dropped.push({ kind: 'coverArt' });
+  const chunks = [broadcast, info].filter((chunk) => chunk !== undefined);
+  return { chunks: [...chunks, ...sampler.chunks], dropped };
 }

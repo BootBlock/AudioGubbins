@@ -10,18 +10,12 @@ import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
 
 import { openAudio } from './index.js';
-import { memoryBytes, writeCompressedWav, type CompressedWavOptions } from './testing/index.js';
-
-/** A deterministic generator of 32-bit fractions. */
-function random(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 2 ** 32;
-  };
-}
+import {
+  memoryBytes,
+  random,
+  writeCompressedWav,
+  type CompressedWavOptions,
+} from './testing/index.js';
 
 const STANDARD: readonly (readonly [number, number])[] = [
   [256, 0],

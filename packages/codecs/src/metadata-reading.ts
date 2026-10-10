@@ -25,6 +25,7 @@ import { readHeaderChunk, type ChunkSpan } from './chunk-walk.js';
 import { malformed } from './codec-failures.js';
 import type { MetadataMap } from './metadata-map.js';
 import { quotedCode } from './recognised-format.js';
+import { MAXIMUM_CHUNK_METADATA_BYTES, MAXIMUM_ITEM_BYTES } from './metadata-limits.js';
 
 /** Reads a file's metadata into the one map, refusing what breaks its format's rules. */
 export type MetadataReader = (
@@ -34,12 +35,6 @@ export type MetadataReader = (
 
 /** The form header both RIFF and IFF open with: its id, its size and its type. */
 const FORM_HEADER_BYTES = 12;
-
-/** The most bytes of one metadata chunk read: far more than any label, loop table or history needs. */
-export const METADATA_CHUNK_BYTES = 1_048_576;
-
-/** The most bytes of metadata chunks read from one file. */
-const METADATA_FILE_BYTES = 8 * METADATA_CHUNK_BYTES;
 
 /** A file opened for its metadata: its first bytes, and the source the walk reads through. */
 export interface OpenedForm {
@@ -74,17 +69,17 @@ export class MetadataChunkReader {
     span: ChunkSpan,
     signal: CancellationSignal | undefined,
   ): Promise<DomainResult<Uint8Array>> {
-    if (span.size > METADATA_CHUNK_BYTES) {
+    if (span.size > MAXIMUM_ITEM_BYTES) {
       return fail(
         malformed(
-          `The ${quotedCode(span.id)} chunk holds ${String(span.size)} bytes, more than the ${String(METADATA_CHUNK_BYTES)} any metadata chunk needs.`,
+          `The ${quotedCode(span.id)} chunk holds ${String(span.size)} bytes, more than the ${String(MAXIMUM_ITEM_BYTES)} any metadata chunk needs.`,
         ),
       );
     }
-    if (this.spent + span.size > METADATA_FILE_BYTES) {
+    if (this.spent + span.size > MAXIMUM_CHUNK_METADATA_BYTES) {
       return fail(
         malformed(
-          `The file's metadata chunks hold more than the ${String(METADATA_FILE_BYTES)} bytes any file's metadata needs.`,
+          `The file's metadata chunks hold more than the ${String(MAXIMUM_CHUNK_METADATA_BYTES)} bytes any file's metadata needs.`,
         ),
       );
     }

@@ -11,8 +11,9 @@
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 
 import type { ForeignMetadataField, MetadataTextKey } from './metadata-map.js';
-import { LONG_TEXT, decodeText, textRulesOf } from './metadata-text.js';
+import { LONG_TEXT, readText, textRulesOf } from './metadata-text.js';
 import { listEntries } from './riff-list-entries.js';
+import { MAXIMUM_INFO_FIELDS } from './metadata-limits.js';
 
 /** The `INFO` ids with a typed key. Any other id is kept by its own key. */
 export const INFO_FIELDS: ReadonlyMap<string, MetadataTextKey> = new Map([
@@ -33,9 +34,6 @@ export const INFO_SCHEME = 'riff-info';
 /** An `INFO` id as the form writes one: four printable ASCII characters, the first not a space. */
 export const PRINTABLE_ID = /^[\x21-\x7e][\x20-\x7e]{3}$/;
 
-/** The most `INFO` entries read from one file: far more than any tagger writes. */
-export const MAXIMUM_INFO_FIELDS = 256;
-
 /** The text of every `INFO` list a file holds, gathered as the walk meets them. */
 export class InfoText {
   readonly text: Partial<Record<MetadataTextKey, string>> = {};
@@ -52,9 +50,13 @@ export class InfoText {
       if (!PRINTABLE_ID.test(id)) continue;
       const key = INFO_FIELDS.get(id);
       if (key !== undefined && this.text[key] === undefined) {
-        this.text[key] = decodeText(body, textRulesOf(key));
+        this.text[key] = readText(body, 'unstated', textRulesOf(key));
       } else {
-        this.foreign.push({ scheme: INFO_SCHEME, key: id, value: decodeText(body, LONG_TEXT) });
+        this.foreign.push({
+          scheme: INFO_SCHEME,
+          key: id,
+          value: readText(body, 'unstated', LONG_TEXT),
+        });
       }
     }
     return succeed(undefined);
