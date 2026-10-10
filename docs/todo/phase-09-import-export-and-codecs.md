@@ -1,6 +1,7 @@
-> **Status:** In progress. 2026-10-10: the phase is `READY` (`ADR-0090` to
-> `ADR-0093`); slices S1 to S8 are built and merged on `phase-09-codecs`; the
-> browser suite, three gap fixes and the close are left.
+> **Status:** In progress, paused. 2026-10-10: the phase is `READY` (`ADR-0090`
+> to `ADR-0093`); slices S1 to S8 are built and merged on `phase-09-codecs`;
+> three gap slices are paused with their work committed (see "Left to do"),
+> and the close is left.
 
 # Phase 09 — Import, Export, and Codec System
 
@@ -245,23 +246,76 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
 
 ## Left to do
 
-S1 to S8 are merged into `phase-09-codecs`. In order:
+S1 to S8 are merged into `phase-09-codecs`. Three slices were paused on
+2026-10-10 with their work committed, each in its own worktree beside the
+repository, branched from `phase-09-codecs`:
 
-1. Merge the slices still building: `p09-s8e` (`test:e2e:import-export`),
-   `p09-s6e` (real AAC-LC decoding fixtures) and `p09-s8f` (metadata and loops
-   through the export round trips, the storage each import needs stated, and
-   the Inspector's export job). Then run one integrated `verify:commit`.
-2. Run the packet's commands: `test:codecs`, `cargo test --workspace`,
+| Branch    | Head       | State                                                                                                  |
+| --------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| `p09-s8e` | `9661733e` | Done; `verify:commit` green (782 files, 11,898 tests); `test:e2e:import-export` 2 of 2                 |
+| `p09-s6e` | `f6637f7d` | Done; codecs and codec-runtime projects and `cargo test` pass; its full `verify:commit` has not run    |
+| `p09-s8f` | `e1fd34fc` | Gaps 1 and 2 done and tested; gap 3 (the Inspector's export job) half built, not typechecked or tested |
+
+- `p09-s8e`: the `chromium-import-export` project and script (a FLAC import,
+  a folder whose text file is refused with its reason, a region exported with
+  "Keep both", a reload that checks the History record, and AAC exported and
+  read back at the source's length in bundled Chromium). It fixed four product
+  defects, each with a failing-first test: two encoder builds racing on a
+  fresh checkout; a second asset in an Editor panel left at no width; a codec
+  job's fault leaving the export hanging; an AAC export failing without the
+  browser's reason. `test:e2e:worker-policy` passes 2 of 3; the inference test
+  needs a model-pack cache this machine lacks, which is not Phase 09's.
+- `p09-s6e`: ten AAC-LC fixtures made by FFmpeg's native `aac` encoder
+  (`packages/codec-runtime/fixtures/aac-lc/`, 244 KB, README with commands and
+  SHA-256s), and `src/decoding/aac-lc-fixtures.test.ts` (frames, priming,
+  layout, each channel's tone). It found that Symphonia 0.6.1 refuses AAC-LC
+  above two channels: `third_party/symphonia-codec-aac` is vendored, patched
+  to decode configurations 3 to 7 to the right speakers, marked modified in
+  the notices, identity `0.6.1+patched`.
+- `p09-s8f`: gap 1, metadata and loops through the real encoders of WAV,
+  AIFF, AIFF-C, FLAC, Ogg Vorbis, Opus, MP3 and AAC/M4A in
+  `test:roundtrip-audio`, with each format's dropped fields checked; it added
+  the FLAC setting `keepRiffChunks` (default off), which ADR-0092 must record.
+  Gap 2, the storage each import needs (`known` bytes or `unknown`) reported
+  before storing, kept on the job's entry and shown for every file. Gap 3 left:
+  an export focus that yields to the editor panels and recording; a command
+  that describes the export in the Inspector, and a History control per export
+  record; shared words for stage, settings and destination; the Inspector
+  section and its tests; a browser check; then `verify:commit`. Its commit
+  `e1fd34fc` (recording's focus counts each take-over; export states carry the
+  batch settings and each job's destination) is untested.
+
+In order:
+
+1. Finish `p09-s8f`'s gap 3 in its worktree, then run its `verify:commit`.
+2. Run `p09-s6e`'s `verify:commit`.
+3. Settle the AAC default. Chromium's Windows encoder accepts only 96 to 192
+   kbit/s for stereo, so the default 128 kbit/s per channel (256 for stereo)
+   is refused at encode. The correct fix: probe the bit rates the browser's
+   `AudioEncoder` accepts per channel count into the AAC capability, make the
+   default the highest accepted, and refuse an unaccepted rate in validation,
+   before rendering. Record it in ADR-0092.
+4. Merge `p09-s8e`, `p09-s6e` and `p09-s8f` into `phase-09-codecs` (the
+   exports lists in `tests/architecture` conflict: each side removed what its
+   code uses, so keep neither side's lines; regenerate
+   `public-contracts.txt` with `pnpm contracts:update`), then one integrated
+   `verify:commit`.
+5. Amend ADR-0092 for `keepRiffChunks` and the AAC bit-rate probe, and
+   ADR-0091 for the patched Symphonia AAC decoder; regenerate the spec and
+   run `spec:verify`.
+6. Run the packet's commands: `test:codecs`, `cargo test --workspace`,
    `test:codec-fixtures`, `test:roundtrip-audio`, `test:malformed-media`,
    `test:opus-conformance`, `test:project-roundtrip`, `test:architecture`, and
-   `pnpm run build` then `test:e2e:import-export`.
-3. Write the evidence and the review record (lenses deferred), the handoff, the
+   `pnpm run build` then `test:e2e:import-export`. A scope check on
+   `19c43426` found every In Scope item, acceptance criterion and failure
+   behaviour met except the four gaps the paused slices close.
+7. Write the evidence and the review record (lenses deferred), the handoff, the
    ledger `PASS`, the README's readiness line; run `spec:verify`.
-4. Move this note to `docs/todo/done/`, merge `main` in (Phase 08 may have
+8. Move this note to `docs/todo/done/`, merge `main` in (Phase 08 may have
    landed: raise `projectDocument`, `userPreferences` and any other version
    above `main`'s, rerun `pnpm version:sync` and `pnpm contracts:update`), run
    `verify:commit`, merge into `main` with `--no-ff` from the primary checkout,
-   push, remove the worktree, and delete the merged slice branches with
+   push, remove the worktrees, and delete the merged branches with
    `git branch -d` (`p09-s1`, `p09-s2`, `p09-s2b`, `p09-s3`, `p09-s3i`,
    `p09-s4`, `p09-s5`, `p09-s6a`, `p09-s6b`, `p09-s6c`, `p09-s6e`, `p09-s7`,
    `p09-spec`, `p09-s8a`, `p09-s8b`, `p09-s8c`, `p09-s8d`, `p09-s8e`,
