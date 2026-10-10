@@ -76,7 +76,7 @@ export async function prepareImport(
   const project = session.getSnapshot().model.state.project.id;
   if (analysis.value.kind === 'decode') {
     return await prepareDecoded(
-      { ...request, displayName: name.value, project, route: analysis.value },
+      { ...request, displayName: name.value, project },
       services,
       observe,
       signal,

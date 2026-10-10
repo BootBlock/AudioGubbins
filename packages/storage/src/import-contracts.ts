@@ -20,7 +20,7 @@ import type { ImportFileEvent } from '@audiogubbins/import-export';
 import type { ExternalFile, ImportChoice, ImportServices } from '@audiogubbins/media-store';
 import type { AssetSource, StorageTree } from '@audiogubbins/project-format';
 
-import type { StreamDecoding } from './decoded-stream.js';
+import type { FileDecoding } from './decoded-stream.js';
 import type { StorageRoom } from './import-analysis.js';
 import type { ImportPlacements } from './import-placements.js';
 import type { ChangeOutcome } from './session-contracts.js';
@@ -37,8 +37,8 @@ export interface AudioImport {
   /** When the import happens, in whole milliseconds since the epoch. */
   readonly importedAt: number;
 
-  /** Starts the codec worker decoding the file, where it is decoded into a rendition. */
-  readonly decode: StreamDecoding;
+  /** The file's analysis and decoding in the codec worker, where it is decoded into a rendition. */
+  readonly decoding: FileDecoding;
 }
 
 /** The invocations of the project commands an import makes its change of. */

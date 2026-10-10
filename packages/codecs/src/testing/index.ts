@@ -28,3 +28,14 @@ export {
 export { type AiffOptions, channelLayoutBody, writeAiff } from './aiff-writer.js';
 
 export { type WrittenFile, writeWhole } from './written-file.js';
+
+export {
+  COVER_BYTES,
+  type OggFlacFrame,
+  frames,
+  fullMetadata,
+  mutations,
+  oggFlacFile,
+  oggPages,
+  random,
+} from './compressed-fixtures.js';

@@ -212,7 +212,12 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain', '@audiogubbins/text'],
   '@audiogubbins/codecs': ['@audiogubbins/domain'],
-  '@audiogubbins/codec-runtime': ['@audiogubbins/domain', '@audiogubbins/codecs'],
+  '@audiogubbins/codec-runtime': [
+    '@audiogubbins/domain',
+    '@audiogubbins/codecs',
+    '@audiogubbins/import-export',
+    '@audiogubbins/capabilities',
+  ],
   '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
   '@audiogubbins/clipboard': [
     '@audiogubbins/domain',
@@ -289,6 +294,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
     '@audiogubbins/text',
+    '@audiogubbins/codecs',
   ],
   '@audiogubbins/design-system': ['@audiogubbins/version'],
   '@audiogubbins/workspace': [
@@ -344,6 +350,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/audio-runtime',
     '@audiogubbins/browser-storage',
     '@audiogubbins/capabilities',
+    '@audiogubbins/codec-runtime',
     '@audiogubbins/codecs',
     '@audiogubbins/commands',
     '@audiogubbins/diagnostics',

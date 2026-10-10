@@ -2,17 +2,17 @@
  * Making a name every common file system accepts, the same way on every
  * machine.
  *
- * A file may be written to Windows, macOS, Linux, a memory card or a share,
- * so a name is held to all of their rules at once: none of the characters
- * Windows forbids, `< > : " / \ | ? *`, or any control character; no
- * leading dot, which hides a file on Unix, and no trailing dot or space,
- * which Windows drops; no stem that is one of Windows' device names, such as
- * `CON` or `LPT1`, whatever follows it; and no more than 255 bytes of UTF-8,
- * the longest name ext4 and APFS hold, which NTFS's 255 UTF-16 units never
- * fall below. The name is NFC, the form a person's typing gives. A forbidden
- * character becomes `_`, a reserved stem gains a leading `_`, an empty stem
- * becomes `export`, and a long stem loses whole code points from its end, so
- * the extension and any copy number are always kept.
+ * A file may be written to Windows, macOS, Linux, a memory card or a share, so
+ * a name is held to all of their rules at once: none of the characters Windows
+ * forbids, `< > : " / \ | ? *`, or any control character; no leading dot, which
+ * hides a file on Unix, and no trailing dot or space, which Windows drops; no
+ * stem that is one of Windows' device names, such as `CON` or `LPT1`, whatever
+ * follows it; and no more than 255 bytes of UTF-8, the longest name ext4 and
+ * APFS hold, which NTFS's 255 UTF-16 units never fall below. The name is NFC,
+ * the form a person's typing gives. A forbidden character becomes `_`, a
+ * reserved stem gains a leading `_`, an empty stem becomes `export`, and a long
+ * stem loses whole code points from its end, so the extension and any copy
+ * number are always kept.
  */
 
 /** Characters no common file system takes in a name, and every control character. */

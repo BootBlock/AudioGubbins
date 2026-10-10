@@ -28,7 +28,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 
-import { DOCUMENT_TEXT, decodeText, encodeText } from './metadata-text.js';
+import { DOCUMENT_TEXT, readText, encodeUtf8 } from './metadata-text.js';
 import type { WrittenChunk } from './written-chunk.js';
 
 /** The element AudioGubbins states a layout in. */
@@ -124,7 +124,7 @@ function trackList(layout: ChannelLayout): string {
 /** The `iXML` chunk stating `layout`. */
 export function ixmlLayoutChunk(layout: ChannelLayout): WrittenChunk {
   const text = `<?xml version="1.0" encoding="UTF-8"?><BWFXML><IXML_VERSION>2.10</IXML_VERSION>${trackList(layout)}<${ELEMENT}>${statement(layout)}</${ELEMENT}></BWFXML>`;
-  return { id: 'iXML', body: encodeText(text) };
+  return { id: 'iXML', body: encodeUtf8(text) };
 }
 
 /** The ambisonic layout an ambisonic statement gives, or `undefined`. */
@@ -165,7 +165,7 @@ function valueOf(result: DomainResult<ChannelLayout>): ChannelLayout | undefined
  * many channels.
  */
 export function ixmlLayout(body: Uint8Array, channelCount: number): ChannelLayout | undefined {
-  const match = ELEMENT_PATTERN.exec(decodeText(body, DOCUMENT_TEXT));
+  const match = ELEMENT_PATTERN.exec(readText(body, 'unstated', DOCUMENT_TEXT));
   if (match === null) return undefined;
   const content = match[1] ?? '';
   const layout = AMBISONIC_PATTERN.test(content)

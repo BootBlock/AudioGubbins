@@ -4,17 +4,17 @@
  * Quantisation by error feedback: each sample has the filtered errors of the
  * samples before it subtracted before it is quantised, so the error added to
  * the sound is the quantiser's own filtered by `1 − H(z)`, where
- * `H(z) = Σ hₖ z⁻ᵏ` over the coefficients below, k from 1. Its power moves
- * away from where the ear is most sensitive and into where it is least.
+ * `H(z) = Σ hₖ z⁻ᵏ` over the coefficients below, k from 1. Its power moves away
+ * from where the ear is most sensitive and into where it is least.
  *
- * - `first-order`: `h = [1]`, so the error is `1 − z⁻¹`, rising 6 dB an
- *   octave toward the top of the band, at any rate.
- * - `lipshitz-e-weighted`: the nine-tap filter of S. P. Lipshitz, J.
- *   Vanderkooy and R. A. Wannamaker, "Minimally Audible Noise Shaping",
- *   J. Audio Eng. Soc. 39(11), 1991, designed against the ear's E-weighting
- *   at 44.1 kHz. Its error is about 25 dB down at 3 kHz and rises above the
- *   unshaped error past about 13 kHz. At another rate its curve would sit at
- *   other frequencies, so it is refused there rather than applied.
+ * - `first-order`: `h = [1]`, so the error is `1 − z⁻¹`, rising 6 dB an octave
+ *   toward the top of the band, at any rate.
+ * - `lipshitz-e-weighted`: the nine-tap filter of S. P. Lipshitz, J. Vanderkooy
+ *   and R. A. Wannamaker, "Minimally Audible Noise Shaping", J. Audio Eng. Soc.
+ *   39(11), 1991, designed against the ear's E-weighting at 44.1 kHz. Its error
+ *   is about 25 dB down at 3 kHz and rises above the unshaped error past about
+ *   13 kHz. At another rate its curve would sit at other frequencies, so it is
+ *   refused there rather than applied.
  */
 
 import type { NoiseShaping } from './export-settings.js';

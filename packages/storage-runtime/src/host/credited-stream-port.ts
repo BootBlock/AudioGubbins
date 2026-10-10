@@ -16,13 +16,14 @@
  * dropped.
  */
 
-import { FailureKind, failure, type DomainFailure } from '@audiogubbins/domain';
-import type {
-  DecodedStreamMessage,
-  EncodedStreamMessage,
-  StreamReceiverMessage,
+import type { DomainFailure, DomainResult } from '@audiogubbins/domain';
+import {
+  readDecodedStreamMessage,
+  readEncodedStreamMessage,
+  type DecodedStreamMessage,
+  type EncodedStreamMessage,
+  type StreamReceiverMessage,
 } from '@audiogubbins/import-export';
-import type { DecodedStream, EncodedStream } from '@audiogubbins/storage';
 
 /** The messages asked for and not yet read, once the first is: a few blocks. */
 const CREDIT_WINDOW = 8;
@@ -35,66 +36,41 @@ export interface StreamPort {
   close(): void;
 }
 
-/** A message of a stream, which ends it as a failure where it is not one of the stream's. */
-interface StreamKind<TMessage> {
-  readonly kinds: ReadonlySet<unknown>;
-  readonly unreadable: TMessage;
-}
-
-/** The kind of message of each stream, by its own kinds. */
-function isMessage<TMessage>(value: unknown, kind: StreamKind<TMessage>): value is TMessage {
-  return typeof value === 'object' && value !== null && kind.kinds.has(Reflect.get(value, 'kind'));
-}
-
-const DECODED: StreamKind<DecodedStreamMessage> = {
-  kinds: new Set(['description', 'block', 'end', 'failed']),
-  unreadable: {
-    kind: 'failed',
-    failure: failure(
-      'import.stream-unreadable',
-      FailureKind.IntegrityViolation,
-      'The codec worker sent a message a decoded stream does not hold.',
-    ),
-  },
-};
-
-const ENCODED: StreamKind<EncodedStreamMessage> = {
-  kinds: new Set(['body', 'finished', 'failed']),
-  unreadable: {
-    kind: 'failed',
-    failure: failure(
-      'export.stream-unreadable',
-      FailureKind.IntegrityViolation,
-      'The codec worker sent a message an encoded stream does not hold.',
-    ),
-  },
-};
+/** A stream's message read from what crossed, or why it does not read. */
+type Reader<TMessage> = (value: unknown) => DomainResult<TMessage>;
 
 /** The decoded stream the codec worker writes to `port` (see the module comment). */
-export function portDecodedStream(port: StreamPort): DecodedStream {
-  return portStream(port, DECODED);
+export function portDecodedStream(port: StreamPort): CreditedStream<DecodedStreamMessage> {
+  return portStream(port, readDecodedStreamMessage);
 }
 
 /** The encoded stream the codec worker writes to `port` (see the module comment). */
-export function portEncodedStream(port: StreamPort): EncodedStream {
-  return portStream(port, ENCODED);
+export function portEncodedStream(port: StreamPort): CreditedStream<EncodedStreamMessage> {
+  return portStream(port, readEncodedStreamMessage);
 }
 
-/** The messages of one kind of stream the codec worker writes to `port`, with credit. */
-function portStream<TMessage>(
+/**
+ * The messages of one kind of stream the codec worker writes to `port`, with
+ * credit, each read field by field; one that does not read ends the stream
+ * as the failure its reading gives.
+ */
+function portStream<TMessage extends { readonly kind: string }>(
   port: StreamPort,
-  kind: StreamKind<TMessage>,
-): CreditedStream<TMessage> {
-  const stream = new CreditedStream<TMessage>(port);
+  read: Reader<TMessage>,
+): CreditedStream<TMessage | { readonly kind: 'failed'; readonly failure: DomainFailure }> {
+  const stream = new CreditedStream<
+    TMessage | { readonly kind: 'failed'; readonly failure: DomainFailure }
+  >(port);
   port.addEventListener('message', (event) => {
-    stream.arrived(isMessage(event.data, kind) ? event.data : kind.unreadable);
+    const message = read(event.data);
+    stream.arrived(message.ok ? message.value : { kind: 'failed', failure: message.failures[0] });
   });
   port.start();
   return stream;
 }
 
 /** A stream's messages as they arrive, read in order, with credit given as they are. */
-class CreditedStream<TMessage> {
+export class CreditedStream<TMessage> {
   readonly #port: StreamPort;
   readonly #queued: TMessage[] = [];
   #waiting: ((message: TMessage | undefined) => void) | undefined;
@@ -116,6 +92,11 @@ class CreditedStream<TMessage> {
     this.#waiting = undefined;
     if (waiting === undefined) this.#queued.push(message);
     else waiting(message);
+  }
+
+  /** Ends the stream with `message` where it is still open, as its last. */
+  end(message: TMessage): void {
+    this.arrived(message);
   }
 
   readonly next = (): Promise<TMessage | undefined> => {

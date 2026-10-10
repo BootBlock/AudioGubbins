@@ -6,6 +6,7 @@
  * is kept in the store.
  */
 
+import type { DecoderIdentity } from '@audiogubbins/codecs';
 import { layoutsMatch, type Asset } from '@audiogubbins/domain';
 
 import type { JsonObject } from './canonical-json.js';
@@ -21,11 +22,7 @@ import {
 } from './document-reading.js';
 import { presentMembers } from './document-writing.js';
 import { readExternalIdentity, writeExternalIdentity } from './external-identity-json.js';
-import type {
-  DecodedRendition,
-  DecoderIdentity,
-  KeptCompressedSource,
-} from './decoded-rendition.js';
+import type { DecodedRendition, KeptCompressedSource } from './decoded-rendition.js';
 import type { AssetSource } from './project-state.js';
 import { asCodec, asContainer, asImplementation } from './codec-names-reading.js';
 import { asContentId, integerConverter, oneOfConverter, textConverter } from './scalar-reading.js';

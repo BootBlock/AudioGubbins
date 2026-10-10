@@ -38,6 +38,9 @@
       "path": "../../packages/codecs"
     },
     {
+      "path": "../../packages/codec-runtime"
+    },
+    {
       "path": "../../packages/import-export"
     },
     {

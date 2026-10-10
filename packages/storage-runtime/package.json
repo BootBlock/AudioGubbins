@@ -35,6 +35,7 @@
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/history": "workspace:*",
     "@audiogubbins/codecs": "workspace:*",
+    "@audiogubbins/codec-runtime": "workspace:*",
     "@audiogubbins/import-export": "workspace:*",
     "@audiogubbins/project-format": "workspace:*",
     "@audiogubbins/project-commands": "workspace:*",

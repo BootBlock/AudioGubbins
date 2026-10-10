@@ -12,11 +12,9 @@ import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import { viewOf } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
-import { LINE_TEXT, decodeText } from './metadata-text.js';
+import { LINE_TEXT, readText } from './metadata-text.js';
 import { listEntries } from './riff-list-entries.js';
-
-/** The most `adtl` entries read from one file: a label and a note for every cue point and loop. */
-const MAXIMUM_LIST_ENTRIES = 10_240;
+import { MAXIMUM_LABEL_ENTRIES } from './metadata-limits.js';
 
 /** The cue id a `labl` entry starts with, before its text. */
 export const LABEL_CUE_ID_BYTES = 4;
@@ -28,8 +26,8 @@ export class CueLabels {
 
   /** Reads one `adtl` list's entries, the type already taken off. */
   read(list: Uint8Array): DomainResult<undefined> {
-    const room = MAXIMUM_LIST_ENTRIES - this.entries;
-    const entries = listEntries(list, 'adtl', room, MAXIMUM_LIST_ENTRIES);
+    const room = MAXIMUM_LABEL_ENTRIES - this.entries;
+    const entries = listEntries(list, 'adtl', room, MAXIMUM_LABEL_ENTRIES);
     if (!entries.ok) return entries;
     this.entries += entries.value.length;
     for (const { id, body } of entries.value) {
@@ -39,7 +37,7 @@ export class CueLabels {
       }
       const cueId = viewOf(body).getUint32(0, true);
       if (!this.names.has(cueId)) {
-        this.names.set(cueId, decodeText(body.subarray(LABEL_CUE_ID_BYTES), LINE_TEXT));
+        this.names.set(cueId, readText(body.subarray(LABEL_CUE_ID_BYTES), 'unstated', LINE_TEXT));
       }
     }
     return succeed(undefined);

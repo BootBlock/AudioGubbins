@@ -44,8 +44,9 @@ import {
   statedFrames,
   type MetadataReader,
 } from './metadata-reading.js';
-import { LINE_TEXT, LONG_TEXT, cutText, decodeText, textRulesOf } from './metadata-text.js';
+import { LINE_TEXT, LONG_TEXT, cutText, readText, textRulesOf } from './metadata-text.js';
 import { quotedCode } from './recognised-format.js';
+import { MAXIMUM_ANNOTATIONS, MAXIMUM_MARKERS } from './metadata-limits.js';
 
 /** Where the chunks begin, after `FORM`, its size and the form type. */
 const FIRST_CHUNK = 12;
@@ -57,12 +58,6 @@ export const AIFF_TEXT_CHUNKS: ReadonlyMap<string, MetadataTextKey> = new Map([
   ['(c) ', 'copyright'],
 ]);
 export const ANNOTATION_CHUNK = 'ANNO';
-
-/** The most `ANNO` chunks read from one file. */
-const MAXIMUM_ANNOTATIONS = 256;
-
-/** The most markers a `MARK` chunk may list, as many as a WAV's cue points. */
-export const MAXIMUM_MARKERS = 4_096;
 
 /** A `MARK` chunk's count, and each marker's id and position before its name. */
 export const MARKER_COUNT_BYTES = 2;
@@ -149,7 +144,7 @@ function readMarker(
   }
   const position = statedFrames(view.getUint32(at + 2, false), 'marker');
   if (!position.ok) return position;
-  const name = decodeText(body.subarray(nameAt, nameAt + nameLength), LINE_TEXT);
+  const name = readText(body.subarray(nameAt, nameAt + nameLength), 'unstated', LINE_TEXT);
   // The count byte and the name are padded together to an even length.
   return succeed({
     marker: { id, position: position.value, name },
@@ -305,8 +300,8 @@ async function readChunk(
   findings.seen.add(span.id);
   const body = await chunks.body(span, signal);
   if (!body.ok) return body;
-  if (key !== undefined) findings.text[key] = decodeText(body.value, textRulesOf(key));
-  if (annotation) findings.annotations.push(decodeText(body.value, LONG_TEXT));
+  if (key !== undefined) findings.text[key] = readText(body.value, 'unstated', textRulesOf(key));
+  if (annotation) findings.annotations.push(readText(body.value, 'unstated', LONG_TEXT));
   if (span.id === 'MARK') return readMarkers(body.value, findings);
   if (span.id === 'INST') return readInstrument(body.value, findings);
   return DONE;

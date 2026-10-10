@@ -25,7 +25,6 @@ export {
 } from './client/backups-client.js';
 export {
   type PageBytes,
-  type PageDecoding,
   type PageFile,
   type PageFolder,
   type PageLocate,

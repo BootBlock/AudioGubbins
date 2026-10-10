@@ -14,20 +14,22 @@ import type { AreaHandlers, HostChannel } from '../protocol/storage-operations.j
 import type { HostServices } from './host-services.js';
 import type { OpenProjects } from './open-projects.js';
 import { importServices } from './import-area.js';
-import { pageDecoding, pageFile, pageLocate } from './remote-page-ports.js';
+import type { CodecWorkerLink } from './codec-worker-link.js';
+import { pageFile, pageLocate } from './remote-page-ports.js';
 
 /** The operations of audio files, over the worker's store, its open projects and the page's files. */
 export function mediaHandlers(
   services: HostServices,
   projects: OpenProjects,
   channel: HostChannel,
+  codecs: CodecWorkerLink,
 ): AreaHandlers<'media'> {
   const importing = importServices(services);
   return {
-    'media.import': ({ handle, file, decoder, ...request }, { signal }) =>
+    'media.import': ({ handle, file, ...request }, { signal }) =>
       importAudio(
         projects.session(handle),
-        { file: pageFile(channel, file), decode: pageDecoding(channel, decoder, 0), ...request },
+        { file: pageFile(channel, file), decoding: codecs.decoding(file.bytes), ...request },
         importing,
         () => undefined,
         signal,

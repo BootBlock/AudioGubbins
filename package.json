@@ -29,6 +29,7 @@
     "test:editing-property": "vitest run --project domain --project project-commands edit-property project-commands.test",
     "test:dsp-property": "vitest run --project processors --project domain properties.test rack-edit-property",
     "test:ml-locality": "vitest run --tagsFilter ml-locality",
+    "test:codecs": "vitest run --project codecs --project import-export --project codec-runtime",
     "test:codec-fixtures": "vitest run --project codecs fixture",
     "test:malformed-media": "vitest run --project codecs malformed",
     "test:opus-conformance": "vitest run --project opus-conformance",

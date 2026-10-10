@@ -7,7 +7,6 @@ import {
   derivedSampleCount,
   sampleRate,
   type AssetId,
-  type DomainResult,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceHandling, type ExternalFile } from '@audiogubbins/media-store';
@@ -15,13 +14,13 @@ import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testi
 import { contentIdOf, type ByteSource } from '@audiogubbins/project-format';
 
 import { importAudio } from './audio-import.js';
-import type { DecodedStream } from './decoded-stream.js';
 import type { AudioImportServices } from './import-contracts.js';
 import { bytesSource } from './byte-streams.js';
 import { FillableTree } from './testing/fillable-tree.js';
 import { storageOf } from './testing/memory-ports.js';
 import { harness, nodeDigest } from './testing/node-services.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
+import { NO_DECODING } from './testing/decoded-streams.js';
 import { addMarker, addRecord, addRegion } from './testing/test-commands.js';
 
 /**
@@ -31,11 +30,6 @@ import { addMarker, addRecord, addRegion } from './testing/test-commands.js';
  */
 
 const IMPORTED_AT = 1_790_000_000_000;
-
-/** The decoding of a file the read contract reads in place, which no import of one asks for. */
-function noDecoding(): Promise<DomainResult<DecodedStream>> {
-  return Promise.reject(new Error('A file read in place is never decoded.'));
-}
 
 /** `value` rounded to the nearest sample an integer of `bits` holds exactly. */
 function coded(value: number, bits: number): number {
@@ -107,7 +101,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
-          decode: noDecoding,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -161,7 +155,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Link, keepProtectedCopy: false },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
-          decode: noDecoding,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -196,7 +190,7 @@ describe('importing an audio file (ADR-0052)', () => {
         choice: { mode: SourceHandling.Copy },
         assetId: scene.assetId,
         importedAt: IMPORTED_AT,
-        decode: noDecoding,
+        decoding: NO_DECODING,
       },
       scene.services,
     );
@@ -223,7 +217,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
-          decode: noDecoding,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -283,7 +277,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
-          decode: noDecoding,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -319,7 +313,7 @@ describe('importing an audio file (ADR-0052)', () => {
       file: fileOf(memorySource(bytes)),
       assetId: scene.assetId,
       importedAt: IMPORTED_AT,
-      decode: noDecoding,
+      decoding: NO_DECODING,
     };
     const copied = await importAudio(
       scene.session,
@@ -350,7 +344,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
-          decode: noDecoding,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -369,7 +363,7 @@ describe('importing an audio file (ADR-0052)', () => {
       choice: { mode: SourceHandling.Copy },
       assetId: scene.assetId,
       importedAt: IMPORTED_AT,
-      decode: noDecoding,
+      decoding: NO_DECODING,
     } as const;
 
     scene.sessionTree.full = true;
@@ -408,7 +402,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
-          decode: noDecoding,
+          decoding: NO_DECODING,
         },
         scene.services,
         () => undefined,

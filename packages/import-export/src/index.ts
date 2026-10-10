@@ -123,5 +123,13 @@ export {
   type DecodedStreamDescription,
   type DecodedStreamMessage,
   type EncodedStreamMessage,
+  type RenderedStreamMessage,
   type StreamReceiverMessage,
 } from './stream-messages.js';
+
+export {
+  readDecodedStreamMessage,
+  readEncodedStreamMessage,
+  readRenderedStreamMessage,
+  readStreamReceiverMessage,
+} from './stream-message-reading.js';

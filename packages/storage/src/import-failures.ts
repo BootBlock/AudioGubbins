@@ -26,16 +26,6 @@ export function streamOutOfOrder(problem: string): DomainFailure {
   );
 }
 
-/** A decoded stream whose description cannot be an asset's audio. */
-export function streamUndescribable(cause: DomainFailure): DomainFailure {
-  return failure(
-    'import.stream-undescribable',
-    FailureKind.IntegrityViolation,
-    `The decoder described audio AudioGubbins cannot hold: ${cause.summary}`,
-    { details: { cause: cause.code } },
-  );
-}
-
 /** A decoded stream that ended with no frame. */
 export function streamEmpty(): DomainFailure {
   return failure(

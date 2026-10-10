@@ -236,7 +236,12 @@ export {
   type ImportObserver,
   type ImportedAudio,
 } from './import-contracts.js';
-export { type DecodedStream, type StreamDecoding } from './decoded-stream.js';
+export {
+  type DecodedStream,
+  type FileDecoding,
+  type StreamAnalysis,
+} from './decoded-stream.js';
+export { type FileMetadata } from './import-analysis.js';
 export {
   type BatchFile,
   type BatchObserver,

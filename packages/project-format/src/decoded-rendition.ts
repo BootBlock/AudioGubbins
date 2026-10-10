@@ -18,20 +18,11 @@
  * position of the file is the rendition's frame `position - leadingFrames`.
  */
 
-import type { CodecId, CodecImplementation, ContainerId } from '@audiogubbins/codecs';
+import type { CodecId, ContainerId, DecoderIdentity } from '@audiogubbins/codecs';
 import type { ChannelLayout, SampleCount, SampleRate } from '@audiogubbins/domain';
 
 import type { ContentId } from './content-identity.js';
 import type { ExternalSourceIdentity } from './project-state.js';
-
-/** The implementation that decoded a stream, and its version. */
-export interface DecoderIdentity {
-  readonly implementation: CodecImplementation;
-
-  /** The decoder's own name, such as a crate's or a browser's. */
-  readonly name: string;
-  readonly version: string;
-}
 
 /**
  * How the compressed file is kept: copied into the media store under its

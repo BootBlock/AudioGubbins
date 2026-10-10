@@ -18,6 +18,7 @@ import { backupHandlers } from './backup-area.js';
 import { cacheHandlers } from './cache-area.js';
 import { hostLogs } from './host-logs.js';
 import { hostServices, type HostLogs, type HostParts, type HostServices } from './host-services.js';
+import { CodecWorkerLink } from './codec-worker-link.js';
 import { exportHandlers } from './export-area.js';
 import { importHandlers } from './import-area.js';
 import { libraryHandlers } from './library-area.js';
@@ -47,6 +48,7 @@ export function serveStorage(
   const logs = hostLogs(channel, clock);
   const services = hostServices(partsOf(logs));
   const projects = new OpenProjects(channel);
+  const codecs = new CodecWorkerLink();
   recoverMedia(services, logs.loggerFor('media'));
   clearStaged(services, logs.loggerFor('storage'));
   channel.serve({
@@ -57,8 +59,8 @@ export function serveStorage(
     ...backupHandlers(services, projects, channel),
     ...rootHandlers(services, channel),
     ...sourceHandlers(services, projects, channel),
-    ...mediaHandlers(services, projects, channel),
-    ...importHandlers(services, projects, channel),
+    ...mediaHandlers(services, projects, channel, codecs),
+    ...importHandlers(services, projects, channel, codecs),
     ...exportHandlers(services, projects, channel),
     ...cacheHandlers(services),
     ...packHandlers(services, channel),

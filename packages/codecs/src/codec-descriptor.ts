@@ -45,6 +45,19 @@ export type ContainerId =
  */
 export type CodecImplementation = 'application' | 'codec-module' | 'prebuilt-module' | 'browser';
 
+/**
+ * The implementation that decoded a stream into a rendition, and its version,
+ * which the codec worker reports and the asset's provenance records
+ * (ADR-0090, REQ-STOR-166).
+ */
+export interface DecoderIdentity {
+  readonly implementation: CodecImplementation;
+
+  /** The decoder's own name, such as a crate's or a browser's. */
+  readonly name: string;
+  readonly version: string;
+}
+
 /** The sample rates a direction accepts. */
 export type SampleRateSupport =
   | { readonly kind: 'any'; readonly minimum: number; readonly maximum: number }

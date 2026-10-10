@@ -18,9 +18,10 @@ import type { ProjectHandle } from './project-operations.js';
 export type MediaOperations = {
   /**
    * Imports the file into the project open under `handle` as the asset
-   * `assetId`, by copy or link as `choice` says, decoded through `decoder`
-   * where it is a compressed file read through a rendition, in one change undo
-   * reverses, with its loops and cues placed as regions and markers.
+   * `assetId`, by copy or link as `choice` says, decoded by the codec worker
+   * joined to the storage worker where it is a compressed file read through a
+   * rendition, in one change undo reverses, with its loops and cues placed as
+   * regions and markers.
    */
   'media.import': Operation<
     {
@@ -29,7 +30,6 @@ export type MediaOperations = {
       readonly choice: ImportChoice;
       readonly assetId: AssetId;
       readonly importedAt: number;
-      readonly decoder?: PagePort;
     },
     DomainResult<ImportedAudio>
   >;

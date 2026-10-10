@@ -5,7 +5,6 @@ import { writeWav } from '@audiogubbins/codecs/testing';
 import {
   StandardLayouts,
   derivedSampleCount,
-  succeed,
   unsafeBrandId,
   type DomainFailure,
 } from '@audiogubbins/domain';
@@ -62,13 +61,9 @@ function decoded(): readonly DecodedStreamMessage[] {
     {
       kind: 'description',
       description: {
-        codec: 'flac',
         sampleRate: 44_100,
         layout: StandardLayouts.stereo,
         statedFrames: derivedSampleCount(1_200),
-        bitRate: undefined,
-        leadingFrames: derivedSampleCount(0),
-        decoder: { implementation: 'codec-module', name: 'claxon', version: '0.4.3' },
         metadata: {},
       },
     },
@@ -110,6 +105,57 @@ class Producer {
   }
 }
 
+/**
+ * A codec worker on the other end of the port the page joins the storage
+ * worker by: it answers every analysis as a FLAC stream to decode, and decodes
+ * each file through a producer on the stream's port, recording each.
+ */
+class FakeCodecWorker {
+  readonly producers: Producer[] = [];
+  readonly requests: string[] = [];
+
+  constructor(port: MessagePort, failsDecoding = false) {
+    port.start();
+    port.addEventListener('message', (event: MessageEvent<Record<string, unknown>>) => {
+      const message = event.data;
+      const request = String(message['request']);
+      this.requests.push(`${String(message['kind'])} ${request}`);
+      if (message['kind'] === 'analyse') {
+        port.postMessage({
+          kind: 'analysed',
+          request,
+          analysis: {
+            kind: 'decode',
+            stream: {
+              codec: 'flac',
+              container: 'flac',
+              sampleRate: 44_100,
+              layout: StandardLayouts.stereo,
+              statedFrames: 1_200,
+              leadingFrames: 0,
+              bitRate: undefined,
+              bitsPerSample: 16,
+            },
+            decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
+            metadata: { kind: 'none' },
+          },
+        });
+      }
+      const stream = message['stream'];
+      if (message['kind'] === 'decode' && failsDecoding) {
+        // A file the worker cannot open fails on the link alone, its stream never begun.
+        port.postMessage({
+          kind: 'failed',
+          request,
+          failure: { code: 'codec-runtime.unreadable', kind: 'retryable', summary: 'Unreadable.' },
+        });
+      } else if (message['kind'] === 'decode' && stream instanceof MessagePort) {
+        this.producers.push(new Producer(stream, decoded()));
+      }
+    });
+  }
+}
+
 beforeEach(() => {
   vi.stubGlobal('File', PlatformFile);
   vi.stubGlobal('Blob', PlatformBlob);
@@ -121,8 +167,10 @@ afterEach(() => {
 describe('importing many files through the storage worker (ADR-0090)', () => {
   it('imports each file in turn, decoding a compressed one through the codec worker the page joins, and reports each', async () => {
     const { storage, project, session } = await projectScene();
-    const producers: Producer[] = [];
     const reports: ImportReport[] = [];
+    const joined = new MessageChannel();
+    const codecWorker = new FakeCodecWorker(joined.port2);
+    await storage.client.imports.connectCodecWorker(joined.port1);
     const step = unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a1');
     const rain = unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a2');
     const wind = unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a3');
@@ -137,11 +185,6 @@ describe('importing many files through the storage worker (ADR-0090)', () => {
         ],
         choice: { mode: SourceHandling.Copy },
         importedAt: IMPORTED_AT,
-        decoding: (file) => {
-          const channel = new MessageChannel();
-          producers.push(new Producer(channel.port2, file === 1 ? decoded() : []));
-          return Promise.resolve(succeed(channel.port1));
-        },
       },
       (report) => reports.push(report),
     );
@@ -152,13 +195,19 @@ describe('importing many files through the storage worker (ADR-0090)', () => {
       'imported',
     ]);
     expect(reports.at(-1)?.job).toEqual(ended.job);
+    // A container that maps no metadata leaves the audio's import whole.
+    const decodedFile = ended.outcomes[1];
+    expect(decodedFile?.kind === 'imported' ? decodedFile.imported.metadataRefused : 'none').toBe(
+      undefined,
+    );
     expect(
       reports.filter((report) => report.index === 1).map((report) => report.event.kind),
     ).toEqual(
       expect.arrayContaining(['analyse', 'copy', 'decode', 'decode-progress', 'add', 'imported']),
     );
-    const [producer] = producers;
-    expect(producers).toHaveLength(1);
+    // The compressed file alone is analysed and decoded there, as one request each.
+    expect(codecWorker.requests).toEqual(['analyse storage-1', 'decode storage-2']);
+    const [producer] = codecWorker.producers;
     // The description alone is asked for first, then a window of blocks at a time.
     expect(producer?.credits[0]).toBe(1);
     expect(producer?.sent).toBe(14);
@@ -176,7 +225,7 @@ describe('importing many files through the storage worker (ADR-0090)', () => {
     expect(storage.lentPorts()).toBe(0);
   });
 
-  it('refuses a file that needs decoding where the page has no codec worker, importing the rest', async () => {
+  it('refuses a file that needs decoding where the page joined no codec worker, importing the rest', async () => {
     const { storage, session } = await projectScene();
     const ended = await storage.client.imports.importFiles(
       session,
@@ -202,5 +251,31 @@ describe('importing many files through the storage worker (ADR-0090)', () => {
       'import.decoding-unavailable',
     );
     expect(imported?.kind).toBe('imported');
+  });
+
+  it('refuses a file whose decoding the codec worker ends on the link alone, keeping nothing', async () => {
+    const { storage, session } = await projectScene();
+    const joined = new MessageChannel();
+    new FakeCodecWorker(joined.port2, true);
+    await storage.client.imports.connectCodecWorker(joined.port1);
+    const ended = await storage.client.imports.importFiles(
+      session,
+      {
+        files: [
+          {
+            file: pageFileOf(flac(), 'Rain.flac'),
+            assetId: unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000c1'),
+          },
+        ],
+        choice: { mode: SourceHandling.Copy },
+        importedAt: IMPORTED_AT,
+      },
+      () => undefined,
+    );
+    const [refused] = ended.outcomes;
+    expect(refused?.kind === 'refused' ? refused.failure.code : refused?.kind).toBe(
+      'codec-runtime.unreadable',
+    );
+    expect(session.getSnapshot().model.state.project.assets.size).toBe(0);
   });
 });

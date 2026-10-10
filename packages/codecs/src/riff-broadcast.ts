@@ -14,7 +14,7 @@ import { viewOf } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
 import type { BroadcastDescription } from './metadata-map.js';
 import { statedFrames } from './metadata-reading.js';
-import { LINE_TEXT, LONG_TEXT, decodeText } from './metadata-text.js';
+import { LINE_TEXT, LONG_TEXT, readText } from './metadata-text.js';
 
 /** The `bext` fields before the coding history, and where each text field lies and how wide it is. */
 export const BEXT_FIXED_BYTES = 602;
@@ -45,7 +45,7 @@ export function readBroadcast(body: Uint8Array): DomainResult<BroadcastDescripti
   const timeReference = statedFrames(high * 2 ** 32 + low, "'bext' chunk's time reference");
   if (!timeReference.ok) return timeReference;
   const field = ([offset, width]: readonly [number, number]) =>
-    decodeText(body.subarray(offset, offset + width), LINE_TEXT);
+    readText(body.subarray(offset, offset + width), 'unstated', LINE_TEXT);
   return succeed({
     description: field(BEXT_TEXT_FIELDS.description),
     originator: field(BEXT_TEXT_FIELDS.originator),
@@ -53,6 +53,6 @@ export function readBroadcast(body: Uint8Array): DomainResult<BroadcastDescripti
     originationDate: field(BEXT_TEXT_FIELDS.originationDate),
     originationTime: field(BEXT_TEXT_FIELDS.originationTime),
     timeReference: timeReference.value,
-    codingHistory: decodeText(body.subarray(BEXT_FIXED_BYTES), LONG_TEXT),
+    codingHistory: readText(body.subarray(BEXT_FIXED_BYTES), 'unstated', LONG_TEXT),
   });
 }

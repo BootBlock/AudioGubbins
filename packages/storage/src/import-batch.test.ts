@@ -4,13 +4,18 @@ import { writeWav } from '@audiogubbins/codecs/testing';
 import type { ImportFileEvent, ImportJob } from '@audiogubbins/import-export';
 import { SourceHandling, type ExternalFile } from '@audiogubbins/media-store';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
-import { succeed } from '@audiogubbins/domain';
 
 import type { DecodedStream } from './decoded-stream.js';
 import { importBatch, type BatchFile } from './import-batch.js';
 import type { AudioImportServices } from './import-contracts.js';
 import { storageOf } from './testing/memory-ports.js';
-import { FLAC_BYTES, FakeStream, wholeStream } from './testing/decoded-streams.js';
+import {
+  FLAC_BYTES,
+  FakeStream,
+  NO_DECODING,
+  fakeDecoding,
+  wholeStream,
+} from './testing/decoded-streams.js';
 import { harness, nodeDigest } from './testing/node-services.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { addMarker, addRecord, addRegion } from './testing/test-commands.js';
@@ -73,10 +78,7 @@ async function setUp() {
   const entry = (file: ExternalFile, stream?: DecodedStream): BatchFile => ({
     file,
     assetId: test.ids.next<'AssetId'>(),
-    decode: () =>
-      stream === undefined
-        ? Promise.reject(new Error('Not a decoded file.'))
-        : Promise.resolve(succeed(stream)),
+    decoding: stream === undefined ? NO_DECODING : fakeDecoding(stream),
   });
   return { session, services, entry };
 }

@@ -2,8 +2,8 @@
  * Bringing a compressed file into a project as a decoded rendition (ADR-0090,
  * REQ-ARCH-049, REQ-ARCH-085).
  *
- * The codec worker decodes; the storage only writes. The stream's description
- * comes first, read from the file's headers, and is checked and sized before
+ * The codec worker analyses and decodes; the storage only writes. The codec
+ * worker's analysis of the file's headers comes first, and is sized before
  * anything is stored: the file is refused where the storage has no room for
  * the file itself, where it is copied, and the rendition, whose size the
  * stream's stated length gives. The file is then kept as the person chose,
@@ -13,27 +13,24 @@
  * at the stream's own rate, never resampled. The asset is the rendition: its
  * provenance names the file it was decoded from, its codec, the decoder and
  * its version, and how the file is kept, and the file's metadata, whose loops
- * and cues are placed on the asset in its frames.
+ * and cues are placed on the asset in its frames. The decoded stream begins
+ * with its description, which is refused where it is not the stream analysed.
  *
  * A stream refused, failed part way or cancelled keeps nothing: the codec
  * worker is told, the scratch file is removed, and every object stored is let
  * go, for collection to take.
  */
 
-import type { CodecId, ContainerId } from '@audiogubbins/codecs';
 import {
   AssetOrigin,
   fail,
-  sampleRate,
+  layoutsMatch,
   succeed,
   type Asset,
-  type ChannelLayout,
   type DomainFailure,
   type DomainResult,
   type ProjectId,
-  type SampleRate,
 } from '@audiogubbins/domain';
-import type { DecodedStreamDescription } from '@audiogubbins/import-export';
 import type { ImportedMedia } from '@audiogubbins/media-store';
 import {
   keptMetadata,
@@ -50,13 +47,9 @@ import type {
   ImportObserver,
   PreparedImport,
 } from './import-contracts.js';
-import type { DecodedStream } from './decoded-stream.js';
+import type { DecodedStream, StreamAnalysis } from './decoded-stream.js';
 import { checkRoom, keepsCopy, renditionBytes } from './import-analysis.js';
-import {
-  renditionReadBackDiffers,
-  streamOutOfOrder,
-  streamUndescribable,
-} from './import-failures.js';
+import { renditionReadBackDiffers, streamOutOfOrder } from './import-failures.js';
 import { importPlacements } from './import-placements.js';
 import { receiveRendition } from './rendition-receiving.js';
 import { renditionScratchPath } from './staging-paths.js';
@@ -67,22 +60,13 @@ import { storeFloatWav, storedWavMedia, type StoredWav } from './stored-wav.js';
 export interface DecodedImport extends AudioImport {
   readonly displayName: string;
   readonly project: ProjectId;
-
-  /** The container recognised and the codec it states, where it states one. */
-  readonly route: { readonly container: ContainerId; readonly codec: CodecId | undefined };
-}
-
-/** A stream's description, checked as an asset's audio. */
-interface Described {
-  readonly description: DecodedStreamDescription;
-  readonly sampleRate: SampleRate;
-  readonly layout: ChannelLayout;
 }
 
 /**
- * Decodes `request.file` into a rendition and keeps the file as the person
- * chose, ready to be added (see the module comment). Rejects with the
- * signal's reason, having kept nothing, where the import is cancelled.
+ * Analyses `request.file` in the codec worker, keeps it as the person chose,
+ * and decodes it into a rendition, ready to be added (see the module
+ * comment). Rejects with the signal's reason, having kept nothing, where the
+ * import is cancelled.
  */
 export async function prepareDecoded(
   request: DecodedImport,
@@ -90,28 +74,24 @@ export async function prepareDecoded(
   observe: ImportObserver,
   signal?: AbortSignal,
 ): Promise<DomainResult<PreparedImport>> {
-  const decoding = await request.decode(signal);
-  if (!decoding.ok) return decoding;
-  const stream = decoding.value;
-  const described = await describedStream(stream, request.route.codec);
-  if (!described.ok) return described;
-  const sized = await sizedFor(request, described.value, services);
-  if (!sized.ok) {
-    stream.refuse(sized.failures[0]);
-    return sized;
-  }
+  const analysed = await request.decoding.analyse(signal);
+  if (!analysed.ok) return analysed;
+  const analysis = analysed.value;
+  const sized = await sizedFor(request, analysis, services);
+  if (!sized.ok) return sized;
   let kept: ImportedMedia | undefined;
   let stored: StoredWav | undefined;
   try {
     const keeping = await keepFile(request, request.project, services, observe, {}, signal);
-    if (!keeping.ok) {
-      stream.refuse(keeping.failures[0]);
-      return keeping;
-    }
+    if (!keeping.ok) return keeping;
     kept = keeping.value;
+    const decoding = await request.decoding.decode(signal);
+    if (!decoding.ok) return decoding;
+    const described = await describedAs(decoding.value, analysis);
+    if (!described.ok) return described;
     const rendition = await decodedInto(
-      stream,
-      described.value,
+      decoding.value,
+      analysis,
       request,
       services,
       observe,
@@ -119,7 +99,7 @@ export async function prepareDecoded(
     );
     if (!rendition.ok) return rendition;
     stored = rendition.value;
-    return succeed(prepared(request, described.value, kept, stored, services));
+    return succeed(prepared(request, analysis, kept, stored, services));
   } finally {
     // What the import holds is let go here unless it is prepared, when the
     // change that refers to it lets it go once it is written.
@@ -127,29 +107,27 @@ export async function prepareDecoded(
   }
 }
 
-/** The stream's description, read first and checked, or why the stream is refused. */
-async function describedStream(
+/**
+ * Reads the stream's description, first, and checks it is the stream the
+ * analysis sized: at its rate, in its channels. Refuses the stream where not.
+ */
+async function describedAs(
   stream: DecodedStream,
-  stated: CodecId | undefined,
-): Promise<DomainResult<Described>> {
+  analysis: StreamAnalysis,
+): Promise<DomainResult<void>> {
   const first = await stream.next();
   if (first?.kind === 'failed') return fail(first.failure);
   if (first?.kind !== 'description') {
     return refused(stream, streamOutOfOrder('the stream did not begin with its description'));
   }
   const { description } = first;
-  const rate = sampleRate(description.sampleRate);
-  if (!rate.ok) return refused(stream, streamUndescribable(rate.failures[0]));
-  if (description.layout.roles.length === 0) {
-    return refused(stream, streamOutOfOrder('the stream was described with no channels'));
+  if (
+    description.sampleRate !== analysis.sampleRate ||
+    !layoutsMatch(description.layout, analysis.layout)
+  ) {
+    return refused(stream, streamOutOfOrder('the stream decoded was not the one analysed'));
   }
-  if (stated !== undefined && description.codec !== stated) {
-    return refused(
-      stream,
-      streamOutOfOrder(`the file states ${stated} and the decoder read ${description.codec}`),
-    );
-  }
-  return succeed({ description, sampleRate: rate.value, layout: description.layout });
+  return succeed(undefined);
 }
 
 /** Refuses the stream for `failure`, which the import fails with. */
@@ -164,11 +142,11 @@ function refused(stream: DecodedStream, failure: DomainFailure): DomainResult<ne
  */
 async function sizedFor(
   request: DecodedImport,
-  described: Described,
+  analysis: StreamAnalysis,
   services: AudioImportServices,
 ): Promise<DomainResult<void>> {
-  const { sampleRate: rate, layout, description } = described;
-  const rendition = renditionBytes({ sampleRate: rate, layout }, description.statedFrames);
+  const { sampleRate: rate, layout, statedFrames } = analysis;
+  const rendition = renditionBytes({ sampleRate: rate, layout }, statedFrames);
   if (!rendition.ok) return rendition;
   const file = keepsCopy(request.choice) ? request.file.source.size : 0;
   return await checkRoom(file + (rendition.value ?? 0), services.room);
@@ -181,13 +159,13 @@ async function sizedFor(
  */
 async function decodedInto(
   stream: DecodedStream,
-  described: Described,
+  analysis: StreamAnalysis,
   request: DecodedImport,
   services: AudioImportServices,
   observe: ImportObserver,
   signal?: AbortSignal,
 ): Promise<DomainResult<StoredWav>> {
-  observe({ kind: 'decode', framesTotal: described.description.statedFrames });
+  observe({ kind: 'decode', framesTotal: analysis.statedFrames });
   const release = await mediaSharingOf(services.coordinator).share(signal);
   try {
     const scratch = {
@@ -196,7 +174,7 @@ async function decodedInto(
     };
     const received = await receiveRendition(
       stream,
-      described.layout,
+      analysis.layout,
       scratch,
       (framesDecoded) => {
         observe({ kind: 'decode-progress', framesDecoded });
@@ -207,7 +185,7 @@ async function decodedInto(
     try {
       return await storeFloatWav(
         received.value.data,
-        { sampleRate: described.sampleRate, layout: described.layout },
+        { sampleRate: analysis.sampleRate, layout: analysis.layout },
         received.value.frames,
         services,
         renditionReadBackDiffers,
@@ -224,39 +202,38 @@ async function decodedInto(
 /** The import prepared: the asset is the rendition, decoded from the file kept as chosen. */
 function prepared(
   request: DecodedImport,
-  described: Described,
+  analysis: StreamAnalysis,
   kept: ImportedMedia,
   stored: StoredWav,
   services: AudioImportServices,
 ): PreparedImport {
-  const { description } = described;
   const media = storedWavMedia(stored);
   const fileProvenance = kept.source.provenance;
-  const rendition = renditionRecord(request, described, kept, stored);
+  const rendition = renditionRecord(analysis, kept, stored);
+  const metadata = analysis.metadata.kind === 'read' ? analysis.metadata.metadata : {};
   const source = withFileMetadata(
     {
       media,
       ...(fileProvenance === undefined ? {} : { provenance: { ...fileProvenance, rendition } }),
     },
-    keptMetadata(description.metadata),
+    keptMetadata(metadata),
   );
   const asset: Asset = {
     id: request.assetId,
     displayName: request.displayName,
     origin: AssetOrigin.Imported,
-    sampleRate: described.sampleRate,
-    channelLayout: described.layout,
+    sampleRate: analysis.sampleRate,
+    channelLayout: analysis.layout,
     length: rendition.frames,
     storageKey: storageKeyOf(request.assetId, media),
     edits: [],
   };
-  const { metadata, leadingFrames } = description;
   return {
     asset,
     source,
-    placements: importPlacements(asset, metadata, leadingFrames, services.ids),
+    placements: importPlacements(asset, metadata, analysis.leadingFrames, services.ids),
     shortfall: 0,
-    metadataRefused: undefined,
+    metadataRefused: analysis.metadata.kind === 'refused' ? analysis.metadata.failure : undefined,
     release: () => {
       stored.release();
       if (kept.held !== undefined) services.store.release(kept.held);
@@ -266,22 +243,20 @@ function prepared(
 
 /** What the asset's provenance records of the file its rendition was decoded from. */
 function renditionRecord(
-  request: DecodedImport,
-  described: Described,
+  analysis: StreamAnalysis,
   kept: ImportedMedia,
   stored: StoredWav,
 ): DecodedRendition {
-  const { description } = described;
   return {
-    container: request.route.container,
-    codec: description.codec,
-    sampleRate: described.sampleRate,
-    layout: described.layout,
+    container: analysis.container,
+    codec: analysis.codec,
+    sampleRate: analysis.sampleRate,
+    layout: analysis.layout,
     frames: stored.format.frames,
-    ...(description.statedFrames === undefined ? {} : { statedFrames: description.statedFrames }),
-    ...(description.bitRate === undefined ? {} : { bitRate: description.bitRate }),
-    leadingFrames: description.leadingFrames,
-    decoder: { ...description.decoder },
+    ...(analysis.statedFrames === undefined ? {} : { statedFrames: analysis.statedFrames }),
+    ...(analysis.bitRate === undefined ? {} : { bitRate: analysis.bitRate }),
+    leadingFrames: analysis.leadingFrames,
+    decoder: { ...analysis.decoder },
     kept: keptSource(kept.source),
   };
 }

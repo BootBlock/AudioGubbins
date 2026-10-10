@@ -465,6 +465,9 @@ importers:
 
   packages/capabilities:
     dependencies:
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
@@ -500,12 +503,18 @@ importers:
 
   packages/codec-runtime:
     dependencies:
+      '@audiogubbins/capabilities':
+        specifier: workspace:*
+        version: link:../capabilities
       '@audiogubbins/codecs':
         specifier: workspace:*
         version: link:../codecs
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
     devDependencies:
       vitest:
         specifier: 5.0.1
@@ -925,6 +934,9 @@ importers:
       '@audiogubbins/capabilities':
         specifier: workspace:*
         version: link:../capabilities
+      '@audiogubbins/codec-runtime':
+        specifier: workspace:*
+        version: link:../codec-runtime
       '@audiogubbins/codecs':
         specifier: workspace:*
         version: link:../codecs

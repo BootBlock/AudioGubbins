@@ -26,7 +26,7 @@ import {
 import type { ExternalFile, ImportChoice } from '@audiogubbins/media-store';
 
 import { addPrepared, prepareImport } from './audio-import.js';
-import type { StreamDecoding } from './decoded-stream.js';
+import type { FileDecoding } from './decoded-stream.js';
 import type { AudioImportServices, ImportedAudio, PreparedImport } from './import-contracts.js';
 import type { ProjectSession } from './project-session.js';
 
@@ -37,8 +37,8 @@ export interface BatchFile {
   /** The identity its asset takes, made by the page's generator. */
   readonly assetId: AssetId;
 
-  /** Starts the codec worker decoding it, where it is decoded into a rendition. */
-  readonly decode: StreamDecoding;
+  /** Its analysis and decoding in the codec worker, where it is decoded into a rendition. */
+  readonly decoding: FileDecoding;
 }
 
 /** A batch of files, each brought in as `choice` says, at `importedAt`. */

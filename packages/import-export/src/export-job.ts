@@ -2,13 +2,13 @@
  * One export as a state machine (ADR-0092, REQ-ARCH-153).
  *
  * `planned`, `rendering`, `encoding`, `staged`, `delivering`, `delivered`, and
- * `failed` or `cancelled` from any state before `delivered`. Rendering is
- * the canonical render with the encoder taking its blocks as they come, and
- * the staged bytes growing with them; encoding is the encoder finishing once
- * the render has, completing a head that depends on the whole stream; staged
- * is the whole encoded file in the staging area. A delivery refused, for
- * permission or a collision, returns to `staged` with the reason, so the
- * person can retry or choose another destination without a new render.
+ * `failed` or `cancelled` from any state before `delivered`. Rendering is the
+ * canonical render with the encoder taking its blocks as they come, and the
+ * staged bytes growing with them; encoding is the encoder finishing once the
+ * render has, completing a head that depends on the whole stream; staged is the
+ * whole encoded file in the staging area. A delivery refused, for permission or
+ * a collision, returns to `staged` with the reason, so the person can retry or
+ * choose another destination without a new render.
  *
  * The workers do the work and report it as events; this says whether each
  * report can be so, and refuses one that cannot, such as frames going

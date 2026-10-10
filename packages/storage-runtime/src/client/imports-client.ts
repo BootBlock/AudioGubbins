@@ -10,7 +10,7 @@ import type { ImportedBatch } from '@audiogubbins/storage';
 
 import { importStream, type ImportReport } from '../protocol/import-operations.js';
 import type { ClientChannel } from '../protocol/storage-operations.js';
-import type { LendingCall, PageDecoding, PageFile } from './page-ports.js';
+import type { LendingCall, PageFile } from './page-ports.js';
 import type { RemoteProjectSession } from './remote-project.js';
 
 /** A batch of files to bring into a project. */
@@ -23,17 +23,17 @@ export interface FilesImport {
 
   /** When the import happens, in whole milliseconds since the epoch. */
   readonly importedAt: number;
-
-  /**
-   * Starts the codec worker decoding a file by its index among `files`;
-   * absent where the page has no codec worker, when a file needing one is
-   * refused with why.
-   */
-  readonly decoding?: PageDecoding;
 }
 
 /** Importing many files. */
 export interface ImportsClient {
+  /**
+   * Joins the storage worker to the codec worker over `port`, whose other end
+   * the page gave the codec worker by `connect`: compressed files are then
+   * analysed and decoded there. Until it is joined, such a file is refused.
+   */
+  connectCodecWorker(port: MessagePort): Promise<void>;
+
   /**
    * Imports `request.files` into the project `session` writes, one at a time,
    * telling `report` of each file's event and the job after it, and answers
@@ -52,7 +52,10 @@ export interface ImportsClient {
 export function importsClient(channel: ClientChannel, call: LendingCall): ImportsClient {
   let batches = 0;
   return {
-    importFiles: async (session, { files, decoding, ...request }, report, signal) => {
+    connectCodecWorker: async (port) => {
+      await channel.call('imports.connectCodecWorker', { port }, { transfer: [port] });
+    },
+    importFiles: async (session, { files, ...request }, report, signal) => {
       batches += 1;
       // Heard before the call is made, so no report of the batch is missed.
       const name = `batch-${String(batches)}`;
@@ -63,7 +66,6 @@ export function importsClient(channel: ClientChannel, call: LendingCall): Import
           (lend) => ({
             handle: session.handle,
             files: files.map(({ file, assetId }) => ({ file: lend.file(file), assetId })),
-            ...(decoding === undefined ? {} : { decoder: lend.decoder(decoding) }),
             report: name,
             ...request,
           }),

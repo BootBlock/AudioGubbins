@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { openAudio } from '@audiogubbins/codecs';
-import { StandardLayouts, derivedSampleCount, succeed, type AssetId } from '@audiogubbins/domain';
+import { StandardLayouts, derivedSampleCount, type AssetId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import type { DecodedStreamDescription, ImportFileEvent } from '@audiogubbins/import-export';
+import type { ImportFileEvent } from '@audiogubbins/import-export';
 import { SourceHandling, type ExternalFile, type ImportChoice } from '@audiogubbins/media-store';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf } from '@audiogubbins/project-format';
 
 import { importAudio } from './audio-import.js';
+import type { StreamAnalysis } from './decoded-stream.js';
 import { bytesSource } from './byte-streams.js';
 import type { AudioImportServices } from './import-contracts.js';
 import { FillableTree } from './testing/fillable-tree.js';
@@ -16,9 +17,11 @@ import { storageOf } from './testing/memory-ports.js';
 import { harness, nodeDigest } from './testing/node-services.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
 import {
+  ANALYSIS,
   DESCRIPTION,
   FLAC_BYTES,
   FakeStream,
+  fakeDecoding,
   block,
   wholeStream,
 } from './testing/decoded-streams.js';
@@ -81,6 +84,7 @@ async function imported(
   scene: Scene,
   stream: FakeStream,
   options: {
+    readonly analysis?: StreamAnalysis;
     readonly choice?: ImportChoice;
     readonly events?: ImportFileEvent[];
     readonly signal?: AbortSignal;
@@ -93,7 +97,7 @@ async function imported(
       choice: options.choice ?? { mode: SourceHandling.Copy },
       assetId: scene.assetId,
       importedAt: IMPORTED_AT,
-      decode: () => Promise.resolve(succeed(stream)),
+      decoding: fakeDecoding(stream, options.analysis),
     },
     scene.services,
     (event) => options.events?.push(event),
@@ -127,7 +131,7 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
         statedFrames: 2_400,
         bitRate: 900_000,
         leadingFrames: 0,
-        decoder: { implementation: 'codec-module', name: 'claxon', version: '0.4.3' },
+        decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
         kept: { kind: 'copied', contentId: file.contentId },
       },
       metadata: { text: { title: 'Rain on tin' } },
@@ -192,22 +196,61 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
 
   it('places the file’s positions after the priming the decoder trimmed, leaving out those before it', async () => {
     const scene = await setUp();
-    const description: DecodedStreamDescription = {
-      ...DESCRIPTION,
+    const analysis: StreamAnalysis = {
+      ...ANALYSIS,
       leadingFrames: derivedSampleCount(400),
       metadata: {
-        loops: DESCRIPTION.metadata.loops ?? [],
-        cues: [
-          { position: derivedSampleCount(300), name: 'Before the stream' },
-          { position: derivedSampleCount(900), name: 'Drip' },
-        ],
+        kind: 'read',
+        metadata: {
+          loops: DESCRIPTION.metadata.loops ?? [],
+          cues: [
+            { position: derivedSampleCount(300), name: 'Before the stream' },
+            { position: derivedSampleCount(900), name: 'Drip' },
+          ],
+        },
       },
     };
-    const result = expectSuccess(await imported(scene, new FakeStream(wholeStream(description))));
+    const result = expectSuccess(
+      await imported(scene, new FakeStream(wholeStream()), { analysis }),
+    );
     expect(result.skipped).toEqual({ loops: 0, cues: 1 });
     const { project } = scene.session.getSnapshot().model.state;
     expect([...project.regions.values()][0]?.loop).toMatchObject({ start: 200, end: 1_400 });
     expect([...project.markers.values()].map((marker) => marker.position)).toEqual([500]);
+  });
+
+  it('refuses a file the codec worker refuses, keeping nothing, and keeps the audio of one whose metadata is broken', async () => {
+    const scene = await setUp();
+    const unsupported = {
+      code: 'codecs.unavailable',
+      kind: 'rejected',
+      summary: 'This browser cannot decode HE-AAC; use AAC-LC or Opus.',
+    } as const;
+    const refused = await importAudio(
+      scene.session,
+      {
+        file: fileOf(),
+        choice: { mode: SourceHandling.Copy },
+        assetId: scene.assetId,
+        importedAt: IMPORTED_AT,
+        decoding: {
+          analyse: () => Promise.resolve({ ok: false, failures: [unsupported] }),
+          decode: () => Promise.reject(new Error('A refused file is never decoded.')),
+        },
+      },
+      scene.services,
+    );
+    expect(expectFailureCode(refused)).toBe('codecs.unavailable');
+    expect(await storedObjects(scene)).toEqual([]);
+
+    const broken = { code: 'codecs.malformed', kind: 'integrity-violation', summary: 'Bad tag.' } as const;
+    const kept = expectSuccess(
+      await imported(scene, new FakeStream(wholeStream()), {
+        analysis: { ...ANALYSIS, metadata: { kind: 'refused', failure: broken } },
+      }),
+    );
+    expect(kept.metadataRefused).toEqual(broken);
+    expect(kept.placed).toEqual({ regions: 0, markers: 0 });
   });
 
   it('keeps a linked file by its identity, storing the rendition alone', async () => {
@@ -225,15 +268,15 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
     expect(await storedObjects(scene)).toHaveLength(1);
   });
 
-  it('refuses a file the storage has no room for before storing anything or decoding a block', async () => {
+  it('refuses a file the storage has no room for before storing anything or decoding at all', async () => {
     // The file and a 2,400-frame stereo rendition need about 23 kB.
     const scene = await setUp(20_000);
     const stream = new FakeStream(wholeStream());
     const result = await imported(scene, stream);
 
     expect(expectFailureCode(result)).toBe('import.no-room');
-    expect(stream.read).toBe(1);
-    expect(stream.refusals.map((refusal) => refusal.code)).toEqual(['import.no-room']);
+    // Refused on the codec worker's analysis, before any decoding begins.
+    expect(stream.read).toBe(0);
     expect(await storedObjects(scene)).toEqual([]);
     expect(staged(scene)).toEqual([]);
   });
@@ -292,8 +335,8 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
       'import.stream-out-of-order',
     ],
     [
-      'a description of a codec the file does not state',
-      wholeStream({ ...DESCRIPTION, codec: 'mp3' }),
+      'a stream at another rate than the one analysed',
+      wholeStream({ ...DESCRIPTION, sampleRate: 44_100 }),
       'import.stream-out-of-order',
     ],
   ] as const)('keeps nothing of %s', async (_case, messages, code) => {
