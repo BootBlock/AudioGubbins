@@ -9,6 +9,10 @@
  * application's FLAC writer, and Opus packets with what its Ogg writer needs.
  * Every failure is a `DomainResult` with a stable `codec-runtime.*` code, and
  * every object is released once, by its `release()`.
+ *
+ * The codec worker (`threads/codec-worker.ts`) serves analysis, decoding and
+ * encoding requests over the protocol below, with the stream messages of
+ * `@audiogubbins/import-export` on the channels its requests carry.
  */
 
 export { type CodecModule, instantiateCodecModule } from './codec-module.js';
@@ -29,3 +33,30 @@ export {
 } from './opus-encoder.js';
 
 export { MAX_OPUS_PACKET_FRAMES, type OpusPacketDecoder } from './opus-packet-decoder.js';
+
+export {
+  type AnalysedStream,
+  type CodecRequest,
+  type ExportEncodeRequest,
+  type FormatEncoding,
+  FromCodecWorkerKind,
+  type FromCodecWorker,
+  type ImportAnalysis,
+  type MetadataOutcome,
+  type ModuleSource,
+  type PrebuiltEncoder,
+  ToCodecWorkerKind,
+  type ToCodecWorker,
+} from './worker/codec-worker-messages.js';
+
+export { readFromCodecWorker } from './worker/codec-worker-message-reading.js';
+
+export { type ExportEncoderServices, type OpenExportEncoder } from './worker/encode-job.js';
+
+export { type DecoderIdentity } from './decoding/decoder-identity.js';
+
+export { type FileHandleLike, type FileSource } from './files/file-source.js';
+
+export { type BlobLike } from './files/sync-file-bytes.js';
+
+export { type MessagePortLike } from './streams/stream-port.js';

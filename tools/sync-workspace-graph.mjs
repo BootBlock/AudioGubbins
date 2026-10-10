@@ -236,10 +236,17 @@ const PACKAGES = [
     dir: 'packages/codec-runtime',
     name: '@audiogubbins/codec-runtime',
     description:
-      'The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port.',
+      'The codec module host and the codec worker: the typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, the browser decoder of HE-AAC, and the worker that analyses, decodes and encodes files read through the synchronous byte port.',
     dom: true,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/codecs'],
+    threads: { 'codec-worker.ts': 'dedicated-worker' },
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/codecs',
+      '@audiogubbins/import-export',
+      // The browser's codec classes and probes, which capabilities reads and the worker calls.
+      '@audiogubbins/capabilities',
+    ],
     devDeps: [],
     external: {},
     externalDev: {},

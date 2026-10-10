@@ -500,12 +500,18 @@ importers:
 
   packages/codec-runtime:
     dependencies:
+      '@audiogubbins/capabilities':
+        specifier: workspace:*
+        version: link:../capabilities
       '@audiogubbins/codecs':
         specifier: workspace:*
         version: link:../codecs
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
     devDependencies:
       vitest:
         specifier: 5.0.1

@@ -30,7 +30,9 @@ export {
 
 export { recogniseAudio } from './recognition.js';
 
-export { type AudioFormatDescriptor } from './format-descriptor.js';
+export { type AudioFormatDescriptor, layoutRead } from './format-descriptor.js';
+
+export { speakerMaskLayout } from './channel-layouts.js';
 
 export {
   type ByteOrder,

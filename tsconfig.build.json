@@ -39,6 +39,9 @@
       "path": "./packages/codec-runtime"
     },
     {
+      "path": "./packages/codec-runtime/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/audio-engine"
     },
     {
