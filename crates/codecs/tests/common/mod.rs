@@ -250,13 +250,14 @@ impl Bits {
     }
 }
 
-/// `count` MPEG-1 Layer III frames of silence at 128 kbit/s, 44.1 kHz,
-/// stereo: a header, side information of no bits for every granule, and
-/// main data of zeros.
-pub fn silent_mp3(count: usize) -> Vec<u8> {
+/// `count` MPEG-1 Layer III frames of silence at 128 kbit/s, 44.1 kHz, in
+/// stereo or, where `mono`, one channel: a header, side information of no
+/// bits for every granule, and main data of zeros.
+pub fn silent_mp3(count: usize, mono: bool) -> Vec<u8> {
     let frame_length = 144 * 128_000 / 44_100;
     let mut frame = vec![0u8; frame_length];
-    frame[..4].copy_from_slice(&[0xff, 0xfb, 0x90, 0x00]);
+    let mode = if mono { 0xc0 } else { 0x00 };
+    frame[..4].copy_from_slice(&[0xff, 0xfb, 0x90, mode]);
     frame.repeat(count)
 }
 

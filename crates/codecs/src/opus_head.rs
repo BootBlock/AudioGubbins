@@ -223,7 +223,12 @@ mod tests {
         let mut big = stereo.to_bytes();
         big[10..12].copy_from_slice(&3840u16.to_be_bytes());
         big[12..16].copy_from_slice(&48_000u32.to_be_bytes());
-        assert_eq!(OpusHead::read(&big, FieldOrder::Big), Ok(stereo));
+        big[16..18].copy_from_slice(&(-256i16).to_be_bytes());
+        let quieter = OpusHead {
+            output_gain: -256,
+            ..stereo
+        };
+        assert_eq!(OpusHead::read(&big, FieldOrder::Big), Ok(quieter));
     }
 
     #[test]

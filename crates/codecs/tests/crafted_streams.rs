@@ -15,7 +15,7 @@ use common::{MemorySource, adts, decode_all, open_and_decode, silent_block, sile
 
 #[test]
 fn decodes_mp3_silence_to_every_frame() {
-    let (session, planes) = open_and_decode(silent_mp3(40)).expect("decodable");
+    let (session, planes) = open_and_decode(silent_mp3(40, false)).expect("decodable");
     let description = session.description();
     assert_eq!(description.codec, Codec::Mp3);
     assert_eq!(description.container, Container::Mp3);
@@ -26,6 +26,13 @@ fn decodes_mp3_silence_to_every_frame() {
     assert_eq!(planes.len(), 2);
     assert_eq!(planes[0].len(), 40 * 1_152);
     assert!(planes.iter().flatten().all(|&sample| sample == 0.0));
+}
+
+#[test]
+fn states_one_channel_as_the_front_centre() {
+    let (session, planes) = open_and_decode(silent_mp3(10, true)).expect("decodable");
+    assert_eq!(session.description().layout, StatedLayout::Speakers(0b100));
+    assert_eq!(planes.len(), 1);
 }
 
 #[test]

@@ -392,9 +392,10 @@ mod tests {
         }
         assert!(search.decided());
         assert!(search.carries_sbr());
+        // Half the packets is chance, not SBR.
         let mut lc = ImplicitSbrSearch::default();
         for index in 0..8 {
-            lc.examine(if index < 5 { &plain } else { &sbr });
+            lc.examine(if index < 4 { &plain } else { &sbr });
         }
         assert!(!lc.carries_sbr());
     }

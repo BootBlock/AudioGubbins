@@ -130,7 +130,10 @@ fn mutated_ogg_opus_fails_or_decodes_without_panicking() {
 
 #[test]
 fn mutated_mp3_fails_or_decodes_without_panicking() {
-    assert_eq!(survivors_of(&silent_mp3(12), 4), Vec::<String>::new());
+    assert_eq!(
+        survivors_of(&silent_mp3(12, false), 4),
+        Vec::<String>::new()
+    );
 }
 
 #[test]
