@@ -26,3 +26,17 @@ describe('the Recording preset', () => {
     ]);
   });
 });
+
+describe('the Spectral Repair preset (REQ-UX-058)', () => {
+  it('puts the Spectral panel in front of the Inspector, beside the editor', () => {
+    const repair = buildPresets(new Set(Object.values(PanelKinds))).find(
+      (layout) => layout.id === 'spectral-repair',
+    );
+    const right = repair?.groups.find((group) => group.region === DockRegion.Right);
+    expect(right?.panels.map((panel) => panel.kind)).toEqual([
+      PanelKinds.Spectral,
+      PanelKinds.Inspector,
+    ]);
+    expect(right?.activePanelId).toBe('spectral-repair:spectral');
+  });
+});
