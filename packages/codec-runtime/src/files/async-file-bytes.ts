@@ -11,7 +11,7 @@
  */
 
 import type { AudioBytes, SyncAudioBytes } from '@audiogubbins/codecs';
-import { throwIfCancelled } from '@audiogubbins/domain';
+import { throwIfCancelled, type CancellationSignal } from '@audiogubbins/domain';
 
 import { thrownName } from '../thrown-name.js';
 
@@ -27,22 +27,36 @@ export class SourceUnreadable extends Error {
   }
 }
 
-/** `bytes` through the asynchronous port. */
+/** Reads `length` bytes at `offset` now, throwing as the port's read rejects. */
+function readNow(
+  bytes: SyncAudioBytes,
+  offset: number,
+  length: number,
+  signal: CancellationSignal | undefined,
+): Uint8Array {
+  throwIfCancelled(signal);
+  const into = new Uint8Array(Math.max(0, Math.min(length, bytes.size - offset)));
+  let copied: number;
+  try {
+    copied = bytes.readInto(offset, into);
+  } catch (error) {
+    // A file removed, or whose permission was withdrawn, throws; anything the
+    // read throws is the file being unreadable, said by its name.
+    throw new SourceUnreadable(thrownName(error));
+  }
+  return into.subarray(0, copied);
+}
+
+/**
+ * `bytes` through the asynchronous port, each read answered at once, a read
+ * that throws or is cancelled rejecting as the port's reads do.
+ */
 export function asyncAudioBytes(bytes: SyncAudioBytes): AudioBytes {
   return {
     size: bytes.size,
-    read: (offset, length, signal) => {
-      throwIfCancelled(signal);
-      const into = new Uint8Array(Math.max(0, Math.min(length, bytes.size - offset)));
-      let copied: number;
-      try {
-        copied = bytes.readInto(offset, into);
-      } catch (error) {
-        // A file removed, or whose permission was withdrawn, throws; anything
-        // the read throws is the file being unreadable, said by its name.
-        return Promise.reject(new SourceUnreadable(thrownName(error)));
-      }
-      return Promise.resolve(into.subarray(0, copied));
-    },
+    read: (offset, length, signal) =>
+      new Promise((resolve) => {
+        resolve(readNow(bytes, offset, length, signal));
+      }),
   };
 }

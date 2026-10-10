@@ -4,6 +4,7 @@ import type {
   BrowserAudioDecoding,
   CodecState,
   EncodedAudioChunkInit,
+  EncodedAudioChunkLike,
   PlaneCopy,
   WebCodecsAudioConfig,
 } from '@audiogubbins/capabilities';
@@ -50,7 +51,7 @@ function audioData(
 /** What the fake decoder saw, and how it behaves. */
 interface FakeDecoderLog {
   configured: WebCodecsAudioConfig | undefined;
-  readonly chunks: EncodedAudioChunkInit[];
+  readonly chunks: { readonly timestamp: number }[];
   mostQueued: number;
   closed: boolean;
   readonly outputs: (AudioDataLike & { closed: boolean })[];
@@ -90,8 +91,8 @@ function fakeDecoding(
       this.state = 'configured';
     }
 
-    decode(chunk: { readonly init: EncodedAudioChunkInit }): void {
-      log.chunks.push(chunk.init);
+    decode(chunk: EncodedAudioChunkLike): void {
+      log.chunks.push({ timestamp: chunk.timestamp });
       this.decodeQueueSize += 1;
       log.mostQueued = Math.max(log.mostQueued, this.decodeQueueSize);
       const index = log.chunks.length - 1;
