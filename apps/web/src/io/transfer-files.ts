@@ -8,12 +8,13 @@
  * write a file as it is made rather than holding it whole, and through the
  * page's own file input and a download everywhere else. A project's folder is
  * read through the input in every browser, and written only through the
- * directory picker, which alone gives a folder to write into; a folder of
- * audio is read through the directory picker where there is one, which alone
- * gives each file a handle, so a file linked from it is found again. Each chooser is opened as
- * the first thing the flow does, in the handler of the person's gesture, since
- * a browser opens none outside one. A file or folder the person chose is handed
- * on as the files themselves, for the storage worker to read (`page-files.ts`).
+ * directory picker, which alone gives a folder to write into; a folder of audio
+ * is read through the directory picker where there is one, which alone gives
+ * each file a handle, so a file linked from it is found again. Each chooser is
+ * opened as the first thing the flow does, in the handler of the person's
+ * gesture, since a browser opens none outside one. A file or folder the person
+ * chose is handed on as the files themselves, for the storage worker to read
+ * (`page-files.ts`).
  */
 
 import {

@@ -2,8 +2,8 @@
  * Bringing audio files into the open project as one batch (REQ-STOR-025,
  * REQ-AUDIO-220, ADR-0052, ADR-0090): the files the person chooses, one or
  * several, or every file of a folder, each listed with its format, its size,
- * the stage it is at and how far it has got, and once it ends, what it came
- * to and why where it was refused.
+ * the stage it is at and how far it has got, and once it ends, what it came to
+ * and why where it was refused.
  *
  * The files are asked for first, in the handler of the person's gesture, since
  * a browser opens no chooser outside one, and one dismissed brings nothing and
@@ -12,8 +12,8 @@
  * read where it lies needs no codec, and the storage refuses each file that
  * needed one. Every file then goes through the storage worker's one batch path,
  * one at a time, as the person's setting for bringing files in says, and the
- * job shown is the job the storage reports, so the page keeps no machine of
- * its own to fall out of step. Quick Edit's file, chosen before its project is
+ * job shown is the job the storage reports, so the page keeps no machine of its
+ * own to fall out of step. Quick Edit's file, chosen before its project is
  * made, takes the same path.
  *
  * One batch runs at a time. The person can call it off, which keeps nothing of

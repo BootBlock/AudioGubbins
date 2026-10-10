@@ -16,13 +16,13 @@
  * (`import-placements.ts`), added with the asset as one change; the commands
  * are the caller's, since the storage does not depend on the project commands.
  *
- * An import is prepared, everything it stores stored and held, then added, so
- * a batch prepares one file while the one before it is added (ADR-0090); every
- * import is a batch's, one file or many (`import-batch.ts`). A
- * managed object the import stored is held in the media store until storage
- * holds the change that refers to it, and released at once where the change is
- * not made, so collection never takes it in between and a refused or cancelled
- * import keeps nothing.
+ * An import is prepared, everything it stores stored and held, then added, so a
+ * batch prepares one file while the one before it is added (ADR-0090); every
+ * import is a batch's, one file or many (`import-batch.ts`). A managed object
+ * the import stored is held in the media store until storage holds the change
+ * that refers to it, and released at once where the change is not made, so
+ * collection never takes it in between and a refused or cancelled import keeps
+ * nothing.
  */
 
 import { succeed, type DomainResult } from '@audiogubbins/domain';
