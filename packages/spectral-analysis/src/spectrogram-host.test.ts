@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DspDeliveryKind,
   DspImplementation,
+  PcmDescriptionKind,
   REFERENCE_DSP,
   StftWindow,
   frameBlock,
@@ -185,6 +186,25 @@ describe('the spectrogram host', () => {
     ]);
     expect(handle.tile(CONFIG, 0, 0, 0)).toBeUndefined();
     expect(handle.status).toEqual({ kind: 'running' });
+  });
+
+  it('moves the arrays of a sound held in memory to the worker rather than copying them', async () => {
+    const { host } = rig();
+    const subject = memorySubject('held', [audio(2)]);
+    const described: Float32Array[] = [];
+    const handle = host.open({
+      ...subject,
+      describe: () => {
+        const description = subject.describe();
+        if (description.kind === PcmDescriptionKind.Pcm) described.push(...description.channels);
+        return description;
+      },
+    });
+    expect(described).toHaveLength(1);
+    // A transferred buffer is detached on the page, which a copy never is.
+    expect(described.map((channel) => channel.buffer.byteLength)).toEqual([0]);
+    show(handle, 0, 1);
+    await until(() => held(handle, 0, 1));
   });
 
   it('adopts the tiles the cache keeps, and analyses none of them', async () => {

@@ -12,6 +12,7 @@
  * still held in memory.
  */
 
+import { describedBuffers } from '@audiogubbins/audio-engine';
 import {
   Cancelled,
   FailureKind,
@@ -120,8 +121,12 @@ export class SpectrogramJob {
     for (const listener of [...this.#listeners]) listener();
   }
 
-  /** Opens the job in the worker. */
+  /**
+   * Opens the job in the worker, moving to it the arrays of a sound held in
+   * memory, which the subject gives for the worker to keep.
+   */
   start(): void {
+    const description = this.subject.describe();
     this.#services.post(
       {
         kind: ToSpectrogramWorkerKind.Open,
@@ -129,10 +134,10 @@ export class SpectrogramJob {
         identity: this.subject.identity,
         revision: this.subject.revision,
         channels: this.subject.channels,
-        description: this.subject.describe(),
+        description,
         quality: this.subject.quality,
       },
-      [],
+      describedBuffers([description]),
     );
   }
 
