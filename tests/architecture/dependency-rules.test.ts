@@ -2963,17 +2963,24 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     expect(inBand.toSorted()).toEqual(Object.keys(REVIEWED_IN_BAND).toSorted());
   });
 
-  it('reviews a recorded file again once it moves from the size it was reviewed at', () => {
-    const moved = Object.entries({ ...REVIEWED_IN_BAND, ...REVIEWED_PAST_THRESHOLD }).flatMap(
-      ([path, [recorded]]) => {
-        const lines = logicalLines(read(path));
-        return Math.abs(lines - recorded) > FILE_SIZE_TOLERANCE
-          ? [`${path}: reviewed at ${String(recorded)}, now ${String(lines)}`]
-          : [];
-      },
-    );
+  /** Every recorded file that moved from its size by more than the tolerance. */
+  function movedFrom(
+    records: Readonly<Record<string, readonly [lines: number, review: string]>>,
+  ): string[] {
+    return Object.entries(records).flatMap(([path, [recorded]]) => {
+      const lines = logicalLines(read(path));
+      return Math.abs(lines - recorded) > FILE_SIZE_TOLERANCE
+        ? [`${path}: reviewed at ${String(recorded)}, now ${String(lines)}`]
+        : [];
+    });
+  }
 
-    expect(moved).toEqual([]);
+  it('reviews a file in the band again once it moves from the size it was reviewed at', () => {
+    expect(movedFrom(REVIEWED_IN_BAND)).toEqual([]);
+  });
+
+  it('reviews a file past the threshold again once it moves from the size it was reviewed at', () => {
+    expect(movedFrom(REVIEWED_PAST_THRESHOLD)).toEqual([]);
   });
 
   it('takes both ends of the band as inside it', () => {
