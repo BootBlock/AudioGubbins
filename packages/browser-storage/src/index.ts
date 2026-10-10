@@ -10,12 +10,12 @@
  * file read in ranges wherever it was passed, a storage worker included; a
  * chosen folder read or written as a project's unpacked tree; sinks over a file
  * or folder the user chose and over a download; an export's destinations, and
- * the folders kept trusted for exports with what was exported into each; the write leases over Web Locks
- * and a broadcast channel; the digest; and giving the page a turn. The platform
- * objects are read by the capabilities package and passed in, so nothing here
- * reaches a global (REQ-EXEC-136.4), and each one's absence is a decision of
- * whoever passes it (REQ-EXEC-216). Everything absent from this list is
- * internal (REQ-REPO-186).
+ * the folders kept trusted for exports with what was exported into each; the
+ * write leases over Web Locks and a broadcast channel; the digest; and giving
+ * the page a turn. The platform objects are read by the capabilities package
+ * and passed in, so nothing here reaches a global (REQ-EXEC-136.4), and each
+ * one's absence is a decision of whoever passes it (REQ-EXEC-216). Everything
+ * absent from this list is internal (REQ-REPO-186).
  */
 
 export { originPrivateTree } from './sync-storage-tree.js';

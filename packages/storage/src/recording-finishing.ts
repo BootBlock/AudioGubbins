@@ -9,11 +9,11 @@
  * recording's file is a 32-bit float WAV header followed by the chunks as they
  * stand, stored as `stored-wav.ts` stores every file the storage makes itself:
  * hashed first, so the media store writes it once, and read back through the
- * read contract before anything names it, as an import is. The asset and
- * the take its purpose names are added as one change, with the store's hold on
- * the file released as an import's is, and the session's chunks and manifest
- * are removed only once the project's journal holds that change. Until then,
- * and wherever a step fails, the session stays, to be recovered.
+ * read contract before anything names it, as an import is. The asset and the
+ * take its purpose names are added as one change, with the store's hold on the
+ * file released as an import's is, and the session's chunks and manifest are
+ * removed only once the project's journal holds that change. Until then, and
+ * wherever a step fails, the session stays, to be recovered.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';

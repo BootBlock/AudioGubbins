@@ -243,7 +243,11 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
     expect(expectFailureCode(refused)).toBe('codecs.unavailable');
     expect(await storedObjects(scene)).toEqual([]);
 
-    const broken = { code: 'codecs.malformed', kind: 'integrity-violation', summary: 'Bad tag.' } as const;
+    const broken = {
+      code: 'codecs.malformed',
+      kind: 'integrity-violation',
+      summary: 'Bad tag.',
+    } as const;
     const kept = expectSuccess(
       await imported(scene, new FakeStream(wholeStream()), {
         analysis: { ...ANALYSIS, metadata: { kind: 'refused', failure: broken } },

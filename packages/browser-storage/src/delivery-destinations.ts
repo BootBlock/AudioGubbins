@@ -5,12 +5,12 @@
  * only when its stream closes.
  *
  * Whether the destination may be written now is asked of its handle without
- * asking the person, which only the page can do, in answer to their gesture;
- * a handle without permission methods grants what it names. A folder lists the
- * names of every entry it holds, files and folders alike, since either takes
- * a name. A file a delivery makes appears in the folder as soon as its handle
- * is made, empty, so where its writing is abandoned it is removed again and
- * the folder is left as it was.
+ * asking the person, which only the page can do, in answer to their gesture; a
+ * handle without permission methods grants what it names. A folder lists the
+ * names of every entry it holds, files and folders alike, since either takes a
+ * name. A file a delivery makes appears in the folder as soon as its handle is
+ * made, empty, so where its writing is abandoned it is removed again and the
+ * folder is left as it was.
  */
 
 import type { ByteSink, ByteSource } from '@audiogubbins/project-format';

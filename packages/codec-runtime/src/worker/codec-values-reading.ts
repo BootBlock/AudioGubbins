@@ -26,7 +26,6 @@ import {
   textOf,
 } from '@audiogubbins/domain';
 
-
 /** Every codec the registry names. */
 const CODECS: Readonly<Record<string, CodecId>> = Object.fromEntries(
   [...CODEC_REGISTRY.keys()].map((id) => [id, id]),

@@ -10,8 +10,8 @@
  * projects, the person's library of saved chains and presets, the projects open
  * (`project-operations.ts`), taking projects out and bringing them in
  * (`transfer-operations.ts`), their backup generations
- * (`backup-operations.ts`), audio files (`media-operations.ts`) and many at once
- * (`import-operations.ts`), exports (`export-operations.ts`), model packs
+ * (`backup-operations.ts`), audio files (`media-operations.ts`) and many at
+ * once (`import-operations.ts`), exports (`export-operations.ts`), model packs
  * (`pack-operations.ts`), recordings (`recording-operations.ts`), the storage
  * root, the caches, the usage and its cleanup, who writes each project, and the
  * files linked assets were recorded from. The values all clone: none is a class

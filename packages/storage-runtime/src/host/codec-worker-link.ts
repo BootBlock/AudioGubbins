@@ -9,10 +9,9 @@
  * worker makes for it and reads with credit (`credited-stream-port.ts`), so no
  * sample passes through the page; where the codec worker ends a decode on the
  * link alone, before or while its stream runs, the stream is ended with the
- * same failure, so a reader never waits on a stream that will not come. A
- * file the codec worker cannot read, one the page reads for the worker, and
- * any file where the page joined no codec worker, is refused as not decodable
- * here.
+ * same failure, so a reader never waits on a stream that will not come. A file
+ * the codec worker cannot read, one the page reads for the worker, and any file
+ * where the page joined no codec worker, is refused as not decodable here.
  */
 
 import {

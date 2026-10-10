@@ -3,18 +3,17 @@
  * undo reverses (ADR-0052, ADR-0090, REQ-AUDIO-220, REQ-STOR-025).
  *
  * The file is analysed first (`import-analysis.ts`), so a file in a format no
- * implementation reads, a malformed one, or one the storage has no room for,
- * is refused with the sentence that names why before a byte is stored. A file
- * the read contract reads where it lies is then brought in by copy or by link
- * as the person's setting says, through the media store's own pipeline, and
- * the asset is built from what the reader found: the rate, the layout and the
- * whole frames present, with the file's audio shape, the code its samples are
- * stored in, and its metadata in its provenance (REQ-STOR-166). Any other file
- * is decoded once into a rendition (`decoded-import.ts`). Either way the
- * file's loops and cue points become regions with loops and markers
+ * implementation reads, a malformed one, or one the storage has no room for, is
+ * refused with the sentence that names why before a byte is stored. A file the
+ * read contract reads where it lies is then brought in by copy or by link as
+ * the person's setting says, through the media store's own pipeline, and the
+ * asset is built from what the reader found: the rate, the layout and the whole
+ * frames present, with the file's audio shape, the code its samples are stored
+ * in, and its metadata in its provenance (REQ-STOR-166). Any other file is
+ * decoded once into a rendition (`decoded-import.ts`). Either way the file's
+ * loops and cue points become regions with loops and markers
  * (`import-placements.ts`), added with the asset as one change; the commands
- * are the caller's, since the storage does not depend on the project
- * commands.
+ * are the caller's, since the storage does not depend on the project commands.
  *
  * An import is prepared, everything it stores stored and held, then added, so
  * a batch prepares one file while the one before it is added (ADR-0090). A

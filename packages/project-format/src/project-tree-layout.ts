@@ -6,8 +6,8 @@
  * - `project/settings.json` and `project/track-order.json`: the project's
  *   settings and the order of its tracks.
  * - `project/backup-policy.json`: the project's backup policy.
- * - `project/export-settings.json`: the settings the project was last
- *   exported with, where it has been exported (ADR-0092).
+ * - `project/export-settings.json`: the settings the project was last exported
+ *   with, where it has been exported (ADR-0092).
  * - `project/<list>/<id>.json`: one entity of a list, such as a track at
  *   `project/tracks/<id>.json`.
  * - `project/assets/<id>.source.json`: where an asset's bytes come from and how

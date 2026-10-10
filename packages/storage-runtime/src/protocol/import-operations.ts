@@ -4,9 +4,8 @@
  *
  * The files cross as the page holds them, and the codec worker the page joined
  * to the storage worker analyses and decodes each that needs it, the decoded
- * stream passing from the codec worker to the storage worker over a port of
- * its own.
- * The page names the report the batch is sent on, so it hears the first
+ * stream passing from the codec worker to the storage worker over a port of its
+ * own. The page names the report the batch is sent on, so it hears the first
  * report; each is the batch's job after one file's event, which the page shows
  * as it is, having no machine of its own to keep in step.
  */
@@ -55,8 +54,8 @@ export type ImportOperations = {
    * Imports `files` into the project open under `handle`, one at a time, each
    * copied or linked as `choice` says and decoded by the codec worker where it
    * needs it, reporting on the stream `report` names; answers each file's
-   * outcome once the batch has ended. Called off, the file under way and
-   * every file after it are cancelled, and what was imported before stays.
+   * outcome once the batch has ended. Called off, the file under way and every
+   * file after it are cancelled, and what was imported before stays.
    */
   'imports.run': Operation<
     {

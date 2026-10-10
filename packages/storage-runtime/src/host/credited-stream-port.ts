@@ -4,16 +4,15 @@
  * storage in order, with the credit that keeps the codec worker from running
  * ahead of the writes.
  *
- * The codec worker sends nothing until it is given credit, and each message
- * it sends spends one. The first credit is one, for a decoded stream's
+ * The codec worker sends nothing until it is given credit, and each message it
+ * sends spends one. The first credit is one, for a decoded stream's
  * description, so a file is analysed before a block of it is decoded, and an
- * encoded stream's first bytes alike; once the first message is read, credit
- * is given back as the storage reads, keeping up to a window of messages
- * asked for and not yet read, so the two workers overlap and neither holds
- * more than the window of blocks. A message the protocol does
- * not hold ends the stream as a refusal, and once the stream has ended,
- * refused or been closed, the port is closed and anything arriving is
- * dropped.
+ * encoded stream's first bytes alike; once the first message is read, credit is
+ * given back as the storage reads, keeping up to a window of messages asked for
+ * and not yet read, so the two workers overlap and neither holds more than the
+ * window of blocks. A message the protocol does not hold ends the stream as a
+ * refusal, and once the stream has ended, refused or been closed, the port is
+ * closed and anything arriving is dropped.
  */
 
 import type { DomainFailure, DomainResult } from '@audiogubbins/domain';

@@ -2,11 +2,11 @@
  * A page and a storage worker joined in one test, as the browser joins them:
  * each message is cloned with its transfer list, so a buffer given up is
  * emptied on the sender's side, and arrives on a later task. A file or folder
- * handle clones as the handle it is, as the browser clones one, which a
- * test's stand-in for the browser's class would not, so each is carried
- * across as itself. Every message in
- * either direction is recorded, and a test may send either side anything as if
- * the other had, or report the worker failed or a message unreadable.
+ * handle clones as the handle it is, as the browser clones one, which a test's
+ * stand-in for the browser's class would not, so each is carried across as
+ * itself. Every message in either direction is recorded, and a test may send
+ * either side anything as if the other had, or report the worker failed or a
+ * message unreadable.
  */
 
 import type { PortEndpoint } from '../protocol/port-channel.js';

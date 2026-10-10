@@ -1,7 +1,7 @@
 /**
  * Keeping audio the storage made itself as a 32-bit float WAV file in the media
- * store (ADR-0071, ADR-0090): a recording when it ends, and a decoded
- * rendition of a compressed file.
+ * store (ADR-0071, ADR-0090): a recording when it ends, and a decoded rendition
+ * of a compressed file.
  *
  * The file is the recorded-media header followed by the frames as they stand,
  * already 32-bit floats, little-endian and interleaved in the asset's channel

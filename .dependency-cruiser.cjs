@@ -99,9 +99,8 @@
  * - storage-runtime: the browser host of project storage, its worker, the port
  *   to the page and the page's client (ADR-0022); depends on browser-storage,
  *   capabilities, codec-runtime (the codec worker's protocol), codecs,
- *   commands, diagnostics, domain, history,
- *   import-export, media-store, project-commands, project-format, recording
- *   and storage, and on
+ *   commands, diagnostics, domain, history, import-export, media-store,
+ *   project-commands, project-format, recording and storage, and on
  *   audio-runtime's capture channel reader alone (ADR-0070).
  *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,

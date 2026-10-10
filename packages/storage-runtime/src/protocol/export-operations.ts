@@ -2,16 +2,16 @@
  * What the page asks the storage worker of exports (ADR-0092), and the
  * report the worker sends of an export as it is staged.
  *
- * The codec worker writes an export's encoded file to a port the page hands
- * the storage worker, transferred, so no sample and no byte of it passes
- * through the page; the worker stages it, and delivers it on the page's word
- * to a destination the page chose, whose handle crosses as itself: a save
- * dialog's file, or a folder, with the records of what was exported there
- * before where the page keeps it trusted. Where a name is taken and the rules
- * ask, the worker asks the person through the prompt the page lends and waits
- * for the answer. A download is answered as a file of the staged parts,
- * read where they lie, never copied whole into memory, so its staging stays
- * until the page gives it up.
+ * The codec worker writes an export's encoded file to a port the page hands the
+ * storage worker, transferred, so no sample and no byte of it passes through
+ * the page; the worker stages it, and delivers it on the page's word to a
+ * destination the page chose, whose handle crosses as itself: a save dialog's
+ * file, or a folder, with the records of what was exported there before where
+ * the page keeps it trusted. Where a name is taken and the rules ask, the
+ * worker asks the person through the prompt the page lends and waits for the
+ * answer. A download is answered as a file of the staged parts, read where they
+ * lie, never copied whole into memory, so its staging stays until the page
+ * gives it up.
  */
 
 import type { MetadataPart } from '@audiogubbins/codecs';
