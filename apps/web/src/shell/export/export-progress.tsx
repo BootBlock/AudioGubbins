@@ -105,8 +105,8 @@ export function ExportProgress({
   return (
     <ModalDialog
       open={open}
-      // Neither Escape nor a click outside ends an export: it runs, or waits, until
-      // it ends or the person cancels it.
+      // Neither Escape nor a click outside ends an export: it runs, or waits,
+      // until it ends or the person cancels it.
       onOpenChange={() => undefined}
       title={held ? 'The export is waiting' : 'Exporting'}
       description={

@@ -3,12 +3,11 @@
  * REQ-ARCH-054, REQ-STOR-197): a file a save dialog gave, or a folder, kept
  * trusted or chosen for this export.
  *
- * A folder's collision is decided from its listing at delivery, never
- * assumed (`export-collision.ts`), the person asked where the rules ask. Each
- * destination writes through a sink
- * that replaces the file only when it closes (`createWritable` in the
- * browser), so no destination is ever half written: head, body and tail are
- * streamed from the staging, never held whole.
+ * A folder's collision is decided from its listing at delivery, never assumed
+ * (`export-collision.ts`), the person asked where the rules ask. Each
+ * destination writes through a sink that replaces the file only when it closes
+ * (`createWritable` in the browser), so no destination is ever half written:
+ * head, body and tail are streamed from the staging, never held whole.
  *
  * A delivery refused (permission lost, the name skipped or left unanswered, a
  * write the destination refused) leaves the destination as it was and the
@@ -130,8 +129,9 @@ export type Delivery =
 
 /**
  * Delivers the export staged under `token` to `destination` and records it
- * in the session's project as written by `encoder` (see the module comment). Fails only where the
- * export is no longer staged; every other refusal is a delivery refused.
+ * in the session's project as written by `encoder` (see the module comment).
+ * Fails only where the export is no longer staged; every other refusal is a
+ * delivery refused.
  */
 export async function deliverStaged(
   session: ProjectSession,

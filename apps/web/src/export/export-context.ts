@@ -6,9 +6,9 @@
  * racks and edits included, at the rate and layout its plan gives; a region's
  * is the region's own plan, its slice of the asset with its own processing,
  * so a region is described from its own first frame (`start` is 0) at the
- * rate, layout and length its plan gives, which its processing may change from
- * its asset's. The regions come in the order the asset's view places them,
- * which is the timeline's.
+ * rate, layout and length its plan gives, which its processing may change
+ * from its asset's. The regions come in the order the asset's view places
+ * them, which is the timeline's.
  *
  * The precision a source needs is integer only where the audio heard is the
  * file's own integers: an asset read in place from integer PCM, or from G.711
