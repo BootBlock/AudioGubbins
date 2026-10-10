@@ -4,12 +4,12 @@
  * read field by field before it is believed (REQ-EXEC-136.12), and a request
  * whose signal aborts cancelled in the worker, so it keeps nothing.
  *
- * The worker says what it can do with the codecs once it has probed the
- * browser and been configured, and whenever a module's load changes it; the
- * first such word is also the sign it runs at all. A fault of the worker, its script failing to
- * load or an answer that cannot be read, fails every request it was serving,
- * since any of them may have lost its answer, and cancels each in the worker,
- * so none goes on behind a page that has stopped waiting.
+ * The worker says what it can do with the codecs once it has probed the browser
+ * and been configured, and whenever a module's load changes it; the first such
+ * word is also the sign it runs at all. A fault of the worker, its script
+ * failing to load or an answer that cannot be read, fails every request it was
+ * serving, since any of them may have lost its answer, and cancels each in the
+ * worker, so none goes on behind a page that has stopped waiting.
  */
 
 import type { CodecEnvironment } from '@audiogubbins/codecs';

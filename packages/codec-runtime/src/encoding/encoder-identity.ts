@@ -4,14 +4,14 @@
  * give the same bytes only from the same encoder at the same version, so the
  * record says which one made them.
  *
- * Each version names what it versions, since an export's record keeps one
- * text for it: a library by its own name and release, AudioGubbins' own
- * writers and the codec module's own FLAC encoder by the product's release. The
- * codec module's encoders are the crates `crates/codecs` pins exactly, and a
- * test holds these versions to the pins; the prebuilt encoders are LAME 3.100
- * and libvorbis 1.3.7 (ADR-0091). A browser's encoder is the browser's own,
- * named by its family and major version, all a user-agent may say without
- * identifying a machine.
+ * Each version names what it versions, since an export's record keeps one text
+ * for it: a library by its own name and release, AudioGubbins' own writers and
+ * the codec module's own FLAC encoder by the product's release. The codec
+ * module's encoders are the crates `crates/codecs` pins exactly, and a test
+ * holds these versions to the pins; the prebuilt encoders are LAME 3.100 and
+ * libvorbis 1.3.7 (ADR-0091). A browser's encoder is the browser's own, named
+ * by its family and major version, all a user-agent may say without identifying
+ * a machine.
  */
 
 import type { BrowserFamily } from '@audiogubbins/capabilities';
