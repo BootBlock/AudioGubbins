@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 import type { ButtonTone } from '@audiogubbins/design-system';
 import type { CommandInvocation } from '@audiogubbins/commands';
 
-import type { VoicedOptions } from '../commands/voiced-execution.js';
+import type { VoicedOptions } from '../state/interaction-store.js';
 
 import {
   NotedButton,

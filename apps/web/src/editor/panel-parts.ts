@@ -13,7 +13,7 @@ import type { PeakHost } from '@audiogubbins/waveform';
 
 import type { SpectrogramDsp } from './spectrogram-reports.js';
 import type { SurfaceStores } from './view-sources.js';
-import type { VoicedOptions } from '../commands/voiced-execution.js';
+import type { VoicedOptions } from '../state/interaction-store.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ChosenFiles } from '../state/chosen-files.js';

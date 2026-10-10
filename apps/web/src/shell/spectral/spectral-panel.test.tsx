@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { CommandInvocation } from '@audiogubbins/commands';
 
 import type { ModelGate } from '../../assets/model-gate.js';
-import type { VoicedOptions } from '../../commands/voiced-execution.js';
+import type { VoicedOptions } from '../../state/interaction-store.js';
 import { observable } from '../../state/observable.js';
 import {
   holdPlatformFiles,
