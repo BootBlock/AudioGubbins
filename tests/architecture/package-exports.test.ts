@@ -231,17 +231,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     'The single-stream Opus packet decoder, taken by the conformance run alone (`pnpm test:opus-conformance`), which fetches the vectors on demand and so is no project the suite runs.':
       ['MAX_OPUS_PACKET_FRAMES', 'OpusPacketDecoder'],
-    "The codec worker's protocol ADR-0090 to ADR-0092 give Phase 09, written before the page that starts and configures the worker, the storage worker that asks it to analyse and decode imports, and the export encoders opened through its factory: the messages each way with their reader, the analysis and the encoder factory's shape, and the files, ports and decoder names the messages carry.":
-      [
-        'CodecRequest',
-        'EncoderModuleName',
-        'ExportEncoderServices',
-        'MessagePortLike',
-        'ModuleSource',
-        'OpenExportEncoder',
-        'ToCodecWorker',
-        'ToCodecWorkerKind',
-      ],
+    "The shape of the codec worker's export encoder factory (ADR-0092), which the worker is given and its own thread alone gives it today: a host that opens export encoders of its own, such as a test of the worker, implements it.":
+      ['ExportEncoderServices', 'OpenExportEncoder', 'OpenedExportEncoder'],
   },
   '@audiogubbins/input': {
     'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':

@@ -249,6 +249,8 @@ const PACKAGES = [
       '@audiogubbins/import-export',
       // The browser's codec classes and probes, which capabilities reads and the worker calls.
       '@audiogubbins/capabilities',
+      // The product's release, which names AudioGubbins' own encoders in an export's record.
+      '@audiogubbins/version',
     ],
     devDeps: [],
     external: {},

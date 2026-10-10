@@ -50,10 +50,18 @@ export {
 
 export { readFromCodecWorker } from './worker/codec-worker-message-reading.js';
 
-export { type ExportEncoderServices, type OpenExportEncoder } from './worker/encode-job.js';
+export {
+  type ExportEncoderServices,
+  type OpenExportEncoder,
+  type OpenedExportEncoder,
+} from './worker/encode-job.js';
+
+export { type EncoderIdentity } from './encoding/encoder-identity.js';
 
 export { type FileHandleLike, type FileSource } from './files/file-source.js';
 
 export { type BlobLike } from './files/sync-file-bytes.js';
 
 export { type MessagePortLike } from './streams/stream-port.js';
+
+export { WORK_CANCELLED } from './work-cancelled.js';

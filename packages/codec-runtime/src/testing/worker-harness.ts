@@ -16,7 +16,11 @@ import {
 import type { BlobLike, FileReaderSyncLike } from '../files/sync-file-bytes.js';
 import type { MessagePortLike, PortMessage } from '../streams/stream-port.js';
 import { CodecWorkerCore } from '../worker/codec-worker-core.js';
-import type { FromCodecWorker, ModuleSource } from '../worker/codec-worker-messages.js';
+import type {
+  FromCodecWorker,
+  ModuleSource,
+  ToCodecWorker,
+} from '../worker/codec-worker-messages.js';
 import type { OpenExportEncoder } from '../worker/encode-job.js';
 import { codecModuleBytes } from './codec-module.js';
 
@@ -155,6 +159,98 @@ export async function workerHarness(options: HarnessOptions = {}): Promise<Harne
       posted.flatMap((message) =>
         message.kind === 'progress' && message.request === request ? [message.frames] : [],
       ),
+  };
+}
+
+/**
+ * The codec worker as the page sees it, over the core: what the page posts
+ * reaches the core a turn later and in order, a chosen file read into memory
+ * first, since no test host reads a `Blob` synchronously; and what the core
+ * posts reaches the page's listener a turn later, as a thread's message does.
+ * A test raises a fault of the worker as the browser would.
+ */
+export interface PageWorker {
+  post(message: ToCodecWorker, transfer: readonly unknown[]): void;
+  listen(onMessage: (data: unknown) => void, onFault: (reason: string) => void): void;
+  terminate(): void;
+  /** Every message the page posted, in order. */
+  readonly sent: readonly ToCodecWorker[];
+  /** Whether the page terminated the worker. */
+  readonly terminated: () => boolean;
+  /** Raises a fault of the worker, as its `error` event does. */
+  fault(reason: string): void;
+}
+
+/** The message `message` is once its chosen file, if it names one, is read into memory. */
+async function inMemory(message: ToCodecWorker): Promise<ToCodecWorker> {
+  if (message.kind !== 'analyse' && message.kind !== 'decode') return message;
+  const { file } = message;
+  if (file.kind !== 'file' || !(file.file instanceof Blob)) return message;
+  const bytes = new Uint8Array(await file.file.arrayBuffer());
+  return { ...message, file: { kind: 'file', file: memoryFile(bytes) } };
+}
+
+/** The core, unconfigured, as the page that starts the worker meets it. */
+export function pageWorker(options: Omit<HarnessOptions, 'codecModule'> = {}): PageWorker {
+  const sent: ToCodecWorker[] = [];
+  let hear: (data: unknown) => void = () => undefined;
+  let faulted: (reason: string) => void = () => undefined;
+  let terminated = false;
+  const core = new CodecWorkerCore({
+    post: (message) => {
+      setTimeout(() => {
+        if (!terminated) hear(message);
+      }, 0);
+    },
+    yieldToHost: () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      }),
+    platform: {
+      webAssembly: true,
+      decoding: undefined,
+      encoding: undefined,
+      browser: { name: 'Chrome', majorVersion: '131' },
+      ...options.platform,
+    },
+    probe: () =>
+      Promise.resolve({
+        webAssembly: true,
+        browserDecoders: new Set(),
+        browserEncoders: new Set(),
+        ...options.probes,
+      }),
+    fileReader: MEMORY_READER,
+    openExportEncoder: options.openExportEncoder ?? NO_ENCODER,
+    reportFault: (error) => {
+      faulted(error instanceof Error ? error.message : String(error));
+    },
+  });
+  // Each message is read into memory before the next is handed over, so the
+  // core receives them in the order the page sent them.
+  let delivered = Promise.resolve();
+  return {
+    post: (message) => {
+      sent.push(message);
+      delivered = delivered.then(async () => {
+        const arrived = await inMemory(message);
+        if (!terminated) core.receive(arrived);
+      });
+    },
+    listen: (onMessage, onFault) => {
+      hear = onMessage;
+      faulted = onFault;
+    },
+    terminate: () => {
+      terminated = true;
+    },
+    sent,
+    terminated: () => terminated,
+    fault: (reason) => {
+      setTimeout(() => {
+        faulted(reason);
+      }, 0);
+    },
   };
 }
 

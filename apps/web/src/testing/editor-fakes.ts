@@ -17,6 +17,7 @@ import { NO_PEAK_CACHE } from '../io/stored-peak-cache.js';
 import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
+import { ScriptedCodecs } from './codec-fakes.js';
 import { ReferencePicture, type PicturePlatform } from '../picture/reference-picture.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import { createAssetCatalogue } from '../state/asset-catalogue.js';
@@ -145,12 +146,14 @@ export function fakePicturePlatform(framesAnnounced = false): PicturePlatform & 
 
 /**
  * The editor part of a shell context, over the real stores and a fake picture,
- * whose sound is weighed as where the browser says nothing of its memory.
+ * whose sound is weighed as where the browser says nothing of its memory, at
+ * the channels `codecs` analyses, and the codecs themselves.
  */
 export function fakeEditor(
   storage: StateStorage,
   logger: Logger,
   decode: DecodeSound = () => Promise.resolve('This test decodes no sound.'),
+  codecs: ScriptedCodecs = new ScriptedCodecs(),
 ): Pick<
   ShellContext,
   | 'assets'
@@ -163,6 +166,7 @@ export function fakeEditor(
   | 'chosenFiles'
   | 'clipboard'
   | 'modelGate'
+  | 'codecs'
 > {
   const assets = createAssetCatalogue(testAssets(), logger);
   const picture = new ReferencePicture({ platform: fakePicturePlatform(), logger });
@@ -180,6 +184,7 @@ export function fakeEditor(
     picture,
     pictureSound: new PictureSoundDecoder({
       decode,
+      analyse: (file, signal) => codecs.analyse(file, signal),
       picture,
       catalogue: assets,
       logger,
@@ -189,6 +194,7 @@ export function fakeEditor(
     clipboard: createClipboardStore(),
     // The editor's fakes hold no project, whose entries alone a gate refuses.
     modelGate: observable(OPEN_MODEL_GATE),
+    codecs,
   };
 }
 

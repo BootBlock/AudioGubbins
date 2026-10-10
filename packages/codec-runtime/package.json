@@ -32,7 +32,8 @@
     "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/codecs": "workspace:*",
     "@audiogubbins/import-export": "workspace:*",
-    "@audiogubbins/capabilities": "workspace:*"
+    "@audiogubbins/capabilities": "workspace:*",
+    "@audiogubbins/version": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

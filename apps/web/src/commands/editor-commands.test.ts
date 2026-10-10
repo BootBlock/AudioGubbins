@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   commandId,
@@ -9,10 +9,13 @@ import {
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { StandardLayouts, succeed } from '@audiogubbins/domain';
 import { boundaryAt, pixelOf, samplesWithin } from '@audiogubbins/timeline';
 
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
+import { ScriptedCodecs, decodedAnalysis, type ScriptedAnalysis } from '../testing/codec-fakes.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
+import { PROMPTLY, everythingQueued } from '../testing/waiting.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import type { ShellContext } from './shell-context.js';
 import { shellCommands } from './shell-commands.js';
@@ -279,13 +282,26 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
     return Promise.resolve({ channels: [new Float32Array(480), new Float32Array(480)] });
   };
 
-  /** The picture's sound decoded by `decode`, in a page with `available` bytes to spare. */
-  function soundIn(available: number | undefined): void {
+  /** The codecs the picture's file is analysed by, refusing it unless a test says otherwise. */
+  let codecs = new ScriptedCodecs();
+
+  /**
+   * The picture's sound decoded by `decode`, in a page with `available` bytes
+   * to spare, its file analysed as `analysis` says.
+   */
+  function soundIn(
+    available: number | undefined,
+    analysis?: ScriptedAnalysis,
+    decoder: DecodeSound = decode,
+  ): void {
     asked.length = 0;
+    codecs = new ScriptedCodecs(analysis);
     context = {
       ...context,
+      codecs,
       pictureSound: new PictureSoundDecoder({
-        decode,
+        decode: decoder,
+        analyse: (file, signal) => codecs.analyse(file, signal),
         picture: context.picture,
         catalogue: context.assets,
         logger: createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor'),
@@ -314,9 +330,9 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
     openPicture();
 
     expect(run('picture.extract-sound').kind).toBe('applied');
-    expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
-    await Promise.resolve();
+    await everythingQueued();
 
+    expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
     const { sound } = context.picture.get();
     expect(sound.kind).toBe('decoded');
     expect(sound.kind === 'decoded' && context.assets.find(sound.asset)?.name).toBe(
@@ -324,27 +340,68 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
     );
   });
 
-  it('refuses before reading anything when the sound would need more than the page can spare', () => {
+  it('says why, decoding nothing, when the sound would need more than the page can spare', async () => {
     // Ten seconds in eight channels is 15 MB; a quarter of 40 MB is 10 MB.
     soundIn(40e6);
     openPicture();
 
-    const result = run('picture.extract-sound');
+    expect(run('picture.extract-sound').kind).toBe('applied');
+    await everythingQueued();
 
-    expect(result.kind).toBe('refused');
-    expect(result.kind === 'refused' && result.failures[0].summary).toContain(
-      'This page can spare 10 MB for it.',
+    const { sound } = context.picture.get();
+    expect(sound.kind === 'unavailable' && sound.reason).toContain(
+      'This page can spare 10 MB for it. Its channels are counted at 8',
     );
+    expect(codecs.analysed).toEqual([context.picture.file]);
     expect(asked).toEqual([]);
   });
 
-  it('abandons the sound being extracted when the picture is closed', async () => {
+  it('weighs the sound at the channels the file’s analysis reads', async () => {
+    // Ten seconds in two channels is 3.84 MB, within the 10 MB eight would not fit.
+    soundIn(40e6, () => succeed(decodedAnalysis(StandardLayouts.stereo)));
+    openPicture();
+
+    run('picture.extract-sound');
+    await everythingQueued();
+
+    expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
+    expect(context.picture.get().sound.kind).toBe('decoded');
+  });
+
+  it('abandons the sound being weighed when the picture is closed, decoding nothing', async () => {
     soundIn(undefined);
     openPicture();
+    const { file } = context.picture;
     run('picture.extract-sound');
 
     run('picture.close');
-    await Promise.resolve();
+    await everythingQueued();
+
+    expect(codecs.analysed).toEqual([file]);
+    expect(asked).toEqual([]);
+    expect(context.picture.get().sound).toEqual({ kind: 'none' });
+  });
+
+  it('abandons the sound being decoded when the picture is closed', async () => {
+    // A decoder that answers only once the test lets it, after the close.
+    let answer: () => void = () => undefined;
+    soundIn(undefined, undefined, (file, signal) => {
+      asked.push({ file, signal });
+      return new Promise((resolve) => {
+        answer = () => {
+          resolve({ channels: [new Float32Array(480)] });
+        };
+      });
+    });
+    openPicture();
+    run('picture.extract-sound');
+    await vi.waitFor(() => {
+      expect(asked).toHaveLength(1);
+    }, PROMPTLY);
+
+    run('picture.close');
+    answer();
+    await everythingQueued();
 
     expect(asked[0]?.signal.aborted).toBe(true);
     expect(context.assets.get().assets.map((asset) => asset.name)).not.toContain(

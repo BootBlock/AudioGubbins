@@ -13,6 +13,7 @@ import {
 } from '@audiogubbins/domain';
 import type { DecoderIdentity } from '@audiogubbins/codecs';
 
+import type { EncoderIdentity } from '../encoding/encoder-identity.js';
 import { SourceUnreadable } from '../files/async-file-bytes.js';
 import type { ImportAnalysis } from './codec-worker-messages.js';
 
@@ -20,7 +21,7 @@ import type { ImportAnalysis } from './codec-worker-messages.js';
 export type JobEnd =
   | { readonly kind: 'analysed'; readonly analysis: ImportAnalysis }
   | { readonly kind: 'decoded'; readonly frames: SampleCount; readonly decoder: DecoderIdentity }
-  | { readonly kind: 'encoded'; readonly frames: SampleCount }
+  | { readonly kind: 'encoded'; readonly frames: SampleCount; readonly encoder: EncoderIdentity }
   | { readonly kind: 'failed'; readonly failure: DomainFailure }
   | { readonly kind: 'cancelled' };
 
