@@ -145,6 +145,15 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    `METADATA_READERS` maps wav, rf64, bw64, aiff, aifc, flac, ogg, mp4, mp3 and
    adts; WebM and Matroska have none. Left to S6: Ogg FLAC metadata, which the
    Ogg reader refuses.
+7. **S2b (merged).** The codec module encodes FLAC at every depth from 4 to 32:
+   `flacenc` at 8, 12, 16, 20 and 24 bits, its own encoder (`flac_native`,
+   libFLAC's LPC method and levels) at the rest; at 32 bits stereo
+   decorrelation is off, since the side channel would need 33 bits. The ABI
+   stays at version 1. Matroska and WebM blocks are read by the module after
+   Symphonia reads the tracks; `CodecDelay` applies to every codec and wins over
+   Opus's pre-skip; `DiscardPadding` trims a block's end (positive) or start
+   (negative); `SeekPreRoll` is not read, since a session never seeks. A shift
+   overflow on eight-byte EBML sizes in s2's `leading_bytes.rs` was fixed.
 
 ## Left to do
 
