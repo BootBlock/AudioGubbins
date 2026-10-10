@@ -250,8 +250,11 @@ const PACKAGES = [
       '@audiogubbins/import-export',
     ],
     devDeps: [],
-    external: { 'wasm-media-encoders': '0.7.0' },
-    externalDev: {},
+    external: {},
+    // The prebuilt encoders' modules, read by the tests from the files the
+    // package installs; the application that bundles the codec worker takes
+    // their files by URL, and declares the package where it imports them.
+    externalDev: { 'wasm-media-encoders': '0.7.0' },
   },
   {
     // The audio core that runs on any thread: blocks and sources, the canonical

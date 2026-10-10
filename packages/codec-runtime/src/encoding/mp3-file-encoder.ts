@@ -27,7 +27,7 @@ import { mp3BitRates, type Mp3Encoding } from '@audiogubbins/import-export';
 
 import { unexpressible } from './encoding-failures.js';
 import type { ExportEncoderRequest } from './export-encoder-request.js';
-import { framedWriter } from './framed-file-writer.js';
+import { FramedFileWriter } from './framed-file-writer.js';
 import type { PrebuiltModule } from './prebuilt-encoder.js';
 import { PrebuiltUnits } from './prebuilt-units.js';
 
@@ -102,5 +102,5 @@ export function openMp3Writer(
       inputFrames,
     }),
   );
-  return succeed(framedWriter(units, () => framer, order));
+  return succeed(new FramedFileWriter(units, () => framer, order));
 }

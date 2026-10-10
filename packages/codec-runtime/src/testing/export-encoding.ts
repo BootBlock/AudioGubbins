@@ -24,7 +24,7 @@ import { codecModule } from './codec-module.js';
 import { prebuiltEncoderLoader } from './prebuilt-encoders.js';
 
 /** A rate, which a test knows to be one. */
-export function rate(hertz: number): SampleRate {
+function rate(hertz: number): SampleRate {
   const made = sampleRate(hertz);
   if (!made.ok) throw new Error(made.failures[0].summary);
   return made.value;

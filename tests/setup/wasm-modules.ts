@@ -28,10 +28,11 @@ import type {} from '@audiogubbins/audio-engine/testing';
 import type {} from '@audiogubbins/codec-runtime/testing';
 
 import { buildWasmModules } from '../../tools/build-wasm.mjs';
+import { inRepository } from '../repository.js';
 
 /** Resolves a module as the codec runtime, whose dependency the prebuilt encoders are. */
 const codecRuntimeRequire = createRequire(
-  new URL('../../packages/codec-runtime/package.json', import.meta.url),
+  inRepository('packages', 'codec-runtime', 'package.json'),
 );
 
 export default function setup(project: TestProject): void {

@@ -29,7 +29,7 @@ import type { AacEncoding } from '@audiogubbins/import-export';
 import { browserEncoderFailed, encoderUnavailable } from './encoding-failures.js';
 import type { ExportEncoderRequest } from './export-encoder-request.js';
 import { Float32Planes } from './float32-planes.js';
-import { framedWriter, type UnitEncoder } from './framed-file-writer.js';
+import { FramedFileWriter, type UnitEncoder } from './framed-file-writer.js';
 import type {
   AudioEncoderLike,
   EncodedAudioChunkLike,
@@ -238,5 +238,5 @@ export function openAacWriter(
       metadata: request.metadata,
     });
   };
-  return succeed(framedWriter(units, openFramer, order));
+  return succeed(new FramedFileWriter(units, openFramer, order));
 }

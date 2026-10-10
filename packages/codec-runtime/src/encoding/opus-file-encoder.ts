@@ -22,7 +22,7 @@ import { settingsRefused } from '../codec-status.js';
 import type { OpusEncoder, OpusEncoderSettings } from '../opus-encoder.js';
 import type { ExportEncoderRequest } from './export-encoder-request.js';
 import { Float32Planes } from './float32-planes.js';
-import { framedWriter, type UnitEncoder } from './framed-file-writer.js';
+import { FramedFileWriter, type UnitEncoder } from './framed-file-writer.js';
 
 /** The encoder's name, as the comment header's vendor string states it. */
 const OPUS_VENDOR = 'AudioGubbins';
@@ -98,5 +98,5 @@ export function openOpusWriter(
     encoder.value.release();
     return fail(...framer.failures);
   }
-  return succeed(framedWriter(new OpusUnits(encoder.value), () => framer, order));
+  return succeed(new FramedFileWriter(new OpusUnits(encoder.value), () => framer, order));
 }

@@ -23,7 +23,7 @@ import type { VorbisEncoding } from '@audiogubbins/import-export';
 
 import { unexpressible } from './encoding-failures.js';
 import type { ExportEncoderRequest } from './export-encoder-request.js';
-import { framedWriter } from './framed-file-writer.js';
+import { FramedFileWriter } from './framed-file-writer.js';
 import type { PrebuiltModule } from './prebuilt-encoder.js';
 import { PrebuiltUnits } from './prebuilt-units.js';
 
@@ -52,5 +52,5 @@ export function openVorbisWriter(
   if (!encoder.ok) return encoder;
   const framer = new OggVorbisCommentRewriter(request.metadata);
   const units = new PrebuiltUnits<undefined>(encoder.value, order.length, () => undefined);
-  return succeed(framedWriter(units, () => succeed(framer), order));
+  return succeed(new FramedFileWriter(units, () => succeed(framer), order));
 }

@@ -103,6 +103,96 @@ function lengthDiffers(stated: number, written: number): DomainFailure {
   );
 }
 
+/** What a block came to: written and handed on, or the failures that refuse the channel. */
+type Written = DomainResult<number>;
+
+/** One channel's blocks, written in order. */
+class BlockIntake {
+  readonly #port: MessagePortLike;
+  readonly #writer: AudioFileWriter;
+  readonly #handOn: (body: readonly Uint8Array[]) => Promise<DomainResult<undefined>>;
+  readonly #signal: CancellationSignal | undefined;
+  readonly #arrivals = new Arrivals();
+  #frames = 0;
+
+  constructor(
+    port: MessagePortLike,
+    writer: AudioFileWriter,
+    handOn: (body: readonly Uint8Array[]) => Promise<DomainResult<undefined>>,
+    signal: CancellationSignal | undefined,
+  ) {
+    this.#port = port;
+    this.#writer = writer;
+    this.#handOn = handOn;
+    this.#signal = signal;
+    port.addEventListener('message', (event) => {
+      this.#arrivals.push(readRenderedBlockMessage(event.data));
+    });
+    port.addEventListener('messageerror', () => {
+      this.#arrivals.push(fail(unreceivable));
+    });
+    port.start();
+  }
+
+  async run(): Promise<DomainResult<EncodedRender>> {
+    this.#reply({ kind: BlockReplyKind.Credit, blocks: BLOCKS_AHEAD });
+    try {
+      for (;;) {
+        const arrival = await this.#arrivals.next(this.#signal);
+        if (!arrival.ok) return this.#refused(arrival.failures);
+        const message = arrival.value;
+        switch (message.kind) {
+          case RenderedBlockKind.Block: {
+            const written = await this.#write(message.channels);
+            if (!written.ok) return this.#refused(written.failures);
+            break;
+          }
+          case RenderedBlockKind.End:
+            return await this.#end(message.frames);
+          case RenderedBlockKind.Failed:
+            this.#port.close();
+            return fail(...message.failures);
+        }
+      }
+    } catch (error) {
+      // A cancellation is the export's, and the render is told to stop; any
+      // other throw is a fault in this runtime, raised as itself.
+      if (this.#signal?.aborted === true) this.#refused([cancelled]);
+      throw error;
+    }
+  }
+
+  /** Writes a block and hands its body on, then grants credit for another. */
+  async #write(channels: readonly Float32Array[]): Promise<Written> {
+    const count = channels[0]?.length ?? 0;
+    const body = await this.#writer.write(channels, count, this.#signal);
+    if (!body.ok) return body;
+    const handed = await this.#handOn(body.value);
+    if (!handed.ok) return handed;
+    this.#frames += count;
+    this.#reply({ kind: BlockReplyKind.Credit, blocks: 1 });
+    return succeed(count);
+  }
+
+  /** Finishes the file once the render says it made the frames written. */
+  async #end(stated: number): Promise<DomainResult<EncodedRender>> {
+    this.#port.close();
+    if (stated !== this.#frames) return fail(lengthDiffers(stated, this.#frames));
+    const finished = await this.#writer.finish(this.#signal);
+    return finished.ok ? succeed({ file: finished.value, frames: this.#frames }) : finished;
+  }
+
+  #reply(message: RenderedBlockReply): void {
+    this.#port.postMessage(message, []);
+  }
+
+  #refused(failures: readonly [DomainFailure, ...DomainFailure[]]): DomainResult<never> {
+    this.#reply({ kind: BlockReplyKind.Refused, failures });
+    this.#port.close();
+    return fail(...failures);
+  }
+}
+
 /**
  * Writes the blocks `port` brings to `writer`, handing each block's body
  * bytes to `handOn` before granting credit for another, until the render
@@ -115,55 +205,5 @@ export async function encodeRenderedBlocks(
   handOn: (body: readonly Uint8Array[]) => Promise<DomainResult<undefined>>,
   signal?: CancellationSignal,
 ): Promise<DomainResult<EncodedRender>> {
-  const arrivals = new Arrivals();
-  port.addEventListener('message', (event) => {
-    arrivals.push(readRenderedBlockMessage(event.data));
-  });
-  port.addEventListener('messageerror', () => {
-    arrivals.push(fail(unreceivable));
-  });
-  port.start();
-  const reply = (message: RenderedBlockReply): void => {
-    port.postMessage(message, []);
-  };
-  const refused = (failures: readonly [DomainFailure, ...DomainFailure[]]): DomainResult<never> => {
-    reply({ kind: BlockReplyKind.Refused, failures });
-    port.close();
-    return fail(...failures);
-  };
-  reply({ kind: BlockReplyKind.Credit, blocks: BLOCKS_AHEAD });
-  let frames = 0;
-  try {
-    for (;;) {
-      const arrival = await arrivals.next(signal);
-      if (!arrival.ok) return refused(arrival.failures);
-      const message = arrival.value;
-      switch (message.kind) {
-        case RenderedBlockKind.Block: {
-          const count = message.channels[0]?.length ?? 0;
-          const body = await writer.write(message.channels, count, signal);
-          if (!body.ok) return refused(body.failures);
-          const handed = await handOn(body.value);
-          if (!handed.ok) return refused(handed.failures);
-          frames += count;
-          reply({ kind: BlockReplyKind.Credit, blocks: 1 });
-          break;
-        }
-        case RenderedBlockKind.End: {
-          port.close();
-          if (message.frames !== frames) return fail(lengthDiffers(message.frames, frames));
-          const finished = await writer.finish(signal);
-          return finished.ok ? succeed({ file: finished.value, frames }) : finished;
-        }
-        case RenderedBlockKind.Failed:
-          port.close();
-          return fail(...message.failures);
-      }
-    }
-  } catch (error) {
-    // A cancellation is the export's, and the render is told to stop; any
-    // other throw is a fault in this runtime, raised as itself.
-    if (signal?.aborted === true) refused([cancelled]);
-    throw error;
-  }
+  return await new BlockIntake(port, writer, handOn, signal).run();
 }

@@ -68,6 +68,7 @@ Published paths
   readonly AudioFrameBlock.channels: readonly Float32Array<ArrayBufferLike>[]
   type AvailableAccelerators = { readonly gpu: boolean; }
   const BUILT_IN_NODES: NodeImplementations
+  const BlockReplyKind: { readonly Credit: "credit"; readonly Refused: "refused"; }
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
   const CANONICAL_RESAMPLER_VERSION: 1
@@ -511,6 +512,9 @@ Published paths
   readonly RenderSummary.frames: SampleCount
   readonly RenderSummary.latencyTrimmed: ReadonlyMap<NodeId, SampleCount>
   readonly RenderSummary.conversions: readonly RenderConversion[]
+  const RenderedBlockKind: { readonly Block: "block"; readonly End: "end"; readonly Failed: "failed"; }
+  type RenderedBlockMessage = { readonly kind: typeof RenderedBlockKind.Block; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof RenderedBlockKind.End; readonly frames: SampleCount; } | { readonly kind: typeof RenderedBlockKind.Failed; readonly failures: readonly [DomainFailure, ...DomainFailure[]]; }
+  type RenderedBlockReply = { readonly kind: typeof BlockReplyKind.Credit; readonly blocks: number; } | { readonly kind: typeof BlockReplyKind.Refused; readonly failures: readonly [DomainFailure, ...DomainFailure[]]; }
   interface ResamplerCoefficients
   readonly ResamplerCoefficients.strategy: CoefficientStrategy
   readonly ResamplerCoefficients.tableBytes: number
@@ -653,6 +657,8 @@ Published paths
   function previewPort<TOut>(port: MessagePortLike): PreviewPort<TOut>
   function previewQualityFor(profile: PerformanceProfile): QualityMode
   function rampFrames(sampleRate: SampleRate): number
+  function readRenderedBlockMessage(value: unknown): DomainResult<RenderedBlockMessage>
+  function readRenderedBlockReply(value: unknown): DomainResult<RenderedBlockReply>
   function regionEnd(peaks: Int32Array<ArrayBufferLike>, index: number, count: number, bins: number): number
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
@@ -883,7 +889,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@34085: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@34649: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1131,6 +1137,7 @@ Published paths
   readonly RenderRunOptions.signal?: CancellationSignal
   readonly RenderRunOptions.onProgress?: (progress: RenderProgress) => void
   readonly RenderRunOptions.sinks: ReadonlyMap<NodeId, RenderSink>
+  readonly RenderRunOptions.channels?: ReadonlyMap<NodeId, MessagePort>
   interface RenderWorkerPort
   RenderWorkerPort.postMessage: (message: ToRenderWorker, transfer: Transferable[]) => void
   RenderWorkerPort.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
@@ -1177,7 +1184,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@34085: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@34649: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1564,6 +1571,19 @@ Published paths
   function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
 
 @audiogubbins/codec-runtime
+  interface AudioDataLike
+  AudioDataLike.close: () => void
+  interface AudioEncoderInitLike
+  AudioEncoderInitLike.output: (chunk: EncodedAudioChunkLike, metadata?: EncodedAudioChunkMetadataLike) => void
+  AudioEncoderInitLike.error: (error: DOMException) => void
+  interface AudioEncoderLike
+  readonly AudioEncoderLike.encodeQueueSize: number
+  AudioEncoderLike.configure: (config: AudioEncoderConfig) => void
+  AudioEncoderLike.encode: (data: AudioDataLike) => void
+  AudioEncoderLike.flush: () => Promise<void>
+  AudioEncoderLike.close: () => void
+  AudioEncoderLike.addEventListener: (type: "dequeue", listener: () => void) => void
+  AudioEncoderLike.removeEventListener: (type: "dequeue", listener: () => void) => void
   interface CodecModule
   CodecModule.openDecoder: (source: SyncAudioBytes) => DomainResult<DecoderSession>
   CodecModule.createFlacFrameEncoder: (settings: FlacFrameSettings) => DomainResult<FlacFrameEncoder>
@@ -1574,15 +1594,36 @@ Published paths
   DecoderSession.decode: (into: readonly Float32Array[]) => DomainResult<number>
   DecoderSession.readPacket: () => DomainResult<EncodedPacket | undefined>
   DecoderSession.release: () => void
+  interface EncodedAudioChunkLike
+  readonly EncodedAudioChunkLike.timestamp: number
+  readonly EncodedAudioChunkLike.byteLength: number
+  EncodedAudioChunkLike.copyTo: (destination: Uint8Array) => void
+  interface EncodedAudioChunkMetadataLike
+  readonly EncodedAudioChunkMetadataLike.decoderConfig?: { readonly description?: AllowSharedBufferSource; }
   interface EncodedPacket
   readonly EncodedPacket.data: Uint8Array<ArrayBufferLike>
   readonly EncodedPacket.frames: number
+  interface EncodedRender
+  readonly EncodedRender.file: FinishedAudioFile
+  readonly EncodedRender.frames: number
+  interface ExportEncoderRequest
+  readonly ExportEncoderRequest.encoding: FormatEncoding
+  readonly ExportEncoderRequest.sampleRate: SampleRate
+  readonly ExportEncoderRequest.sourceRate: SampleRate
+  readonly ExportEncoderRequest.layout: ChannelLayout
+  readonly ExportEncoderRequest.metadata: MetadataMap
+  readonly ExportEncoderRequest.dither: DitherSettings
+  readonly ExportEncoderRequest.ditherKey: number
+  interface ExportEncoderServices
+  readonly ExportEncoderServices.codecModule: (signal?: CancellationSignal) => Promise<DomainResult<CodecModule>>
+  readonly ExportEncoderServices.prebuiltEncoder: (name: PrebuiltEncoderName, signal?: CancellationSignal) => Promise<DomainResult<WebAssemblyCode>>
+  readonly ExportEncoderServices.webCodecs: WebCodecsAudioEncoding | undefined
   interface FlacFrameEncoder
   FlacFrameEncoder.encodeFrame: (planes: readonly Int32Array[], frameNumber: number) => DomainResult<Uint8Array>
   FlacFrameEncoder.release: () => void
   interface FlacFrameSettings
   readonly FlacFrameSettings.channels: number
-  readonly FlacFrameSettings.bitsPerSample: 12 | 16 | 20 | 24 | 8
+  readonly FlacFrameSettings.bitsPerSample: number
   readonly FlacFrameSettings.sampleRate: number
   readonly FlacFrameSettings.blockSize: number
   readonly FlacFrameSettings.level: number
@@ -1612,6 +1653,7 @@ Published paths
   OpusPacketDecoder.finalRange: () => number
   OpusPacketDecoder.release: () => void
   type OpusRateControl = "constant" | "constrained-variable" | "variable"
+  type PrebuiltEncoderName = "lame" | "libvorbis"
   type StatedLayout = { readonly kind: "ambisonic"; readonly order: number; } | { readonly kind: "speakers"; readonly mask: number; } | { readonly kind: "unstated"; }
   interface StreamDescription
   readonly StreamDescription.codec: CodecId
@@ -1626,12 +1668,20 @@ Published paths
   readonly StreamDescription.bitsPerSample: number | undefined
   readonly StreamDescription.decodable: boolean
   readonly StreamDescription.codecConfig: Uint8Array<ArrayBufferLike>
+  type WebAssemblyCode = BufferSource | WebAssembly.Module
+  interface WebCodecsAudioEncoding
+  readonly WebCodecsAudioEncoding.AudioEncoder: new (init: AudioEncoderInitLike) => AudioEncoderLike
+  readonly WebCodecsAudioEncoding.AudioData: new (init: AudioDataInit) => AudioDataLike
+  function encodeRenderedBlocks(port: MessagePortLike, writer: AudioFileWriter, handOn: (body: readonly Uint8Array[]) => Promise<DomainResult<undefined>>, signal?: CancellationSignal | undefined): Promise<DomainResult<EncodedRender>>
   function instantiateCodecModule(code: BufferSource | WebAssembly.Module): Promise<DomainResult<CodecModule>>
+  function openExportEncoder(request: ExportEncoderRequest, services: ExportEncoderServices, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioFileWriter>>
 
 @audiogubbins/codec-runtime/testing
   function codecModule(): Promise<CodecModule>
   function codecModuleBytes(): Uint8Array<ArrayBuffer>
   function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, reads?: number[] | undefined): SyncAudioBytes
+  function prebuiltEncoderBytes(name: PrebuiltEncoderName): Uint8Array<ArrayBuffer>
+  function prebuiltEncoderLoader(): (name: PrebuiltEncoderName) => Promise<DomainResult<WebAssemblyCode>>
 
 @audiogubbins/codecs
   type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; readonly byteOrder: "big" | "little"; }
@@ -1645,7 +1695,7 @@ Published paths
   readonly AudioBytes.size: number
   AudioBytes.read: (offset: number, length: number, signal?: CancellationSignal) => Promise<Uint8Array>
   interface AudioFileWriter
-  AudioFileWriter.write: (channels: readonly Float32Array[], frames: number, signal?: CancellationSignal) => Promise<DomainResult<readonly Uint8Array[]>>
+  AudioFileWriter.write: (channels: readonly SamplePlane[], frames: number, signal?: CancellationSignal) => Promise<DomainResult<readonly Uint8Array[]>>
   AudioFileWriter.finish: (signal?: CancellationSignal) => Promise<DomainResult<FinishedAudioFile>>
   interface AudioFormatDescriptor
   readonly AudioFormatDescriptor.container: ReadableContainer
@@ -1905,6 +1955,7 @@ Published paths
   readonly RecordedWavHeader.dataLength: number
   readonly RecordedWavHeader.fileLength: number
   type SampleEncoding = FloatSampleEncoding | G711SampleEncoding | ImaAdpcmEncoding | IntegerSampleEncoding | MsAdpcmEncoding
+  type SamplePlane = Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>
   type SampleRateSupport = { readonly kind: "any"; readonly minimum: number; readonly maximum: number; } | { readonly kind: "listed"; readonly rates: readonly number[]; }
   interface SamplerTuning
   readonly SamplerTuning.unityNote: number
@@ -1920,6 +1971,7 @@ Published paths
   readonly WavWriterSettings.layout: ChannelLayout
   readonly WavWriterSettings.sampleFormat: WavSampleFormat
   readonly WavWriterSettings.metadata: MetadataMap
+  type WrittenChannelOrder = readonly number[]
   function codecCapability(environment: CodecEnvironment, codec: CodecId, use: CodecUse): CodecCapability
   function codecDescriptor(id: CodecId): CodecDescriptor
   function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
@@ -1927,9 +1979,11 @@ Published paths
   function importRoute(format: RecognisedFormat): ImportRoute
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
   function quantiseSample(value: number, bits: number): number
+  function readOpusHead(bytes: Uint8Array<ArrayBufferLike>): DomainResult<OpusHeadSettings>
   function recogniseAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<RecognisedFormat>>
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
+  function writtenChannelOrder(codec: CodecId, container: ContainerId, layout: ChannelLayout): DomainResult<WrittenChannelOrder>
 
 @audiogubbins/codecs/testing
   interface AiffOptions
@@ -2004,7 +2058,7 @@ Published paths
   function writeAiff(options: AiffOptions): Uint8Array<ArrayBufferLike>
   function writeCompressedWav(options: CompressedWavOptions): Uint8Array<ArrayBufferLike>
   function writeWav(options: WavOptions): Uint8Array<ArrayBufferLike>
-  function writeWhole(writer: AudioFileWriter, channels: readonly Float32Array<ArrayBufferLike>[], block?: number): Promise<WrittenFile>
+  function writeWhole(writer: AudioFileWriter, channels: readonly SamplePlane[], block?: number): Promise<WrittenFile>
 
 @audiogubbins/commands
   const AVAILABLE: CommandAvailability
@@ -3759,6 +3813,8 @@ Published paths
   interface FloatPcm
   readonly FloatPcm.kind: "float"
   readonly FloatPcm.bits: 32 | 64
+  type FormatEncoding = { readonly format: "aac"; readonly encoding: AacEncoding; } | { readonly format: "aifc"; readonly encoding: AifcEncoding; } | { readonly format: "aiff"; readonly encoding: IntegerPcm; } | { readonly format: "flac"; readonly encoding: FlacEncoding; } | { readonly format: "mp3"; readonly encoding: Mp3Encoding; } | { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; } | { readonly format: "opus"; readonly encoding: OpusEncoding; } | { readonly format: "wav"; readonly encoding: WavEncoding; }
+  type FormatEncodingOf<F extends ExportFormat> = FormatEncodingByFormat[F]
   interface FormatEncodings
   readonly FormatEncodings.wav: WavEncoding
   readonly FormatEncodings.aiff: IntegerPcm
@@ -3823,8 +3879,8 @@ Published paths
   readonly Quantiser.#coefficients: Float64Array<ArrayBufferLike>
   readonly Quantiser.#errors: readonly Float64Array<ArrayBufferLike>[]
   Quantiser.#frame: number
-  Quantiser.quantise: (input: readonly Float32Array[], frames: number, output: readonly (Float32Array | Float64Array)[]) => void
-  Quantiser.#channel: (channel: number, from: Float32Array, to: Float32Array | Float64Array, errors: Float64Array, frames: number) => void
+  Quantiser.quantise: (input: readonly SamplePlane[], frames: number, output: readonly SamplePlane[]) => void
+  Quantiser.#channel: (channel: number, from: SamplePlane, to: SamplePlane, errors: Float64Array, frames: number) => void
   interface QuantiserSettings
   readonly QuantiserSettings.bits: number
   readonly QuantiserSettings.dither: DitherSettings
@@ -3849,10 +3905,11 @@ Published paths
   function defaultExportSettings<F extends ExportFormat>(format: F, context: ExportContext): SettingsByFormat[F]
   function exportBatch(jobs: readonly ExportJob[]): ExportBatch
   function exportMetadata(project: MetadataMap, region: MetadataMap | undefined, settings: MetadataSettings, rates: MetadataRates): DomainResult<MetadataMap>
-  function exportTarget(settings: ExportSettings): ExportTarget
+  function exportTarget(settings: FormatEncoding): ExportTarget
   function formatName(format: ExportFormat): string
   function importJob(files: readonly ImportFile[]): ImportJob
   function importProgress(job: ImportJob): ImportProgress
+  function mp3BitRates(sampleRate: SampleRate): readonly number[]
   function nextExportBatch(batch: ExportBatch, jobId: string, event: ExportJobEvent): DomainResult<ExportBatch>
   function nextExportJob(job: ExportJob, event: ExportJobEvent): DomainResult<ExportJob>
   function nextImportJob(job: ImportJob, index: number, event: ImportFileEvent): DomainResult<ImportJob>
@@ -7483,7 +7540,7 @@ packages/audio-runtime/src/protocol/processor-messages.ts
   type ToProcessor = { readonly kind: typeof ToProcessorKind.Halt; } | { readonly kind: typeof ToProcessorKind.Load; readonly graph: GraphDescriptor; readonly dsp: DspDelivery<Uint8Array<ArrayBuffer>>; readonly feeds: readonly FeedBinding[]; readonly reportEveryBlocks: number; readonly feeder: MessagePort | undefined; } | { readonly kind: typeof ToProcessorKind.SetParameter; readonly node: NodeId; readonly name: string; readonly value: number; } | { readonly kind: typeof ToProcessorKind.Start; readonly run: number; readonly epoch: number; readonly from: number; }
 
 packages/audio-runtime/src/protocol/render-messages.ts
-  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly quality: QualityMode; readonly sources: readonly SourceDescription[]; readonly coefficientBudgetBytes: number | undefined; readonly dsp: DspDelivery<WebAssembly.Module>; }
+  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly quality: QualityMode; readonly sources: readonly SourceDescription[]; readonly coefficientBudgetBytes: number | undefined; readonly dsp: DspDelivery<WebAssembly.Module>; readonly channels: readonly (readonly [NodeId, MessagePortLike])[]; }
 
 packages/audio-runtime/src/render/worker-render.ts
   interface RenderWorkerEvents
@@ -7759,6 +7816,7 @@ packages/effect-rack/src/chain-graph.ts
   readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
 
 packages/import-export/src/export-settings.ts
+  type FormatEncodingByFormat = { readonly flac: { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
   type SettingsByFormat = { readonly flac: CommonExportSettings & { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: CommonExportSettings & { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: CommonExportSettings & { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: CommonExportSettings & { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: CommonExportSettings & { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: CommonExportSettings & { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: CommonExportSettings & { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
 
 packages/import-export/src/quantiser.ts

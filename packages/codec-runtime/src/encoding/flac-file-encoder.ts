@@ -23,7 +23,7 @@ import type { FlacEncoding } from '@audiogubbins/import-export';
 import type { CodecModule } from '../codec-module.js';
 import type { FlacFrameEncoder } from '../flac-frame-encoder.js';
 import type { ExportEncoderRequest } from './export-encoder-request.js';
-import { framedWriter, type UnitEncoder } from './framed-file-writer.js';
+import { FramedFileWriter, type UnitEncoder } from './framed-file-writer.js';
 
 /** The encoder's name, as the stream's Vorbis comments state it. */
 const FLAC_VENDOR = 'AudioGubbins';
@@ -134,5 +134,5 @@ export function openFlacWriter(
     return fail(...framer.failures);
   }
   const units = new FlacUnits(encoder.value, encoding.bits, channels, blockSize);
-  return succeed(framedWriter(units, () => framer, order));
+  return succeed(new FramedFileWriter(units, () => framer, order));
 }

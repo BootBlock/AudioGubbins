@@ -63,7 +63,7 @@ export function blockProblem(
 }
 
 /** Joins byte arrays in order. */
-export function joined(parts: readonly Uint8Array[]): Uint8Array {
+function joined(parts: readonly Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
   let offset = 0;
   for (const part of parts) {
@@ -73,79 +73,98 @@ export function joined(parts: readonly Uint8Array[]): Uint8Array {
   return out;
 }
 
-/** A writer of `encoder`'s units framed by the framer `openFramer` opens. */
-export function framedWriter<TEnd>(
-  encoder: UnitEncoder<TEnd>,
-  openFramer: () => DomainResult<EncodedStreamWriter<TEnd>>,
-  order: WrittenChannelOrder,
-): AudioFileWriter {
-  let open = true;
-  let framer: EncodedStreamWriter<TEnd> | undefined;
-  const ended = (failures: readonly [DomainFailure, ...DomainFailure[]]): DomainResult<never> => {
-    open = false;
-    encoder.release();
+/** An encoder's units framed into one file, by the framer `openFramer` opens. */
+export class FramedFileWriter<TEnd> implements AudioFileWriter {
+  readonly #encoder: UnitEncoder<TEnd>;
+  readonly #openFramer: () => DomainResult<EncodedStreamWriter<TEnd>>;
+  readonly #order: WrittenChannelOrder;
+  #framer: EncodedStreamWriter<TEnd> | undefined;
+  #open = true;
+
+  constructor(
+    encoder: UnitEncoder<TEnd>,
+    openFramer: () => DomainResult<EncodedStreamWriter<TEnd>>,
+    order: WrittenChannelOrder,
+  ) {
+    this.#encoder = encoder;
+    this.#openFramer = openFramer;
+    this.#order = order;
+  }
+
+  async write(
+    channels: readonly SamplePlane[],
+    frames: number,
+    signal?: CancellationSignal,
+  ): Promise<DomainResult<readonly Uint8Array[]>> {
+    await Promise.resolve();
+    this.#stopIfCancelled(signal);
+    if (!this.#open) return fail(writerEnded());
+    const problem = blockProblem(channels, frames, this.#order.length);
+    if (problem !== undefined) return this.#ended([blockRefused(problem)]);
+    const planes = this.#order.map((index) => channels[index] ?? new Float32Array(frames));
+    const units = await this.#encoder.encode(planes, frames);
+    this.#stopIfCancelled(signal);
+    if (!units.ok) return this.#ended(units.failures);
+    const body = this.#framed(units.value);
+    return body.ok ? body : this.#ended(body.failures);
+  }
+
+  async finish(signal?: CancellationSignal): Promise<DomainResult<FinishedAudioFile>> {
+    await Promise.resolve();
+    this.#stopIfCancelled(signal);
+    if (!this.#open) return fail(writerEnded());
+    const last = await this.#encoder.finish();
+    this.#stopIfCancelled(signal);
+    if (!last.ok) return this.#ended(last.failures);
+    const body = this.#framed(last.value.units);
+    if (!body.ok) return this.#ended(body.failures);
+    const framer = this.#currentFramer();
+    if (!framer.ok) return this.#ended(framer.failures);
+    const finished = framer.value.finish(last.value.end);
+    this.#open = false;
+    this.#encoder.release();
+    if (!finished.ok) return finished;
+    return succeed({
+      head: finished.value.head,
+      tail: joined([...body.value, ...finished.value.body, finished.value.tail]),
+      dropped: finished.value.dropped,
+    });
+  }
+
+  /** Ends the writer with `failures`, releasing the encoder. */
+  #ended(failures: readonly [DomainFailure, ...DomainFailure[]]): DomainResult<never> {
+    this.#open = false;
+    this.#encoder.release();
     return fail(...failures);
-  };
+  }
+
   /** Stops, releasing the encoder, where the signal is cancelled; a cancelled writer takes no more. */
-  const stopIfCancelled = (signal: CancellationSignal | undefined): void => {
-    if (signal?.aborted === true && open) {
-      open = false;
-      encoder.release();
+  #stopIfCancelled(signal: CancellationSignal | undefined): void {
+    if (signal?.aborted === true && this.#open) {
+      this.#open = false;
+      this.#encoder.release();
     }
     throwIfCancelled(signal);
-  };
-  const framed = (units: readonly Uint8Array[]): DomainResult<readonly Uint8Array[]> => {
+  }
+
+  /** The framer, opened the first time it is asked for. */
+  #currentFramer(): DomainResult<EncodedStreamWriter<TEnd>> {
+    if (this.#framer !== undefined) return succeed(this.#framer);
+    const opened = this.#openFramer();
+    if (opened.ok) this.#framer = opened.value;
+    return opened;
+  }
+
+  /** The body bytes `units` complete. */
+  #framed(units: readonly Uint8Array[]): DomainResult<readonly Uint8Array[]> {
     const body: Uint8Array[] = [];
     for (const unit of units) {
-      if (framer === undefined) {
-        const opened = openFramer();
-        if (!opened.ok) return opened;
-        framer = opened.value;
-      }
-      const added = framer.add(unit);
+      const framer = this.#currentFramer();
+      if (!framer.ok) return framer;
+      const added = framer.value.add(unit);
       if (!added.ok) return added;
       body.push(...added.value);
     }
     return succeed(body);
-  };
-  return {
-    write: async (channels, frames, signal) => {
-      await Promise.resolve();
-      stopIfCancelled(signal);
-      if (!open) return fail(writerEnded());
-      const problem = blockProblem(channels, frames, order.length);
-      if (problem !== undefined) return ended([blockRefused(problem)]);
-      const planes = order.map((index) => channels[index] ?? new Float32Array(frames));
-      const units = await encoder.encode(planes, frames);
-      stopIfCancelled(signal);
-      if (!units.ok) return ended(units.failures);
-      const body = framed(units.value);
-      return body.ok ? body : ended(body.failures);
-    },
-    finish: async (signal) => {
-      await Promise.resolve();
-      stopIfCancelled(signal);
-      if (!open) return fail(writerEnded());
-      const last = await encoder.finish();
-      stopIfCancelled(signal);
-      if (!last.ok) return ended(last.failures);
-      const body = framed(last.value.units);
-      if (!body.ok) return ended(body.failures);
-      if (framer === undefined) {
-        const opened = openFramer();
-        if (!opened.ok) return ended(opened.failures);
-        framer = opened.value;
-      }
-      const finished = framer.finish(last.value.end);
-      open = false;
-      encoder.release();
-      if (!finished.ok) return finished;
-      const file: FinishedAudioFile = {
-        head: finished.value.head,
-        tail: joined([...body.value, ...finished.value.body, finished.value.tail]),
-        dropped: finished.value.dropped,
-      };
-      return succeed(file);
-    },
-  };
+  }
 }
