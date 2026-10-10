@@ -122,7 +122,7 @@ describe('the page export (ADR-0092)', () => {
       await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'prompt' }),
     );
 
-    expect(said).toBe('“Loop.wav” is exported.');
+    expect(said).toBe('“Harbour.wav” is exported.');
     const [request] = render.requests;
     const { owner } = audio.asset();
     expect(request?.sources[0]).toMatchObject({
@@ -130,10 +130,10 @@ describe('the page export (ADR-0092)', () => {
       plan: owner.kind === 'project' ? owner.plan : undefined,
     });
     expect(request?.range).toEqual({ start: 0, length: 6 * SECOND });
-    expect(await bytesIn(folder, 'Loop.wav')).toBe(WHOLE_BYTES);
+    expect(await bytesIn(folder, 'Harbour.wav')).toBe(WHOLE_BYTES);
     const [record] = audio.session.getSnapshot().model.exports;
     expect(record?.file).toMatchObject({
-      fileName: 'Loop.wav',
+      fileName: 'Harbour.wav',
       codec: FAKE_ENCODER,
       reproducible: true,
     });
@@ -206,9 +206,9 @@ describe('the page export (ADR-0092)', () => {
     expect(await namesIn(folder)).toEqual([]);
 
     expect(expectSuccess(await control.retry(audio.session, waitingJob(control)))).toBe(
-      '“Loop.wav” is exported.',
+      '“Harbour.wav” is exported.',
     );
-    expect(await bytesIn(folder, 'Loop.wav')).toBe(WHOLE_BYTES);
+    expect(await bytesIn(folder, 'Harbour.wav')).toBe(WHOLE_BYTES);
     expect(render.requests).toHaveLength(1);
   });
 
@@ -216,7 +216,7 @@ describe('the page export (ADR-0092)', () => {
     const audio = await windowWithAudio();
     const { start, render, control } = exportOver(audio);
     const taken = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     const running = start({ kind: 'project' }, { kind: 'folder', handle: taken, policy: 'skip' });
 
@@ -230,9 +230,9 @@ describe('the page export (ADR-0092)', () => {
           policy: 'prompt',
         }),
       ),
-    ).toBe('“Loop.wav” is exported.');
-    expect(await bytesIn(other, 'Loop.wav')).toBe(WHOLE_BYTES);
-    expect(await bytesIn(taken, 'Loop.wav')).toBe(3);
+    ).toBe('“Harbour.wav” is exported.');
+    expect(await bytesIn(other, 'Harbour.wav')).toBe(WHOLE_BYTES);
+    expect(await bytesIn(taken, 'Harbour.wav')).toBe(3);
     expect(render.requests).toHaveLength(1);
   });
 
@@ -305,7 +305,7 @@ describe('the page export (ADR-0092)', () => {
     const audio = await windowWithAudio();
     const { start, control } = exportOver(audio);
     const folder = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     const stop = control.subscribe(() => {
       const state = control.get();
@@ -317,9 +317,9 @@ describe('the page export (ADR-0092)', () => {
     );
     stop();
 
-    expect(said).toMatch(/“Loop\.wav” could not be delivered/u);
+    expect(said).toMatch(/“Harbour.wav” could not be delivered/u);
     expect(control.get().kind).toBe('held');
-    expect(await bytesIn(folder, 'Loop.wav')).toBe(3);
+    expect(await bytesIn(folder, 'Harbour.wav')).toBe(3);
   });
 
   it('keeps nothing of an export cancelled while it renders, and leaves the folder as it was', async () => {
@@ -346,7 +346,7 @@ describe('the page export (ADR-0092)', () => {
     const audio = await windowWithAudio({ world });
     const { start, control } = exportOver(audio);
     const folder = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     expectSuccess(
       await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'skip' }),
@@ -358,7 +358,7 @@ describe('the page export (ADR-0092)', () => {
     await expect.poll(() => control.get().kind).toBe('ended');
     expect(stagedParts(world)).toEqual([]);
     expect(expectFailureCode(await control.retry(audio.session, job))).toBe('export.not-held');
-    expect(await bytesIn(folder, 'Loop.wav')).toBe(3);
+    expect(await bytesIn(folder, 'Harbour.wav')).toBe(3);
   });
 
   it('shows a second export running once the first has ended', async () => {
@@ -383,7 +383,7 @@ describe('the page export (ADR-0092)', () => {
     const audio = await windowWithAudio();
     const { start } = exportOver(audio);
     const folder = new FakeDirectoryHandle('Game sounds', [
-      new FakeFileHandle(new File(['old'], 'Loop.wav')),
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
     ]);
     expectSuccess(
       await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'skip' }),
@@ -400,10 +400,10 @@ describe('the page export (ADR-0092)', () => {
     const { start, downloads } = exportOver(audio);
 
     expect(expectSuccess(await start({ kind: 'project' }, { kind: 'download' }))).toBe(
-      '“Loop.wav” is exported.',
+      '“Harbour.wav” is exported.',
     );
     const [download] = downloads;
-    expect(download?.name).toBe('Loop.wav');
+    expect(download?.name).toBe('Harbour.wav');
     expect(download?.file.size).toBe(WHOLE_BYTES);
     expect(download?.file.type).toBe('audio/wav');
     const [record] = audio.session.getSnapshot().model.exports;
@@ -449,9 +449,9 @@ describe('the page export (ADR-0092)', () => {
 
     expectSuccess(await start({ kind: 'project' }, destination));
     expect(expectSuccess(await start({ kind: 'project' }, destination))).toBe(
-      '“Loop.wav” is exported.',
+      '“Harbour.wav” is exported.',
     );
     expect(asked).toEqual([]);
-    expect(await namesIn(folder)).toEqual(['Loop.wav']);
+    expect(await namesIn(folder)).toEqual(['Harbour.wav']);
   });
 });
