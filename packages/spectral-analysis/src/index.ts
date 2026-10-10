@@ -42,6 +42,7 @@ export {
   type SpectrogramEvent,
   type SpectrogramStatus,
   type SpectrogramView,
+  type TileWriting,
 } from './spectrogram-ports.js';
 
 export {

@@ -5191,7 +5191,7 @@ Published paths
   readonly SpectralTile.values: Uint8Array<ArrayBuffer>
   interface SpectralTileCache
   SpectralTileCache.read: (key: SpectralTileKey, signal: CancellationSignal) => Promise<Uint8Array<ArrayBuffer> | undefined>
-  SpectralTileCache.write: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  SpectralTileCache.write: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>, writing: TileWriting) => Promise<void>
   interface SpectralTileKey
   readonly SpectralTileKey.identity: string
   readonly SpectralTileKey.revision: string
@@ -5218,16 +5218,18 @@ Published paths
   SpectrogramHandle.tile: (config: SpectrogramConfig, channel: number, level: number, index: number) => ShownTile | undefined
   SpectrogramHandle.release: () => void
   class SpectrogramHost
-  new SpectrogramHost(options: { readonly createWorker: () => SpectrogramWorkerPort; readonly cache: SpectralTileCache; readonly report: (event: SpectrogramHostEvent) => void; readonly memoryBudget?: number; }): SpectrogramHost
+  new SpectrogramHost(options: { readonly createWorker: () => SpectrogramWorkerPort; readonly cache: SpectralTileCache; readonly report: (event: SpectrogramHostEvent) => void; readonly now: () => number; readonly memoryBudget?: number; }): SpectrogramHost
   readonly SpectrogramHost.#createWorker: () => SpectrogramWorkerPort
   readonly SpectrogramHost.#cache: SpectralTileCache
   readonly SpectrogramHost.#report: (event: SpectrogramHostEvent) => void
   readonly SpectrogramHost.#memory: TileMemory
   readonly SpectrogramHost.#shared: Map<string, Shared>
   readonly SpectrogramHost.#byName: Map<string, SpectrogramJob>
+  readonly SpectrogramHost.#now: () => number
   SpectrogramHost.#worker: SpectrogramWorkerPort | undefined
   SpectrogramHost.#jobs: number
   SpectrogramHost.#requests: number
+  SpectrogramHost.#opened: number
   SpectrogramHost.open: (subject: SpectrogramSubject) => SpectrogramHandle
   SpectrogramHost.#start: (key: string, subject: SpectrogramSubject) => Shared
   SpectrogramHost.#hold: (tile: SpectralTile) => void
@@ -5260,6 +5262,9 @@ Published paths
   interface TileSpan
   readonly TileSpan.start: number
   readonly TileSpan.columns: number
+  interface TileWriting
+  readonly TileWriting.opened: number
+  readonly TileWriting.signal: CancellationSignal
   type ToSpectrogramWorker = { readonly kind: typeof ToSpectrogramWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToSpectrogramWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToSpectrogramWorkerKind.Dsp; readonly delivery: DspDelivery<CompiledModule>; } | { readonly kind: typeof ToSpectrogramWorkerKind.Focus; readonly job: string; readonly centre: number; } | { readonly kind: typeof ToSpectrogramWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly quality: QualityMode; } | { readonly kind: typeof ToSpectrogramWorkerKind.Previews; readonly port: MessagePortLike; } | { readonly kind: typeof ToSpectrogramWorkerKind.Want; readonly job: string; readonly request: number; readonly config: SpectrogramConfig; readonly channel: number; readonly level: number; readonly index: number; readonly cached: Uint8Array<ArrayBuffer> | undefined; }
   const ToSpectrogramWorkerKind: { readonly Dsp: "dsp"; readonly Previews: "previews"; readonly Open: "open"; readonly Focus: "focus"; readonly Want: "want"; readonly Cancel: "cancel"; readonly Close: "close"; }
   function levelDecibels(level: number): number
@@ -7803,6 +7808,7 @@ packages/spectral-analysis/src/spectrogram-job.ts
   readonly JobServices.request: () => number
   readonly JobServices.held: (place: string) => SpectralTile | undefined
   readonly JobServices.hold: (tile: SpectralTile) => void
+  readonly JobServices.opened: number
   class SpectrogramJob
   new SpectrogramJob(name: string, subject: SpectrogramSubject, services: JobServices): SpectrogramJob
   readonly SpectrogramJob.subject: SpectrogramSubject
@@ -7814,6 +7820,7 @@ packages/spectral-analysis/src/spectrogram-job.ts
   readonly SpectrogramJob.#asked: Map<string, Asked>
   readonly SpectrogramJob.#byRequest: Map<number, string>
   readonly SpectrogramJob.#geometries: Map<string, SpectrogramGeometry>
+  readonly SpectrogramJob.#writes: CancellationSource
   SpectrogramJob.#closed: boolean
   SpectrogramJob.status: SpectrogramStatus
   SpectrogramJob.shownPlaces: () => Generator<string>

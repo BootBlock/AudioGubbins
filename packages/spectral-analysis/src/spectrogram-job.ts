@@ -8,10 +8,12 @@
  * then of the worker with whatever the cache held, which the worker checks, and
  * cancels each, in the cache read or in the worker, once no view of the job
  * shows it, so nothing is analysed that no view asks for (ADR-0080). A tile the
- * worker made is kept in the cache, and one the cache refuses is reported and
- * still held in memory.
+ * worker made is kept in the cache, dated by when the job opened and given up
+ * once the job closes, and one the cache refuses is reported and still held in
+ * memory.
  */
 
+import { describedBuffers } from '@audiogubbins/audio-engine';
 import {
   Cancelled,
   FailureKind,
@@ -71,6 +73,8 @@ export interface JobServices {
   readonly held: (place: string) => SpectralTile | undefined;
   /** Holds a tile the worker gave, in place of any other revision's. */
   readonly hold: (tile: SpectralTile) => void;
+  /** When the host opened the job, which dates the tiles it keeps (`TileWriting`). */
+  readonly opened: number;
 }
 
 function messageOf(error: unknown): string {
@@ -90,6 +94,8 @@ export class SpectrogramJob {
   readonly #byRequest = new Map<number, string>();
   /** Each settings' pyramid of the subject, made once for the job's life (G5). */
   readonly #geometries = new Map<string, SpectrogramGeometry>();
+  /** Gives up the tiles still being kept once the job closes. */
+  readonly #writes = createCancellationSource();
   #closed = false;
 
   constructor(name: string, subject: SpectrogramSubject, services: JobServices) {
@@ -120,8 +126,12 @@ export class SpectrogramJob {
     for (const listener of [...this.#listeners]) listener();
   }
 
-  /** Opens the job in the worker. */
+  /**
+   * Opens the job in the worker, moving to it the arrays of a sound held in
+   * memory, which the subject gives for the worker to keep.
+   */
   start(): void {
+    const description = this.subject.describe();
     this.#services.post(
       {
         kind: ToSpectrogramWorkerKind.Open,
@@ -129,10 +139,10 @@ export class SpectrogramJob {
         identity: this.subject.identity,
         revision: this.subject.revision,
         channels: this.subject.channels,
-        description: this.subject.describe(),
+        description,
         quality: this.subject.quality,
       },
-      [],
+      describedBuffers([description]),
     );
   }
 
@@ -284,13 +294,18 @@ export class SpectrogramJob {
     }
     this.#services.hold(decoded.value);
     if (!message.adopted) {
-      this.#services.cache.write(asked.key, message.bytes).catch((error: unknown) => {
-        this.#services.report({
-          kind: 'cache-unwritten',
-          identity: asked.key.identity,
-          reason: messageOf(error),
+      const { signal } = this.#writes;
+      this.#services.cache
+        .write(asked.key, message.bytes, { opened: this.#services.opened, signal })
+        .catch((error: unknown) => {
+          // A write given up as the job closed was not refused.
+          if (signal.aborted) return;
+          this.#services.report({
+            kind: 'cache-unwritten',
+            identity: asked.key.identity,
+            reason: messageOf(error),
+          });
         });
-      });
     }
   }
 
@@ -337,11 +352,15 @@ export class SpectrogramJob {
     this.#byRequest.clear();
   }
 
-  /** Closes the job: the worker releases the sound, and every tile asked for is cancelled. */
+  /**
+   * Closes the job: the worker releases the sound, and every tile asked for,
+   * and every one still being kept, is cancelled.
+   */
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
     this.#cancelAll();
+    this.#writes.cancel(new Cancelled('The spectrogram closed.'));
     this.#views.clear();
     if (this.#status.kind !== 'failed') {
       this.#services.post({ kind: ToSpectrogramWorkerKind.Close, job: this.name }, []);
