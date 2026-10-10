@@ -236,6 +236,13 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/processors',
     '@audiogubbins/ml-runtime',
   ],
+  '@audiogubbins/spectral-analysis': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+    '@audiogubbins/ml-runtime',
+  ],
   '@audiogubbins/detection-runtime': [
     '@audiogubbins/domain',
     '@audiogubbins/audio-engine',
@@ -372,6 +379,7 @@ const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'project-commands',
   'project-format',
   'recording',
+  'spectral-analysis',
   'storage',
   'text',
 ]);
@@ -859,6 +867,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'project-format',
     'recording',
     'renderer',
+    'spectral-analysis',
     'storage',
     'text',
     'timeline',
@@ -2837,6 +2846,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * destroy what they are for.
    */
   const REVIEWED_IN_BAND: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'packages/audio-runtime/src/playback/graph-loader.ts': [
+      301,
+      "The graph in the processor across its life: a load's steps from the checked graph to the processor's answer, an unload, a lost context and the request kept to load again after it, each publishing to the one status. The feeder's link and the request's sources are modules of their own (`feeder-link.ts`, `request-sources.ts`), and the processor it makes is `loaded-processor.ts`; what remains is the one generation every step checks before it acts, which split would let a stale load overtake a newer one. It entered the band when the DSP delivery's type moved to the engine and is imported from there.",
+    ],
     'apps/web/src/recording/input-control.ts': [
       395,
       "The recording session's one driver: arming, disarming and retargeting as the session machine allows, and the opening and closing of the input that keeps it in step with the session. A take's capture, Record, a count-in and Stop, is `take-capture.ts`, which moves the session through the dispatch this hands it; what it reads of the settings and the list of inputs, and what the session does about a change of the permission or the list, an opening and a reopening, is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one, with any check asked before the browser is, is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",

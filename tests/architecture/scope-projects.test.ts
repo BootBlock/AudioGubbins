@@ -29,6 +29,7 @@ const PORTABLE = [
   'packages/recording',
   'packages/video-reference',
   'packages/waveform',
+  'packages/spectral-analysis',
   'packages/processors',
   'packages/effect-rack',
   'packages/ml-runtime',
@@ -71,6 +72,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
     'packages/waveform/src/threads/peak-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
+    'packages/spectral-analysis/src/threads/spectrogram-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },

@@ -313,6 +313,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],
   },
   '@audiogubbins/audio-engine': {
+    "The check of a WebAssembly instance's exports against the DSP ABI, which every thread reaches through `deliveredDsp` (ADR-0080), and the tests of every package that runs the canonical DSP module make their WebAssembly DSP with directly.":
+      ['wasmDsp'],
     "The sources a description makes, which the runtime and the peak worker reach through `describedSource`, and other packages' tests make audio from directly (ADR-0045).":
       ['SignalSettings', 'memorySource', 'signalSource'],
     "The engine's primitives no host in this phase calls yet: the workload estimate and the chunk plan on their own, which the one render this phase runs reaches through the render strategy that composes them (`assessRender`), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":
