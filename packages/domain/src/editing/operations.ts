@@ -22,10 +22,10 @@ import type {
   RegionId,
   TakeStackId,
 } from '../identity/branded-id.js';
-import type { SpectralEdit } from '../spectral/spectral-edit.js';
+import type { PlannedSpectralOperation, SpectralEdit } from '../spectral/spectral-edit.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import type { FadeDirection, FadeShape } from './fades.js';
-import type { EditPlan } from './plan.js';
+import type { EditPlan, StreamProcessing } from './plan.js';
 
 /**
  * A span between two sample boundaries, `start` before `end`.
@@ -214,6 +214,27 @@ export function isLevelEdit(edit: RangeEdit): edit is LevelEdit {
 export function editChain(edit: RangeEdit): EffectChainId | undefined {
   if (edit.kind === 'rack') return edit.chain;
   if (edit.kind === 'spectral' && edit.operation.kind === 'process') return edit.operation.chain;
+  return undefined;
+}
+
+/**
+ * The chain a stream's processing runs, and where it runs it: a `chain`
+ * stream's over the stream's segments as a whole, or a spectral `process`
+ * edit's inside the frames it changes (ADR-0081). The one account of which
+ * streams run a chain, as {@link editChain} is of which edits name one, so
+ * whatever needs a chain's models or follows its parameters finds every chain
+ * a plan runs, and tells by `kind` where it runs.
+ */
+export type StreamChain =
+  | Extract<StreamProcessing, { readonly kind: 'chain' }>
+  | Extract<PlannedSpectralOperation, { readonly kind: 'process' }>;
+
+/** The chain `processing` runs, where it runs one (see {@link StreamChain}). */
+export function streamChain(processing: StreamProcessing | undefined): StreamChain | undefined {
+  if (processing?.kind === 'chain') return processing;
+  if (processing?.kind === 'spectral' && processing.edit.operation.kind === 'process') {
+    return processing.edit.operation;
+  }
   return undefined;
 }
 

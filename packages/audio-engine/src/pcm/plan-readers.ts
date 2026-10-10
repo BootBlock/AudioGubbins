@@ -22,6 +22,7 @@ import {
   findSlot,
   processorsOf,
   sampleCount,
+  streamChain,
   succeed,
   withSlotReplaced,
   type AssetId,
@@ -80,11 +81,6 @@ function streamSource(content: StreamOutput, stream: PlanStream): PcmSource {
   };
 }
 
-/** The chain that processes `stream`, where it has one. */
-function chainOf(stream: PlanStream): EffectChain | undefined {
-  return stream.processing?.kind === 'chain' ? stream.processing.chain : undefined;
-}
-
 /** Whether `chain` runs the processor `change` names. */
 function runs(chain: EffectChain, change: ParameterChange): boolean {
   for (const processor of processorsOf(chain.slots)) {
@@ -141,8 +137,10 @@ export class PlanReaders implements ParameterTarget {
     this.#dsp = dsp;
     this.#processing = processing;
     plan.streams.forEach((stream, place) => {
-      const chain = chainOf(stream);
-      if (chain !== undefined) this.#chains.set(place, chain);
+      // A spectral edit's chain runs inside its frames, so a parameter changed
+      // while it plays is heard once the plan is read again.
+      const run = streamChain(stream.processing);
+      if (run?.kind === 'chain') this.#chains.set(place, run.chain);
     });
   }
 
@@ -242,7 +240,7 @@ export class PlanReaders implements ParameterTarget {
     const stream = this.#streamAt(place);
     const listening = processing.listening({
       chain,
-      input: stream.processing?.kind === 'chain' ? stream.processing.input : stream.layout,
+      input: streamChain(stream.processing)?.input ?? stream.layout,
       sampleRate: stream.sampleRate,
       quality,
     });
