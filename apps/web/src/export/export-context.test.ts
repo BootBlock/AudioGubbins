@@ -25,7 +25,8 @@ describe('what an export of an asset is planned against (ADR-0092)', () => {
     );
 
     expect(context.source).toMatchObject({
-      name: 'Loop',
+      // The project's name, which `{project}` names a file by, not the asset's.
+      name: 'Harbour',
       sampleRate: SECOND,
       layout: StandardLayouts.stereo,
       length: 6 * SECOND,

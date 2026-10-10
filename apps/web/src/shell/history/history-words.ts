@@ -32,7 +32,7 @@ export function describeNode(node: HistoryNode): string {
 const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
   application: 'AudioGubbins',
   'codec-module': 'the codec module',
-  'prebuilt-module': 'its encoder',
+  'encoder-module': 'its encoder module',
   browser: "the browser's encoder",
 };
 
