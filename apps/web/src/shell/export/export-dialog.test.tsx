@@ -99,7 +99,7 @@ describe('the Export dialog', () => {
   it('labels every control, each reached from the keyboard, with every setting disclosed', async () => {
     shown();
     await userEvent.click(screen.getByText('Every setting'));
-    await choose('Dither', 'Triangular');
+    await choose('Kind of dither', 'Triangular');
 
     const dialog = screen.getByRole('dialog', { name: 'Export' });
     const controls = [
@@ -116,7 +116,7 @@ describe('the Export dialog', () => {
       'Bit depth',
       'Sample rate',
       'Channels',
-      'Dither',
+      'Kind of dither',
       'Noise shaping',
       'Carry',
       'Deliver to',

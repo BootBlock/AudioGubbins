@@ -134,7 +134,7 @@ function ChannelControls({ settings, context, onSettings }: CommonControlsProps)
   };
   return (
     <fieldset className="ag-settings-group">
-      <legend>Channels</legend>
+      <legend>Channel layout</legend>
       <ChoiceField
         label="Channels"
         value={channels.kind}
@@ -235,7 +235,7 @@ function DitherControls({ settings, onSettings }: CommonControlsProps): ReactNod
     <fieldset className="ag-settings-group">
       <legend>Dither</legend>
       <ChoiceField
-        label="Dither"
+        label="Kind of dither"
         value={dither.kind}
         choices={DITHER_KINDS}
         onChoose={(kind) => {
@@ -330,9 +330,11 @@ export function RangeControl({
   );
 }
 
-const POLICIES: readonly Choice<MetadataPolicy>[] = (['full', 'minimal', 'none'] as const).map(
-  (value) => ({ value, label: METADATA_POLICY_WORDS[value] }),
-);
+const POLICIES: readonly Choice<MetadataPolicy>[] = [
+  { value: 'full', label: 'Full' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'none', label: 'None' },
+];
 
 const FIELDS: readonly Choice<MetadataTextKey>[] = (
   [
@@ -380,6 +382,7 @@ function MetadataControls({ settings, onSettings }: CommonControlsProps): ReactN
           onSettings({ ...settings, metadata: { ...metadata, policy } });
         }}
       />
+      <p className="ag-settings-note">{`${METADATA_POLICY_WORDS[metadata.policy]}.`}</p>
       <ul className="ag-export-edits" aria-label="Metadata fields set or removed">
         {metadata.edits.map((edit, index) => (
           <li key={edit.key}>
@@ -458,7 +461,7 @@ export function CommonControls(props: CommonControlsProps): ReactNode {
       <DitherControls {...props} />
       <MetadataControls {...props} />
       <fieldset className="ag-settings-group">
-        <legend>File name</legend>
+        <legend>Naming</legend>
         <TextField
           label="File name"
           description="Without its extension. {project}, {region}, {index}, {date} and {format} are filled in; write {{ or }} for a brace."
