@@ -32,7 +32,7 @@ import {
   overRange,
   presetSettingsOver,
   type OfferedPreset,
-} from '../export/export-draft.js';
+} from './export-draft.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectState } from './open-project-store.js';
 

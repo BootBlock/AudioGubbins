@@ -15,172 +15,32 @@ import {
   AVAILABLE,
   CommandCategory,
   unavailable,
+  unchanged,
   type Command,
   type CommandAvailability,
   type CommandInvocation,
-  unchanged,
 } from '@audiogubbins/commands';
-import {
-  derivedSampleCount,
-  isWellFormedId,
-  succeed,
-  unsafeBrandId,
-  type AssetId,
-  type DomainResult,
-} from '@audiogubbins/domain';
-import type { ExportClock, ExportRange } from '@audiogubbins/import-export';
-import { setExportSettingsInvocation } from '@audiogubbins/project-commands';
+import { isWellFormedId, unsafeBrandId, type AssetId } from '@audiogubbins/domain';
+import type { ExportRange } from '@audiogubbins/import-export';
 import { canonicalJson, writeExportSettings } from '@audiogubbins/project-format';
-import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { quoted } from '@audiogubbins/text';
-import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
-import { assetEntryId } from '../assets/project-entry.js';
 import { chooseDestination } from '../export/destination-choice.js';
-import { exportBlockers } from '../export/export-blockers.js';
-import type { ExportDestinationChoice, ExportServices } from '../export/export-types.js';
 import { IMPORT_EXPORT_MENU } from '../import-export-words.js';
-import type { OpenExportDialog } from '../state/export-dialog-store.js';
-import type { ProjectStores } from '../state/project-stores.js';
-import { reasonsOf, type Reasons } from '../state/reasons.js';
 import { ownPresetId, settingsOver } from '../state/stored-export-presets.js';
-import { focusedEditor, selectedTarget } from './editor-target.js';
 import { ExportCommand } from './import-export-ids.js';
-import { readyProjects, sayWhenSettled, sessionOf } from './project-access.js';
-import { onAsset } from './project-edits.js';
-import {
-  availableUnless,
-  report,
-  shellCommand,
-  textArgument,
-  type BodyAnswer,
-} from './shell-command.js';
+import { sayWhenSettled, sessionOf } from './project-access.js';
+import { availableUnless, report, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** Why nothing can be exported where the page offers no export. */
-const NO_EXPORT = 'This browser offers no export here, since it cannot keep projects.';
-
-/** A time range alone: an export of the selection needs one, and never falls back to the whole. */
-const SELECTED_RANGE: TargetRequest = {
-  accepts: new Set<MadeFacet>([SelectionFacet.Time]),
-  whenNothing: 'refuse',
-};
-
-/** The moment `now`, with the offset from UTC this page's clock is set to then, for `{date}`. */
-function exportClockAt(now: number): ExportClock {
-  return {
-    epochMilliseconds: now,
-    utcOffsetMinutes: -new Date(now).getTimezoneOffset(),
-  };
-}
-
-/** What an export from the open project is made with: its stores, the page's export and its session. */
-interface ExportParts {
-  readonly stores: ProjectStores;
-  readonly exports: ExportServices;
-  readonly session: RemoteProjectSession;
-}
-
-/** What an export is made with, or why nothing can be exported now. */
-function exportParts(context: ShellContext): ExportParts | string {
-  const stores = readyProjects(context);
-  if (typeof stores === 'string') return stores;
-  if (context.exports === undefined) return NO_EXPORT;
-  const session = sessionOf(context);
-  if (typeof session === 'string') return session;
-  return { stores, exports: context.exports, session };
-}
-
-/** The asset of the open project the editor last in use shows, a region's asset for a region. */
-function editorProjectAsset(context: ShellContext): { readonly asset: AssetId } | string {
-  const target = focusedEditor(context);
-  if (typeof target === 'string') return target;
-  const { owner } = target.asset;
-  return owner.kind === 'project' ? { asset: owner.asset.id } : owner.reason;
-}
-
-/** What the dialog is opened over: the asset, the range, and the selection it may offer. */
-interface DialogTarget {
-  readonly asset: AssetId;
-  readonly range: ExportRange;
-  readonly selection: Extract<ExportRange, { readonly kind: 'selection' }> | undefined;
-}
-
-/**
- * The selection of the editor last in use as a range of its asset, or why
- * there is none: a view of a region shows the region's slice, so its range
- * is moved on by the region's start.
- */
-function editorSelection(
-  context: ShellContext,
-): Extract<ExportRange, { readonly kind: 'selection' }> | string {
-  const target = focusedEditor(context);
-  if (typeof target === 'string') return target;
-  const { owner } = target.asset;
-  if (owner.kind === 'session') return owner.reason;
-  const selected = selectedTarget(context, target.asset, SELECTED_RANGE);
-  if (typeof selected === 'string') return selected;
-  if (selected.kind !== 'time') return 'Select a range of time to export.';
-  const { start, end } = selected.range;
-  return {
-    kind: 'selection',
-    start: onAsset(owner, start),
-    length: derivedSampleCount(end - start),
-  };
-}
-
-/** The editor's selection, where it has one, as the dialog offers it beside the range it opens with. */
-function offeredSelection(
-  context: ShellContext,
-): Extract<ExportRange, { readonly kind: 'selection' }> | undefined {
-  const selection = editorSelection(context);
-  return typeof selection === 'string' ? undefined : selection;
-}
-
-/** Whether the dialog shows `target` already, as `session`'s project holds it. */
-function showing(
-  shown: ReturnType<ProjectStores['exportDialog']['get']>,
-  session: RemoteProjectSession,
-  target: DialogTarget,
-): boolean {
-  return (
-    shown.kind === 'open' &&
-    shown.project === session.project &&
-    shown.asset === target.asset &&
-    canonicalJson(writeExportSettings({ ...shown.settings, range: target.range })) ===
-      canonicalJson(writeExportSettings(shown.settings))
-  );
-}
-
-/**
- * Opens the Export dialog over `target`, planned against the asset as the
- * project now holds it; or why it cannot open. A dialog showing the target
- * already is left as the person set it.
- */
-function openOver(context: ShellContext, target: DialogTarget): BodyAnswer {
-  const parts = exportParts(context);
-  if (typeof parts === 'string') return parts;
-  const { stores, exports, session } = parts;
-  if (showing(stores.exportDialog.get(), session, target)) {
-    return unchanged('export.dialog-open-already', 'The Export dialog shows this already.');
-  }
-  const editorAsset = context.assets.find(assetEntryId(target.asset));
-  if (editorAsset === undefined) return 'The asset to export is not open in this session yet.';
-  const { state } = session.getSnapshot().model;
-  const planned = exports.contextOf(editorAsset, state);
-  if (!planned.ok) return reasonsOf(planned.failures);
-  stores.exportDialog.open({
-    project: session.project,
-    asset: target.asset,
-    context: planned.value,
-    clock: exportClockAt(context.clock.now()),
-    range: target.range,
-    selection: target.selection,
-    kept: state.exportSettings,
-    dialogs: exports.destinations.dialogs,
-  });
-  return undefined;
-}
+import {
+  editorProjectAsset,
+  editorSelection,
+  exportParts,
+  offeredSelection,
+  openOver,
+} from './export-dialog-opening.js';
+import { openDialog, startable, started } from './export-starting.js';
 
 /** Available where an export can be made now and the editor last in use shows audio of the project. */
 function editorExportAvailability(context: ShellContext): CommandAvailability {
@@ -272,71 +132,6 @@ function selectionAvailability(context: ShellContext): CommandAvailability {
   if (!ready.available) return ready;
   const selection = editorSelection(context);
   return availableUnless(typeof selection === 'string' ? selection : undefined);
-}
-
-/** The open dialog, or why none is. */
-function openDialog(context: ShellContext): OpenExportDialog | string {
-  const shown = context.projects?.exportDialog.get();
-  return shown?.kind === 'open' ? shown : 'The Export dialog is not open.';
-}
-
-/** An export ready to start from the open dialog, or every reason it is not. */
-type Startable =
-  | { readonly kind: 'ready'; readonly dialog: OpenExportDialog; readonly parts: ExportParts }
-  | { readonly kind: 'refused'; readonly reasons: string | Reasons };
-
-function refused(reasons: string | Reasons): Startable {
-  return { kind: 'refused', reasons };
-}
-
-/**
- * The open dialog's export, ready to start, with the page's export and the
- * session; or every reason it cannot start: an export already under way, or
- * what `exportBlockers` finds.
- */
-function startable(context: ShellContext): Startable {
-  const dialog = openDialog(context);
-  if (typeof dialog === 'string') return refused(dialog);
-  const parts = exportParts(context);
-  if (typeof parts === 'string') return refused(parts);
-  if (parts.session.project !== dialog.project) {
-    return refused('The Export dialog is of another project.');
-  }
-  const run = parts.exports.control.get();
-  if (run.kind === 'running') return refused('An export is under way; wait for it, or cancel it.');
-  if (run.kind === 'held') {
-    return refused(
-      'An export waits for a file to be delivered; retry it, deliver it elsewhere, or cancel it.',
-    );
-  }
-  const [first, ...rest] = exportBlockers(dialog, parts.exports);
-  return first === undefined ? { kind: 'ready', dialog, parts } : refused([first, ...rest]);
-}
-
-/**
- * Keeps the dialog's settings as the project's last, a change undo reverses,
- * then starts the export to the destination chosen: the sentence saying what
- * came of it, nothing where the person dismissed the destination's dialog, or
- * why it did not start. The Export dialog shuts once a destination is chosen,
- * and opens again with the settings kept.
- */
-async function started(
-  dialog: OpenExportDialog,
-  parts: ExportParts,
-  destination: Promise<DomainResult<ExportDestinationChoice | undefined>>,
-): Promise<DomainResult<string | undefined>> {
-  const chosen = await destination;
-  if (!chosen.ok) return chosen;
-  const where = chosen.value;
-  if (where === undefined) return succeed(undefined);
-  parts.stores.exportDialog.close();
-  const kept = await parts.session.run(setExportSettingsInvocation(dialog.settings));
-  if (!kept.ok) return kept;
-  return await parts.exports.control.start(parts.session, {
-    asset: dialog.asset,
-    settings: dialog.settings,
-    destination: where,
-  });
 }
 
 function startCommand(): Command<ShellContext> {

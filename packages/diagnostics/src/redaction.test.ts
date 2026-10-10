@@ -902,6 +902,7 @@ describe('credential redaction', () => {
     'storedVersion',
     'text',
     'thisVersion',
+    'unread',
     'worstRatio',
   ];
 

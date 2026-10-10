@@ -112,7 +112,8 @@ export interface ReadPresets {
 
 /**
  * The presets a preferences record keeps, in the order they were saved, each
- * name once and at most `MOST_EXPORT_PRESETS`; none where the record keeps none.
+ * name once and at most `MOST_EXPORT_PRESETS`; none where the record keeps
+ * none.
  */
 export function readOwnPresets(value: JsonValue | undefined): ReadPresets {
   if (value === undefined) return { presets: [], unread: 0 };

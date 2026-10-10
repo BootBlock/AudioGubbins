@@ -3170,6 +3170,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       121,
       'Three methods sharing a private run step and the logger; the largest, running a group, is about 45 lines.',
     ],
+    'apps/web/src/state/project-stores.ts: createProjectStores': [
+      50,
+      "The project system's composition: each store made once with the collaborators it is handed, the follow-ups that tie the open project to its sources, its list and the storage's pressure, and the record of every store; what grows it is one line per store, and each store's own work is a module of its own.",
+    ],
     'apps/web/src/state/shortcut-store.ts: createShortcutStore': [
       151,
       "Small methods over one profile in force, those that change it going through the shared `adopt` and `editable` helpers, and the subscription that places the defaults again as more of the keyboard layout is known. The largest, `editable`, is about a dozen lines. What identifier and name a profile is held under is the command package's, handed every profile the store holds. The profiles the user made are `user-profiles.ts`, and the defaults as placed are `shortcut-layout.ts`. The profiles as stored are `stored-profiles.ts`, and where a text that cannot be read is kept, and whether the profiles are written meanwhile, is `profile-custody.ts`, on the `text-custody.ts` the workspace's custody shares.",
@@ -3201,7 +3205,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      229,
+      236,
       "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [
@@ -3230,7 +3234,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
     'apps/web/src/shell/settings-dialog.tsx: SettingsDialog': [
       82,
-      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, and the project system's tabs, which `projectTabs` builds.",
+      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, the project system's tabs, which `projectTabs` builds, and the Export tab, which `exportTab` builds.",
     ],
     'apps/web/src/shell/settings/appearance.tsx: Appearance': [
       66,

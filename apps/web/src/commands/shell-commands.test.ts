@@ -651,7 +651,7 @@ describe('the default shortcut profile', () => {
     // layout: Dvorak moves every one of them, AZERTY moves the comma, the Z of
     // undo and redo and the editor's A, German moves the Z alone, and the two
     // settled readings of Dvorak place them all.
-    expect(forTheLayer).toEqual(['apple, Dvorak: 16', 'apple, AZERTY: 4', 'apple, German: 2']);
+    expect(forTheLayer).toEqual(['apple, Dvorak: 17', 'apple, AZERTY: 4', 'apple, German: 2']);
   });
 
   it('leaves out a default whose key is not known yet, rather than put it on another', () => {

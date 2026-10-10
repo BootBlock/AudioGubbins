@@ -48,8 +48,6 @@ import {
 } from '@audiogubbins/commands';
 import { keyPress, placeFor, type KeyPress, type KeyboardLayout } from '@audiogubbins/input';
 
-import { ExportCommand } from '../commands/import-export-ids.js';
-
 /** The identifier of the profile AudioGubbins ships with. */
 export const DEFAULT_PROFILE_ID = 'default';
 
@@ -256,8 +254,10 @@ export function placeDefaults(
     },
 
     // Export, behind the prefix: the Export dialog says what it will do before
-    // anything starts, so the chord only opens it.
-    { commandId: commandId(ExportCommand.Audio), shortcut: of(prefix, primaryOn('e')) },
+    // anything starts, so the chord only opens it. Written out, since a store
+    // imports no command module; the File menu's test reads the chord from the
+    // command `ExportCommand.Audio` names, so the two cannot drift apart.
+    { commandId: commandId('file.export-audio'), shortcut: of(prefix, primaryOn('e')) },
 
     // Theme, also behind the prefix: a user switches theme rarely and should
     // not be able to do it by accident while editing.

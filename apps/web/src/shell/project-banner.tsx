@@ -9,10 +9,9 @@
  * it, to hand it over or keep it; a tab that lost a project says who took it
  * and what was lost. A recording the project holds cut short is offered first,
  * to recover or discard. A Quick Edit offers its export (REQ-EDIT-008). Where
- * no project can be opened, it says why. Each
- * action runs a command. A change of how this tab may use the project is said
- * aloud as well as shown, and focus never falls to the page when the button
- * that had it goes.
+ * no project can be opened, it says why. Each action runs a command. A change
+ * of how this tab may use the project is said aloud as well as shown, and focus
+ * never falls to the page when the button that had it goes.
  */
 
 import { useRef, useSyncExternalStore, type ReactNode } from 'react';

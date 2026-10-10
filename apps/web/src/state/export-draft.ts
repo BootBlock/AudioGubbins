@@ -18,7 +18,7 @@ import {
   type ExportSettings,
 } from '@audiogubbins/import-export';
 
-import { settingsOver, type OwnExportPreset } from '../state/stored-export-presets.js';
+import { settingsOver, type OwnExportPreset } from './stored-export-presets.js';
 
 /**
  * The file name each range is named by until the person names it: the

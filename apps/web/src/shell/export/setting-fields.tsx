@@ -12,6 +12,31 @@
 import { useState, type ReactNode } from 'react';
 
 import { OptionSelect, TextField } from '@audiogubbins/design-system';
+import type {
+  ExportContext,
+  ExportFormat,
+  ExportSettings,
+  ExportSettingsOf,
+  FormatEncodings,
+} from '@audiogubbins/import-export';
+
+/** What a group of the dialog's controls is given: the settings, what they are planned against, and how to change them. */
+export interface SettingsProps {
+  readonly settings: ExportSettings;
+  readonly context: ExportContext;
+  readonly onSettings: (settings: ExportSettings) => void;
+}
+
+/** What a format's encoding controls are given: its settings, and how to set its encoding. */
+export interface EncodingProps<F extends ExportFormat> {
+  readonly settings: ExportSettingsOf<F>;
+  readonly onEncoding: (encoding: FormatEncodings[F]) => void;
+}
+
+/** The encoding controls of every format, a row each. */
+export type EncodingRows = {
+  readonly [F in ExportFormat]: (props: EncodingProps<F>) => ReactNode;
+};
 
 /** One value of a choice, and what it is called. */
 export interface Choice<T> {

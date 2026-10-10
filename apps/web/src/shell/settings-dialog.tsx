@@ -110,6 +110,20 @@ function projectTabs(props: SettingsDialogProps) {
   ];
 }
 
+/** The Export tab: the person's own presets, and the trusted folders' section where projects are kept. */
+function exportTab(props: SettingsDialogProps) {
+  return {
+    value: 'export',
+    label: 'Export',
+    content: (
+      <div className="ag-settings-section">
+        <ExportPresetsSection presets={props.preferences.exportPresets} run={props.run} />
+        {props.trustedFolders}
+      </div>
+    ),
+  };
+}
+
 /** The settings dialogue. */
 export function SettingsDialog(props: SettingsDialogProps): ReactNode {
   const { open, onOpenChange, section, onSectionChange } = props;
@@ -162,16 +176,7 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
             ),
           },
           ...projectTabs(props),
-          {
-            value: 'export',
-            label: 'Export',
-            content: (
-              <div className="ag-settings-section">
-                <ExportPresetsSection presets={props.preferences.exportPresets} run={props.run} />
-                {props.trustedFolders}
-              </div>
-            ),
-          },
+          exportTab(props),
           {
             value: 'audio',
             label: 'Audio',
