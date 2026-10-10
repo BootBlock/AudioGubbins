@@ -25,7 +25,7 @@ import { INTS, ModuleBuffer, copyOut } from './module-buffer.js';
 export interface FlacFrameSettings {
   /** Channels, in FLAC's own order, which is the speaker mask's. */
   readonly channels: number;
-  readonly bitsPerSample: 8 | 12 | 16 | 20 | 24;
+  readonly bitsPerSample: number;
   readonly sampleRate: number;
   /** Frames in every block but the last. */
   readonly blockSize: number;

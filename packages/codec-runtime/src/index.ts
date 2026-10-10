@@ -9,6 +9,13 @@
  * application's FLAC writer, and Opus packets with what its Ogg writer needs.
  * Every failure is a `DomainResult` with a stable `codec-runtime.*` code, and
  * every object is released once, by its `release()`.
+ *
+ * `openExportEncoder` opens a planned export file as a writer of the
+ * streaming write contract: WAV, AIFF and AIFF-C by the codecs' writers,
+ * FLAC and Opus by the module, MP3 and Vorbis by the prebuilt LAME and
+ * libvorbis modules, each loaded from its own file, and AAC by the browser's
+ * WebCodecs encoder, each quantised through the export's dither where its
+ * samples are integers.
  */
 
 export { type CodecModule, instantiateCodecModule } from './codec-module.js';
@@ -29,3 +36,21 @@ export {
 } from './opus-encoder.js';
 
 export { MAX_OPUS_PACKET_FRAMES, type OpusPacketDecoder } from './opus-packet-decoder.js';
+
+export {
+  type ExportEncoderRequest,
+  type ExportEncoderServices,
+  type PrebuiltEncoderName,
+  type WebAssemblyCode,
+} from './encoding/export-encoder-request.js';
+
+export {
+  type AudioDataLike,
+  type AudioEncoderInitLike,
+  type AudioEncoderLike,
+  type EncodedAudioChunkLike,
+  type EncodedAudioChunkMetadataLike,
+  type WebCodecsAudioEncoding,
+} from './encoding/webcodecs-port.js';
+
+export { openExportEncoder } from './encoding/open-export-encoder.js';
