@@ -1,8 +1,9 @@
 /**
  * The codec module's AAC-LC decoder on real files: FFmpeg's AAC encoder's
- * output in ADTS and in MP4, mono and stereo (`fixtures/aac-lc/README.md`
- * holds how each was made). Nothing here encodes AAC, so these files are
- * stored rather than made as the test runs.
+ * output in ADTS and in MP4, mono, stereo and every channel configuration
+ * from 3 to 7 (`fixtures/aac-lc/README.md` holds how each was made). Nothing
+ * here encodes AAC, so these files are stored rather than made as the test
+ * runs.
  *
  * Each channel of a file is a sine of its own frequency and level from phase 0,
  * so each decoded channel is held to the tone its speaker was given, sample
@@ -42,8 +43,8 @@ const PACKET_FRAMES = 1_024;
 const EDGE = 2_048;
 
 /**
- * The least each channel keeps of its tone. The quietest channel decodes at
- * about 28 dB; a channel decoded at another speaker's place, or a tone a
+ * The least each channel keeps of its tone. The weakest channel here decodes
+ * at 24 dB; a channel decoded at another speaker's place, or a tone a
  * packet early or late, falls below 8 dB.
  */
 const FLOOR_DB = 18;
@@ -60,6 +61,22 @@ const tone = (level: number, hertz: number): Tone => ({ level, hertz });
 const FL = 0x1;
 const FR = 0x2;
 const FC = 0x4;
+const LFE = 0x8;
+const BL = 0x10;
+const BR = 0x20;
+const FLC = 0x40;
+const FRC = 0x80;
+const BC = 0x100;
+
+/** The tones of 5.1, as FFmpeg's layout gives them: FL FR FC LFE BL BR. */
+const SIX = [
+  tone(0.5, 400),
+  tone(0.4, 600),
+  tone(0.3, 800),
+  tone(0.5, 50),
+  tone(0.25, 1_000),
+  tone(0.2, 1_200),
+] as const;
 
 /** A file and what it must decode to. */
 interface Fixture {
@@ -100,6 +117,51 @@ const FIXTURES_DECODED: readonly Fixture[] = [
     frames: RATE,
     mask: FL | FR,
     tones: [tone(0.5, 440), tone(0.25, 1_000)],
+  },
+  {
+    file: 'aac-lc-3.0.aac',
+    container: 'adts',
+    frames: RATE / 4,
+    mask: FL | FR | FC,
+    tones: SIX.slice(0, 3),
+  },
+  {
+    file: 'aac-lc-4.0.aac',
+    container: 'adts',
+    frames: RATE / 4,
+    mask: FL | FR | FC | BC,
+    tones: [...SIX.slice(0, 3), tone(0.25, 1_000)],
+  },
+  {
+    file: 'aac-lc-5.0.aac',
+    container: 'adts',
+    frames: RATE / 4,
+    mask: FL | FR | FC | BL | BR,
+    tones: [...SIX.slice(0, 3), ...SIX.slice(4)],
+  },
+  {
+    file: 'aac-lc-5.1.aac',
+    container: 'adts',
+    frames: RATE,
+    mask: FL | FR | FC | LFE | BL | BR,
+    tones: SIX,
+  },
+  {
+    file: 'aac-lc-5.1.m4a',
+    container: 'mp4',
+    frames: RATE,
+    mask: FL | FR | FC | LFE | BL | BR,
+    tones: SIX,
+  },
+  {
+    // Configuration 7's second channel pair is the outside-front pair, where
+    // FFmpeg 5.1 put 7.1's side pair (1,400 and 1,600 Hz), and its first the
+    // centre-front pair, where FFmpeg put the front pair (400 and 600 Hz).
+    file: 'aac-lc-7.1.aac',
+    container: 'adts',
+    frames: RATE / 4,
+    mask: FL | FR | FC | LFE | BL | BR | FLC | FRC,
+    tones: [tone(0.2, 1_400), tone(0.2, 1_600), ...SIX.slice(2), tone(0.5, 400), tone(0.4, 600)],
   },
 ];
 

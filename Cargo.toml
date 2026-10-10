@@ -42,7 +42,8 @@ missing_docs = "warn"
 all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 
-# Symphonia's Vorbis decoder at the version the lockfile pins, vendored with
-# two fixes to its multichannel decoding (third_party/symphonia-codec-vorbis/README.md).
+# Symphonia's AAC and Vorbis decoders at the version the lockfile pins, vendored
+# with fixes to their multichannel decoding (each folder's README.md under third_party).
 [patch.crates-io]
+symphonia-codec-aac = { path = "third_party/symphonia-codec-aac/crate" }
 symphonia-codec-vorbis = { path = "third_party/symphonia-codec-vorbis/crate" }

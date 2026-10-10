@@ -19,12 +19,28 @@ encoder's priming of 1,024 frames and the stream's length.
 
 ## Files
 
-| File                | Channels (FFmpeg's layout) | Frames | Bytes  | SHA-256                                                            |
-| ------------------- | -------------------------- | ------ | ------ | ------------------------------------------------------------------ |
-| `aac-lc-mono.aac`   | 1                          | 44,100 | 15,255 | `2cc2a0d8b5c6264790d967d0ba4feec3b030ee2e9ea6793ff8950c50852e267e` |
-| `aac-lc-mono.m4a`   | 1                          | 44,100 | 15,890 | `ec5fd58066df4f131c7ddad28c986fc136ccd41b13330a742fc1c6971486f0f1` |
-| `aac-lc-stereo.aac` | 2                          | 44,100 | 24,969 | `7c325c928d374f061345c73bc3581a4774262240895e85bf2b67bd661de999bc` |
-| `aac-lc-stereo.m4a` | 2                          | 44,100 | 25,604 | `b925b0f5f020a256235b0caf2a5513f73205285a9dcd0da60d5b5110150e2a25` |
+| File                | Channels (FFmpeg's layout)          | Frames | Bytes  | SHA-256                                                            |
+| ------------------- | ----------------------------------- | ------ | ------ | ------------------------------------------------------------------ |
+| `aac-lc-mono.aac`   | 1                                   | 44,100 | 15,255 | `2cc2a0d8b5c6264790d967d0ba4feec3b030ee2e9ea6793ff8950c50852e267e` |
+| `aac-lc-mono.m4a`   | 1                                   | 44,100 | 15,890 | `ec5fd58066df4f131c7ddad28c986fc136ccd41b13330a742fc1c6971486f0f1` |
+| `aac-lc-stereo.aac` | 2                                   | 44,100 | 24,969 | `7c325c928d374f061345c73bc3581a4774262240895e85bf2b67bd661de999bc` |
+| `aac-lc-stereo.m4a` | 2                                   | 44,100 | 25,604 | `b925b0f5f020a256235b0caf2a5513f73205285a9dcd0da60d5b5110150e2a25` |
+| `aac-lc-5.1.aac`    | 6 (`5.1`: FL FR FC LFE BL BR)       | 44,100 | 49,327 | `0b8e02499541f2e4638cb5bea9adb172aa0743a2c61f6e407bc4c2d62979ac8c` |
+| `aac-lc-5.1.m4a`    | 6 (`5.1`)                           | 44,100 | 49,962 | `634ca9b47f3dd2c90985602cc28fce8d58b7b3bdee9fe28c5bacaff67de11869` |
+| `aac-lc-3.0.aac`    | 3 (`3.0`: FL FR FC)                 | 11,025 | 11,188 | `8e155ceaf5fdb417547a72cc2f6b665ac697b708b3d9e58965d58136c5878e45` |
+| `aac-lc-4.0.aac`    | 4 (`4.0`: FL FR FC BC)              | 11,025 | 16,015 | `3fa44a2ff24d323136d76a08329e26d859bd71d30c0c31f87cc06ac365f383cc` |
+| `aac-lc-5.0.aac`    | 5 (`5.0`: FL FR FC BL BR)           | 11,025 | 18,038 | `7a808da47dbb42453e33cda7c61e2e8a70be0dcb857ae9b26a2f7b8261bcff57` |
+| `aac-lc-7.1.aac`    | 8 (`7.1`: FL FR FC LFE BL BR SL SR) | 11,025 | 17,787 | `6997aeade0ea43a88f7dee43f119ef7860d0ccbe2f748600988cd206849b9395` |
+
+Each file states its channels by a channel configuration, not a program
+configuration element: 1 to 6 for one to six channels, and 7 for eight.
+FFmpeg 5.1 codes its `7.1` as configuration 7 with the side pair in the second
+channel pair element and the back pair in the third; ISO/IEC 14496-3 (Table
+1.19) assigns configuration 7's elements to the centre, the left and right
+centre-front pair, the outside-front pair, the surround pair and the
+low-frequency channel. A decoder that follows the standard therefore puts the
+source's front pair at the centre-front speakers and its side pair at the
+front speakers; the test states which tone each speaker carries.
 
 ## Commands
 
@@ -35,10 +51,17 @@ OUT='-c:a aac -fflags +bitexact -flags:a +bitexact -map_metadata -1'
 make() { ffmpeg -hide_banner -loglevel error -y -f lavfi -i "aevalsrc=exprs=$1:s=44100:d=$2:c=$3" $OUT -b:a "$4" "$5"; }
 MONO='0.5*sin(2*PI*440*t)'
 STEREO='0.5*sin(2*PI*440*t)|0.25*sin(2*PI*1000*t)'
+SIX='0.5*sin(2*PI*400*t)|0.4*sin(2*PI*600*t)|0.3*sin(2*PI*800*t)|0.5*sin(2*PI*50*t)|0.25*sin(2*PI*1000*t)|0.2*sin(2*PI*1200*t)'
 make "$MONO" 1 mono 128k aac-lc-mono.aac
 make "$MONO" 1 mono 128k aac-lc-mono.m4a
 make "$STEREO" 1 stereo 192k aac-lc-stereo.aac
 make "$STEREO" 1 stereo 192k aac-lc-stereo.m4a
+make "$SIX" 1 5.1 384k aac-lc-5.1.aac
+make "$SIX" 1 5.1 384k aac-lc-5.1.m4a
+make '0.5*sin(2*PI*400*t)|0.4*sin(2*PI*600*t)|0.3*sin(2*PI*800*t)' 0.25 3.0 384k aac-lc-3.0.aac
+make '0.5*sin(2*PI*400*t)|0.4*sin(2*PI*600*t)|0.3*sin(2*PI*800*t)|0.25*sin(2*PI*1000*t)' 0.25 4.0 512k aac-lc-4.0.aac
+make '0.5*sin(2*PI*400*t)|0.4*sin(2*PI*600*t)|0.3*sin(2*PI*800*t)|0.25*sin(2*PI*1000*t)|0.2*sin(2*PI*1200*t)' 0.25 5.0 640k aac-lc-5.0.aac
+make "$SIX"'|0.2*sin(2*PI*1400*t)|0.2*sin(2*PI*1600*t)' 0.25 7.1 512k aac-lc-7.1.aac
 ```
 
 The same FFmpeg build makes the same bytes from these commands; another build
