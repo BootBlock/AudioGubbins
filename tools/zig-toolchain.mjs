@@ -7,8 +7,9 @@
  * as https://ziglang.org/download/index.json states them, so every machine
  * compiles the modules with the same compiler and the same C library. The
  * archive is downloaded once into `target/toolchains/`, which the ignore rules
- * keep out of the tree, checked against its hash before anything is extracted
- * from it, and extracted by the host's own `tar`: Windows 10 and later ship
+ * keep out of the tree, by the download the pack build uses (the tools' one
+ * way to the network), checked against its length and hash before anything is
+ * extracted from it, and extracted by the host's own `tar`: Windows 10 and later ship
  * bsdtar, which reads the `.zip` Zig publishes for Windows, and every other
  * host's `tar` reads `.tar.xz`. Nothing is fetched when the cache holds it.
  *
@@ -17,10 +18,12 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { digestOf } from './model-packs/file-digest.mjs';
+import { downloadTo } from './model-packs/source-download.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -28,14 +31,15 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const ZIG_VERSION = '0.17.0';
 
 /**
- * Each host's archive of the pinned release and its SHA-256, by Zig's name
- * for the host, as the release's index states them.
+ * Each host's archive of the pinned release, its length and its SHA-256, by
+ * Zig's name for the host, as the release's index states them.
  */
 const ZIG_ARCHIVES = new Map([
   [
     'x86_64-windows',
     {
       file: 'zig-x86_64-windows-0.17.0.zip',
+      bytes: 100268137,
       sha256: 'b5663f69581dcf391293fbf16c06cb80d81d806545ce618b4d0bab7f0eb8c428',
     },
   ],
@@ -43,6 +47,7 @@ const ZIG_ARCHIVES = new Map([
     'aarch64-windows',
     {
       file: 'zig-aarch64-windows-0.17.0.zip',
+      bytes: 95992853,
       sha256: '0a59d91fa1cb40cf068e9b0954434ce973500c7a2ea749f1e01af62cdab52d26',
     },
   ],
@@ -50,6 +55,7 @@ const ZIG_ARCHIVES = new Map([
     'x86_64-linux',
     {
       file: 'zig-x86_64-linux-0.17.0.tar.xz',
+      bytes: 57332648,
       sha256: '1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026',
     },
   ],
@@ -57,6 +63,7 @@ const ZIG_ARCHIVES = new Map([
     'aarch64-linux',
     {
       file: 'zig-aarch64-linux-0.17.0.tar.xz',
+      bytes: 52877280,
       sha256: '9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8',
     },
   ],
@@ -64,6 +71,7 @@ const ZIG_ARCHIVES = new Map([
     'x86_64-macos',
     {
       file: 'zig-x86_64-macos-0.17.0.tar.xz',
+      bytes: 59317572,
       sha256: '4f9a1c5269aa17ebda5e6d3c2b89d6cbf36f7d2b22a0306e9ab98f25f95529c6',
     },
   ],
@@ -71,6 +79,7 @@ const ZIG_ARCHIVES = new Map([
     'aarch64-macos',
     {
       file: 'zig-aarch64-macos-0.17.0.tar.xz',
+      bytes: 53985220,
       sha256: 'b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a',
     },
   ],
@@ -127,22 +136,6 @@ function versionOf(zig) {
 }
 
 /**
- * The archive's bytes, fetched from the release's address.
- *
- * @param {string} file
- * @returns {Promise<Uint8Array>}
- */
-async function download(file) {
-  const response = await fetch(`${ZIG_DOWNLOADS}${file}`);
-  if (!response.ok) {
-    throw new Error(
-      `Zig ${ZIG_VERSION} could not be downloaded from ${ZIG_DOWNLOADS}${file}: HTTP ${String(response.status)}.`,
-    );
-  }
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-/**
  * The `tar` that reads the archive: on Windows the system's own bsdtar, by its
  * full path, since a `tar` earlier on the path, such as Git's, reads no `.zip`.
  */
@@ -156,24 +149,23 @@ function tarCommand() {
  * Downloads, checks and extracts the pinned release for `host` into the cache.
  *
  * @param {string} host
- * @param {{ readonly file: string, readonly sha256: string }} archive
+ * @param {{ readonly file: string, readonly bytes: number, readonly sha256: string }} archive
  */
 async function install(host, archive) {
-  const bytes = await download(archive.file);
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
-  if (sha256 !== archive.sha256) {
-    throw new Error(
-      `The Zig ${ZIG_VERSION} archive for ${host} has SHA-256 ${sha256}, not the pinned ${archive.sha256}; it is not extracted. Download it again, or set ZIG to a Zig ${ZIG_VERSION}.`,
-    );
-  }
   const parent = dirname(ZIG_CACHE);
   mkdirSync(parent, { recursive: true });
-  // Extracted beside the cache and renamed into it, so an interrupted
-  // extraction never leaves a cache that looks whole.
+  // Downloaded and extracted beside the cache and renamed into it, so an
+  // interrupted download or extraction never leaves a cache that looks whole.
   const staging = mkdtempSync(join(parent, `zig-${ZIG_VERSION}-`));
   try {
     const archivePath = join(staging, archive.file);
-    writeFileSync(archivePath, bytes);
+    await downloadTo(`${ZIG_DOWNLOADS}${archive.file}`, archivePath, archive.bytes);
+    const { bytes, sha256 } = await digestOf(archivePath);
+    if (bytes !== archive.bytes || sha256 !== archive.sha256) {
+      throw new Error(
+        `The Zig ${ZIG_VERSION} archive for ${host} has SHA-256 ${sha256}, not the pinned ${archive.sha256}; it is not extracted. Download it again, or set ZIG to a Zig ${ZIG_VERSION}.`,
+      );
+    }
     const extracted = spawnSync(tarCommand(), ['-xf', archivePath, '-C', staging], {
       encoding: 'utf8',
     });
