@@ -36,7 +36,8 @@ import { quoted } from '@audiogubbins/text';
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
 import { assetEntryId } from '../assets/project-entry.js';
-import { chooseDestination, destinationProblem } from '../export/destination-choice.js';
+import { chooseDestination } from '../export/destination-choice.js';
+import { exportBlockers } from '../export/export-blockers.js';
 import type { ExportDestinationChoice, ExportServices } from '../export/export-types.js';
 import { IMPORT_EXPORT_MENU } from '../import-export-words.js';
 import type { OpenExportDialog } from '../state/export-dialog-store.js';
@@ -290,8 +291,8 @@ function refused(reasons: string | Reasons): Startable {
 
 /**
  * The open dialog's export, ready to start, with the page's export and the
- * session; or every reason it cannot start: the settings' own, as the
- * package plans them, the destination's, or an export already under way.
+ * session; or every reason it cannot start: an export already under way, or
+ * what `exportBlockers` finds.
  */
 function startable(context: ShellContext): Startable {
   const dialog = openDialog(context);
@@ -308,13 +309,8 @@ function startable(context: ShellContext): Startable {
       'An export waits for a file to be delivered; retry it, deliver it elsewhere, or cancel it.',
     );
   }
-  if (!dialog.planned.ok) return refused(reasonsOf(dialog.planned.failures));
-  const problem = destinationProblem(
-    dialog.destination,
-    dialog.planned.value,
-    parts.exports.destinations.trusted.get(),
-  );
-  return problem === undefined ? { kind: 'ready', dialog, parts } : refused(problem);
+  const [first, ...rest] = exportBlockers(dialog, parts.exports);
+  return first === undefined ? { kind: 'ready', dialog, parts } : refused([first, ...rest]);
 }
 
 /**

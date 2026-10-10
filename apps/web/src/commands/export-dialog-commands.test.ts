@@ -6,7 +6,7 @@ import { exportBatch } from '@audiogubbins/import-export';
 
 import type { OpenExportDialog } from '../state/export-dialog-store.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
-import { scriptedExport, type ScriptedExport } from '../testing/export-services.js';
+import { LOADED_CODECS, scriptedExport, type ScriptedExport } from '../testing/export-services.js';
 import { ExportCommand } from './import-export-ids.js';
 
 holdPlatformFiles();
@@ -199,6 +199,26 @@ describe('starting the export', () => {
     exporting.run.set({ kind: 'held', batch: exportBatch([]), files: new Map() });
     expect(refusalOf(audio, ExportCommand.Start)).toEqual([
       'An export waits for a file to be delivered; retry it, deliver it elsewhere, or cancel it.',
+    ]);
+  });
+
+  it('refuses a format this browser cannot write, naming those it can', async () => {
+    const exporting = scriptedExport();
+    exporting.environment.set({
+      ...LOADED_CODECS,
+      prebuiltModules: new Map([
+        ['mp3', 'failed'],
+        ['vorbis', 'loaded'],
+      ]),
+    });
+    const audio = await editing(exporting);
+    audio.window.run(ExportCommand.Audio);
+    audio.window.projects.exportDialog.chooseFormat('mp3');
+
+    expect(refusalOf(audio, ExportCommand.Start)).toEqual([
+      expect.stringMatching(
+        /^The MP3 encoder could not be loaded.*can be written here instead\.$/u,
+      ),
     ]);
   });
 
