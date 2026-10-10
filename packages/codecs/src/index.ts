@@ -54,6 +54,7 @@ export {
 } from './recorded-wav.js';
 
 export {
+  type BitRateBand,
   type CodecCapability,
   type CodecCodes,
   type CodecDescriptor,
@@ -63,8 +64,16 @@ export {
   type CodecUse,
   type ContainerId,
   type DecoderIdentity,
+  type NumberRange,
   type SampleRateSupport,
 } from './codec-descriptor.js';
+
+export {
+  type BitRateStream,
+  averageBitRateRanges,
+  constantBitRates,
+  takesAverageBitRate,
+} from './bit-rate-bands.js';
 
 export {
   type BroadcastDescription,
@@ -128,7 +137,7 @@ export { OggOpusWriter, type OggOpusSettings } from './ogg-opus-writer.js';
 
 export { type OpusChannelMapping, type OpusHeadSettings, readOpusHead } from './opus-header.js';
 
-export { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
+export { OggVorbisWriter } from './ogg-vorbis-writer.js';
 
 export { type FlacStreamFormat } from './flac-frame-header.js';
 

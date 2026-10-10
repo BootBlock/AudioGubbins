@@ -114,7 +114,7 @@ describe('the codec worker’s messages', () => {
         readToCodecWorker({
           kind: 'configure',
           codecModule: { kind: 'url', url: 'https://example.com/codecs.wasm' },
-          prebuiltEncoders: {},
+          encoderModules: {},
         }),
       ),
     ).toBe('codecModule.kind');
@@ -131,7 +131,7 @@ describe('the codec worker’s messages', () => {
         environment: {
           webAssembly: true,
           codecModule: 'failed',
-          prebuiltModules: new Map([['mp3', 'loaded']]),
+          encoderModules: new Map([['mp3', 'loaded']]),
           browserDecoders: new Set(['he-aac']),
           browserEncoders: new Set(['aac-lc']),
         },
@@ -187,7 +187,7 @@ describe('the codec worker’s messages', () => {
             ...answers[0],
             webAssembly: true,
             codecModule: 'loaded',
-            prebuiltModules: new Map(),
+            encoderModules: new Map(),
             browserDecoders: new Set(['speex']),
             browserEncoders: new Set(),
           },
@@ -203,7 +203,7 @@ describe('the codec worker’s requests', () => {
     harness.core.receive({
       kind: 'configure',
       codecModule: { kind: 'unavailable', reason: 'Again.' },
-      prebuiltEncoders: {
+      encoderModules: {
         mp3: { kind: 'unavailable', reason: 'Again.' },
         vorbis: { kind: 'unavailable', reason: 'Again.' },
       },

@@ -181,10 +181,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'wavFile',
       ],
   },
-  '@audiogubbins/codecs': {
-    'The registry ADR-0090 gives Phase 09, written before the import and export jobs and the storage that look a codec up by its identifier: the descriptor of each codec.':
-      ['codecDescriptor'],
-  },
   '@audiogubbins/import-export': {
     "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":
       [
@@ -238,11 +234,11 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The codec worker's protocol ADR-0090 to ADR-0092 give Phase 09, written before the page that starts and configures the worker, the storage worker that asks it to analyse and decode imports, and the export encoders opened through its factory: the messages each way with their reader, the analysis and the encoder factory's shape, and the files, ports and decoder names the messages carry.":
       [
         'CodecRequest',
+        'EncoderModuleName',
         'ExportEncoderServices',
         'MessagePortLike',
         'ModuleSource',
         'OpenExportEncoder',
-        'PrebuiltEncoder',
         'ToCodecWorker',
         'ToCodecWorkerKind',
       ],

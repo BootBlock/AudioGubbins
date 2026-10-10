@@ -187,6 +187,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/codecs/src/aiff-common.ts: AIFC_IN_PLACE_CODECS',
       'packages/codecs/src/wave-format.ts: WAVE_IN_PLACE_CODECS',
     ],
+  "The WASI functions the host gives an encoder module, which the encoder modules' test holds each module's imports within, so a new import is seen; the host instantiates a module through `encoderModuleImports`.":
+    ['packages/codec-runtime/src/encoding/encoder-host.ts: ENCODER_MODULE_IMPORTS'],
   'The Ogg page checksum on its own, which its test holds to the published check value of the CRC it is; pages are checksummed through `encodeOggPage` and checked through `readOggPage`.':
     ['packages/codecs/src/ogg-page.ts: oggCrc'],
   'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':

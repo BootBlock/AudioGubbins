@@ -17,6 +17,7 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type {
+  BitRateBand,
   CodecDescriptor,
   CodecDirection,
   CodecId,
@@ -42,8 +43,9 @@ function writer(
   containers: readonly ContainerId[],
   sampleRates: SampleRateSupport,
   maximumChannels: number,
+  bitRates?: readonly BitRateBand[],
 ): CodecDirection {
-  return {
+  const direction: CodecDirection = {
     implementation: 'application',
     containers,
     reproducible: true,
@@ -51,6 +53,34 @@ function writer(
     sampleRates,
     maximumChannels,
   };
+  return bitRates === undefined ? direction : { ...direction, bitRates };
+}
+
+const MPEG1_BIT_RATES = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+const MPEG2_BIT_RATES = [8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+
+/** An MP3 encoder's band: its rates, and its table for a constant or an average bit rate. */
+function mp3Band(minimum: number, maximum: number, rates: readonly number[]): BitRateBand {
+  const average = {
+    minimum: (rates[0] ?? 0) * 1000,
+    maximum: (rates.at(-1) ?? 0) * 1000,
+    per: 'stream',
+  } as const;
+  return { sampleRates: { minimum, maximum }, constant: rates, average };
+}
+
+/** A Vorbis encoder's band of nominal bit rates a channel, for a channel count or any. */
+function vorbisBand(
+  minimum: number,
+  maximum: number,
+  channels: number | undefined,
+  perChannel: readonly [number, number],
+): BitRateBand {
+  const band = {
+    sampleRates: { minimum, maximum },
+    average: { minimum: perChannel[0], maximum: perChannel[1], per: 'channel' },
+  } as const;
+  return channels === undefined ? band : { ...band, channels };
 }
 
 function codec(id: CodecId, name: string, write: CodecDirection | undefined): CodecDescriptor {
@@ -87,6 +117,15 @@ export const TEST_CODECS: ReadonlyMap<CodecId, CodecDescriptor> = new Map([
           rates: [8_000, 11_025, 12_000, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000],
         },
         2,
+        [
+          mp3Band(
+            8_000,
+            12_000,
+            MPEG2_BIT_RATES.filter((rate) => rate <= 64),
+          ),
+          mp3Band(16_000, 24_000, MPEG2_BIT_RATES),
+          mp3Band(32_000, 48_000, MPEG1_BIT_RATES),
+        ],
       ),
     ),
   ],
@@ -95,8 +134,13 @@ export const TEST_CODECS: ReadonlyMap<CodecId, CodecDescriptor> = new Map([
     codec(
       'vorbis',
       'Ogg Vorbis',
-      // The prebuilt libvorbis, as the registry states it, encodes one or two channels.
-      writer(['ogg'], { kind: 'any', minimum: 8_000, maximum: 192_000 }, 2),
+      // Nominal bit rates up to 50 kHz, to 70 kHz for six channels, and none above.
+      writer(['ogg'], { kind: 'any', minimum: 8_000, maximum: 200_000 }, 8, [
+        vorbisBand(40_000, 50_000, 2, [22_500, 250_001]),
+        vorbisBand(40_000, 70_000, 6, [14_000, 240_001]),
+        vorbisBand(40_000, 50_000, undefined, [32_000, 240_001]),
+        vorbisBand(26_000, 40_000, undefined, [30_000, 190_000]),
+      ]),
     ),
   ],
   [

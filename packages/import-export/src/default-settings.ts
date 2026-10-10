@@ -17,10 +17,10 @@
  * or in floating point, where a 24- or 32-bit export dithers only if asked.
  */
 
+import { constantBitRates, type CodecDirection } from '@audiogubbins/codecs';
 import { channelCount, sampleRate, type SampleRate } from '@audiogubbins/domain';
 
 import { acceptsRate } from './codec-checks.js';
-import { mp3BitRates } from './encoding-rules.js';
 import type { ExportContext, SourcePrecision } from './export-context.js';
 import { exportTarget } from './export-formats.js';
 import type {
@@ -34,11 +34,12 @@ import type {
 } from './export-settings.js';
 import { layoutConversion } from './layout-conversion.js';
 
-/** What a format's default encoding is chosen from. */
+/** What a format's default encoding is chosen from: the source, the stream, and the direction that writes it. */
 interface EncodingFacts {
   readonly precision: SourcePrecision;
   readonly sampleRate: SampleRate;
   readonly channels: number;
+  readonly write: CodecDirection | undefined;
 }
 
 const OPUS_HIGHEST_PER_CHANNEL = 255;
@@ -82,7 +83,11 @@ const DEFAULTS: Defaults = {
   mp3: (common, facts) => ({
     ...common,
     format: 'mp3',
-    encoding: { mode: 'constant', bitRate: mp3BitRates(facts.sampleRate).at(-1) ?? 0 },
+    encoding: {
+      mode: 'constant',
+      bitRate:
+        (facts.write === undefined ? undefined : constantBitRates(facts.write, facts)?.at(-1)) ?? 0,
+    },
   }),
   'ogg-vorbis': (common) => ({
     ...common,
@@ -119,6 +124,8 @@ function rateFor(format: ExportFormat, wanted: SampleRate, context: ExportContex
     precision: context.source.precision,
     sampleRate: wanted,
     channels: 1,
+    // The probe asks only which codec the format is, which no bit rate changes.
+    write: undefined,
   });
   const support = context.codecs(exportTarget(probe).codec)?.write?.sampleRates;
   if (support === undefined || acceptsRate(support, wanted)) return wanted;
@@ -157,11 +164,10 @@ export function defaultsFor<F extends ExportFormat>(
   const conversion = asked.channels ?? { kind: 'keep' };
   const converted = layoutConversion(source.layout, conversion);
   const channels = channelCount(converted.ok ? converted.value.to : source.layout);
-  const settings = DEFAULTS[format](commonOf(rate, conversion), {
-    precision: source.precision,
-    sampleRate: rate,
-    channels,
-  });
+  const facts = { precision: source.precision, sampleRate: rate, channels };
+  const probe = DEFAULTS[format](commonOf(rate, conversion), { ...facts, write: undefined });
+  const write = context.codecs(exportTarget(probe).codec)?.write;
+  const settings = DEFAULTS[format](commonOf(rate, conversion), { ...facts, write });
   return { ...settings, dither: defaultDither(exportTarget(settings).depth) };
 }
 

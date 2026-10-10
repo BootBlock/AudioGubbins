@@ -158,7 +158,7 @@ export interface BrowserAudioEncoding {
 
 /** What a scope offers the codecs, read once. */
 export interface CodecPlatform {
-  /** Whether the scope compiles WebAssembly, which the codec module and the prebuilt encoders are. */
+  /** Whether the scope compiles WebAssembly, which the codec module and the encoder modules are. */
   readonly webAssembly: boolean;
   readonly decoding: BrowserAudioDecoding | undefined;
   readonly encoding: BrowserAudioEncoding | undefined;
