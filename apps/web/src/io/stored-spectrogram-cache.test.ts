@@ -36,7 +36,7 @@ function cacheOver() {
     ...client.caches,
     put: async (key, bytes, signal) => {
       await puts.held;
-      return client.caches.put(key, bytes, signal);
+      return await client.caches.put(key, bytes, signal);
     },
     read: async (key, signal) => {
       reads.now += 1;
