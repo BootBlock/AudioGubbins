@@ -1,6 +1,6 @@
 /**
- * The page's codecs for a test that asks them nothing it does not script:
- * an environment where WebAssembly runs and the worker has said nothing, each
+ * The page's codecs for a test that asks them nothing it does not script: an
+ * environment where WebAssembly runs and the worker has said nothing, each
  * file's analysis answered as the test says, and nothing encoded.
  */
 

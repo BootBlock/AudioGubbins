@@ -10,7 +10,7 @@
  * unavailable. The browser's codecs are probed once, at start, and every
  * request waits for the probe, so no request is answered from a guess. The page
  * hears what the worker can do with each codec once it is both probed and
- * configured, so the first word it hears is whole, and whenever a load
+ * configured, so the first word it hears is whole, and again whenever a load
  * changes it.
  *
  * Requests come from the page and from each client the page connects, each
