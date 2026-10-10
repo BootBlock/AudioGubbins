@@ -121,24 +121,19 @@ const CASES: readonly LossyCase[] = [
     floorDb: 31,
   },
   {
-    // At 32 kHz libvorbis codes six channels uncoupled. Its 5.1 setup, from 40
-    // to 70 kHz, couples them in several steps, which the codec module's
-    // decoder (Symphonia 0.6.1) inverts in the wrong order.
-    name: 'Ogg Vorbis in 5.1 at quality 6',
-    encoding: { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 6 } },
-    rate: 32_000,
+    name: 'Ogg Vorbis in 5.1 at a nominal 384 kbit/s, libvorbis’s 5.1 setup',
+    encoding: { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 384 } },
+    rate: 48_000,
     layout: StandardLayouts.surround5_1,
-    floorDb: 34,
+    // libvorbis codes the low-frequency channel coarsely, which bounds the whole.
+    floorDb: 14,
   },
   {
-    // At quality 6 the residue's partitions fill its classwords; where they do
-    // not, the codec module's decoder (Symphonia 0.6.1) overwrites the next
-    // channel's classifications, so this decodes only where they do.
-    name: 'Ogg Vorbis in 7.1 at quality 6',
-    encoding: { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 6 } },
+    name: 'Ogg Vorbis in 7.1 at quality 5',
+    encoding: { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 5 } },
     rate: 48_000,
     layout: StandardLayouts.surround7_1,
-    floorDb: 31,
+    floorDb: 30,
   },
   {
     name: 'Opus at 256 kbit/s',

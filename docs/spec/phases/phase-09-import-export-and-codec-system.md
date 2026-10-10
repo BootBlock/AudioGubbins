@@ -76,7 +76,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 ## In Scope
 
 - [ ] Codec registry/abstraction: `CodecDescriptor`, `CodecCapability`, the registry and its probes (`ADR-0090`)
-- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`): G.711 and ADPCM read in place, every other compressed format as a decoded rendition, the codec module, the prebuilt MP3 and Vorbis encoders, and AAC export by the browser's encoder where probed (`ADR-0090`, `ADR-0091`)
+- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`): G.711 and ADPCM read in place, every other compressed format as a decoded rendition, the codec module, the MP3 and Vorbis encoder modules built from vendored source (`ADR-0091` amended), and AAC export by the browser's encoder where probed (`ADR-0090`, `ADR-0091`)
 - [ ] WAV integer/float bit depths and sample rates for writing: integer 8 to 32 bits, float 32 and 64, G.711 and ADPCM, plain, extensible and RF64, built on Phase 07's writer; AIFF and AIFF-C writing
 - [ ] Multichannel metadata/layout preservation: speaker masks including 7.1 and 7.1.4, ambisonic layouts, `CHAN`, and each codec's channel order (`ADR-0093`)
 - [ ] Metadata/loop metadata: `MetadataMap` and its mapping for every format, in both directions, and the import of loops and cue points as regions and markers (`ADR-0093`)
@@ -101,7 +101,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 
 - `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; Phase 07 adds the recorded-media WAV writer, 32-bit float PCM and RF64, `ADR-0071`; this phase adds its registry, decoders and every other writer, building its WAV writing on Phase 07's, `ADR-0050` amended): the registry, capabilities, in-place compressed readers, `SyncAudioBytes`, the WAV, AIFF and AIFF-C writers, the Ogg, FLAC, MP4 and MP3 framing, and `MetadataMap` with its readers and writers
 - `packages/import-export` (new, portable): `ExportSettings`, `ExportPreset`, `ImportJob`, `ExportJob`, `CollisionPolicy`, dither and quantisation, file naming (`ADR-0092`); the export-recipe core, with no separate package
-- `packages/codec-runtime` (new): the codec worker, the codec module's loader, the prebuilt encoders' loader and the WebCodecs adapters
+- `packages/codec-runtime` (new): the codec worker, the codec module's loader, the encoder modules' loader (`ADR-0091` amended) and the WebCodecs adapters
 - `crates/codecs` and `crates/codec-bindings` (new): the codec module (`ADR-0091`)
 - `packages/storage`, `packages/storage-runtime` and `packages/browser-storage` destination adapters: renditions, export staging, delivery and folder destinations
 - `packages/project-format`: compressed provenance, metadata and the export record's fields; `packages/capabilities`: the codec probes
@@ -162,7 +162,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 
 ### WU-09.B — Common codecs
 
-- [ ] Integrate legal/open-source codec implementations and browser acceleration where compatible: the codec module (Symphonia, `flacenc`, the conformant Opus), the prebuilt MP3 and Vorbis encoders, the Ogg, FLAC, MP4 and MP3 framing, and the WebCodecs adapters
+- [ ] Integrate legal/open-source codec implementations and browser acceleration where compatible: the codec module (Symphonia, `flacenc`, the conformant Opus), the MP3 and Vorbis encoder modules built from vendored source (`ADR-0091` amended), the Ogg, FLAC, MP4 and MP3 framing, and the WebCodecs adapters
 - [ ] Implement capability/licence documentation and deterministic-path rules: the probes, the third-party notices, the reproducibility of every local export
 
 ### WU-09.C — Import/export jobs

@@ -30,6 +30,11 @@ const PINS = {
   ropus: /^ropus = "=([^"]+)"/mu,
 } as const;
 
+/** The workspace's patch of Symphonia's Vorbis decoder, and the vendored copy's version. */
+const VORBIS_PATCH =
+  /^symphonia-codec-vorbis = \{ path = "third_party\/symphonia-codec-vorbis\/crate" \}$/mu;
+const CRATE_VERSION = /^version = "([^"]+)"$/mu;
+
 describe('the decoders a rendition names', () => {
   it('names the codec module’s decoders at the versions the codec crate pins', () => {
     const manifest = repositoryFile('crates/codecs/Cargo.toml');
@@ -37,13 +42,22 @@ describe('the decoders a rendition names', () => {
     const ropus = PINS.ropus.exec(manifest)?.[1];
     expect(symphonia).toBeDefined();
     expect(ropus).toBeDefined();
-    for (const codec of ['flac', 'alac', 'mp3', 'vorbis', 'aac-lc'] as const) {
+    for (const codec of ['flac', 'alac', 'mp3', 'aac-lc'] as const) {
       expect(moduleDecoder(codec)).toEqual({
         implementation: 'codec-module',
         name: 'Symphonia',
         version: symphonia,
       });
     }
+    // Vorbis is the pinned release's decoder, vendored at that version and patched in.
+    expect(VORBIS_PATCH.test(repositoryFile('Cargo.toml'))).toBe(true);
+    const vendored = repositoryFile('third_party/symphonia-codec-vorbis/crate/Cargo.toml');
+    expect(CRATE_VERSION.exec(vendored)?.[1]).toBe(symphonia);
+    expect(moduleDecoder('vorbis')).toEqual({
+      implementation: 'codec-module',
+      name: 'Symphonia',
+      version: `${String(symphonia)}+patched`,
+    });
     expect(moduleDecoder('opus')).toEqual({
       implementation: 'codec-module',
       name: 'ropus',
