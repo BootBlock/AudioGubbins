@@ -87,6 +87,12 @@
       "path": "./packages/recording/scopes/any"
     },
     {
+      "path": "./packages/import-export"
+    },
+    {
+      "path": "./packages/import-export/scopes/any"
+    },
+    {
       "path": "./packages/waveform"
     },
     {

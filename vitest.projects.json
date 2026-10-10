@@ -128,6 +128,14 @@
       ]
     },
     {
+      "name": "import-export",
+      "root": "packages/import-export",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "waveform",
       "root": "packages/waveform",
       "environment": "node",

@@ -25,6 +25,7 @@ Published paths
   @audiogubbins/editor-view
   @audiogubbins/effect-rack
   @audiogubbins/history
+  @audiogubbins/import-export
   @audiogubbins/input
   @audiogubbins/input/testing
   @audiogubbins/media-store
@@ -211,6 +212,7 @@ Published paths
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   const ENGINE_VERSIONS: EngineVersions
+  type FixedNamedMatrix = "itu-bs775-5.1-to-stereo" | "mid-side-decode" | "mid-side-encode"
   type FromPreview = { readonly kind: typeof FromPreviewKind.ReadFailed; readonly read: number; readonly failure: FailureSummary; } | { readonly kind: typeof FromPreviewKind.Ready; readonly stream: number; readonly declined: FailureSummary | undefined; } | { readonly kind: typeof FromPreviewKind.Samples; readonly read: number; readonly channels: readonly Float32Array[]; }
   interface GraphExecutor
   readonly GraphExecutor.plan: ExecutionPlan
@@ -629,6 +631,7 @@ Published paths
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function exp(x: number): number
   function findPeaks(magnitude: Float64Array<ArrayBufferLike>, bins: number, peaks: Int32Array<ArrayBufferLike>): number
+  function fixedMatrixLayouts(name: FixedNamedMatrix): { readonly input: ChannelLayout; readonly output: ChannelLayout; }
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
   function gainToDecibels(gain: number): number
@@ -880,7 +883,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@30969: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@30987: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1174,7 +1177,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@30969: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@30987: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3502,6 +3505,215 @@ Published paths
   function undo(history: History): Navigation | undefined
   function undoTarget(history: History): ChangeNode | undefined
   function withStateFingerprint(history: History, id: HistoryNodeId, stateFingerprint: StateFingerprint): DomainResult<History>
+
+@audiogubbins/import-export
+  interface AacEncoding
+  readonly AacEncoding.bitRate: number
+  type AifcEncoding = FloatPcm | IntegerPcm | { readonly kind: "a-law" | "ima-adpcm" | "mu-law"; }
+  type AiffEncoding = IntegerPcm
+  const BUILT_IN_PRESETS: readonly ExportPreset[]
+  interface BatchProgress
+  readonly BatchProgress.jobsSettled: number
+  readonly BatchProgress.jobsTotal: number
+  readonly BatchProgress.framesRendered: number
+  readonly BatchProgress.framesTotal: number
+  type ChannelConversion = { readonly kind: "fold"; readonly to: ChannelLayout; } | { readonly kind: "keep"; } | { readonly kind: "map"; readonly channels: readonly number[]; readonly to: ChannelLayout; } | { readonly kind: "matrix"; readonly matrix: FixedNamedMatrix; }
+  type CodecLookup = (codec: CodecId) => CodecDescriptor | undefined
+  interface CodedPcm
+  readonly CodedPcm.kind: "a-law" | "ima-adpcm" | "ms-adpcm" | "mu-law"
+  type CollisionAnswer = "overwrite" | "rename" | "skip"
+  type CollisionDecision = { readonly kind: "ask"; readonly name: string; } | { readonly kind: "overwrite"; readonly name: string; readonly trusted: boolean; } | { readonly kind: "rename"; readonly name: string; } | { readonly kind: "skip"; readonly name: string; } | { readonly kind: "write"; readonly name: string; }
+  type CollisionPolicy = "overwrite" | "prompt" | "rename" | "skip"
+  interface CollisionQuery
+  readonly CollisionQuery.wanted: ExportFileName
+  readonly CollisionQuery.listing: readonly string[]
+  readonly CollisionQuery.policy: CollisionPolicy
+  readonly CollisionQuery.remembered: CollisionAnswer | undefined
+  readonly CollisionQuery.trusted: TrustedFolder | undefined
+  interface CommonExportSettings
+  readonly CommonExportSettings.sampleRate: SampleRate
+  readonly CommonExportSettings.channels: ChannelConversion
+  readonly CommonExportSettings.dither: DitherSettings
+  readonly CommonExportSettings.range: ExportRange
+  readonly CommonExportSettings.metadata: MetadataSettings
+  readonly CommonExportSettings.fileName: string
+  interface DeliveryTarget
+  readonly DeliveryTarget.kind: "download" | "file" | "folder" | "trusted-folder"
+  readonly DeliveryTarget.name: string
+  type DitherSettings = { readonly kind: "none"; } | { readonly kind: "rectangular" | "triangular"; readonly amplitude: number; readonly shaping: NoiseShaping; readonly seed: number; }
+  interface ExportBatch
+  readonly ExportBatch.jobs: readonly ExportJob[]
+  readonly ExportBatch.remembered: CollisionAnswer | undefined
+  interface ExportClock
+  readonly ExportClock.epochMilliseconds: number
+  readonly ExportClock.utcOffsetMinutes: number
+  interface ExportContext
+  readonly ExportContext.source: ExportSource
+  readonly ExportContext.codecs: CodecLookup
+  interface ExportFileName
+  readonly ExportFileName.stem: string
+  readonly ExportFileName.extension: string
+  type ExportFormat = "aac" | "aifc" | "aiff" | "flac" | "mp3" | "ogg-vorbis" | "opus" | "wav"
+  interface ExportJob
+  readonly ExportJob.id: string
+  readonly ExportJob.framesTotal: number
+  readonly ExportJob.state: ExportJobState
+  type ExportJobEvent = { readonly kind: "cancel"; } | { readonly kind: "delivered"; } | { readonly kind: "delivery-progress"; readonly bytesDelivered: number; } | { readonly kind: "delivery-refused"; readonly failure: DomainFailure; } | { readonly kind: "delivery-started"; readonly target: DeliveryTarget; } | { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "progress"; readonly framesRendered: number; readonly bytesStaged: number; } | { readonly kind: "render-finished"; } | { readonly kind: "render-started"; } | { readonly kind: "staged"; readonly staged: StagedFile; }
+  type ExportJobState = { readonly kind: "cancelled"; readonly stage: ExportStage; } | { readonly kind: "delivered"; readonly staged: StagedFile; readonly target: DeliveryTarget; } | { readonly kind: "delivering"; readonly staged: StagedFile; readonly target: DeliveryTarget; readonly bytesDelivered: number; } | { readonly kind: "encoding"; readonly bytesStaged: number; } | { readonly kind: "failed"; readonly stage: ExportStage; readonly failure: DomainFailure; } | { readonly kind: "planned"; } | { readonly kind: "rendering"; readonly framesRendered: number; readonly bytesStaged: number; } | { readonly kind: "staged"; readonly staged: StagedFile; readonly refused: DomainFailure | undefined; }
+  type ExportPreset = { readonly id: string; readonly name: string; readonly format: "aac"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "aifc"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "aiff"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "flac"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "mp3"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "ogg-vorbis"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "opus"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "wav"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; }, "format">>; }
+  type ExportRange = { readonly kind: "every-region"; } | { readonly kind: "project"; } | { readonly kind: "region"; readonly region: RegionId; } | { readonly kind: "selection"; readonly start: SampleCount; readonly length: SampleCount; }
+  interface ExportRenderPlan
+  readonly ExportRenderPlan.graph: GraphDescriptor
+  readonly ExportRenderPlan.input: NodeId
+  readonly ExportRenderPlan.output: NodeId
+  readonly ExportRenderPlan.sampleRate: SampleRate
+  readonly ExportRenderPlan.range: RenderRange
+  readonly ExportRenderPlan.layout: ChannelLayout
+  type ExportSettings = (CommonExportSettings & { readonly format: "aac"; readonly encoding: AacEncoding; }) | (CommonExportSettings & { readonly format: "aifc"; readonly encoding: AifcEncoding; }) | (CommonExportSettings & { readonly format: "aiff"; readonly encoding: IntegerPcm; }) | (CommonExportSettings & { readonly format: "flac"; readonly encoding: FlacEncoding; }) | (CommonExportSettings & { readonly format: "mp3"; readonly encoding: Mp3Encoding; }) | (CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }) | (CommonExportSettings & { readonly format: "opus"; readonly encoding: OpusEncoding; }) | (CommonExportSettings & { readonly format: "wav"; readonly encoding: WavEncoding; })
+  type ExportSettingsOf<F extends ExportFormat> = SettingsByFormat[F]
+  interface ExportSource extends ExportableAudio
+  readonly ExportSource.name: string
+  readonly ExportSource.length: SampleCount
+  readonly ExportSource.regions: readonly ExportableRegion[]
+  readonly ExportSource.sampleRate: SampleRate
+  readonly ExportSource.layout: ChannelLayout
+  readonly ExportSource.precision: SourcePrecision
+  interface ExportSpan
+  readonly ExportSpan.audio: ExportableAudio
+  readonly ExportSpan.start: SampleCount
+  readonly ExportSpan.length: SampleCount
+  readonly ExportSpan.region: ExportableRegion | undefined
+  type ExportStage = "delivering" | "encoding" | "planned" | "rendering" | "staged"
+  interface ExportTarget
+  readonly ExportTarget.formatName: string
+  readonly ExportTarget.codec: CodecId
+  readonly ExportTarget.container: ContainerId
+  readonly ExportTarget.extension: string
+  readonly ExportTarget.depth: number | undefined
+  interface ExportableAudio
+  readonly ExportableAudio.sampleRate: SampleRate
+  readonly ExportableAudio.layout: ChannelLayout
+  readonly ExportableAudio.precision: SourcePrecision
+  interface ExportableRegion extends ExportableAudio
+  readonly ExportableRegion.id: RegionId
+  readonly ExportableRegion.name: string
+  readonly ExportableRegion.start: SampleCount
+  readonly ExportableRegion.length: SampleCount
+  readonly ExportableRegion.sampleRate: SampleRate
+  readonly ExportableRegion.layout: ChannelLayout
+  readonly ExportableRegion.precision: SourcePrecision
+  interface ExportedFileRecord
+  readonly ExportedFileRecord.name: string
+  readonly ExportedFileRecord.size: number
+  readonly ExportedFileRecord.hash: string
+  interface FlacEncoding
+  readonly FlacEncoding.bits: 16 | 24 | 32
+  readonly FlacEncoding.compressionLevel: number
+  interface FloatPcm
+  readonly FloatPcm.kind: "float"
+  readonly FloatPcm.bits: 32 | 64
+  interface FormatEncodings
+  readonly FormatEncodings.wav: WavEncoding
+  readonly FormatEncodings.aiff: IntegerPcm
+  readonly FormatEncodings.aifc: AifcEncoding
+  readonly FormatEncodings.flac: FlacEncoding
+  readonly FormatEncodings.mp3: Mp3Encoding
+  readonly FormatEncodings.ogg-vorbis: VorbisEncoding
+  readonly FormatEncodings.opus: OpusEncoding
+  readonly FormatEncodings.aac: AacEncoding
+  interface ImportEntry
+  readonly ImportEntry.file: ImportFile
+  readonly ImportEntry.state: ImportFileState
+  interface ImportFile
+  readonly ImportFile.name: string
+  readonly ImportFile.bytes: number
+  type ImportFileEvent = { readonly kind: "add"; } | { readonly kind: "analyse"; } | { readonly kind: "copy"; readonly bytesTotal: number; } | { readonly kind: "copy-progress"; readonly bytesCopied: number; } | { readonly kind: "decode"; readonly framesTotal: number; } | { readonly kind: "decode-progress"; readonly framesDecoded: number; } | { readonly kind: "imported"; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
+  type ImportFileState = { readonly kind: "adding" | "analysing" | "queued"; } | { readonly kind: "cancelled"; readonly stage: ImportStage; } | { readonly kind: "copying"; readonly bytesCopied: number; readonly bytesTotal: number; } | { readonly kind: "decoding"; readonly framesDecoded: number; readonly framesTotal: number; } | { readonly kind: "imported"; } | { readonly kind: "refused"; readonly stage: ImportStage; readonly failure: DomainFailure; }
+  interface ImportJob
+  readonly ImportJob.entries: readonly ImportEntry[]
+  interface ImportProgress
+  readonly ImportProgress.ended: number
+  readonly ImportProgress.imported: number
+  readonly ImportProgress.refused: number
+  readonly ImportProgress.total: number
+  type ImportStage = "adding" | "analysing" | "copying" | "decoding" | "queued"
+  interface IntegerPcm
+  readonly IntegerPcm.kind: "integer"
+  readonly IntegerPcm.bits: 16 | 24 | 32 | 8
+  interface ListedFileContent
+  readonly ListedFileContent.size: number
+  readonly ListedFileContent.hash: string
+  type MetadataEdit = { readonly kind: "remove"; readonly key: MetadataTextKey; } | { readonly kind: "set"; readonly key: MetadataTextKey; readonly value: string; }
+  type MetadataPolicy = "full" | "minimal" | "none"
+  interface MetadataRates
+  readonly MetadataRates.from: SampleRate
+  readonly MetadataRates.to: SampleRate
+  interface MetadataSettings
+  readonly MetadataSettings.policy: MetadataPolicy
+  readonly MetadataSettings.edits: readonly MetadataEdit[]
+  type Mp3Encoding = { readonly mode: "average" | "constant"; readonly bitRate: number; } | { readonly mode: "variable"; readonly quality: number; }
+  type NoiseShaping = "first-order" | "lipshitz-e-weighted" | "none"
+  type OpusApplication = "audio" | "restricted-low-delay" | "voip"
+  interface OpusEncoding
+  readonly OpusEncoding.bitRate: number
+  readonly OpusEncoding.application: OpusApplication
+  readonly OpusEncoding.frameDuration: OpusFrameDuration
+  readonly OpusEncoding.complexity: number
+  type OpusFrameDuration = 10 | 2.5 | 20 | 40 | 5 | 60
+  interface PlannedFile
+  readonly PlannedFile.span: ExportSpan
+  readonly PlannedFile.render: ExportRenderPlan
+  readonly PlannedFile.name: ExportFileName
+  readonly PlannedFile.target: ExportTarget
+  readonly PlannedFile.ditherKey: number
+  type PresetChoices<F extends ExportFormat> = { [P in keyof Omit<SettingsByFormat[F], "format">]?: Omit<SettingsByFormat[F], "format">[P]; }
+  class Quantiser
+  new Quantiser(settings: QuantiserSettings): Quantiser
+  readonly Quantiser.#bits: number
+  readonly Quantiser.#scale: number
+  readonly Quantiser.#noise: NoiseOf
+  readonly Quantiser.#largestError: number
+  readonly Quantiser.#coefficients: Float64Array<ArrayBufferLike>
+  readonly Quantiser.#errors: readonly Float64Array<ArrayBufferLike>[]
+  Quantiser.#frame: number
+  Quantiser.quantise: (input: readonly Float32Array[], frames: number, output: readonly (Float32Array | Float64Array)[]) => void
+  Quantiser.#channel: (channel: number, from: Float32Array, to: Float32Array | Float64Array, errors: Float64Array, frames: number) => void
+  interface QuantiserSettings
+  readonly QuantiserSettings.bits: number
+  readonly QuantiserSettings.dither: DitherSettings
+  readonly QuantiserSettings.key: number
+  readonly QuantiserSettings.channels: number
+  type SourcePrecision = { readonly kind: "float"; } | { readonly kind: "integer"; readonly bits: number; }
+  interface StagedFile
+  readonly StagedFile.bytes: number
+  readonly StagedFile.hash: string
+  readonly StagedFile.reproducible: boolean
+  interface TrustedFolder
+  readonly TrustedFolder.records: readonly ExportedFileRecord[]
+  readonly TrustedFolder.existing: ListedFileContent | undefined
+  type VorbisEncoding = { readonly mode: "bit-rate"; readonly nominalBitRate: number; } | { readonly mode: "quality"; readonly quality: number; }
+  type WavEncoding = CodedPcm | FloatPcm | IntegerPcm
+  function answerCollision(query: CollisionQuery, answer: CollisionAnswer): CollisionDecision
+  function batchProgress(batch: ExportBatch): BatchProgress
+  function cancelExportBatch(batch: ExportBatch): ExportBatch
+  function cancelImport(job: ImportJob): ImportJob
+  function decideCollision(query: CollisionQuery): CollisionDecision
+  function defaultExportSettings<F extends ExportFormat>(format: F, context: ExportContext): SettingsByFormat[F]
+  function exportBatch(jobs: readonly ExportJob[]): ExportBatch
+  function exportMetadata(project: MetadataMap, region: MetadataMap | undefined, settings: MetadataSettings, rates: MetadataRates): DomainResult<MetadataMap>
+  function exportTarget(settings: ExportSettings): ExportTarget
+  function formatName(format: ExportFormat): string
+  function importJob(files: readonly ImportFile[]): ImportJob
+  function importProgress(job: ImportJob): ImportProgress
+  function nextExportBatch(batch: ExportBatch, jobId: string, event: ExportJobEvent): DomainResult<ExportBatch>
+  function nextExportJob(job: ExportJob, event: ExportJobEvent): DomainResult<ExportJob>
+  function nextImportJob(job: ImportJob, index: number, event: ImportFileEvent): DomainResult<ImportJob>
+  function nextJobToStart(batch: ExportBatch): ExportJob | undefined
+  function planExport(settings: ExportSettings, context: ExportContext, clock: ExportClock): DomainResult<readonly PlannedFile[]>
+  function plannedExport(id: string, framesTotal: number): ExportJob
+  function rememberCollisionAnswer(batch: ExportBatch, answer: CollisionAnswer, applyToAll: boolean): ExportBatch
+  function resolvePreset(preset: ExportPreset, context: ExportContext): (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; })
+  function validateExportSettings(settings: ExportSettings, context: ExportContext): DomainResult<ExportSettings>
 
 @audiogubbins/input
   const DEFAULT_GESTURE_SETTINGS: GestureSettings
@@ -7317,6 +7529,12 @@ packages/effect-rack/src/chain-graph.ts
   readonly MeasureTap.layout: ChannelLayout
   readonly MeasureTap.type: string
   readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
+
+packages/import-export/src/export-settings.ts
+  type SettingsByFormat = { readonly flac: CommonExportSettings & { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: CommonExportSettings & { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: CommonExportSettings & { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: CommonExportSettings & { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: CommonExportSettings & { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: CommonExportSettings & { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: CommonExportSettings & { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
+
+packages/import-export/src/quantiser.ts
+  type NoiseOf = (channel: number, frame: number) => number
 
 packages/media-store/src/exclusion-gate.ts
   class ExclusionGate

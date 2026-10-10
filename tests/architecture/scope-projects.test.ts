@@ -27,6 +27,7 @@ const PORTABLE = [
   'packages/codecs',
   'packages/timeline',
   'packages/recording',
+  'packages/import-export',
   'packages/video-reference',
   'packages/waveform',
   'packages/processors',

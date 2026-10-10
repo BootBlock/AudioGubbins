@@ -403,6 +403,30 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // Import and export as values (ADR-0090, ADR-0092): the typed export
+    // settings and their presets, their validation against a codec's
+    // descriptor, the dither and quantisation, file naming, the collision
+    // rules, the export and import job machines, and the graph an export
+    // renders through. It knows no browser, storage or worker: the codec
+    // worker and the storage worker run its jobs, and the application asks.
+    dir: 'packages/import-export',
+    name: '@audiogubbins/import-export',
+    description:
+      'Import and export as values: export settings, presets, dither, file naming, collision rules and the job state machines.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/codecs',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The multi-resolution peak pyramid, made off the page by the peak worker
     // and shared among views by source identity and revision, with its
     // disposable cache format and the zero-crossing search (ADR-0040,
