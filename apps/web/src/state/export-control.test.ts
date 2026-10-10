@@ -23,6 +23,7 @@ import {
   FakeExportCodecs,
   FakeExportRender,
 } from '../testing/export-fakes.js';
+import { projectWorld, type ProjectWorld } from '../testing/project-context.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 import { PageExportControl } from './export-control.js';
 
@@ -91,6 +92,11 @@ async function namesIn(folder: FakeDirectoryHandle): Promise<readonly string[]> 
   const names: string[] = [];
   for await (const entry of folder.values()) names.push(entry.name);
   return names.sort();
+}
+
+/** The parts of every export the world's storage holds staged. */
+function stagedParts(world: ProjectWorld): readonly string[] {
+  return world.tree.paths().filter((path) => /\/export-[^/]*\.(head|body|tail)$/u.test(path));
 }
 
 /** The job of the held export that waits, by its id. */
@@ -332,7 +338,8 @@ describe('the page export (ADR-0092)', () => {
   });
 
   it('gives up a held file when the export is cancelled', async () => {
-    const audio = await windowWithAudio();
+    const world = projectWorld();
+    const audio = await windowWithAudio({ world });
     const { start, control } = exportOver(audio);
     const folder = new FakeDirectoryHandle('Game sounds', [
       new FakeFileHandle(new File(['old'], 'Loop.wav')),
@@ -341,9 +348,11 @@ describe('the page export (ADR-0092)', () => {
       await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'skip' }),
     );
     const job = waitingJob(control);
+    expect(stagedParts(world)).toHaveLength(3);
 
     expect(control.cancel()).toBe(true);
     await expect.poll(() => control.get().kind).toBe('ended');
+    expect(stagedParts(world)).toEqual([]);
     expect(expectFailureCode(await control.retry(audio.session, job))).toBe('export.not-held');
     expect(await bytesIn(folder, 'Loop.wav')).toBe(3);
   });
@@ -364,7 +373,8 @@ describe('the page export (ADR-0092)', () => {
   });
 
   it('hands a download over whole, and gives its staging up once the next export begins', async () => {
-    const audio = await windowWithAudio();
+    const world = projectWorld();
+    const audio = await windowWithAudio({ world });
     const { start, downloads } = exportOver(audio);
 
     expect(expectSuccess(await start({ kind: 'project' }, { kind: 'download' }))).toBe(
@@ -376,6 +386,14 @@ describe('the page export (ADR-0092)', () => {
     expect(download?.file.type).toBe('audio/wav');
     const [record] = audio.session.getSnapshot().model.exports;
     expect(record?.destination.kind).toBe('download');
+    // The browser may still be reading it, so it stays staged until the next export.
+    expect(stagedParts(world)).toHaveLength(3);
+
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+    expectSuccess(
+      await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'prompt' }),
+    );
+    expect(stagedParts(world)).toEqual([]);
   });
 
   it('replaces, without asking, a file it exported earlier into a trusted folder', async () => {
