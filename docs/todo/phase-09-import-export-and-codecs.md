@@ -61,6 +61,27 @@ These settle what the ADRs leave to the implementation.
    contract: body bytes per block, then a head and a tail) are in
    `packages/codecs` (`codec-descriptor.ts`, `metadata-map.ts`,
    `sync-audio-bytes.ts`, `audio-file-writer.ts`).
+2. **S1 (merged `74d7428b`).** `CodecDescriptor` gains `codes` (WAV tags,
+   AIFF-C types), from which recognition and the readers derive their maps. The
+   application's own codecs need no WebAssembly. Alternatives: same lossiness
+   first, then the rest, in registry order. Browser implementations carry the
+   licence `NOASSERTION`. `RecognisedFormat` is `{kind:'audio', container,
+codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
+   refuse. G.711 follows ITU-T G.191; IMA follows the IMA reference (`ima4`
+   restarts from its 9-bit predictor); MS ADPCM truncates its prediction and caps
+   its delta as FFmpeg does, choosing the best standard coefficient pair per
+   block. ADPCM blocks are 256 bytes per channel, doubling with rate to 1,024
+   from 44.1 kHz; the last block is padded and `fact` holds the true length.
+   WAV writes the mask's speakers in bit order, then the rest; what no mask
+   states goes in the `iXML` element `AUDIOGUBBINS_CHANNEL_LAYOUT`, honoured only
+   where it agrees with the mask. The plain form serves only up to two channels
+   in their default layout at 16-bit integer or less. AIFF refuses a stream past
+   4 GiB. `recordedWavHeader` keeps its refusals. Metadata text is read as UTF-8
+   where valid, else Latin-1; `bext` is written as version 1; RIFF `ISRC` is not
+   mapped (it means "source"); a carried `iXML` is dropped on write; bounds of 1
+   MiB per chunk, 8 MiB per file, 4,096 cues, 1,024 loops, 4,096 markers.
+   `importAudio` refuses G.711 and ADPCM files (`storage.source-codec-unrecorded`)
+   until S7 records a codec in provenance: S7 removes that refusal.
 
 ## Left to do
 
