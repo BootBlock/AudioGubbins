@@ -13,6 +13,7 @@
  */
 
 import type { CodecDescriptor, CodecDirection, CodecId, ContainerId } from './codec-descriptor.js';
+import { LAME_BIT_RATES, LIBVORBIS_BIT_RATES } from './encoder-bit-rates.js';
 
 /** The rates the domain works at, which a codec with no limit of its own accepts. */
 const ANY_RATE = { kind: 'any', minimum: 8_000, maximum: 768_000 } as const;
@@ -169,18 +170,20 @@ const DESCRIPTORS: Readonly<Record<CodecId, CodecDescriptor>> = {
       maximumChannels: 255,
     },
     write: {
-      implementation: 'prebuilt-module',
+      implementation: 'encoder-module',
       containers: ['ogg'],
       // libvorbis in one fixed WebAssembly build: WebAssembly's floating point
-      // is IEEE-754 without extended precision or fused operations, so the same
-      // samples and settings give the same bytes on every machine.
+      // is IEEE-754 without extended precision, and the build fuses no
+      // operations, so the same samples and settings give the same bytes on
+      // every machine.
       reproducible: true,
       licence: 'BSD-3-Clause',
-      // libvorbis has encoder setups from 8 kHz to 192 kHz. Vorbis I orders
-      // speakers for one to eight channels, but the prebuilt build is made
-      // for one or two and refuses more.
-      sampleRates: { kind: 'any', minimum: 8_000, maximum: 192_000 },
-      maximumChannels: 2,
+      // libvorbis has encoder templates up to 200 kHz, and the domain's floor
+      // bounds it below. Vorbis I orders speakers for one to eight channels,
+      // which is what a file can state.
+      sampleRates: { kind: 'any', minimum: 8_000, maximum: 200_000 },
+      maximumChannels: 8,
+      bitRates: LIBVORBIS_BIT_RATES,
     },
   },
   mp3: {
@@ -198,16 +201,17 @@ const DESCRIPTORS: Readonly<Record<CodecId, CodecDescriptor>> = {
       maximumChannels: 2,
     },
     write: {
-      implementation: 'prebuilt-module',
+      implementation: 'encoder-module',
       containers: ['mp3'],
       // LAME 3.100 in one fixed WebAssembly build: its floating point is
-      // IEEE-754 without extended precision or fused operations there, and it
-      // reads no clock or random source, so the same samples and settings give
-      // the same bytes on every machine.
+      // IEEE-754 without extended precision, the build fuses no operations,
+      // and it reads no clock or random source, so the same samples and
+      // settings give the same bytes on every machine.
       reproducible: true,
       licence: 'LGPL-2.0-or-later',
       sampleRates: MPEG_RATES,
       maximumChannels: 2,
+      bitRates: LAME_BIT_RATES,
     },
   },
   'aac-lc': {

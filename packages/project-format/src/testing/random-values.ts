@@ -322,7 +322,7 @@ function randomRendition(random: Random, asset: Asset): DecodedRendition {
     ...(bitRate === undefined ? {} : { bitRate }),
     leadingFrames: randomCount(random, 5_000),
     decoder: {
-      implementation: random.pick(['codec-module', 'browser', 'prebuilt-module'] as const),
+      implementation: random.pick(['codec-module', 'browser', 'encoder-module'] as const),
       name: randomHeldName(random).slice(0, 200),
       version: `${String(random.below(10))}.${String(random.below(100))}.${String(random.below(100))}`,
     },

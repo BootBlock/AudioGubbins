@@ -46,6 +46,6 @@ export const asCodec = namedValueConverter<CodecId>({
 export const asImplementation = namedValueConverter<CodecImplementation>({
   application: true,
   'codec-module': true,
-  'prebuilt-module': true,
+  'encoder-module': true,
   browser: true,
 });

@@ -1,7 +1,7 @@
 /**
- * The Ogg page reader and writer, the Ogg Opus writer and the Vorbis comment
- * rewriter, on streams generated here, and every metadata field through each
- * of them and back through the Ogg metadata reader.
+ * The Ogg page reader and writer and the Ogg Opus writer, on streams generated
+ * here, and every metadata field through each of them and back through the Ogg
+ * metadata reader. The Ogg Vorbis writer has its own file.
  */
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
@@ -20,7 +20,6 @@ import {
   readOggPage,
 } from './ogg-page.js';
 import { OggPageWriter } from './ogg-page-writer.js';
-import { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
 import {
   encodeOpusHead,
   opusPacketDuration,
@@ -304,104 +303,5 @@ describe('Ogg Opus', () => {
     const { file, finished } = opusFile(3, 2_000);
     expect(finished.dropped).toEqual([]);
     expect(expectSuccess(await readOggMetadata(memoryBytes(file)))).toEqual(fullMetadata());
-  });
-});
-
-/** A stream laid out as libvorbis lays one out, with its own comments, and the audio packets it holds. */
-function vorbisStream(options: { readonly setupSharesPage: boolean }) {
-  const writer = new OggPageWriter(0x1234);
-  const identification = concatenate([ascii('\x01vorbis'), filled(23, 1)]);
-  const comment = concatenate([
-    ascii('\x03vorbis'),
-    encodeVorbisComment(
-      { text: { title: 'Encoder title' } },
-      { vendor: 'Xiph.Org libVorbis I 20200704 (Reducing Environment)', pictureField: false },
-    ).bytes,
-    Uint8Array.of(1),
-  ]);
-  const setup = concatenate([ascii('\x05vorbis'), filled(3_000, 3)]);
-  const audio = Array.from({ length: 40 }, (_, index) => filled(300 + index * 37, index));
-  const out = [
-    ...writer.addPacket(identification, 0),
-    ...writer.flush(),
-    ...writer.addPacket(comment, 0),
-  ];
-  out.push(...writer.addPacket(setup, 0));
-  if (!options.setupSharesPage) out.push(...writer.flush());
-  audio.forEach((packet, index) => out.push(...writer.addPacket(packet, (index + 1) * 1_024)));
-  out.push(...writer.flush(true));
-  return { file: concatenate(out), identification, setup, audio };
-}
-
-/** The rewriter's output for a stream fed in pieces of deterministic random sizes. */
-function rewritten(file: Uint8Array, seed: number) {
-  const rewriter = new OggVorbisCommentRewriter(fullMetadata());
-  const next = random(seed);
-  const out: Uint8Array[] = [];
-  for (let offset = 0; offset < file.length;) {
-    const piece = 1 + Math.floor(next() * 5_000);
-    out.push(...expectSuccess(rewriter.add(file.subarray(offset, offset + piece))));
-    offset += piece;
-  }
-  const finished = expectSuccess(rewriter.finish());
-  return { file: concatenate([finished.head, ...out, ...finished.body, finished.tail]), finished };
-}
-
-describe('the Vorbis comment rewriter', () => {
-  it.each([false, true])(
-    'replaces the comments and keeps every packet and granule position (setup shares a page: %s)',
-    async (setupSharesPage) => {
-      const source = vorbisStream({ setupSharesPage });
-      const { file, finished } = rewritten(source.file, 7);
-      expect(finished.dropped).toEqual([]);
-      const packets = packetsOf(file);
-      expect(packets[0]).toEqual(source.identification);
-      expect(packets[2]).toEqual(source.setup);
-      expect(packets.slice(3)).toEqual(source.audio);
-
-      const pages = oggPages(file);
-      expect(pages.map((page) => page.sequence)).toEqual(pages.map((_, index) => index));
-      expect(pages[0]?.lacing).toHaveLength(1);
-      expect(pages.every((page) => page.serial === 0x1234)).toBe(true);
-      expect(pages.at(-1)?.headerType ?? 0 & END_OF_STREAM).toBeTruthy();
-      const audioGranules = (stream: Uint8Array) =>
-        oggPages(stream)
-          .filter((page) => page.granule !== 0 && page.granule !== 'none')
-          .map((page) => page.granule);
-      expect(audioGranules(file)).toEqual(audioGranules(source.file));
-
-      const map = expectSuccess(await readOggMetadata(memoryBytes(file)));
-      expect(map).toEqual(fullMetadata());
-      expect(new TextDecoder().decode(packets[1]?.subarray(11, 11 + 25))).toBe(
-        'Xiph.Org libVorbis I 2020',
-      );
-    },
-  );
-
-  it('gives the same file however the stream is cut into pieces', () => {
-    const source = vorbisStream({ setupSharesPage: true });
-    expect(rewritten(source.file, 1).file).toEqual(rewritten(source.file, 99).file);
-  });
-
-  it('refuses a stream that ends early, one that is not Vorbis, and one with a second stream', () => {
-    const source = vorbisStream({ setupSharesPage: false });
-    const cut = new OggVorbisCommentRewriter({});
-    expectSuccess(cut.add(source.file.subarray(0, source.file.length - 10)));
-    expect(expectFailureCode(cut.finish())).toBe('codecs.encoded-stream-invalid');
-
-    const opus = opusFile(1, 100).file;
-    expect(expectFailureCode(new OggVorbisCommentRewriter({}).add(opus))).toBe(
-      'codecs.encoded-stream-invalid',
-    );
-
-    const second = new OggPageWriter(77);
-    const chained = concatenate([
-      source.file,
-      ...second.addPacket(filled(10, 1), 0),
-      ...second.flush(true),
-    ]);
-    const rewriter = new OggVorbisCommentRewriter({});
-    expect(expectFailureCode(rewriter.add(chained))).toBe('codecs.encoded-stream-invalid');
-    expect(expectFailureCode(rewriter.add(new Uint8Array(1)))).toBe('codecs.writer-ended');
   });
 });

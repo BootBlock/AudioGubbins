@@ -3,7 +3,7 @@
  * registry and what the runtime was found to offer, never an assumption.
  *
  * The application's own codecs are TypeScript and need nothing, so they serve
- * everywhere. The codec module and the prebuilt encoders need WebAssembly, and
+ * everywhere. The codec module and the encoder modules need WebAssembly, and
  * serve until their load fails; a browser's codec serves only where the probes
  * (`packages/capabilities`) found it. An unavailable codec says why in a
  * sentence for the person and names the codecs that serve the same use here,
@@ -26,14 +26,14 @@ export type ModuleLoad = 'not-loaded' | 'loaded' | 'failed';
 
 /** What a runtime offers the codecs, as its probes and loads found it (REQ-EXEC-216). */
 export interface CodecEnvironment {
-  /** Whether the runtime runs WebAssembly, which the codec module and the prebuilt encoders are. */
+  /** Whether the runtime runs WebAssembly, which the codec module and the encoder modules are. */
   readonly webAssembly: boolean;
 
   /** How far the codec module's load has gone. */
   readonly codecModule: ModuleLoad;
 
-  /** How far each prebuilt encoder's load has gone, by the codec it encodes; absent is not yet asked for. */
-  readonly prebuiltModules: ReadonlyMap<CodecId, ModuleLoad>;
+  /** How far each encoder module's load has gone, by the codec it encodes; absent is not yet asked for. */
+  readonly encoderModules: ReadonlyMap<CodecId, ModuleLoad>;
 
   /** The codecs the browser's decoder was probed to decode. */
   readonly browserDecoders: ReadonlySet<CodecId>;
@@ -67,11 +67,11 @@ function obstacle(
       return environment.codecModule === 'failed'
         ? `The codec module could not be loaded, so ${name} cannot be ${words.done} here.`
         : undefined;
-    case 'prebuilt-module':
+    case 'encoder-module':
       if (!environment.webAssembly) {
         return `${words.doing} ${name} needs WebAssembly, which this browser does not run.`;
       }
-      return environment.prebuiltModules.get(descriptor.id) === 'failed'
+      return environment.encoderModules.get(descriptor.id) === 'failed'
         ? `The ${name} encoder could not be loaded, so ${name} cannot be ${words.done} here.`
         : undefined;
     case 'browser': {
