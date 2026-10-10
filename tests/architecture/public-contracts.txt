@@ -680,6 +680,9 @@ Published paths
   readonly CountingDsp.dsp: CanonicalDsp
   readonly CountingDsp.held: () => number
   readonly CountingDsp.made: () => number
+  const GOLDEN_LAYOUT: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }
+  const GOLDEN_MASKS: readonly GoldenMask[]
+  const GOLDEN_SETTINGS: readonly GoldenSettings[]
   const NO_CHAIN_PROCESSING: ChainProcessing
   const PLAIN_PLAN_PROCESSING: PlanProcessing
   const QUANTA: 1024
@@ -698,6 +701,7 @@ Published paths
   function distinctChannels(layout: ChannelLayout, frames: number): Float32Array<ArrayBufferLike>[]
   function dspModuleBytes(): Uint8Array<ArrayBuffer>
   function dspModuleExports(): Promise<unknown>
+  function expectSpectralGolden(golden: SpectralGoldenCase): Promise<void>
   function fingerprint(samples: Float32Array<ArrayBufferLike>): bigint
   function graphOf(nodes: readonly ProcessingNodeDescriptor[], edges: readonly EdgeDescriptor[]): GraphDescriptor
   function memoryFile(bytes: Uint8Array<ArrayBufferLike>): MediaFile
@@ -881,7 +885,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@28557: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29051: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1175,7 +1179,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@28557: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29051: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -6610,6 +6614,22 @@ packages/audio-engine/src/preview/rendered-stream.ts
   readonly Waiting.end: number
   readonly Waiting.resolve: () => void
   readonly Waiting.reject: (error: Error) => void
+
+packages/audio-engine/src/testing/spectral-golden.ts
+  interface GoldenMask
+  readonly GoldenMask.name: string
+  readonly GoldenMask.mask: SpectralMask
+  readonly GoldenMask.channels?: readonly number[]
+  interface GoldenSettings
+  readonly GoldenSettings.name: string
+  readonly GoldenSettings.resolution: number
+  readonly GoldenSettings.quality: QualitySettings
+  interface SpectralGoldenCase
+  readonly SpectralGoldenCase.edit: PlannedSpectralEdit
+  readonly SpectralGoldenCase.quality: QualitySettings
+  readonly SpectralGoldenCase.processing: ChainProcessing
+  readonly SpectralGoldenCase.wasm: CanonicalDsp
+  readonly SpectralGoldenCase.golden: bigint | undefined
 
 packages/audio-runtime/src/capture-session/capture-node.ts
   class CaptureNode

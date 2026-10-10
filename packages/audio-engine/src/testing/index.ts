@@ -21,3 +21,9 @@ export { fingerprint } from './pcm-fingerprint.js';
 export { NO_CHAIN_PROCESSING, PLAIN_PLAN_PROCESSING } from './plan-processing.js';
 export { RACKED_ASSET, memoryFile, rackedMedia, rackedPlan } from './racked-plan.js';
 export { SCALING_REASON, scalingChain, type ScalingRuns } from './scaling-chain.js';
+export {
+  GOLDEN_LAYOUT,
+  GOLDEN_MASKS,
+  GOLDEN_SETTINGS,
+  expectSpectralGolden,
+} from './spectral-golden.js';
