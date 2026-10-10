@@ -248,6 +248,25 @@ export {
 export { type StorageRoom } from './import-analysis.js';
 export { decodingUnavailable } from './import-failures.js';
 export { clearStaging } from './staging-paths.js';
+export { type EncodedStream } from './encoded-stream.js';
+export {
+  type ExportOrigin,
+  ExportStaging,
+  type StagedExport,
+  type StagingServices,
+} from './export-staging.js';
+export {
+  type CollisionPrompt,
+  type CollisionReply,
+  type Delivery,
+  type DeliveryDestination,
+  type DeliveryFile,
+  type DeliveryFolder,
+  type DeliveryServices,
+  type DestinationAccess,
+  deliverStaged,
+  exportRecordOf,
+} from './export-delivery.js';
 export { type AudioPaste, pasteAudio } from './audio-paste.js';
 
 export { type CaptureStream, type CapturedEvent } from './capture-stream.js';

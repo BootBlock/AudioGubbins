@@ -96,12 +96,15 @@ function freeName(wanted: ExportFileName, listing: readonly string[]): string {
   }
 }
 
+/** A decision that needs no question: what an answer, or a policy, gives. */
+export type AnsweredDecision = Exclude<CollisionDecision, { readonly kind: 'ask' }>;
+
 /** The decision an answer gives for a taken name, listed as `existing`. */
 function answered(
   answer: CollisionAnswer,
   existing: string,
   query: CollisionQuery,
-): CollisionDecision {
+): AnsweredDecision {
   switch (answer) {
     case 'overwrite':
       return { kind: 'overwrite', name: existing, trusted: false };
@@ -126,7 +129,7 @@ export function decideCollision(query: CollisionQuery): CollisionDecision {
 }
 
 /** The decision the person's answer to an `ask` gives. */
-export function answerCollision(query: CollisionQuery, answer: CollisionAnswer): CollisionDecision {
+export function answerCollision(query: CollisionQuery, answer: CollisionAnswer): AnsweredDecision {
   const name = safeFileName(query.wanted);
   const existing = query.listing.find((one) => folded(one) === folded(name)) ?? name;
   return answered(answer, existing, query);

@@ -27,6 +27,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   TreeFailure,
+  TreeFailureKind,
   type ByteSink,
   type ByteSource,
   type StorageTree,
@@ -97,7 +98,8 @@ export async function receiveRendition(
         closed = true;
         stream.close();
         const data = await scratch.tree.openFile(scratch.path);
-        if (data === undefined) throw new TreeFailure('io', 'The decoded audio vanished.');
+        if (data === undefined)
+          throw new TreeFailure(TreeFailureKind.Io, 'The decoded audio vanished.');
         return succeed({ frames: derivedSampleCount(received.frames), data, discard });
       }
       decoded(writer.frames);
