@@ -14,6 +14,7 @@ import { PeakHost, type PeakWorkerPort } from '@audiogubbins/waveform';
 import { testAssets } from '../assets/test-assets.js';
 import { panelPartsOf } from '../editor-part.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
+import type { SpectrogramDsp } from '../editor/spectrogram-reports.js';
 import { NO_PEAK_CACHE } from '../io/stored-peak-cache.js';
 import { NO_SPECTROGRAM_CACHE } from '../io/stored-spectrogram-cache.js';
 import { createRendererReports } from '../state/renderer-reports.js';
@@ -232,7 +233,9 @@ export function fakePanelParts(
         createWorker: spectrogramWorker,
         cache: NO_SPECTROGRAM_CACHE,
         report: () => undefined,
+        now: () => 0,
       }),
+      spectrogramDsp: observable<SpectrogramDsp | undefined>(undefined),
       graphics: { gpu: undefined, pixelRatio: () => 1, watchPixelRatio: () => () => undefined },
       rendererReports: createRendererReports(),
       logger,

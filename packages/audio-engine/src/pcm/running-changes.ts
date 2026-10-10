@@ -11,10 +11,12 @@
 
 import {
   processorsOf,
+  streamChain,
   type ChainSlot,
   type EditPlan,
   type ParameterId,
   type ParameterValue,
+  type PlanStream,
   type ProcessorId,
   type ProcessorInstance,
 } from '@audiogubbins/domain';
@@ -42,32 +44,40 @@ function withNumbersHidden(slot: ChainSlot): ChainSlot {
   };
 }
 
-/** The plan's text with every numeric parameter value hidden. */
+/**
+ * The chain `stream` runs over its segments as a whole, the one a running
+ * chain takes a changed value into; a spectral edit's runs inside its frames,
+ * so a value changed there is heard once the plan is read again.
+ */
+function runningChain(stream: PlanStream | undefined) {
+  const run = streamChain(stream?.processing);
+  return run?.kind === 'chain' ? run : undefined;
+}
+
+/** The plan's text with every numeric parameter value of a running chain hidden. */
 function shapeOf(plan: EditPlan): string {
   return canonicalText(
-    plan.streams.map((stream) =>
-      stream.processing?.kind === 'chain'
-        ? {
+    plan.streams.map((stream) => {
+      const run = runningChain(stream);
+      return run === undefined
+        ? stream
+        : {
             ...stream,
             processing: {
-              ...stream.processing,
-              chain: {
-                ...stream.processing.chain,
-                slots: stream.processing.chain.slots.map(withNumbersHidden),
-              },
+              ...run,
+              chain: { ...run.chain, slots: run.chain.slots.map(withNumbersHidden) },
             },
-          }
-        : stream,
-    ),
+          };
+    }),
   );
 }
 
-/** Every processor of the chain of the stream at `place` of the plan, by identifier. */
+/** Every processor of the running chain of the stream at `place` of the plan, by identifier. */
 function processorsAt(plan: EditPlan, place: number): ReadonlyMap<ProcessorId, ProcessorInstance> {
-  const processing = plan.streams[place]?.processing;
+  const run = runningChain(plan.streams[place]);
   const found = new Map<ProcessorId, ProcessorInstance>();
-  if (processing?.kind !== 'chain') return found;
-  for (const processor of processorsOf(processing.chain.slots)) found.set(processor.id, processor);
+  if (run === undefined) return found;
+  for (const processor of processorsOf(run.chain.slots)) found.set(processor.id, processor);
   return found;
 }
 

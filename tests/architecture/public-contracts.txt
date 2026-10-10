@@ -899,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29082: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29126: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1190,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29082: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29126: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2423,6 +2423,7 @@ Published paths
   readonly FrequencyBand.low: number
   readonly FrequencyBand.high: number
   type GainCurve = FadeCurve | { readonly kind: "constant"; readonly gain: number; }
+  const HEAL_BORDER_FRAMES: 4
   const HIGHEST_MASK_FREQUENCY: number
   interface IdGenerator
   IdGenerator.next: <TBrand extends string>() => Branded<TBrand>
@@ -2790,6 +2791,7 @@ Published paths
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
+  function binFrequency(bin: number, sampleRate: number, size: number): number
   function boundedItemsOf<TItem>(value: unknown, field: string, most: number, read: (item: unknown, name: string) => TItem): readonly TItem[]
   function bypassedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function bypassedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
@@ -2875,6 +2877,7 @@ Published paths
   function masksEqual(left: SpectralMask, right: SpectralMask): boolean
   function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string
   function namedQualityMode(level: NamedQualityLevel): QualityMode
+  function nearestBin(frequency: number, sampleRate: number, size: number): number
   function nonEmptyObjectsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: MessageFields, name: string) => TItem): readonly [TItem, ...TItem[]]
   function numberAt(fields: Readonly<Record<string, unknown>>, field: string): number
   function numberOf(value: unknown, field: string): number
@@ -2933,10 +2936,11 @@ Published paths
   function sourceStreams(source: PlanSource): readonly number[]
   function spectralEditProblem(edit: SpectralEdit, length: number, chains: ReadonlyMap<EffectChainId, EffectChain>): string | undefined
   function spectralMaskOf(value: unknown, field: string): SpectralMask
-  function spectralPlacement(mask: SpectralMask, resolution: number, length: number): SpectralPlacement | undefined
+  function spectralPlacement(mask: SpectralMask, resolution: number, kind: "attenuate" | "heal" | "isolate" | "process", length: number): SpectralPlacement | undefined
   function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
   function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
   function stackUsers(project: Project, stack: TakeStackId): readonly StackUse[]
+  function streamChain(processing: StreamProcessing | undefined): StreamChain | undefined
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
@@ -5190,7 +5194,7 @@ Published paths
   readonly SpectralTile.values: Uint8Array<ArrayBuffer>
   interface SpectralTileCache
   SpectralTileCache.read: (key: SpectralTileKey, signal: CancellationSignal) => Promise<Uint8Array<ArrayBuffer> | undefined>
-  SpectralTileCache.write: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  SpectralTileCache.write: (key: SpectralTileKey, bytes: Uint8Array<ArrayBuffer>, writing: TileWriting) => Promise<void>
   interface SpectralTileKey
   readonly SpectralTileKey.identity: string
   readonly SpectralTileKey.revision: string
@@ -5217,16 +5221,18 @@ Published paths
   SpectrogramHandle.tile: (config: SpectrogramConfig, channel: number, level: number, index: number) => ShownTile | undefined
   SpectrogramHandle.release: () => void
   class SpectrogramHost
-  new SpectrogramHost(options: { readonly createWorker: () => SpectrogramWorkerPort; readonly cache: SpectralTileCache; readonly report: (event: SpectrogramHostEvent) => void; readonly memoryBudget?: number; }): SpectrogramHost
+  new SpectrogramHost(options: { readonly createWorker: () => SpectrogramWorkerPort; readonly cache: SpectralTileCache; readonly report: (event: SpectrogramHostEvent) => void; readonly now: () => number; readonly memoryBudget?: number; }): SpectrogramHost
   readonly SpectrogramHost.#createWorker: () => SpectrogramWorkerPort
   readonly SpectrogramHost.#cache: SpectralTileCache
   readonly SpectrogramHost.#report: (event: SpectrogramHostEvent) => void
   readonly SpectrogramHost.#memory: TileMemory
   readonly SpectrogramHost.#shared: Map<string, Shared>
   readonly SpectrogramHost.#byName: Map<string, SpectrogramJob>
+  readonly SpectrogramHost.#now: () => number
   SpectrogramHost.#worker: SpectrogramWorkerPort | undefined
   SpectrogramHost.#jobs: number
   SpectrogramHost.#requests: number
+  SpectrogramHost.#opened: number
   SpectrogramHost.open: (subject: SpectrogramSubject) => SpectrogramHandle
   SpectrogramHost.#start: (key: string, subject: SpectrogramSubject) => Shared
   SpectrogramHost.#hold: (tile: SpectralTile) => void
@@ -5259,6 +5265,9 @@ Published paths
   interface TileSpan
   readonly TileSpan.start: number
   readonly TileSpan.columns: number
+  interface TileWriting
+  readonly TileWriting.opened: number
+  readonly TileWriting.signal: CancellationSignal
   type ToSpectrogramWorker = { readonly kind: typeof ToSpectrogramWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToSpectrogramWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToSpectrogramWorkerKind.Dsp; readonly delivery: DspDelivery<CompiledModule>; } | { readonly kind: typeof ToSpectrogramWorkerKind.Focus; readonly job: string; readonly centre: number; } | { readonly kind: typeof ToSpectrogramWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly quality: QualityMode; } | { readonly kind: typeof ToSpectrogramWorkerKind.Previews; readonly port: MessagePortLike; } | { readonly kind: typeof ToSpectrogramWorkerKind.Want; readonly job: string; readonly request: number; readonly config: SpectrogramConfig; readonly channel: number; readonly level: number; readonly index: number; readonly cached: Uint8Array<ArrayBuffer> | undefined; }
   const ToSpectrogramWorkerKind: { readonly Dsp: "dsp"; readonly Previews: "previews"; readonly Open: "open"; readonly Focus: "focus"; readonly Want: "want"; readonly Cancel: "cancel"; readonly Close: "close"; }
   function levelDecibels(level: number): number
@@ -7341,6 +7350,9 @@ packages/detection-runtime/src/detection-worker-core.ts
   readonly Job.cancellation: CancellationSource
   Job.failedWith: string | undefined
 
+packages/domain/src/editing/operations.ts
+  type StreamChain = { readonly kind: "chain"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; } | { readonly kind: "process"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; }
+
 packages/domain/src/processing/effect-chain.ts
   interface SlotControls
   readonly SlotControls.enabled: boolean
@@ -7444,7 +7456,8 @@ packages/editor-view/src/spectrogram-drawing.ts
   readonly RowSource.height: number
   readonly RowSource.ratio: number
   readonly RowSource.axis: SpectralSettings
-  readonly RowSource.spacing: number
+  readonly RowSource.sampleRate: number
+  readonly RowSource.windowLength: number
   class SpectrogramPainter
   new SpectrogramPainter(): SpectrogramPainter
   SpectrogramPainter.#waiting: boolean
@@ -7801,6 +7814,7 @@ packages/spectral-analysis/src/spectrogram-job.ts
   readonly JobServices.request: () => number
   readonly JobServices.held: (place: string) => SpectralTile | undefined
   readonly JobServices.hold: (tile: SpectralTile) => void
+  readonly JobServices.opened: number
   class SpectrogramJob
   new SpectrogramJob(name: string, subject: SpectrogramSubject, services: JobServices): SpectrogramJob
   readonly SpectrogramJob.subject: SpectrogramSubject
@@ -7812,6 +7826,7 @@ packages/spectral-analysis/src/spectrogram-job.ts
   readonly SpectrogramJob.#asked: Map<string, Asked>
   readonly SpectrogramJob.#byRequest: Map<number, string>
   readonly SpectrogramJob.#geometries: Map<string, SpectrogramGeometry>
+  readonly SpectrogramJob.#writes: CancellationSource
   SpectrogramJob.#closed: boolean
   SpectrogramJob.status: SpectrogramStatus
   SpectrogramJob.shownPlaces: () => Generator<string>

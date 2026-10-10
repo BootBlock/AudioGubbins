@@ -30,7 +30,7 @@ import type { DomainResult } from '@audiogubbins/domain';
 import type { ModelFileReader, ModelVersionCheck } from '@audiogubbins/ml-runtime';
 import { ModelUnavailability, modelUnavailable } from '@audiogubbins/processors';
 
-import { abortSignalOf } from '../io/abort-signals.js';
+import { withAbortSignal } from '../io/abort-signals.js';
 import { NO_PACK_STORAGE } from './model-availability.js';
 
 /** The installer's reads, as the storage client answers them. */
@@ -94,26 +94,28 @@ async function installedVersion(
  */
 export function installedModelVersions(parts: InstalledModelParts): ModelVersionCheck {
   return async (pack, version, cancellation) => {
-    const found = await installedVersion(parts, { pack, version }, abortSignalOf(cancellation));
+    const found = await withAbortSignal(cancellation, (signal) =>
+      installedVersion(parts, { pack, version }, signal),
+    );
     return found.ok ? succeed(undefined) : found;
   };
 }
 
 /** The page's reader of installed packs' files (see the module comment). */
 export function installedModelFiles(parts: InstalledModelParts): ModelFileReader {
-  return async (pack, version, path, cancellation) => {
-    const where = { pack, version, path };
-    const signal = abortSignalOf(cancellation);
-    const found = await installedVersion(parts, where, signal);
-    if (!found.ok) return found;
-    const ref = { id: pack, version };
-    const read = await found.value.files.read(ref, path, signal);
-    if (read.ok) return read;
-    return modelUnavailable(
-      ModelUnavailability.RequiredUnavailable,
-      `The file ${path} of ${found.value.pack.name} ${version} could not be read, so the model is not run.`,
-      where,
-      read.failures[0],
-    );
-  };
+  return (pack, version, path, cancellation) =>
+    withAbortSignal(cancellation, async (signal) => {
+      const where = { pack, version, path };
+      const found = await installedVersion(parts, where, signal);
+      if (!found.ok) return found;
+      const ref = { id: pack, version };
+      const read = await found.value.files.read(ref, path, signal);
+      if (read.ok) return read;
+      return modelUnavailable(
+        ModelUnavailability.RequiredUnavailable,
+        `The file ${path} of ${found.value.pack.name} ${version} could not be read, so the model is not run.`,
+        where,
+        read.failures[0],
+      );
+    });
 }

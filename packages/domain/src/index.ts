@@ -193,6 +193,7 @@ export {
   type RegionOperation,
   MAXIMUM_EDIT_GAIN,
   editChain,
+  streamChain,
   takesChannelScope,
   withEditChain,
 } from './editing/operations.js';
@@ -215,6 +216,7 @@ export {
   masksEqual,
 } from './spectral/spectral-mask.js';
 export { MaskWeights } from './spectral/mask-weight.js';
+export { binFrequency, nearestBin } from './spectral/bin-frequency.js';
 export { clippedMask } from './spectral/mask-clipping.js';
 export {
   MAXIMUM_MASK_POINTS,
@@ -230,6 +232,7 @@ export {
   type SpectralOperationKind,
   type SpectralPlacement,
   DEFAULT_SPECTRAL_RESOLUTION,
+  HEAL_BORDER_FRAMES,
   LARGEST_SPECTRAL_RESOLUTION,
   SMALLEST_SPECTRAL_RESOLUTION,
   isSpectralReduction,

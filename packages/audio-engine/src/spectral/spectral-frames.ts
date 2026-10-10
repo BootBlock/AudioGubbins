@@ -55,6 +55,12 @@ export class FrameGeometry {
     return Math.ceil((position + this.size / 2) / this.hop) - 1;
   }
 
+  /** Whether frame `k` holds only samples of the stream, none of the silence outside it. */
+  within(k: number): boolean {
+    const first = this.first(k);
+    return first >= 0 && first + this.size <= this.length;
+  }
+
   /** The first frame that holds any of the stream. */
   get firstFrame(): number {
     return this.firstReaching(0);

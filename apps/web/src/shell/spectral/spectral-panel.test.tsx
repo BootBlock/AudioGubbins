@@ -156,11 +156,14 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
       .toBe(true);
   });
 
-  it('says before cleaning up that a processor whose model cannot run will not be heard', async () => {
+  it('says before cleaning up that a processor whose model cannot run will not be heard, and then cleans up knowingly', async () => {
     const audio = await selectedLoop();
-    panelOver(audio, (processor) =>
+    const ran = panelOver(audio, (processor) =>
       processor.typeKey === 'deepfilternet-3' ? 'Its model is not installed.' : undefined,
     );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clean up' }));
+    const runnable = ran.at(-1);
 
     screen.getByRole('combobox', { name: 'Clean up with' }).focus();
     await userEvent.keyboard('{Enter}');
@@ -171,6 +174,33 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
         'It can be applied, but it is not heard until it can run: Its model is not installed.',
       ),
     ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clean up anyway' }));
+
+    expect(runnable?.[1]).not.toHaveProperty('knowingly');
+    expect(ran.at(-1)).toEqual([
+      'spectral.process',
+      { view: 'editor', resolution: 2048, typeKey: 'deepfilternet-3', knowingly: true },
+    ]);
+  });
+
+  it('compares each spectral edit listed with before it, naming the edit', async () => {
+    const audio = await selectedLoop();
+    await audio.window.runAndHear('spectral.heal');
+    await audio.window.runAndHear('spectral.remove');
+    const edits =
+      audio.session.getSnapshot().model.state.project.assets.get(audio.assetId)?.edits ?? [];
+    const ran = panelOver(audio);
+
+    const buttons = screen.getAllByRole('button', { name: 'Compare with before it' });
+    expect(buttons).toHaveLength(2);
+    const [first] = buttons;
+    if (first === undefined) throw new Error('No edit is listed.');
+    await userEvent.click(first);
+
+    expect(ran.at(-1)).toEqual([
+      'spectral.compare-before-edit',
+      { view: 'editor', operationId: edits[0]?.id },
+    ]);
   });
 
   it('turns pen pressure off through its command, shown in the brush’s strength', async () => {

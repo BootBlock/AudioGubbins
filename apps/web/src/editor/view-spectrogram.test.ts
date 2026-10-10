@@ -40,6 +40,7 @@ function viewOver() {
     },
     cache: new MemoryTileCache(),
     report: () => undefined,
+    now: () => 0,
   });
   const told = { progressed: 0 };
   const view = new ViewSpectrogram({

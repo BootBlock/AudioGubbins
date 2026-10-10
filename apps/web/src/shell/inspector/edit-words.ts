@@ -11,6 +11,7 @@
  * in, and one whose chain cannot run says why it is not heard (ADR-0081).
  */
 
+import { gainToDecibels } from '@audiogubbins/audio-engine';
 import {
   FadeShape,
   channelCount,
@@ -56,7 +57,7 @@ const DECIBELS = new Intl.NumberFormat('en-GB', {
  * reader says as "minus" rather than reading a hyphen as a dash.
  */
 function decibelsOf(factor: number): string {
-  return `${DECIBELS.format(20 * Math.log10(factor)).replace('-', '−')} dB`;
+  return `${DECIBELS.format(gainToDecibels(factor)).replace('-', '−')} dB`;
 }
 
 /** How the phrases state positions and channels, as the view in use speaks them. */
