@@ -21,7 +21,7 @@ export const SCHEMA_VERSIONS = {
   logVerbosity: 1,
   keyboardLayout: 1,
   audioSettings: 3,
-  editorViews: 1,
+  editorViews: 2,
   diagnosticBundle: 1,
   projectDocument: 8,
   projectStorage: 11,

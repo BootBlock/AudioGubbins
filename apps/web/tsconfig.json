@@ -86,6 +86,9 @@
       "path": "../../packages/waveform"
     },
     {
+      "path": "../../packages/spectral-analysis"
+    },
+    {
       "path": "../../packages/renderer"
     },
     {

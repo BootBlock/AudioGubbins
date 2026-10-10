@@ -18,6 +18,7 @@ import {
   type EditorType,
   type EditorViewState,
   type KnownAudio,
+  type KnownSpectrogram,
   type ToolPreview,
   type ViewScene,
 } from '@audiogubbins/editor-view';
@@ -50,6 +51,9 @@ export interface SceneSources {
   readonly state: EditorViewState;
   readonly asset: EditorAsset;
   readonly audio: KnownAudio;
+  readonly spectrogram: KnownSpectrogram;
+  /** How often the spectrogram's tiles have changed, which a frame waiting on some shows. */
+  readonly spectrogramVersion: number;
   readonly selection: SelectionSet;
   readonly playhead: SampleCount | undefined;
   readonly preview: ToolPreview | undefined;
@@ -62,15 +66,23 @@ export interface SceneSources {
   readonly type: EditorType;
 }
 
+/** What the last frame drew that was not yet known, so may change as it comes. */
+export interface FrameWaiting {
+  /** Columns whose peaks were not yet known. */
+  readonly peaks: boolean;
+  /** Spectrogram tiles pending or stale. */
+  readonly spectrogram: boolean;
+}
+
 /**
  * The values of `sources` a frame is drawn from, in a fixed order, each to be
  * compared by identity: a store gives the same value for what has not changed,
  * so a view whose own values are all the same as its last frame's has nothing
- * new to draw, whatever else in the stores changed. The peaks made since count
- * only while the last frame was `waiting` on some, since a frame whose columns
- * were all known shows none of them.
+ * new to draw, whatever else in the stores changed. The peaks and the tiles
+ * made since count only while the last frame was `waiting` on some, since a
+ * frame whose columns and tiles were all known shows none of them.
  */
-export function frameInputsOf(sources: SceneSources, waiting: boolean): readonly unknown[] {
+export function frameInputsOf(sources: SceneSources, waiting: FrameWaiting): readonly unknown[] {
   const { audio } = sources;
   return [
     sources.state,
@@ -83,9 +95,11 @@ export function frameInputsOf(sources: SceneSources, waiting: boolean): readonly
     sources.preview,
     sources.snap,
     audio.pyramid,
-    waiting ? audio.pyramid?.version : undefined,
+    waiting.peaks ? audio.pyramid?.version : undefined,
     audio.buckets,
     audio.samples,
+    sources.spectrogram,
+    waiting.spectrogram ? sources.spectrogramVersion : undefined,
   ];
 }
 
@@ -139,6 +153,7 @@ export function sceneOf(
       spectralEdits: asset.owner.kind === 'project' ? spectralEditOutlines(asset.owner) : [],
     },
     audio: sources.audio,
+    spectrogram: sources.spectrogram,
     selection: sources.selection,
     playhead: sources.playhead,
     preview: sources.preview,

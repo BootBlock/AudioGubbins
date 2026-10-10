@@ -1,7 +1,7 @@
 /**
  * Frames composed from a view's state: every lane drawn, what is not yet known
  * drawn as pending, the selection washed over the lanes it covers, the
- * spectrogram lane's shell, and the same frame from the same state.
+ * spectrogram lane's frequency axis, and the same frame from the same state.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -18,7 +18,7 @@ import {
 } from '@audiogubbins/timeline';
 import { WaveformPeakPyramid, peakGeometry } from '@audiogubbins/waveform';
 
-import { FrameComposer, SPECTROGRAM_SHELL_NOTE } from './frame-composer.js';
+import { FrameComposer } from './frame-composer.js';
 import { PALETTE, at, marker, region, scene } from './testing/scene.js';
 import { DisplayMode } from './view-state.js';
 
@@ -127,16 +127,14 @@ describe('composing a frame', () => {
     ).toEqual([0, 1, 0]);
   });
 
-  it('gives a spectrogram lane its frequency axis and says what draws it', () => {
+  it('gives a spectrogram lane its frequency axis', () => {
     const composed = new FrameComposer().compose(
       scene({
         channels: 1,
         state: (state) => ({ ...state, displayMode: DisplayMode.Spectrogram }),
       }),
     );
-    expect(texts(composed)).toEqual(
-      expect.arrayContaining(['100 Hz', '1 kHz', '10 kHz', SPECTROGRAM_SHELL_NOTE]),
-    );
+    expect(texts(composed)).toEqual(expect.arrayContaining(['100 Hz', '1 kHz', '10 kHz']));
   });
 
   it('leaves out a marker name that would run into the one before it, and keeps its mark', () => {

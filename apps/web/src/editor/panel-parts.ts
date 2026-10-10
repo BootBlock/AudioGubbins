@@ -1,13 +1,14 @@
 /**
  * What the Editor and Picture panels are given: the stores they read, the
- * peaks and graphics a surface draws with, where a renderer's report goes, and
- * how a control runs a command with what it names and asks a command's label,
- * shortcut and reason. Built once from the application, as every panel's
- * context is.
+ * peaks, spectrograms and graphics a surface draws with, where a renderer's
+ * report goes, and how a control runs a command with what it names and asks a
+ * command's label, shortcut and reason. Built once from the application, as
+ * every panel's context is.
  */
 
 import type { GraphicsPlatform } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
+import type { SpectrogramHost } from '@audiogubbins/spectral-analysis';
 import type { PeakHost } from '@audiogubbins/waveform';
 
 import type { SurfaceStores } from './view-sources.js';
@@ -27,6 +28,7 @@ export interface EditorPanelParts {
   readonly picture: ReferencePicture;
   readonly chosenFiles: Pick<ChosenFiles, 'offer'>;
   readonly peaks: PeakHost;
+  readonly spectrograms: SpectrogramHost;
   readonly graphics: GraphicsPlatform;
   readonly rendererReports: RendererReports;
   readonly logger: Logger;

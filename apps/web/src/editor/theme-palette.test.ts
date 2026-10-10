@@ -98,6 +98,9 @@ function frameOf(
       spectralEdits: [],
     },
     audio,
+    // Written where a spectrogram lane says why it is not drawn, as the
+    // lane's frequency labels are, over the lane's background.
+    spectrogram: { kind: 'not-drawn', reason: 'The spectrogram worker stopped.' },
     selection: EMPTY_SELECTION,
     playhead: undefined,
     preview: undefined,
@@ -216,10 +219,11 @@ describe("the editor's canvas colours", () => {
           }
         }
       }
-      // Eight accents at twenty-one steps, and the 96 labels the eight frames
-      // write between them, written as a number: computed from the same lists,
-      // a count would pass having checked nothing.
-      expect(pairs).toBe(16_128);
+      // Eight accents at twenty-one steps, and the 100 labels the eight frames
+      // write between them, a reason in every spectrogram and overlay lane
+      // among them, written as a number: computed from the same lists, a count
+      // would pass having checked nothing.
+      expect(pairs).toBe(16_800);
       expect([...failures]).toEqual([]);
     },
   );

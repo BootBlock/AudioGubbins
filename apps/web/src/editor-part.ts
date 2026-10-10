@@ -6,7 +6,8 @@
  * Its own module beside `application.ts`, which builds it, because it is a
  * part of the root with its own real collaborators, as the audio part's are
  * the browser's audio. Nothing heavy is started here: the peak worker is made
- * when a view first asks for peaks, and a renderer when a view is first drawn.
+ * when a view first asks for peaks, the spectrogram worker when one first
+ * shows a spectrogram, and a renderer when a view is first drawn.
  */
 
 import {
@@ -20,6 +21,11 @@ import { createIdGenerator } from '@audiogubbins/domain';
 import { DEFAULT_GESTURE_SETTINGS } from '@audiogubbins/input';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import type { PreviewHost } from '@audiogubbins/audio-runtime';
+import {
+  SpectrogramHost,
+  type SpectralTileCache,
+  type SpectrogramHostEvent,
+} from '@audiogubbins/spectral-analysis';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
@@ -27,7 +33,9 @@ import { testAssets } from './assets/test-assets.js';
 import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
 import type { EditorPanelParts } from './editor/panel-parts.js';
+import type { PageDsp } from './audio/page-dsp.js';
 import { browserPeakWorker } from './editor/peak-threads.js';
+import { browserSpectrogramWorker } from './editor/spectrogram-threads.js';
 import type { ModelServices } from './ml/model-services.js';
 import { modelGates } from './ml/model-words.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
@@ -55,6 +63,16 @@ const PEAK_EVENT_MESSAGES: Readonly<Record<PeakEvent['kind'], string>> = {
   'cache-unreadable': 'The waveform cache could not be read, so peaks are being made again.',
   'cache-unwritten': 'Waveform peaks could not be kept for the next visit.',
   failed: 'Waveform peaks could not be made.',
+};
+
+/** What a spectrogram event is recorded as, for the diagnostic log. */
+const SPECTROGRAM_EVENT_MESSAGES: Readonly<Record<SpectrogramHostEvent['kind'], string>> = {
+  'cache-refused': 'A kept spectrogram tile was refused and is being made again.',
+  'cache-unreadable': 'The spectrogram cache could not be read, so tiles are being made again.',
+  'cache-unwritten':
+    'A spectrogram tile could not be kept for the next visit; it is kept until the page closes.',
+  failed: 'A spectrogram could not be made.',
+  dsp: 'The spectrogram worker runs its DSP.',
 };
 
 /**
@@ -97,6 +115,37 @@ function peakHost(
   });
 }
 
+/**
+ * The one spectrogram host, its tiles kept in `cache`, its worker running the
+ * page's DSP, its racked sounds read from `previews` and its chains' models
+ * run by `models` (ADR-0080).
+ */
+function spectrogramHost(
+  cache: SpectralTileCache,
+  logger: Logger,
+  previews: PreviewHost,
+  models: ModelServices,
+  dsp: PageDsp,
+): SpectrogramHost {
+  return new SpectrogramHost({
+    createWorker: () => browserSpectrogramWorker(previews, models, dsp),
+    cache,
+    report: (event) => {
+      const message = SPECTROGRAM_EVENT_MESSAGES[event.kind];
+      if (event.kind === 'dsp') {
+        logger.info(message, {
+          kind: event.implementation,
+          ...(event.fallbackReason === undefined ? {} : { reason: event.fallbackReason }),
+        });
+      } else if (event.kind === 'failed') {
+        logger.error(message, { reason: event.reason });
+      } else {
+        logger.warning(message, { reason: event.reason });
+      }
+    },
+  });
+}
+
 /** How a panel's control runs a command, and asks its label, shortcut and reason. */
 export type PanelControls = Pick<
   EditorPanelParts,
@@ -110,7 +159,10 @@ export type PanelControls = Pick<
 export function panelPartsOf(
   context: ShellContext,
   controls: PanelControls,
-  services: Pick<EditorPanelParts, 'peaks' | 'graphics' | 'rendererReports' | 'logger'>,
+  services: Pick<
+    EditorPanelParts,
+    'peaks' | 'spectrograms' | 'graphics' | 'rendererReports' | 'logger'
+  >,
 ): EditorPanelParts {
   return {
     ...controls,
@@ -173,9 +225,11 @@ export function startEditor(
   projects: {
     readonly projects: ProjectStores | undefined;
     readonly peakCache: PeakCacheStore;
+    readonly spectrogramCache: SpectralTileCache;
   },
   previews: PreviewHost,
   models: ModelServices,
+  dsp: PageDsp,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
   const modelGate = modelGates(models.availability);
@@ -198,6 +252,7 @@ export function startEditor(
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
   const peaks = peakHost(projects.peakCache, logger, previews, models);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
+  const spectrograms = spectrogramHost(projects.spectrogramCache, logger, previews, models, dsp);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
   return {
@@ -215,13 +270,14 @@ export function startEditor(
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>
-      panelPartsOf(context, controls, { peaks, graphics, rendererReports, logger }),
+      panelPartsOf(context, controls, { peaks, spectrograms, graphics, rendererReports, logger }),
     dispose: () => {
       stopFollowing?.();
       document.removeEventListener('visibilitychange', flushViews);
       editorViews.flush();
       letShownPeaksGo();
       peaks.dispose();
+      spectrograms.dispose();
       picture.dispose();
     },
   };

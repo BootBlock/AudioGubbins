@@ -49,6 +49,7 @@ import { RENDER_GIVEN_UP, RenderPhase, RenderedStream } from './rendered-stream.
 export const CachePurpose = {
   Playback: 'playback',
   Waveform: 'waveform',
+  Spectrogram: 'spectrogram',
   Analysis: 'analysis',
 } as const;
 

@@ -45,12 +45,14 @@ export interface SurfaceStores {
   readonly gestures: () => GestureSettings;
 }
 
-/** What one frame of panel `panel` is drawn from, but the audio and the drag, or nothing to draw. */
+/** What one frame of panel `panel` is drawn from, but the audio, the spectrogram and the drag, or nothing to draw. */
 export function viewSources(
   stores: SurfaceStores,
   panel: string,
   look: { readonly palette: EditorPalette; readonly type: EditorType },
-): Omit<SceneSources, 'audio' | 'preview' | 'snap'> | undefined {
+):
+  | Omit<SceneSources, 'audio' | 'spectrogram' | 'spectrogramVersion' | 'preview' | 'snap'>
+  | undefined {
   const entry = stores.editorViews.entry(panel);
   const asset = entry === undefined ? undefined : stores.assets.find(entry.asset);
   if (entry === undefined || asset === undefined) return undefined;

@@ -221,8 +221,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/recording/src/loopback-analysis.ts: MINIMUM_PEAK_RATIO',
       'packages/recording/src/storage-time.ts: STORAGE_WARNING_SECONDS',
     ],
-  "What a spectrogram lane says until spectral analysis draws it, which the composer's test finds in the lane.":
-    ['packages/editor-view/src/frame-composer.ts: SPECTROGRAM_SHELL_NOTE'],
   "The time axis's bounds and rounding, which its conversions use and its tests hold to ADR-0041's exactness: the zoom's limits and single-sample step, the zoom showing a span, rounding half away from zero, the unclamped nearest boundary and the view kept within the timeline, and the order snap targets win in.":
     [
       'packages/timeline/src/snapping.ts: SNAP_PRECEDENCE',

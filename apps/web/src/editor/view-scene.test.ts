@@ -19,6 +19,15 @@ const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).logger
 const THEME = resolveTheme(DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE);
 const LOOK = { palette: editorPaletteOf(THEME), type: editorTypeOf(THEME) };
 
+/** A view that shows no spectrogram. */
+const NO_SPECTROGRAM = {
+  spectrogram: { kind: 'not-drawn', reason: 'The view shows no spectrogram.' },
+  spectrogramVersion: 0,
+} as const;
+
+/** The last frame drawn waited on peaks. */
+const WAITING = { peaks: true, spectrogram: false };
+
 describe("a view's frame inputs", () => {
   it('stay the same when another view scrolls or another asset is selected in, and change when its own view does', () => {
     const { context } = buildShellContext();
@@ -42,7 +51,10 @@ describe("a view's frame inputs", () => {
     const inputs = () => {
       const sources = viewSources(stores, 'one', LOOK);
       if (sources === undefined) throw new Error('No view.');
-      return frameInputsOf({ ...sources, audio, preview: undefined, snap: undefined }, true);
+      return frameInputsOf(
+        { ...sources, audio, ...NO_SPECTROGRAM, preview: undefined, snap: undefined },
+        WAITING,
+      );
     };
     const scroll = (panel: string) => {
       context.editorViews.change(panel, (state) => ({
@@ -73,14 +85,42 @@ describe("a view's frame inputs", () => {
     const scene = {
       ...sources,
       audio: { pyramid, buckets: undefined, samples: undefined, length: tones.length },
+      ...NO_SPECTROGRAM,
       preview: undefined,
       snap: undefined,
     };
-    const before = { waiting: frameInputsOf(scene, true), done: frameInputsOf(scene, false) };
+    const waiting = { peaks: true, spectrogram: false };
+    const done = { peaks: false, spectrogram: false };
+    const before = { waiting: frameInputsOf(scene, waiting), done: frameInputsOf(scene, done) };
     const [level] = pyramid.levels;
     pyramid.apply({ level: 0, first: 0, channels: [level!.channels[0]!, level!.channels[1]!] });
 
-    expect(sameInputs(frameInputsOf(scene, true), before.waiting)).toBe(false);
-    expect(sameInputs(frameInputsOf(scene, false), before.done)).toBe(true);
+    expect(sameInputs(frameInputsOf(scene, waiting), before.waiting)).toBe(false);
+    expect(sameInputs(frameInputsOf(scene, done), before.done)).toBe(true);
+  });
+
+  it('count the spectrogram tiles made since only while the last frame waited on some', () => {
+    const { context } = buildShellContext();
+    const { stores } = fakePanelParts(context, logger);
+    const [tones] = context.assets.get().assets;
+    if (tones === undefined) throw new Error('No test asset.');
+    context.editorViews.open('one', tones);
+    const sources = viewSources(stores, 'one', LOOK);
+    if (sources === undefined) throw new Error('No view.');
+    const scene = (version: number) => ({
+      ...sources,
+      audio: { pyramid: undefined, buckets: undefined, samples: undefined, length: tones.length },
+      ...NO_SPECTROGRAM,
+      spectrogramVersion: version,
+      preview: undefined,
+      snap: undefined,
+    });
+    const waiting = { peaks: false, spectrogram: true };
+    const done = { peaks: false, spectrogram: false };
+
+    expect(sameInputs(frameInputsOf(scene(2), waiting), frameInputsOf(scene(1), waiting))).toBe(
+      false,
+    );
+    expect(sameInputs(frameInputsOf(scene(2), done), frameInputsOf(scene(1), done))).toBe(true);
   });
 });

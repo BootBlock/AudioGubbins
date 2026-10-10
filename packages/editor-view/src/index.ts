@@ -5,7 +5,8 @@
  * (REQ-EDIT-061), the lanes it lays its channels out in for each display mode
  * (REQ-EDIT-062), what a pointer is over, what each tool does with a press and
  * a drag (REQ-EDIT-065), the snap targets it offers (REQ-EDIT-013), and the
- * composition of a whole render frame from its state (REQ-AUDIO-152). It
+ * composition of a whole render frame from its state (REQ-AUDIO-152), its
+ * spectrogram lanes drawn from the tiles of spectral analysis (ADR-0082). It
  * imports no interface framework and reads no browser global; the application
  * mounts it on a canvas and carries its intents out through commands.
  */
@@ -13,12 +14,17 @@
 export {
   AMPLITUDES,
   DEFAULT_OVERLAYS,
+  DEFAULT_SPECTROGRAM_DISPLAY,
   DisplayMode,
+  type DisplayRange,
   type EditorViewState,
   FollowMode,
   type Overlays,
   type SpectralSettings,
+  SpectrogramColours,
+  type SpectrogramDisplay,
   ToolId,
+  isDisplayRange,
   newViewState,
   visibleChannels,
   withAmplitudeStep,
@@ -56,8 +62,13 @@ export { type SpectralEditOutline } from './mask-drawing.js';
 
 export { type SnapSources, snapInView, snapTargetsOf } from './snap-candidates.js';
 
-export { type EditorPalette, type EditorType } from './editor-palette.js';
+export { type EditorPalette, type EditorType, SPECTROGRAM_RAMP_COLOURS } from './editor-palette.js';
 
 export { type KnownAudio } from './waveform-drawing.js';
+
+// The spectrogram layer: what a view knows of its sound's tiles, and the one
+// account of which tiles it shows, which the application asks the host for and
+// the lanes draw (ADR-0080, ADR-0082).
+export { type KnownSpectrogram, shownSpectrogram } from './spectrogram-drawing.js';
 
 export { FrameComposer, type ViewContent, type ViewScene } from './frame-composer.js';
