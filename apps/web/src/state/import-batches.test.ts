@@ -242,4 +242,20 @@ describe('a batch of files imported into the open project (ADR-0090)', () => {
     await window.runAndHear('file.close-project');
     expect(imports.get().kind).toBe('idle');
   });
+
+  it('lists no batch as running where the storage fails it, so the next can begin', async () => {
+    const { imports, asked, target } = await scene({
+      ready: () => Promise.resolve(succeed(undefined)),
+    });
+    asked.mockRejectedValueOnce(new Error('The storage worker stopped.'));
+
+    await expect(imports.importChosen(target(), [chosen(TONE, 'One.wav')])).rejects.toThrow(
+      'The storage worker stopped.',
+    );
+    expect(imports.get()).toEqual({ kind: 'idle' });
+    const next = await imports.importChosen(target(), [chosen(TONE, 'Two.wav')]);
+    expect(next.ok && next.value.batch.outcomes.map((outcome) => outcome.kind)).toEqual([
+      'imported',
+    ]);
+  });
 });

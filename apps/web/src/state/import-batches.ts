@@ -38,7 +38,7 @@ import type { ImportedBatch } from '@audiogubbins/storage';
 import type { ImportsClient, PageFile, RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import type { TransferFiles } from '../io/transfer-files.js';
-import { abandonment, isAbandoned, reasonOf, within } from './abandoning.js';
+import { abandonment, reasonOf, within } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
 import type { ProjectPreferencesStore } from './project-preferences-store.js';
@@ -173,8 +173,9 @@ export class ImportBatches implements Observable<ImportBatchState> {
       return succeed({ kind: 'ended', ...ended });
     } catch (error) {
       // Given up with the project, the rejection stands, as every abandoned
-      // call's does, and nothing is left listed for a project let go.
-      if (isAbandoned(error)) this.#state.set(IDLE);
+      // call's does; a fault stands too. Either way no batch is left listed as
+      // running, which nothing would ever end.
+      this.#state.set(IDLE);
       throw error;
     } finally {
       unfollow();
