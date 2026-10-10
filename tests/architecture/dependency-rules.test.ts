@@ -3181,10 +3181,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       121,
       'Three methods sharing a private run step and the logger; the largest, running a group, is about 45 lines.',
     ],
-    'apps/web/src/state/project-stores.ts: createProjectStores': [
-      50,
-      "The project system's composition: each store made once with the collaborators it is handed, the follow-ups that tie the open project to its sources, its list and the storage's pressure, and the record of every store; what grows it is one line per store, and each store's own work is a module of its own.",
-    ],
     'apps/web/src/state/shortcut-store.ts: createShortcutStore': [
       151,
       "Small methods over one profile in force, those that change it going through the shared `adopt` and `editable` helpers, and the subscription that places the defaults again as more of the keyboard layout is known. The largest, `editable`, is about a dozen lines. What identifier and name a profile is held under is the command package's, handed every profile the store holds. The profiles the user made are `user-profiles.ts`, and the defaults as placed are `shortcut-layout.ts`. The profiles as stored are `stored-profiles.ts`, and where a text that cannot be read is kept, and whether the profiles are written meanwhile, is `profile-custody.ts`, on the `text-custody.ts` the workspace's custody shares.",
