@@ -37,6 +37,7 @@
     "test:storage-quota": "vitest run --project storage quota",
     "test:architecture": "pnpm run test:dependencies && vitest run --project architecture",
     "test:audio-golden": "vitest run golden",
+    "test:spectral-golden": "vitest run spectral-golden",
     "test:audio-latency": "vitest run latency",
     "test:coverage": "vitest run --coverage",
     "test:dependencies": "depcruise --config .dependency-cruiser.cjs apps packages tests tools",

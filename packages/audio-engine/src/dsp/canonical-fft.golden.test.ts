@@ -9,6 +9,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import { dspModuleExports } from '../testing/dsp-module.js';
+import { doublesFingerprint } from '../testing/pcm-fingerprint.js';
 import { LARGEST_FFT_SIZE, type CanonicalDsp } from './canonical-dsp.js';
 import { sineOfTurns } from './reference/primitives.js';
 import { REFERENCE_DSP } from './reference/reference-dsp.js';
@@ -26,20 +27,6 @@ function signal(size: number): Float64Array {
     { length: size },
     (_, n) => 0.5 * sineOfTurns(n * 0.013) + 0.25 * sineOfTurns(n * 0.31 + 0.1) + n / 1e4,
   );
-}
-
-/** FNV-1a over the little-endian bits of each double, as `fft.rs` computes it. */
-function fingerprint(values: Float64Array): bigint {
-  const view = new DataView(values.buffer, values.byteOffset, values.byteLength);
-  let hash = 0xcbf29ce484222325n;
-  for (let index = 0; index < values.length; index += 1) {
-    const word = view.getBigUint64(index * 8, true);
-    for (let shift = 0n; shift < 64n; shift += 8n) {
-      hash ^= (word >> shift) & 0xffn;
-      hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
-    }
-  }
-  return hash;
 }
 
 /** The bits of a double, as the crates print them. */
@@ -62,11 +49,11 @@ describe.each([
     fft.inverseReal(real, imaginary, back);
     fft.release();
     // `GOLDEN_FFT` and `GOLDEN_FFT_SAMPLES` in `fft.rs`.
-    expect([fingerprint(real), fingerprint(imaginary), fingerprint(back)]).toEqual([
-      0x1ff564c8d5300d41n,
-      0x5d6920227ef6096dn,
-      0xc6b6fa66276f359an,
-    ]);
+    expect([
+      doublesFingerprint(real),
+      doublesFingerprint(imaginary),
+      doublesFingerprint(back),
+    ]).toEqual([0x1ff564c8d5300d41n, 0x5d6920227ef6096dn, 0xc6b6fa66276f359an]);
     expect([bitsOf(real[3] ?? 0), bitsOf(imaginary[3] ?? 0), bitsOf(back[5] ?? 0)]).toEqual([
       0x3fb012217f45fec6n,
       0xbff8abac599ae776n,
