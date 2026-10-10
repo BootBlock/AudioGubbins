@@ -181,6 +181,8 @@ describe('a seeded property: every valid state survives the document', () => {
       takeStacks: 0,
       punches: 0,
       recordings: 0,
+      spectralEdits: 0,
+      spectralRegionProcessing: 0,
     };
     for (let seed = 1; seed <= 400; seed += 1) {
       const { project, sources } = randomState(seed);
@@ -210,9 +212,15 @@ describe('a seeded property: every valid state survives the document', () => {
         totals.punches += asset.edits.filter(
           (edit) => edit.kind === 'process' && edit.edit.kind === 'punch',
         ).length;
+        totals.spectralEdits += asset.edits.filter(
+          (edit) => edit.kind === 'process' && edit.edit.kind === 'spectral',
+        ).length;
       }
       for (const region of project.regions.values()) {
         totals.regionProcessing += region.operations.length;
+        totals.spectralRegionProcessing += region.operations.filter(
+          (operation) => operation.edit.kind === 'spectral',
+        ).length;
       }
     }
     for (const [kind, total] of Object.entries(totals)) expect(total, kind).toBeGreaterThan(50);
