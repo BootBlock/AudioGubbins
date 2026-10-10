@@ -147,6 +147,15 @@ function refusal(code: string, summary: string, details?: DomainFailure['details
   );
 }
 
+/** A step of an export that stopped by throwing, as the person is told it. */
+function stoppedBy(step: string, thrown: unknown): DomainFailure {
+  return failure(
+    'export.stopped',
+    FailureKind.Unrecoverable,
+    `The export's ${step} stopped: ${thrown instanceof Error ? thrown.message : 'no reason was given'}.`,
+  );
+}
+
 /** The words for a codec, as the person knows it. */
 function codecName(codec: Parameters<typeof codecDescriptor>[0]): string {
   return codecDescriptor(codec).name;
@@ -550,9 +559,12 @@ export class PageExportControl implements ExportControl {
         run.cancel.signal,
       );
     } catch (error) {
-      // A delivery called off rejects with why; the batch is given up after.
+      // A delivery called off rejects with why, and the batch is given up
+      // after; any other is the storage worker gone from under it, which
+      // fails this file and leaves the batch to go on or end.
       if (run.cancel.signal.aborted) return;
-      throw error;
+      this.#report(run, id, { kind: 'failed', failure: stoppedBy('delivery', error) });
+      return;
     }
     if (!answer.ok) {
       this.#report(run, id, { kind: 'failed', failure: answer.failures[0] });
@@ -564,14 +576,21 @@ export class PageExportControl implements ExportControl {
         run.batch = { ...run.batch, remembered: delivered.remembered };
         this.#report(run, id, { kind: 'delivery-refused', failure: delivered.failure });
         return;
-      case 'download':
-        this.#parts.download(delivered.file, safeFileName(parts.file.name));
+      case 'download': {
         // The browser reads the download from the staging after this returns,
         // so it is given up only when the next export begins, or at start.
         this.#downloaded.push(staged.token);
         parts.staged = undefined;
+        try {
+          this.#parts.download(delivered.file, safeFileName(parts.file.name));
+        } catch (error) {
+          // A browser that refuses downloads, as a locked-down one may.
+          this.#report(run, id, { kind: 'failed', failure: stoppedBy('download', error) });
+          return;
+        }
         this.#delivered(run, id, staged, safeFileName(parts.file.name));
         return;
+      }
       case 'delivered':
         run.batch = { ...run.batch, remembered: delivered.remembered };
         parts.staged = undefined;

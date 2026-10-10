@@ -52,7 +52,10 @@ function settings(range: ExportSettings['range'], fileName = '{project}'): Expor
 }
 
 /** An export over `audio`'s window, its workers played by fakes, its storage the window's own. */
-function exportOver(audio: AudioWindow, options: { readonly room?: number } = {}) {
+function exportOver(
+  audio: AudioWindow,
+  options: { readonly room?: number; readonly refusesDownloads?: boolean } = {},
+) {
   const render = new FakeExportRender();
   const codecs = new FakeExportCodecs();
   const downloads: { readonly name: string; readonly file: Blob }[] = [];
@@ -65,6 +68,7 @@ function exportOver(audio: AudioWindow, options: { readonly room?: number } = {}
     trusted,
     allowWriting: browserExportDestinations(undefined).allowWriting,
     download: (file, name) => {
+      if (options.refusesDownloads === true) throw new Error('Downloads are turned off here');
       downloads.push({ name, file });
     },
     room: () => Promise.resolve(options.room),
@@ -394,6 +398,20 @@ describe('the page export (ADR-0092)', () => {
       await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'prompt' }),
     );
     expect(stagedParts(world)).toEqual([]);
+  });
+
+  it('fails the file a browser will not download, and is free for the next export', async () => {
+    const audio = await windowWithAudio();
+    const { start, control } = exportOver(audio, { refusesDownloads: true });
+
+    expect(expectSuccess(await start({ kind: 'project' }, { kind: 'download' }))).toBe(
+      "1 file could not be exported: The export's download stopped: Downloads are turned off here.",
+    );
+    expect(control.get().kind).toBe('ended');
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+    expectSuccess(
+      await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'prompt' }),
+    );
   });
 
   it('replaces, without asking, a file it exported earlier into a trusted folder', async () => {
