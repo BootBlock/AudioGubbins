@@ -105,9 +105,10 @@ export class MetadataGathering {
   toMap(): MetadataMap {
     const tagged = this.taggedLoops();
     const loops = this.loops ?? tagged;
-    // Tags that state no loop, or whose loop a fuller statement replaced, are kept as the fields they are.
+    // Tags that state no loop are kept as the fields they are. Where a sampler chunk states
+    // the loops, the tags are the same loop told more briefly, as the writers write both.
     const foreign =
-      tagged !== undefined && this.loops === undefined
+      tagged !== undefined || this.loops !== undefined
         ? this.foreign
         : [...this.foreign, ...Object.values(this.loopTags).map((tag) => tag.field)];
     return {

@@ -84,7 +84,7 @@ describe('Ogg pages', () => {
     });
     const damaged = bytes.slice();
     damaged[40] = (damaged[40] ?? 0) ^ 1;
-    expectFailureCode(readOggPage(damaged), 'codecs.malformed');
+    expect(expectFailureCode(readOggPage(damaged))).toBe('codecs.malformed');
   });
 
   it('laces packets into segments, continues long packets over pages and marks the stream ends', () => {
@@ -139,13 +139,12 @@ describe('Ogg pages', () => {
       lacing: Uint8Array.from(lacing),
       body: new Uint8Array(lacing.reduce((sum, value) => sum + value, 0)),
     });
-    expectFailureCode(
-      new OggPacketAssembler(1_000).add(page(CONTINUED_PACKET, [3])),
+    expect(expectFailureCode(new OggPacketAssembler(1_000).add(page(CONTINUED_PACKET, [3])))).toBe(
       'codecs.malformed',
     );
     const assembler = new OggPacketAssembler(1_000);
     expectSuccess(assembler.add(page(0, [255])));
-    expectFailureCode(assembler.add(page(0, [3])), 'codecs.malformed');
+    expect(expectFailureCode(assembler.add(page(0, [3])))).toBe('codecs.malformed');
   });
 });
 
@@ -154,11 +153,12 @@ describe('Ogg Opus', () => {
     expect(expectSuccess(opusPacketDuration(Uint8Array.of(31 << 3)))).toBe(960);
     expect(expectSuccess(opusPacketDuration(Uint8Array.of((16 << 3) | 1)))).toBe(240);
     expect(expectSuccess(opusPacketDuration(Uint8Array.of((3 << 3) | 3, 2)))).toBe(5_760);
-    expectFailureCode(
-      opusPacketDuration(Uint8Array.of((3 << 3) | 3, 3)),
+    expect(expectFailureCode(opusPacketDuration(Uint8Array.of((3 << 3) | 3, 3)))).toBe(
       'codecs.encoded-stream-invalid',
     );
-    expectFailureCode(opusPacketDuration(new Uint8Array()), 'codecs.encoded-stream-invalid');
+    expect(expectFailureCode(opusPacketDuration(new Uint8Array()))).toBe(
+      'codecs.encoded-stream-invalid',
+    );
   });
 
   it('writes OpusHead alone on the first page and OpusTags ending its own page', () => {
@@ -220,7 +220,7 @@ describe('Ogg Opus', () => {
         mapping: { family: 1, streams: 9, coupledStreams: 0, table: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
       }),
     ]) {
-      expectFailureCode(OggOpusWriter.create(settings), 'codecs.stream-unwritable');
+      expect(expectFailureCode(OggOpusWriter.create(settings))).toBe('codecs.stream-unwritable');
     }
   });
 
@@ -248,12 +248,10 @@ describe('Ogg Opus', () => {
       return opus;
     };
     // Three packets decode to 2,880 samples; the last begins at 1,920.
-    expectFailureCode(
-      writer().finish({ inputFrames: 1_920 - 312 - 1 }),
+    expect(expectFailureCode(writer().finish({ inputFrames: 1_920 - 312 - 1 }))).toBe(
       'codecs.encoded-stream-invalid',
     );
-    expectFailureCode(
-      writer().finish({ inputFrames: 2_880 - 312 + 1 }),
+    expect(expectFailureCode(writer().finish({ inputFrames: 2_880 - 312 + 1 }))).toBe(
       'codecs.encoded-stream-invalid',
     );
     expectSuccess(writer().finish({ inputFrames: 1_920 - 312 }));
@@ -264,8 +262,8 @@ describe('Ogg Opus', () => {
     const opus = expectSuccess(OggOpusWriter.create(opusSettings()));
     expectSuccess(opus.add(opusPacket(0)));
     expectSuccess(opus.finish({ inputFrames: 10 }));
-    expectFailureCode(opus.add(opusPacket(1)), 'codecs.writer-ended');
-    expectFailureCode(opus.finish({ inputFrames: 10 }), 'codecs.writer-ended');
+    expect(expectFailureCode(opus.add(opusPacket(1)))).toBe('codecs.writer-ended');
+    expect(expectFailureCode(opus.finish({ inputFrames: 10 }))).toBe('codecs.writer-ended');
   });
 
   it('carries every field of the map and reads it back', async () => {
@@ -311,7 +309,7 @@ function rewritten(file: Uint8Array, seed: number) {
     out.push(...expectSuccess(rewriter.add(file.subarray(offset, offset + piece))));
     offset += piece;
   }
-  const finished = expectSuccess(rewriter.finish(undefined));
+  const finished = expectSuccess(rewriter.finish());
   return { file: concatenate([finished.head, ...out, ...finished.body, finished.tail]), finished };
 }
 
@@ -355,10 +353,12 @@ describe('the Vorbis comment rewriter', () => {
     const source = vorbisStream({ setupSharesPage: false });
     const cut = new OggVorbisCommentRewriter({});
     expectSuccess(cut.add(source.file.subarray(0, source.file.length - 10)));
-    expectFailureCode(cut.finish(undefined), 'codecs.encoded-stream-invalid');
+    expect(expectFailureCode(cut.finish())).toBe('codecs.encoded-stream-invalid');
 
     const opus = opusFile(1, 100).file;
-    expectFailureCode(new OggVorbisCommentRewriter({}).add(opus), 'codecs.encoded-stream-invalid');
+    expect(expectFailureCode(new OggVorbisCommentRewriter({}).add(opus))).toBe(
+      'codecs.encoded-stream-invalid',
+    );
 
     const second = new OggPageWriter(77);
     const chained = concatenate([
@@ -367,7 +367,7 @@ describe('the Vorbis comment rewriter', () => {
       ...second.flush(true),
     ]);
     const rewriter = new OggVorbisCommentRewriter({});
-    expectFailureCode(rewriter.add(chained), 'codecs.encoded-stream-invalid');
-    expectFailureCode(rewriter.add(new Uint8Array(1)), 'codecs.writer-ended');
+    expect(expectFailureCode(rewriter.add(chained))).toBe('codecs.encoded-stream-invalid');
+    expect(expectFailureCode(rewriter.add(new Uint8Array(1)))).toBe('codecs.writer-ended');
   });
 });
