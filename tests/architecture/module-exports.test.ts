@@ -348,6 +348,31 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
+ * Each export of an application contract written ahead of the modules that
+ * take it, under the reason it is: the types and names that work on several
+ * modules at once is written against, so each is built to the same shape.
+ * An entry leaves the list once a module takes it, as the rule that lists
+ * only what no module takes holds.
+ */
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
+  "The page's codecs and export as Phase 09 composes them (ADR-0090, ADR-0092): the codec services the codec worker's start implements and the import, the picture's sound and the export take; the export's control, its start and destinations and the context it is planned against, which the export pipeline implements and its commands, dialog and progress take.":
+    [
+      'apps/web/src/codecs/codec-services.ts: CodecServices',
+      'apps/web/src/export/export-types.ts: ExportContextOf',
+      'apps/web/src/export/export-types.ts: ExportControl',
+    ],
+  'The identities of the import and export commands, and the words the person finds them and their surfaces by, which the commands, the menus, the import list, the Export dialog, the collision prompt and the browser suite name alike.':
+    [
+      'apps/web/src/commands/import-export-ids.ts: ExportCommand',
+      'apps/web/src/import-export-words.ts: COLLISION_PROMPT_WORDS',
+      'apps/web/src/import-export-words.ts: EXPORT_BUTTON',
+      'apps/web/src/import-export-words.ts: EXPORT_DIALOG_WORDS',
+      'apps/web/src/import-export-words.ts: IMPORT_LIST_LABEL',
+      'apps/web/src/import-export-words.ts: collisionPromptTitle',
+    ],
+};
+
+/**
  * Each export of a test-support module that no test takes by name, under the
  * reason it is offered anyway.
  *
@@ -386,7 +411,13 @@ describe('module exports (REQ-EXEC-184)', () => {
   });
 
   const files = new Map(PRODUCTION_FILES.map((path) => [path, parse(path)] as const));
-  const listed = new Set([...Object.values(FOR_TESTS), ...Object.values(FOR_THE_BUILD)].flat());
+  const listed = new Set(
+    [
+      ...Object.values(FOR_TESTS),
+      ...Object.values(FOR_THE_BUILD),
+      ...Object.values(AHEAD_OF_USE),
+    ].flat(),
+  );
 
   it('takes every export of a production module in another, or lists it with its reason', () => {
     expect(untakenExports(files, resolveOnDisk, listed)).toEqual([]);

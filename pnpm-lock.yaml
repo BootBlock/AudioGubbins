@@ -262,6 +262,12 @@ importers:
       '@audiogubbins/clipboard':
         specifier: workspace:*
         version: link:../../packages/clipboard
+      '@audiogubbins/codec-runtime':
+        specifier: workspace:*
+        version: link:../../packages/codec-runtime
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../../packages/codecs
       '@audiogubbins/commands':
         specifier: workspace:*
         version: link:../../packages/commands
@@ -283,6 +289,9 @@ importers:
       '@audiogubbins/history':
         specifier: workspace:*
         version: link:../../packages/history
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../../packages/import-export
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:../../packages/input
