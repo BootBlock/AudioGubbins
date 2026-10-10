@@ -32,7 +32,8 @@ import type { RulerTicks, SelectionSet, SnapTarget } from '@audiogubbins/timelin
 import { BuilderPool } from './batch-buffers.js';
 import type { EditorPalette, EditorType } from './editor-palette.js';
 import { LaneKind, type Lane, type ViewLayout } from './lane-layout.js';
-import { drawLaneOverlay, frequencyY } from './overlay-drawing.js';
+import { frequencyY } from './frequency-axis.js';
+import { drawLaneOverlay } from './overlay-drawing.js';
 import { drawRuler, drawStrip, type OverlayStyle } from './ruler-drawing.js';
 import type { ToolPreview } from './pointer-tools.js';
 import type { EditorViewState } from './view-state.js';

@@ -20,6 +20,7 @@ import {
 } from '@audiogubbins/timeline';
 
 import type { BuilderPool, RectangleBuilder } from './batch-buffers.js';
+import { frequencyY } from './frequency-axis.js';
 import type { Lane } from './lane-layout.js';
 import type { ToolPreview } from './pointer-tools.js';
 import { crispX, type OverlayStyle } from './ruler-drawing.js';
@@ -74,15 +75,6 @@ function wash(
   edges.add(from, area.y, hairline, area.height);
   edges.add(Math.max(from, to - hairline), area.y, hairline, area.height);
   out.push(rectangles.batch(), edges.batch());
-}
-
-/** The height in a lane of `frequency`, by the spectral settings' scale. */
-export function frequencyY(lane: Lane, frequency: number, settings: SpectralSettings): number {
-  const share =
-    settings.frequencyScale === 'linear'
-      ? (frequency - settings.lowest) / (settings.highest - settings.lowest)
-      : Math.log(frequency / settings.lowest) / Math.log(settings.highest / settings.lowest);
-  return lane.area.y + lane.area.height * (1 - Math.min(1, Math.max(0, share)));
 }
 
 function drawSelection(
