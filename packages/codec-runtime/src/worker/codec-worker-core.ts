@@ -49,7 +49,7 @@ import { readCodecRequest, readToCodecWorker } from './codec-worker-message-read
 import { runDecode } from './decode-job.js';
 import { runEncode, type OpenExportEncoder } from './encode-job.js';
 import type { ImportServices } from './import-opening.js';
-import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
+import { JOB_FAULT, endOfThrown, type JobContext, type JobEnd } from './job-end.js';
 import { JobQueue, abandonStreams, answerJob, type Client, type Job } from './job-queue.js';
 import { codecModuleLoad, encoderModuleLoad, type OnceLoaded } from './module-loading.js';
 
@@ -99,11 +99,6 @@ const UNREADABLE: DomainFailure = failure(
 );
 
 /** The failure a request ends with where the worker met a fault, which it also raises. */
-const FAULT: DomainFailure = failure(
-  'codec-runtime.fault',
-  FailureKind.Unrecoverable,
-  'The codec worker met a fault it did not expect.',
-);
 
 /** The codec worker's work, given its scope's parts. */
 export class CodecWorkerCore {
@@ -289,7 +284,7 @@ export class CodecWorkerCore {
         answerJob(job, end);
         return;
       }
-      answerJob(job, { kind: 'failed', failure: FAULT });
+      answerJob(job, { kind: 'failed', failure: JOB_FAULT });
       this.#host.reportFault(error);
     }
   }

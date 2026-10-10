@@ -35,6 +35,18 @@ export interface JobContext {
 }
 
 /**
+ * What a job that met a fault in the code fails with. A job that throws one
+ * still ends its streams with it before the worker answers and reports it, so
+ * the worker at the other end of a stream stops waiting for one that will
+ * never come.
+ */
+export const JOB_FAULT: DomainFailure = failure(
+  'codec-runtime.fault',
+  FailureKind.Unrecoverable,
+  'The codec worker met a fault it did not expect.',
+);
+
+/**
  * The end a job's thrown error means: cancelled where the job's signal was
  * cancelled and the error is its reason, failed where a read of the file
  * threw, and `undefined` for anything else, a fault in the code.
