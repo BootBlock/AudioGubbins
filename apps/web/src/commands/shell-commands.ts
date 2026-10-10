@@ -32,6 +32,7 @@ import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
+import { exportDialogCommands } from './export-dialog-commands.js';
 import { exportCommands } from './export-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
@@ -164,6 +165,7 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...audioImportCommands(),
     ...exportCommands(),
     ...quickEditCommands(),
+    ...exportDialogCommands(),
     ...backupCommands(),
     ...backupFolderCommands(),
     ...historyCommands(),

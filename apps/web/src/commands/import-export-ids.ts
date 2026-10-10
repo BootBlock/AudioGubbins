@@ -32,6 +32,9 @@ export const ExportCommand = {
   /** Starts the export the Export dialog sets, keeping its settings as the project's last. */
   Start: 'export.start',
 
+  /** Shuts the Export dialog, starting nothing. */
+  CloseDialog: 'export.close-dialog',
+
   /** Cancels the export, giving up what it staged. */
   Cancel: 'export.cancel',
 

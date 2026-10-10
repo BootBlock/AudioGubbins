@@ -22,6 +22,7 @@ import type { ProjectServices } from '../storage/project-services.js';
 import { QuickEditStore } from './quick-edit-store.js';
 import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
+import { ExportDialogStore } from './export-dialog-store.js';
 import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
 import { HistoryRowOrders } from './history-row-orders.js';
@@ -53,6 +54,8 @@ export interface ProjectStores {
   readonly imports: ImportBatches;
   /** The Quick Edit in progress, while its project is open. */
   readonly quickEdit: QuickEditStore;
+  /** The Export dialog, while it is open over an asset of the open project. */
+  readonly exportDialog: ExportDialogStore;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
   readonly rowOrders: HistoryRowOrders;
@@ -133,6 +136,7 @@ export function createProjectStores(
     }),
     imports: new ImportBatches(client.imports, files, project, preferences),
     quickEdit: new QuickEditStore(project),
+    exportDialog: new ExportDialogStore(project),
     project,
     review: new HistoryReviewStore(project, logger),
     rowOrders: new HistoryRowOrders(project),

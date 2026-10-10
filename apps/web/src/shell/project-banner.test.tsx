@@ -10,6 +10,8 @@ import type { OpenProjectState } from '../state/open-project-store.js';
 import type { QuickEditSession } from '../state/quick-edit-store.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
 import { projectWorld } from '../testing/project-context.js';
+import { ExportCommand } from '../commands/import-export-ids.js';
+import { EXPORT_BUTTON } from '../import-export-words.js';
 import { ProjectBanner } from './project-banner.js';
 
 /** A snapshot of a real project, made once, whose access each test sets. */
@@ -136,6 +138,27 @@ describe('the project strip, with projects to reach', () => {
     expect(
       within(strip).getByText('Quick Edit of “Harbour.wav”, kept in the project “Harbour”'),
     ).toBeVisible();
+  });
+
+  it('offers a Quick Edit’s export, and nothing to export for a project alone', async () => {
+    const quickEdit = observable<QuickEditSession | undefined>(undefined);
+    const { strip, run } = banner(
+      { kind: 'ready' },
+      openWith({ kind: 'writable', transferRequests: [] }),
+      quickEdit,
+    );
+    expect(within(strip).queryByRole('button', { name: EXPORT_BUTTON })).toBeNull();
+
+    act(() => {
+      quickEdit.set({
+        project: made.project,
+        asset: unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a1'),
+        fileName: 'Harbour.wav',
+      });
+    });
+    await userEvent.click(within(strip).getByRole('button', { name: EXPORT_BUTTON }));
+
+    expect(run.mock.calls).toEqual([[ExportCommand.Audio]]);
   });
 
   it('names the project open to change, and says nothing more', () => {

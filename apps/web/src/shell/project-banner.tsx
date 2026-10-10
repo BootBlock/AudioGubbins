@@ -8,10 +8,10 @@
  * costs before it is done; the tab changing a project is shown each request for
  * it, to hand it over or keep it; a tab that lost a project says who took it
  * and what was lost. A recording the project holds cut short is offered first,
- * to recover or discard. Where no project can be opened, it says why. Each
- * action runs a command. A change of how this tab may use the project is said
- * aloud as well as shown, and focus never falls to the page when the button
- * that had it goes.
+ * to recover or discard. A Quick Edit offers its export (REQ-EDIT-008). Where
+ * no project can be opened, it says why. Each action runs a command. A change
+ * of how this tab may use the project is said aloud as well as shown, and focus
+ * never falls to the page when the button that had it goes.
  */
 
 import { useRef, useSyncExternalStore, type ReactNode } from 'react';
@@ -20,7 +20,9 @@ import { Button } from '@audiogubbins/design-system';
 import { PanelKinds } from '@audiogubbins/workspace';
 import type { ProjectSnapshot } from '@audiogubbins/storage';
 
+import { ExportCommand } from '../commands/import-export-ids.js';
 import { showPanelCommandId } from '../commands/panel-commands.js';
+import { EXPORT_BUTTON } from '../import-export-words.js';
 import type { Announce } from '../commands/voiced-execution.js';
 import type { Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
@@ -136,6 +138,11 @@ function OpenProject({
           ? `Quick Edit of ${quoted(quickEdit.fileName)}, kept in the project ${name}`
           : name}
       </p>
+      {quickEdit?.project === snapshot.project && (
+        <Button compact onClick={() => run(ExportCommand.Audio)}>
+          {EXPORT_BUTTON}
+        </Button>
+      )}
       {said !== undefined && (
         <p className="ag-project-banner-text" data-ag-status={statusOf(snapshot)}>
           {said}

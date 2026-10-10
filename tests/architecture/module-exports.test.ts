@@ -356,15 +356,7 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * An entry leaves the list once a module takes it, as the rule that lists
  * only what no module takes holds.
  */
-const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
-  "The trusted folders' section of the export settings (ADR-0092), which the Export tab of the settings dialogue mounts beside the person's export presets.":
-    ['apps/web/src/shell/settings/trusted-folders.tsx: TrustedFoldersSection'],
-  'The identities of the import and export commands, and the words the person finds them and their surfaces by, which the commands, the menus, the import list, the Export dialog, the collision prompt and the browser suite name alike.':
-    [
-      'apps/web/src/import-export-words.ts: EXPORT_BUTTON',
-      'apps/web/src/import-export-words.ts: EXPORT_DIALOG_WORDS',
-    ],
-};
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {};
 
 /**
  * Each export of a test-support module that no test takes by name, under the
