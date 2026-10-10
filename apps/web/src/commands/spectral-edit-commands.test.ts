@@ -22,6 +22,7 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleCount } from '@audiogubbins/domain';
 
+import { followPlayingAsset } from '../audio/playing-asset.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 import type { projectWorld } from '../testing/project-context.js';
 
@@ -300,11 +301,24 @@ describe('comparing a spectral edit, and hearing it bypassed', () => {
 
   it('hears the original with a spectral edit bypassed, though no chain processes the sound', async () => {
     const audio = await selectedLoop();
+    const { context } = audio.window;
+    followPlayingAsset(context.assets, context.hearing, context.playback);
     const before = audio.asset();
     await audio.window.runAndHear('spectral.remove');
     const edited = await audio.changed(before);
+    await audio.window.runAndHear('transport.play');
+    const [opened] = audio.window.audio.playback.opened;
+    if (opened === undefined) throw new Error('Playback opened a session.');
+    const { session } = opened;
+    const loads = session.loads.length;
 
     expect(edited.original).toBeDefined();
     expect(audio.window.run('transport.listen-original').kind).toBe('applied');
+
+    await expect.poll(() => session.loads.length).toBe(loads + 1);
+    const heard = session.loads.at(-1)?.sources[0];
+    const plan = heard !== undefined && 'plan' in heard ? heard.plan : undefined;
+    expect(plan?.streams.some((stream) => stream.processing !== undefined)).toBe(false);
+    expect(plan).toEqual(before.owner.kind === 'project' ? before.owner.plan : undefined);
   });
 });
