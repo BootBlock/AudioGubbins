@@ -2,7 +2,7 @@
 2bd6cfeec1c6e6c32657fbc36aae6e87321912d9bde66631151172514aec6323 *./HARDENING-PLAN.md
 4b0c1ab2177280bcd35e12cc5403042defb24f87e5f9b70dbe99486beccd1b2d *./HARDENING-REPORT.md
 e695f55085919baaa4401fc9290440f38dc6383b96a3b371b2744c5874bfa679 *./OPERATOR-GUIDE.md
-5e2a6c5619792a04eab0e57f8a3580a400d352ee1508ae378c584f1aeff0905d *./README.md
+de6cf0304cb9bd593a70439fcafd7db44bec7a20cfe6e0800858c014aea2931e *./README.md
 914b7770a0cb32e81193a038e620e5be8817c4f1b2cff342fbac5b9ea7b234c6 *./adr/ADR-0001-web-stack.md
 6f7823413fe57629a0f1e408fc7b6ec775abf74dcae04c7b9b8f56c0013c4f76 *./adr/ADR-0002-project-persistence.md
 aa1bbcb7a0cb069f044df78ee459cfad73136168606fa5283a96058a2d53c427 *./adr/ADR-0003-audio-engine-wasm.md
@@ -60,7 +60,7 @@ fa8d432d52c399ba4914d02bc32fb97328788d544fff53531abf058f2258e608 *./contracts/re
 fd33314c702d80afc003fd6ab352c68615e162c76b0891a6913c1f5e4e4cea9f *./contracts/review-gates.md
 32b7b1be4c4d8882fb4d2299d44240b846f0d72c0dc4768e4e5e6d842a4fd022 *./contracts/specification-change-template.md
 41058219d3422f0598e7c61bdd83303f4da96270af168ad651b6c87c961538d4 *./contracts/specification-execution.md
-e7c11b9e03ba6f175f20b798308d047ee12f23cfa737fddfe41f7fbec416f2a2 *./generated/AudioGubbins_Implementation_Specification.md
+32551652a9a8c98cbc5d0bb11bb7b63e7454cd4636341eac428053f1d0b665bf *./generated/AudioGubbins_Implementation_Specification.md
 7e17ec78148dc974cc6dd11791f53d6bc3f136ed054a2067cad9c95863a48489 *./generated/LEGACY_Requirements_Baseline.md
 edb2c6356df58993afe75944a6ab648fb8f79a83046560800ad0f33ff062b423 *./generated/context/phase-00-context.md
 3e826c2c7c78f4be3fd4e64893ee4bedec94ebb7dc8f3d853182bbda0b2b7155 *./generated/context/phase-01-context.md
@@ -70,13 +70,13 @@ c4f9405db5b99ef7df0f3c92aac581b4209fe11a868cd1b1a51316faf88b2473 *./generated/co
 3ca5d2a1fc792c86f40e283eecf2344765f2ab4089b04f165b370b79b33f7da2 *./generated/context/phase-05-context.md
 377ff465e3152c88241d3936cc6b746db5cbbf4aac83c3286ff232c4b3e609f6 *./generated/context/phase-06-context.md
 80377d2962bf576fe58a433743aebbac528b0fdff13bc8d49ed3b830198381b0 *./generated/context/phase-07-context.md
-58c0e25f1d8cb939de603dbff8ed223f2e780fc73312e816c59e87e6cf30b690 *./generated/context/phase-08-context.md
+61a20f6947714b4d7c84b7e90d0ffc764226cf3562615192fad2843c70a42cfe *./generated/context/phase-08-context.md
 c8f8ec00ccdb9907eec82e02b8bea358e62b890a9e491893144c0b83fa554c34 *./generated/context/phase-09-context.md
 be675310de27a5fbd3d6b7af304a568c68951a4d5e0bbcca3344050d99275ee9 *./generated/context/phase-10-context.md
 8672466441ff85e824bc280e156623a84ef7b4f2880bdeda561abc76911014e6 *./generated/context/phase-11-context.md
 e1144f293a198fe9f5a5ee3f67a9bf6e69679e18d6ebadd50f1fa368a1686718 *./generated/context/phase-12-context.md
 ad1c685ca2bd2e56df8d8301a8c683914a1f3a34d9ae354dbd2d64d173bdd0d7 *./generated/context/phase-13-context.md
-f835c6f3b6fed6f99be6d8759fee733f6acc15f563cc57ab4b208cf7fbdc1bea *./generated/context/phase-14-context.md
+447de7fc8218a8330ce77f1fee12100ad5a5b69aa8d9f69f4951b3521f562366 *./generated/context/phase-14-context.md
 52a575ea0fba960f65981d46edea8d1ea96b4b890068af084c0e2296770b320d *./generated/context/phase-15-context.md
 8e561571b12c878fd723bf62ce4cc79a9b37b8ab4dab4699fa17d48e93adc18c *./phases/phase-00-requirements-and-architectural-baseline.md
 3e1ba8804bcb409549ad4c3010654a562ece94b2e123c35af42d91d5f6e6d9c7 *./phases/phase-01-application-foundation.md
@@ -86,7 +86,7 @@ f835c6f3b6fed6f99be6d8759fee733f6acc15f563cc57ab4b208cf7fbdc1bea *./generated/co
 0f1284740b8abbf505e991d3f3d53a87f711e585441375de5f5c744204a08ae9 *./phases/phase-05-core-non-destructive-editing.md
 10c94e3e8e4334c8bd89078ee0d411e4088c7cbc30f92c309c28272b276a9ce7 *./phases/phase-06-effect-rack-and-core-dsp.md
 0ca4ace26be7e692811e3ec9495a31abc07d1191cbcb433e0ddab81beb176496 *./phases/phase-07-recording.md
-89cd9c91249bea37a5366e751c915375f6a76fc116694e4ddc6049f9e991e0a0 *./phases/phase-08-spectral-editing.md
+a61c7d671e02172d55e6ec9b27f0d700234545129967603a0f180907b07f49a3 *./phases/phase-08-spectral-editing.md
 de9a2d053e440346dfc573914b80c53deb49a085492512bb0908351162848e09 *./phases/phase-09-import-export-and-codec-system.md
 f4a8b11ee7db453e15cc14702b02210cadb4d0c1d3103e63b48452f93de94b36 *./phases/phase-10-game-audio-tooling.md
 d0d9a8ae3cbdfcda46874a186041469bc38d4dede81bb43a84f72b4cbd5e1cf8 *./phases/phase-11-godot-integration.md
@@ -123,8 +123,8 @@ a8cea072942c35f56e03f7d2242758a93476306f60f40ec52a21f2910ea857d7 *./reviews/phas
 08a491d7f7cdfb9c1dec09b6127b1077b556de991349e13a32a10c113ae997dd *./reviews/phase-06-review.md
 e209788d9473d2fb53f002803b656d41764455d954b98a381b0af189e21bf58d *./reviews/phase-07-evidence.md
 37ece96cac64d5e574bc8045003d20ac1e294551300ba9d0cecaf485457e7da2 *./reviews/phase-07-review.md
-f9ceeb84642ec99e90c22a5c3069c39387a618c25d33700858e84c98f5323d6c *./reviews/phase-08-evidence.md
-380afe93c080b341179b8f004e2f3fe868ee67ec4571aa55ab209fe35f082959 *./reviews/phase-08-review.md
+4ab6071c1b6b619ec917830173bcf995cecc66e227ab7a79f49af7781a8050ea *./reviews/phase-08-evidence.md
+b79a2171a63571e072a5e750a5ef398c0faf31c8ff4f6eb1c6fc538d8e9a0174 *./reviews/phase-08-review.md
 53161c9a24cf223e07368ce980fdfe672be9d24ac55b8eda4b5baf5f2d5f3492 *./reviews/verification-report.md
 9b07335e781d3c7a903d6a160e305658df705399447948ca94b3f397a82414cd *./tools/README.md
 c733f2a0b6031d990f07b58aab1e5c57cf85c2aa0225aaaf7e56fd7ddd8235cd *./tools/build_phase_contexts.py
@@ -141,9 +141,9 @@ c699ae6479a21853ce2f8671cd1a741582231708bfa40dd582dfabef776958ee *./traceability
 27b884b2ebdf723110441ec07a55a5efb83416e5f907580ea8e66c846275dc53 *./traceability/handoffs/phase-05.md
 7a97c4a8d5d53f0d76f622c04ca7c3f5456c8984ecd6a8f36a9ac28813fe08eb *./traceability/handoffs/phase-06.md
 448f97e463743ffad5dfc70ec436a630b7fea082e8075dcec44ed3328fdf9305 *./traceability/handoffs/phase-07.md
-f8187c956e045d0c811b7fb6623dafeca1c99e014f04851177abb196f236282d *./traceability/handoffs/phase-08.md
-7e28bfe71fb5025d925ee19988d0faa6f2bf3d5dd6fe9193ec99ef5248673a35 *./traceability/implementation-ledger.json
-17a8f12917fa9d8a5565503b18e5875f804e6d731c36566e5f9e2e2ef0611ee5 *./traceability/implementation-ledger.md
+a2b6f4336da6e426866b6989de3ac129bfd1bf47747ecd495673b26404fc3979 *./traceability/handoffs/phase-08.md
+4adf1d3bfd4b2c5061e59d7de48bd04f6c0027f0c1eca033bddb6a0ffe00f9c7 *./traceability/implementation-ledger.json
+dd81f0fb71a2e6b6d371a270fa3c396ab0da4f1aa18de650d6463ba888cb429f *./traceability/implementation-ledger.md
 18e577b1509f591245b3d3475e2b6982c81709eefaa7d17cc2a57ef0f33b8b28 *./traceability/phase-dependency-graph.json
 49507a373299487514bc27ef16c15a24bdbbc9a1c0c6c1bee3c6f9801303b355 *./traceability/phase-dependency-graph.md
 756ffb7797e2f0e209f4f42eafcec78a37d5444307e709ffbb9bbb98dcfd6fb6 *./traceability/requirements-register.json

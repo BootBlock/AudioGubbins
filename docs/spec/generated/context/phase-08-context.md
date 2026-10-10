@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`READY` — every hard dependency has passed, and the readiness review of 2026-10-10 settled the open placements (`ADR-0080`, `ADR-0081`, `ADR-0082`).
+`PASS` — completed on 2026-10-10; see `reviews/phase-08-evidence.md`, `reviews/phase-08-review.md` and `traceability/handoffs/phase-08.md`.
 
 ## Objective
 
@@ -3113,7 +3113,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 8,
   "name": "Spectral Editing",
-  "status": "READY",
+  "status": "PASS",
   "hard_dependencies": [
     3,
     4,
@@ -3126,7 +3126,10 @@ Only items explicitly authorised by the specification:
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-08-evidence.md",
+    "reviews/phase-08-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-08.md"
 }
 ```

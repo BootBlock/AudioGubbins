@@ -86,7 +86,12 @@ And by package:
   `SpectralToolSettings`, `withDrawnShape`, `isSpectralTool`), the steps
   (`maskSteppedInTime`, `maskSteppedInFrequency`), the spectrogram's view
   state (`SpectrogramDisplay`, `DisplayRange`, `SpectrogramColours`,
-  `shownSpectrogram`, `KnownSpectrogram`), and the spectral edit outlines.
+  `shownSpectrogram`, `KnownSpectrogram`), the spectral edit outlines,
+  `tracesPath`, and the keyboard's drawing (`KeyboardDrawing`,
+  `DrawingContext`, `DrawingMarks`, `CursorStep`, `newDrawing`,
+  `pointPlaced`, `cursorStepped`, `drawingShape`, `drawingPreview`).
+- `@audiogubbins/commands`: `Command.takesItsKeyOnlyWhenAvailable`, so a key
+  passes through to the page while its command cannot run.
 - `@audiogubbins/input`: `PressurePreference`, `pressurePreferenceOf`,
   `fixedStrengthOf`, `FIXED_STRENGTH_RANGE`.
 - `@audiogubbins/workspace`: `PanelKinds.Spectral`, in front in the Spectral
@@ -139,7 +144,10 @@ And by package:
   cache; a lost device or context loses only those caches.
 - Every view changes spectral selections only through selection commands and
   spectral edits only through project commands; every spectral selection
-  command has a keyboard form.
+  command has a keyboard form, and the keyboard draws every shape a pointer
+  draws through the tools' own trail and shape code. A tool that traces a
+  path (`tracesPath`) takes every move of a press, so a stroke's mask never
+  depends on a worker's speed.
 
 ## ADRs
 
@@ -152,7 +160,8 @@ And by package:
 - `ADR-0082` — the field batch, the spectrogram layer and the spectral tools;
   its tools clause rewritten on 2026-10-10 (a tool's input carries the
   pointer's height; the view's combination mode; the keyboard's band
-  commands)<<INTEGRATOR: and the keyboard lasso and brush follow-up>>.
+  commands, and the keyboard's cursor that draws a lasso, a brush stroke
+  and a marquee), recorded by a dated line (`e85a5b72`).
 - `ADR-0017`, `ADR-0031`, `ADR-0032`, `ADR-0040`, `ADR-0042`, `ADR-0044`,
   `ADR-0051` and `ADR-0060` — amended by the three, as each records.
 
@@ -165,7 +174,9 @@ And by package:
   quality were pinned again in `36f4b842`.
 - `cargo test -p audiogubbins-analysis`, with `GOLDEN_STFT_BLACKMAN_HARRIS`.
 - `pnpm run test:project-roundtrip`, whose random states hold spectral edits
-  of every operation and shape, and `spectral-edit.roundtrip.test.ts`;
+  of every operation and shape, `spectral-edit.roundtrip.test.ts`, and
+  `spectral-history.roundtrip.test.ts` through branching history and a
+  reopen;
   `pnpm run test:editing-property`, with `spectral-edit-property.test.ts`.
 - `pnpm run test:renderer-loss`: the field batch read back by pixel on
   WebGPU, WebGL2 and Canvas 2D, after each loss and a GPU process crash, and
@@ -174,11 +185,13 @@ And by package:
   selected by marquee and by keyboard, attenuated and healed, compared,
   undone, redone and found after a reload, the spectrogram darker over the
   attenuated area; the lasso and the fixed-strength brush drawing the same
-  mask from the same stroke. <<INTEGRATOR: its result and commit>>
+  mask from the same stroke. 4 passed at `898298c8`.
 - `pnpm run test:touch-pen` and `pnpm run test:architecture`.
-- The final counts: `verify:commit` on <<INTEGRATOR: the integrated commit>>,
-  <<INTEGRATOR: test files and tests>>; every browser test the evidence lists
-  <<INTEGRATOR: passed, or the exceptions>>.
+- The final counts: `verify:commit` at `898298c8`, 737 test files and 11,650
+  tests, after 11,649 tests at `b64ec9e9`, whose record check failed on a
+  renamed title (B-12); every browser test the evidence lists passed, the
+  timeline, projects and too-narrow notice suites at `71c74157`, not run
+  again at the final commit (the evidence has each count).
 
 ## Intentionally Deferred Items
 
@@ -196,8 +209,11 @@ Only items explicitly authorised by the specification:
 - A live parameter change does not reach a chain run inside a spectral edit's
   frames until the plan is read again (`ADR-0081`, F-12 in
   `reviews/phase-08-review.md`).
-- <<INTEGRATOR: the keyboard's reach once p08-fixui lands, or remove this
-  item>>
+- After a reload in which the last panel used was not an editor, no editor
+  is in use, so the Spectral panel, the Transport, the Inspector and the
+  Effects rack say no editor shows audio until an editor is used once; the
+  editor views' store deliberately keeps no focused view, and a test asserts
+  it. It predates this phase and is tracked by the owner's decision.
 - The spectral browser suite runs in Chromium only, on the reduced renderer;
   Firefox and WebKit are not run for spectral editing. Owed to Phase 14.
 - The domain's published entry is past the cohesion threshold by a recorded

@@ -85,8 +85,13 @@ Every box in the packet's **In Scope** list:
   (`apps/web/src/commands/spectral-selection-commands.ts`,
   `spectral-words.ts`), and the tools' settings and combination mode
   (`spectral-tool-commands.ts`), with default shortcuts
-  (`apps/web/src/state/default-shortcuts.ts`)<<INTEGRATOR: and the keyboard
-  lasso and brush, with their files>>.
+  (`apps/web/src/state/default-shortcuts.ts`); and a lasso's polygon, a
+  brush's stroke and a marquee's rectangle drawn from the keyboard with a
+  cursor in a channel's spectrogram lane, made by the tools' own trail and
+  shape code (`packages/editor-view/src/keyboard-drawing.ts`;
+  `apps/web/src/commands/spectral-drawing-commands.ts`,
+  `apps/web/src/editor/drawing-context.ts`), so the keyboard reaches every
+  spectral selection a pointer makes.
 - Attenuate, remove, isolate and heal, and repair through a cleanup or model
   chain, as the spectral edit: `SpectralEdit` and `SpectralEditOperation`
   (`packages/domain/src/spectral/spectral-edit.ts`), validated by
@@ -154,7 +159,7 @@ Work units: WU-08.A to WU-08.D as the packet defines them.
 | Spectral painting and spectral selection editing, reading `crates/analysis` and the ML processors (Phase 06 handoff) | `8b48c2fc`: the STFT's window; `6ada82e7`: the marquee, lasso and brush; `9445b57c`, `0dab56be`: the spectral edit realised and made by commands, through a cleanup or model chain. |
 | Persisting the gesture settings and a control for fixed strength (`ADR-0017`, Phase 01) | `303077f9`: kept with the preferences (`userPreferences` 2); `51dea6db`: the commands; `156742a4`: the control in Settings; `1c151123`: in the Spectral panel. |
 | The selection set's reconciliation clipped no lasso point, and its equality compared a spectral shape by reference (Phase 04, found by the readiness review) | `1714422f`: the facet is the domain's mask, clipped shape by shape by `clippedMask` and compared by `masksEqual`. |
-| The packet's verification named `cargo test -p analysis` and scripts that did not exist (found by the readiness review) | `d957834e` corrected the names; `fecde8c8` added `pnpm test:spectral-golden`; <<INTEGRATOR: the p08-e2e merge commit>> adds `pnpm test:e2e:spectral`. |
+| The packet's verification named `cargo test -p analysis` and scripts that did not exist (found by the readiness review) | `d957834e` corrected the names; `fecde8c8` added `pnpm test:spectral-golden`; `dd6c2409` adds `pnpm test:e2e:spectral`. |
 
 ## Files and packages materially changed
 
@@ -173,9 +178,10 @@ Work units: WU-08.A to WU-08.D as the packet defines them.
 | `packages/input` | The pressure preference: whether pen pressure is used, and the fixed strength. |
 | `packages/workspace` | The Spectral panel kind, in front in the Spectral Repair preset. |
 | `packages/storage` | Only its pack-pins test, which now holds a chain inside a spectral edit. |
+| `packages/commands` | `Command.takesItsKeyOnlyWhenAvailable`, so a drawing key passes through to the page while its command cannot run. |
 | `packages/version` | `projectDocument` 8, `userPreferences` 2, `editorViews` 2. |
 | `apps/web` | The spectral workspace: the page's DSP, the spectrogram worker's start and reports, the stored tile cache, the spectral selection, tool, edit, comparison, spectrogram and pressure commands, the Spectral panel, the Inspector's spectral edit, the pen and touch settings, the spectrogram's alert, the editor views' spectrogram and tool settings (`editorViews` 2) and the default shortcuts. |
-| `tests/` | The architecture rules for the new package and the domain entry's recorded review; the renderer's field harness and its browser tests (`tests/e2e/renderer-harness/`, `renderer-field.ts`); the earlier suites' settled failures; <<INTEGRATOR: confirm tests/e2e/spectral.spec.ts landed with the p08-e2e merge>>. |
+| `tests/` | The architecture rules for the new package and the domain entry's recorded review; the renderer's field harness and its browser tests (`tests/e2e/renderer-harness/`, `renderer-field.ts`); the earlier suites' settled failures; the spectral editing browser suite (`tests/e2e/spectral.spec.ts`, project `chromium-spectral`). |
 
 ## New or changed public contracts
 
@@ -200,7 +206,10 @@ Beside them: `DspDelivery`, `deliveredDsp` and `ScopeDsp` moved from
 tools, `ToolInput.strength`, the spectrogram layer's view state and the
 outlines in `@audiogubbins/editor-view`; `PressurePreference` in
 `@audiogubbins/input`; `PanelKinds.Spectral` in `@audiogubbins/workspace`;
-the raised `SCHEMA_VERSIONS` in `@audiogubbins/version`.
+the raised `SCHEMA_VERSIONS` in `@audiogubbins/version`; the keyboard's
+drawing (`KeyboardDrawing`, `DrawingContext`, `drawingShape`) and
+`tracesPath` in `@audiogubbins/editor-view`; and
+`Command.takesItsKeyOnlyWhenAvailable` in `@audiogubbins/commands`.
 
 ## ADRs created and changed
 
@@ -225,8 +234,10 @@ line. The build amended these records:
   height, from which `frequencyAt` derives the frequency; the view's
   combination mode joins a shape drawn with no modifier; and the keyboard's
   band commands, with default shortcuts, build every mask of rectangles.
-  <<INTEGRATOR: the follow-up amendment for the keyboard lasso and brush, its
-  commit, and whether ADR-0082 gains a dated Amended line as ADR-0081 has>>
+- `ADR-0082` — 2026-10-10, in the scope check (`e85a5b72`), by a dated line
+  recording that amendment and adding that the keyboard draws a lasso's
+  polygon, a brush's stroke and a marquee's rectangle with a cursor in the
+  lane, so it reaches every spectral selection a pointer makes.
 
 `ADR-0080` stands as written. The dependency cruise
 (`.dependency-cruiser.cjs`, the rule `spectral-analysis-owns-nothing-else`)
@@ -281,34 +292,33 @@ one added):
 
 | Package | New test files | Changed test files | Declarations added | Removed |
 | --- | --- | --- | --- | --- |
-| `apps/web` | 13 | 14 | 106 | 0 |
-| `packages/editor-view` | 6 | 2 | 82 | 1 |
+| `apps/web` | 14 | 23 | 125 | 0 |
+| `packages/editor-view` | 7 | 2 | 92 | 1 |
 | `packages/spectral-analysis` | 6 | 0 | 54 | 0 |
 | `packages/renderer` | 4 | 3 | 39 | 0 |
 | `packages/domain` | 4 | 2 | 30 | 0 |
-| `packages/audio-engine` | 3 | 7 | 20 | 1 |
+| `packages/audio-engine` | 3 | 7 | 22 | 1 |
 | `packages/input` | 1 | 0 | 9 | 0 |
 | `packages/project-format` | 1 | 3 | 6 | 0 |
 | `packages/timeline` | 0 | 1 | 4 | 1 |
+| `packages/storage` | 1 | 1 | 3 | 1 |
 | `packages/project-commands` | 0 | 2 | 2 | 0 |
 | `packages/effect-rack` | 1 | 0 | 1 | 0 |
-| `packages/storage` | 0 | 1 | 1 | 1 |
 | `packages/workspace` | 0 | 1 | 1 | 0 |
 | `packages/audio-runtime` | 0 | 14 | 0 | 0 |
-| `tests/architecture`, `tests/browser-suite-servers.test.ts` | 0 | 5 | 2 | 1 |
-| `tests/e2e` | 0 | 6 | 12 | 0 |
-| **Total** | **39** | **61** | **369** | **5** |
+| `tests/architecture`, `tests/browser-suite-servers.test.ts` | 0 | 6 | 3 | 1 |
+| `tests/e2e` | 1 | 6 | 16 | 0 |
+| **Total** | **43** | **71** | **407** | **5** |
 
-The five removed declarations are renamed or generalised, none dropped: the
-golden STFT test became one per window, the pack-pins test one per place a
-chain runs, the timeline's facet clearing and the frame composer's axis test
-lost what moved elsewhere, and the cohesion rule's review test was reworded.
-`crates/analysis` adds three Rust tests (`reads_window_codes`,
-`weights_by_the_four_term_blackman_harris_window`,
+The five removed declarations are renamed, generalised or rewritten, none
+dropped: the golden STFT test became one per window, the pack-pins test one
+per place a chain runs, the timeline's facet clearing and the frame
+composer's axis test lost what moved elsewhere, and the cohesion rule's band
+review keeps its title beside a test of its own for a file past the
+threshold (`898298c8`). `crates/analysis` adds three Rust tests
+(`reads_window_codes`, `weights_by_the_four_term_blackman_harris_window`,
 `keeps_a_sine_within_four_bins_through_blackman_harris`) and pins
-`GOLDEN_STFT_BLACKMAN_HARRIS`. <<INTEGRATOR: add the spectral browser suite
-(tests/e2e/spectral.spec.ts, 4 tests on p08-e2e at fac05d79) and the p08-fixui
-tests to the counts once merged>>
+`GOLDEN_STFT_BLACKMAN_HARRIS`.
 
 | Area | Where |
 | --- | --- |
@@ -316,17 +326,17 @@ tests to the counts once merged>>
 | The mask and the spectral edit | `packages/domain/src/spectral/spectral-mask.test.ts`, `mask-weight.test.ts`, `bin-frequency.test.ts`; `editing/spectral-edit-property.test.ts`, `plan-decoding.test.ts`; `project/project.test.ts` |
 | The engine's realisation | `packages/audio-engine/src/pcm/spectral-content.test.ts`, `running-changes.test.ts`; `spectral/spectral-edit.spectral-golden.test.ts`; `packages/effect-rack/src/spectral-process.spectral-golden.test.ts` |
 | Tiles, the worker and the host | `packages/spectral-analysis/src/spectral-geometry.test.ts`, `tile-analysis.test.ts`, `tile-codec.test.ts`, `spectrogram-messages.test.ts`, `spectrogram-host.test.ts`, `spectral-tile.spectral-golden.test.ts` |
-| Persisted form | `packages/project-format/src/spectral-edit.roundtrip.test.ts`, `edit-json.test.ts`, `project-json.test.ts`, `project-tree.test.ts` |
+| Persisted form and branching history | `packages/project-format/src/spectral-edit.roundtrip.test.ts`, `edit-json.test.ts`, `project-json.test.ts`, `project-tree.test.ts`; `packages/storage/src/spectral-history.roundtrip.test.ts` |
 | Project commands | `packages/project-commands/src/editing/target-invocations.test.ts`, `processing/rack-commands.test.ts`, `project-commands.test.ts` (the random command walk); `packages/storage/src/pack-pins.test.ts` |
 | The selection facet | `packages/timeline/src/selection.test.ts` |
 | The field batch | `packages/renderer/src/field-pixels.test.ts`, `field-textures.test.ts`, `canvas-fields.test.ts`, `canvas2d-backend.test.ts`, `webgl2-backend.test.ts`, `webgpu-backend.test.ts`, `renderer.test.ts` |
-| The editor view | `packages/editor-view/src/frequency-axis.test.ts`, `spectral-tools.test.ts`, `spectral-steps.test.ts`, `spectrogram-drawing.test.ts`, `mask-drawing.test.ts`, `overlay-drawing.test.ts`, `frame-composer.test.ts`, `pointer-tools.test.ts` |
+| The editor view | `packages/editor-view/src/frequency-axis.test.ts`, `spectral-tools.test.ts`, `spectral-steps.test.ts`, `spectrogram-drawing.test.ts`, `mask-drawing.test.ts`, `overlay-drawing.test.ts`, `frame-composer.test.ts`, `pointer-tools.test.ts`, `keyboard-drawing.test.ts` |
 | Pressure | `packages/input/src/pressure-preference.test.ts`; `apps/web/src/commands/pressure-commands.test.ts`, `state/preferences-store.test.ts`, `shell/settings/pen-and-touch.test.tsx` |
 | The preset | `packages/workspace/src/presets.test.ts` |
-| Application commands | `apps/web/src/commands/spectral-edit-commands.test.ts`, `spectral-selection-commands.test.ts`, `spectral-tool-commands.test.ts`, `edit-commands.test.ts`, `shell-commands.test.ts`, `editor-commands.test.ts` |
-| Application views and state | `apps/web/src/editor/view-spectrogram.test.ts`, `spectral-edit-outlines.test.ts`, `spectrogram-reports.test.ts`, `tool-pointer.test.ts`, `view-scene.test.ts`; `apps/web/src/io/stored-spectrogram-cache.test.ts`; `apps/web/src/shell/spectral/spectral-panel.test.tsx`, `inspector/edit-words.test.ts`, `inspector/inspector-panel.test.tsx`, `spectrogram-note.test.tsx`, `editor-panel.test.tsx`, `editor-toolbar.test.tsx`, `menus.test.ts`, `panels.test.tsx`; `apps/web/src/state/editor-view-store.test.ts` |
+| Application commands | `apps/web/src/commands/spectral-edit-commands.test.ts`, `spectral-selection-commands.test.ts`, `spectral-tool-commands.test.ts`, `spectral-drawing-commands.test.ts`, `edit-commands.test.ts`, `shell-commands.test.ts`, `editor-commands.test.ts` |
+| Application views and state | `apps/web/src/editor/view-spectrogram.test.ts`, `spectral-edit-outlines.test.ts`, `spectrogram-reports.test.ts`, `tool-pointer.test.ts`, `view-scene.test.ts`; `apps/web/src/io/stored-spectrogram-cache.test.ts`; `apps/web/src/shell/spectral/spectral-panel.test.tsx`, `inspector/edit-words.test.ts`, `inspector/inspector-panel.test.tsx`, `spectrogram-note.test.tsx`, `editor-panel.test.tsx`, `editor-toolbar.test.tsx`, `menus.test.ts`, `panels.test.tsx`, `rack/rack-panel.test.tsx`; `apps/web/src/input/use-shortcuts.test.ts`; `apps/web/src/state/editor-view-store.test.ts` |
 | Layering, exports and scopes | `tests/architecture/*.test.ts` |
-| The built application in a browser | `tests/e2e/renderer-loss.spec.ts`, `renderer-reduced.spec.ts`, `renderer-webgpu.spec.ts` (the field batch and the spectrogram); `touch-pen.spec.ts`, `timeline.spec.ts`, `projects.spec.ts` (settled); <<INTEGRATOR: tests/e2e/spectral.spec.ts once merged>> |
+| The built application in a browser | `tests/e2e/renderer-loss.spec.ts`, `renderer-reduced.spec.ts`, `renderer-webgpu.spec.ts` (the field batch and the spectrogram); `touch-pen.spec.ts`, `timeline.spec.ts`, `projects.spec.ts` (settled); `spectral.spec.ts` (spectral editing) |
 
 ## Commands used for verification
 
@@ -352,23 +362,23 @@ is not a script of the manifest, so it stands outside the list.
 
 | Check | Result |
 | --- | --- |
-| `pnpm run verify:commit`, at <<INTEGRATOR: the integrated commit>> | <<INTEGRATOR: exit code; lint, both type checks; test files and tests; the record check's cited titles; modules and dependencies cruised>> |
-| The packet's package filter | <<INTEGRATOR: per package, files and tests>> |
-| `cargo test -p audiogubbins-analysis` | <<INTEGRATOR: tests passed>> |
-| `pnpm run test:spectral-golden` | <<INTEGRATOR: files and tests>> |
-| `pnpm run test:project-roundtrip` | <<INTEGRATOR: files and tests>> |
-| `pnpm run test:editing-property` | <<INTEGRATOR: files and tests>> |
-| `pnpm run test:architecture` | <<INTEGRATOR: dependency violations, modules, dependencies; files and tests>> |
-| `pnpm run build` | <<INTEGRATOR: exit code; the build check's files>> |
-| `pnpm run spec:verify` | <<INTEGRATOR: result on the closing commit>> |
+| `pnpm run verify:commit`, at `898298c8` | Passed, exit 0: lint (the version, graph and notices checks, ESLint and Prettier), both type checks, 737 test files and 11,650 tests, the record check (every one of 2,024 cited titles a test's title), and no dependency violations (2,470 modules, 14,690 dependencies). |
+| `pnpm run verify:commit`, at `b64ec9e9` | Failed in the record check alone: all 11,649 tests passed, but finding F-530 cited the cohesion rule's band review by a title the phase had changed (B-12 in the review record). `898298c8` restores the title. |
+| The packet's package filter, at `898298c8` | Passed: domain 40 files, 470 tests; timeline 6, 62; renderer 8, 68; audio-engine 55, 833; spectral-analysis 6, 86; editor-view 10, 139. |
+| `cargo test -p audiogubbins-analysis` | 41 tests passed. |
+| `pnpm run test:spectral-golden` | 4 files, 87 tests passed. |
+| `pnpm run test:project-roundtrip` | 9 files, 323 tests passed. |
+| `pnpm run test:editing-property` | 5 files, 20 tests passed. |
+| `pnpm run test:architecture` | No dependency violations; 10 files, 321 tests passed. |
+| `pnpm run build` | Exit 0; the build check passed. |
+| `pnpm run spec:verify` | PASS, all four checks, on the closing commit. |
 
 ## Browser and device results
 
 Each browser test ran through Playwright against a production build the
 preview server serves.
 
-- `pnpm run test:e2e:spectral`, at <<INTEGRATOR: commit>>: <<INTEGRATOR:
-  passed, failed, time>>, in Chromium with WebGL switched off, so the
+- `pnpm run test:e2e:spectral`, at `898298c8`: 4 passed (29.9 s), in Chromium with WebGL switched off, so the
   spectrogram it reads by pixel is drawn by Canvas 2D, the reduced renderer.
   The first test imports a sound holding a steady tone and a burst into a
   project in the Spectral Repair workspace, selects the burst with the
@@ -382,25 +392,28 @@ preview server serves.
   shape from the same drag; the fourth draws the same brush mask at the
   fixed strength from pen strokes at different pressures, which differ while
   pressure is allowed.
-- `pnpm run test:renderer-loss`, at <<INTEGRATOR: commit>>: <<INTEGRATOR:
-  result>>. The field batch is drawn through its ramp by every backend the
+- `pnpm run test:renderer-loss`, at `898298c8`: 17 passed (25.8 s). The field batch is drawn through its ramp by every backend the
   browser offers and read back by pixel, uploaded and drawn again after a
   WebGL2 context or WebGPU device is lost, drawn by Canvas 2D when the
   context never comes back and after a GPU process crash, and holds no
   texture for a tile it does not draw beyond its budget; the spectrogram the
   worker makes is drawn with WebGL 2 and with Canvas 2D.
-- `pnpm run test:touch-pen`, at <<INTEGRATOR: commit>>: <<INTEGRATOR:
-  result>>, failing four of six before `010b0ff0` (B-02).
+- `pnpm run test:touch-pen`, at `898298c8`: 6 passed (18.3 s), failing four
+  of six before `010b0ff0` (B-02).
 - `chromium-timeline`, `chromium-projects`, `firefox-projects` and the
-  tablet smoke project, at <<INTEGRATOR: commit>>: <<INTEGRATOR: results>>,
-  each failing before `f20ba65b`, `d0e384cc` and `63fd2834` (B-03 to B-05).
+  too-narrow notice's test, at `71c74157`, the merge of their fixes, and not
+  run again at `898298c8`: `chromium-timeline` 5 of 5, three runs;
+  `chromium-projects` and `firefox-projects` 10 of 10; the notice's test
+  passed on the tablet, smoke, Firefox, WebKit, `chromium-scaled` and
+  `firefox-text-110` projects. Each failed before `f20ba65b`, `d0e384cc` and
+  `63fd2834` (B-03 to B-05).
 - No spectral editing test runs in Firefox or WebKit (Known limitations).
 
 ## Acceptance criteria
 
 | Criterion | Evidence |
 | --- | --- |
-| Spectral edits round-trip through project persistence and branch history. | `spectral-edit.roundtrip.test.ts` ("every spectral edit survives being written and read, bit for bit", in an asset's chain, a paste's plan and a region's processing, alone and in a document; "a project document holding spectral edits reads back as the state it was written from"); `edit-json.test.ts` and `project-json.test.ts`, whose random states now hold spectral edits; a history node keeps its state in the same document form. In the application, undo and redo of each edit (`spectral-edit-commands.test.ts`) and, in the browser, both edits undone, redone and found with their history after a reload (`spectral.spec.ts`). `pnpm run test:project-roundtrip`. |
+| Spectral edits round-trip through project persistence and branch history. | `spectral-edit.roundtrip.test.ts` ("every spectral edit survives being written and read, bit for bit", in an asset's chain, a paste's plan and a region's processing, alone and in a document; "a project document holding spectral edits reads back as the state it was written from"); `edit-json.test.ts` and `project-json.test.ts`, whose random states now hold spectral edits; `spectral-history.roundtrip.test.ts` ("keeps each branch's spectral edits exactly, moving, undoing and redoing across the point", "keeps them so once the project is closed and opened again"). In the application, undo and redo of each edit (`spectral-edit-commands.test.ts`) and, in the browser, both edits undone, redone and found with their history after a reload (`spectral.spec.ts`). `pnpm run test:project-roundtrip`. |
 | Time-frequency selection remains aligned across zoom levels and renderer resets. | `spectral-tools.test.ts` ("is drawn back where it was drawn, at every zoom and on either scale"); `frequency-axis.test.ts` (the exact inverse, "gives the same frequency for the same height every time it is asked"); `mask-drawing.test.ts` ("stays on what it selects at every zoom", "is the same after the composer and the renderer are made again"); `overlay-drawing.test.ts` ("draws the outline where the mask lies at each zoom"); `spectrogram-drawing.test.ts` ("draws the selection over its tiles on the same frequency axis and timeline", "is composed again the same by a new composer, as after a renderer is reset"); the field batch drawn again as it was after each loss (`pnpm run test:renderer-loss`). |
 | Reference spectral operations produce stable golden outputs. | `canonical-stft.spectral-golden.test.ts` (pinned STFT magnitudes through each window, length and overlap), `spectral-edit.spectral-golden.test.ts` (every operation over every golden mask and settings), `spectral-process.spectral-golden.test.ts` (a `process` chain), `spectral-tile.spectral-golden.test.ts` (tiles at level 0 and a coarse level); `pnpm run test:spectral-golden`. |
 | Large spectrograms stream/tile without whole-file GPU allocation. | `spectral-geometry.test.ts` ("starts every column on a whole frame, far into a long sound"), `tile-analysis.test.ts` ("reads a long sound's coarsest tile from its windows alone"), `spectrogram-host.test.ts` ("keeps every tile a view shows past its memory budget, and lets the least recently shown go", "cancels the tiles no view shows any longer"), `field-textures.test.ts` and the WebGL2 and WebGPU backends' "keeps fields within its budget" and "makes no texture for a field it does not draw"; in the browser, "holds no WebGL 2 texture" and "holds no WebGPU texture for a tile it does not draw, beyond its budget", and "is composed tile after tile on one canvas, holding nothing per tile". |
@@ -426,9 +439,13 @@ preview server serves.
   writes are bounded at 32 and the oldest is let go, so a tile it held is
   analysed again when next shown; a refused write is reported and the tile
   kept in memory.
-- <<INTEGRATOR: the keyboard's reach once p08-fixui lands: whether a lasso's
-  polygon and a brush's stroke are drawn from the keyboard, or only by a
-  pointer and given to the selection command as a mask>>
+- After a reload in which the last panel used was not an editor, no editor
+  is in use, so the Spectral panel, the Transport, the Inspector and the
+  Effects rack say no editor shows audio until an editor is used once. The
+  editor views' store deliberately does not keep the focused view, and
+  "note the editor in use without writing, since the person changed
+  nothing" (`apps/web/src/state/editor-view-store.test.ts`) asserts it. The
+  behaviour predates this phase and is tracked by the owner's decision.
 - The spectral browser suite runs in Chromium only, on the reduced renderer;
   the field batch's WebGPU and WebGL2 suites run in Chromium. Firefox and
   WebKit are not run for spectral editing.
@@ -445,7 +462,6 @@ preview server serves.
   again: the storage quota test at its 5 s limit, `chromium-effect-rack`'s
   hearing length once, `chromium-scaled` diagnostics with
   `ERR_NO_BUFFER_SPACE` once, and the splitter tests Phase 07 recorded.
-  <<INTEGRATOR: any others the final runs show>>
 - The review lenses the packet names are deferred to the review after the
   whole specification is implemented (`reviews/phase-08-review.md`).
 
@@ -499,14 +515,14 @@ The requirements this phase consumes are met as the packet names them:
 | `REQ-AUDIO-017`, `REQ-AUDIO-018` | A chain of cleanup or model processors applied to a time-frequency area. | `spectral-process.spectral-golden.test.ts`, `spectral-content.test.ts` ("takes the masked part of a chain's output in place of its input"), `spectral-edit-commands.test.ts` ("runs a restoration processor in a chain of its own"). |
 | `REQ-EDIT-062` | The spectrogram, stacked and overlay presentations show analysed audio. | `spectrogram-drawing.test.ts`, `spectral-tools.test.ts` ("draws over the spectrogram an overlay lane shows"), `overlay-drawing.test.ts`. |
 | `REQ-EDIT-063`, `REQ-EDIT-064` | The spectral facet is a mask, kept across tools, zoom and views, and drawn visibly, quieter while inactive. | `selection.test.ts`, `mask-drawing.test.ts`, `overlay-drawing.test.ts`, `spectral-selection-commands.test.ts`. |
-| `REQ-EDIT-065` | The spectral marquee, lasso and brush, through the selection commands. | `spectral-tools.test.ts`, `tool-pointer.test.ts`, `spectral-selection-commands.test.ts`. |
+| `REQ-EDIT-065` | The spectral marquee, lasso and brush, by pointer or keyboard, through the selection commands. | `spectral-tools.test.ts`, `tool-pointer.test.ts`, `keyboard-drawing.test.ts`, `spectral-drawing-commands.test.ts`, `spectral-selection-commands.test.ts`. |
 | `REQ-EDIT-072` | The Inspector describes a spectral edit by its area, shapes, frames and channels, and a clean-up by its chain. | `inspector-panel.test.tsx`, `edit-words.test.ts`. |
 | `REQ-EDIT-073` | Every spectral edit is one project command with its inverse; its chain enters and leaves with it. | `spectral-edit-commands.test.ts`, `rack-commands.test.ts`, `target-invocations.test.ts`. |
-| `REQ-STOR-021` | Spectral edits are undone, redone and recovered. | `spectral-edit-commands.test.ts`, `spectral-edit.roundtrip.test.ts`, `spectral.spec.ts`. |
+| `REQ-STOR-021` | Spectral edits are undone, redone and recovered, across branches of history and a reopen. | `spectral-edit-commands.test.ts`, `spectral-edit.roundtrip.test.ts`, `spectral-history.roundtrip.test.ts`, `spectral.spec.ts`. |
 | `REQ-STOR-052` | The raised versions are refused, never migrated. | `project-json.test.ts`, `project-tree.test.ts`, `preferences-store.test.ts`, `editor-view-store.test.ts`. |
 | `REQ-STOR-106` | Spectrogram tiles are the cache category cleaned before intermediates. | `stored-spectrogram-cache.test.ts` ("is counted and given up with the spectrogram caches, and made again after"). |
 | `REQ-STOR-195` | A spectral edit, the latest or one named, compared with the state before it. | `spectral-edit-commands.test.ts`, `spectral-panel.test.tsx`, `spectral.spec.ts`. |
-| `REQ-UX-005` | Every spectral tool's action has a keyboard form with a default key, and the selection has a description in words; why a spectrogram is not drawn is an alert. | `shell-commands.test.ts`, `spectral-selection-commands.test.ts` ("describes the area in words, for a person who cannot see it"), `menus.test.ts`, `spectrogram-note.test.tsx`, `editor-panel.test.tsx`<<INTEGRATOR: and the keyboard lasso and brush tests>>. |
+| `REQ-UX-005` | Every spectral tool's action has a keyboard form with a default key, and the selection has a description in words; why a spectrogram is not drawn is an alert. | `shell-commands.test.ts`, `spectral-selection-commands.test.ts` ("describes the area in words, for a person who cannot see it"), `menus.test.ts`, `spectrogram-note.test.tsx`, `editor-panel.test.tsx`, `keyboard-drawing.test.ts`, `spectral-drawing-commands.test.ts`. |
 | `REQ-UX-058` | The Spectral Repair preset gains the Spectral panel, in front of the Inspector. | `presets.test.ts`. |
 | `REQ-UX-068` | Pressure is optional; a fixed strength is always available and persisted. | `pressure-preference.test.ts`, `pressure-commands.test.ts`, `preferences-store.test.ts`, `pen-and-touch.test.tsx`, `tool-pointer.test.ts`, `spectral-tools.test.ts`. |
 | `REQ-PROD-009` | Spectrograms of sessions lasting hours, never analysed or held whole. | `tile-analysis.test.ts`, `spectral-geometry.test.ts`, `spectrogram-host.test.ts`, `field-textures.test.ts`. |
@@ -620,14 +636,31 @@ slice's commits beneath it:
   - `fdf15953` Say why a spectrogram is not drawn as an alert beside the
     canvas
   - `80343f2c` Amend ADR-0082 for the tool input and the combination mode
-- <<INTEGRATOR: the merge of p08-e2e (tests/e2e/spectral.spec.ts, fac05d79;
-  86ef7d41) and of p08-fixui (the keyboard lasso and brush), each with its
-  slice's commits>>
-- <<INTEGRATOR: the merge of these closing records>>
+- `0a626174` Merge the spectral edits' branching history tests
+  - `54f2312b` Test spectral edits through branching history and a reopen
+- `b42bbbd5` Give the view spectrogram test's second host its clock
+- `de09bd5a` Merge the keyboard drawing of spectral shapes
+  - `391f071a` Leave Enter, Space and Escape to the control that has the
+    keyboard
+  - `b39d6370` Give the shown spectrogram test's host a clock
+  - `021dd204` Draw spectral shapes from the keyboard
+  - `e85a5b72` Record ADR-0082's amendment of the spectral tools
+- `59374062` Merge the drawing keys that pass through when idle
+  - `16f7358b` Leave Enter and Escape to the page while no shape is being
+    drawn
+- `dd6c2409` Merge the spectral browser suite; its merge of the phase
+  branch, `10407f3a`, took the phase's heal fix, `36f4b842`, over the
+  slice's own, `5d6e5ea8`, which it supersedes
+  - `86ef7d41` Say when a comparison asked for is open already
+  - `fac05d79` Add the spectral editing browser suite
+  - `5d6e5ea8` Measure a heal's borders within the audio it heals
+    (superseded)
+  - `d0ccc736` Take every move of a lasso or a brush stroke
+- `b64ec9e9` Keep how a command is voiced beside how it is announced
+- `898298c8` Keep the band's size review under the title its record cites
 
 The commit that records this package, the review record and the handoff
-follows, and the integration commit is the merge into `main`:
-<<INTEGRATOR: the final merge commit>>.
+follows, and the integration commit is the merge into `main`.
 
 ## Reviewer findings and remediation
 
@@ -635,5 +668,6 @@ follows, and the integration commit is the merge into `main`:
 lens to the review after the whole specification is implemented, and the
 scope check a separate read-only agent ran in their place against the packet.
 Its thirteen findings, one `HIGH`, five `MEDIUM`, four `LOW` and three
-`NOTE`, and the nine the build found, three `MEDIUM` and six `LOW`, are fixed;
+`NOTE`, and the thirteen the build and the integration found, four `MEDIUM` and nine
+`LOW`, are fixed;
 the review record names each fix's commit and the tests that hold it.

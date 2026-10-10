@@ -1,6 +1,8 @@
-> **Status:** In progress. 2026-10-10: Phase 08 is `READY` (`d957834e`); the
-> slices are merged on `phase-08-spectral`, the architecture tests pass, and
-> the spectral browser suite and the evidence are left.
+> **Status:** Done. 2026-10-10: every slice is built, the scope check's, the
+> build's and the integration's findings are fixed and written into
+> `docs/spec/reviews/phase-08-review.md`, with the review lenses deferred by
+> the owner's decision of 2026-10-07. Phase 08 is closed at `PASS` in the
+> ledger, with its evidence and its handoff.
 
 # Phase 08 — Spectral Editing
 
