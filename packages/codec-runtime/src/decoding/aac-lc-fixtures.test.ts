@@ -219,4 +219,31 @@ describe('the codec module’s AAC-LC decoder on files FFmpeg encoded', () => {
       for (const error of errors) expect(error).toBeGreaterThan(FLOOR_DB);
     },
   );
+
+  it('refuses a stream whose elements are not the ones its channel configuration places', async () => {
+    // 4.0's elements (single, pair, single) under configuration 5's header,
+    // which places a pair third: the last single channel would reach the rear
+    // left alone, and the rear right would be silent.
+    const file = readFile(`${FIXTURES}/aac-lc-4.0.aac`);
+    const configuration = 5;
+    for (let at = 0; at < file.length;) {
+      // The channel configuration's three bits straddle each header's third and
+      // fourth bytes; the frame's length, header included, is the next 13 bits.
+      file[at + 2] = ((file[at + 2] ?? 0) & 0xfe) | (configuration >> 2);
+      file[at + 3] = ((file[at + 3] ?? 0) & 0x3f) | ((configuration & 0x3) << 6);
+      const length =
+        (((file[at + 3] ?? 0) & 0x3) << 11) |
+        ((file[at + 4] ?? 0) << 3) |
+        ((file[at + 5] ?? 0) >> 5);
+      expect(length).toBeGreaterThan(7);
+      at += length;
+    }
+    const module = await codecModule();
+    const session = expectSuccess(module.openDecoder(memoryBytes(file)));
+    expect(session.description.channelCount).toBe(5);
+    const block = Array.from({ length: 5 }, () => new Float32Array(PACKET_FRAMES));
+    const decoded = session.decode(block);
+    session.release();
+    expect(decoded).toMatchObject({ ok: false, failures: [{ code: 'codec-runtime.malformed' }] });
+  });
 });
