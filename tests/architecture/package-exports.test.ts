@@ -183,7 +183,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   },
   '@audiogubbins/import-export': {
     "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":
-      ['rememberCollisionAnswer', 'validateExportSettings'],
+      ['nextExportJob', 'rememberCollisionAnswer', 'validateExportSettings'],
     "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
       [],
   },
