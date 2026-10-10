@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 
 import { FailureKind, failure, fail, succeed, type DomainResult } from '@audiogubbins/domain';
-import type { PageFile } from '@audiogubbins/storage-runtime';
+import type { ImportsClient, PageFile } from '@audiogubbins/storage-runtime';
 import { sine, wavFile } from '@audiogubbins/test-fixtures';
 
 import { holdPlatformFiles } from '../testing/project-audio.js';
@@ -63,7 +63,7 @@ async function scene(
 ): Promise<{
   readonly window: ProjectWindow;
   readonly imports: ImportBatches;
-  readonly asked: ReturnType<typeof vi.spyOn>;
+  readonly asked: MockInstance<ImportsClient['importFiles']>;
   readonly states: ImportBatchState[];
   readonly target: () => ImportTarget;
 }> {
