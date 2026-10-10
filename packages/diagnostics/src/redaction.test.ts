@@ -1740,3 +1740,68 @@ describe('a path among the words after it', () => {
     );
   });
 });
+
+describe('text written in percent-encoding', () => {
+  const redacted = (message: string, keepFileNames = false): string =>
+    redactOne(record({ message }), keepFileNames).record.message;
+
+  it('finds a path, a secret and an address that percent-encoding hides', () => {
+    // The rules read the runs of `%XX` as written, so a path, a secret or an
+    // address written in them went into the report whole.
+    const cases: readonly [string, string][] = [
+      [
+        'Could not open %2Fhome%2Fjane%2FPrivate%2FJane%20Smith%20Interview',
+        'Could not open <path>',
+      ],
+      ['Could not open C%3A%5CUsers%5CJane%20Smith%5CNotes', 'Could not open <path>'],
+      ['Opened %5C%5Cstudio-nas%5Cprojects%5Cnotes', 'Opened <path>'],
+      ['Opened %2Fhome%2Fzo%C3%AB%2Fnotes', 'Opened <path>'],
+      ['Refused %22password%22%3A%22hunter2%22', 'Refused <redacted>'],
+      ['Sent to jane%40example.com', 'Sent to <email>'],
+      ['Opened https%3A%2F%2Fexample.test%2Fusers%2Fjane', 'Opened <url>'],
+    ];
+
+    for (const [message, expected] of cases) expect(redacted(message)).toBe(expected);
+  });
+
+  it('decodes a path encoded more than once, and removes what is encoded past the bound', () => {
+    expect(redacted('Opened %252Fhome%252Fjane%252Fnotes')).toBe('Opened <path>');
+    expect(redacted('Opened %25252Fhome%25252Fjane%25252Fnotes')).toBe('Opened <path>');
+
+    // Encoded more times than the rules decode, a word is removed whole rather
+    // than kept for what it might still say.
+    const deep = `%${'25'.repeat(12)}2Fhome%${'25'.repeat(12)}2Fjane`;
+    const { record: deeper, summary } = redactOne(record({ message: `Opened ${deep} now` }));
+    expect(deeper.message).toBe('Opened <data> now');
+    expect(summary.counts['embedded-data']).toBe(1);
+  });
+
+  it('keeps a text as written where decoding it shows nothing to remove', () => {
+    expect(redacted('Loaded 100% of take%201, 50%ZZ')).toBe('Loaded 100% of take%201, 50%ZZ');
+    // An address keeps the extent it is written with: decoded first, its space
+    // would end it and leave the folder after it.
+    expect(redacted('Fetched https://example.test/Jane%20Smith/take now')).toBe(
+      'Fetched <url> now',
+    );
+  });
+
+  it('decodes in time in proportion to the text', { timeout: LONGEST_COST_TEST_MS }, () => {
+    // Decoded until nothing changes, a run of `%25` loses one layer a pass, so
+    // a text of them is read once for each of its characters.
+    expect(costAgainstProse(redacted, `%${'25'.repeat(20_000)}41`)).toBeLessThan(30);
+    expect(costAgainstProse(redacted, '%2Fhome%2Fjane%2Fa '.repeat(2_000))).toBeLessThan(30);
+  });
+});
+
+describe('inline data written with a space after its scheme', () => {
+  it('removes it as it removes inline data written without one', () => {
+    const redacted = (message: string): string => redactOne(record({ message })).record.message;
+    expect(redacted('Embedded data :audio/wav;base64,UklGRiQAAABXQVZF')).toBe('Embedded <data>');
+    expect(redacted('Embedded data :text/plain,Jane Smith notes')).toBe('Embedded <data>');
+    expect(
+      redactOne(record({ fields: { source: 'data :audio/wav;base64,UklGRiQAAABXQVZF' } })).record
+        .fields['source'],
+    ).toBe('<data>');
+    expect(redacted('Read the data : 3 frames.')).toBe('Read the data : 3 frames.');
+  });
+});

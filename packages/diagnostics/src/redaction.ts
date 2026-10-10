@@ -32,6 +32,7 @@ import {
   lastSeparatorIn,
   userFileNamesIn,
 } from './path-finding.js';
+import { decodedOnce, holdsPercentEncoding } from './percent-decoding.js';
 import { SCHEME_RUN, fieldWords } from './text-runs.js';
 
 /** What a redaction replaced. */
@@ -160,8 +161,12 @@ const NETWORK_ADDRESS = new RegExp(
  * would keep all but its first word: `data:text/plain,Jane Smith notes` would
  * leave ` Smith notes` standing. Losing the rest of a line is the cost of never
  * keeping a part of a file.
+ *
+ * White space between the scheme and its colon, `data :audio/wav;base64,…`, is
+ * read as none: what a browser would refuse as an address still carries the
+ * file, and it is the file this removes.
  */
-const EMBEDDED_DATA_PATTERN = /\bdata:(?:[\w.+-]+\/[\w.+-]+)?(?:;[^\s,;"'<>]*)*,[^\n"'<>]*/gi;
+const EMBEDDED_DATA_PATTERN = /\bdata[ \t]*:(?:[\w.+-]+\/[\w.+-]+)?(?:;[^\s,;"'<>]*)*,[^\n"'<>]*/gi;
 
 /** How a web address or an object's starts, under the schemes the path rules leave. */
 const ADDRESS_START = String.raw`(?:(?:${WEB_SCHEMES}):\/\/|blob:)`;
@@ -187,8 +192,11 @@ const URL_PATTERN = new RegExp(
 /** A value that is a web address or an object's, whatever field it is in. */
 const WEB_ADDRESS = new RegExp(String.raw`^\s*${ADDRESS_START}`, 'i');
 
-/** A value that is inline data, whatever field it is in. */
-const INLINE_DATA = /^\s*data:/i;
+/**
+ * A value that is inline data, whatever field it is in, with white space before
+ * its colon or none, as {@link EMBEDDED_DATA_PATTERN} reads it.
+ */
+const INLINE_DATA = /^\s*data[ \t]*:/i;
 
 /**
  * An e-mail address, which names a person as surely as an account folder does.
@@ -377,7 +385,66 @@ export function previewRedaction(
 }
 
 /**
+ * How many layers of percent-encoding are decoded for the rules to read.
+ *
+ * A bound, because a layer is a pass of every rule over the text, and a text
+ * can be encoded as many times as it is long: `%252525…41` loses one `25` a
+ * layer, so decoded until nothing changed, it would be read once for each of
+ * its characters. Three is a layer more than anything writes in practice, an
+ * address encoded again as a parameter of another.
+ */
+const DECODING_LAYERS = 3;
+
+/** A word: a run of anything but white space. */
+const WORD = /\S+/g;
+
+/**
  * Removes sensitive content from a string.
+ *
+ * The text is read as written, and then, where it holds runs of `%XX`, as each
+ * layer of percent-encoding decodes it (`percent-decoding.ts`), up to
+ * {@link DECODING_LAYERS}, every rule read again over each layer. As written
+ * first, so an address keeps the extent it is written with: decoded first, the
+ * `%20` inside `https://host/Jane%20Smith/take` would end it at a space and
+ * leave the folder after it. Each layer is read by every rule, so nothing a
+ * rule finds can be hidden from it by encoding: a path, an address, a secret's
+ * name or an e-mail address. A word still encoded past the last layer is
+ * removed whole, since what it hides cannot be read.
+ *
+ * Where decoding shows nothing more to remove, the text keeps the encoding it
+ * was written in, so a report differs from its log only where a rule found
+ * something; where it does, the report carries the decoded text, which is what
+ * was redacted.
+ */
+export function redactText(
+  text: string,
+  counts: Record<RedactionReason, number>,
+  options: RedactionOptions = {},
+): string {
+  const asWritten = redactAsWritten(text, counts, options);
+  if (!holdsPercentEncoding(asWritten)) return asWritten;
+
+  const found = emptyCounts();
+  let decoded = asWritten;
+  for (let layer = 0; layer < DECODING_LAYERS && holdsPercentEncoding(decoded); layer += 1) {
+    decoded = redactAsWritten(decodedOnce(decoded), found, options);
+  }
+  decoded = decoded.replace(WORD, (word) => {
+    if (!holdsPercentEncoding(word)) return word;
+    found[RedactionReason.EmbeddedData] += 1;
+    return PLACEHOLDER[RedactionReason.EmbeddedData];
+  });
+
+  let removed = 0;
+  for (const reason of Object.values(RedactionReason)) {
+    removed += found[reason];
+    counts[reason] += found[reason];
+  }
+  return removed === 0 ? asWritten : decoded;
+}
+
+/**
+ * Removes sensitive content from a string read as it is written.
  *
  * The order matters. Inline data goes first, because its body can look like
  * anything; credentials before addresses and paths, because a URL holding
@@ -385,10 +452,10 @@ export function previewRedaction(
  * address rule left behind; absolute paths before file names, so a path is
  * removed whole rather than having its last segment removed on its own.
  */
-export function redactText(
+function redactAsWritten(
   text: string,
   counts: Record<RedactionReason, number>,
-  options: RedactionOptions = {},
+  options: RedactionOptions,
 ): string {
   // An address or a path loses everything before its last segment, and keeps
   // that segment only when the user asked for file names. A stack frame served
