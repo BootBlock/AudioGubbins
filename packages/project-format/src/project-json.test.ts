@@ -769,6 +769,23 @@ describe('readProjectDocument refuses', () => {
     ]);
   });
 
+  it('a document an older build wrote, since nothing migrates before 1.0 (REQ-STOR-052)', () => {
+    const older = SCHEMA_VERSIONS.projectDocument - 1;
+    const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], older));
+    expect(result.ok ? [] : result.failures).toMatchObject([
+      {
+        code: 'format.schema-incompatible',
+        kind: 'unrecoverable',
+        details: {
+          schema: 'projectDocument',
+          found: older,
+          current: SCHEMA_VERSIONS.projectDocument,
+          direction: 'older',
+        },
+      },
+    ]);
+  });
+
   it('every problem at once, up to the bound, as integrity violations', () => {
     const broken = withValue(
       withValue(
