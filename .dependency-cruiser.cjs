@@ -23,6 +23,10 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
+ *   codec-runtime   the codec module's host: its typed loader, decode
+ *                   sessions and FLAC and Opus encoders over its narrow ABI,
+ *                   reading files through the synchronous byte port; depends
+ *                   on domain + codecs (ADR-0090, ADR-0091)
  *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
  *                   Web, which alone imports the runtime and only by import(),
  *                   and the worker that hosts it; depends on domain alone
@@ -338,6 +342,17 @@ module.exports = {
         'so every thread that plays, renders or summarises a file reads it alike (ADR-0052).',
       from: { path: '^packages/codecs/' },
       to: { path: '^packages/(?!(codecs|domain)/)', pathNot: '^packages/test-fixtures/' },
+    },
+    {
+      name: 'codec-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        "The codec module's host loads the module, wraps its narrow ABI and reads files through " +
+        'the synchronous byte port of the read contract (ADR-0090, ADR-0091). It depends on the ' +
+        'domain, whose results it answers in, and the codecs, whose contracts it serves; the ' +
+        'codec worker and the import and export jobs that drive it sit above it.',
+      from: { path: '^packages/codec-runtime/' },
+      to: { path: '^packages/(?!(codec-runtime|codecs|domain)/)' },
     },
     {
       name: 'clipboard-owns-nothing-else',

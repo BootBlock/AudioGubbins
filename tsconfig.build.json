@@ -36,6 +36,9 @@
       "path": "./packages/codecs/scopes/any"
     },
     {
+      "path": "./packages/codec-runtime"
+    },
+    {
       "path": "./packages/audio-engine"
     },
     {

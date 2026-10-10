@@ -1,4 +1,9 @@
-//! Objects the ABI names by handle.
+//! The objects a WebAssembly boundary names by handle (ADR-0031).
+//!
+//! No pointer to a Rust object crosses either C ABI, the DSP module's or the
+//! codec module's: each holds its objects in tables of its own and names them
+//! by integer handle, so a handle from the other side that names nothing is
+//! answered as such rather than followed.
 
 /// Objects of one kind, each named by a handle from 1; 0 names nothing, so a
 /// refused creation can answer it.
@@ -12,6 +17,7 @@ pub struct Table<T> {
 
 impl<T> Table<T> {
     /// An empty table.
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             slots: Vec::new(),
@@ -84,6 +90,12 @@ impl<T> Table<T> {
             }
             _ => false,
         }
+    }
+}
+
+impl<T> Default for Table<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

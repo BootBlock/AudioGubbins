@@ -1,0 +1,34 @@
+{
+  "name": "@audiogubbins/codec-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project codec-runtime"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/codecs": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

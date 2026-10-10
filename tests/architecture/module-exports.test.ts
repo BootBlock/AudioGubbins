@@ -357,8 +357,8 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * configuration rather than by an import, which the rule cannot follow.
  */
 const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {
-  'The global setup that builds the canonical DSP module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
-    ['tests/setup/dsp-module.ts: setup'],
+  'The global setup that builds the canonical DSP module and the codec module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
+    ['tests/setup/wasm-modules.ts: setup'],
 };
 
 describe('module exports (REQ-EXEC-184)', () => {

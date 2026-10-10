@@ -2,7 +2,7 @@
  * The canonical DSP module, for a test, as bytes or instantiated.
  *
  * The bytes come from the test run's global setup, which builds the module
- * from the crates (`tests/setup/dsp-module.ts`), so no test runs against a
+ * from the crates (`tests/setup/wasm-modules.ts`), so no test runs against a
  * module older than the crates. The type of the provided value is declared
  * here alone: every program that reads it, the root's tests included, takes
  * that declaration from this module. The package is compiled without the

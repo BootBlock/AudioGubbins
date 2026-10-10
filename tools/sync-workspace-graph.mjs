@@ -228,6 +228,23 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The codec module's host: its typed loader, the decode sessions, FLAC
+    // frame and Opus encoders over its narrow ABI, and the synchronous read
+    // its one import makes of a file (ADR-0090, ADR-0091). Compiled with the
+    // DOM's definitions for the codec worker it serves and the browser's
+    // codecs it reaches.
+    dir: 'packages/codec-runtime',
+    name: '@audiogubbins/codec-runtime',
+    description:
+      'The codec module host: its typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, reading files through the synchronous byte port.',
+    dom: true,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/codecs'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The audio core that runs on any thread: blocks and sources, the canonical
     // DSP port, graph execution, transport, offline render, profiles and
     // scheduling (ADR-0030). No browser, so it runs in an AudioWorklet, a

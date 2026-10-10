@@ -11,7 +11,7 @@ use audiogubbins_analysis::{
     AnalysisError, DetectorFeatures, DetectorKind, DetectorSettings, LoudnessMeter, PeakMeter, Stft,
 };
 
-use crate::table::Table;
+use audiogubbins_handle_table::Table;
 use crate::{
     COUNT_BAD_HANDLE, COUNT_TOO_SMALL, Objects, STATUS_BAD_HANDLE, STATUS_DONE, STATUS_REFUSED,
     STATUS_TOO_SMALL, status_of, with_objects,

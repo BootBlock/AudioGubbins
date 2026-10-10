@@ -1,0 +1,32 @@
+[package]
+name = "audiogubbins-codecs"
+description = "The codec module of AudioGubbins: decoding through Symphonia and a conformant Opus, and FLAC and Opus encoding (ADR-0091)."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# MPL-2.0, used unmodified. Only the formats and codecs ADR-0091 assigns to
+# the module are compiled in.
+symphonia = { version = "=0.6.1", default-features = false, features = [
+  "aac",
+  "alac",
+  "flac",
+  "isomp4",
+  "mkv",
+  "mp3",
+  "ogg",
+  "vorbis",
+] }
+# Apache-2.0. Without its default features: no worker threads, which the
+# module's single thread cannot start, and no serde or logging.
+flacenc = { version = "=0.5.1", default-features = false }
+# BSD-3-Clause: the fixed-point port of the reference Opus, chosen by the
+# conformance vectors (ADR-0091, `pnpm test:opus-conformance`).
+ropus = "=0.12.18"
+
+[lints]
+workspace = true

@@ -189,10 +189,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'CodecCapability',
         'CodecDescriptor',
         'CodecDirection',
-        'CodecId',
         'CodecImplementation',
         'CodecUse',
-        'ContainerId',
         'CoverArt',
         'CuePoint',
         'FinishedAudioFile',
@@ -204,7 +202,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'MetadataTextKey',
         'SampleRateSupport',
         'SamplerTuning',
-        'SyncAudioBytes',
         'quantiseSample',
       ],
     'The registry, the import route and the writers ADR-0090 to ADR-0093 give the codec worker, the import and export jobs and the storage that Phase 09 builds on them: the descriptors and the capability of each codec in a probed environment, recognition and the route from a recognised file to reading in place, decoding or refusal, the metadata reader of each container, and the WAV, AIFF and AIFF-C writers with their settings.':
@@ -230,6 +227,27 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'importRoute',
         'recogniseAudio',
       ],
+  },
+  '@audiogubbins/codec-runtime': {
+    "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
+      [
+        'CodecModule',
+        'DecoderSession',
+        'EncodedPacket',
+        'FlacFrameEncoder',
+        'FlacFrameSettings',
+        'OpusApplication',
+        'OpusEncoder',
+        'OpusEncoderSettings',
+        'OpusFrameDuration',
+        'OpusPacket',
+        'OpusRateControl',
+        'StatedLayout',
+        'StreamDescription',
+        'instantiateCodecModule',
+      ],
+    'The single-stream Opus packet decoder, taken by the conformance run alone (`pnpm test:opus-conformance`), which fetches the vectors on demand and so is no project the suite runs.':
+      ['MAX_OPUS_PACKET_FRAMES', 'OpusPacketDecoder'],
   },
   '@audiogubbins/input': {
     'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
