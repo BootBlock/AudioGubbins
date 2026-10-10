@@ -132,11 +132,7 @@ describe('the preferences record', () => {
     const [good] = written.exportPresets;
     const { logs, store: again } = reading({
       ...written,
-      exportPresets: [
-        { ...good, settings: { ...good?.settings, format: 'mod' } },
-        good,
-        good,
-      ],
+      exportPresets: [{ ...good, settings: { ...good?.settings, format: 'mod' } }, good, good],
     });
 
     expect(again.get().exportPresets.map((preset) => preset.name)).toEqual(['Master']);
