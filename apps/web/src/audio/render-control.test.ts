@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { FailureKind, StandardLayouts, fail, failure, sampleRate } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  StandardLayouts,
+  fail,
+  failure,
+  sampleCount,
+  sampleRate,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { createDiagnosticCentre, createLogStore, LogSeverity } from '@audiogubbins/diagnostics';
 import {
@@ -353,5 +360,49 @@ describe('the scheduler the renders queue on', () => {
     settings.chooseProfile(PerformanceProfile.Custom);
 
     expect(host.backgroundLimits.at(-1)).toBe(5);
+  });
+});
+
+describe("another render of the page's, such as an export's", () => {
+  it('renders on the host the test signal renders on, made once', async () => {
+    const { control, host } = rig();
+    const first = expectSuccess(await control.host());
+    control.render();
+    await everythingQueued();
+
+    expect(expectSuccess(await control.host())).toBe(first);
+    expect(host.opens).toBe(1);
+  });
+
+  it("is planned as the test signal's is, its tables given what the page has left beside a chunk", () => {
+    const { control } = rig({ memory: 64 * 1024 * 1024 });
+    const run = expectSuccess(
+      control.planRender({
+        frames: expectSuccess(sampleCount(48_000 * 60)),
+        channels: 2,
+        sampleRate: expectSuccess(sampleRate(48_000)),
+      }),
+    );
+
+    expect(run.priority).toBe(JobPriority.Foreground);
+    expect(run.chunkFrames).toBeGreaterThan(0);
+    expect(run.coefficientBudgetBytes).toBe(64 * 1024 * 1024 - run.chunkFrames * 2 * 4);
+  });
+
+  it('takes the safer way a warning offers without asking, since it changes no bit of the render', async () => {
+    const { control, settings } = rig({ step: 20_000 });
+    control.render();
+    await everythingQueued();
+    settings.chooseRenderMode(ProcessingMode.FinalOffline);
+
+    const run = expectSuccess(
+      control.planRender({
+        frames: expectSuccess(sampleCount(48_000 * 10)),
+        channels: 2,
+        sampleRate: expectSuccess(sampleRate(48_000)),
+      }),
+    );
+
+    expect(run.priority).toBe(JobPriority.Background);
   });
 });

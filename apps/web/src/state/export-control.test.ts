@@ -7,7 +7,7 @@ import {
   MemoryDatabases,
   installFakeHandles,
 } from '@audiogubbins/browser-storage/testing';
-import { sampleRate, type DomainResult } from '@audiogubbins/domain';
+import { FailureKind, failure, sampleRate, type DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
 import type { ExportSettings } from '@audiogubbins/import-export';
@@ -128,6 +128,26 @@ describe('the page export (ADR-0092)', () => {
       reproducible: true,
     });
     expect(control.get()).toMatchObject({ kind: 'ended', said });
+  });
+
+  it("says the render's own failure where it fails, and keeps nothing of the file", async () => {
+    const audio = await windowWithAudio();
+    const { start, render, control } = exportOver(audio);
+    render.refusal = failure(
+      'render.source-unreadable',
+      FailureKind.Unrecoverable,
+      'The source could not be read.',
+    );
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+
+    expect(
+      expectSuccess(
+        await start({ kind: 'project' }, { kind: 'folder', handle: folder, policy: 'prompt' }),
+      ),
+    ).toBe('1 file could not be exported: The source could not be read.');
+    expect(control.get().kind).toBe('ended');
+    expect(await namesIn(folder)).toEqual([]);
+    expect(audio.session.getSnapshot().model.exports).toEqual([]);
   });
 
   it('refuses a codec this browser cannot write with before anything renders, naming what serves instead', async () => {
