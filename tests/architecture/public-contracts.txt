@@ -1316,11 +1316,13 @@ Published paths
   function pickDirectory(openDirectory: Picker, mode: "read" | "readwrite"): Promise<Picked<FileSystemDirectoryHandle>>
   function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ChosenFile[]>>
   function pickSaveFile(saveFile: Picker, suggestedName: string): Promise<Picked<FileSystemFileHandle>>
+  function queryWritePermission(handle: FileSystemHandle): Promise<HandlePermission>
   function randomTokens(randomBytes: (length: number) => Uint8Array): TokenSource
   function reopenKeptFile(keeper: FileHandleKeeper, handleKey: string): Promise<KeptFileAccess>
   function reopenKeptFolder(keeper: FileHandleKeeper, use: "folder:backups"): Promise<KeptFolderAccess>
   function requestKeptFileAccess(keeper: FileHandleKeeper, handleKey: string): Promise<KeptFileAccess>
   function requestKeptFolderAccess(keeper: FileHandleKeeper, use: "folder:backups"): Promise<KeptFolderAccess>
+  function requestWritePermission(handle: FileSystemHandle): Promise<HandlePermission>
   function webDigest(subtle: SubtleCrypto): Digest
   function writableFolder(root: FileSystemDirectoryHandle): DirectoryWriter
   function yieldToHost(method: HostYieldingMethod): YieldToHost
@@ -4099,6 +4101,7 @@ Published paths
   function readStreamReceiverMessage(value: unknown): DomainResult<StreamReceiverMessage>
   function rememberCollisionAnswer(batch: ExportBatch, answer: CollisionAnswer, applyToAll: boolean): ExportBatch
   function resolvePreset(preset: ExportPreset, context: ExportContext): (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; })
+  function safeFileName(name: ExportFileName, copy?: number | undefined): string
   function validateExportSettings(settings: ExportSettings, context: ExportContext): DomainResult<ExportSettings>
 
 @audiogubbins/input
@@ -6108,7 +6111,6 @@ Published paths
   readonly ExportFrom.held?: ProjectSession
   interface ExportOrigin
   readonly ExportOrigin.settings: ExportSettings
-  readonly ExportOrigin.codec: ExportCodec
   readonly ExportOrigin.reproducible: boolean
   readonly ExportOrigin.stateFingerprint: StateFingerprint
   readonly ExportOrigin.historyNodeId?: string
@@ -6611,12 +6613,12 @@ Published paths
   function clearStaging(tree: StorageTree, coordinator: LeaseCoordinator | undefined): Promise<Alone<void>>
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
   function decodingUnavailable(): DomainFailure
-  function deliverStaged(session: ProjectSession, staging: ExportStaging, token: string, destination: DeliveryDestination, services: DeliveryServices, signal?: AbortSignal | undefined): Promise<DomainResult<Delivery>>
+  function deliverStaged(session: ProjectSession, staging: ExportStaging, token: string, encoder: ExportCodec, destination: DeliveryDestination, services: DeliveryServices, signal?: AbortSignal | undefined): Promise<DomainResult<Delivery>>
   function discardRecording(session: ProjectSession, id: RecordingSessionId, services: RecordingServices): Promise<DomainResult<void>>
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
-  function exportRecordOf(staged: StagedExport, destination: { readonly kind: ExportDestinationKind; readonly label?: string; }, fileName: string, services: Pick<DeliveryServices, "clock" | "ids">): ExportRecord
+  function exportRecordOf(staged: StagedExport, encoder: ExportCodec, destination: { readonly kind: ExportDestinationKind; readonly label?: string; }, fileName: string, services: Pick<DeliveryServices, "clock" | "ids">): ExportRecord
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
@@ -6675,7 +6677,7 @@ Published paths
   readonly ExportStage.origin: ExportOrigin
   interface ExportsClient
   ExportsClient.stage: (session: RemoteProjectSession, request: ExportStage, staged: (bytesStaged: number) => void, signal?: AbortSignal) => Promise<DomainResult<StagedFile>>
-  ExportsClient.deliver: (session: RemoteProjectSession, token: string, destination: PageDestination, signal?: AbortSignal) => Promise<DomainResult<DeliveryAnswer>>
+  ExportsClient.deliver: (session: RemoteProjectSession, token: string, encoder: ExportCodec, destination: PageDestination, signal?: AbortSignal) => Promise<DomainResult<DeliveryAnswer>>
   ExportsClient.discard: (token: string) => Promise<void>
   interface FilesImport
   readonly FilesImport.files: readonly { readonly file: PageFile; readonly assetId: AssetId; }[]
@@ -7929,6 +7931,9 @@ packages/browser-storage/src/handle-database.ts
   HandleStore.open: () => Promise<HandleDatabase>
   HandleStore.#connect: () => Promise<HandleDatabase>
 
+packages/browser-storage/src/handle-permissions.ts
+  type HandlePermission = "denied" | "granted" | "prompt"
+
 packages/browser-storage/src/testing/file-handles.ts
   class FakeHandle
   new FakeHandle(name: string): FakeHandle
@@ -8592,7 +8597,7 @@ packages/storage-runtime/src/protocol/backup-operations.ts
 
 packages/storage-runtime/src/protocol/export-operations.ts
   type CrossingDestination = { readonly kind: "download"; readonly name: string; readonly mediaType: string; } | { readonly kind: "file"; readonly handle: FileSystemFileHandle; } | { readonly kind: "folder"; readonly handle: FileSystemDirectoryHandle; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; }
-  type ExportOperations = { 'exports.stage': Operation<{ readonly handle: ProjectHandle; readonly stream: MessagePort; readonly origin: ExportOrigin; readonly report: string; }, DomainResult<StagedFile>>; 'exports.deliver': Operation<{ readonly handle: ProjectHandle; readonly token: string; readonly destination: CrossingDestination; readonly prompt?: PagePort; }, DomainResult<DeliveryAnswer>>; 'exports.discard': Operation<{ readonly token: string; }, undefined>; }
+  type ExportOperations = { 'exports.stage': Operation<{ readonly handle: ProjectHandle; readonly stream: MessagePort; readonly origin: ExportOrigin; readonly report: string; }, DomainResult<StagedFile>>; 'exports.deliver': Operation<{ readonly handle: ProjectHandle; readonly token: string; readonly encoder: ExportCodec; readonly destination: CrossingDestination; readonly prompt?: PagePort; }, DomainResult<DeliveryAnswer>>; 'exports.discard': Operation<{ readonly token: string; }, undefined>; }
   interface StagingReport
   readonly StagingReport.bytesStaged: number
   type StagingStream = `staging:${string}`
