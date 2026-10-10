@@ -1266,3 +1266,57 @@
   display: grid;
   gap: var(--ag-space-tiny);
 }
+
+/* The Export dialog: each preset a radio with what it sets beneath its name. */
+.ag-export-preset {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--ag-space-small);
+  align-items: baseline;
+}
+
+.ag-export-preset > .ag-panel-note {
+  grid-column: 2;
+}
+
+.ag-export-every-setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+}
+
+.ag-export-every-setting > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ag-export-edits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-export-save-preset {
+  display: flex;
+  align-items: end;
+  gap: var(--ag-space-small);
+}
+
+.ag-export-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-export-sentence {
+  margin: 0;
+}
+
+.ag-export-blockers {
+  margin: 0;
+  padding-inline-start: var(--ag-space-medium);
+  color: var(--ag-chrome-text-secondary);
+}

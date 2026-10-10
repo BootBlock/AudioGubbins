@@ -14,18 +14,21 @@
 
 import type { ReactNode } from 'react';
 
-import { ModalDialog, TabSet, type ThemePreferences } from '@audiogubbins/design-system';
+import { ModalDialog, TabSet } from '@audiogubbins/design-system';
 import type { VerbosityConfiguration } from '@audiogubbins/diagnostics';
 import type { WorkspaceLayout } from '@audiogubbins/workspace';
 
 import type { RecordingParts } from '../recording/recording-part.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { UserPreferences } from '../state/preferences-store.js';
 import { Accessibility, Appearance } from './settings/appearance.js';
 import { Audio } from './settings/audio.js';
 import { Diagnostics } from './settings/diagnostics.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { UnreadText } from '../state/text-custody.js';
 import { Backups } from './settings/backups.js';
+import { ExportPresetsSection } from './settings/export-presets.js';
+import { TrustedFoldersSection } from './settings/trusted-folders.js';
 import { ProjectSettings } from './settings/projects.js';
 import type { RunCommand } from './settings/section.js';
 import { Shortcuts, type ShortcutsProps } from './settings/shortcuts.js';
@@ -36,7 +39,7 @@ export interface SettingsDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 
-  readonly preferences: ThemePreferences;
+  readonly preferences: UserPreferences;
 
   /** Runs a command by identifier, which is how every control acts. */
   readonly run: RunCommand;
@@ -101,6 +104,25 @@ function projectTabs(props: SettingsDialogProps) {
   ];
 }
 
+/**
+ * The Export tab: the person's own presets, and where this browser keeps
+ * projects, the folders kept trusted, which are kept with them.
+ */
+function exportTab(props: SettingsDialogProps) {
+  return {
+    value: 'export',
+    label: 'Export',
+    content: (
+      <div className="ag-settings-section">
+        <ExportPresetsSection presets={props.preferences.exportPresets} run={props.run} />
+        {props.projects !== undefined && (
+          <TrustedFoldersSection store={props.projects.trustedFolders} run={props.run} />
+        )}
+      </div>
+    ),
+  };
+}
+
 /** The settings dialogue. */
 export function SettingsDialog(props: SettingsDialogProps): ReactNode {
   const { open, onOpenChange, section, onSectionChange } = props;
@@ -153,6 +175,7 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
             ),
           },
           ...projectTabs(props),
+          exportTab(props),
           {
             value: 'audio',
             label: 'Audio',

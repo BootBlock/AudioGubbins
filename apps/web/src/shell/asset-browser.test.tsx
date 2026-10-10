@@ -6,6 +6,8 @@ import type { PageFile } from '@audiogubbins/storage-runtime';
 import { sine, wavFile } from '@audiogubbins/test-fixtures';
 
 import { regionEntryId } from '../assets/project-entry.js';
+import { EXPORT_BUTTON } from '../import-export-words.js';
+import { ScriptedExportControl } from '../testing/scripted-export-control.js';
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { AssetBrowserPanel } from './asset-browser.js';
@@ -77,7 +79,25 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
       within(regions)
         .getAllByRole('button')
         .map((one) => one.textContent),
-    ).toEqual(['Intro', 'Chorus']);
+    ).toEqual(['Intro', EXPORT_BUTTON, 'Chorus', EXPORT_BUTTON]);
+  });
+
+  it('opens the Export dialog over a region from its row', async () => {
+    const audio = await windowWithAudio({
+      exports: new ScriptedExportControl(),
+      regions: [{ name: 'Intro', start: 0, end: 48_000 }],
+    });
+    const { list } = browserOver(audio.window);
+    const regions = await within(list()).findByRole('list', { name: 'Regions of Loop' });
+    const [intro] = audio.session.getSnapshot().model.state.project.regions.values();
+
+    await userEvent.click(within(regions).getByRole('button', { name: EXPORT_BUTTON }));
+
+    const dialog = audio.window.projects.exportDialog.get();
+    expect(dialog.kind === 'open' ? dialog.settings.range : undefined).toEqual({
+      kind: 'region',
+      region: intro?.id,
+    });
   });
 
   it('opens the region pressed in the editor in use, and marks it as the one shown', async () => {

@@ -34,6 +34,7 @@ import { sine, stereo, wavFile, type SignalFixture } from '@audiogubbins/test-fi
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { assetEntryId } from '../assets/project-entry.js';
 import { projectWorld, type ProjectWindow, type ProjectWorld } from './project-context.js';
+import type { ExportControl } from '../export/export-types.js';
 
 /** When every import here happens. */
 const IMPORTED_AT = 1_790_000_000_000;
@@ -83,6 +84,8 @@ async function opened(window: ProjectWindow, entry: string): Promise<EditorAsset
 export async function windowWithAudio(
   options: {
     readonly world?: ProjectWorld;
+    /** The page's export the window offers, where a test gives one. */
+    readonly exports?: ExportControl;
     readonly fixture?: SignalFixture;
     readonly name?: string;
     readonly markers?: readonly { readonly name: string; readonly at: number }[];
@@ -94,7 +97,9 @@ export async function windowWithAudio(
   } = {},
 ): Promise<AudioWindow> {
   const world = options.world ?? projectWorld();
-  const window = await world.window();
+  const window = await world.window(
+    options.exports === undefined ? {} : { exports: options.exports },
+  );
   await window.runAndHear('file.create-project', { name: 'Harbour' });
   const session = window.projects.project.session();
   if (session === undefined) throw new Error('The project did not open to change.');

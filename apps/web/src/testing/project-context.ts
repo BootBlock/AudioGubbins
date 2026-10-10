@@ -51,6 +51,7 @@ import { createModelAvailabilityStore } from '../ml/model-availability.js';
 import { modelGates } from '../ml/model-words.js';
 import { followProjectAssets } from '../state/project-catalogue.js';
 import { PageExportControl } from '../export/export-control.js';
+import type { ExportControl } from '../export/export-types.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
@@ -228,6 +229,8 @@ export interface ProjectWorld {
     readonly linkedFiles?: ScriptedLinkedFiles;
     /** The storage estimate the window's storage worker reads: none where not given. */
     readonly estimate?: () => Promise<StorageEstimate | undefined>;
+    /** The page's export, which a window offers none of where not given. */
+    readonly exports?: ExportControl;
   }): Promise<ProjectWindow>;
 }
 
@@ -352,6 +355,7 @@ export function projectWorld(
           projects,
           files,
           takeDown,
+          exports: options.exports,
           audio: built.audio,
           recording: built.recording,
           detectionWorkers: built.detectionWorkers,
@@ -398,7 +402,10 @@ async function windowOver(
     | 'recording'
     | 'detectionWorkers'
     | 'exporting'
-  >,
+  > & {
+    /** The page's export a test gives in place of the one the window would make. */
+    readonly exports: ExportControl | undefined;
+  },
   lifetime: AbortSignal,
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;
@@ -422,20 +429,22 @@ async function windowOver(
     throw error;
   });
   const { render, codecs, destinations } = parts.exporting;
-  const exports = new PageExportControl({
-    runner: { host: render.host, planRender: render.planRender },
-    codecs,
-    exports: parts.services.client.exports,
-    assets: base.assets,
-    trusted: parts.services.trustedFolders,
-    allowWriting: destinations.allowWriting,
-    download: (file, name) => {
-      destinations.download(file, name);
-    },
-    room: () => Promise.resolve(undefined),
-    digest: parts.services.digest,
-    clock: () => ({ epochMilliseconds: base.clock.now(), utcOffsetMinutes: 0 }),
-  });
+  const exports =
+    parts.exports ??
+    new PageExportControl({
+      runner: { host: render.host, planRender: render.planRender },
+      codecs,
+      exports: parts.services.client.exports,
+      assets: base.assets,
+      trusted: parts.services.trustedFolders,
+      allowWriting: destinations.allowWriting,
+      download: (file, name) => {
+        destinations.download(file, name);
+      },
+      room: () => Promise.resolve(undefined),
+      digest: parts.services.digest,
+      clock: () => ({ epochMilliseconds: base.clock.now(), utcOffsetMinutes: 0 }),
+    });
   const context: ShellContext = {
     ...base,
     storageRoot: root,

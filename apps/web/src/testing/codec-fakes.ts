@@ -66,6 +66,11 @@ export class ScriptedCodecs implements CodecServices {
     return this.#environment;
   }
 
+  /** Takes `environment` as the one the worker sent, as a module loaded or failed. */
+  adopt(environment: CodecEnvironment): void {
+    this.#environment.adopt(environment);
+  }
+
   /** Answers each later analysis as `analysis` says. */
   analyseAs(analysis: ScriptedAnalysis): void {
     this.#analysis = analysis;
@@ -75,7 +80,11 @@ export class ScriptedCodecs implements CodecServices {
     return this.#environment.capability(codec, use);
   }
 
+  /** How many times the worker was asked to be made ready. */
+  readied = 0;
+
   ready(): Promise<DomainResult<void>> {
+    this.readied += 1;
     return Promise.resolve(succeed(undefined));
   }
 

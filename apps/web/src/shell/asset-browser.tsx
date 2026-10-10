@@ -27,7 +27,9 @@ import type {
 } from '../state/asset-catalogue.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { ProjectStores } from '../state/project-stores.js';
-import type { PanelCommands } from './command-button.js';
+import { ExportCommand } from '../commands/import-export-ids.js';
+import { EXPORT_BUTTON } from '../import-export-words.js';
+import { CommandButton, type PanelCommands } from './command-button.js';
 import { ImportControl } from './import/import-control.js';
 import { quoted } from '@audiogubbins/text';
 
@@ -122,6 +124,15 @@ function EntryItem({
           </Button>
           <p className="ag-panel-note">{shown.description}</p>
           {entry.takes !== undefined && <p className="ag-panel-note">{entry.takes}</p>}
+          {shown.owner.kind === 'project' && shown.owner.region !== undefined && (
+            <CommandButton
+              id={ExportCommand.Region}
+              label={EXPORT_BUTTON}
+              args={{ region: shown.owner.region.id }}
+              commands={commands}
+              compact
+            />
+          )}
         </>
       )}
       {entry.regions.length > 0 && (
