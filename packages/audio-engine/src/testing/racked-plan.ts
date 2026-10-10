@@ -2,7 +2,8 @@
  * A sound heard through a rack, as the tests of whatever reads processed
  * streams build one: a plan whose first stream reads the whole of a second,
  * which reads an asset's file through a chain, as an asset's rack makes it
- * (ADR-0060), and the file itself, held in memory as a WAV file.
+ * (ADR-0060), or through other processing such as a spectral edit's, and the
+ * file itself, held in memory as a WAV file.
  */
 
 import { writeWav } from '@audiogubbins/codecs/testing';
@@ -15,6 +16,7 @@ import {
   type EditPlan,
   type EffectChain,
   type SampleRate,
+  type StreamProcessing,
 } from '@audiogubbins/domain';
 
 import type { MediaFile } from '../pcm/media-file.js';
@@ -57,11 +59,12 @@ export function rackedMedia(
 }
 
 /**
- * The plan of {@link RACKED_ASSET}'s `length` frames heard through `chain`:
- * stream 0 reads the whole of stream 1, which reads the file through it.
+ * The plan of {@link RACKED_ASSET}'s `length` frames in `layout`, its
+ * segments passed through `processing`: stream 0 reads the whole of stream
+ * 1, which reads the file through it.
  */
-export function rackedPlan(
-  chain: EffectChain,
+export function processedPlan(
+  processing: StreamProcessing,
   length: number,
   sampleRate: SampleRate,
   layout: ChannelLayout = StandardLayouts.mono,
@@ -75,8 +78,18 @@ export function rackedPlan(
         sampleRate,
         layout,
         segments: [{ ...whole, source: { kind: 'media', asset: RACKED_ASSET } }],
-        processing: { kind: 'chain', chain, input: layout },
+        processing,
       },
     ],
   };
+}
+
+/** The plan of {@link RACKED_ASSET}'s `length` frames heard through `chain`. */
+export function rackedPlan(
+  chain: EffectChain,
+  length: number,
+  sampleRate: SampleRate,
+  layout: ChannelLayout = StandardLayouts.mono,
+): EditPlan {
+  return processedPlan({ kind: 'chain', chain, input: layout }, length, sampleRate, layout);
 }
