@@ -5,10 +5,11 @@
  *
  * It holds no state a person made. Each frame is composed from the stores (the
  * view's presentation, the asset's content, selection and playhead), what is
- * known of the audio and the drag in progress, so a lost device is recovered by
- * the next frame and two views of an asset show one selection. What it changes,
- * it changes through commands; the one thing it writes itself is the size it is
- * laid out at, which is a measurement, not an action.
+ * known of the audio and of its spectrogram, and the drag in progress, so a
+ * lost device is recovered by the next frame and two views of an asset show one
+ * selection. What it changes, it changes through commands; the one thing it
+ * writes itself is the size it is laid out at, which is a measurement, not an
+ * action.
  *
  * A frame is drawn when something it shows has changed, and every display frame
  * while the transport plays the asset, when the view also follows the playhead
@@ -24,6 +25,7 @@ import type { QualityMode } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { FrameComposer, FollowMode, type ToolPreview } from '@audiogubbins/editor-view';
 import { Renderer, browserBackends, type RendererReport } from '@audiogubbins/renderer';
+import type { SpectrogramHost, SpectrogramStatus } from '@audiogubbins/spectral-analysis';
 import type { SnapTarget } from '@audiogubbins/timeline';
 import type { PeakHost, PeakStatus } from '@audiogubbins/waveform';
 
@@ -36,6 +38,8 @@ import { listenToPointers } from './pointer-input.js';
 import { ToolPointer } from './tool-pointer.js';
 import { followingScroll, viewSources, type SurfaceStores } from './view-sources.js';
 import { ViewAudio } from './view-audio.js';
+import { listenToSpaceBar } from './space-panning.js';
+import { ShownSpectrogram } from './view-spectrogram.js';
 import { frameInputsOf, sameInputs, sceneOf, type SceneSources } from './view-scene.js';
 import type { EditorPalette, EditorType } from '@audiogubbins/editor-view';
 
@@ -45,6 +49,7 @@ export interface SurfaceOptions {
   readonly panel: string;
   readonly stores: SurfaceStores;
   readonly peaks: PeakHost;
+  readonly spectrograms: SpectrogramHost;
   readonly graphics: GraphicsPlatform;
   readonly look: () => { readonly palette: EditorPalette; readonly type: EditorType };
   readonly run: (command: IntentCommand) => void;
@@ -52,6 +57,11 @@ export interface SurfaceOptions {
   readonly report: (report: RendererReport) => void;
   /** Told where the peaks of the asset shown are, as that changes. */
   readonly peaksChanged: (status: PeakStatus) => void;
+  /**
+   * Told whether the spectrogram shown is being made or why it cannot be, as
+   * that changes, and told none once the view shows no spectrogram.
+   */
+  readonly spectrogramChanged: (status: SpectrogramStatus | undefined) => void;
   /** Opens the context actions at a point of the page, where a press was held still. */
   readonly contextActions: (clientX: number, clientY: number) => void;
   readonly logger: Logger;
@@ -76,6 +86,8 @@ export class EditorSurface {
         readonly view: ViewAudio;
       }
     | undefined;
+  /** The spectrogram of the asset shown, while the view draws a spectrogram lane. */
+  readonly #spectrogram: ShownSpectrogram;
   #size = { width: 0, height: 0 };
   #frame: number | undefined;
   #preview: ToolPreview | undefined;
@@ -93,10 +105,18 @@ export class EditorSurface {
 
   constructor(options: SurfaceOptions) {
     this.#options = options;
+    // A redraw composes nothing where nothing the frame shows has changed.
+    this.#spectrogram = new ShownSpectrogram(
+      options.spectrograms,
+      this.redraw,
+      options.spectrogramChanged,
+    );
     this.#canvases = new EditorCanvases(options.host);
     this.#renderer = new Renderer({
       surface: this.#canvases,
-      backends: browserBackends(options.graphics.gpu, browserSchedule),
+      backends: browserBackends(options.graphics.gpu, browserSchedule, () =>
+        this.#canvases.offscreen(),
+      ),
     });
     this.#stops.push(this.#renderer.subscribe(this.#reported));
     void this.#renderer.start().then(() => {
@@ -104,7 +124,11 @@ export class EditorSurface {
     });
     this.#watch();
     this.#listenToPointers();
-    this.#listenToKeys();
+    this.#stops.push(
+      listenToSpaceBar(options.host, (held) => {
+        this.#panning = held;
+      }),
+    );
     this.redraw();
   }
 
@@ -153,7 +177,7 @@ export class EditorSurface {
       this.#size = { width: entry.contentRect.width, height: entry.contentRect.height };
       const sources = this.#sources();
       if (sources !== undefined) {
-        stores.editorViews.measured(this.#options.panel, this.#size.width, sources.asset.length);
+        stores.editorViews.measured(this.#options.panel, this.#size, sources.asset.length);
       }
       this.redraw();
     });
@@ -200,6 +224,7 @@ export class EditorSurface {
         return sources === undefined ? undefined : { sources, layout: this.#scene(sources).layout };
       },
       panning: () => this.#panning,
+      gestures: this.#options.stores.gestures,
       run,
       show: (preview, snap) => {
         this.#preview = preview;
@@ -228,34 +253,13 @@ export class EditorSurface {
     );
   }
 
-  /** The held space bar, which makes any tool the hand while the view has the keyboard. */
-  #listenToKeys(): void {
-    const { host } = this.#options;
-    const key = (event: KeyboardEvent): void => {
-      if (event.code !== 'Space' || event.ctrlKey || event.metaKey || event.altKey) return;
-      // The held space bar is the hand, and not the page scrolling.
-      event.preventDefault();
-      this.#panning = event.type === 'keydown';
-    };
-    const blurred = (): void => {
-      this.#panning = false;
-    };
-    host.addEventListener('keydown', key);
-    host.addEventListener('keyup', key);
-    host.addEventListener('blur', blurred);
-    this.#stops.push(() => {
-      host.removeEventListener('keydown', key);
-      host.removeEventListener('keyup', key);
-      host.removeEventListener('blur', blurred);
-    });
-  }
-
-  /** What the view draws from now, holding the peaks of the asset it shows. */
+  /** What the view draws from now, holding the peaks and the spectrogram of the asset it shows. */
   #sources(): SceneSources | undefined {
     const { stores, panel, peaks, look, logger } = this.#options;
     const sources = viewSources(stores, panel, look());
     if (sources === undefined) {
       this.#releaseAudio();
+      this.#spectrogram.release();
       return undefined;
     }
     const quality = stores.audioSettings.get().renderQuality;
@@ -285,6 +289,7 @@ export class EditorSurface {
     return {
       ...sources,
       audio: held.view.known(sources.state.viewport, ratio),
+      ...this.#spectrogram.known(sources.asset, sources.state, quality, ratio),
       preview: this.#preview,
       snap: this.#snap,
     };
@@ -302,7 +307,10 @@ export class EditorSurface {
   /** The values a frame of `sources` is drawn from, each compared by identity. */
   #inputsOf(sources: SceneSources): readonly unknown[] {
     return [
-      ...frameInputsOf(sources, this.#composer.waiting),
+      ...frameInputsOf(sources, {
+        peaks: this.#composer.waiting,
+        spectrogram: this.#composer.spectrogramWaiting,
+      }),
       this.#options.stores.picture.get(),
       this.#thumbnails,
       this.#size.width,
@@ -338,6 +346,7 @@ export class EditorSurface {
     if (this.#frame !== undefined) cancelAnimationFrame(this.#frame);
     for (const stop of this.#stops) stop();
     this.#releaseAudio();
+    this.#spectrogram.release();
     this.#renderer.dispose();
     this.#canvases.dispose();
   }

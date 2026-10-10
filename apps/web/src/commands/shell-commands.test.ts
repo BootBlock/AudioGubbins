@@ -681,6 +681,57 @@ describe('the default shortcut profile', () => {
     ]);
   });
 
+  it('reaches the spectral selection and the spectral tools from the keyboard (REQ-UX-005)', () => {
+    const profile = defaultShortcutProfile(KeyboardConvention.Windows, UNKNOWN_LAYOUT);
+    const said = (id: string) => {
+      const bound = profile.bindings.find((binding) => binding.commandId === commandId(id));
+      return bound === undefined
+        ? undefined
+        : describeShortcut(bound.shortcut, KeyboardConvention.Windows, UNKNOWN_LAYOUT);
+    };
+    expect(
+      Object.fromEntries(
+        [
+          'editor.select-spectral-band',
+          'editor.add-spectral-band',
+          'editor.subtract-spectral-band',
+          'editor.widen-spectral-band',
+          'editor.narrow-spectral-band',
+          'editor.clear-spectral-selection',
+          'editor.tool-spectral-marquee',
+          'editor.tool-spectral-lasso',
+          'editor.tool-spectral-brush',
+          'editor.spectral-cursor-up',
+          'editor.spectral-cursor-down',
+          'editor.spectral-cursor-up-fine',
+          'editor.spectral-cursor-down-fine',
+          'editor.spectral-cursor-next-channel',
+          'editor.place-spectral-point',
+          'editor.finish-spectral-shape',
+          'editor.cancel-spectral-shape',
+        ].map((id) => [id, said(id)]),
+      ),
+    ).toEqual({
+      'editor.select-spectral-band': 'B',
+      'editor.add-spectral-band': 'Shift+B',
+      'editor.subtract-spectral-band': 'Shift+X',
+      'editor.widen-spectral-band': 'Shift+Up',
+      'editor.narrow-spectral-band': 'Shift+Down',
+      'editor.clear-spectral-selection': 'Shift+D',
+      'editor.tool-spectral-marquee': 'Shift+M',
+      'editor.tool-spectral-lasso': 'Shift+L',
+      'editor.tool-spectral-brush': 'P',
+      'editor.spectral-cursor-up': 'Alt+Up',
+      'editor.spectral-cursor-down': 'Alt+Down',
+      'editor.spectral-cursor-up-fine': 'Alt+Shift+Up',
+      'editor.spectral-cursor-down-fine': 'Alt+Shift+Down',
+      'editor.spectral-cursor-next-channel': 'Shift+C',
+      'editor.place-spectral-point': 'Enter',
+      'editor.finish-spectral-shape': 'Shift+Enter',
+      'editor.cancel-spectral-shape': 'Esc',
+    });
+  });
+
   it('writes each default by what the layout types, in the menus and the palette', () => {
     expect(
       describeShortcut(
@@ -789,6 +840,9 @@ describe('finding the shell commands in the palette', () => {
     // Full screen is the browser's to grant, outside every store, and asked
     // for again is asked again.
     'picture.full-screen',
+    // Saying the spectral selection is what it does, so asked again it says
+    // it again.
+    'editor.describe-spectral-selection',
   ]);
 
   /**
@@ -952,7 +1006,7 @@ describe('finding the shell commands in the palette', () => {
     const found = context.assets.find(asset);
     if (found === undefined) throw new Error(`No asset ${asset}.`);
     context.editorViews.open('editor', found);
-    context.editorViews.measured('editor', 1000, found.length);
+    context.editorViews.measured('editor', { width: 1000, height: 300 }, found.length);
     context.editorViews.focus('editor');
   }
 
@@ -966,6 +1020,17 @@ describe('finding the shell commands in the palette', () => {
       },
     };
   }
+
+  /** A view that draws spectrally with `tool`, its surface laid out, so the keyboard can draw. */
+  const drawingWith =
+    (tool: 'lasso' | 'brush'): NonNullable<Scenario['before']> =>
+    (run, context) => {
+      const found = context.assets.find('test:tone-bursts');
+      if (found === undefined) throw new Error('No tone bursts.');
+      context.editorViews.measured('editor', { width: 1000, height: 300 }, found.length);
+      run('editor.display-spectrogram');
+      run(`editor.tool-spectral-${tool}`);
+    };
 
   /** The marked loop of the project open in the editor, its marker at `index` given. */
   const onProjectMarker = (index = 0): Scenario => ({
@@ -1021,6 +1086,9 @@ describe('finding the shell commands in the palette', () => {
       }),
     },
     'view.density-comfortable': { before: (run) => run('view.density-compact') },
+    'tools.use-pen-pressure': { before: (run) => run('tools.use-fixed-strength') },
+    // A step the control offers, so the second run meets the value itself.
+    'tools.set-fixed-strength': { arguments: () => ({ strength: 0.4 }) },
     'view.contrast-system': { before: (run) => run('view.high-contrast') },
     'view.motion-system': { before: (run) => run('view.motion-reduced') },
     'view.accent-blue': { before: (run) => run('view.accent-teal') },
@@ -1211,7 +1279,104 @@ describe('finding the shell commands in the palette', () => {
     'editor.spectral-band-audible': inEditor({
       before: (run) => run('editor.spectral-band-whole'),
     }),
+    'editor.spectrogram-analysis': inEditor({ arguments: () => ({ windowLength: 4096 }) }),
+    'editor.spectrogram-window-blackman-harris': inEditor({
+      before: (run) => run('editor.spectrogram-window-hann'),
+    }),
+    'editor.spectrogram-overlap-4': inEditor({
+      before: (run) => run('editor.spectrogram-overlap-2'),
+    }),
+    'editor.spectrogram-range': inEditor({ arguments: () => ({ floor: -90 }) }),
+    'editor.spectrogram-ceiling-raise': inEditor({
+      before: (run) => run('editor.spectrogram-ceiling-lower'),
+    }),
+    'editor.spectrogram-range-default': inEditor({
+      before: (run) => run('editor.spectrogram-floor-raise'),
+    }),
+    'editor.spectrogram-colours-theme': inEditor({
+      before: (run) => run('editor.spectrogram-colours-greyscale'),
+    }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
+    'editor.select-spectral': inEditor({
+      arguments: () => ({
+        mask: JSON.stringify({
+          shapes: [
+            {
+              kind: 'rectangle',
+              effect: 'add',
+              range: { start: 100, end: 200 },
+              band: { low: 100, high: 400 },
+            },
+          ],
+          feather: { time: 0, frequency: 0 },
+        }),
+        combination: 'replace',
+        channels: '1',
+      }),
+    }),
+    'editor.select-spectral-band': inEditor({
+      before: (run) => run('editor.select-time', { start: 1_000, end: 96_000 }),
+    }),
+    'editor.add-spectral-band': inEditor({
+      before: (run) => run('editor.select-time', { start: 1_000, end: 96_000 }),
+    }),
+    'editor.subtract-spectral-band': inEditor({
+      before: (run) => {
+        run('editor.select-time', { start: 1_000, end: 96_000 });
+        run('editor.select-spectral-band', { low: 400, high: 4_000 });
+      },
+      arguments: () => ({ low: 1_000, high: 2_000 }),
+    }),
+    ...Object.fromEntries(
+      [
+        'editor.spectral-cursor-up',
+        'editor.spectral-cursor-down',
+        'editor.spectral-cursor-up-fine',
+        'editor.spectral-cursor-down-fine',
+        'editor.spectral-cursor-next-channel',
+        'editor.place-spectral-point',
+      ].map((id) => [id, inEditor({ before: drawingWith('lasso') })]),
+    ),
+    'editor.cancel-spectral-shape': inEditor({
+      before: (run, context) => {
+        drawingWith('lasso')(run, context);
+        run('editor.place-spectral-point');
+      },
+    }),
+    'editor.finish-spectral-shape': inEditor({
+      before: (run, context) => {
+        drawingWith('brush')(run, context);
+        run('editor.place-spectral-point');
+      },
+    }),
+    'editor.spectral-combination-replace': inEditor({
+      before: (run) => run('editor.spectral-combination-add'),
+    }),
+    ...Object.fromEntries(
+      [
+        'editor.widen-spectral-time',
+        'editor.narrow-spectral-time',
+        'editor.widen-spectral-band',
+        'editor.narrow-spectral-band',
+        'editor.clear-spectral-selection',
+      ].map((id) => [
+        id,
+        inEditor({
+          before: (run) => {
+            run('editor.select-time', { start: 100_000, end: 200_000 });
+            run('editor.select-spectral-band', { low: 400, high: 4_000 });
+          },
+        }),
+      ]),
+    ),
+    'editor.set-brush-radius': inEditor({ arguments: () => ({ pixels: 30 }) }),
+    'editor.set-brush-hardness': inEditor({ arguments: () => ({ hardness: 0.25 }) }),
+    'editor.set-spectral-softness': inEditor({
+      arguments: () => ({ milliseconds: 10, hertz: 50 }),
+    }),
+    'editor.hard-spectral-edges': inEditor({
+      before: (run) => run('editor.set-spectral-softness', { milliseconds: 10, hertz: 50 }),
+    }),
     'editor.select-marker': onProjectMarker(),
     'editor.select-region': {
       inProject: true,
@@ -1345,7 +1510,7 @@ describe('finding the shell commands in the palette', () => {
     });
     const { context } = audio.window;
     context.editorViews.open('editor', audio.asset());
-    context.editorViews.measured('editor', 1000, audio.asset().length);
+    context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
     context.editorViews.focus('editor');
     return context;
   }

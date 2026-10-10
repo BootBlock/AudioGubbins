@@ -22,10 +22,10 @@ import {
 } from './operations.js';
 
 /**
- * A range edit that a stage carries: every kind but a rack edit and a punch,
- * which streams of their own carry.
+ * A range edit that a stage carries: every kind but a rack edit, a punch and
+ * a spectral edit, which streams of their own carry.
  */
-export type StageEdit = Exclude<RangeEdit, { readonly kind: 'rack' | 'punch' }>;
+export type StageEdit = Exclude<RangeEdit, { readonly kind: 'rack' | 'punch' | 'spectral' }>;
 
 /** The gain a level edit puts on a segment that begins at `segmentStart` in its stream. */
 function levelStage(

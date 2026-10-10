@@ -50,8 +50,10 @@ use table::{Pair, Table};
 /// `_read`, `_release`) and the detector feature extractors
 /// (`ag_detector_create`, `_record_width`, `_push`, `_pull`, `_release`). 6
 /// added the silence extractor, code 6 of `ag_detector_create`, which a module
-/// of 5 refuses as an unknown kind.
-pub const ABI_VERSION: u32 = 6;
+/// of 5 refuses as an unknown kind. 7 added the STFT's window, the last
+/// argument of `ag_stft_create`: 0 the periodic Hann, 1 the four-term
+/// Blackman–Harris (ADR-0080).
+pub const ABI_VERSION: u32 = 7;
 
 /// The call did what it was asked.
 pub const STATUS_DONE: u32 = 0;

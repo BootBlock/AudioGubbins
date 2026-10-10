@@ -11,7 +11,8 @@ import { ChannelRole, sampleRate, type SampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { dspModuleExports } from '../testing/dsp-module.js';
-import { DetectorKind, type DetectorSettings } from './canonical-analysis.js';
+import { doublesFingerprint } from '../testing/pcm-fingerprint.js';
+import { DetectorKind, type DetectorSettings, StftWindow } from './canonical-analysis.js';
 import type { CanonicalDsp } from './canonical-dsp.js';
 import { kWeighting } from './reference/analysis/k-weighting.js';
 import { sineOfTurns } from './reference/primitives.js';
@@ -40,20 +41,6 @@ function golden(channels: number, frames: number): Float32Array[] {
 /** Frames `start` to `end` of each channel, as one chunk. */
 function chunkOf(planar: readonly Float32Array[], start: number, end: number): Float32Array[] {
   return planar.map((channel) => channel.subarray(start, end));
-}
-
-/** FNV-1a over the little-endian bits of each double, as `fingerprint::of` computes it. */
-function fingerprint(values: readonly number[]): bigint {
-  const view = new DataView(Float64Array.from(values).buffer);
-  let hash = 0xcbf29ce484222325n;
-  for (let index = 0; index < values.length; index += 1) {
-    const word = view.getBigUint64(index * 8, true);
-    for (let shift = 0n; shift < 64n; shift += 8n) {
-      hash ^= (word >> shift) & 0xffn;
-      hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
-    }
-  }
-  return hash;
 }
 
 const rate = (hertz: number): SampleRate => expectSuccess(sampleRate(hertz));
@@ -147,7 +134,7 @@ describe('the K-weighting the reference path designs', () => {
       kWeighting(hertz).flatMap((stage) => [stage.b0, stage.b1, stage.b2, stage.a1, stage.a2]),
     );
     // `GOLDEN_K_WEIGHTING` in `k_weighting.rs`.
-    expect(fingerprint(coefficients)).toBe(0xa2aafa38a286f78cn);
+    expect(doublesFingerprint(coefficients)).toBe(0xa2aafa38a286f78cn);
   });
 });
 
@@ -155,9 +142,14 @@ describe.each([
   ['the WebAssembly module', (): CanonicalDsp => wasm],
   ['the reference path', (): CanonicalDsp => REFERENCE_DSP],
 ])('the measuring objects in %s', (_name, dspOf) => {
-  it('give the golden STFT frames, polar and complex', () => {
+  it.each([
+    // `GOLDEN_STFT` in `stft.rs`.
+    [StftWindow.Hann, [0x7ce28db813909753n, 0xe3df76afe3a05176n]],
+    // `GOLDEN_STFT_BLACKMAN_HARRIS` in `stft.rs`.
+    [StftWindow.BlackmanHarris, [0x907707fcc42f2c34n, 0x992ba50ac9713cc6n]],
+  ])('give the golden STFT frames through the %s window, polar and complex', (window, expected) => {
     const planar = golden(2, 1_000);
-    const stft = expectSuccess(dspOf().createStft({ channels: 2, size: 256, hop: 96 }));
+    const stft = expectSuccess(dspOf().createStft({ channels: 2, size: 256, hop: 96, window }));
     const first = new Float64Array(2 * stft.bins);
     const second = new Float64Array(2 * stft.bins);
     const polar: number[] = [];
@@ -175,11 +167,7 @@ describe.each([
     }
     stft.release();
     expect(frame).toBe(8);
-    // `GOLDEN_STFT` in `stft.rs`.
-    expect([fingerprint(polar), fingerprint(complex)]).toEqual([
-      0x7ce28db813909753n,
-      0xe3df76afe3a05176n,
-    ]);
+    expect([doublesFingerprint(polar), doublesFingerprint(complex)]).toEqual(expected);
   });
 
   it.each([
@@ -197,7 +185,7 @@ describe.each([
     }
     meter.release();
     // `GOLDEN_PEAKS` in `peak.rs`.
-    expect(fingerprint(readings)).toBe(expected);
+    expect(doublesFingerprint(readings)).toBe(expected);
   });
 
   it('gives the golden loudness series, integrated loudness and range', () => {
@@ -221,7 +209,7 @@ describe.each([
     meter.release();
     values.push(integrated, range);
     // `GOLDEN_LOUDNESS` in `loudness/tests.rs`.
-    expect(fingerprint(values)).toBe(0xf32dd7bdf3fbc07cn);
+    expect(doublesFingerprint(values)).toBe(0xf32dd7bdf3fbc07cn);
   });
 
   it.each(
@@ -242,6 +230,6 @@ describe.each([
     }
     features.release();
     // `GOLDEN_DETECTORS` in `detectors/tests.rs`.
-    expect([all.length / width, fingerprint(all)]).toEqual([count, expected]);
+    expect([all.length / width, doublesFingerprint(all)]).toEqual([count, expected]);
   });
 });

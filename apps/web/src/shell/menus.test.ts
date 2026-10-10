@@ -55,7 +55,47 @@ describe('the menu bar', () => {
       'Editor',
       'Help',
     ]);
-    expect(entries).toHaveLength(166);
+    expect(entries).toHaveLength(189);
+  });
+
+  it('offers the spectral tools and the spectral selection in the Editor menu, with their keys', () => {
+    const editor = shellMenus(sources()).find((menu) => menu.label === 'Editor');
+    const keys = (key: string) =>
+      editor?.groups.find((group) => group.key === key)?.items.map((item) => item.key);
+
+    expect(keys('tools')).toEqual(
+      expect.arrayContaining([
+        'editor.tool-spectral-marquee',
+        'editor.tool-spectral-lasso',
+        'editor.tool-spectral-brush',
+      ]),
+    );
+    expect(keys('spectral-selection')).toEqual([
+      'editor.select-spectral-band',
+      'editor.add-spectral-band',
+      'editor.subtract-spectral-band',
+      'editor.widen-spectral-time',
+      'editor.narrow-spectral-time',
+      'editor.widen-spectral-band',
+      'editor.narrow-spectral-band',
+      'editor.clear-spectral-selection',
+      'editor.describe-spectral-selection',
+      'editor.spectral-combination-replace',
+      'editor.spectral-combination-add',
+      'editor.spectral-combination-subtract',
+      'editor.spectral-cursor-up',
+      'editor.spectral-cursor-down',
+      'editor.spectral-cursor-up-fine',
+      'editor.spectral-cursor-down-fine',
+      'editor.spectral-cursor-next-channel',
+      'editor.place-spectral-point',
+      'editor.finish-spectral-shape',
+      'editor.cancel-spectral-shape',
+    ]);
+    const band = editor?.groups
+      .flatMap((group) => group.items)
+      .find((item) => item.key === 'editor.add-spectral-band');
+    expect(band?.shortcut).toBe('Shift+B');
   });
 
   it('names the panel the arrangement entries act on', () => {

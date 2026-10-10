@@ -65,6 +65,7 @@ import { timeEditCommands } from './time-edit-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
+import { pressureCommands } from './pressure-commands.js';
 import { selectionCommands } from './selection-commands.js';
 import { selectionPlayheadCommands } from './selection-playhead-commands.js';
 import { shellCommand } from './shell-command.js';
@@ -154,6 +155,11 @@ function surfaceCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** Every command that changes the person's preferences: how the interface looks, and the pressure choice. */
+function preferenceCommands(): readonly Command<ShellContext>[] {
+  return [...viewCommands(), ...pressureCommands()];
+}
+
 /** Every command of the project system: its projects, their history and the storage. */
 function projectSystemCommands(): readonly Command<ShellContext>[] {
   return [
@@ -185,7 +191,7 @@ export function shellCommands(
   descriptors: ReadonlyMap<PanelKind, PanelDescriptor>,
 ): readonly Command<ShellContext>[] {
   return [
-    ...viewCommands(),
+    ...preferenceCommands(),
     ...workspaceCommands(),
     ...panelCommands(descriptors),
     ...surfaceCommands(),

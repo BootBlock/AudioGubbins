@@ -69,7 +69,10 @@
       "adr/ADR-0062-local-inference-and-model-packs.md",
       "adr/ADR-0070-recording-capture-monitoring-and-latency.md",
       "adr/ADR-0071-recorded-media-persistence-and-recovery.md",
-      "adr/ADR-0072-take-stacks-and-punch-recording-in-the-edit-model.md"
+      "adr/ADR-0072-take-stacks-and-punch-recording-in-the-edit-model.md",
+      "adr/ADR-0080-spectrogram-analysis-and-tiles.md",
+      "adr/ADR-0081-spectral-masks-and-spectral-edits.md",
+      "adr/ADR-0082-spectrogram-drawing-and-spectral-tools.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { DspImplementation, wasmDsp } from '@audiogubbins/audio-engine';
+import { DspImplementation, wasmDsp, DspDeliveryKind } from '@audiogubbins/audio-engine';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from './dsp-delivery.js';
 import { scopeDsp } from './dsp-instance.js';
 
 // This project runs in jsdom, whose global `ArrayBuffer` is not the realm the

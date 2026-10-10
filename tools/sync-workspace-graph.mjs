@@ -409,6 +409,31 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The spectrogram as a pyramid of disposable tiles, analysed off the page
+    // by its worker from the edited sound through the canonical STFT, shared
+    // among views by source identity with the old revision drawn stale until
+    // replaced, and its checked cache format (ADR-0080). No browser: the
+    // worker's scope is declared by its shape.
+    dir: 'packages/spectral-analysis',
+    name: '@audiogubbins/spectral-analysis',
+    description:
+      'Spectrograms: their settings, the tile pyramid, its worker and host, and the disposable tile cache a view draws from.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'spectrogram-worker.ts': 'dedicated-worker' },
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
+      '@audiogubbins/ml-runtime',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The detection worker: a target's processed audio read through the
     // engine, the detectors and assistants run over it in one pass, and the
     // findings and recommendations answered as data (ADR-0061, ADR-0062).
@@ -480,6 +505,7 @@ const PACKAGES = [
       '@audiogubbins/input',
       '@audiogubbins/timeline',
       '@audiogubbins/waveform',
+      '@audiogubbins/spectral-analysis',
       '@audiogubbins/renderer',
     ],
     devDeps: [],
@@ -780,6 +806,7 @@ const PACKAGES = [
       '@audiogubbins/audio-runtime',
       '@audiogubbins/timeline',
       '@audiogubbins/waveform',
+      '@audiogubbins/spectral-analysis',
       '@audiogubbins/renderer',
       '@audiogubbins/editor-view',
       '@audiogubbins/video-reference',

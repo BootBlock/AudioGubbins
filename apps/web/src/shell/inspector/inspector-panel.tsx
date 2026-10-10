@@ -14,13 +14,11 @@
 
 import { useId, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
-import { shapesOf, type EffectChainId, type ProcessorId } from '@audiogubbins/domain';
+import type { ProcessorId } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { targetChains } from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
-import { formatPosition } from '@audiogubbins/timeline';
 
-import { channelNames } from '../../assets/channel-names.js';
 import type { EditorPanelParts } from '../../editor/panel-parts.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { ProjectStores } from '../../state/project-stores.js';
@@ -32,7 +30,8 @@ import { EditingPanelKinds } from '../../panel-kinds.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { ProcessorControls } from '../rack/processor-controls.js';
 import { scopeOf } from '../selection-scope.js';
-import { operationWords, type EditWording } from './edit-words.js';
+import { editWording, operationWords, type EditWording } from './edit-words.js';
+import type { ModelGate } from '../../assets/model-gate.js';
 import { inspected, type Inspected } from './inspected.js';
 import { LevelControls } from './level-controls.js';
 import { RegionProperties } from './region-properties.js';
@@ -59,6 +58,8 @@ export interface InspectorParts {
   readonly labelFor: (id: string) => string;
   readonly recording: RecordingParts;
   readonly audioSettings: Observable<AudioSettings>;
+  /** Why a processor cannot run for want of its model, which a spectral clean-up's words say. */
+  readonly modelGate: Observable<ModelGate>;
 }
 
 /**
@@ -228,21 +229,18 @@ function ProjectSubject({
   readonly commands: PanelCommands;
 }): ReactNode {
   const { view, state: viewState, panel } = subject;
-  // The asset's own layout is its source's: each edit is worded by the layout
-  // its place in the chain had, a conversion before it included.
-  const names = useMemo(
-    () => shapesOf(subject.asset).map((shape) => channelNames(shape.layout)),
-    [subject.asset],
-  );
+  const gate = useSyncExternalStore(parts.modelGate.subscribe, parts.modelGate.get);
   const chains = state?.project.effectChains;
-  const words: EditWording = {
-    position: (frames) => formatPosition(frames, view.sampleRate, viewState.timeFormat),
-    channelsAt: (basis) => names[basis] ?? [],
-    chain: (id: EffectChainId) => {
-      const chain = chains?.get(id);
-      return chain === undefined ? 'a chain the project does not hold' : chainWords(chain);
-    },
-  };
+  const words = useMemo(
+    () =>
+      editWording(
+        subject.asset,
+        { sampleRate: view.sampleRate, format: viewState.timeFormat },
+        chains,
+        gate,
+      ),
+    [subject.asset, view.sampleRate, viewState.timeFormat, chains, gate],
+  );
   const selection = parts.selections.of(view.id);
   const scope = scopeOf(selection, view, viewState);
   const processors = selection.objects?.kind === 'processors' ? selection.objects.ids : [];

@@ -57,17 +57,13 @@ import {
   PcmDescriptionKind,
   PreviewClient,
   previewPort,
+  DspDeliveryKind,
   type AudioFrameBlock,
   type MediaEntry,
   type PcmDescription,
 } from '@audiogubbins/audio-engine';
 import { graphOf, named, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
-import {
-  DspDeliveryKind,
-  PreviewHost,
-  createRenderHost,
-  type RenderHost,
-} from '@audiogubbins/audio-runtime';
+import { PreviewHost, createRenderHost, type RenderHost } from '@audiogubbins/audio-runtime';
 import {
   FromFeederKind,
   ToFeederKind,
@@ -309,7 +305,7 @@ async function openedProject(): Promise<AudioWindow> {
   const { window } = audio;
   const asset = audio.asset();
   window.context.editorViews.open('editor', asset);
-  window.context.editorViews.measured('editor', 1000, asset.length);
+  window.context.editorViews.measured('editor', { width: 1000, height: 300 }, asset.length);
   window.context.editorViews.focus('editor');
   return audio;
 }

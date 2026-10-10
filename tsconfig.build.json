@@ -93,6 +93,15 @@
       "path": "./packages/waveform/scopes/dedicated-worker"
     },
     {
+      "path": "./packages/spectral-analysis"
+    },
+    {
+      "path": "./packages/spectral-analysis/scopes/any"
+    },
+    {
+      "path": "./packages/spectral-analysis/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/detection-runtime"
     },
     {

@@ -182,8 +182,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/input': {
-    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
-      ['NO_GESTURE', 'toolStrength'],
+    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. Its gesture of no contact is offered with the model, though the editor surface, which reads contacts and gestures through it, has not needed to name it.':
+      ['NO_GESTURE'],
   },
   '@audiogubbins/domain': {
     "The deterministic identity generator, which the fixtures package and every package's test support make reproducible identities with; the fixtures package may take no test support, so it is offered here. The application makes its identities with `createIdGenerator`.":
@@ -299,8 +299,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":
       ['viewportAtStart'],
-    "The spectral facet's builder, which the spectral marquee and lasso of Phase 08's spectral editing make a selection with (ADR-0042); this phase draws and keeps the facet and has no tool that makes one.":
-      ['withSpectralArea'],
   },
   '@audiogubbins/waveform': {
     "The shape of a source's pyramid, which the editor view's and the application's tests make an empty or a filled pyramid with; the page is handed pyramids whole.":
@@ -313,6 +311,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],
   },
   '@audiogubbins/audio-engine': {
+    "The check of a WebAssembly instance's exports against the DSP ABI, which every thread reaches through `deliveredDsp` (ADR-0080), and the tests of every package that runs the canonical DSP module make their WebAssembly DSP with directly.":
+      ['wasmDsp'],
     "The sources a description makes, which the runtime and the peak worker reach through `describedSource`, and other packages' tests make audio from directly (ADR-0045).":
       ['SignalSettings', 'memorySource', 'signalSource'],
     "The engine's primitives no host in this phase calls yet: the workload estimate and the chunk plan on their own, which the one render this phase runs reaches through the render strategy that composes them (`assessRender`), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":

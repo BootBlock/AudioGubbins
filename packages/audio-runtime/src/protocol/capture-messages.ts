@@ -40,11 +40,10 @@ import {
   type ProcessorId,
   type QualityMode,
 } from '@audiogubbins/domain';
-import { DspImplementation } from '@audiogubbins/audio-engine';
+import { DspImplementation, type DspDelivery, dspDeliveryAt } from '@audiogubbins/audio-engine';
 
 import { CaptureEndReason } from '../capture/capture-wire.js';
-import type { DspDelivery } from '../dsp/dsp-delivery.js';
-import { dspDeliveryAt, portAt, sharedMemoryAt } from './message-reading.js';
+import { portAt, sharedMemoryAt } from './message-reading.js';
 
 /**
  * Why a retrospective buffer of `seconds` cannot be kept, or nothing where it

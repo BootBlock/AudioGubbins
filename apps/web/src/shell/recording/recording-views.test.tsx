@@ -309,6 +309,7 @@ describe("the Inspector's recording configuration", () => {
           labelFor: (id) => id,
           recording: context.recording,
           audioSettings: context.audioSettings,
+          modelGate: context.modelGate,
         }}
         commands={commandsOver(context)}
       />,

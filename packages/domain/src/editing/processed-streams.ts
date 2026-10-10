@@ -1,7 +1,8 @@
 /**
  * Making a stream of a plan that an earlier stream reads processed: a range
- * through a chain, a range stretched, the whole sound converted to another
- * rate, or the whole sound through a target's rack (ADR-0060).
+ * through a chain, a range stretched, a range changed by a spectral edit, the
+ * whole sound converted to another rate, or the whole sound through a
+ * target's rack (ADR-0060, ADR-0081).
  *
  * Each takes some of the first stream's segments into a new stream at place
  * 1, after moving every stream already there one place on, and leaves in
@@ -14,6 +15,7 @@
 
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { EffectChain } from '../processing/effect-chain.js';
+import type { PlannedSpectralEdit } from '../spectral/spectral-edit.js';
 import { derivedSampleCount, type SampleRate } from '../time/sample-time.js';
 import {
   convertedFrameCount,
@@ -98,6 +100,16 @@ export function rackRange(
 ): Folding {
   const input = folding.stream.layout;
   return processedRange(folding, start, end, { kind: 'chain', chain, input }, end - start);
+}
+
+/** The folding with `[start, end)` of its first stream changed by a spectral edit (ADR-0081). */
+export function spectralRange(
+  folding: Folding,
+  start: number,
+  end: number,
+  edit: PlannedSpectralEdit,
+): Folding {
+  return processedRange(folding, start, end, { kind: 'spectral', edit }, end - start);
 }
 
 /** The folding with `[start, end)` of its first stream stretched to `length` frames. */

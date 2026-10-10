@@ -12,6 +12,8 @@ import {
   FadeDirection,
   FadeShape,
   MAIN_OUTPUT,
+  MaskEffect,
+  NO_FEATHER,
   StandardLayouts,
   assetPlan,
   derivedSampleCount,
@@ -23,6 +25,7 @@ import {
   type EditOperation,
   type EditRange,
   type EffectChain,
+  type EffectChainId,
   type IdGenerator,
   type ParameterId,
   type ParameterValue,
@@ -305,12 +308,46 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
 }
 
 /**
- * The reference state with the deepest chain the domain accepts in each place
- * a project keeps one: among the project's chains, as the footstep's rack, and
- * in the plan of a paste of the footstep's racked audio into the footstep,
- * which nests the chain deepest of all. Every reader of a whole project is
- * pinned with it, so a depth bound picked by hand rather than derived from the
- * domain's is found.
+ * A spectral edit that runs `chain` over a band of `start` to `end`: the
+ * deepest thing a plan holds, since the plan carries the chain itself inside
+ * the spectral edit inside its stream's processing (ADR-0081).
+ */
+export function chainedSpectralEdit(
+  ids: IdGenerator,
+  chain: EffectChainId,
+  start: number,
+  end: number,
+): EditOperation {
+  return {
+    id: ids.next<'EditOperationId'>(),
+    kind: 'process',
+    range: { start: derivedSampleCount(start), end: derivedSampleCount(end) },
+    edit: {
+      kind: 'spectral',
+      resolution: 1_024,
+      operation: { kind: 'process', chain },
+      mask: {
+        shapes: [
+          {
+            kind: 'rectangle',
+            effect: MaskEffect.Add,
+            range: { start: derivedSampleCount(0), end: derivedSampleCount(end - start) },
+            band: { low: 100, high: 4_000 },
+          },
+        ],
+        feather: NO_FEATHER,
+      },
+    },
+  };
+}
+
+/**
+ * The reference state with the deepest chain the domain accepts in each place a
+ * project keeps one: among the project's chains, as the footstep's rack, and in
+ * the plan of a paste of the footstep's racked audio, processed by the chain
+ * through a spectral edit, into the footstep, which nests the chain deepest of
+ * all. Every reader of a whole project is pinned with it, so a depth bound
+ * picked by hand rather than derived from the domain's is found.
  */
 export function deeplyRackedState(fixture: SampleProject): ProjectState {
   const state = referenceState(fixture);
@@ -320,7 +357,11 @@ export function deeplyRackedState(fixture: SampleProject): ProjectState {
 
   const chain = deepestChain(ids);
   const chains = new Map([...state.project.effectChains, [chain.id, chain]]);
-  const racked: Asset = { ...footstep, rack: chain.id };
+  const racked: Asset = {
+    ...footstep,
+    rack: chain.id,
+    edits: [chainedSpectralEdit(ids, chain.id, 6_000, 18_000)],
+  };
   const copied = expectSuccess(
     slicePlan(
       expectSuccess(

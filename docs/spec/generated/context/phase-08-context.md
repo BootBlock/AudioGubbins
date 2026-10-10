@@ -112,15 +112,15 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 03, 04, 05, 06 reaching `PASS`.
+`PASS` — completed on 2026-10-10; see `reviews/phase-08-evidence.md`, `reviews/phase-08-review.md` and `traceability/handoffs/phase-08.md`.
 
 ## Objective
 
-Implement interactive spectral analysis and non-destructive spectral editing/repair using scalable spectrogram tiling, explicit time-frequency selections, deterministic operations, and integration with local restoration/ML capabilities.
+Implement interactive spectral analysis and non-destructive spectral editing/repair using scalable spectrogram tiling, explicit time-frequency selections, deterministic operations, and integration with local restoration/ML capabilities. The spectrogram is a pyramid of disposable tiles analysed in a worker from the edited sound (`ADR-0080`); a spectral selection is a mask, and a spectral edit is a range edit that adds a masked change to its input, so every sample it does not reach is unchanged (`ADR-0081`); the renderer draws scalar fields through a colour ramp on every backend, and the spectral tools make a mask (`ADR-0082`).
 
 ## User-Visible Outcome
 
-Users can inspect and edit frequency/time regions with marquee/lasso/brush-style tools, attenuation/removal/heal/repair operations, preview/A-B, and recoverable parametric history.
+Users can inspect and edit frequency/time regions with marquee/lasso/brush-style tools, attenuation/removal/heal/repair operations, preview/A-B, and recoverable parametric history. They see the spectrogram of what they hear, at any zoom, on any renderer; select an area with the spectral marquee, the lasso or the brush, with a pen's pressure or a fixed strength, or from the keyboard; attenuate, remove, isolate or heal it, or clean it up with a restoration or model processor; compare the result with before it; and find every spectral edit, undoable, after a reload.
 
 ## Hard Dependencies
 
@@ -132,6 +132,31 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 ## Owned Requirements
 
 - `REQ-AUDIO-016` — Spectral Editing (`CURRENT`)
+
+### Requirements Consumed From Other Phases
+
+Owned elsewhere; this phase delivers the part named, or keeps what it asks.
+
+- `REQ-ARCH-004` — Core Architectural Principles (Phase 01): a spectral edit is parametric, and spectrogram tiles are disposable caches.
+- `REQ-ARCH-037` — Waveform Rendering Direction (Phase 04): the page never computes a spectrum.
+- `REQ-ARCH-049` and `REQ-ARCH-081` — Deterministic Rendering and Canonical Deterministic Processing (Phase 03): a spectral edit's final render is one answer on every machine.
+- `REQ-ARCH-153` — State Ownership and Workflow State (Phase 01): the spectral selection is the selection set's; display settings are the view's; tiles are the host's cache.
+- `REQ-ARCH-157` — Multichannel, Surround, and Ambisonic Audio (Phase 03): spectral edits and spectrograms work per channel, on any layout, narrowed by the channel scope.
+- `REQ-AUDIO-152` — High-Performance Editor Rendering Layer (Phase 04): the spectrogram and the mask are drawn by WebGPU, WebGL2 and Canvas 2D, and recovered after a loss.
+- `REQ-AUDIO-017` and `REQ-AUDIO-018` — Effect Rack and DSP Scope (Phase 06): a chain of cleanup or model processors applied to a time-frequency area.
+- `REQ-EDIT-062` — Waveform and Spectral Presentation Modes (Phase 04): the spectrogram, stacked and overlay presentations show analysed audio.
+- `REQ-EDIT-063` and `REQ-EDIT-064` — Explicit Selection Model and Selection Persistence (Phase 04): the spectral facet is a mask, kept across tools, zoom and views.
+- `REQ-EDIT-065` — Hybrid Tool System (Phase 04): the spectral marquee, the spectral lasso and the brush.
+- `REQ-EDIT-072` — Contextual Inspector (Phase 01): the Inspector describes a spectral edit.
+- `REQ-EDIT-073` — Unified Typed Command Architecture (Phase 01): every spectral edit is a project command with its inverse.
+- `REQ-STOR-021` — Undo, Redo, Autosave, and Recovery (Phase 02): spectral edits are undone, redone and recovered.
+- `REQ-STOR-052` — Project Schema Compatibility Policy (Phase 02): the raised schema versions are refused, never migrated, before 1.0.
+- `REQ-STOR-106` — Storage Cleanup Priority (Phase 02): spectrogram tiles are the cache category cleaned before intermediates.
+- `REQ-STOR-195` — Whole-Project A/B State Comparison (Phase 02): a spectral edit is compared with the state before it.
+- `REQ-UX-005` — User Experience Goals (Phase 01): every spectral tool's action has a keyboard form, and the selection has a non-visual description.
+- `REQ-UX-058` — Workspace Presets (Phase 01): the Spectral Repair preset gains the Spectral panel.
+- `REQ-UX-068` — Stylus and Pressure Input (Phase 01): pressure is optional; a fixed strength is always available and persisted.
+- `REQ-PROD-009` — Audio Duration and Scale (Phase 03): spectrograms of sessions lasting hours, never analysed or held whole.
 
 ## Referenced Global Execution Requirements
 
@@ -152,49 +177,70 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 
 ## In Scope
 
-- [ ] Spectrogram analysis/tile cache
-- [ ] Frequency/time coordinate system
-- [ ] Spectral selections
-- [ ] Marquee/lasso/brush tools
-- [ ] Attenuate/remove/heal/repair operations
-- [ ] Selection-sensitive spectral processing
-- [ ] GPU-accelerated display with fallbacks
-- [ ] Integration with cleanup/ML processors
-- [ ] Spectral cache invalidation
+- [ ] Spectrogram analysis/tile cache: `SpectrogramConfig`, the tile pyramid, quantised tiles, the worker, the host and the disposable cache (`ADR-0080`)
+- [ ] The Blackman–Harris window in the canonical STFT of `crates/analysis` and its reference, raising the DSP ABI (`ADR-0080`)
+- [ ] Frequency/time coordinate system: the exact column placement of `ADR-0041` and the inverse of the lane's frequency mapping (`ADR-0082`)
+- [ ] Spectral selections: the mask of rectangles, polygons and strokes, adding or subtracting, with a feather, as the selection's spectral facet (`ADR-0081`)
+- [ ] Marquee/lasso/brush tools, with pressure optional and a persisted fixed strength, and keyboard commands for spectral selection (`ADR-0082`)
+- [ ] Attenuate/remove/isolate/heal operations, and repair through a cleanup or model chain, as the spectral edit (`ADR-0081`)
+- [ ] Selection-sensitive spectral processing: the spectral edit in the plan, the engine's realisation and its persisted form
+- [ ] GPU-accelerated display with fallbacks: the field batch on WebGPU, WebGL2 and Canvas 2D, within a texture budget (`ADR-0082`)
+- [ ] Integration with cleanup/ML processors: the `process` operation, with model unavailability stated before and after applying
+- [ ] Spectral cache invalidation: tiles keyed by the edited sound's revision, the old revision drawn as stale until replaced
+- [ ] Preview and A/B: the spectral edit compared with the state before it, and heard processed or as the original
+- [ ] Spectral views: the spectrogram layer, the mask's overlay, spectral edit outlines, the Spectral panel, the Inspector's spectral edit, the display settings and the Spectral Repair preset; every view invokes only commands
 
 ## Explicitly Out of Scope
 
 - General image/video editing
 - Cloud spectral processing
+- GPU compute of spectra: the GPU draws; spectra are computed in a worker by the canonical DSP, which `REQ-ARCH-049` holds to one answer (`ADR-0080`)
+- Comping and multitrack spectral views (no phase of this specification builds the multitrack architecture)
 
 ## Owned Modules / Packages
 
-- `packages/spectral-analysis`
-- `packages/spectral-editing`
-- `packages/renderer spectral layers`
-- `crates/analysis`
+- `packages/spectral-analysis` (new and portable: `SpectrogramConfig`, `SpectralTileKey`, tile geometry, tile building and its codec, the worker's protocol and thread entry, and the host, `ADR-0080`)
+- `crates/analysis` and `crates/wasm-bindings` (Phase 03's; this phase adds the STFT's window and raises the ABI)
+- `packages/audio-engine` (Phase 03's; this phase adds the STFT's window to its canonical port and reference, and the spectral realisation of the plan, `ADR-0081`)
+- `packages/domain` (`SpectralMask`, its shapes and weight, `SpectralEdit`, `SpectralEditOperation`, and the plan's spectral processing, `ADR-0081`)
+- `packages/project-format` (the spectral edit's persisted form) and `packages/project-commands` (its description and the chain it names)
+- `packages/timeline` (the spectral facet as a mask)
+- `packages/renderer` spectral layers: the field batch on every backend (`ADR-0082`)
+- `packages/editor-view` (the spectrogram layer, the mask's overlay, the spectral tools and the inverse frequency mapping)
+- `packages/input` (persisted gesture settings) and `packages/workspace` (the Spectral Repair preset's panel)
+- `apps/web spectral workspace`: the spectrogram worker's start, the tile cache, the spectral commands, the Spectral panel, the Inspector's spectral edit, the display and pressure settings
 
 ## Cross-Package Dependency Rules
 
 - Spectral domain uses audio/analysis contracts and command/history layers.
 - Renderer tiles/caches are not authoritative spectral edit state.
+- `packages/spectral-analysis` depends on the domain and the engine; its thread entry and test support alone load `packages/effect-rack`, `packages/processors` and `packages/ml-runtime`, as `packages/waveform`'s do (`ADR-0040` amended).
+- `packages/editor-view` depends on `packages/spectral-analysis` for tiles and their geometry; neither imports a UI framework, and only `packages/capabilities` reads a browser global.
+- The mask's weight has one home, the domain; the engine, the editor view and the commands read it there (`ADR-0081`).
+- The interface changes spectral selections only through selection commands, and spectral edits only through project commands.
 
 ## Required Public Contracts
 
-- SpectralTileKey
-- SpectralSelection
-- SpectralMask
-- SpectralEditOperation
-- SpectrogramConfig
+- SpectralTileKey (`packages/spectral-analysis`, `ADR-0080`)
+- SpectralSelection: the selection set's spectral facet, a `SpectralMask` (`packages/timeline`, `packages/domain`, `ADR-0081`)
+- SpectralMask (`packages/domain`, `ADR-0081`)
+- SpectralEditOperation and the spectral edit (`packages/domain`, `ADR-0081`)
+- SpectrogramConfig (`packages/spectral-analysis`, `ADR-0080`)
+- The field batch (`packages/renderer`, `ADR-0082`)
+- The spectrogram worker's protocol and host (`packages/spectral-analysis`, `ADR-0080`)
+- The STFT's window (`packages/audio-engine`, `crates/analysis`, `ADR-0080`)
 
 ## Data / Schema Changes
 
 - Introduces persisted spectral-edit operations/masks where authoritative, plus disposable spectrogram-tile cache formats.
+- The project document gains the spectral edit and its mask, raising `projectDocument`; the person's preferences gain the gesture settings, raising `userPreferences`; editor views gain the spectrogram's settings and display range, raising `editorViews`; the DSP ABI rises. Before 1.0 nothing migrates (`REQ-STOR-052`).
+- Settled by this phase's readiness review (`ADR-0080`, `ADR-0081`, `ADR-0082`): where spectra are analysed and kept, what a spectral selection and a spectral edit are and how the plan realises one, and how a spectrogram and a mask are drawn.
 
 ## Browser / Platform Considerations
 
 - GPU compute/render acceleration optional; CPU/worker/WASM fallback required where viable.
 - Touch/pen pressure is optional; fixed-strength deterministic tools always exist.
+- Assumed nowhere (`REQ-EXEC-216`): a GPU, WebGPU or WebGL2; a WebAssembly module; a pen or pressure; a cache or quota for tiles; a sample rate; a channel layout. Each is probed or given, and its absence has stated behaviour.
 
 ## Architectural Invariants
 
@@ -202,27 +248,30 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 - Spectral edits are non-destructive and survive reload/history.
 - Frequency/time selection maps to sample coordinates deterministically.
 - GPU acceleration never changes authoritative spectral edit semantics.
+- A spectral edit changes no sample that no changed frame reaches (`ADR-0081`).
+- The page never computes a spectrum; the worker builds only tiles a view asks for.
+- No backend holds a texture for a tile it does not draw, beyond its budget's cache.
 
 ## Internal Work Units
 
 ### WU-08.A — Spectral analysis/cache
 
-- [ ] Implement FFT/STFT configuration and multi-resolution tile generation off UI thread
-- [ ] Persist/regenerate disposable tiles
+- [ ] Implement FFT/STFT configuration and multi-resolution tile generation off UI thread: the Blackman–Harris window in Rust and the reference, `SpectrogramConfig`, tile geometry and quantisation, the worker and its protocol
+- [ ] Persist/regenerate disposable tiles: the codec, the host, the cache under `CacheCategory.Spectrogram`, and revision invalidation with stale drawing
 
 ### WU-08.B — Spectral interaction
 
-- [ ] Implement coordinate transforms, selections and tools
-- [ ] Integrate pressure-optional brush strength and fixed deterministic mode
+- [ ] Implement coordinate transforms, selections and tools: the inverse frequency mapping, the mask facet, the marquee, lasso and brush, and the keyboard's spectral selection commands
+- [ ] Integrate pressure-optional brush strength and fixed deterministic mode, with the persisted preference and its controls
 
 ### WU-08.C — Repair operations
 
-- [ ] Implement attenuation/remove/heal/repair as parametric operations
-- [ ] Integrate processor/ML backends with preview/final quality
+- [ ] Implement attenuation/remove/heal/repair as parametric operations: the spectral edit, its validation, its fold, its realisation, its persisted form and its description
+- [ ] Integrate processor/ML backends with preview/final quality: the `process` operation through a chain, at the preview and render qualities
 
 ### WU-08.D — Verification/UX
 
-- [ ] Add A/B comparison, overlays and explicit selection-target feedback
+- [ ] Add A/B comparison, overlays and explicit selection-target feedback: the field batch, the spectrogram layer, the mask's overlay, the edit outlines, the Spectral panel, the Inspector and the preset
 - [ ] Validate large-file and fallback renderer behaviour
 
 ## Failure and Recovery Behaviour
@@ -230,13 +279,20 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 - Stale/missing spectral tiles regenerate safely.
 - Unsupported GPU/FFT capability falls back without losing core spectral functionality.
 - ML/model unavailability is explicit.
+- A tile whose cached form fails its key or checksum is analysed again; a refused cache write is reported and the tile is kept in memory.
+- A worker that fails is reported, and the lanes it served say why they are not drawn.
+- A spectral edit whose mask, resolution or reduction is invalid, or whose chain is missing, is refused with the reason, and nothing changes.
 
 ## Required Verification Commands / Suites
 
-- `pnpm test --filter spectral`
-- `cargo test -p analysis`
-- `pnpm test:spectral-golden`
-- `pnpm test:e2e:spectral`
+- `pnpm --filter @audiogubbins/spectral-analysis --filter @audiogubbins/domain --filter @audiogubbins/audio-engine --filter @audiogubbins/renderer --filter @audiogubbins/editor-view --filter @audiogubbins/timeline test`
+- `cargo test -p audiogubbins-analysis`
+- `pnpm test:spectral-golden`, which this phase adds: golden outputs of every spectral operation and of tiles, from the reference and the WebAssembly DSP
+- `pnpm test:project-roundtrip`
+- `pnpm test:editing-property`
+- `pnpm test:architecture`
+- `pnpm test:renderer-loss` and `pnpm test:touch-pen`
+- `pnpm test:e2e:spectral`, which this phase adds: a Chromium project that selects an area, attenuates and heals it, compares, undoes, reloads, and draws the spectrogram on the reduced renderer
 
 ## Acceptance Criteria
 
@@ -245,6 +301,8 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 - [ ] Reference spectral operations produce stable golden outputs.
 - [ ] Large spectrograms stream/tile without whole-file GPU allocation.
 - [ ] Fixed-strength stylus/mouse editing remains deterministic regardless of pressure hardware.
+- [ ] Every sample a spectral edit's changed frames do not reach is its input, bit for bit.
+- [ ] The reference and the WebAssembly DSP give the same bits for every spectral operation and every tile.
 
 ## Forbidden Shortcuts
 
@@ -256,6 +314,8 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 - No destructive baking as the only representation of spectral repair.
 - No main-thread full-file STFT.
 - No GPU-only implementation without fallback.
+- No second mask model beside the domain's, and no second STFT for the spectrogram beside `crates/analysis`'s.
+- No platform transcendental function in a spectral edit's realisation.
 
 ## Required Review Lenses
 
@@ -275,6 +335,16 @@ Users can inspect and edit frequency/time regions with marquee/lasso/brush-style
 - ADRs created/changed and evidence that public contracts match them.
 - Verified review findings, remediation commits, and re-review disposition.
 - Screenshots/video/interaction evidence only where automated evidence cannot sufficiently demonstrate the UX behaviour.
+
+## Inherited Debt
+
+Assigned to this phase by earlier handoffs and by this phase's readiness review:
+
+- The spectrogram lane is a shell: its analysis and the spectral tools are this phase's (Phase 04 handoff), listed under In Scope.
+- Spectral painting and spectral selection editing, reading `crates/analysis` and the ML processors (Phase 06 handoff), listed under In Scope.
+- Persisting the gesture settings and a control for fixed strength, left by `ADR-0017` to the first pressure-sensitive tool (Phase 01), listed under In Scope.
+- The selection set's reconciliation clips no lasso point, and its equality compares a spectral shape by reference (Phase 04, found by this review): the mask facet corrects both (`ADR-0081`).
+- The packet's verification named `cargo test -p analysis`, which matches no package, and scripts that did not exist (found by this review): corrected above.
 
 ## Handoff Capsule
 
@@ -302,6 +372,716 @@ Capabilities should include:
 - Selection-sensitive processing
 
 This may be implemented in a later phase than the core waveform editor.
+
+---
+
+## REQ-ARCH-004 — Core Architectural Principles
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 4 of the pre-hardening baseline
+
+#### 4.1 Local-First
+
+The editor must function primarily on the user's local machine.
+
+Core editing functionality must not depend on:
+
+- A user account
+- A remote application server
+- Cloud storage
+- External processing
+- Mandatory telemetry
+- Uploading audio to third parties
+
+Audio should remain local unless the user explicitly invokes a future online integration.
+
+Future user-configured cloud integrations should be possible through provider-neutral abstractions, but the local project model must never depend on a cloud provider.
+
+---
+
+#### 4.2 Non-Destructive Editing
+
+Non-destructive editing is mandatory.
+
+Original source audio must remain unchanged unless the user explicitly requests a destructive export or replacement workflow.
+
+Edits must be represented as operations and parameters rather than repeatedly rewriting the source audio.
+
+---
+
+#### 4.3 Parametric Editing
+
+The editing architecture shall use a parametric model wherever practical.
+
+Examples include:
+
+- Gain changes
+- Normalisation
+- Equalisation
+- Compression
+- Filters
+- Fades
+- Time ranges
+- Noise-reduction parameters
+- Pitch processing
+- Time stretching
+- Spectral operations
+- Loop definitions
+- Region boundaries
+
+The authoritative project state should be composed of:
+
+- Immutable source assets or source references
+- Parametric edit operations
+- Effect chains
+- Region and marker data
+- Project metadata
+- User configuration
+
+Rendered intermediates, waveform peaks, spectrogram tiles, preview renders, proxies, and other derived data should be treated as disposable caches.
+
+---
+
+#### 4.4 Future Multitrack Readiness
+
+Initial releases shall focus on high-quality single-file and region-based waveform editing.
+
+True multitrack editing is deferred to a later approved phase/specification, but the architecture SHALL remain multitrack-ready from the first production phase.
+
+The initial internal model must therefore avoid assumptions such as:
+
+> one project = one waveform
+
+The domain model should already support concepts such as:
+
+- Projects
+- Assets
+- Clips
+- Regions
+- Tracks
+- Processors
+- Effect chains
+- Buses
+- Routing
+- Automation-ready parameters
+
+Even if some of those concepts are not exposed in the first UI.
+
+---
+
+## REQ-ARCH-037 — Waveform Rendering Direction
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 37 of the pre-hardening baseline
+
+Waveform display should not repeatedly render directly from full-resolution PCM.
+
+The system should use precomputed multi-resolution peak data.
+
+Waveform rendering should support:
+
+- Efficient zoom
+- Efficient scroll
+- Large files
+- Progressive generation
+- Background processing
+- Cache persistence
+- Regeneration
+
+---
+
+## REQ-ARCH-049 — Deterministic Rendering
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 49 of the pre-hardening baseline
+
+The application shall aim for deterministic rendering wherever technically practical.
+
+Given identical:
+
+- Source audio
+- Project state
+- Processor settings
+- Export settings
+- Application version
+
+rendered output should be reproducible across supported browsers and machines where feasible.
+
+This requirement should influence DSP, codec, and resampling architecture.
+
+Where browser-native behaviour is not deterministic enough for a required feature, application-owned or WebAssembly-based processing may be preferred.
+
+Any unavoidable sources of platform-dependent variation must be documented.
+
+---
+
+## REQ-ARCH-081 — Canonical Deterministic Processing
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 81 of the pre-hardening baseline
+
+AudioGubbins shall aim for deterministic, reproducible output wherever technically practical.
+
+The long-term canonical processing path should favour application-controlled DSP, resampling, and encoding implementations when that materially improves reproducibility.
+
+Browser-native implementations may be used as accelerators or convenience paths when they meet correctness and reproducibility requirements.
+
+Given identical source data, project state, processing settings, export settings, and AudioGubbins version, the target is bit-identical PCM output across supported machines and browsers wherever feasible.
+
+Where bit-identical behaviour cannot be guaranteed, the cause and expected tolerance must be documented and tested.
+
+---
+
+## REQ-ARCH-153 — State Ownership and Workflow State
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 153 of the pre-hardening baseline
+
+AudioGubbins must not create a single global application store containing all project, UI, renderer, audio, and job state.
+
+State shall be partitioned according to ownership and lifetime, including at least:
+
+- Authoritative project/domain state
+- Persisted command journal/history state
+- User preferences
+- Workspace/layout state
+- Per-editor-view state
+- Ephemeral interaction state
+- Audio-engine runtime state
+- Renderer runtime state
+- Background job state
+- Capability/runtime diagnostics
+
+The typed command/domain layer remains authoritative for meaningful project mutations.
+
+React-facing state libraries may be used for UI-oriented state, but they must not become an alternative domain model or bypass command validation, transactions, undo/redo, persistence, or architectural boundaries.
+
+Explicit state machines should be used where workflows have meaningful lifecycle rules, failure/recovery states, or concurrency constraints—for example recording, export jobs, schema reset/backup flows, project ownership transfer, PWA updates, and long-running model installation—rather than representing complex lifecycle behaviour through scattered booleans.
+
+---
+
+## REQ-ARCH-157 — Multichannel, Surround, and Ambisonic Audio
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 157 of the pre-hardening baseline
+
+AudioGubbins shall support professional multichannel authoring beyond mono and stereo.
+
+The channel model must be layout-aware rather than relying only on channel count. It should be capable of representing, validating, displaying, processing, and exporting layouts such as:
+
+- Mono
+- Stereo
+- LCR
+- Quadraphonic layouts
+- 5.1
+- 7.1
+- Other discrete-channel layouts supported by relevant formats
+- Ambisonic channel sets and ordering/normalisation conventions where supported
+- Custom labelled channel maps
+
+The architecture shall include explicit channel-layout metadata and channel-role identity. Channel order must not be inferred from array position alone when a format or workflow requires semantic channel identity.
+
+Waveform, metering, selection, processor, routing, analysis, export, and future multitrack contracts must all be designed for N-channel operation.
+
+Where a processor cannot support an input layout, it must declare that limitation explicitly and provide a well-defined adaptation policy where one is acoustically valid. Silent downmixing or accidental channel truncation is prohibited.
+
+AudioGubbins should support professional channel-layout operations, including:
+
+- Remapping
+- Reordering
+- Extraction
+- Duplication
+- Downmixing
+- Upmix-assist workflows where appropriate
+- Per-channel gain/polarity/delay
+- Linked and unlinked processing
+- Mid/side and other matrix operations
+- Surround metering
+- Phase/correlation analysis
+- Ambisonic encode/decode/rotate/normalisation utilities where supported
+
+Export recipes must preserve or intentionally transform channel-layout metadata according to explicit user configuration.
+
+---
+
+## REQ-AUDIO-152 — High-Performance Editor Rendering Layer
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 152 of the pre-hardening baseline
+
+Waveform, spectrogram, timeline, meter, selection-overlay, and other high-frequency visualisation systems shall use a dedicated renderer abstraction rather than DOM-heavy rendering or React reconciliation for every visual element.
+
+The initial implementation may use **PixiJS 8.x** as a retained-mode GPU-accelerated rendering foundation where it materially accelerates implementation without constraining AudioGubbins' rendering requirements.
+
+AudioGubbins must own the renderer-facing contracts so that rendering backends can evolve independently.
+
+The renderer architecture shall support:
+
+- WebGPU where available, validated, and sufficiently stable for the required feature path
+- WebGL2 as a robust production fallback
+- Canvas 2D or reduced renderer paths where necessary for graceful degradation
+- High-DPI rendering
+- Touch/stylus hit testing
+- Large timeline coordinate spaces
+- Virtualised/offscreen content
+- Layered waveform/spectrogram/selection overlays
+- GPU resource lifecycle management
+- Context/device loss recovery
+- Renderer capability diagnostics
+
+No authoritative editor/domain state may be stored only inside the graphics scene graph.
+
+The renderer must be reconstructible from domain/view state after renderer reset, GPU device loss, tab restoration, or capability-path changes.
+
+---
+
+## REQ-AUDIO-017 — Effect Rack
+
+- **Owner:** Phase 06 — Effect Rack and Core DSP
+- **Scope:** `CURRENT`
+- **Legacy source:** section 17 of the pre-hardening baseline
+
+The editor shall provide Audition-style effect-rack functionality.
+
+Processors should support:
+
+- Stacking
+- Reordering
+- Bypass
+- Enable/disable
+- Parameter editing
+- Presets
+- Real-time preview where practical
+- A/B comparison
+- Copy/paste
+- Saving chains
+- Batch reuse
+
+Initial architecture should support future:
+
+- Per-clip racks
+- Per-track racks
+- Bus racks
+- Master racks
+
+---
+
+## REQ-AUDIO-018 — DSP Scope
+
+- **Owner:** Phase 06 — Effect Rack and Core DSP
+- **Scope:** `CURRENT`
+- **Legacy source:** section 18 of the pre-hardening baseline
+
+The application should ultimately support a comprehensive processing toolset, including:
+
+- Gain / amplify
+- Peak normalisation
+- Loudness normalisation
+- Fades
+- Invert
+- Reverse
+- Silence generation
+- Silence trimming
+- DC-offset removal
+- Resampling
+- Sample-rate conversion
+- Channel conversion
+- Equalisation
+- Filtering
+- Compression
+- Limiting
+- Expansion
+- Gating
+- De-essing
+- Noise reduction
+- De-hum
+- De-click
+- De-pop
+- Pitch shifting
+- Time stretching
+- Reverb
+- Delay
+- Spectral processing
+
+Additional processors that materially improve capability should be included without requiring separate approval.
+
+---
+
+## REQ-EDIT-062 — Waveform and Spectral Presentation Modes
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 62 of the pre-hardening baseline
+
+The editor shall support user-selectable combinations of waveform and spectral presentation.
+
+Supported modes should include:
+
+- Waveform-only
+- Spectrogram-only
+- Vertically stacked waveform + spectrogram
+- Overlay/composite presentation where useful
+
+The architecture should permit future additional analysis layers and overlays without reworking the editor model.
+
+---
+
+## REQ-EDIT-063 — Explicit Selection Model
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 63 of the pre-hardening baseline
+
+Selection types must be modelled explicitly rather than collapsed into one ambiguous selection concept.
+
+Selection categories should include:
+
+- Time selection
+- Spectral time-frequency selection
+- Region/clip selection
+- Channel selection
+- Marker/object selection
+
+Commands must operate using a documented and testable selection precedence model.
+
+The application must avoid silently guessing between materially different editing targets.
+
+Contextual UI should clearly communicate the active selection scope.
+
+---
+
+## REQ-EDIT-064 — Selection Persistence
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 64 of the pre-hardening baseline
+
+Selections should generally persist across non-destructive navigation operations unless explicitly cleared or made invalid by a project change.
+
+Examples include:
+
+- Tool changes
+- Zooming
+- Scrolling
+- Temporary navigation
+- View switching where the selection remains meaningful
+
+The UI must make persistent selections sufficiently visible to minimise accidental processing.
+
+Where a command could cause a surprising destructive/export consequence because of a stale selection, contextual confirmation or target indication should be used rather than globally disabling selection persistence.
+
+---
+
+## REQ-EDIT-065 — Hybrid Tool System
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 65 of the pre-hardening baseline
+
+AudioGubbins shall use a hybrid professional tool model.
+
+Explicit precision tools should include, as appropriate:
+
+- Selection
+- Time selection
+- Spectral marquee
+- Spectral lasso
+- Razor/split
+- Hand/pan
+- Zoom
+- Brush/repair tools
+- Marker/region tools
+
+Contextual pointer behaviour, modifier keys, temporary tools, and gestures should reduce unnecessary tool switching.
+
+Explicit tools and contextual behaviour must invoke the same underlying command/domain systems.
+
+---
+
+## REQ-EDIT-072 — Contextual Inspector
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 72 of the pre-hardening baseline
+
+A contextual Inspector shall be a core workspace concept.
+
+Depending on selection, it may expose properties for:
+
+- Assets
+- Regions
+- Clips
+- Markers
+- Loop definitions
+- Channels
+- Processors
+- Effect racks
+- Recording configuration
+- Export jobs
+- Future tracks/buses/automation objects
+
+Direct manipulation in the editor and property editing in the Inspector must update the same underlying domain state.
+
+---
+
+## REQ-EDIT-073 — Unified Typed Command Architecture
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 73 of the pre-hardening baseline
+
+Every meaningful application action should invoke a shared typed command system.
+
+This includes actions initiated from:
+
+- Menus
+- Context menus
+- Toolbars
+- Keyboard shortcuts
+- Command palette
+- Touch UI
+- Gestures
+- Inspector controls
+- Guided workflows
+- Future macros
+- Future scripting/plugin APIs
+
+The command architecture should support:
+
+- Validation
+- Target resolution
+- Undo/redo integration
+- Transaction grouping
+- Telemetry-free diagnostics
+- Testing
+- Accessibility
+- Command discovery
+- Future automation
+
+UI components must not bypass the command/domain layer for convenience.
+
+---
+
+## REQ-STOR-021 — Undo, Redo, Autosave, and Recovery
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 21 of the pre-hardening baseline
+
+Undo/redo should be effectively unlimited subject to available storage and practical performance.
+
+Avoid arbitrary small undo limits.
+
+Project history should be persisted where practical.
+
+The application shall support:
+
+- Continuous autosave
+- Crash recovery
+- Tab/process termination recovery
+- Restoration of recent working state
+- Transaction-safe project updates where practical
+
+---
+
+## REQ-STOR-052 — Project Schema Compatibility Policy
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 52 of the pre-hardening baseline
+
+#### Pre-1.0.0
+
+Before version 1.0.0, the project and storage schemas are explicitly allowed to break.
+
+The application must not accumulate backwards-compatibility shims or migration code during this period.
+
+When a breaking schema change is detected, the application shall present a blocking compatibility screen that clearly explains that the current stored data is incompatible with the new schema.
+
+The user must be able to choose, where technically possible, to:
+
+- Back up/export current data before proceeding
+- Cancel and remain on the current state
+- Proceed and wipe incompatible local application data
+
+After wipe, the application shall initialise storage using the current schema.
+
+#### Version 1.0.0 and Later
+
+From 1.0.0 onward, backwards-compatible project/schema migration becomes a supported product responsibility.
+
+Migration infrastructure should then include:
+
+- Versioned schemas
+- Explicit migration steps
+- Validation
+- Recovery/failure handling
+- Migration tests
+- Preservation of user project data wherever technically possible
+
+---
+
+## REQ-STOR-106 — Storage Cleanup Priority
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 106 of the pre-hardening baseline
+
+When storage pressure occurs, AudioGubbins should reclaim data in a safety-first order.
+
+The default cleanup priority should be approximately:
+
+1. Regenerable temporary data
+2. Old disposable render/analysis caches
+3. Rebuildable waveform/spectrogram caches
+4. Unprotected redundant intermediates
+5. User-approved expired backup/history data according to retention policy
+6. Explicitly purged deleted media
+
+Authoritative project state and live source media must never be silently sacrificed to free storage.
+
+Before any cleanup that reduces recoverability, AudioGubbins must explain the consequence and require the user or an explicitly configured policy to authorise it.
+
+---
+
+## REQ-STOR-195 — Whole-Project A/B State Comparison
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 195 of the pre-hardening baseline
+
+AudioGubbins shall support comparison and auditioning of complete historical project states, not only processor-level A/B comparison.
+
+The user should be able to select two compatible snapshots/history states and:
+
+- Switch rapidly between them.
+- Audition the resulting audio.
+- Compare processor chains and parameters.
+- Compare region/marker/loop state.
+- Inspect meaningful differences where practical.
+- Promote either state to become the current working state without destroying the other.
+
+Comparison state must not mutate either source snapshot merely by auditioning it.
+
+---
+
+## REQ-UX-005 — User Experience Goals
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 5 of the pre-hardening baseline
+
+The application shall behave as a modern, sleek, visually rich multimedia application rather than a conventional form-based web application.
+
+The UX should support:
+
+- Mouse
+- Keyboard
+- Touch
+- Pen/stylus where available
+- Hybrid devices
+- Surface-class devices
+- Desktop
+- Laptop
+- Tablet
+- Mobile
+
+The interface should support professional desktop-style interaction patterns where appropriate, including:
+
+- Menu systems
+- Toolbars
+- Context menus
+- Dockable or resizable panels
+- Drag and drop
+- Keyboard shortcuts
+- Command palette
+- Status and transport controls
+- Timeline interactions
+- Touch-friendly controls
+- Responsive layout adaptation
+- Smooth animations and transitions
+
+Accessibility must remain a first-class requirement.
+
+Highly visual editing modes may use specialised interactions, but keyboard-operable and semantic alternatives should be provided wherever realistically possible.
+
+---
+
+## REQ-UX-058 — Workspace Presets
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 58 of the pre-hardening baseline
+
+AudioGubbins shall provide built-in workspace presets targeted at common tasks.
+
+Initial or planned presets should include:
+
+- Editing
+- Spectral Repair
+- Recording
+- Game Audio
+- Batch Processing
+- Future Multitrack
+
+Users shall be able to:
+
+- Create custom workspaces
+- Save current layouts
+- Duplicate layouts
+- Rename layouts
+- Reset built-in layouts
+- Delete user-created layouts
+- Switch rapidly between layouts
+
+Workspace switching must not alter authoritative project audio state.
+
+---
+
+## REQ-UX-068 — Stylus and Pressure Input
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 68 of the pre-hardening baseline
+
+Stylus input should be first-class where browser/hardware capabilities permit.
+
+Pressure-sensitive behaviour may be used for appropriate tools such as spectral painting/repair.
+
+Pressure must be optional.
+
+Users must be able to use deterministic fixed-strength behaviour regardless of pressure-capable hardware.
+
+Hardware-specific expressive controls must never become a requirement for accessing an editing capability.
+
+---
+
+## REQ-PROD-009 — Audio Duration and Scale
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 9 of the pre-hardening baseline
+
+The application must support audio ranging from:
+
+- Very short game sound effects
+- One-shots
+- Loops
+- Dialogue clips
+- Music
+- Ambience
+- Recordings lasting tens of minutes
+
+The application must not impose arbitrary artificial duration limits.
+
+Architecture should avoid requiring entire large assets to remain duplicated in memory.
 
 ---
 
@@ -960,6 +1740,47 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 # Relevant Accepted ADRs
 
+<!-- adr/ADR-0001-web-stack.md -->
+
+# ADR-0001 — Web Application Stack
+
+- **Status:** Accepted
+- **Decision:** Use React 19.x + TypeScript + Vite 8.x for the web shell, Radix Primitives for accessible low-level controls, Dockview behind an AudioGubbins-owned workspace abstraction, and Motion for React for application-shell animation.
+- **Drivers:** rich professional UI, accessibility, mature ecosystem, dockable workspaces, strong animation, static/PWA deployment.
+- **Constraints:** React must not own high-frequency audio/render state or authoritative project state. Domain packages remain framework-agnostic.
+- **Related requirements:** `REQ-ARCH-151`, `REQ-ARCH-153`, `REQ-UX-057`, `REQ-EDIT-073`.
+- **Superseded in part:** the animation clause, by `ADR-0014`. Motion for React is not installed until a component imports it.
+
+<!-- adr/ADR-0002-project-persistence.md -->
+
+# ADR-0002 — Local-First Project Persistence
+
+- **Status:** Accepted
+- **Decision:** Use an application-owned versioned project model with browser-managed persistent storage (OPFS where available), content-addressed media storage, external-source adapters, a command journal, immutable snapshots, portable bundles, and deterministic unpacked/Git-friendly projects.
+- **Drivers:** local-first operation, recoverability, unlimited/branching history, large media, project portability, developer workflows.
+- **Constraints:** caches are disposable; one project has one writer per storage context; external changes are detected; encryption is out of scope.
+- **Related requirements:** `REQ-STOR-025`, `REQ-STOR-026`, `REQ-STOR-098` through `REQ-STOR-106`, `REQ-STOR-193` through `REQ-STOR-200`.
+
+<!-- adr/ADR-0003-audio-engine-wasm.md -->
+
+# ADR-0003 — Canonical Audio Engine and WASM Strategy
+
+- **Status:** Accepted
+- **Decision:** Use Web Audio/AudioWorklet for real-time browser I/O and a typed processing graph, with Rust as the default language for new performance/safety-critical canonical DSP compiled to WebAssembly. Mature C/C++/other libraries may be used when objectively superior and licence-compatible.
+- **Drivers:** deterministic rendering, performance, numerical correctness, local processing, portability.
+- **Constraints:** SharedArrayBuffer/threaded WASM is an enhancement, not a GitHub Pages hard dependency. Final render defaults to maximum quality.
+- **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`.
+
+<!-- adr/ADR-0004-renderer.md -->
+
+# ADR-0004 — Editor Rendering Layer
+
+- **Status:** Accepted
+- **Decision:** Use an AudioGubbins-owned renderer abstraction for waveform, timeline, spectrogram, meters and overlays. PixiJS 8.x may be the initial implementation foundation. WebGL2 is the robust baseline; WebGPU is capability-tested and used where beneficial; reduced fallbacks remain available.
+- **Drivers:** large timelines, high-frequency updates, touch/pen hit testing, GPU acceleration, renderer independence from React.
+- **Constraints:** authoritative domain/view state cannot live only in graphics objects; renderer/device loss must be recoverable.
+- **Related requirements:** `REQ-ARCH-037`, `REQ-AUDIO-082`, `REQ-AUDIO-152`.
+
 <!-- adr/ADR-0009-design-system-boundary.md -->
 
 # ADR-0009 — Design-System Boundary and Trigger Composition
@@ -990,6 +1811,39 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** a store exposes its members as properties rather than methods, so a reader cannot capture an unbound method. Authoritative project and audio state does not live here, and React never owns high-frequency state.
 - **Related requirements:** `REQ-ARCH-153`, `REQ-EXEC-136.4`, `REQ-EDIT-073`.
 
+<!-- adr/ADR-0012-perceptual-colour-tokens.md -->
+
+# ADR-0012 — Perceptual Colour Tokens with Computed Contrast
+
+- **Status:** Accepted
+- **Decision:** Every chrome colour is derived in OKLCH from one base surface lightness, and the text, border and accent tokens are solved by binary search against a WCAG contrast target rather than chosen by hand. Brightness moves the single base number within a safe band; the derived tokens are recomputed.
+- **Drivers:** a theme whose contrast holds across the whole brightness range, both themes, every accent and both contrast levels, rather than at the settings the designer happened to try.
+- **Constraints:** a component may not hard-code a colour or bypass the semantic tokens. A uniform lightness offset is not acceptable: it flattens the palette and collapses the surfaces at the ends of the range. The tests assert the computed ratio across the whole matrix of theme, accent, brightness step and contrast level, and an accessibility audit checks the rendered result.
+- **Related requirements:** `REQ-UX-070`, `REQ-UX-005`, `REQ-UX-071`.
+
+<!-- adr/ADR-0013-command-first-shell.md -->
+
+# ADR-0013 — Command-First Shell Surfaces
+
+- **Status:** Accepted
+- **Decision:** Every meaningful shell action is a registered command with a label, a category, an availability answer and a reason when it is unavailable. Menus, the command palette and the keyboard bindings are views onto the same registry, and a surface that cannot offer an action as a command does not offer it at all. Closing a panel is a command rather than a control on the docking tab.
+- **Drivers:** one definition per action; a palette and a menu that cannot disagree; an action reachable by pointer, keyboard and touch alike; rebindable shortcuts; an unavailable action that says why instead of vanishing.
+- **Constraints:** the engine's own tab close control nests an interactive element inside the element carrying `role="tab"` and is not reachable from the keyboard, so the tab renders its title only. A refused command announces its reason, because a shortcut that appears to do nothing reads as an unreliable application.
+- **Related requirements:** `REQ-EDIT-073`, `REQ-UX-005`, `REQ-UX-066`, `REQ-UX-067`.
+
+<!-- adr/ADR-0015-phase-01-owns-domain-value-model.md -->
+
+# ADR-0015 — Phase 01 Owns the Non-Authoritative Domain Value Model
+
+- **Status:** Accepted. Approved by the project owner on 2026-09-18, as the disposition of Phase 01 review finding F-24.
+- **Supersedes:** the `packages/domain/project` entry in Phase 02's owned modules. Phase 02 keeps everything else it owns, including the authoritative project schema.
+- **Decision:** Phase 01 owns the domain value model in `packages/domain`: the result and failure model, branded identifiers and their generator, sample time, channel layout, and the project, asset, timeline, routing, processing-parameter, effect-chain and selection value types. These are in-memory values that nothing persists. Phase 02 owns the authoritative, versioned, persisted project format built on them, in `packages/project-format` and the storage packages, and extends these types where the format needs it rather than owning a second copy of them. Phase 01's statement that it owns no authoritative audio-project schema stands, because this model is not one: it has no schema version, no serialisation and no storage path.
+- **Drivers:** `REQ-REPO-191` makes Phase 01 own deterministic fixtures and example projects, and a fixture project needs a project type to be built from; `REQ-ARCH-151` requires core editing logic and project state to be testable without rendering a component, which is what the package's dependency-free compilation provides; the review found the model present in Phase 01's tree against the packet's wording, and the two ways to reconcile them were to move the code or to state the ownership. The owner chose to state it.
+- **Constraints:** no Phase 01 module persists these types or treats them as a format. A later phase that needs a persisted shape defines it in its own format package and converts, so a change to an in-memory value type is never silently a change to users' stored projects (`REQ-STOR-052`). Two phases do not claim one module: the Phase 02 packet no longer lists `packages/domain/project`.
+- **Change record:** affected requirements `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`; affected phases 01 and 02; compatibility impact none, because nothing has been persisted in this format and Phase 02 has not started; already-passed phase remediation none; verification unchanged, because the package's existing tests and the architecture rule that it depends on no other package already cover it.
+- **Related requirements:** `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`, `REQ-STOR-026`, `REQ-STOR-052`.
+- **Amended by:** `ADR-0051` (2026-10-02), in the timeline values: the project-timeline `Region` and `Marker`, which no phase had built on and nothing stored, are restated as values of one asset, anchored to its content, and the editor draws them as `PlacedRegion` and `PlacedMarker`. Every other clause stands.
+
 <!-- adr/ADR-0016-version-registry-package.md -->
 
 # ADR-0016 — The Version Registry Is Its Own Leaf Package
@@ -1011,6 +1865,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** nothing here knows the browser, a component, a command or a theme; the architecture rules keep it a leaf and forbid a browser global in it, as in the domain and the command layer. Whether a device offers pressure is a capability question and stays with the capability package; this package only carries what a device reported. What a gesture does in an editing canvas is the canvas's decision. `GestureSettings` is a value with a default and no owner in the preference contract: `REQ-UX-068` requires a user to be able to choose fixed strength over pressure, and Phase 01 has no tool whose strength could vary, so nothing persists the choice and no control offers it. The phase that adds the first pressure-sensitive tool adds both, and until then the default stands. Recorded as a known limitation of the Phase 01 evidence rather than left to be noticed later (review finding F-65).
 - **Change record:** affected requirements `REQ-UX-005`, `REQ-UX-067`, `REQ-UX-068`, `REQ-REPO-154`; affected phase 01, whose owned modules gain `packages/input`; compatibility impact none, because no persisted format holds these values in a new shape and the key press keeps its fields; already-passed phase remediation none; verification by the moved pointer tests, new key-press tests and the architecture layering rules, which name the package.
 - **Amended by:** `ADR-0018`, in the clause above that this package depends on no other AudioGubbins package. It depends on `packages/text` for the characters a reader sees, which the rule for a key's label needs, and on nothing else. Every other clause stands.
+- **Amended by:** `ADR-0082` (2026-10-10): the spectral brush is the first pressure-sensitive tool, so the person's preferences persist whether pen pressure is used and the fixed strength, with a control in Settings and the Spectral panel.
 - **Related requirements:** `REQ-UX-005`, `REQ-UX-066`, `REQ-UX-067`, `REQ-UX-068`, `REQ-REPO-154`, `REQ-EXEC-184`.
 
 <!-- adr/ADR-0018-reader-facing-text-package.md -->
@@ -1109,6 +1964,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-ARCH-141` asks for narrow, documented, typed bindings that do not leak memory ownership through the application. Generated bindings (`wasm-bindgen`) emit JavaScript glue that reads `TextDecoder`, which an AudioWorkletGlobalScope does not have, and pin a command-line tool to the crate's exact version on every contributor's machine. A hand-written ABI of a dozen functions is narrower than generated glue and runs in every scope the engine runs in. The failure path the packet requires ("WASM/accelerator failure must fall back to a documented supported path") is the reference implementation, which `ADR-0032` makes bit-identical.
 - **Constraints:** `unsafe` is allowed in `crates/wasm-bindings` alone, by a crate-level `allow` naming this ADR, and each `unsafe` block states the invariant it relies on. `dsp-core` and `resampling` keep the workspace's `deny`. A module whose ABI version differs, or which lacks an export, is refused with a failure that names what is missing, and the engine runs on the reference path with that reason reported. The build of the module is part of the test setup, so a test never runs against a stale binary.
 - **Change record:** affected requirements `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-REPO-186`; affected phase 03; compatibility impact none; verification by `cargo test --workspace`, the ABI conformance tests in the engine, and the golden tests that run both paths.
+- **Amended by:** `ADR-0080` (2026-10-10): the STFT's creation takes its window, the periodic Hann or the four-term Blackman–Harris, which raises the ABI version.
 - **Related requirements:** `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-ARCH-049`, `REQ-EXEC-216`.
 
 <!-- adr/ADR-0032-canonical-arithmetic.md -->
@@ -1122,6 +1978,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** a new canonical primitive states its operation order in both implementations and gains a golden test that runs both. Performance work may not change the order of operations without new golden values, which `REQ-EXEC-180` requires to be justified and reviewed.
 - **Change record:** affected requirements `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-011`; affected phase 03; compatibility impact none; verification by the golden tests (`pnpm test:audio-golden`) and the Rust vectors in `cargo test --workspace`.
 - **Amended by:** `ADR-0062` (2026-10-05): inference by a model is outside this record's two-implementation rule, since no reference implementation can run a model's graph in the same order, and is held instead to the pinned determinism `ADR-0062` states, with a documented tolerance where a browser cannot meet it (`REQ-ARCH-081`). The new primitives Phase 06's processors need, an exponential, a logarithm, a power and the trigonometric functions beyond the sine, are canonical under this record's constraint (`ADR-0061`). Every other clause stands.
+- **Amended by:** `ADR-0080` (2026-10-10): the canonical STFT gains the four-term Blackman–Harris window, in a stated order in both implementations, held by the same golden test.
 - **Related requirements:** `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-011`, `REQ-ARCH-085`.
 
 <!-- adr/ADR-0033-channel-layouts-in-the-domain.md -->
@@ -1152,6 +2009,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** the renderer holds no authoritative state: the view composes a whole frame from state each time, so a lost device is recovered by drawing the next frame (`REQ-AUDIO-152`). Only `packages/capabilities` reads browser globals; the renderer and the video adapter are handed the objects they use. Video never enters the audio edit domain (`REQ-AUDIO-156`).
 - **Change record:** affected requirements `REQ-EDIT-063`, `REQ-EXEC-136.11`, `REQ-AUDIO-152`; affected phases 01 (whose selection value moves) and 04; compatibility impact none, because nothing persisted or consumed the domain selection; verification by the dependency rules, the dependency cruise, the scope projects and each package's suite.
 - **Amended:** on 2026-10-09, by Phase 06's build: `packages/waveform` also depends on `packages/effect-rack`, `packages/processors` and `packages/ml-runtime`, but only in its peak worker's thread entry and its test support, which make the effect rack a racked sound's peaks are read through and give the worker its model channel (`ADR-0060`, `ADR-0062`). The pyramid, its generation and its host are given the rack as a port and import none of the three, which the dependency cruise checks. Every other clause stands.
+- **Amended by:** `ADR-0080` (2026-10-10): the editor packages gain `packages/spectral-analysis`, which the editor view depends on and which depends on the domain and the engine, and on `packages/effect-rack`, `packages/processors` and `packages/ml-runtime` in its thread entry and test support only, as `packages/waveform` does.
 - **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-013`, `REQ-EDIT-061` to `REQ-EDIT-065`, `REQ-ARCH-037`, `REQ-AUDIO-082`, `REQ-AUDIO-152`, `REQ-AUDIO-156`, `REQ-EXEC-136`, `REQ-EXEC-184`.
 
 <!-- adr/ADR-0041-timeline-coordinates.md -->
@@ -1174,6 +2032,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-EDIT-063` forbids collapsing selection into one ambiguous concept and silently guessing between targets; `REQ-EDIT-064` keeps a selection across tools, zoom, scroll and views; `REQ-EDIT-012` applies processing to the whole asset or region when nothing is selected; `REQ-EDIT-065` requires tools and contextual input to act through the same commands.
 - **Constraints:** the resolved target carries a description the interface shows as the active selection scope, and a view can tell whether the target lies outside what it shows, so a command with a surprising consequence can indicate or confirm it (`REQ-EDIT-064`). Spectral rendering and spectral tools belong to Phase 08; the facet exists so that their commands have a target. Nothing here is persisted.
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-063`, `REQ-EDIT-064`, `REQ-EDIT-065`; affected phases 01 (whose domain selection this replaces, `ADR-0040`) and 04; compatibility impact none; verification by the timeline's selection and precedence tests.
+- **Amended by:** `ADR-0081` (2026-10-10): the spectral facet holds a `SpectralMask` of rectangles, polygons and brush strokes, each adding or subtracting, with a feather; its range and band are the mask's hull, reconciling clips every shape, and equality compares the masks by value.
 - **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-063`, `REQ-EDIT-064`, `REQ-EDIT-065`, `REQ-EXEC-136.11`.
 
 <!-- adr/ADR-0043-peak-pyramid.md -->
@@ -1186,6 +2045,18 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** one pyramid per source identity and revision is shared by every view, and lives as long as a view in the view store shows its source, not as long as a component, so a view mounted again keeps a pyramid half made. The cache is derived data (`REQ-STOR-106`) and never the sole copy of anything. The cache store is a port: the application keeps the bytes in IndexedDB under its own database until Phase 02's cache store is on the branch, whose waveform category then implements it.
 - **Change record:** affected requirements `REQ-ARCH-037`, `REQ-ARCH-157`; affected phase 04; compatibility impact none, because the format is new and disposable; verification by the pyramid, codec and host tests and the timeline browser suite.
 - **Related requirements:** `REQ-ARCH-037`, `REQ-AUDIO-152`, `REQ-ARCH-157`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0044-renderer-backends.md -->
+
+# ADR-0044 — The Renderer Draws A Frame Value Through One Of Three Backends, And Recovers By Drawing It Again
+
+- **Status:** Accepted
+- **Decision:** A render frame is a value: its size and pixel ratio, a clear colour, and ordered layers, each clipped to a rectangle and holding batches of rectangles, line segments, text labels or images. A backend draws a frame; it keeps GPU resources but no content between frames. The renderer tries the backends in order (WebGPU where a device is given and passes a validation draw, then WebGL2, then Canvas 2D) and reports what it tried and why each was or was not taken. On a lost WebGL2 context it waits for restoration and rebuilds its resources; on a lost WebGPU device it asks for another; either failing, it steps down to the next backend; a lost Canvas 2D context is redrawn when restored. Every recovery ends by drawing the latest frame, which the view recomposes from state. The canvas's backing store follows the CSS size times the pixel ratio, which the application reports as it changes.
+- **Drivers:** `REQ-AUDIO-152` (a renderer contract AudioGubbins owns, WebGPU where validated, WebGL2 as the production fallback, Canvas 2D for degradation, high-DPI, context loss recovery and diagnostics); `REQ-AUDIO-082` (WebGPU is never a prerequisite for core editing); `ADR-0004`.
+- **Constraints:** no DOM element per sample or peak; no state kept only in the scene. Text and images are drawn on a Canvas 2D surface above a GPU backend's canvas, so the GPU backends draw geometry alone. The GPU object and the canvases are handed to the renderer; it reads no global.
+- **Change record:** affected requirements `REQ-AUDIO-082`, `REQ-AUDIO-152`; affected phase 04; compatibility impact none; verification by the renderer's unit tests and the `test:renderer-loss` browser suite.
+- **Amended by:** `ADR-0082` (2026-10-10): a frame may carry a field batch, a byte per cell drawn through a row map and a colour ramp in its layer's order; the GPU backends hold a field's texture as a cache within a memory budget, and a lost device or context loses only those caches.
+- **Related requirements:** `REQ-AUDIO-082`, `REQ-AUDIO-152`, `REQ-ARCH-037`.
 
 <!-- adr/ADR-0045-signal-recipes.md -->
 
@@ -1242,6 +2113,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-ARCH-004`; affected phases 01 (whose project-timeline `Region` and `Marker` are restated as asset values, amending `ADR-0015`), 04 (whose editor view draws placed values) and 05; compatibility impact: the project document's schema version is raised, with no migration before 1.0 (`REQ-STOR-052`); verification by the domain's property tests of the chain, the anchors and the plan, the project round trip, and the commands' selection tests.
 - **Amended by:** `ADR-0060` (2026-10-05), in the plan and the regions: a processing operation may apply a chain of processors to its range, an asset and a region may each name a rack that processes the whole of it, and the plan realises both by a stream that reads a range of an earlier stream processed by a chain, rendered from its own start. A region's audio is the asset's chain, with each region's processing folded in at its basis, then the asset's rack, then the region's span of that, then the region's rack. Time stretching and the sample-rate conversion of an asset are operations in the chain that carry positions by their ratio. The plan is still the only description of an edited sound. Every other clause stands.
 - **Amended by:** `ADR-0072` (2026-10-09): an asset's chain gains the punch edit, a range edit that replaces its range with the chosen take of the take stack it names, without changing time; an asset a take stack names cannot be removed. Every other clause stands.
+- **Amended by:** `ADR-0081` (2026-10-10): an asset's chain and a region's processing gain the spectral edit, a range edit that adds a masked change to its range without changing time, realised by the plan as a stream with spectral processing.
 - **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-EDIT-061`, `REQ-EDIT-063`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-ARCH-004`, `REQ-ARCH-085`, `REQ-EXEC-136`.
 
 <!-- adr/ADR-0052-read-contract-and-media-threads.md -->
@@ -1262,6 +2134,28 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`; affected phases 03 (whose source description gains a kind), 04 (whose peak worker reads it) and 09 (which extends this package); compatibility impact none beyond `ADR-0051`'s schema change; verification by the codec fixtures, written by a test writer for every encoding, depth, byte order and form and compared sample for sample, the malformed-media suite, and the import's tests.
 - **Related requirements:** `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-EXEC-216`.
 
+<!-- adr/ADR-0060-effect-racks-in-the-edit-model.md -->
+
+# ADR-0060 — An Effect Rack Is A Shared Chain That The Edit Plan Runs, On A Range Or On A Whole Target
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review places the effect rack inside the edit model of `ADR-0051` rather than beside it, so the edit plan stays the only description of an edited sound.
+  - **The chain is the domain's.** A rack's persisted form is the domain's `EffectChain` (`packages/domain/src/processing/effect-chain.ts`, Phase 01), held in the project's `effectChains` map and changed only by project commands with inverses. Phase 06 extends that value and introduces no second one: a chain is an ordered list of slots, each holding a processor instance or a parallel group whose branches are chains of their own, summed by a stated law; each slot has a wet/dry mix, and the chain keeps the enable and solo rules it has: a slot or a group is bypassed by the `enabled` flag a processor instance already has, extended to slots and groups, not by a second flag. `ProcessorInstance` keeps its parameter values and gains its versioned state (`ADR-0061`).
+  - **Two placements, one mechanism.** A chain reaches audio in exactly two ways, and the plan realises both by the same kind of stream: a stream that reads a range of an earlier stream processed by a chain, as a rate-converted stream reads one converted.
+    - *Processing a range.* Selection-first, as every edit is (`REQ-EDIT-012`): applying a chain to a selection is a processing operation whose edit is a rack edit naming a chain, anchored and folded like the gains and fades of `ADR-0051`. It is made on an asset's chain, or, in a region's view, on the region's own processing. It changes no time and carries every position unchanged: the processed range keeps its length, and what a processor would add past the range's end (a reverb's or a delay's tail) is not added.
+    - *A target's rack.* An asset and a region each name at most one rack, a chain that processes the whole target as it stands after every operation on it, so it follows the target through later edits. The order is fixed: the asset's chain, with each region's processing folded in at its basis; the asset's rack over the whole edited asset; the region's span of that; the region's rack over the whole region.
+  - **Sharing is naming one chain.** A rack edit and a target's rack name a chain by its `EffectChainId`. A chain several operations or targets name is shared: a change to it reaches all of them, which is the shared processing chain of `REQ-EDIT-014`. Making one independent copies the chain under a new identifier. A chain that something names cannot be removed until nothing does, as an asset cannot (`ADR-0051`).
+  - **Saved chains and presets.** A saved chain and a processor preset are the same values kept outside any project, in the person's library, read and written by the project format's chain reader, so a chain has one persisted form. Applying a saved chain copies it into the project; applying it to several selected targets is one command and one history step. A preset names explicit parameter values (`REQ-AUDIO-086`).
+  - **Copy and paste.** A processor, a slot, a group or a whole chain is copied to the clipboard of `ADR-0053` as a payload of its own kind, the chain's persisted form, and pasted into any rack as a copy under new identifiers; there is no second clipboard (`REQ-AUDIO-017`).
+  - **Canonical rendering of a processed stream.** A processed stream is rendered from its own start, so the audio a region's rack reads is exactly that span of its asset's processed audio, and a render of either is one answer. Real-time playback, which `ADR-0032` already keeps out of the canonical path, may start a stateful processor part way through with the lead-in its descriptor declares, and says it is a preview; an expensive chain is played from a cached render, which is derived data (`REQ-STOR-027`) and never authoritative.
+  - **Racks elsewhere.** `Track.effectChainId` and `Bus.effectChainId` stay as Phase 01 made them. No track, bus or master exists to process yet; when one does, its rack is a chain named the same way and run the same way (`REQ-AUDIO-017`, its future racks).
+- **Drivers:** `REQ-AUDIO-017` asks for stacking, reordering, bypass, presets, A/B, copy and paste, saved chains and batch reuse. `REQ-EDIT-014` asks for shared processing chains, which the Phase 05 handoff gave to Phase 06. `REQ-ARCH-004` makes effect chains part of authoritative state, and `ADR-0051` makes the plan the only description of an edited sound, so a rack that rendered outside the plan would be a second description that playback, the render worker, the peak worker and the clipboard each had to learn. Phase 01 already persists `EffectChain`, and the history already compares chains and processors (`packages/history/src/state-diff.ts`), so a new rack model would leave two. A rack that only processed whole targets would break the selection-first invariant of Phase 05, and one that only processed ranges fixed at their basis would not follow a target through later edits, which is what a rack in an audio editor does.
+- **Constraints:** the time-changing processors of `REQ-AUDIO-018`, time stretching and sample-rate conversion of an asset, are operations in the asset's chain, not rack slots, because they move every later position; each states how it carries a position, as `ADR-0051` requires, and acts on every channel. Pitch shifting that keeps the length is a processor. Fades, polarity inversion, reversal, silence, per-channel gains, channel swap and copy, and layout conversion stay the edit operations Phase 05 made, and are not written again as processors; a rack's gain is the engine's existing gain node. Every operation that names a chain is validated against the project's chains when a command makes it and when the project is read. Persisting racks raises the project's schema version, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-AUDIO-017`, `REQ-AUDIO-019`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`; affected phases 06, which becomes `READY` with this placement, and 05, whose edit model this extends (`ADR-0051` amended) and whose handoff gave it the shared chains; Phases 01 to 05, already passed, need no remediation. Compatibility impact: the project's format gains rack edits and the racks of assets and regions, raising its schema version; no build has shipped, so no stored project is affected. Public API: `EffectChain` and `ProcessorInstance` in `@audiogubbins/domain` gain slots, parallel groups, bypass, wet/dry and state; the plan gains the processed stream. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with rack edits and racks against the domain's oracle, a project round trip of chains with identical parameter state, the commands' selection tests, and golden renders of a processed range and of a region's span against its asset.
+- **Amends:** `ADR-0051`, in its clauses on the plan and on regions, and `ADR-0053`, whose payload gains the chain kind. Their other clauses stand.
+- **Amended by:** `ADR-0081` (2026-10-10): a spectral edit of the `process` operation names a chain by identifier as a rack edit does; the chain enters and leaves the project with it, and cannot be removed while the edit names it.
+- **Related requirements:** `REQ-AUDIO-017`, `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-086`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-ARCH-140`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`, `REQ-STOR-195`.
+
 <!-- adr/ADR-0061-processors-quality-and-reproducibility.md -->
 
 # ADR-0061 — A Processor Is One Object That States Its Descriptor And Makes Its Kernel, Canonical And Versioned
@@ -1281,6 +2175,29 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Amended:** on 2026-10-07, by Phase 06's build, in the clause on preview and the cached producer: the cached render is made by the preview worker, not the render worker. The render worker is a pool thread that lives for one job, while the cache outlives jobs and serves three readers, the feeder, the peak worker and the detection worker, each through a channel of its own. Renders are held in memory within a stated bound, least recently used first and never while one is read, at most two made at once; a render that cannot fit is declined before it takes memory, and the reader then runs the chain itself. A read past a render's progress waits and never answers silence. Every other clause stands.
 - **Amended:** on 2026-10-09, by Phase 06's build: running the detectors and assistants over a target's processed audio is a package of its own, `packages/detection-runtime`, the detection worker's core, protocol and thread entry. It depends on `packages/domain`, `packages/audio-engine` and `packages/processors`, whose detectors and learners it runs, and, in its thread entry and test support only, on `packages/effect-rack` and `packages/ml-runtime`; it knows no interface, storage or command package. The application starts it and keeps its results. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-080`, `REQ-AUDIO-086`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-AUDIO-146`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`, `REQ-ARCH-157`, `REQ-REPO-187`, `REQ-EXEC-180`.
+
+<!-- adr/ADR-0062-local-inference-and-model-packs.md -->
+
+# ADR-0062 — Local Inference Runs ONNX Runtime Web In A Worker, Pinned For Final Renders, From Model Packs Kept On The Device
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review settles the runtime, the determinism rule and the first model packs that the packet left as "agreed".
+  - **The runtime.** Inference runs ONNX Runtime Web (MIT licence), self-hosted with the application's own files and loaded only when an ML processor first runs, so the base bundle carries none of it (`REQ-AUDIO-139`). It runs in a dedicated worker, never on the UI thread or in the worklet. `packages/ml-runtime` holds the inference port the ML processors call, its adapter over ONNX Runtime Web and the worker that hosts it; the port knows no browser global, only the adapter knows the runtime, and the port is the seam the tests run a fake runtime through. The runtime's capabilities (WebAssembly SIMD, threads, WebGPU) are probed by `packages/capabilities`, never by the runtime itself (`ADR-0030`).
+  - **Determinism.** An ML processor is a processor of `ADR-0061`, whose determinism class is *pinned*: its final render runs the WebAssembly CPU backend with fixed-width SIMD, one thread, no reduced precision and a stated graph optimisation level, a fixed chunk length and overlap, and the runtime build and model identified by their hashes. Those are persisted with the instance (`REQ-AUDIO-138`, `REQ-AUDIO-145`), so the same project renders the same bits with the same pack and runtime. Golden tests hold each pack's final render to one hash in every browser the tests run; where a browser cannot meet it, the cause and the tolerance are documented and tested (`REQ-ARCH-081`). A faster path, more threads or WebGPU, may serve preview, and the interface says it is a preview (`REQ-AUDIO-080`); it never replaces the pinned path for a final render (`REQ-AUDIO-143`). A model's rate is converted to and from by the canonical resampler, stated in the instance.
+  - **Model packs.** A pack is a manifest (`ModelPackManifest`) and the files it names: its name and purpose, version, download and installed sizes, the hash of every file, the licence of its code and of its weights, the runtime versions and capabilities it needs, its quality tier, and the processors and detectors it serves. `packages/model-packs` holds the manifest, the pack's install state machine (`REQ-ARCH-153`: available, downloading with its progress in bytes, paused, verifying, installed, failed, removing, with update available and incompatible as stated conditions) and the integrity check, and stores packs through the storage package's public client, never through OPFS directly. A pack is installed by download from the catalogue the build configures, which the application's own origin serves by default, or imported from a file the person has; both verify every hash before anything is used. Download sends a request for the pack and nothing else: no audio, no project data and nothing derived from either leaves the device (`REQ-AUDIO-138`). A pack is never fetched because a project was opened, unless it is required and the person has chosen automatic download (`REQ-AUDIO-139`). A version a post-1.0 project needs is retained until the person removes it knowingly.
+  - **The first packs.** Each was chosen because its code and weights are licensed for redistribution, which is recorded in its manifest and checked again when the pack is built:
+    - DeepFilterNet 3 (MIT or Apache-2.0): broadband noise removal and speech enhancement at 48 kHz, the Standard and High tiers.
+    - MossFormer2 SE 48K (Apache-2.0): speech and dialogue enhancement, the Maximum tier.
+    - Spleeter, two and four stems (MIT): source separation and stem isolation.
+  - **Excluded until their weights are licensed for redistribution:** HTDemucs and its variants, whose author states the weights are for research; Open-Unmix's published weights, non-commercial or trained on research-only data; and the UVR, MDX and RoFormer families, whose weights carry no licence or a non-commercial one. The infrastructure admits any of them as a pack, without change, once one is.
+  - **What is not ML.** Dereverberation (weighted prediction error) and click and pop detection and repair are canonical DSP processors (`ADR-0061`), because no model with redistributable weights does them better and the canonical path is reproducible to the bit. The other candidate families of `REQ-AUDIO-138`, transient and noise classification, restoration assistance, repair suggestions and analysis that recommends processing, have no model licensed for redistribution today, so Phase 06 delivers them on `crates/analysis`'s detectors (clicks, hum, noise floor, clipping, DC offset, transients): an assistant reports what it found and recommends a chain, which the person applies or not; none applies processing itself. Each detector is an `AudioDetector` (`ADR-0061`), the contract a model pack's detector also implements, so a pack licensed for redistribution replaces or joins it without change.
+- **Drivers:** `REQ-AUDIO-138` and `REQ-AUDIO-139` put local ML and model packs in Phase 06's scope and forbid sending audio anywhere. `REQ-ARCH-081` asks for reproducible renders, and `REQ-AUDIO-145` for the model's identity and version in project state. ONNX Runtime Web is maintained, runs in a worker, and has a WebAssembly CPU backend whose arithmetic is the same on every machine when pinned: fixed-width SIMD is deterministic, while relaxed SIMD, thread scheduling and GPU drivers are not. TensorFlow.js has had no release since 2024, LiteRT has almost no audio models, and the Rust runtimes that compile into the existing module cover too few operators for the first packs. A model's weights are distributed with the application's packs, so their licence decides whether a pack can exist at all.
+- **Constraints:** missing, corrupt or incompatible packs make the processor that needs them unavailable, saying which of `REQ-AUDIO-139`'s five conditions holds, and never make a project invalid; a project that names a pack keeps its instances and renders nothing in their place until the pack is present, saying so. No ML path calls a remote service, and the ML locality test asserts no request carrying audio, project data or derived content. Model weights and large test media are not committed to the repository (`REQ-REPO-191`); the golden tests fetch pinned fixtures by hash. ML results are stored as the inputs, model identity, settings, masks and regions that reproduce them; a cached inference output is derived data and never the only record (`REQ-AUDIO-138`).
+- **Change record:** affected requirements `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-REPO-191`; affected phases 06, and 08, whose spectral editing integrates ML processors on this infrastructure; no passed phase needs remediation. Compatibility impact: the project format gains ML processor state, under `ADR-0061`'s schema change. Public API: `ModelPackManifest`, `MLProcessorCapability`, the inference port, and packs serving `AudioDetector` (`ADR-0061`). Godot interchange and runtime: none. PWA and browser: the runtime's WebAssembly files are served by the application, and Phase 12 caches them for offline use with the rest. Verification: `pnpm test:ml-locality`, the pack manifest and integrity tests, the install state machine tests, and each pack's pinned golden render.
+- **Amends:** `ADR-0032`, by stating that inference is outside its two-implementation rule and held to this record's pinned determinism instead, and `ADR-0030`, by naming `packages/ml-runtime` and `packages/model-packs` among the packages that build on its three. Their other clauses stand.
+- **Amended:** on 2026-10-07, by Phase 06's build, in two clauses. The install state machine gains `queued`: one download runs at a time per installer, and a pack waiting for it is queued, which the person may pause or cancel like a download (`REQ-ARCH-153`); removal, the storage cleanup's included, goes through the installer, so no installer is left holding a state the storage no longer has. The runtime's WebAssembly is read from the application's own origin through a port of its own, the second network exception beside the pack download, checked against the SHA-256 the build states from the bytes it ships, and given to the runtime as bytes, so the runtime itself requests nothing; a page the host does not isolate across origins offers one thread, and a threaded preview is refused there with its reason. Every other clause stands.
+- **Amended:** on 2026-10-09, by Phase 06's build, in the clause on model packs: `packages/model-packs` defines a `PackStore` port and the storage package implements it (`ModelPackStore`), so the dependency runs from `packages/storage` to `packages/model-packs` and model-packs imports no storage package, the port inverted so that the pack's state machine and installer run in tests without storage. Packs are still kept only through storage, never through OPFS directly. In the clause on determinism: no faster preview path is built. Every inference, a preview's included, runs the pinned WebAssembly path, one runtime build and one WebAssembly file, so the 2026-10-07 amendment's threaded preview and the WebGPU probe are withdrawn; a faster path returns only when a processor can choose it through the quality mode, and the interface then says it is a preview. In the clause on the runtime: every worker is started from a same-origin `blob:` module that imports its script, so the page's Content-Security-Policy governs its requests; the inference worker reads a model's bytes only when a session needs them, keyed by the model's SHA-256, and shares one session per model among its clients, keeping idle sessions up to a stated bound. In the clauses on model packs and the first packs: a pack's quality tier describes its model's own speed against thoroughness, one of light, balanced and thorough (`REQ-AUDIO-139`'s quality/performance tier), and is never a render quality; the same pack runs at every render and preview quality. DeepFilterNet 3 and Spleeter two stems are light, Spleeter four stems balanced, and MossFormer2 SE 48K thorough, in place of the render-quality names the first-packs clause gives. Every other clause stands.
+- **Related requirements:** `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-080`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-PRIV-161`, `REQ-REPO-191`.
 
 <!-- adr/ADR-0070-recording-capture-monitoring-and-latency.md -->
 
@@ -1304,6 +2221,100 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Amends:** `ADR-0030`, whose `packages/audio-runtime` gains the input side of its context port and the capture worklet. Its other clauses stand.
 - **Amended:** on 2026-10-09, by Phase 07's build: the chains that may monitor are those whose listening is live, as the domain's one listening rule (`ADR-0061`) decides. A processor that keeps state, such as noise reduction, is live there, so it may monitor, and it is refused only when its state is missing; a whole-pass or a model-based processor is refused. `packages/capabilities` also depends on `packages/domain`, so the media input adapter answers a `DomainResult`. The adapter also reads the output the page plays through, as an `OutputDeviceDescriptor`, from the browser's entry for the default output, read again at every device change; where the browser lists none, as Firefox and Safari do not, the output is unknown and never guessed: the feedback risk is stated as unknown, which still asks for a confirmation unless the profile is marked for headphones, a calibration is kept for the unknown output, and the diagnostics say that a change of output cannot then be noticed. Every other clause stands.
 - **Related requirements:** `REQ-REC-020`, `REQ-REC-090`, `REQ-REC-091`, `REQ-REC-092`, `REQ-REC-094`, `REQ-REC-095`, `REQ-REC-097`, `REQ-ARCH-144`, `REQ-ARCH-153`, `REQ-ARCH-157`, `REQ-AUDIO-156`, `REQ-STOR-098`, `REQ-PRIV-161`, `REQ-PRIV-165`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0071-recorded-media-persistence-and-recovery.md -->
+
+# ADR-0071 — A Recording Is Committed In Chunks By The Storage Worker, And Becomes An Asset Only When It Is Whole
+
+- **Status:** Accepted
+- **Decision:** Phase 07's readiness review makes a recording durable as it is made, in the storage worker that already owns every write (`ADR-0022`), so a crash, a reload, a lost device or a full disk keeps every chunk already committed.
+  - **Chunks, each a file.** The storage worker receives the capture channel (`ADR-0070`) and writes the dry input in chunks of at most one second, each a file of its own written whole and flushed, named by its first frame, under the project's `recordings/<session>/` directory, beside the session's manifest. A storage sink is durable only when it closes, and the storage tree has no append, so a growing file would not be: a chunk per file is. The `RecoveryChunkManifest`, written when the session starts and rewritten only when it ends, states the session, the project, the sample format (32-bit float), the rate, the channel layout, the capture profile and the granted settings, the device's descriptor, the start's frame on the transport, and the take or punch the recording is for; the chunks themselves say how far it reached. A torn last chunk is read to its last whole frame (`REQ-AUDIO-220`).
+  - **A whole recording becomes an asset through the import path.** When recording stops, the worker writes the chunks out as one 32-bit float WAV file, RF64 past four gibibytes, into the content-addressed media store (`ADR-0020`): it hashes the header and the chunks first, so the store writes the file once under its known identity, then reads it back through the read contract (`ADR-0052`) before anything names it, as an import does. The asset's origin is `recorded`; its provenance states when it was recorded, the device's descriptor, the profile, the requested and the granted settings, the rate, the layout, its length, and whether capture ended unexpectedly (`REQ-STOR-166`). The session's chunks are removed only once the project's journal holds the asset, as an import's hold is released (`media-holds.ts`).
+  - **The one writer for recorded media is the codecs package's.** Recording needs a container its own reader opens, and `ADR-0050` gives every writer to Phase 09. Phase 07 adds to `packages/codecs` the one writer recorded media needs: a 32-bit float PCM WAV header, RF64 past four gibibytes, for a stream whose length is known when it is written. Phase 09's WAV writing builds on that writer and owns every other depth, format, encoding, metadata and export.
+  - **A recording in progress is a root.** A session's chunks and manifest are reachable state: no cleanup, cache relief or storage-pressure step removes them (`REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`). Only the person ends an interrupted session, by recovering it or by discarding it.
+  - **Recovery is offered before anything else is cleaned.** When the project opens, the storage worker lists every session that has a manifest and no completed asset, before media recovery and before cleanup run; the project's recovery report offers each, with its length, device and start (`REQ-REC-096`). Recovering one writes its chunks out as an asset as a stop does, with its provenance marked as ended unexpectedly, and the interface says it may need review. The media store's own recovery of an incomplete store (`recoverIncomplete`), which no production path runs today, runs at the storage worker's start, after the recording sessions are listed and never over them.
+  - **Quota is watched before and during recording.** Before arming and while recording, the worker reads the storage estimate through the capabilities package and states the recording time left at the session's data rate; below a stated margin it warns, and when a write is refused for quota it stops recording, keeps every committed chunk, and offers recovery as for a crash (`REQ-REC-096`, `REQ-STOR-106`). Finishing a recording needs about its own size again, for the WAV file, and the warning counts that.
+  - **A device lost mid-recording ends the session, not the take.** A track that ends or a device that disappears stops the session the way stop does, with the chunks committed so far, and the session says why.
+  - **Nothing recorded leaves the device.** Chunks, manifests and recorded assets stay in the browser's private storage; the retrospective buffer is never written (`ADR-0070`).
+- **Drivers:** `REQ-REC-096` asks for incremental, crash-resilient persistence and recovery offered before cleanup; `REQ-REC-020` for recording into a new project asset and safe recovery; `REQ-STOR-099`, `REQ-STOR-102` and `REQ-STOR-106` forbid removing recoverable or authoritative media; `REQ-STOR-166` asks for provenance. The storage tree has no append and a sink is durable only when closed; `MediaObjectStore.put` copies its bytes twice and `putNamed` once; the codecs package reads truncated WAV files to their last whole frame; the model-pack store already keeps a file as runs named by offset. Nothing writes a WAV file today, and the media store's recovery is never run.
+- **Constraints:** only the storage worker writes; the page sends no recorded samples to it, the capture worklet does. A recorded asset is an ordinary asset once whole: it is read, edited, copied and exported as any other. The recording session's layout is under the project's directory and is part of the project's storage format, raising `projectStorage`, with no migration before 1.0 (`REQ-STOR-052`). Chunk files are 32-bit float, little-endian, interleaved, in the asset's channel order.
+- **Change record:** affected requirements `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`; affected phases 07, which becomes `READY` with this persistence, 02, whose storage worker gains the recording area and whose media recovery is finally run (a Phase 02 gap this review found, given to Phase 07 as inherited debt), 05, whose codecs package gains the recorded-media writer (`ADR-0050` amended), and 09, which keeps every other writer; Phases 02 and 05, already passed, need no remediation beyond that inherited debt. Compatibility impact: the project's storage gains recording sessions and its document gains recorded provenance, raising `projectStorage` and `projectDocument`; no build has shipped. Public API: the storage worker's recording operations in `@audiogubbins/storage-runtime`, the recording area in `@audiogubbins/storage`, `RecoveryChunkManifest` and the recorded provenance in `@audiogubbins/project-format`, and the recorded-media WAV writer in `@audiogubbins/codecs`. Godot interchange and runtime: none. PWA and browser: the storage estimate is read through the capabilities package and never assumed. Verification: recovery tests that stop the writer at every step of a session, a torn chunk, a refused write for quota and a lost device; a round trip of a recorded asset's provenance; the WAV writer's tests against the read contract; and a browser test that reloads mid-recording and recovers.
+- **Amends:** `ADR-0050`, in its clause that every writer is Phase 09's: the recorded-media writer is Phase 07's. `ADR-0020` and `ADR-0022`, whose storage worker gains the recording area. Their other clauses stand.
+- **Amended:** on 2026-10-09, by Phase 07's build: the media store's recovery of an incomplete store runs when the storage worker starts, with the storage-wide lock held alone, which is before any project opens and so before any project's recording sessions are listed. It undoes only the store's own incoming files and the objects its intents name, and a session's chunks and manifest lie under the project, outside the store, so it never runs over a session; a recording cut short while its file was being stored keeps its session and is recovered from its chunks. The manifest also keeps the take the recording was begun for, so a recovered take keeps its name and placement. Every other clause stands.
+- **Related requirements:** `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`.
+
+<!-- adr/ADR-0072-take-stacks-and-punch-recording-in-the-edit-model.md -->
+
+# ADR-0072 — A Take Is A Recorded Asset In A Stack, And A Punch Is An Edit That Reads The Stack's Chosen Take
+
+- **Status:** Accepted
+- **Decision:** Phase 07's readiness review places take stacks and punch recording in the edit model of `ADR-0051`, as `ADR-0060` placed racks, so no recording ever overwrites audio and every change to a take is a project command with its inverse.
+  - **A take is a whole recorded asset.** Every recording, a punch's included, makes a new asset of origin `recorded` (`ADR-0071`); an asset's source never changes (`REQ-ARCH-004`), so no take can overwrite another.
+  - **A take stack groups takes.** `TakeStack` is a project entity, held in the project's `takeStacks` map: an identifier, a name, its takes in the order they were made, the chosen take, and, for a punch, its `PunchRange`. Each `Take` names its recorded asset, and carries its own name and note, whether it is kept, rejected or removed from the active stack, and the latency compensation applied to it in frames (`ADR-0070`). Successive recordings of the same material go into the stack that is armed (`REQ-REC-089`).
+  - **Choosing, rejecting and removing keep everything.** Promoting a take makes it the stack's chosen take. Rejecting keeps it in the stack, marked. Removing takes it from the active stack, and it stays recoverable through the stack's removed takes, the history and project recovery: an asset a take stack names cannot be removed, as one a region names cannot (`ADR-0051`), and storage keeps its media while any state reaches it (`REQ-STOR-102`). Duplicating a take adds a take that names the same recorded asset under its own name and note; branching starts a new stack from a take. Each is a project command with its inverse and a history description, and the history compares take stacks as it compares other entities (`REQ-STOR-195`).
+  - **A punch is an edit naming a stack.** Punch-in records over a range of a target asset. The range, its pre-roll and post-roll, and the crossfade at each boundary are the stack's `PunchRange`; the recording runs through the pre-roll and the post-roll, so the take holds them, and the punch reads only its range. The target asset's chain gains a punch edit: a range edit, anchored and folded as `ADR-0051` folds a gain, that replaces the range with the stack's chosen take, read from the pre-roll's end and shifted by the take's compensation, with the stated crossfade, default 10 ms, at each boundary. It changes no time: the range keeps its length, and a take shorter than the range is refused for it, with the reason. The punch edit names the stack by its identifier, as a rack edit names a chain (`ADR-0060`), so choosing another take changes what the punch plays without a new edit, and undoing the punch leaves the earlier audio as it was.
+  - **Consolidation keeps the history.** Keeping only the chosen take marks the stack's other takes removed; nothing is deleted, and every step is undone by one undo (`REQ-REC-093`).
+  - **Comping is not built here.** Choosing parts of several takes over one range is deferred by `REQ-REC-089` to the multitrack and clip architecture, and no phase of this specification builds that; a stack chooses one take for its range.
+- **Drivers:** `REQ-REC-089` asks for take stacks that never overwrite, with naming, notes, audition, promotion, rejection, duplication and removal that keeps history; `REQ-REC-093` for punch-in that makes new material and keeps the previous recoverable, with pre-roll and post-roll; `REQ-ARCH-004` keeps sources immutable. The edit model already folds anchored range edits and names shared entities by identifier; the timeline has no clip or track commands, and regions and markers belong to assets, so a take placed on a timeline would need a multitrack model that does not exist.
+- **Constraints:** a punch edit is validated against the project's take stacks when a command makes it and when the project is read; a stack that a punch edit names cannot be removed while the edit does. A take's audition plays its asset, or, for a punch stack, the target with that take chosen, without changing the project. Persisting take stacks and the punch edit raises `projectDocument`, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`; affected phases 07, which becomes `READY` with this placement, and 05, whose edit model gains the punch edit (`ADR-0051` amended); Phase 05, already passed, needs no remediation. Compatibility impact: the project document gains take stacks and the punch edit, raising its schema version; no build has shipped. Public API: `TakeStack`, `Take` and `PunchRange` in `@audiogubbins/domain`, their persisted form in `@audiogubbins/project-format`, the take commands in `@audiogubbins/project-commands`, and their differences in `@audiogubbins/history`. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with punch edits against the domain's oracle, the take commands' inverse tests and the random command walk, a project round trip of take stacks, and a browser test that punches in, chooses another take, undoes, and reloads.
+- **Amends:** `ADR-0051`, whose chain gains the punch edit and whose assets cannot be removed while a take stack names them. Its other clauses stand.
+- **Related requirements:** `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`.
+
+<!-- adr/ADR-0080-spectrogram-analysis-and-tiles.md -->
+
+# ADR-0080 — A Spectrogram Is A Pyramid Of Disposable Tiles, Analysed In A Worker From The Edited Sound
+
+- **Status:** Accepted
+- **Decision:** Phase 08's readiness review places spectral analysis in a new, portable `packages/spectral-analysis`, built as `ADR-0043` built the peak pyramid, so a spectrogram of any length is shown without the page analysing audio or holding a whole file's spectra.
+  - **What is analysed is the edited sound.** The analysis reads an asset's edit plan through the engine's plan readers, as the peak worker does, a racked sound through the preview worker's renders, so the spectrogram shows every edit, a spectral edit's included (`ADR-0081`). It is keyed by the source's identity and the edited sound's revision, which every edit and every change of quality changes.
+  - **A spectrogram's settings are `SpectrogramConfig`.** The window's length is a power of two from 256 to 32,768 samples, 2,048 by default; the window is the periodic Hann or the four-term Blackman–Harris, Blackman–Harris by default, whose side lobes lie 92 dB down; and the overlap is 1, 2, 4 or 8 columns per window at the finest level, 4 by default. The canonical STFT of `crates/analysis` (`ADR-0031`, `ADR-0032`) computes every frame, reference and WebAssembly alike; this phase gives it the Blackman–Harris window in both implementations, which raises the DSP ABI, and nothing else analyses audio for the spectrogram.
+  - **Tiles make a pyramid of levels.** A tile holds 256 columns of one channel at one level, and every bin of the window, from 0 Hz to half the rate. A column of level `L` spans `hop · 2^L` frames of the sound, `hop` being the window's length over the overlap; it is the per-bin maximum power of `min(2^L, 4)` windows centred evenly within it, the samples a window reaches outside the sound being silence, so a level is analysed without the levels below it and a 3-hour sound is shown from the first frames it reads. A view draws from the coarsest level whose columns are no wider than a pixel, and stretches level 0 when zoomed further in.
+  - **A tile's value is a quantised level.** A bin's power, relative to a full-scale sine at the bin's centre through the same window, is a byte in half-decibel steps from −127.5 dBFS (0, also silence) to 0 dBFS and above (255), found by comparing the power with a table of thresholds, so no logarithm is taken per bin and every machine gives the same tile. The displayed range and colours map the bytes and never change a tile.
+  - **Tiles are disposable.** A `SpectralTileKey` names the identity, the revision, the channel, the settings, the level and the index. A tile is kept in the page's memory, within a stated budget, and in the disposable cache under `CacheCategory.Spectrogram`, in a checked format with its key and a checksum; a tile that does not match its key or checksum is analysed again. Only one revision of an identity is kept in the cache, as for peaks, and while a new revision's tiles are made the view draws the old ones, marked as stale, so an edit never empties the view.
+  - **The worker builds what is shown, nearest first.** A dedicated worker in `packages/spectral-analysis` takes the DSP delivery the render worker takes, so it runs the WebAssembly module where one is compiled and the reference where none is, says which, and builds the tiles a view asks for, nearest the view's centre first, one at a time, yielding between them; a request is cancelled when no view shows its tile. A page-side host shares tiles between the views of an asset and asks the cache before the worker.
+- **Drivers:** `REQ-AUDIO-016` asks for a spectrogram display and spectral editing; `REQ-EDIT-062` for spectrogram presentations, whose lane Phase 04 built as a shell; `REQ-ARCH-037` and the invariants keep heavy analysis off the UI thread; `REQ-ARCH-004` and `REQ-STOR-106` make spectrogram tiles disposable caches; `ADR-0061` directs spectral analysis to `crates/analysis` rather than to another STFT.
+- **Constraints:** the page never computes a spectrum. Every request to the worker can be cancelled. The analysis assumes no WebAssembly, no GPU and no cache: each absence has a stated path. Nothing persisted in a project changes.
+- **Change record:** affected requirements `REQ-AUDIO-016`, `REQ-EDIT-062`, `REQ-ARCH-037`, `REQ-STOR-106`; affected phases 08, which becomes `READY` with this placement, 03, whose canonical STFT gains a window and whose DSP ABI is raised, and 04, whose spectrogram lane draws these tiles (`ADR-0082`); no passed phase needs remediation. Compatibility impact: the DSP ABI rises; nothing persisted changes but the disposable cache. Public API: `SpectrogramConfig`, `SpectralTileKey`, the tile geometry, the tile codec, the worker's protocol and thread entry, and the host, in `@audiogubbins/spectral-analysis`; the STFT's window in `@audiogubbins/audio-engine`. Godot interchange and runtime: none. PWA and browser: none. Verification: `cargo test -p audiogubbins-analysis`, the STFT's agreement of the reference with WebAssembly, tile golden values, the codec's refusals, and the worker's order and cancellation.
+- **Amends:** `ADR-0031` and `ADR-0032`, whose STFT gains the Blackman–Harris window in both implementations; `ADR-0040`, whose editor packages gain `packages/spectral-analysis`, depended on by the editor view and depending on the domain, the engine and, in its thread entry only, the effect rack, the processors and the inference runtime, as `packages/waveform` does. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-016`, `REQ-EDIT-062`, `REQ-ARCH-037`, `REQ-ARCH-004`, `REQ-STOR-106`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0081-spectral-masks-and-spectral-edits.md -->
+
+# ADR-0081 — A Spectral Selection Is A Mask, And A Spectral Edit Is A Range Edit That Adds A Masked Change To Its Input
+
+- **Status:** Accepted
+- **Decision:** Phase 08's readiness review places spectral selection and spectral editing in the domain and in the edit model of `ADR-0051`, as `ADR-0060` placed racks, so a spectral repair is parametric, undoable, persisted and heard the same on every machine.
+  - **A mask is a value of the domain.** `SpectralMask` is a list of shapes, each adding to or subtracting from the mask, and a feather in samples and hertz. A shape is a rectangle (a range and a band), a polygon (a lasso's points, each a sample position and a frequency), or a stroke (a brush's points, each with a position, a frequency, a strength from 0 to 1, a time radius in samples and a frequency radius in hertz, joined point to point). The mask's weight at a position and a frequency, from 0 to 1, is the largest weight of the adding shapes times one less the largest of the subtracting ones. A rectangle or a polygon weighs 1 inside it and, outside it, falls linearly to 0 across the feather, measured in the feather's units. A stroke is softened by its own hardness, from 0 to just below 1, and not by the feather: at the point of its path nearest, it weighs its interpolated strength out to `hardness` of its interpolated radius and falls linearly to 0 at the radius. The feather is none, both its components 0, or both above 0. One module of the domain states the weight, point by point and row by row for a column of bins, with only the arithmetic of `ADR-0032`, and every consumer reads it there.
+  - **The selection's spectral facet is a mask.** `ADR-0042`'s spectral facet holds a `SpectralMask` in the asset's positions, and its range and band are the mask's hull. Reconciling a selection clips every shape to the asset and drops a shape left empty; two selections are equal when their masks are equal value for value.
+  - **A spectral edit is a range edit.** `SpectralEdit` joins `RangeEdit` with its mask, relative to the operation's range, its resolution, the window's length as a power of two from 256 to 16,384, and its `SpectralEditOperation`: `attenuate` by a gain, `isolate`, which multiplies everything in the mask's time span outside the mask by a gain, `heal`, which replaces the magnitude under the mask with one interpolated across time from up to four frames bordering it on each side, keeping the phase, a frame that reaches outside the stream bordering nothing since what it holds there is not the sound, and `process`, which takes the masked part of a chain's output in place of the input, the chain named by identifier as a rack edit names one (`ADR-0060`), so the cleanup and model processors of Phase 06 are applied to a time-frequency area. A gain is a linear factor from 0 to just below 1, as a level edit's gain is a factor: the person's decibels are converted once, where they are typed, and `attenuate` by 0 is removal, so removal is no operation of its own. A spectral edit takes a channel scope; it changes no time. A command makes its range the mask's support, its outline widened by the feather and by each stroke's radii, widened by half a window on each side, and a heal's by four hops more at the fewest spectral overlap, within the asset, so the change never reaches the range's ends and every frame a heal's borders are measured from lies within it.
+  - **The edit adds a masked change.** The plan realises a spectral edit as a stream with `spectral` processing: the output is the input plus the overlap-added inverse transform, through the square root of the periodic Hann window, of each frame's change, the weighted difference between what the operation makes of the frame and the frame. A frame whose weights are all zero adds nothing, so every sample no changed frame reaches is its input, bit for bit. Frames are centred every `N / overlap` samples from the range's start, the overlap being the quality's spectral overlap (`ADR-0061`), so the final render, at the maximum quality, is one answer, and a frame's weight is the mask's at its centre and each bin's centre frequency, `k · rate / N`. Arithmetic is that of `ADR-0032` through the canonical FFT, so the reference and the WebAssembly DSP give the same bits. A read may begin anywhere: the realisation is a function of position, so playback, preview and render agree. A `process` edit's chain runs within the spectral stream, hearing its segments through the window its frames read, not as a plan stream of its own, so the segments are read once; a parameter of that chain changed while it plays is therefore heard once the plan is read again, not at once as a rack's is.
+  - **A spectral edit names what it needs.** A `process` edit's chain enters and leaves the project with the edit, in the same command, and a chain a spectral edit names cannot be removed. A chain whose model is unavailable leaves the edit's entry unavailable, with the reason, as for a rack, and the command that applies it says so first.
+- **Amended:** on 2026-10-10, in Phase 08's build, before the phase passed, in two clauses. A gain of `attenuate` and `isolate` is a linear factor from 0 to just below 1, not a reduction in decibels, as a level edit's gain is a factor; the person's decibels are converted where they are typed, and `attenuate` by 0 is removal, so `remove` is a command, not an operation. A stroke is softened by its own hardness and the feather softens rectangles and polygons only, since a brush's soft edge is drawn with the brush and a feather in hertz would not keep a brush's drawn shape on a logarithmic axis; the feather is none or both components above 0. Every other clause stands.
+- **Amended:** on 2026-10-10, in Phase 08's scope check, before the phase passed, in three clauses. A command's range is the mask's support, which takes in the feather and a stroke's radii, rather than its hull, and a heal's range is widened by its borders too: four frames each side at the hop of the fewest spectral overlap, so its borders are measured from the sound around the area and never from the silence outside the stream, and a frame that reaches outside the stream borders nothing. A `process` edit's chain runs within the spectral stream, so a parameter changed while it plays is heard once the plan is read again. Every other clause stands.
+- **Drivers:** `REQ-AUDIO-016` asks for time-frequency selection, attenuation, removal, repair and healing, noise isolation, spectral cleanup and selection-sensitive processing; `REQ-ARCH-004` and `REQ-EDIT-073` make every edit parametric and a command; `REQ-EDIT-063` and `REQ-EDIT-064` keep spectral selection explicit and persistent; `REQ-ARCH-049` and `REQ-ARCH-081` hold the final render to one answer; `REQ-UX-068` lets a brush's strength come from pressure or a fixed value, which the mask records, so the edit does not depend on the hardware.
+- **Constraints:** the edit is validated when a command makes it and when a project is read: the mask lies within the range, every value is finite, the resolution is one this build knows, a gain is finite and lies from 0 to just below 1, and a `process` edit's chain exists and keeps the layout. Persisting the edit raises `projectDocument`, with no migration before 1.0 (`REQ-STOR-052`). Tiles and the drawn mask are never authoritative (`ADR-0080`, `ADR-0082`).
+- **Change record:** affected requirements `REQ-AUDIO-016`, `REQ-ARCH-004`, `REQ-EDIT-063`, `REQ-EDIT-064`, `REQ-EDIT-073`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-UX-068`; affected phases 08, which becomes `READY` with this placement, 04, whose selection facet becomes a mask (`ADR-0042` amended), 05, whose edit model gains the spectral edit (`ADR-0051` amended), and 06, whose chains a spectral edit may name (`ADR-0060` amended); no passed phase needs remediation, and Phase 04's facet clipped no lasso point and compared shapes by reference, which this phase corrects. Compatibility impact: the project document gains the spectral edit, raising its schema version; no build has shipped. Public API: `SpectralMask`, its shapes and its weight, `SpectralEdit` and `SpectralEditOperation` in `@audiogubbins/domain`; their persisted form in `@audiogubbins/project-format`; the spectral facet in `@audiogubbins/timeline`; the spectral realisation in `@audiogubbins/audio-engine`. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with spectral edits against the domain's oracle, golden outputs of every operation from both DSP implementations, the bit-for-bit identity of every sample outside a changed frame, a project round trip, and a browser test that selects, attenuates, undoes, reapplies and reloads.
+- **Amends:** `ADR-0042`, whose spectral facet is a mask; `ADR-0051`, whose chain gains the spectral edit; `ADR-0060`, a spectral `process` edit naming a chain as a rack edit does. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-016`, `REQ-ARCH-004`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-EDIT-063`, `REQ-EDIT-064`, `REQ-EDIT-073`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-UX-068`.
+
+<!-- adr/ADR-0082-spectrogram-drawing-and-spectral-tools.md -->
+
+# ADR-0082 — The Renderer Draws Scalar Fields Through A Colour Ramp, And The Spectral Tools Make A Mask
+
+- **Status:** Accepted
+- **Decision:** Phase 08's readiness review gives the renderer of `ADR-0044` the one primitive a spectrogram needs, and the editor view the tools that make a spectral selection, so the spectrogram is drawn by every backend and a selection is made the same way by mouse, pen, touch and keyboard.
+  - **A field batch.** `RenderBatch` gains `FieldBatch`: a scalar field (a key, a width, a height and one byte per cell), the span of its columns drawn across a rectangle, the field row each device row of the rectangle reads, and a colour ramp of 256 colours with their opacity. It is drawn in its layer's order and clip, blended over what is drawn before it, so the waveform, the selection and the playhead are drawn over a spectrogram, and a mask's fill over both. WebGPU and WebGL2 upload a field once, as a one-byte texture held by its key within a stated memory budget, least recently drawn first out, and map it through the row map and the ramp in a shader; Canvas 2D maps it on the processor into an image of the rectangle and draws that. A lost device or context loses only those textures, which the next frame uploads again. No backend allocates a texture for a field it does not draw, so a spectrogram of any length holds only the tiles in view.
+  - **The spectrogram layer.** The editor view draws a spectrogram lane from the tiles its host holds (`ADR-0080`): one field batch per tile in view, its columns placed by the exact conversions of `ADR-0041`, its rows by the inverse of the lane's frequency mapping, so a tile and the selection drawn over it share one mapping at every zoom and after every reset. A tile not yet known is drawn as pending, as peaks are. The display range in decibels and the ramp, the palette's spectrogram ramp, are the view's and map the bytes only.
+  - **The mask's overlay.** A spectral selection is drawn as its mask's weight, sampled per pixel column from the domain's weight (`ADR-0081`), as a field batch through a ramp of the selection's colour, with the outline of each rectangle and polygon; an inactive facet is drawn quieter. The spectral edits in an asset's chain are outlined where the view's overlays include them.
+  - **The spectral tools.** `ToolId` gains the spectral marquee, the spectral lasso and the spectral brush. A tool's input carries where the pointer is, across and in height, and its strength; the frequency under the pointer is derived from its height through the inverse of the lane's frequency mapping (`frequencyAt`), so no frequency enters a shape that the lane under the press did not give. A release makes a `select-spectral` intent with a shape and whether it replaces the mask, adds to it or subtracts from it: Shift adds and Alt subtracts where either is held, and the view's combination mode, set from the Spectral panel, the toolbar beside a spectral tool and its commands, says so otherwise, so a finger or a pen, which holds no key, builds a compound mask as a mouse does. The brush's radius is set in pixels and converted, at each point, to samples and hertz through the view's mappings, so a stroke drawn on a logarithmic axis keeps its drawn shape. The brush's strength is `toolStrength` (`ADR-0017`): a pen's pressure when the person allows it, otherwise the fixed strength, so a stroke is reproducible on any hardware. Commands select a band of the time selection, add one to the selection or take one from it, and widen or narrow the area in time and in frequency. A keyboard cursor stands in a channel's spectrogram lane at the playhead, which the playhead's keys move, and keys move it up and down the frequency axis a step or a tenth of one, place a point where it stands, finish the shape there and let the points go; the spectral tool in use takes the points as a marquee's corner, a lasso's corners or a brush's dabs, and the shape is the one a pointer pressed at the first point, dragged through the rest and released at the cursor draws, at the fixed strength and joined by the combination mode, through the same selection command. The points and the cursor are drawn in the overlay as they are placed and the cursor is said in words, and each command has a default shortcut, so the keyboard reaches every spectral selection a pointer makes.
+  - **The pressure preference.** `ADR-0017` left persisting `GestureSettings` and a control for fixed strength to the phase of the first pressure-sensitive tool; the brush is that tool, so the person's preferences gain whether pen pressure is used and the fixed strength, with a control in Settings and the Spectral panel, raising `userPreferences`.
+- **Amended:** on 2026-10-10, in Phase 08's scope check, before the phase passed, in the spectral tools' clause. A tool's input carries the pointer's height, not a frequency, and the frequency is derived from it through the inverse of the lane's frequency mapping. Where no modifier is held, a shape joins the selection by the view's combination mode, set from the Spectral panel, the toolbar beside a spectral tool and its commands, so a finger or a pen builds a compound mask. The keyboard draws a lasso's polygon and a brush's stroke, and a marquee's rectangle, with a cursor in the lane whose points make the shape a pointer through them makes, and adds bands to the selection and takes them from it, each with a default shortcut. Every other clause stands.
+- **Drivers:** `REQ-AUDIO-152` asks for layered waveform, spectrogram and selection drawing on WebGPU, WebGL2 and a reduced path, recovered after loss; `REQ-EDIT-065` for the spectral marquee, the spectral lasso and the brush, acting through the same commands as every input; `REQ-UX-068` for optional pressure with a fixed, deterministic strength; `REQ-EDIT-064` for a selection visible enough to avoid processing by accident.
+- **Constraints:** the renderer still reads no browser global and holds no authoritative state; a field's texture is a cache of a value the frame carries. A field batch is drawn in device pixels, row by row, so no backend resamples it differently from another beyond the colour each row reads. No tool writes the project; a selection changes through the selection commands only.
+- **Change record:** affected requirements `REQ-AUDIO-152`, `REQ-EDIT-062`, `REQ-EDIT-064`, `REQ-EDIT-065`, `REQ-UX-068`; affected phases 08, which becomes `READY` with these decisions, 04, whose renderer, editor view and tools gain the field batch, the spectrogram layer and the spectral tools (`ADR-0044` amended), and 01, whose input model's pressure preference is persisted (`ADR-0017` amended); no passed phase needs remediation. Compatibility impact: `userPreferences` and `editorViews` rise, each refused rather than migrated before 1.0. Public API: `FieldBatch`, `ScalarField` and `ColourRamp` in `@audiogubbins/renderer`; the spectral tools, intents and the spectrogram layer in `@audiogubbins/editor-view`; the persisted gesture settings in `@audiogubbins/input`. Godot interchange and runtime: none. PWA and browser: the field batch on each backend, run by the renderer's browser suites. Verification: the backends' field drawing read back by pixel in Chromium on WebGPU, WebGL2 and Canvas 2D, after a loss and after recovery; the texture budget under a long spectrogram; the tools' intents with mouse, pen with and without pressure, touch and keyboard.
+- **Amends:** `ADR-0044`, whose frame gains the field batch and whose backends hold field textures as caches; `ADR-0017`, whose pressure preference is persisted. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-152`, `REQ-EDIT-062`, `REQ-EDIT-064`, `REQ-EDIT-065`, `REQ-UX-068`.
 
 # Passed Dependency Handoffs
 
@@ -2102,7 +3113,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 8,
   "name": "Spectral Editing",
-  "status": "NOT_READY",
+  "status": "PASS",
   "hard_dependencies": [
     3,
     4,
@@ -2115,7 +3126,10 @@ Only items explicitly authorised by the specification:
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-08-evidence.md",
+    "reviews/phase-08-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-08.md"
 }
 ```

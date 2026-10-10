@@ -6,6 +6,8 @@
 
 import type { Colour } from '@audiogubbins/renderer';
 
+import type { SpectrogramColours } from './view-state.js';
+
 export interface EditorPalette {
   readonly background: Colour;
   readonly laneSeparator: Colour;
@@ -37,6 +39,14 @@ export interface EditorPalette {
   readonly loop: Colour;
   readonly snap: Colour;
   readonly spectrogramBackground: Colour;
+  /**
+   * Each ramp a spectrogram may be drawn in, from the quietest level shown to
+   * the loudest: {@link SPECTROGRAM_RAMP_COLOURS} opaque colours, evenly
+   * spaced along the ramp.
+   */
+  readonly spectrogramRamps: Readonly<Record<SpectrogramColours, readonly Colour[]>>;
+  /** The outline of where a spectral edit applies, which no selection is drawn in. */
+  readonly spectralEdit: Colour;
 }
 
 /** The font a view writes labels in, as a CSS font shorthand. */
@@ -44,3 +54,6 @@ export interface EditorType {
   readonly label: string;
   readonly small: string;
 }
+
+/** The colours each of a palette's spectrogram ramps holds: one for each byte a ramp maps. */
+export const SPECTROGRAM_RAMP_COLOURS = 256;

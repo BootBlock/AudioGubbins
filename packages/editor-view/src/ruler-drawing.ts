@@ -24,7 +24,7 @@ import {
 import type { BuilderPool } from './batch-buffers.js';
 import type { EditorPalette, EditorType } from './editor-palette.js';
 import type { ViewLayout } from './lane-layout.js';
-import type { ToolPreview } from './pointer-tools.js';
+import type { ToolPreview } from './tool-values.js';
 
 /** What the drawing reads of the view. */
 export interface OverlayStyle {

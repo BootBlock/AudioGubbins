@@ -132,6 +132,7 @@ describe('useShortcuts', () => {
           cancelled.push('cancelled');
         },
         runsInADialogue: () => false,
+        takesItsKey: () => true,
         platform: keyboardPlatformFor(convention),
         reader: {
           read: (reading) => {
@@ -305,6 +306,7 @@ describe('useShortcuts over the stores it is wired to', () => {
         onAnnounce: vi.fn(),
         onChordCancelled: vi.fn(),
         runsInADialogue: () => false,
+        takesItsKey: () => true,
         platform: keyboardPlatformFor(KeyboardConvention.Apple),
         reader: {
           read: layout.learn,
@@ -333,6 +335,7 @@ describe('useShortcuts over the stores it is wired to', () => {
         onAnnounce: vi.fn(),
         onChordCancelled: vi.fn(),
         runsInADialogue: () => false,
+        takesItsKey: () => true,
         platform: keyboardPlatformFor(KeyboardConvention.Apple),
         reader: {
           read: vi.fn(),
@@ -368,6 +371,7 @@ describe('useShortcuts over the stores it is wired to', () => {
         onAnnounce: vi.fn(),
         onChordCancelled: vi.fn(),
         runsInADialogue: () => false,
+        takesItsKey: () => true,
         platform: keyboardPlatformFor(KeyboardConvention.Windows),
         reader: {
           read: vi.fn(),
@@ -425,6 +429,7 @@ describe('useShortcuts over the default profile', () => {
         },
         onChordCancelled: vi.fn(),
         runsInADialogue: (id) => APPEARANCE.has(id),
+        takesItsKey: () => true,
         platform: keyboardPlatformFor(convention),
         reader: { read: vi.fn(), asked: () => false },
         logger,
@@ -543,6 +548,7 @@ describe('a clipboard shortcut', () => {
           cancelled.push('cancelled');
         },
         runsInADialogue: () => false,
+        takesItsKey: () => true,
         platform: keyboardPlatformFor(KeyboardConvention.Windows),
         reader: { read: vi.fn(), asked: () => false },
         logger,
@@ -649,11 +655,14 @@ describe('a clipboard shortcut', () => {
 
 describe('a key a focused control uses itself', () => {
   /** A reading of `code`, with the modifiers given. */
-  const reading = (code: string, modifiers: { readonly ctrlKey?: boolean } = {}) => ({
+  const reading = (
+    code: string,
+    modifiers: { readonly ctrlKey?: boolean; readonly shiftKey?: boolean } = {},
+  ) => ({
     code,
     key: code,
     ctrlKey: modifiers.ctrlKey ?? false,
-    shiftKey: false,
+    shiftKey: modifiers.shiftKey ?? false,
     altKey: false,
     metaKey: false,
     altGraph: false,
@@ -681,6 +690,15 @@ describe('a key a focused control uses itself', () => {
     expect(ownsItsKeys(inside('slider'), reading('Home'))).toBe(true);
   });
 
+  it('is the control’s when it activates or dismisses with it: Enter, Space and Escape', () => {
+    for (const code of ['Enter', 'NumpadEnter', 'Space', 'Escape']) {
+      expect(ownsItsKeys(inside('toolbar'), reading(code))).toBe(true);
+      expect(ownsItsKeys(inside('region'), reading(code, { shiftKey: true }))).toBe(true);
+      expect(ownsItsKeys(inside('application'), reading(code))).toBe(false);
+      expect(ownsItsKeys(document.body, reading(code))).toBe(false);
+    }
+  });
+
   it('is the page’s when it scrolls a dialogue or a panel, pressed alone', () => {
     expect(ownsItsKeys(inside('dialog'), reading('PageDown'))).toBe(true);
     expect(ownsItsKeys(inside('tabpanel'), reading('End'))).toBe(true);
@@ -699,5 +717,54 @@ describe('a key a focused control uses itself', () => {
     expect(ownsItsKeys(document.body, reading('ArrowLeft'))).toBe(false);
     expect(ownsItsKeys(inside('menu'), reading('KeyA', { ctrlKey: true }))).toBe(false);
     expect(ownsItsKeys(inside('toolbar'), reading('KeyV'))).toBe(false);
+  });
+});
+
+describe('a shortcut that takes its key only while its command can run', () => {
+  /** A listener binding Escape to `test.cancel`, which takes it only while `drawing` says. */
+  function listeningWhile(drawing: () => boolean) {
+    const ran: string[] = [];
+    const announced: string[] = [];
+    const profile: ShortcutProfile = {
+      id: 'test',
+      displayName: 'Test',
+      builtIn: true,
+      bindings: [{ commandId: commandId('test.cancel'), shortcut: shortcut(keyPress('Escape')) }],
+    };
+    const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('test');
+    renderHook(() => {
+      useShortcuts({
+        tracker: createChordTracker(() => profile),
+        run: (id) => {
+          ran.push(id);
+        },
+        onPendingChange: vi.fn(),
+        onAnnounce: (text) => {
+          announced.push(text);
+        },
+        onChordCancelled: vi.fn(),
+        runsInADialogue: () => false,
+        takesItsKey: (id) => id !== 'test.cancel' || drawing(),
+        platform: keyboardPlatformFor(KeyboardConvention.Windows),
+        reader: { read: vi.fn(), asked: () => false },
+        logger,
+      });
+    });
+    return { ran, announced };
+  }
+
+  it('leaves the key to the page, running and saying nothing, while the command cannot run', () => {
+    const { ran, announced } = listeningWhile(() => false);
+    const event = press(document.body, { key: 'Escape', code: 'Escape' });
+    expect(ran).toEqual([]);
+    expect(announced).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('takes the key, and runs the command, while it can', () => {
+    const { ran } = listeningWhile(() => true);
+    const event = press(document.body, { key: 'Escape', code: 'Escape' });
+    expect(ran).toEqual(['test.cancel']);
+    expect(event.defaultPrevented).toBe(true);
   });
 });

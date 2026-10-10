@@ -192,9 +192,54 @@ export {
   type RangeEdit,
   type RegionOperation,
   MAXIMUM_EDIT_GAIN,
-  isLevelEdit,
+  editChain,
+  streamChain,
+  takesChannelScope,
+  withEditChain,
 } from './editing/operations.js';
 export { FadeDirection, FadeShape } from './editing/fades.js';
+
+export {
+  type BrushRadius,
+  type FrequencyBand,
+  type SpectralBounds,
+  type SpectralFeather,
+  type SpectralMask,
+  type SpectralPoint,
+  type SpectralShape,
+  type StrokePoint,
+  HIGHEST_MASK_FREQUENCY,
+  MaskEffect,
+  NO_FEATHER,
+  maskOutline,
+  maskSupport,
+  masksEqual,
+} from './spectral/spectral-mask.js';
+export { MaskWeights } from './spectral/mask-weight.js';
+export { binFrequency, nearestBin } from './spectral/bin-frequency.js';
+export { clippedMask } from './spectral/mask-clipping.js';
+export {
+  MAXIMUM_MASK_POINTS,
+  MAXIMUM_MASK_SHAPES,
+  maskProblem,
+} from './spectral/mask-validation.js';
+export { spectralMaskOf } from './spectral/mask-decoding.js';
+export {
+  type PlannedSpectralEdit,
+  type PlannedSpectralOperation,
+  type SpectralEdit,
+  type SpectralEditOperation,
+  type SpectralOperationKind,
+  type SpectralPlacement,
+  DEFAULT_SPECTRAL_RESOLUTION,
+  HEAL_BORDER_FRAMES,
+  LARGEST_SPECTRAL_RESOLUTION,
+  SMALLEST_SPECTRAL_RESOLUTION,
+  isSpectralReduction,
+  isSpectralResolution,
+  spectralEditProblem,
+  spectralPlacement,
+} from './spectral/spectral-edit.js';
 
 export {
   type EditPlan,

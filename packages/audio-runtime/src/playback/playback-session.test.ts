@@ -18,6 +18,7 @@ import {
   type PcmSource,
   toneRecipe,
   PcmDescriptionKind,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import {
   distinctChannels,
@@ -40,7 +41,6 @@ import {
   ToProcessorKind,
   type ToProcessor,
 } from '../protocol/processor-messages.js';
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import type { SourceDescription } from '../protocol/source-descriptions.js';
 import type { FakeWorkletNode } from '../testing/fake-worklet-node.js';
 import { PlaybackRig, WORKLET_MODULE_URL, settle } from '../testing/playback-rig.js';

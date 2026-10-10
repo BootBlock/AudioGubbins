@@ -179,7 +179,7 @@ describe('choosing a backend', () => {
   });
 
   it('lists WebGPU as refused, with the reason, in a browser that does not offer it', async () => {
-    const [first] = browserBackends(undefined, NO_WAIT);
+    const [first] = browserBackends(undefined, NO_WAIT, () => document.createElement('canvas'));
     const made = await first!.create(document.createElement('canvas'), {
       lost: () => undefined,
       restored: () => undefined,
@@ -190,7 +190,9 @@ describe('choosing a backend', () => {
       'This browser does not offer WebGPU.',
     );
     expect(
-      browserBackends({ requestAdapter: 'no' }, NO_WAIT).map((factory) => factory.kind),
+      browserBackends({ requestAdapter: 'no' }, NO_WAIT, () =>
+        document.createElement('canvas'),
+      ).map((factory) => factory.kind),
     ).toEqual([RendererKind.WebGpu, RendererKind.WebGl2, RendererKind.Canvas2d]);
   });
 });

@@ -32,9 +32,10 @@ import {
   type RenderOptions,
   type RenderSink,
   type RenderSummary,
+  type ScopeDsp,
 } from '@audiogubbins/audio-engine';
 
-import { scopeDsp, type DspChooser, type ScopeDsp } from '../dsp/dsp-instance.js';
+import { scopeDsp, type DspChooser } from '../dsp/dsp-instance.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,

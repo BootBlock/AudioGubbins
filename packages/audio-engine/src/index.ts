@@ -117,6 +117,7 @@ export {
   type PeakMeterSettings,
   type SilenceSettings,
   type StftSettings,
+  StftWindow,
   type TransientSettings,
 } from './dsp/canonical-analysis.js';
 
@@ -142,6 +143,14 @@ export { stretchWindow } from './pcm/stretched-content.js';
 // The fallback ADR-0031 names, for a host whose WebAssembly is refused.
 export { REFERENCE_DSP } from './dsp/reference/reference-dsp.js';
 export { wasmDsp } from './dsp/wasm/wasm-dsp.js';
+export {
+  type DspDelivery,
+  DspDeliveryKind,
+  type ScopeDsp,
+  deliveredAs,
+  deliveredDsp,
+  dspDeliveryAt,
+} from './dsp/dsp-delivery.js';
 
 export {
   type InputFeed,

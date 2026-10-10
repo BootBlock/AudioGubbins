@@ -1,4 +1,12 @@
-import type { MarkerId, RegionId, SampleCount } from '@audiogubbins/domain';
+import {
+  MaskEffect,
+  NO_FEATHER,
+  type MarkerId,
+  type RegionId,
+  type SampleCount,
+  type SpectralMask,
+  type SpectralShape,
+} from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -10,12 +18,13 @@ import {
   selectionsEqual,
   withChannels,
   withObjects,
-  withSpectralArea,
+  SpectralCombination,
+  withSpectralMask,
+  withSpectralShape,
   withTimeRange,
   withoutFacet,
   type SelectableContent,
   type SelectionSet,
-  type SpectralArea,
 } from './selection-set.js';
 import {
   describeTarget,
@@ -30,10 +39,21 @@ const marker = (id: string): MarkerId => id as MarkerId;
 const range = (start: number, end: number) => ({ start: at(start), end: at(end) });
 
 const ASSET = { length: at(48_000), channelCount: 2 };
-const AREA: SpectralArea = {
+const RECTANGLE: SpectralShape = {
+  kind: 'rectangle',
+  effect: MaskEffect.Add,
   range: range(100, 200),
   band: { low: 1000, high: 2000 },
-  shape: { kind: 'rectangle' },
+};
+const AREA: SpectralMask = { shapes: [RECTANGLE], feather: NO_FEATHER };
+const LASSO: SpectralShape = {
+  kind: 'polygon',
+  effect: MaskEffect.Add,
+  points: [
+    { position: at(60), frequency: 0 },
+    { position: at(160), frequency: 0 },
+    { position: at(160), frequency: 1_000 },
+  ],
 };
 
 const PROCESSING: TargetRequest = {
@@ -66,7 +86,7 @@ describe('the selection set', () => {
 
   it('makes the facet made before active when the active one is cleared', () => {
     let set = withTimeRange(EMPTY_SELECTION, range(10, 20));
-    set = withSpectralArea(set, AREA);
+    set = withSpectralMask(set, AREA);
     set = withObjects(set, { kind: 'markers', ids: [marker('m1')] });
     set = withoutFacet(set, SelectionFacet.Objects);
     expect(activeFacet(set)).toBe(SelectionFacet.Spectral);
@@ -76,10 +96,45 @@ describe('the selection set', () => {
     expect(activeFacet(set)).toBe(SelectionFacet.None);
   });
 
-  it('clears a facet given an empty range or band', () => {
+  it('clears the time facet given an empty range', () => {
     const set = withTimeRange(EMPTY_SELECTION, range(10, 20));
     expect(withTimeRange(set, range(20, 20)).time).toBeUndefined();
-    expect(withSpectralArea(set, { ...AREA, band: { low: 5, high: 5 } }).spectral).toBeUndefined();
+  });
+
+  it('joins a spectral tool’s shape to the selection by replacing, adding or taking away', () => {
+    const feather = { time: 4, frequency: 40 };
+    const replaced = withSpectralShape(
+      EMPTY_SELECTION,
+      LASSO,
+      SpectralCombination.Replace,
+      feather,
+    );
+    expect(replaced.spectral).toEqual({ shapes: [LASSO], feather });
+    expect(activeFacet(replaced)).toBe(SelectionFacet.Spectral);
+    const added = withSpectralShape(replaced, RECTANGLE, SpectralCombination.Add, feather);
+    expect(added.spectral?.shapes).toEqual([LASSO, RECTANGLE]);
+    const taken = withSpectralShape(added, RECTANGLE, SpectralCombination.Subtract, feather);
+    expect(taken.spectral?.shapes).toEqual([
+      LASSO,
+      RECTANGLE,
+      { ...RECTANGLE, effect: MaskEffect.Subtract },
+    ]);
+    // Taking away from no selection selects nothing.
+    expect(
+      withSpectralShape(EMPTY_SELECTION, RECTANGLE, SpectralCombination.Subtract, feather),
+    ).toBe(EMPTY_SELECTION);
+  });
+
+  it('compares spectral selections by value, so two made alike are the same selection', () => {
+    const one = withSpectralMask(EMPTY_SELECTION, AREA);
+    const other = withSpectralMask(EMPTY_SELECTION, structuredClone(AREA));
+    expect(selectionsEqual(one, other)).toBe(true);
+    expect(
+      selectionsEqual(
+        one,
+        withSpectralMask(EMPTY_SELECTION, { ...AREA, feather: { time: 1, frequency: 1 } }),
+      ),
+    ).toBe(false);
   });
 
   it('scopes channels sorted and without repeats, and drops a scope of every channel', () => {
@@ -105,6 +160,22 @@ describe('reconciling a selection with changed content', () => {
       ids: [marker('m1')],
     });
     expect(reconciled(set, content(100, ['m1']))).toBe(set);
+  });
+
+  it('cuts a spectral selection’s lasso at the new end, and keeps a selection it leaves whole', () => {
+    const set = withSpectralMask(EMPTY_SELECTION, { shapes: [LASSO], feather: NO_FEATHER });
+    expect(reconciled(set, content(200))).toBe(set);
+    expect(reconciled(set, content(110)).spectral?.shapes).toEqual([
+      {
+        ...LASSO,
+        points: [
+          { position: 60, frequency: 0 },
+          { position: 110, frequency: 0 },
+          { position: 110, frequency: 500 },
+        ],
+      },
+    ]);
+    expect(reconciled(set, content(50)).spectral).toBeUndefined();
   });
 
   it('clips a range past the new end, and drops one wholly past it', () => {
@@ -173,7 +244,7 @@ describe('resolving a command target', () => {
       range: range(0, 5),
       channels: [1],
     });
-    const spectral = withChannels(withSpectralArea(EMPTY_SELECTION, AREA), [0], 2);
+    const spectral = withChannels(withSpectralMask(EMPTY_SELECTION, AREA), [0], 2);
     expect(expectSuccess(resolveTarget(spectral, PROCESSING, ASSET))).toMatchObject({
       kind: 'spectral',
       channels: [0],
@@ -199,7 +270,7 @@ describe('describing a target', () => {
     expect(
       describeTarget({ kind: 'whole-asset', range: range(0, 9), channels: [0, 1, 2] }, WRITING),
     ).toBe('The whole asset, every channel');
-    expect(describeTarget({ kind: 'spectral', area: AREA, channels: [2] }, WRITING)).toBe(
+    expect(describeTarget({ kind: 'spectral', mask: AREA, channels: [2] }, WRITING)).toBe(
       '100 to 200, 1000 Hz to 2000 Hz, on channel Centre',
     );
     expect(

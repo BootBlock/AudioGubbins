@@ -10,7 +10,7 @@ import type { EffectChain, EffectChainId, Region, RegionOperation } from '@audio
 import { canonicalJson, writeRegion, writeRegionOperation } from '@audiogubbins/project-format';
 
 import { ProjectCommandId } from '../project-command.js';
-import { namingArguments, rackChainOf } from '../processing/chain-naming.js';
+import { namingArguments, operationChain } from '../processing/chain-naming.js';
 
 /**
  * The members of a written region that setting its properties never changes:
@@ -55,7 +55,7 @@ function reapplied(
   operation: RegionOperation,
   chains: ProjectChains,
 ): CommandInvocation {
-  const chain = rackChainOf(operation);
+  const chain = operationChain(operation);
   return applyRegionEditInvocation(
     region,
     operation,

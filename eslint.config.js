@@ -228,7 +228,7 @@ export default tseslint.config(
   // Domain and command packages: framework-agnostic, platform-agnostic.
   {
     files: [
-      'packages/{audio-engine,audio-graph,clipboard,codecs,detection-runtime,domain,commands,editor-view,effect-rack,input,ml-runtime,model-packs,timeline,version,video-reference,waveform,processors,project-format,project-commands,history,media-store,recording,storage}/**/*.ts',
+      'packages/{audio-engine,audio-graph,clipboard,codecs,detection-runtime,domain,commands,editor-view,effect-rack,input,ml-runtime,model-packs,spectral-analysis,timeline,version,video-reference,waveform,processors,project-format,project-commands,history,media-store,recording,storage}/**/*.ts',
     ],
     languageOptions: { globals: {} },
     rules: {

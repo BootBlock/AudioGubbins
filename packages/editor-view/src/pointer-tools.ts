@@ -16,95 +16,38 @@
  * the region, shift adding it to those selected, with every tool but the hand
  * and zoom, which act on the view, and, for a region, the marker tool, which
  * places a marker there.
+ *
+ * The spectral marquee, lasso and brush draw a shape on a spectrogram lane
+ * (`spectral-tools.ts`), which becomes a `select-spectral` intent on release;
+ * the brush marks a single dab where it is clicked. Elsewhere they act as the
+ * time-selection tool does on a click, and select what is tapped.
  */
 
-import type { MarkerId, RegionBoundary, RegionId, SampleCount } from '@audiogubbins/domain';
+import type { SampleCount } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import type { BoundaryRange } from '@audiogubbins/timeline';
 
 import type { HitTarget } from './hit-testing.js';
+import {
+  drawnShapeOf,
+  isSpectralTool,
+  showsSpectrogram,
+  startedTrail,
+  tracedTrail,
+  withDrawnShape,
+  type DrawnShape,
+} from './spectral-tools.js';
+import {
+  IDLE,
+  type Interaction,
+  type Pressed,
+  type ToolContext,
+  type ToolInput,
+  type ToolIntent,
+  type ToolPreview,
+  type ToolStep,
+} from './tool-values.js';
 import { ToolId } from './view-state.js';
-
-/** A pointer event as the tools read it. */
-export interface ToolInput {
-  readonly x: number;
-  readonly y: number;
-  readonly pointer: PointerKind;
-  /** The boundary under the pointer, snapped where snapping is on. */
-  readonly boundary: SampleCount;
-  /** The channel of the lane under the pointer, if it is over one. */
-  readonly channel: number | undefined;
-  readonly shift: boolean;
-  readonly alt: boolean;
-}
-
-/** What the view knows that a press reads. */
-export interface ToolContext {
-  readonly tool: ToolId;
-  /** A held space bar, which makes any tool the hand until it is let go. */
-  readonly panning: boolean;
-  readonly hit: HitTarget;
-  /** The time selection shown, which shift extends. */
-  readonly selection: BoundaryRange | undefined;
-  /** The channels shown, in the order their lanes are drawn. */
-  readonly visibleChannels: readonly number[];
-}
-
-/** What the application does, through its commands. */
-export type ToolIntent =
-  | {
-      readonly kind: 'select-time';
-      readonly range: BoundaryRange;
-      readonly channels: readonly number[] | undefined;
-    }
-  | { readonly kind: 'select-marker'; readonly id: MarkerId; readonly add: boolean }
-  | { readonly kind: 'select-region'; readonly id: RegionId; readonly add: boolean }
-  | { readonly kind: 'set-playhead'; readonly position: SampleCount }
-  | { readonly kind: 'move-marker'; readonly id: MarkerId; readonly to: SampleCount }
-  | {
-      readonly kind: 'move-region-boundary';
-      readonly id: RegionId;
-      readonly boundary: RegionBoundary;
-      readonly to: SampleCount;
-    }
-  | { readonly kind: 'add-marker'; readonly at: SampleCount }
-  | { readonly kind: 'scroll'; readonly dx: number }
-  | { readonly kind: 'zoom-to-range'; readonly range: BoundaryRange }
-  | { readonly kind: 'zoom-step'; readonly x: number; readonly direction: 'in' | 'out' }
-  | { readonly kind: 'split-at'; readonly position: SampleCount }
-  | { readonly kind: 'make-region'; readonly range: BoundaryRange };
-
-/** What the view draws while a drag is under way, before anything is committed. */
-export type ToolPreview =
-  | {
-      readonly kind: 'time-range';
-      readonly range: BoundaryRange;
-      readonly channels: readonly number[] | undefined;
-    }
-  | { readonly kind: 'marker'; readonly id: MarkerId; readonly position: SampleCount }
-  | {
-      readonly kind: 'region-boundary';
-      readonly id: RegionId;
-      readonly boundary: RegionBoundary;
-      readonly position: SampleCount;
-    }
-  | { readonly kind: 'zoom-range'; readonly range: BoundaryRange }
-  | { readonly kind: 'razor'; readonly position: SampleCount };
-
-/** A press in progress. */
-export type Interaction =
-  | { readonly kind: 'idle' }
-  | {
-      readonly kind: 'pressed';
-      readonly tool: ToolId;
-      readonly hit: HitTarget;
-      readonly start: ToolInput;
-      readonly context: ToolContext;
-      readonly dragging: boolean;
-      readonly lastX: number;
-    };
-
-export const IDLE: Interaction = { kind: 'idle' };
 
 /** How far a pointer moves before a press is a drag, by kind. */
 const DRAG_START: Readonly<Record<PointerKind, number>> = {
@@ -113,24 +56,19 @@ const DRAG_START: Readonly<Record<PointerKind, number>> = {
   [PointerKind.Touch]: 8,
 };
 
-/** A step of an interaction: what it is now, what to draw, and what to do. */
-export interface ToolStep {
-  readonly interaction: Interaction;
-  readonly preview: ToolPreview | undefined;
-  readonly intents: readonly ToolIntent[];
-}
-
 function range(one: SampleCount, other: SampleCount): BoundaryRange {
   return one <= other ? { start: one, end: other } : { start: other, end: one };
 }
 
-/** The channels between the lanes a drag started and is over, or every channel. */
-function draggedChannels(
-  context: ToolContext,
+/**
+ * The channels of `visible` between the lanes a drag started and is over, or
+ * every channel where it spans every lane shown.
+ */
+export function draggedChannels(
+  visible: readonly number[],
   from: number | undefined,
   to: number | undefined,
 ): readonly number[] | undefined {
-  const visible = context.visibleChannels;
   const first = from === undefined ? -1 : visible.indexOf(from);
   const last = to === undefined ? first : visible.indexOf(to);
   if (first < 0 || last < 0) return undefined;
@@ -143,22 +81,72 @@ function effectiveTool(context: ToolContext): ToolId {
   return context.panning ? ToolId.Hand : context.tool;
 }
 
+/** Whether a press with `tool` draws a spectral shape: a spectral tool's, in a spectrogram. */
+function drawsSpectrally(tool: ToolId, context: ToolContext): boolean {
+  return (
+    isSpectralTool(tool) &&
+    showsSpectrogram(context.spectral.lane) &&
+    (context.hit.kind === 'lane' || context.hit.kind === 'selection-edge')
+  );
+}
+
 /** A press. */
 export function press(context: ToolContext, input: ToolInput): ToolStep {
+  const tool = effectiveTool(context);
   const interaction: Interaction = {
     kind: 'pressed',
-    tool: effectiveTool(context),
+    tool,
     hit: context.hit,
     start: input,
     context,
     dragging: false,
     lastX: input.x,
+    trail: drawsSpectrally(tool, context) ? startedTrail(tool, context.spectral, input) : undefined,
   };
   return { interaction, preview: undefined, intents: [] };
 }
 
+/** `state` with `input` traced onto its trail, where it has one; `final` at a release. */
+function traced(state: Pressed, input: ToolInput, final: boolean): Pressed {
+  const trail = tracedTrail(state.trail, state.tool, state.context.spectral, input, final);
+  return trail === state.trail ? state : { ...state, trail };
+}
+
+/** The shape a spectral drag has drawn by `input`, and how it joins the selection. */
+function drawnShape(state: Pressed, input: ToolInput): DrawnShape | undefined {
+  const { context, start, tool, trail } = state;
+  const channels = draggedChannels(context.visibleChannels, start.channel, start.channel);
+  return drawnShapeOf({ tool, spectral: context.spectral, start, trail, channels }, input);
+}
+
+function spectralPreview(state: Pressed, input: ToolInput): ToolPreview | undefined {
+  const drawn = drawnShape(state, input);
+  if (drawn === undefined) return undefined;
+  const { spectral } = state.context;
+  return {
+    kind: 'spectral-shape',
+    drawn,
+    selection: withDrawnShape(spectral.selection, drawn, spectral.channelCount),
+  };
+}
+
+/**
+ * A spectral tool's click: the brush marks one dab where it lands on a
+ * spectrogram, and each places the playhead where it is clicked elsewhere in
+ * a lane, as the time-selection tool does.
+ */
+function spectralClick(state: Pressed): readonly ToolIntent[] {
+  if (state.tool === ToolId.SpectralBrush && drawsSpectrally(state.tool, state.context)) {
+    const drawn = drawnShape(state, state.start);
+    return drawn === undefined ? [] : [{ kind: 'select-spectral', drawn }];
+  }
+  return state.hit.kind === 'lane' || state.hit.kind === 'selection-edge'
+    ? [{ kind: 'set-playhead', position: state.start.boundary }]
+    : [];
+}
+
 /** The anchor a time selection is dragged from: the far edge when shift extends one. */
-function anchorOf(state: Extract<Interaction, { kind: 'pressed' }>): SampleCount {
+function anchorOf(state: Pressed): SampleCount {
   const { selection } = state.context;
   if (state.hit.kind === 'selection-edge' && selection !== undefined) {
     return state.hit.edge === 'start' ? selection.end : selection.start;
@@ -171,10 +159,7 @@ function anchorOf(state: Extract<Interaction, { kind: 'pressed' }>): SampleCount
   return state.start.boundary;
 }
 
-function dragPreview(
-  state: Extract<Interaction, { kind: 'pressed' }>,
-  input: ToolInput,
-): ToolPreview | undefined {
+function dragPreview(state: Pressed, input: ToolInput): ToolPreview | undefined {
   const { hit, tool, context } = state;
   if (hit.kind === 'marker' && (tool === ToolId.Select || tool === ToolId.Marker)) {
     return { kind: 'marker', id: hit.id, position: input.boundary };
@@ -188,6 +173,7 @@ function dragPreview(
     };
   }
   if (hit.kind === 'ruler') return undefined;
+  if (drawsSpectrally(tool, context)) return spectralPreview(state, input);
   switch (tool) {
     case ToolId.Select:
     case ToolId.TimeSelect: {
@@ -195,7 +181,7 @@ function dragPreview(
       const channels =
         tool === ToolId.TimeSelect || hit.kind === 'selection-edge'
           ? undefined
-          : draggedChannels(context, state.start.channel, input.channel);
+          : draggedChannels(context.visibleChannels, state.start.channel, input.channel);
       return { kind: 'time-range', range: range(anchorOf(state), input.boundary), channels };
     }
     case ToolId.Region:
@@ -222,7 +208,11 @@ export function move(interaction: Interaction, input: ToolInput): ToolStep {
     interaction.dragging ||
     Math.abs(input.x - interaction.start.x) + Math.abs(input.y - interaction.start.y) >=
       DRAG_START[input.pointer];
-  const next = { ...interaction, dragging, lastX: input.x };
+  const next = {
+    ...(dragging ? traced(interaction, input, false) : interaction),
+    dragging,
+    lastX: input.x,
+  };
   if (!dragging) return { interaction: next, preview: undefined, intents: [] };
   if (interaction.tool === ToolId.Hand) {
     // The view follows the pointer: dragging right shows what is to the left.
@@ -244,7 +234,7 @@ export function move(interaction: Interaction, input: ToolInput): ToolStep {
 
 const STRIP: HitTarget = { kind: 'strip' };
 
-function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly ToolIntent[] {
+function clicked(state: Pressed): readonly ToolIntent[] {
   const { tool, start } = state;
   const selects = tool !== ToolId.Hand && tool !== ToolId.Zoom;
   const onRegion = state.hit.kind === 'region-edge' || state.hit.kind === 'region';
@@ -256,6 +246,7 @@ function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly Too
   if (hit.kind === 'marker' && selects) {
     return [{ kind: 'select-marker', id: hit.id, add: start.shift }];
   }
+  if (isSpectralTool(tool)) return spectralClick(state);
   switch (tool) {
     case ToolId.Select:
     case ToolId.TimeSelect:
@@ -292,7 +283,7 @@ export function release(interaction: Interaction, input: ToolInput): ToolStep {
   if (interaction.kind === 'idle') return { interaction, preview: undefined, intents: [] };
   if (!interaction.dragging)
     return { interaction: IDLE, preview: undefined, intents: clicked(interaction) };
-  const preview = dragPreview(interaction, input);
+  const preview = dragPreview(traced(interaction, input, true), input);
   const intents: ToolIntent[] = [];
   switch (preview?.kind) {
     case 'time-range':
@@ -320,6 +311,9 @@ export function release(interaction: Interaction, input: ToolInput): ToolStep {
       break;
     case 'razor':
       intents.push({ kind: 'split-at', position: preview.position });
+      break;
+    case 'spectral-shape':
+      intents.push({ kind: 'select-spectral', drawn: preview.drawn });
       break;
     case undefined:
       if (interaction.hit.kind === 'ruler')

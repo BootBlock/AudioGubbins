@@ -27,11 +27,10 @@ import {
   type FailureSummary,
   type SampleRate,
 } from '@audiogubbins/domain';
-import type { ChainProcessing } from '@audiogubbins/audio-engine';
+import type { ChainProcessing, ScopeDsp } from '@audiogubbins/audio-engine';
 
 import type { CaptureQueue } from '../capture/capture-queue.js';
 import { CaptureEndReason } from '../capture/capture-wire.js';
-import type { ScopeDsp } from '../dsp/dsp-instance.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
 import { workletDsp } from '../processor/worklet-dsp.js';
 import {

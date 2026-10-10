@@ -18,11 +18,14 @@
 
 import {
   FailureKind,
+  derivedSampleCount,
   fail,
   failure,
+  maskOutline,
   succeed,
   type DomainResult,
   type SampleCount,
+  type SpectralMask,
 } from '@audiogubbins/domain';
 
 import {
@@ -31,7 +34,6 @@ import {
   type MadeFacet,
   type ObjectSelection,
   type SelectionSet,
-  type SpectralArea,
 } from './selection-set.js';
 import type { BoundaryRange } from './viewport.js';
 
@@ -43,7 +45,7 @@ export type SelectionTarget =
       readonly channels: readonly number[];
     }
   | { readonly kind: 'time'; readonly range: BoundaryRange; readonly channels: readonly number[] }
-  | { readonly kind: 'spectral'; readonly area: SpectralArea; readonly channels: readonly number[] }
+  | { readonly kind: 'spectral'; readonly mask: SpectralMask; readonly channels: readonly number[] }
   | { readonly kind: 'objects'; readonly objects: ObjectSelection };
 
 /** What a command takes, and what it does with nothing selected. */
@@ -116,7 +118,7 @@ export function resolveTarget(
     case SelectionFacet.Spectral:
       return set.spectral === undefined
         ? missing(active)
-        : succeed({ kind: 'spectral', area: set.spectral, channels: channelsOf(set, asset) });
+        : succeed({ kind: 'spectral', mask: set.spectral, channels: channelsOf(set, asset) });
     case SelectionFacet.Objects:
       return set.objects === undefined
         ? missing(active)
@@ -142,8 +144,10 @@ export function targetRange(target: SelectionTarget): BoundaryRange | undefined 
     case 'whole-asset':
     case 'time':
       return target.range;
-    case 'spectral':
-      return target.area.range;
+    case 'spectral': {
+      const outline = maskOutline(target.mask);
+      return { start: derivedSampleCount(outline.start), end: derivedSampleCount(outline.end) };
+    }
     case 'objects':
       return undefined;
   }
@@ -200,8 +204,8 @@ export function describeTarget(target: SelectionTarget, writing: TargetWriting):
     case 'time':
       return `${writing.position(target.range.start)} to ${writing.position(target.range.end)} on ${channelsText(target.channels, writing)}`;
     case 'spectral': {
-      const { range, band } = target.area;
-      return `${writing.position(range.start)} to ${writing.position(range.end)}, ${writing.frequency(band.low)} to ${writing.frequency(band.high)}, on ${channelsText(target.channels, writing)}`;
+      const { start, end, low, high } = maskOutline(target.mask);
+      return `${writing.position(derivedSampleCount(start))} to ${writing.position(derivedSampleCount(end))}, ${writing.frequency(low)} to ${writing.frequency(high)}, on ${channelsText(target.channels, writing)}`;
     }
     case 'objects': {
       const [one, many] = OBJECT_NOUNS[target.objects.kind];

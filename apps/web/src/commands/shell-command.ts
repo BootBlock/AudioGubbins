@@ -55,6 +55,7 @@ export interface ShellCommandOptions {
   readonly keywords?: readonly string[];
   readonly description?: string;
   readonly discoverable?: boolean;
+  readonly takesItsKeyOnlyWhenAvailable?: boolean;
   readonly availability?: (
     context: ShellContext,
   ) => ReturnType<Command<ShellContext>['availability']>;
@@ -98,7 +99,21 @@ export function shellCommand(
     ...(extra.keywords === undefined ? {} : { keywords: extra.keywords }),
     ...(extra.description === undefined ? {} : { description: extra.description }),
     ...(extra.discoverable === undefined ? {} : { discoverable: extra.discoverable }),
+    ...(extra.takesItsKeyOnlyWhenAvailable === undefined
+      ? {}
+      : { takesItsKeyOnlyWhenAvailable: extra.takesItsKeyOnlyWhenAvailable }),
   };
+}
+
+/**
+ * Whether `command`'s shortcut takes its key in `context` now: always, but for
+ * a command that takes it only while it can run.
+ */
+export function shortcutTakesItsKey(
+  command: Pick<Command<ShellContext>, 'availability' | 'takesItsKeyOnlyWhenAvailable'>,
+  context: ShellContext,
+): boolean {
+  return command.takesItsKeyOnlyWhenAvailable !== true || command.availability(context).available;
 }
 
 /**

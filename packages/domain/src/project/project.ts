@@ -26,7 +26,7 @@ import type {
 } from '../identity/branded-id.js';
 import type { SampleRate } from '../time/sample-time.js';
 import type { ChannelLayout } from '../audio/channel-layout.js';
-import type { EditRange, RangeEdit } from '../editing/operations.js';
+import { editChain, streamChain, type EditRange, type RangeEdit } from '../editing/operations.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from './asset.js';
 import type { Clip, Marker, Region } from './timeline.js';
@@ -209,9 +209,13 @@ export interface TargetChains {
   readonly ranges: readonly RangeRack[];
 }
 
-/** The rack edit `edit` makes as operation `operation` over `range`, where it is one. */
+/**
+ * The chain `edit` names as operation `operation` over `range`, where it
+ * names one: a rack edit's, or a spectral edit's (`editChain`).
+ */
 function rangeRack(operation: EditOperationId, range: EditRange, edit: RangeEdit): RangeRack[] {
-  return edit.kind === 'rack' ? [{ operation, range, chain: edit.chain }] : [];
+  const chain = editChain(edit);
+  return chain === undefined ? [] : [{ operation, range, chain }];
 }
 
 /**
@@ -282,8 +286,8 @@ export function chainUseCount(users: ChainUsers): number {
  * Every chain the project runs or may run: its own, and each that audio pasted
  * into an asset carries in the plan it was pasted as (ADR-0053), which holds
  * its chains whole rather than naming the project's. A pasted plan's streams
- * hold every chain it reads, anything pasted into what was copied folded in
- * with them, so one level of streams is all of them.
+ * hold every chain it runs (`streamChain`), anything pasted into what was
+ * copied folded in with them, so one level of streams is all of them.
  */
 export function* projectChains(project: Project): Generator<EffectChain, void, undefined> {
   yield* project.effectChains.values();
@@ -291,7 +295,8 @@ export function* projectChains(project: Project): Generator<EffectChain, void, u
     for (const operation of asset.edits) {
       if (operation.kind !== 'insert') continue;
       for (const stream of operation.payload.streams) {
-        if (stream.processing?.kind === 'chain') yield stream.processing.chain;
+        const run = streamChain(stream.processing);
+        if (run !== undefined) yield run.chain;
       }
     }
   }

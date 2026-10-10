@@ -32,6 +32,9 @@ import {
   type MessageFields,
 } from '../messages/message-fields.js';
 import { effectChainOf } from '../processing/chain-decoding.js';
+import type { EffectChain } from '../processing/effect-chain.js';
+import { spectralMaskOf } from '../spectral/mask-decoding.js';
+import type { PlannedSpectralEdit, PlannedSpectralOperation } from '../spectral/spectral-edit.js';
 import { FadeShape } from './fades.js';
 import type {
   EditPlan,
@@ -177,14 +180,59 @@ function segmentOf(value: unknown, field: string): PlanSegment {
   };
 }
 
-function processingOf(read: MessageFields, field: string): StreamProcessing {
-  if (read['kind'] === 'stretch') {
-    return { kind: 'stretch', length: sampleCountOf(read['length'], `${field}.length`) };
+function chainOf(value: unknown, field: string): EffectChain {
+  const chain = effectChainOf(value, field);
+  if (!chain.ok) throw new Malformed(field, `a chain (${chain.failures[0].summary})`);
+  return chain.value;
+}
+
+function spectralOperationOf(value: unknown, field: string): PlannedSpectralOperation {
+  const read = fieldsOf(value, field);
+  switch (read['kind']) {
+    case 'attenuate':
+    case 'isolate':
+      return { kind: read['kind'], gain: numberOf(read['gain'], `${field}.gain`) };
+    case 'heal':
+      return { kind: 'heal' };
+    case 'process':
+      return {
+        kind: 'process',
+        chain: chainOf(read['chain'], `${field}.chain`),
+        input: layoutOf(read['input'], `${field}.input`),
+      };
+    default:
+      throw new Malformed(`${field}.kind`, 'attenuate, isolate, heal or process');
   }
-  if (read['kind'] !== 'chain') throw new Malformed(`${field}.kind`, 'chain or stretch');
-  const chain = effectChainOf(read['chain'], `${field}.chain`);
-  if (!chain.ok) throw new Malformed(`${field}.chain`, `a chain (${chain.failures[0].summary})`);
-  return { kind: 'chain', chain: chain.value, input: layoutOf(read['input'], `${field}.input`) };
+}
+
+function spectralEditOf(value: unknown, field: string): PlannedSpectralEdit {
+  const read = fieldsOf(value, field);
+  const { channels } = read;
+  return {
+    mask: spectralMaskOf(read['mask'], `${field}.mask`),
+    resolution: integerOf(read['resolution'], `${field}.resolution`),
+    operation: spectralOperationOf(read['operation'], `${field}.operation`),
+    ...(channels === undefined
+      ? {}
+      : { channels: boundedItemsOf(channels, `${field}.channels`, LIMITS.channels, integerOf) }),
+  };
+}
+
+function processingOf(read: MessageFields, field: string): StreamProcessing {
+  switch (read['kind']) {
+    case 'stretch':
+      return { kind: 'stretch', length: sampleCountOf(read['length'], `${field}.length`) };
+    case 'chain':
+      return {
+        kind: 'chain',
+        chain: chainOf(read['chain'], `${field}.chain`),
+        input: layoutOf(read['input'], `${field}.input`),
+      };
+    case 'spectral':
+      return { kind: 'spectral', edit: spectralEditOf(read['edit'], `${field}.edit`) };
+    default:
+      throw new Malformed(`${field}.kind`, 'chain, stretch or spectral');
+  }
 }
 
 /** Reads streams whose segments together stay within the bound a plan may ask for. */

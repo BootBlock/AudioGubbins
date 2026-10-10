@@ -15,7 +15,9 @@
 
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 
-import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from './dsp-delivery.js';
+import { DspDeliveryKind, type DspDelivery } from '@audiogubbins/audio-engine';
+
+import type { CompiledDspModule } from './dsp-delivery.js';
 
 /** What the reference path means for the person, said after each reason. */
 const SAME_RESULT_MORE_SLOWLY =

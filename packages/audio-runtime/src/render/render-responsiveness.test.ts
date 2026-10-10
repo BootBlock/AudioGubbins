@@ -33,6 +33,7 @@ import {
   createPriorityScheduler,
   type AudioFrameBlock,
   PcmDescriptionKind,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import {
   dspModuleBytes,
@@ -43,7 +44,6 @@ import {
   wire,
 } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,

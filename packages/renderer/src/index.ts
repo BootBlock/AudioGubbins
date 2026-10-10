@@ -10,6 +10,8 @@
 
 export {
   type Colour,
+  type ColourRamp,
+  type FieldBatch,
   type ImageBatch,
   type PlacedImage,
   type Rectangle,
@@ -17,6 +19,7 @@ export {
   type RenderBatch,
   type RenderFrame,
   type RenderLayer,
+  type ScalarField,
   type SegmentBatch,
   type TextBatch,
   type TextLabel,

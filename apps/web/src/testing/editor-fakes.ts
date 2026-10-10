@@ -8,12 +8,15 @@
 import { createDeterministicIdGenerator } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 
+import { SpectrogramHost, type SpectrogramWorkerPort } from '@audiogubbins/spectral-analysis';
 import { PeakHost, type PeakWorkerPort } from '@audiogubbins/waveform';
 
 import { testAssets } from '../assets/test-assets.js';
 import { panelPartsOf } from '../editor-part.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
+import type { SpectrogramDsp } from '../editor/spectrogram-reports.js';
 import { NO_PEAK_CACHE } from '../io/stored-peak-cache.js';
+import { NO_SPECTROGRAM_CACHE } from '../io/stored-spectrogram-cache.js';
 import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
@@ -197,8 +200,21 @@ function silentPeakWorker(): PeakWorkerPort {
   return { post: () => undefined, listen: () => undefined, terminate: () => undefined };
 }
 
-/** The Editor and Picture panels' parts over `context`, drawing nothing and asking no worker. */
-export function fakePanelParts(context: ShellContext, logger: Logger): EditorPanelParts {
+/** A spectrogram worker that takes every message and answers none, for a panel that is only drawn. */
+function silentSpectrogramWorker(): SpectrogramWorkerPort {
+  return { post: () => undefined, listen: () => undefined, terminate: () => undefined };
+}
+
+/**
+ * The Editor and Picture panels' parts over `context`, drawing nothing and
+ * asking no peak worker, the spectrogram's worker `spectrogramWorker`'s,
+ * which answers nothing where it is not given.
+ */
+export function fakePanelParts(
+  context: ShellContext,
+  logger: Logger,
+  spectrogramWorker: () => SpectrogramWorkerPort = silentSpectrogramWorker,
+): EditorPanelParts {
   return panelPartsOf(
     context,
     {
@@ -213,6 +229,13 @@ export function fakePanelParts(context: ShellContext, logger: Logger): EditorPan
         cache: NO_PEAK_CACHE,
         report: () => undefined,
       }),
+      spectrograms: new SpectrogramHost({
+        createWorker: spectrogramWorker,
+        cache: NO_SPECTROGRAM_CACHE,
+        report: () => undefined,
+        now: () => 0,
+      }),
+      spectrogramDsp: observable<SpectrogramDsp | undefined>(undefined),
       graphics: { gpu: undefined, pixelRatio: () => 1, watchPixelRatio: () => () => undefined },
       rendererReports: createRendererReports(),
       logger,

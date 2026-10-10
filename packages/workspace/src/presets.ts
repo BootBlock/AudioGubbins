@@ -42,6 +42,9 @@ export const PanelKinds = {
 
   /** The input, its meters, monitoring and latency, armed for recording (ADR-0070). */
   Recording: 'recording',
+
+  /** The spectral selection, the spectral tools' settings and the spectral edits (ADR-0082). */
+  Spectral: 'spectral',
 } as const;
 
 /** One group of a preset, before the unavailable kinds are removed. */
@@ -84,7 +87,13 @@ const PRESETS: readonly Preset[] = [
       // Repair work is done by looking closely, so the editor takes the room
       // and the browser gives way.
       { region: DockRegion.Centre, proportion: 1, kinds: [PanelKinds.Editor] },
-      { region: DockRegion.Right, proportion: 0.26, kinds: [PanelKinds.Inspector] },
+      // The Spectral panel is in front, since the area selected and what is
+      // done to it are the work; the Inspector is a tab away.
+      {
+        region: DockRegion.Right,
+        proportion: 0.26,
+        kinds: [PanelKinds.Spectral, PanelKinds.Inspector],
+      },
       { region: DockRegion.Bottom, proportion: 0.14, kinds: [PanelKinds.Transport] },
     ],
   },

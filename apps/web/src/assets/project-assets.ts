@@ -60,7 +60,7 @@ import {
   openedEntry,
   regionEntry,
   regionEntryId,
-  runsChains,
+  bypassesProcessing,
   type MediaAvailability,
   type ProjectEntries,
   type ProjectEntry,
@@ -187,7 +187,7 @@ function placing(own: Owned, context: PlanContext): () => Placed {
       resolver,
       plan: assetPlan(own.asset, context),
       unracked: own.asset.rack === undefined ? undefined : unrackedAssetPlan(own.asset, context),
-      original: runsChains(own.asset) ? bypassedAssetPlan(own.asset, context) : undefined,
+      original: bypassesProcessing(own.asset) ? bypassedAssetPlan(own.asset, context) : undefined,
       markers,
     };
     return placed;

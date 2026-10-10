@@ -34,16 +34,7 @@ import {
 } from '@audiogubbins/waveform';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
-
-/**
- * The revision of the peaks of `asset` processed at `quality`: the asset's
- * own, and the values a final render runs at, since a change of either
- * changes what is drawn and peaks kept for the other must not be.
- */
-function peakRevisionOf(asset: EditorAsset, quality: QualityMode): string {
-  const { resampling, oversampling, spectralOverlap } = quality.settings;
-  return `${asset.revision}.${resampling}-${String(oversampling)}-${String(spectralOverlap)}`;
-}
+import { editedRevisionOf } from './edited-revision.js';
 
 /**
  * The source whose peaks show `asset` as a final render at `quality` makes it,
@@ -52,7 +43,7 @@ function peakRevisionOf(asset: EditorAsset, quality: QualityMode): string {
 export function peakSubjectOf(asset: EditorAsset, quality: QualityMode): PeakSubject {
   return {
     identity: asset.id,
-    revision: peakRevisionOf(asset, quality),
+    revision: editedRevisionOf(asset, quality),
     channels: asset.layout.roles.length,
     frames: asset.length,
     sampleRate: asset.sampleRate,

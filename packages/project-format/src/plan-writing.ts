@@ -17,6 +17,7 @@ import type {
 import type { JsonObject } from './canonical-json.js';
 import { writeEffectChain } from './chain-writing.js';
 import { presentMembers } from './document-writing.js';
+import { writePlannedSpectralOperation, writeSpectralMask } from './spectral-writing.js';
 import { writeLayout } from './value-writing.js';
 
 /** Writes an edit plan, or a clipboard payload, which is one. */
@@ -25,13 +26,28 @@ export function writeEditPlan(plan: EditPlan): JsonObject {
 }
 
 function writeProcessing(processing: StreamProcessing): JsonObject {
-  return processing.kind === 'stretch'
-    ? { kind: 'stretch', length: processing.length }
-    : {
+  switch (processing.kind) {
+    case 'stretch':
+      return { kind: 'stretch', length: processing.length };
+    case 'chain':
+      return {
         kind: 'chain',
         chain: writeEffectChain(processing.chain),
         input: writeLayout(processing.input),
       };
+    case 'spectral': {
+      const { mask, resolution, operation, channels } = processing.edit;
+      return {
+        kind: 'spectral',
+        edit: presentMembers({
+          mask: writeSpectralMask(mask),
+          resolution,
+          operation: writePlannedSpectralOperation(operation),
+          channels: channels === undefined ? undefined : [...channels],
+        }),
+      };
+    }
+  }
 }
 
 function writeStream(stream: PlanStream): JsonObject {

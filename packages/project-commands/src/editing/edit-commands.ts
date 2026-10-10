@@ -44,7 +44,7 @@ import {
 } from '../project-command.js';
 import {
   namingArguments,
-  rackChainOf,
+  operationChain,
   stateNaming,
   withoutUnnamed,
 } from '../processing/chain-naming.js';
@@ -113,7 +113,7 @@ function applyEdit(
       `${quoted(asset.displayName)} already has an edit with that identifier.`,
     );
   }
-  const naming = stateNaming(state, invocation, rackChainOf(operation.value));
+  const naming = stateNaming(state, invocation, operationChain(operation.value));
   if (!naming.ok) return refusedBy(naming);
   const shape = shapesOf(asset).at(-1);
   if (shape === undefined) throw new Error('A chain always has a shape.');
@@ -150,7 +150,7 @@ function withdrawEdit(
   }
   const next = withoutUnnamed(
     withAssetEdits(state, asset, asset.edits.slice(0, -1)),
-    rackChainOf(last),
+    operationChain(last),
   );
   return applied(
     next.state,

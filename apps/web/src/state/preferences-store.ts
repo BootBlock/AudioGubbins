@@ -1,5 +1,7 @@
 /**
- * The user's preferences, and how they survive a reload.
+ * The user's preferences, and how they survive a reload: how the interface
+ * looks and moves, and whether a pen's pressure varies a tool (REQ-UX-068,
+ * ADR-0082).
  *
  * REQ-ARCH-153 gives preferences their own partition, separate from project
  * state, with their own lifetime. REQ-UX-059 requires that separation to be
@@ -15,6 +17,11 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
+import {
+  DEFAULT_PRESSURE_PREFERENCE,
+  pressurePreferenceOf,
+  type PressurePreference,
+} from '@audiogubbins/input';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import {
   ContrastLevel,
@@ -35,6 +42,20 @@ import { PersistedPart, type StateStorage } from './state-storage.js';
 export const PREFERENCES_KEY = 'audiogubbins.preferences';
 
 /**
+ * Everything the person's preferences hold (schema `userPreferences`): the
+ * theme's choices and the pressure choice, which the input model owns.
+ */
+export interface UserPreferences extends ThemePreferences {
+  readonly pressure: PressurePreference;
+}
+
+/** The preferences before a user changes anything. */
+const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  ...DEFAULT_THEME_PREFERENCES,
+  pressure: DEFAULT_PRESSURE_PREFERENCE,
+};
+
+/**
  * Reads stored preferences, taking each field only if it is usable.
  *
  * Field by field rather than all or nothing. A stored preference file that has
@@ -43,30 +64,33 @@ export const PREFERENCES_KEY = 'audiogubbins.preferences';
  * whole default set would silently reset a user's accent because their density
  * was unreadable.
  */
-function readPreferences(stored: string | null, logger: Logger): ThemePreferences {
-  if (stored === null) return DEFAULT_THEME_PREFERENCES;
+function readPreferences(stored: string | null, logger: Logger): UserPreferences {
+  if (stored === null) return DEFAULT_USER_PREFERENCES;
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(stored);
   } catch {
     logger.warning('Stored preferences could not be read and were replaced with the defaults.');
-    return DEFAULT_THEME_PREFERENCES;
+    return DEFAULT_USER_PREFERENCES;
   }
 
   if (!isRecord(parsed)) {
     logger.warning('Stored preferences were not preferences and were replaced with the defaults.');
-    return DEFAULT_THEME_PREFERENCES;
+    return DEFAULT_USER_PREFERENCES;
   }
 
   const candidate = parsed;
 
+  // Another version's preferences are refused, never migrated, before 1.0
+  // (REQ-STOR-052): a person whose stored version is older starts from the
+  // defaults, and the next change they make writes this version's.
   if (candidate['schemaVersion'] !== SCHEMA_VERSIONS.userPreferences) {
     logger.info('Stored preferences were written for another version and were not used.', {
       found: versionFound(candidate['schemaVersion']),
       expected: SCHEMA_VERSIONS.userPreferences,
     });
-    return DEFAULT_THEME_PREFERENCES;
+    return DEFAULT_USER_PREFERENCES;
   }
 
   const accent = candidate['accent'];
@@ -91,13 +115,14 @@ function readPreferences(stored: string | null, logger: Logger): ThemePreference
     // choosing Standard or Full.
     ...(isMemberOf(ContrastLevel, contrast) ? { contrast } : {}),
     ...(isMemberOf(MotionLevel, motion) ? { motion } : {}),
+    pressure: pressurePreferenceOf(candidate['pressure']),
   };
 }
 
 /** Holds the user's preferences and writes them back. */
-export interface PreferencesStore extends Observable<ThemePreferences> {
+export interface PreferencesStore extends Observable<UserPreferences> {
   /** Replaces some of the preferences and stores the result. */
-  readonly change: (changes: Partial<ThemePreferences>) => void;
+  readonly change: (changes: Partial<UserPreferences>) => void;
 
   /**
    * Removes the user's motion choice, so the system setting applies again.
@@ -120,7 +145,7 @@ export interface PreferencesStore extends Observable<ThemePreferences> {
 export function createPreferencesStore(storage: StateStorage, logger: Logger): PreferencesStore {
   const state = observable(readPreferences(storage.read(PREFERENCES_KEY), logger));
 
-  const persist = (preferences: ThemePreferences): void => {
+  const persist = (preferences: UserPreferences): void => {
     storage.save(PersistedPart.Preferences, { [PREFERENCES_KEY]: JSON.stringify(preferences) });
   };
 
@@ -129,7 +154,7 @@ export function createPreferencesStore(storage: StateStorage, logger: Logger): P
     subscribe: state.subscribe,
 
     change: (changes) => {
-      const next: ThemePreferences = { ...state.get(), ...changes };
+      const next: UserPreferences = { ...state.get(), ...changes };
       state.set(next);
       persist(next);
     },
@@ -147,8 +172,8 @@ export function createPreferencesStore(storage: StateStorage, logger: Logger): P
     },
 
     reset: () => {
-      state.set(DEFAULT_THEME_PREFERENCES);
-      persist(DEFAULT_THEME_PREFERENCES);
+      state.set(DEFAULT_USER_PREFERENCES);
+      persist(DEFAULT_USER_PREFERENCES);
     },
   };
 }

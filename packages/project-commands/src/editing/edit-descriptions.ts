@@ -3,7 +3,12 @@
  * what was done and to which asset or region.
  */
 
-import { planIsSilence, type EditOperation, type RangeEdit } from '@audiogubbins/domain';
+import {
+  planIsSilence,
+  type EditOperation,
+  type RangeEdit,
+  type SpectralEdit,
+} from '@audiogubbins/domain';
 import { quoted } from '@audiogubbins/text';
 
 /** The verb phrase of a range edit. */
@@ -27,6 +32,22 @@ function rangeEditWords(edit: RangeEdit): string {
       return 'Apply a chain of processors to';
     case 'punch':
       return 'Punch in on';
+    case 'spectral':
+      return spectralWords(edit);
+  }
+}
+
+/** The verb phrase of a spectral edit, which acts on an area of time and frequency. */
+function spectralWords(edit: SpectralEdit): string {
+  switch (edit.operation.kind) {
+    case 'attenuate':
+      return edit.operation.gain === 0 ? 'Remove an area of' : 'Attenuate an area of';
+    case 'isolate':
+      return 'Isolate an area of';
+    case 'heal':
+      return 'Heal an area of';
+    case 'process':
+      return 'Clean up an area of';
   }
 }
 

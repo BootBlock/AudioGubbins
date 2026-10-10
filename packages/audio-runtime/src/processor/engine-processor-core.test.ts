@@ -25,10 +25,10 @@ import {
   frameBlock,
   type NodeImplementation,
   type NodeImplementations,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { POSTED_FEED_BLOCKS } from '../feed/posted-feed.js';
 import { RingWriter, createSampleRing } from '../feed/sample-ring.js';
 import {

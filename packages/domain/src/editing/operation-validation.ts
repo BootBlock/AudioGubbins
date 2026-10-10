@@ -17,6 +17,7 @@ import { FailureKind, fail, failure, succeed, type DomainResult } from '../resul
 import { sampleCount, sampleRate } from '../time/sample-time.js';
 import { shapeAfter, sourceShape, type EditShape } from './edit-shape.js';
 import { isLevelEdit, type EditOperation, type EditRange, type RangeEdit } from './operations.js';
+import { spectralEditProblem } from '../spectral/spectral-edit.js';
 import { punchProblem } from './punch-validation.js';
 import {
   MAXIMUM_STRETCH_RATIO,
@@ -61,13 +62,15 @@ export function rackProblem(
 }
 
 /**
- * Why a range edit does not fit `count` channels with `channels` scope, or
- * `undefined`. A rack edit acts on every channel and names one of `chains`.
- * A punch is checked by `punchProblem` where an asset's chain holds it, and
- * refused here, where a region's processing would.
+ * Why a range edit does not fit `range` of `count` channels with `channels`
+ * scope, or `undefined`. A rack edit acts on every channel and names one of
+ * `chains`; a spectral edit's mask lies within the range (ADR-0081). A punch
+ * is checked by `punchProblem` where an asset's chain holds it, and refused
+ * here, where a region's processing would.
  */
 export function rangeEditProblem(
   edit: RangeEdit,
+  range: EditRange,
   channels: readonly number[] | undefined,
   count: number,
   chains: ProjectChains,
@@ -75,6 +78,7 @@ export function rangeEditProblem(
   if (channels !== undefined && !isChannelScope(channels, count)) {
     return 'The channels named are not channels of this audio.';
   }
+  if (edit.kind === 'spectral') return spectralEditProblem(edit, range.end - range.start, chains);
   if (isLevelEdit(edit)) {
     return edit.kind === 'gain' && (!isEditGain(edit.gain) || edit.gain < 0)
       ? 'A gain must be a factor from zero to sixty decibels.'
@@ -210,7 +214,13 @@ export function validateOperation(
         rangeProblem(range, shape.length) ??
         (edit.kind === 'punch'
           ? punchProblem(edit, range, channels, shape, entities)
-          : rangeEditProblem(edit, channels, channelCount(shape.layout), entities.effectChains));
+          : rangeEditProblem(
+              edit,
+              range,
+              channels,
+              channelCount(shape.layout),
+              entities.effectChains,
+            ));
       break;
     }
     case 'stretch':

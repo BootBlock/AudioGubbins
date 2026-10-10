@@ -226,10 +226,18 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/input',
     '@audiogubbins/timeline',
     '@audiogubbins/waveform',
+    '@audiogubbins/spectral-analysis',
     '@audiogubbins/renderer',
   ],
   '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
   '@audiogubbins/waveform': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+    '@audiogubbins/ml-runtime',
+  ],
+  '@audiogubbins/spectral-analysis': [
     '@audiogubbins/domain',
     '@audiogubbins/audio-engine',
     '@audiogubbins/effect-rack',
@@ -372,6 +380,7 @@ const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'project-commands',
   'project-format',
   'recording',
+  'spectral-analysis',
   'storage',
   'text',
 ]);
@@ -859,6 +868,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'project-format',
     'recording',
     'renderer',
+    'spectral-analysis',
     'storage',
     'text',
     'timeline',
@@ -896,10 +906,16 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     // The packages are also compiled without the DOM type definitions, so this
     // would be a type error first. The rule stays because the `lib` setting is
     // one line in a generated file, and this is a test that says why it
-    // matters. A member of that name, such as an analysis's `window`, is not
-    // the global.
-    const forbidden = /(?<![\w$.])(window|document|localStorage|sessionStorage|navigator)\s*\./;
-    expect(FRAMEWORK_FREE.filter((path) => forbidden.test(readCode(path)))).toEqual([]);
+    // matters.
+    //
+    // A member or a private field of that name, such as an analysis's `window`
+    // or a frame source's `#window`, is not the global, and nor is the word
+    // inside a string, such as a module specifier.
+    const forbidden = /(?<![\w$.#])(window|document|localStorage|sessionStorage|navigator)\s*\./;
+    const quoted = /'[^'\n]*'|"[^"\n]*"/g;
+    expect(
+      FRAMEWORK_FREE.filter((path) => forbidden.test(readCode(path).replace(quoted, "''"))),
+    ).toEqual([]);
   });
 
   it('renders nothing, so no component file exists in it', () => {
@@ -1030,9 +1046,12 @@ describe('third-party libraries stay behind their adapters', () => {
    * The package takes the global as an argument rather than reaching for it, so
    * its own probes are written on `navigatorLike`. An expression that knows the
    * literal `navigator` alone cannot see a line of `keyboard-layout-map.ts`,
-   * the module whose whole purpose is probing.
+   * the module whose whole purpose is probing. A stand-in is a value, so it is
+   * written in camel case: a PascalCase name other than the globals' own
+   * interfaces is a type or a constant, such as the STFT's `StftWindow`, whose
+   * type query is no question about the browser.
    */
-  const GLOBAL_LIKE = String.raw`[\w$]*(?:avigator|indow|lobalThis)[\w$]*`;
+  const GLOBAL_LIKE = String.raw`(?:Window|Navigator|(?![A-Z])[\w$]*(?:avigator|indow|lobalThis)[\w$]*)`;
 
   /**
    * What asking the browser what it can do, or where it is running, looks like.
@@ -1075,6 +1094,7 @@ describe('third-party libraries stay behind their adapters', () => {
       "const keyboard: unknown = Reflect.get(navigatorLike, 'keyboard');",
     ],
     ['a reflected membership test', "if (!Reflect.has(globalThis, 'showOpenFilePicker')) return;"],
+    ['a type test of a global interface', "if (typeof Window === 'undefined') return;"],
   ])('recognises %s as a probe', (_form, code) => {
     expect(PROBE.test(code)).toBe(true);
   });
@@ -1084,6 +1104,10 @@ describe('third-party libraries stay behind their adapters', () => {
     ['a reload', 'window.location.reload();'],
     ['a variable named after a capability', 'const userAgentText = summary.browser;'],
     ['a reflected read of something else', "const entries: unknown = Reflect.get(map, 'entries');"],
+    [
+      'a type query of a constant named for a window',
+      'export type StftWindow = (typeof StftWindow)[keyof typeof StftWindow];',
+    ],
   ])('does not mistake %s for a probe', (_form, code) => {
     expect(PROBE.test(code)).toBe(false);
   });
@@ -1250,9 +1274,11 @@ describe('every colour comes from the token system (REQ-UX-155)', () => {
    * bypassing semantic tokens", and this is the rule that looks for one: a
    * scrim, a shadow or a fallback palette written as a literal is that
    * shortcut. System colour keywords such as `Canvas` are not literals, because
-   * the user's platform chooses them.
+   * the user's platform chooses them. A hexadecimal colour has three, four, six
+   * or eight digits, so a private field such as `#added` is not one.
    */
-  const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\s*\(/;
+  const COLOUR_LITERAL =
+    /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\s*\(/;
 
   /** The modules that compute the palette, which are where colours are made. */
   const TOKEN_MODULES = 'packages/design-system/src/tokens/';
@@ -1269,6 +1295,7 @@ describe('every colour comes from the token system (REQ-UX-155)', () => {
     ['a token', 'color: var(--ag-chrome-text-primary);'],
     ['a system colour', 'background-color: ButtonFace;'],
     ['an identifier', 'const selectionColour = palette.selection.fill;'],
+    ['a private field', 'this.#added = new Float64Array(count);'],
   ])('does not mistake %s for a colour literal', (_form, code) => {
     expect(COLOUR_LITERAL.test(code)).toBe(false);
   });
@@ -2741,13 +2768,27 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    *
    * REQ-EXEC-136.7 makes roughly 300 to 400 logical lines a trigger for a
    * cohesion review rather than an automatic failure, and prohibits splitting a
-   * coherent concept into meaningless files to satisfy a number. Nothing is
-   * over the threshold today, and the rule has no list of exceptions: a file
-   * past it fails until it is split, or until a record of reviewed exceptions
-   * is added beside this rule with each one's justification, which keeps an
-   * exception visible rather than raising the number for everything.
+   * coherent concept into meaningless files to satisfy a number. A file past it
+   * fails until it is split, or until its review is recorded in
+   * `REVIEWED_PAST_THRESHOLD` with its justification, which keeps an exception
+   * visible rather than raising the number for everything.
    */
   const THRESHOLD = 400;
+
+  /**
+   * Every production file past the threshold, with the size it was reviewed at
+   * and the review that kept it whole, held to the same tolerance as a file in
+   * the review band (`REVIEWED_IN_BAND`, whose comment says why the number is
+   * never rewritten from the tree).
+   */
+  const REVIEWED_PAST_THRESHOLD: Readonly<
+    Record<string, readonly [lines: number, review: string]>
+  > = {
+    'packages/domain/src/index.ts': [
+      417,
+      "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",
+    ],
+  };
 
   /** Lines that are neither blank nor comment. */
   function logicalLines(source: string): number {
@@ -2782,10 +2823,18 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
   it('has no production file past the cohesion threshold without review', () => {
     const oversized = ALL_SOURCES.map((path) => ({ path, lines: logicalLines(read(path)) }))
-      .filter((entry) => entry.lines > THRESHOLD)
+      .filter((entry) => entry.lines > THRESHOLD && !(entry.path in REVIEWED_PAST_THRESHOLD))
       .map((entry) => `${entry.path} (${String(entry.lines)} logical lines)`);
 
     expect(oversized).toEqual([]);
+  });
+
+  it('records a review past the threshold only for a file still past it', () => {
+    const within = Object.keys(REVIEWED_PAST_THRESHOLD).filter(
+      (path) => logicalLines(read(path)) <= THRESHOLD,
+    );
+
+    expect(within).toEqual([]);
   });
 
   /**
@@ -2820,6 +2869,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * destroy what they are for.
    */
   const REVIEWED_IN_BAND: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'packages/audio-runtime/src/playback/graph-loader.ts': [
+      301,
+      "The graph in the processor across its life: a load's steps from the checked graph to the processor's answer, an unload, a lost context and the request kept to load again after it, each publishing to the one status. The feeder's link and the request's sources are modules of their own (`feeder-link.ts`, `request-sources.ts`), and the processor it makes is `loaded-processor.ts`; what remains is the one generation every step checks before it acts, which split would let a stale load overtake a newer one. It entered the band when the DSP delivery's type moved to the engine and is imported from there.",
+    ],
     'apps/web/src/recording/input-control.ts': [
       395,
       "The recording session's one driver: arming, disarming and retargeting as the session machine allows, and the opening and closing of the input that keeps it in step with the session. A take's capture, Record, a count-in and Stop, is `take-capture.ts`, which moves the session through the dispatch this hands it; what it reads of the settings and the list of inputs, and what the session does about a change of the permission or the list, an opening and a reopening, is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one, with any check asked before the browser is, is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",
@@ -2845,8 +2898,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "Every command that changes the recording settings, as three tables, the profiles, the buffer and count-in, and the preferences and latency, each command a few lines over the store's revisions in `recording-settings.ts`; split by table, the shared `revised` and argument readers would move to a fourth file.",
     ],
     'apps/web/src/shell/menus.ts': [
-      302,
-      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command.",
+      328,
+      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table.",
     ],
     'apps/web/src/shell/panels.tsx': [
       332,
@@ -2884,9 +2937,13 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       328,
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
-    'packages/domain/src/index.ts': [
-      376,
-      "The domain package's public contract and nothing else: one export a line, as Prettier writes a list of named exports, grouped by the module each comes from, with no logic of its own. Its size is the size of the domain's contract, which the contract record checks name by name. Split, the package would have two entry points to one contract, and every importer would have to know which half a name is in.",
+    'packages/audio-engine/src/pcm/plan-readers.ts': [
+      353,
+      "The one owner of the readers an edited source makes of its plan: each stream's content and output, a file, silence, a conversion of rate, a mix, a chain's run, a stretch and a spectral edit's stream, each made once on the first read that needs it and released with the source. Every reader is a module of its own (`processed-content.ts`, `spectral-content.ts`, `mixed-content.ts`, `stretched-content.ts` and the rest), so what is left is the cache of each kind and the method that makes one; split by kind, a stream that reads another stream processed would need both halves' caches to find it.",
+    ],
+    'packages/domain/src/editing/plan-building.ts': [
+      300,
+      "The fold of an asset's chain into a plan, operation by operation: a cut, a reversal, a level or channel stage, a conversion, an insertion, and the processing of a range by a rack, a punch or a spectral edit. Where a kind's work is more than a few lines it is a module of its own (`processed-streams.ts`, `punch-fold.ts`, `operation-validation.ts`), so what is left is the one switch that applies each operation to the folding and the reading of the chain a range is processed through; split, each half would need the folding the other leaves.",
     ],
   };
 
@@ -2906,15 +2963,24 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     expect(inBand.toSorted()).toEqual(Object.keys(REVIEWED_IN_BAND).toSorted());
   });
 
-  it('reviews a file in the band again once it moves from the size it was reviewed at', () => {
-    const moved = Object.entries(REVIEWED_IN_BAND).flatMap(([path, [recorded]]) => {
+  /** Every recorded file that moved from its size by more than the tolerance. */
+  function movedFrom(
+    records: Readonly<Record<string, readonly [lines: number, review: string]>>,
+  ): string[] {
+    return Object.entries(records).flatMap(([path, [recorded]]) => {
       const lines = logicalLines(read(path));
       return Math.abs(lines - recorded) > FILE_SIZE_TOLERANCE
         ? [`${path}: reviewed at ${String(recorded)}, now ${String(lines)}`]
         : [];
     });
+  }
 
-    expect(moved).toEqual([]);
+  it('reviews a file in the band again once it moves from the size it was reviewed at', () => {
+    expect(movedFrom(REVIEWED_IN_BAND)).toEqual([]);
+  });
+
+  it('reviews a file past the threshold again once it moves from the size it was reviewed at', () => {
+    expect(movedFrom(REVIEWED_PAST_THRESHOLD)).toEqual([]);
   });
 
   it('takes both ends of the band as inside it', () => {
@@ -3103,8 +3169,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      62,
-      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key.",
+      79,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
@@ -3140,6 +3206,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
 
     // Factories: private state closed over, with each returned method a unit.
+    'apps/web/src/state/editor-view-store.ts: createEditorViewStore': [
+      51,
+      "Nine small methods over one observable state and its coalesced write, the largest the measuring, which takes a width that changes how the view is presented and so is written, and a height that does not and so is not; the keyboard's drawing is set beside it without a write. Taken out, each would take the state, the write and `withEntry` with it.",
+    ],
     'apps/web/src/state/workspace-store.ts: createWorkspaceStore': [
       235,
       "Twenty-six small methods over one layout store and one state, beside the state's own `get` and `subscribe`, the largest about fifteen lines. The panel operations are each a line or two over the model and share `commit`; taken out, they would take the state, the store and `commit` with them. What it writes of the collection, and the text nobody has read that it keeps aside, are decided by `workspace-custody.ts`, and the reset and removal refusals are functions of the module beside it.",
@@ -3251,6 +3321,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/audio-engine/src/dsp/reference/logarithm.ts: lnParts': [
       61,
       'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
+    ],
+    'packages/project-format/src/edit-reading.ts: readRangeEdit': [
+      50,
+      'An exhaustive switch over the range-edit kinds, each arm the members its kind reads and checks; a spectral edit, the one kind of more than one value of its own, is read by `readSpectralEditMembers`. Split by kind, the switch would be read in ten places to see which members a kind takes.',
     ],
     'packages/model-packs/src/install-state.ts: nextInstallState': [
       75,

@@ -20,6 +20,8 @@ import {
 import {
   assetChains,
   copyChain,
+  editChain,
+  withEditChain,
   isWellFormedId,
   regionChains,
   unsafeBrandId,
@@ -45,7 +47,7 @@ import {
   type ProjectCommand,
 } from '../project-command.js';
 import { withAssetEdits, withRegion } from '../editing/editing-state.js';
-import { chainToName, namingArguments, withoutUnnamed } from './chain-naming.js';
+import { chainToName, namingArguments, operationChain, withoutUnnamed } from './chain-naming.js';
 
 /** What a rack command acts on: an asset, or a region and its asset. */
 export type RackTarget =
@@ -236,21 +238,23 @@ function setEditChain(state: ProjectState, invocation: CommandInvocation) {
   const operationId = textArgument(invocation, 'operationId');
   if (!operationId.ok) return refusedBy(operationId);
   const pointed = <T extends EditOperation | RegionOperation>(operation: T): T | undefined =>
-    operation.id === operationId.value && 'edit' in operation && operation.edit.kind === 'rack'
-      ? { ...operation, edit: { kind: 'rack', chain } }
+    operation.id === operationId.value &&
+    'edit' in operation &&
+    editChain(operation.edit) !== undefined
+      ? { ...operation, edit: withEditChain(operation.edit, chain) }
       : undefined;
   const operations: readonly (EditOperation | RegionOperation)[] =
     target.kind === 'asset' ? target.asset.edits : target.region.operations;
   const index = operations.findIndex((operation) => pointed(operation) !== undefined);
   const old = operations[index];
-  if (old === undefined || !('edit' in old) || old.edit.kind !== 'rack') {
+  const oldChain = old === undefined ? undefined : operationChain(old);
+  if (old === undefined || oldChain === undefined) {
     return refusal(
       'rack.edit-unknown',
       'There is no range processed by a chain with that identifier.',
     );
   }
-  if (old.edit.chain === chain)
-    return unchanged('rack.unchanged', 'The range already uses that chain.');
+  if (oldChain === chain) return unchanged('rack.unchanged', 'The range already uses that chain.');
   const next = withoutUnnamed(
     target.kind === 'asset'
       ? withAssetEdits(
@@ -262,11 +266,11 @@ function setEditChain(state: ProjectState, invocation: CommandInvocation) {
           ...target.region,
           operations: target.region.operations.map((one) => pointed(one) ?? one),
         }),
-    old.edit.chain,
+    oldChain,
   );
   return applied(
     next.state,
-    setEditChainInvocation(target, old.id, next.removed ?? old.edit.chain),
+    setEditChainInvocation(target, old.id, next.removed ?? oldChain),
     `Change the chain a range of ${targetName(target)} is processed by`,
   );
 }

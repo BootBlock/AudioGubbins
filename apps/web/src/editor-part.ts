@@ -6,7 +6,8 @@
  * Its own module beside `application.ts`, which builds it, because it is a
  * part of the root with its own real collaborators, as the audio part's are
  * the browser's audio. Nothing heavy is started here: the peak worker is made
- * when a view first asks for peaks, and a renderer when a view is first drawn.
+ * when a view first asks for peaks, the spectrogram worker when one first
+ * shows a spectrogram, and a renderer when a view is first drawn.
  */
 
 import {
@@ -17,8 +18,10 @@ import {
 } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { createIdGenerator } from '@audiogubbins/domain';
+import { DEFAULT_GESTURE_SETTINGS } from '@audiogubbins/input';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import type { PreviewHost } from '@audiogubbins/audio-runtime';
+import { SpectrogramHost, type SpectralTileCache } from '@audiogubbins/spectral-analysis';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
@@ -26,7 +29,10 @@ import { testAssets } from './assets/test-assets.js';
 import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
 import type { EditorPanelParts } from './editor/panel-parts.js';
+import type { PageDsp } from './audio/page-dsp.js';
 import { browserPeakWorker } from './editor/peak-threads.js';
+import { spectrogramReports, type SpectrogramDsp } from './editor/spectrogram-reports.js';
+import { browserSpectrogramWorker } from './editor/spectrogram-threads.js';
 import type { ModelServices } from './ml/model-services.js';
 import { modelGates } from './ml/model-words.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
@@ -44,7 +50,7 @@ import { createRendererReports } from './state/renderer-reports.js';
 import { reconcileSelections } from './state/selection-reconciling.js';
 import { createSelectionStore } from './state/selection-store.js';
 import type { AudioSettings } from './state/audio-settings-store.js';
-import type { Observable } from './state/observable.js';
+import { observable, type Observable } from './state/observable.js';
 import type { StateStorage } from './state/state-storage.js';
 import type { WorkspaceStore } from './state/workspace-store.js';
 
@@ -96,6 +102,28 @@ function peakHost(
   });
 }
 
+/**
+ * The one spectrogram host, its tiles kept in `cache`, its worker running the
+ * page's DSP, its racked sounds read from `previews` and its chains' models
+ * run by `models`, and the DSP its worker says it runs (ADR-0080).
+ */
+function spectrogramParts(
+  cache: SpectralTileCache,
+  logger: Logger,
+  previews: PreviewHost,
+  models: ModelServices,
+  dsp: PageDsp,
+): Pick<EditorPanelParts, 'spectrograms' | 'spectrogramDsp'> {
+  const spectrogramDsp = observable<SpectrogramDsp | undefined>(undefined);
+  const spectrograms = new SpectrogramHost({
+    createWorker: () => browserSpectrogramWorker(previews, models, dsp),
+    cache,
+    report: spectrogramReports(logger, spectrogramDsp),
+    now: () => Date.now(),
+  });
+  return { spectrograms, spectrogramDsp };
+}
+
 /** How a panel's control runs a command, and asks its label, shortcut and reason. */
 export type PanelControls = Pick<
   EditorPanelParts,
@@ -109,7 +137,10 @@ export type PanelControls = Pick<
 export function panelPartsOf(
   context: ShellContext,
   controls: PanelControls,
-  services: Pick<EditorPanelParts, 'peaks' | 'graphics' | 'rendererReports' | 'logger'>,
+  services: Pick<
+    EditorPanelParts,
+    'peaks' | 'spectrograms' | 'spectrogramDsp' | 'graphics' | 'rendererReports' | 'logger'
+  >,
 ): EditorPanelParts {
   return {
     ...controls,
@@ -129,6 +160,7 @@ export function panelPartsOf(
       playing: (asset) =>
         context.playback.programme() === asset &&
         context.audio.get().playback?.transport.mode === TransportMode.Playing,
+      gestures: () => ({ ...DEFAULT_GESTURE_SETTINGS, ...context.preferences.get().pressure }),
     },
     assets: context.assets,
     picture: context.picture,
@@ -171,9 +203,11 @@ export function startEditor(
   projects: {
     readonly projects: ProjectStores | undefined;
     readonly peakCache: PeakCacheStore;
+    readonly spectrogramCache: SpectralTileCache;
   },
   previews: PreviewHost,
   models: ModelServices,
+  dsp: PageDsp,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
   const modelGate = modelGates(models.availability);
@@ -196,6 +230,7 @@ export function startEditor(
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
   const peaks = peakHost(projects.peakCache, logger, previews, models);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
+  const spectral = spectrogramParts(projects.spectrogramCache, logger, previews, models, dsp);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
   return {
@@ -213,13 +248,14 @@ export function startEditor(
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>
-      panelPartsOf(context, controls, { peaks, graphics, rendererReports, logger }),
+      panelPartsOf(context, controls, { peaks, ...spectral, graphics, rendererReports, logger }),
     dispose: () => {
       stopFollowing?.();
       document.removeEventListener('visibilitychange', flushViews);
       editorViews.flush();
       letShownPeaksGo();
       peaks.dispose();
+      spectral.spectrograms.dispose();
       picture.dispose();
     },
   };

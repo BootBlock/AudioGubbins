@@ -17,6 +17,7 @@ import type { CommandInvocation } from '@audiogubbins/commands';
 import {
   FailureKind,
   chainUseCount,
+  editChain,
   chainUsers,
   fail,
   failure,
@@ -155,9 +156,11 @@ export function stateNaming(
     : rejected('chain.not-named', 'The chain given is not the one named by what is added.');
 }
 
-/** The chain an operation names, where it is a rack edit. */
-export function rackChainOf(operation: EditOperation | RegionOperation): EffectChainId | undefined {
-  return 'edit' in operation && operation.edit.kind === 'rack' ? operation.edit.chain : undefined;
+/** The chain an operation names, where its edit names one (`editChain`). */
+export function operationChain(
+  operation: EditOperation | RegionOperation,
+): EffectChainId | undefined {
+  return 'edit' in operation ? editChain(operation.edit) : undefined;
 }
 
 /** A state once a command stopped naming a chain, and the chain where it went with that. */

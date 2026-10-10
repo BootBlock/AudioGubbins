@@ -8,7 +8,8 @@
 //! [`COUNT_TOO_SMALL`].
 
 use audiogubbins_analysis::{
-    AnalysisError, DetectorFeatures, DetectorKind, DetectorSettings, LoudnessMeter, PeakMeter, Stft,
+    AnalysisError, DetectorFeatures, DetectorKind, DetectorSettings, LoudnessMeter, PeakMeter,
+    Stft, StftWindow,
 };
 
 use crate::table::Table;
@@ -123,17 +124,20 @@ fn answered(count: usize) -> u32 {
 }
 
 /// An STFT of `channels` channels in frames of `size` samples, a power of
-/// two from 2 to 65 536, `hop` apart, from 1 to `size`; 0 if refused.
+/// two from 2 to 65 536, `hop` apart, from 1 to `size`, through the window
+/// `window` codes (0 Hann, 1 Blackman–Harris); 0 if refused, an unknown
+/// window included.
 #[unsafe(no_mangle)]
-pub extern "C" fn ag_stft_create(channels: u32, size: u32, hop: u32) -> u32 {
-    let (Ok(channels), Ok(size), Ok(hop)) = (
+pub extern "C" fn ag_stft_create(channels: u32, size: u32, hop: u32, window: u32) -> u32 {
+    let (Ok(channels), Ok(size), Ok(hop), Some(window)) = (
         usize::try_from(channels),
         usize::try_from(size),
         usize::try_from(hop),
+        StftWindow::from_code(window),
     ) else {
         return 0;
     };
-    Stft::new(channels, size, hop).map_or(0, |stft| {
+    Stft::new(channels, size, hop, window).map_or(0, |stft| {
         with_objects(|objects| objects.analysis.stfts.insert(stft))
     })
 }
@@ -397,10 +401,14 @@ mod tests {
 
     #[test]
     fn transforms_frames_through_buffers_and_refuses_rather_than_trapping() {
-        assert_eq!(ag_stft_create(0, 64, 16), 0);
-        assert_eq!(ag_stft_create(1, 48, 16), 0);
-        assert_eq!(ag_stft_create(1, 64, 65), 0);
-        let stft = ag_stft_create(2, 8, 4);
+        assert_eq!(ag_stft_create(0, 64, 16, 0), 0);
+        assert_eq!(ag_stft_create(1, 48, 16, 0), 0);
+        assert_eq!(ag_stft_create(1, 64, 65, 0), 0);
+        assert_eq!(ag_stft_create(1, 64, 16, 2), 0);
+        let blackman_harris = ag_stft_create(1, 64, 16, 1);
+        assert_ne!(blackman_harris, 0);
+        assert_eq!(ag_stft_release(blackman_harris), STATUS_DONE);
+        let stft = ag_stft_create(2, 8, 4, 0);
         let samples = ag_buffer_create(16);
         let spectra = ag_buffer_f64_create(20);
         let short = ag_buffer_f64_create(19);

@@ -185,6 +185,17 @@ export default defineConfig<SuiteOptions>({
       testMatch: /recording\.spec\.ts/,
     },
     {
+      // Spectral editing in the Spectral Repair workspace: an area selected by
+      // pointer and from the keyboard, attenuated and healed, compared with
+      // before, undone and found again after a reload, and the lasso and the
+      // brush drawing the same mask from the same stroke (the packet's
+      // `test:e2e:spectral`). WebGL is switched off, so the spectrogram the
+      // suite reads by pixel is drawn by the reduced renderer, Canvas 2D.
+      name: 'chromium-spectral',
+      use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--disable-webgl'] } },
+      testMatch: /spectral\.spec\.ts/,
+    },
+    {
       // Every worker under the page's security policy: the storage and
       // inference workers each refused a fetch from another origin. The second
       // test installs a model pack, so the build must carry the packs
@@ -423,6 +434,20 @@ export default defineConfig<SuiteOptions>({
         'pnpm --filter @audiogubbins/web exec vite --config ml-golden.vite.config.ts --host 127.0.0.1 --port 4175 --strictPort',
       url: 'http://127.0.0.1:4175/',
       name: 'ml golden harness',
+      stdout: 'pipe',
+      stderr: 'pipe',
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // The renderer harness (`tests/e2e/renderer-harness/`), on a development
+      // server of its own, which builds nothing: the editor's renderer on the
+      // editor's canvases, drawing the field batches the renderer suites read
+      // back by pixel on every backend the browser offers.
+      command:
+        'pnpm --filter @audiogubbins/web exec vite --config renderer-harness.vite.config.ts --host 127.0.0.1 --port 4176 --strictPort',
+      url: 'http://127.0.0.1:4176/',
+      name: 'renderer harness',
       stdout: 'pipe',
       stderr: 'pipe',
       reuseExistingServer: false,
