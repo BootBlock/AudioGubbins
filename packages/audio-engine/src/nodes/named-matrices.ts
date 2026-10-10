@@ -120,8 +120,11 @@ function fixedMatrix(definition: FixedMatrix): MatrixDefinition {
   };
 }
 
-const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
-  [NamedMatrix.Bs775FiveOneToStereo]: fixedMatrix({
+/** A matrix written for one pair of layouts, rather than for a family of them. */
+export type FixedNamedMatrix = Exclude<NamedMatrix, typeof NamedMatrix.AmbisonicConversion>;
+
+const FIXED: Readonly<Record<FixedNamedMatrix, FixedMatrix>> = {
+  [NamedMatrix.Bs775FiveOneToStereo]: {
     input: StandardLayouts.surround5_1,
     output: StandardLayouts.stereo,
     converts:
@@ -147,8 +150,8 @@ const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
         ],
       },
     ],
-  }),
-  [NamedMatrix.MidSideEncode]: fixedMatrix({
+  },
+  [NamedMatrix.MidSideEncode]: {
     input: StandardLayouts.stereo,
     output: MID_SIDE,
     converts: 'from stereo (left, right) to mid and side (labelled "mid", "side")',
@@ -168,8 +171,8 @@ const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
         ],
       },
     ],
-  }),
-  [NamedMatrix.MidSideDecode]: fixedMatrix({
+  },
+  [NamedMatrix.MidSideDecode]: {
     input: MID_SIDE,
     output: StandardLayouts.stereo,
     converts: 'from mid and side (labelled "mid", "side") to stereo (left, right)',
@@ -189,9 +192,28 @@ const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
         ],
       },
     ],
-  }),
+  },
+};
+
+const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
+  [NamedMatrix.Bs775FiveOneToStereo]: fixedMatrix(FIXED[NamedMatrix.Bs775FiveOneToStereo]),
+  [NamedMatrix.MidSideEncode]: fixedMatrix(FIXED[NamedMatrix.MidSideEncode]),
+  [NamedMatrix.MidSideDecode]: fixedMatrix(FIXED[NamedMatrix.MidSideDecode]),
   [NamedMatrix.AmbisonicConversion]: AMBISONIC_CONVERSION,
 };
+
+/**
+ * The layouts a matrix written for one pair converts between, for a caller
+ * that plans a conversion before it builds a node, such as an export that
+ * refuses a matrix its source's layout does not fit before it renders.
+ */
+export function fixedMatrixLayouts(name: FixedNamedMatrix): {
+  readonly input: ChannelLayout;
+  readonly output: ChannelLayout;
+} {
+  const { input, output } = FIXED[name];
+  return { input, output };
+}
 
 const NAMES: readonly string[] = Object.values(NamedMatrix);
 
