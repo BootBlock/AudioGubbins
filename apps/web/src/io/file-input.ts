@@ -15,6 +15,9 @@ export interface FileInputRequest {
 
   /** A whole folder rather than one file. */
   readonly folder?: boolean;
+
+  /** Any number of files rather than one. */
+  readonly multiple?: boolean;
 }
 
 /**
@@ -27,6 +30,7 @@ export function chooseThroughInput(request: FileInputRequest): Promise<readonly 
   input.hidden = true;
   if (request.accept !== undefined) input.accept = request.accept;
   if (request.folder === true) input.webkitdirectory = true;
+  if (request.multiple === true) input.multiple = true;
 
   return new Promise((resolve) => {
     const settle = (files: readonly File[]): void => {
