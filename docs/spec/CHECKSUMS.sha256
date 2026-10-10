@@ -76,7 +76,7 @@ be675310de27a5fbd3d6b7af304a568c68951a4d5e0bbcca3344050d99275ee9 *./generated/co
 8672466441ff85e824bc280e156623a84ef7b4f2880bdeda561abc76911014e6 *./generated/context/phase-11-context.md
 e1144f293a198fe9f5a5ee3f67a9bf6e69679e18d6ebadd50f1fa368a1686718 *./generated/context/phase-12-context.md
 ad1c685ca2bd2e56df8d8301a8c683914a1f3a34d9ae354dbd2d64d173bdd0d7 *./generated/context/phase-13-context.md
-44014bbbd8888f2249c88c062462021d0045f5be9f15bbc2f096703c67c3c5c2 *./generated/context/phase-14-context.md
+f835c6f3b6fed6f99be6d8759fee733f6acc15f563cc57ab4b208cf7fbdc1bea *./generated/context/phase-14-context.md
 52a575ea0fba960f65981d46edea8d1ea96b4b890068af084c0e2296770b320d *./generated/context/phase-15-context.md
 8e561571b12c878fd723bf62ce4cc79a9b37b8ab4dab4699fa17d48e93adc18c *./phases/phase-00-requirements-and-architectural-baseline.md
 3e1ba8804bcb409549ad4c3010654a562ece94b2e123c35af42d91d5f6e6d9c7 *./phases/phase-01-application-foundation.md
@@ -123,6 +123,8 @@ a8cea072942c35f56e03f7d2242758a93476306f60f40ec52a21f2910ea857d7 *./reviews/phas
 08a491d7f7cdfb9c1dec09b6127b1077b556de991349e13a32a10c113ae997dd *./reviews/phase-06-review.md
 e209788d9473d2fb53f002803b656d41764455d954b98a381b0af189e21bf58d *./reviews/phase-07-evidence.md
 37ece96cac64d5e574bc8045003d20ac1e294551300ba9d0cecaf485457e7da2 *./reviews/phase-07-review.md
+f9ceeb84642ec99e90c22a5c3069c39387a618c25d33700858e84c98f5323d6c *./reviews/phase-08-evidence.md
+380afe93c080b341179b8f004e2f3fe868ee67ec4571aa55ab209fe35f082959 *./reviews/phase-08-review.md
 53161c9a24cf223e07368ce980fdfe672be9d24ac55b8eda4b5baf5f2d5f3492 *./reviews/verification-report.md
 9b07335e781d3c7a903d6a160e305658df705399447948ca94b3f397a82414cd *./tools/README.md
 c733f2a0b6031d990f07b58aab1e5c57cf85c2aa0225aaaf7e56fd7ddd8235cd *./tools/build_phase_contexts.py
@@ -139,6 +141,7 @@ c699ae6479a21853ce2f8671cd1a741582231708bfa40dd582dfabef776958ee *./traceability
 27b884b2ebdf723110441ec07a55a5efb83416e5f907580ea8e66c846275dc53 *./traceability/handoffs/phase-05.md
 7a97c4a8d5d53f0d76f622c04ca7c3f5456c8984ecd6a8f36a9ac28813fe08eb *./traceability/handoffs/phase-06.md
 448f97e463743ffad5dfc70ec436a630b7fea082e8075dcec44ed3328fdf9305 *./traceability/handoffs/phase-07.md
+f8187c956e045d0c811b7fb6623dafeca1c99e014f04851177abb196f236282d *./traceability/handoffs/phase-08.md
 7e28bfe71fb5025d925ee19988d0faa6f2bf3d5dd6fe9193ec99ef5248673a35 *./traceability/implementation-ledger.json
 17a8f12917fa9d8a5565503b18e5875f804e6d731c36566e5f9e2e2ef0611ee5 *./traceability/implementation-ledger.md
 18e577b1509f591245b3d3475e2b6982c81709eefaa7d17cc2a57ef0f33b8b28 *./traceability/phase-dependency-graph.json
