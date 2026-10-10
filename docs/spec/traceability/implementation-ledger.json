@@ -329,7 +329,7 @@
     "09": {
       "phase": 9,
       "name": "Import, Export, and Codec System",
-      "status": "NOT_READY",
+      "status": "READY",
       "hard_dependencies": [
         2,
         3,

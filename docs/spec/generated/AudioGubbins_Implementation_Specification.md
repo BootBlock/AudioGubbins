@@ -7378,6 +7378,7 @@ Material changes after implementation begins require a change record identifying
 - **Constraints:** the storage core's packages stay framework-free and take every platform object through their ports, so the worker is only a new composition root; no rule moves. One operation table names each operation with its argument and answer types, and both ends compile from it, so no payload is described twice; the envelopes are read field by field, as the tree's messages were. A failure crosses as the `DomainResult` it is, and a refused tree operation as its kind. The page's mirror of an open project publishes a new snapshot value only when the worker publishes, so identity still marks a change for `useSyncExternalStore`. Tests run the worker's real composition over an in-process pair that structured-clones every message, and a dependency rule keeps the page to the storage package's types.
 - **Change record:** affected requirements `REQ-STOR-021`, `REQ-STOR-098`, `REQ-STOR-193`, `REQ-EXEC-216`; affected phase 02, whose review found the page doing the storage work, and whose owner ruled that it is fixed in Phase 02 rather than Phase 14; compatibility impact none, because nothing persisted changes; verification by the history delta's tests, the port's tests over a structured clone, the application's tests through the client, the dependency rule, cancellation and yield tests for each long path, and a measurement of the page's time for a change and an open at 16,000 changes.
 - **Amended by:** `ADR-0071` (2026-10-09): the storage worker gains the recording area, which receives a capture channel from the capture worklet, writes its chunks, makes a whole recording an asset, and lists interrupted sessions when a project opens. Every other clause stands.
+- **Amended by:** `ADR-0090` and `ADR-0092` (2026-10-10): the storage worker writes the decoded renditions it receives from the codec worker, and keeps the export staging area and delivers from it. Every other clause stands.
 - **Related requirements:** `REQ-STOR-021`, `REQ-STOR-098`, `REQ-STOR-193`, `REQ-EXEC-216`, `REQ-EXEC-136`.
 
 
@@ -7410,6 +7411,7 @@ Material changes after implementation begins require a change record identifying
 - **Drivers:** `REQ-ARCH-141` asks for narrow, documented, typed bindings that do not leak memory ownership through the application. Generated bindings (`wasm-bindgen`) emit JavaScript glue that reads `TextDecoder`, which an AudioWorkletGlobalScope does not have, and pin a command-line tool to the crate's exact version on every contributor's machine. A hand-written ABI of a dozen functions is narrower than generated glue and runs in every scope the engine runs in. The failure path the packet requires ("WASM/accelerator failure must fall back to a documented supported path") is the reference implementation, which `ADR-0032` makes bit-identical.
 - **Constraints:** `unsafe` is allowed in `crates/wasm-bindings` alone, by a crate-level `allow` naming this ADR, and each `unsafe` block states the invariant it relies on. `dsp-core` and `resampling` keep the workspace's `deny`. A module whose ABI version differs, or which lacks an export, is refused with a failure that names what is missing, and the engine runs on the reference path with that reason reported. The build of the module is part of the test setup, so a test never runs against a stale binary.
 - **Change record:** affected requirements `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-REPO-186`; affected phase 03; compatibility impact none; verification by `cargo test --workspace`, the ABI conformance tests in the engine, and the golden tests that run both paths.
+- **Amended by:** `ADR-0091` (2026-10-10): `crates/codec-bindings`, the C ABI of the separate codec module, may hold `unsafe` under the same rules as `crates/wasm-bindings`. Every other clause stands.
 - **Related requirements:** `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-ARCH-049`, `REQ-EXEC-216`.
 
 
@@ -7596,6 +7598,7 @@ Material changes after implementation begins require a change record identifying
 - **Drivers:** `REQ-AUDIO-220` (recognition by content, native rate, chunked and cancellable reading off the UI thread, refusal before storing, the shortfall reported), `REQ-STOR-025` and `REQ-STOR-104` (copy or link, the change policy), `REQ-STOR-166` (the audio shape in provenance), `ADR-0022` (the page reaches storage only through `StorageClient`), `ADR-0030` (sources belong to the engine), `REQ-EXEC-216`.
 - **Constraints:** every read takes an `AbortSignal`, and the header walk is bounded in chunks and in bytes, so a hostile file cannot make a reader read without end or allocate past its chunk. RF64 and BW64 sizes are read as 64-bit values and must fit a safe integer. A file the storage worker answers is a snapshot of a written-once object, never a handle that can write. Phase 09 adds its decoders and writers to this package and introduces no second contract.
 - **Change record:** affected requirements `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`; affected phases 03 (whose source description gains a kind), 04 (whose peak worker reads it) and 09 (which extends this package); compatibility impact none beyond `ADR-0051`'s schema change; verification by the codec fixtures, written by a test writer for every encoding, depth, byte order and form and compared sample for sample, the malformed-media suite, and the import's tests.
+- **Amended by:** `ADR-0090` (2026-10-10): the contract gains the codec registry and capabilities, the in-place readers of the block-coded WAV and AIFF-C encodings, and `SyncAudioBytes` for the codec worker; a file in another compressed format is imported as a decoded rendition read by this contract. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-EXEC-216`.
 
 
@@ -7727,6 +7730,7 @@ Material changes after implementation begins require a change record identifying
 - **Change record:** affected requirements `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`; affected phases 07, which becomes `READY` with this persistence, 02, whose storage worker gains the recording area and whose media recovery is finally run (a Phase 02 gap this review found, given to Phase 07 as inherited debt), 05, whose codecs package gains the recorded-media writer (`ADR-0050` amended), and 09, which keeps every other writer; Phases 02 and 05, already passed, need no remediation beyond that inherited debt. Compatibility impact: the project's storage gains recording sessions and its document gains recorded provenance, raising `projectStorage` and `projectDocument`; no build has shipped. Public API: the storage worker's recording operations in `@audiogubbins/storage-runtime`, the recording area in `@audiogubbins/storage`, `RecoveryChunkManifest` and the recorded provenance in `@audiogubbins/project-format`, and the recorded-media WAV writer in `@audiogubbins/codecs`. Godot interchange and runtime: none. PWA and browser: the storage estimate is read through the capabilities package and never assumed. Verification: recovery tests that stop the writer at every step of a session, a torn chunk, a refused write for quota and a lost device; a round trip of a recorded asset's provenance; the WAV writer's tests against the read contract; and a browser test that reloads mid-recording and recovers.
 - **Amends:** `ADR-0050`, in its clause that every writer is Phase 09's: the recorded-media writer is Phase 07's. `ADR-0020` and `ADR-0022`, whose storage worker gains the recording area. Their other clauses stand.
 - **Amended:** on 2026-10-09, by Phase 07's build: the media store's recovery of an incomplete store runs when the storage worker starts, with the storage-wide lock held alone, which is before any project opens and so before any project's recording sessions are listed. It undoes only the store's own incoming files and the objects its intents name, and a session's chunks and manifest lie under the project, outside the store, so it never runs over a session; a recording cut short while its file was being stored keeps its session and is recovered from its chunks. The manifest also keeps the take the recording was begun for, so a recovered take keeps its name and placement. Every other clause stands.
+- **Amended by:** `ADR-0093` (2026-10-10): exported WAV files state 7.1, 7.1.4 and ambisonic layouts, which the recorded-media writer refused. Every other clause stands.
 - **Related requirements:** `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`.
 
 
@@ -7747,6 +7751,84 @@ Material changes after implementation begins require a change record identifying
 - **Change record:** affected requirements `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`; affected phases 07, which becomes `READY` with this placement, and 05, whose edit model gains the punch edit (`ADR-0051` amended); Phase 05, already passed, needs no remediation. Compatibility impact: the project document gains take stacks and the punch edit, raising its schema version; no build has shipped. Public API: `TakeStack`, `Take` and `PunchRange` in `@audiogubbins/domain`, their persisted form in `@audiogubbins/project-format`, the take commands in `@audiogubbins/project-commands`, and their differences in `@audiogubbins/history`. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with punch edits against the domain's oracle, the take commands' inverse tests and the random command walk, a project round trip of take stacks, and a browser test that punches in, chooses another take, undoes, and reloads.
 - **Amends:** `ADR-0051`, whose chain gains the punch edit and whose assets cannot be removed while a take stack names them. Its other clauses stand.
 - **Related requirements:** `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`.
+
+
+<!-- SOURCE: adr/ADR-0090-codec-registry-and-decoded-renditions.md -->
+
+# ADR-0090 — Codecs Are Registered And Probed, And A Compressed File Becomes An Asset Through A Decoded Rendition
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review extends the read contract of `packages/codecs` (`ADR-0052`) with a registry, and decides how audio in a compressed format becomes an asset.
+  - **The registry.** `packages/codecs` publishes a `CodecDescriptor` for every format it knows: its identity, the containers and codes it covers (recognised from the bytes, never the name), the directions it serves (read, write or both), whether it is lossless, the sample encodings, rates and channel counts it accepts, the implementation that serves it (`application`, the codec module, or the browser), whether that implementation gives the same bytes on every machine, and its licence. The registry is a value built once, never a switch: a new format is a new descriptor and a new implementation of the contract.
+  - **Capability, never assumption.** A `CodecCapability` is what one runtime can do with one descriptor: available, or unavailable with the reason and the formats that serve instead. The application's own codecs and the codec module are available wherever WebAssembly is; a browser implementation is available only where `packages/capabilities` probes it (`AudioDecoder.isConfigSupported`, `AudioEncoder.isConfigSupported`). A format no implementation serves is refused before anything is stored or rendered, with a sentence naming the format and the formats that can be used.
+  - **Read in place where the code allows it.** The compressed codes WAV and AIFF-C carry that are decoded in independent blocks, G.711 A-law and µ-law (WAV codes 6 and 7, AIFF-C `alaw`, `ulaw`, `ALAW`, `ULAW`), IMA ADPCM (WAV code `0x11`, AIFF-C `ima4`) and Microsoft ADPCM (WAV code 2), are read by the application's own readers through the existing `AudioReader`, at any frame, block by block, like uncompressed PCM. MPEG audio in a WAV file (code `0x55`) is decoded as MP3 below. Any other code is refused with its name.
+  - **A decoded rendition for every other compressed format.** FLAC, MP3, Ogg Vorbis, Opus (in Ogg, WebM or Matroska), ALAC and AAC (in M4A, MP4 or ADTS) cannot be read at an arbitrary frame without decoding from an earlier point, and a decoder's output may change with its version. Importing one decodes it once, from start to end, at the rate the stream states, with the encoder's priming and padding trimmed where the file states them, into a decoded rendition: a 32-bit float WAV file (RF64 past four gibibytes) written by Phase 07's writer (`ADR-0071`) into the content-addressed media store. The asset's media is the rendition, read by every audio thread through the existing reader; the source file is kept as the person chose, copied into the store or linked where it lies (`REQ-STOR-025`), and the asset's provenance records the source's container, codec, rate, channel layout, length, bit rate where stated, and the decoder and its version. A project's sound therefore never changes because a decoder was updated (`REQ-ARCH-049`), and a reader of a rendition seeks exactly.
+  - **The codec worker.** Decoding and encoding run in a dedicated codec worker, never on the page and never in the storage worker, whose writes must not wait on a decode. The codec worker reads a source through `SyncAudioBytes`, a synchronous ranged read that a worker can give over a file (`FileReaderSync`) or an origin-private file (a sync access handle), and posts decoded blocks to the storage worker over a message channel; only the storage worker writes (`ADR-0022`). The page sends commands and receives progress; no sample passes through it.
+  - **Import analysis.** Before anything is stored, an import is analysed: the format is recognised, the stream's description read from its headers, and the storage it will need stated (the source if copied, and the rendition), against the storage estimate. A file that cannot fit is refused before anything is written. Analysis, copying and decoding report progress in stages and frames, and each takes the import's `AbortSignal`; a cancelled import keeps nothing.
+  - **Batch import.** An `ImportJob` is a list of files from a multiple choice or a folder, run one file at a time in the storage worker with the codec worker decoding ahead by at most one file, each file's outcome reported (imported, refused with the reason, or cancelled) and one failure stopping nothing else. Cancelling stops the file in progress and every file after it.
+  - **Metadata on import.** A file's metadata and loop metadata are read into a `MetadataMap` (`ADR-0093`) and kept in the asset's provenance. Its loops become regions with loops, and its cue points and markers become markers, through project commands, as one change the person can undo.
+- **Drivers:** `REQ-AUDIO-010` (the formats, capability detection and fallbacks), `REQ-ARCH-085` (native rate), `REQ-ARCH-049` and `REQ-ARCH-081` (one answer on every machine), `REQ-AUDIO-220` (the read contract), `REQ-STOR-025` and `REQ-STOR-166`, `REQ-EXEC-216` (a file never fits in memory, quota is never assumed). A reader of MP3, AAC, Vorbis or Opus at an arbitrary frame needs a pre-roll from an earlier point, the decoder's state and the stream's priming, on every audio thread for every seek; a rendition is read like any WAV file. The storage tree has no append and only the storage worker writes, so decoded blocks reach it over a channel, as recorded blocks do (`ADR-0071`).
+- **Constraints:** no format is recognised by its name. No decoder resamples. No file is read whole into memory to analyse, decode or write it. The rendition's channel order is the asset's layout, taken from the stream's stated layout or the codec's channel order (Vorbis, Opus mapping family 1, AAC channel configurations, FLAC's channel assignments). A stream whose decode fails part way is refused whole, and nothing is kept. The read contract stays one contract: renditions and in-place compressed codes are read by `openAudio`.
+- **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-AUDIO-220`, `REQ-ARCH-049`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-166`; affected phases 09, which becomes `READY` with this design, and 02, 05 and 07, already passed, whose storage worker, read contract and writer are extended, needing no remediation. Compatibility impact: the asset's provenance gains the compressed containers, the decoder and the metadata, raising `projectDocument`, with no migration before 1.0 (`REQ-STOR-052`). Public API: `CodecDescriptor`, `CodecCapability`, the registry, `SyncAudioBytes` and the in-place compressed readers in `@audiogubbins/codecs`; `ImportJob` in `@audiogubbins/import-export`; the codec worker in `@audiogubbins/codec-runtime`. Godot interchange and runtime: none. PWA and browser: WebAssembly and WebCodecs are probed, never assumed. Verification: generated fixtures of every in-place code; decodes of every format compared with the expected samples; a rendition's provenance round trip; malformed and truncated files of every format; cancellation at every stage; a batch with refused files.
+- **Amends:** `ADR-0052`, whose read contract gains the registry and the in-place compressed readers, and whose import path gains renditions; `ADR-0022`, whose storage worker writes renditions received from the codec worker. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-AUDIO-220`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-052`, `REQ-STOR-166`, `REQ-EXEC-216`.
+
+
+<!-- SOURCE: adr/ADR-0091-codec-implementations-and-licences.md -->
+
+# ADR-0091 — Each Format Has A Local Codec Where One Is Lawful And Mature, Built In Rust Where It Can Be, And The Browser's Codec Only Adds To It
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review chooses an implementation for every format and direction, so no format depends on one browser's codec where a local one is viable.
+  - **The application's own codecs** (TypeScript in `packages/codecs`): reading and writing WAV, RF64, BW64, AIFF and AIFF-C in every integer depth from 8 to 32 bits, 32- and 64-bit float, G.711 A-law and µ-law, IMA ADPCM and Microsoft ADPCM; the Ogg page writer, the FLAC, MP4 (M4A) and MP3 frame-header writers, and every metadata writer of `ADR-0093`. These give the same bytes on every machine.
+  - **The codec module** (Rust, compiled to one WebAssembly module, `audiogubbins-codecs.wasm`): `crates/codecs` (`audiogubbins-codecs`) decodes through Symphonia (MPL-2.0): FLAC, MP3, Vorbis, AAC-LC and ALAC, and demultiplexes Ogg, MP4/M4A, ADTS, WebM and Matroska; encodes FLAC through `flacenc` (Apache-2.0); and decodes and encodes Opus through a pure-Rust Opus implementation, which the build chooses as the first candidate that decodes the RFC 6716 and RFC 8251 test vectors within `opus_compare`'s conformance threshold, `opus-rs` (BSD-3-Clause) first. `crates/codec-bindings` (`audiogubbins-codec-bindings`) is its narrow C ABI with integer handles, its own ABI version refused on mismatch, and one import, the synchronous read of `ADR-0090`. The module is separate from the DSP module, so the engine never loads a codec it does not use.
+  - **Prebuilt encoders, each a separate file.** No mature, permissively licensed MP3 or Vorbis encoder exists in Rust. MP3 is encoded by LAME 3.100 and Vorbis by libvorbis 1.3.7, as the WebAssembly builds of `wasm-media-encoders` (MIT; LAME is LGPL-2.0, libvorbis BSD-3-Clause), each loaded by the codec worker from its own file only when that format is exported. LAME stays a separate, replaceable module, its licence text and the location of its corresponding source are in the third-party notices, and nothing of it is compiled into AudioGubbins' own code (`REQ-REPO-142`).
+  - **The browser's codecs add, never replace.** WebCodecs decodes HE-AAC and HE-AACv2, which no local decoder serves, where the browser probes support; elsewhere such a file is refused with the reason. AAC-LC is encoded only by the browser's encoder (WebCodecs, `mp4a.40.2`) and written into M4A by the application's own MP4 writer: the only mature, copyright-clean AAC encoder is FFmpeg's (LGPL-2.1), distributed only compiled into a single script that cannot be replaced apart from its loader, FDK-AAC's licence is not free for this project, the pure-Rust encoders are unproven, and the AAC patent position outside the United States is unsettled. Where no browser encoder is found, AAC export is unavailable with that reason, and the dialog offers Opus, Vorbis and MP3. A browser codec is never the only path for FLAC, MP3, Vorbis or Opus.
+  - **The deterministic path.** Every local codec gives the same bytes for the same rendered samples and settings on every machine: WAV, AIFF, FLAC, Opus, MP3 and Vorbis exports are reproducible, and tests hold their hashes. An AAC export made by a browser encoder is not, and its export record says so (`REQ-ARCH-081`). Local codecs are the default for every format they serve.
+- **Drivers:** `REQ-AUDIO-010` (local fallbacks where browsers differ), `REQ-ARCH-141` (Rust preferred for owned WebAssembly, narrow typed bindings, C libraries allowed where licensing, security, portability and determinism are met), `REQ-REPO-142` and `REQ-REPO-033` (licence review, codec patents considered apart from licences), `REQ-ARCH-049` and `REQ-ARCH-081`. No browser encodes FLAC or MP3; only Firefox encodes Vorbis; Firefox encodes no AAC; Opus encoding is missing in Firefox for Android. Symphonia decodes no Opus. The build machine compiles Rust to `wasm32-unknown-unknown` and has no C toolchain for WebAssembly, so a C library enters only as a vetted prebuilt module.
+- **Constraints:** every codec runs in the codec worker. `unsafe` is allowed in `crates/codec-bindings` as in `crates/wasm-bindings`, and nowhere else. A dependency enters only with its licence in the third-party notices, its version pinned, and a test that it builds and runs in the suite. A decoder that fails a fixture fails the build; a decoder's output is never repaired after it.
+- **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-141`, `REQ-REPO-033`, `REQ-REPO-142`; affected phase 09; Phase 03's DSP module and its ABI are unchanged. Compatibility impact: none. Public API: the codec module's ABI in `crates/codec-bindings` and its loader in `@audiogubbins/codec-runtime`. Godot interchange and runtime: the exported WAV, Ogg Vorbis and MP3 files are ordinary files Godot imports (`REQ-GODOT-133`). PWA and browser: the codec module and the two encoders are precached with the application. Verification: `cargo test --workspace`; the Opus conformance vectors, fetched on demand with their hashes (`REQ-REPO-191`); round trips of every lossless format bit for bit; lossy round trips within a stated error against the source; the hashes of local exports; a browser test of AAC export where Chromium encodes it.
+- **Amends:** `ADR-0031`, whose rule that only `crates/wasm-bindings` may hold `unsafe` gains `crates/codec-bindings`. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-141`, `REQ-REPO-033`, `REQ-REPO-142`, `REQ-GODOT-133`.
+
+
+<!-- SOURCE: adr/ADR-0092-export-jobs-settings-and-destinations.md -->
+
+# ADR-0092 — An Export Renders Canonically, Encodes, Stages, And Only Then Delivers Under A Collision Policy
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review places export in a new, portable `packages/import-export` (`@audiogubbins/import-export`), which owns the typed settings, the presets, the job state machines and the collision rules, and takes every effect through injected ports.
+  - **One settings model.** `ExportSettings` is a discriminated record per format: WAV (integer 8, 16, 24 or 32 bits, float 32 or 64, A-law, µ-law, IMA or Microsoft ADPCM; plain, extensible or RF64 by need), AIFF and AIFF-C, FLAC (16, 24 or 32 bits, compression level), MP3 (constant, average or variable bit rate, quality), Ogg Vorbis (quality or nominal bit rate), Opus in Ogg (bit rate, mode, frame length, complexity) and AAC in M4A (bit rate); with, for every format, the sample rate, the channel layout and its conversion, the dither (none, rectangular or triangular, with or without noise shaping), the range (the project, a region, every region, or the selection), the metadata policy and fields (`ADR-0093`), and the file name template. Every value is validated against the format's `CodecDescriptor`, and an invalid setting is refused with the reason, never clamped.
+  - **Presets over the full settings.** An `ExportPreset` is a name and a partial `ExportSettings`; resolving it fills every omitted value from the format's defaults and gives the same typed record the expert controls edit (`REQ-AUDIO-050`). The built-in presets cover game effects (WAV 16-bit at 48 kHz, Ogg Vorbis, Opus), masters (WAV 24-bit and 32-bit float, FLAC) and distribution (MP3 at 320 kbit/s and V0, AAC). The person's own presets are kept in their preferences, raising `userPreferences`. A change to any value in the expert controls is kept as edited settings, never lost to a preset. The default is the highest-quality path for the format: the project's own rate and layout, 32-bit float for WAV and AIFF-C, the highest FLAC depth the source needs, and the highest quality of a lossy format, with no conversion the person did not ask for (`REQ-AUDIO-143`).
+  - **The job.** An `ExportJob` is a state machine: `planned`, `rendering`, `encoding`, `staged`, `delivering`, `delivered`, and `failed` or `cancelled` from any state before `delivered`. The render worker renders the range through the canonical engine at the target rate, with the effect racks, the conversion to the target layout as graph nodes (`ADR-0060`), and the dither as the last step before integer quantisation, from a generator seeded by the job's settings so the same export gives the same bits (`REQ-ARCH-049`). Rendered blocks pass from the render worker to the codec worker, and encoded bytes from the codec worker to the storage worker, over message channels; the page sends commands and receives progress. A batch export is a list of jobs run one at a time, with progress for each and the whole.
+  - **Staged before delivered.** The storage worker writes the encoded body into an export staging area in the origin-private file system; a container whose header depends on the whole stream (FLAC's stream information, MP4's movie box, MP3's information frame) is completed when the stream ends. Delivery then writes header and body to the destination; only a whole delivered file is reported as exported, and an export that fails or is cancelled leaves the destination as it was. A delivery refused for permission or collision keeps the staged file, so the person can retry or choose another destination without rendering again; staging is a cache category removed after delivery and at start, never a root. The storage estimate is checked before rendering, for the staged file.
+  - **Destinations.** A destination is a save dialog's file, a chosen folder, a kept trusted folder, or a download where no dialog exists (`REQ-GODOT-046`). A folder delivery writes through `createWritable`, which replaces a file only when it closes, so no destination is ever half written.
+  - **Collision policy.** `CollisionPolicy` is `prompt` (the default), `overwrite`, `skip` or `rename`, with apply-to-all for the rest of a batch. A collision is decided by the destination's listing at delivery, never assumed. `rename` takes the first free name of the form `name (2).ext` in a stated order, the same answer for the same listing. A trusted destination is a kept folder the person marks trusted; in it, a file that AudioGubbins exported there earlier, unchanged since by its size and the hash its export record holds, is overwritten silently, and any other collision falls to the folder's policy (`REQ-ARCH-054`). Nothing overwrites by default.
+  - **Exports are history, not edits.** A delivered export is recorded as an `ExportRecord` (`REQ-STOR-197`) with its settings, destination kind, file name, size, hash, the codec and its version, whether its bytes are reproducible, and its status; it is never undone, and undo says so (`REQ-STOR-198`).
+  - **The interface.** The Export dialog shows the presets and, disclosed on request, every setting, with what each preset sets; Quick Edit, the region list and the File menu open it with their range. Every action is a command; the dialog, the collision prompt, the progress and the trusted-folder setting say what will happen before it happens.
+- **Drivers:** `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-AUDIO-010`, `REQ-AUDIO-143`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-157`, `REQ-STOR-197`, `REQ-STOR-198`, `REQ-EDIT-014` (per-region and batch export), `REQ-EDIT-008` (Quick Edit's export), `REQ-EXEC-216` (destinations can never be assumed writable or free). The renderer already renders a range in chunks at a target rate through the canonical resampler; the layout conversion nodes exist; no dither exists. A browser file writer replaces a file only on close, and a folder listing is the only evidence of a collision.
+- **Constraints:** `packages/import-export` depends on the domain, the codecs, the project format and the engine's contracts, never on a browser global; Godot's recipes depend on it, never the reverse. No export reads a whole rendered file into memory. Dither never applies to float output, and a 24- or 32-bit integer export dithers only if asked. Export recipes as persistent project objects are Phase 11's (`REQ-GODOT-119`), built on these settings.
+- **Change record:** affected requirements `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-AUDIO-010`, `REQ-AUDIO-143`, `REQ-STOR-197`, `REQ-STOR-198`, `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-GODOT-046`; affected phases 09, and 11 and 13, which build recipes and batches on these contracts. Compatibility impact: the person's preferences gain export presets and trusted folders, raising `userPreferences`; the project's state gains its last export settings, raising `projectDocument`; no migration before 1.0. Public API: `ExportSettings`, `ExportPreset`, `ExportJob`, `CollisionPolicy` in `@audiogubbins/import-export`; the staging area and delivery in `@audiogubbins/storage` and `@audiogubbins/storage-runtime`; the folder destination in `@audiogubbins/browser-storage`. Godot interchange and runtime: trusted overwrite serves rapid iteration (`REQ-ARCH-054`). PWA and browser: dialogs and folders are probed; a download is the fallback. Verification: settings and presets resolving to the same record; dither's bits from its seed; every collision policy over listed folders; a failed, cancelled and refused delivery leaving the destination unchanged; the export record's round trip; a browser test exporting a region to a folder with a collision.
+- **Amends:** `ADR-0022`, whose storage worker gains the export staging area and delivery. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-AUDIO-010`, `REQ-AUDIO-143`, `REQ-ARCH-049`, `REQ-ARCH-157`, `REQ-STOR-197`, `REQ-STOR-198`, `REQ-EXEC-216`.
+
+
+<!-- SOURCE: adr/ADR-0093-metadata-loops-and-channel-layouts-in-files.md -->
+
+# ADR-0093 — One Metadata Map Is Read From And Written To Every Format, With Its Loops And Its Channel Layout
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review gives file metadata one typed model, `MetadataMap` in `packages/codecs`, and a mapping per format in each direction.
+  - **The map.** Text fields with typed keys (title, artist, album, album artist, track and disc numbers, date, genre, comment, copyright, encoder, ISRC, and others a format names, kept by their own key), the Broadcast Wave description (originator, its reference, origination date and time, time reference, coding history), cue points with names, loops (start, length, play count or endless, and direction: forward, alternating or backward), the MIDI unity note and fine tuning, and embedded cover art as bytes with its type. A field a format cannot hold is reported as dropped before an export, never dropped silently.
+  - **The mappings.** WAV: `LIST`/`INFO`, `bext`, `cue ` with `LIST`/`adtl` labels, `smpl` loops, `iXML` read and kept; AIFF and AIFF-C: `NAME`, `AUTH`, `(c) `, `ANNO`, `MARK` and `INST` loops; FLAC: Vorbis comments, `PICTURE`, and a WAV's `smpl` and `cue ` carried in an `APPLICATION` `riff` block where the person keeps them; Ogg Vorbis and Opus: Vorbis comments, with loops as `LOOPSTART` and `LOOPLENGTH`, the convention game engines and tools read; MP3: ID3v2.4 frames (with ID3v2.3 and ID3v1 read), loops as `TXXX` `LOOPSTART` and `LOOPLENGTH`; M4A: the `ilst` atoms. Every reader is bounded in chunks, frames, lengths and nesting, and treats every value as untrusted text or bytes (`REQ-EXEC-136`).
+  - **Loops in frames at the file's rate.** A loop or cue read from a file is in that file's frames; on import it becomes a region with a loop or a marker at the asset's frames, and on export a region's loop is written at the exported rate, scaled by the one rounding rule of the rate conversion, so a loop exported at the project's rate is exact (`REQ-GAME-121`).
+  - **The metadata policy.** An export carries the project's and the region's metadata by its policy: `full`, `minimal` (title and loops only) or `none`, with any field added, edited or removed (`REQ-STOR-166`); AudioGubbins never writes a path, a user name, a machine name or a time zone it was not given.
+  - **Channel layouts in files.** A WAV export states a layout by `WAVE_FORMAT_EXTENSIBLE`'s speaker mask wherever the mask can hold it, including 7.1 with side and back pairs and 7.1.4 with the top speakers, which Phase 07's writer refused; an ambisonic export writes the AmbiX order and normalisation in the extensible form with an empty mask and states them in `iXML`, which the reader honours. AIFF-C states its layout in a `CHAN` chunk. FLAC, Vorbis and Opus write their codec's own channel order and mapping, and AAC its channel configuration, and a layout a format cannot state is refused for that format before rendering, with the formats that can hold it named. No layout is inferred from a channel count alone where the file states one (`REQ-ARCH-157`).
+- **Drivers:** `REQ-AUDIO-010` (metadata, loop metadata, multichannel layouts), `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`, `REQ-GODOT-133`, `REQ-EXEC-136` (imported metadata is untrusted). Phase 07's writer refused `surround7_1`, `surround7_1_4` and every ambisonic layout, which its handoff left with no owner.
+- **Constraints:** the map is a value; the readers and writers are pure functions over it in `packages/codecs`, so every mapping is tested on generated fixtures without a browser. Metadata read on import is kept in the asset's provenance, which provenance stripping already covers.
+- **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`; affected phases 09, and 07, already passed, whose writer's refusal of 7.1, 7.1.4 and ambisonic layouts is resolved here as inherited debt. Compatibility impact: provenance gains the metadata map, within the `projectDocument` raise of `ADR-0090`. Public API: `MetadataMap` and the per-format metadata readers and writers in `@audiogubbins/codecs`. Godot interchange and runtime: the loop conventions Godot and its tools read. PWA and browser: none. Verification: a round trip of every field and loop through every format that holds it; fields a format cannot hold reported; hostile chunks, frames and atoms refused within their bounds; every domain layout through WAV and AIFF-C.
+- **Amends:** `ADR-0071`, whose WAV writer's refusal of layouts no speaker mask holds is replaced by the statement above for exports. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`, `REQ-GODOT-133`, `REQ-EXEC-136`.
 
 
 ---
@@ -9905,15 +9987,15 @@ Create `traceability/handoffs/phase-08.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 02, 03, 05, 06 reaching `PASS`.
+`READY` — its hard dependencies, Phases 02, 03, 05 and 06, are `PASS`, and its readiness review on 2026-10-10 settled its open placements in `ADR-0090`, `ADR-0091`, `ADR-0092` and `ADR-0093`.
 
 ## Objective
 
-Implement the extensible import/export/codec subsystem and deterministic export pipeline for common professional/game formats, broad WAV variants, metadata, multichannel layouts, presets/expert controls, and collision-safe destinations.
+Implement the extensible import/export/codec subsystem and deterministic export pipeline for common professional/game formats, broad WAV variants, metadata, multichannel layouts, presets/expert controls, and collision-safe destinations. Codecs are registered and probed, and a compressed file becomes an asset through a decoded rendition made once in a codec worker (`ADR-0090`); every format has a local codec where one is lawful and mature, in Rust where it can be, and the browser's codec only adds to it (`ADR-0091`); an export renders canonically, encodes, stages and only then delivers under a collision policy (`ADR-0092`); one metadata map, with its loops and the channel layout, is read from and written to every format (`ADR-0093`).
 
 ## User-Visible Outcome
 
-Users can import common audio formats, render projects/regions through the canonical engine, and export high-quality game/professional files using presets or detailed expert settings.
+Users can import common audio formats, render projects/regions through the canonical engine, and export high-quality game/professional files using presets or detailed expert settings. They import one file, many, or a folder, and see each file's format, size and progress, and why any file was refused; the loops and cue points of a file arrive as loops and markers they can undo; they export the project, a region, every region or the selection from the Export dialog, Quick Edit or the region list, with a preset or every setting, into a file, a folder or a trusted folder, and are asked before anything is overwritten unless they chose otherwise.
 
 ## Hard Dependencies
 
@@ -9929,6 +10011,35 @@ Users can import common audio formats, render projects/regions through the canon
 - `REQ-ARCH-054` — Export Collision Policy (`CURRENT`)
 
 Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-010` as `REQ-AUDIO-220` and is Phase 05's (`ADR-0050`); this phase's codecs extend the read contract Phase 05 introduces in `packages/codecs`.
+
+### Requirements Consumed From Other Phases
+
+Owned elsewhere; this phase delivers the part named, or keeps what it asks.
+
+- `REQ-ARCH-004` — Core Architectural Principles (Phase 01): a source file is never changed by import or export; a decoded rendition is derived media.
+- `REQ-ARCH-011` — Audio Precision (Phase 03): export precision is chosen apart from the working precision.
+- `REQ-ARCH-049` and `REQ-ARCH-081` — Deterministic Rendering and Canonical Deterministic Processing (Phase 03): a local export gives the same bytes on every machine; a browser-encoded export is marked as not reproducible.
+- `REQ-ARCH-085` — Native Asset Sample Rates and Future Session Rate (Phase 03): decoding never resamples.
+- `REQ-ARCH-141` — DSP Implementation Languages (Phase 03): the codec module in Rust behind a narrow ABI.
+- `REQ-ARCH-153` — State Ownership and Workflow State (Phase 01): import and export jobs are explicit state machines.
+- `REQ-ARCH-157` — Multichannel, Surround, and Ambisonic Audio (Phase 03): layouts are read, kept, converted and written, never inferred from a count where a file states one.
+- `REQ-AUDIO-143` — Render Quality Policy (Phase 06): export defaults to the highest-quality path for its format.
+- `REQ-AUDIO-145` — Processor Versioning and Reproducibility (Phase 06): the export record names the codec and its version.
+- `REQ-AUDIO-220` — Native-Rate Reading of Uncompressed Audio (Phase 05): its contract, extended.
+- `REQ-EDIT-008` — Editing Modes (Phase 05): Quick Edit's export.
+- `REQ-EDIT-014` — Regions (Phase 05): per-region and batch export, loop settings and metadata.
+- `REQ-EDIT-015` — Channel Editing (Phase 05): no export contract assumes stereo.
+- `REQ-EDIT-072` — Contextual Inspector (Phase 01): the Inspector describes an asset's source and an export job.
+- `REQ-EDIT-073` — Unified Typed Command Architecture (Phase 01): every import, export and collision answer is a command.
+- `REQ-STOR-025`, `REQ-STOR-099` and `REQ-STOR-104` — storage model, content-addressed media and external source identity (Phase 02): copy or link, renditions in the store, the source's identity.
+- `REQ-STOR-052` — Project Schema Compatibility Policy (Phase 02): the raised versions are refused, never migrated, before 1.0.
+- `REQ-STOR-106` — Storage Cleanup Priority (Phase 02): export staging is a cache category.
+- `REQ-STOR-166` — Asset Provenance (Phase 02): the source's codec, metadata and decoder in provenance; metadata stripped or minimised on export.
+- `REQ-STOR-197` and `REQ-STOR-198` — Export Provenance and External Side Effects (Phase 02): exports are history records, never undone.
+- `REQ-GAME-121` — Seamless Loop Analysis (Phase 10): loop metadata is written so loops survive export.
+- `REQ-GODOT-046` and `REQ-GODOT-133` — the download fallback and ordinary Godot-importable files (Phase 11).
+- `REQ-REPO-033` and `REQ-REPO-142` — Source Control and Licensing, Open-Source Licence (Phase 01): every codec's licence and patent position reviewed and noticed.
+- `REQ-UX-005` — User Experience Goals (Phase 01): every import and export action has a keyboard form.
 
 ## Referenced Global Execution Requirements
 
@@ -9949,16 +10060,17 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 
 ## In Scope
 
-- [ ] Codec registry/abstraction
-- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`)
-- [ ] WAV integer/float bit depths and sample rates for writing
-- [ ] Multichannel metadata/layout preservation
-- [ ] Metadata/loop metadata
-- [ ] Import analysis/progress/cancellation for the formats this phase adds, and batch import
-- [ ] Export quality/expert controls
-- [ ] Collision policy
-- [ ] Deterministic/application-owned codecs where required
-- [ ] Streaming/chunked I/O
+- [ ] Codec registry/abstraction: `CodecDescriptor`, `CodecCapability`, the registry and its probes (`ADR-0090`)
+- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`): G.711 and ADPCM read in place, every other compressed format as a decoded rendition, the codec module, the prebuilt MP3 and Vorbis encoders, and AAC export by the browser's encoder where probed (`ADR-0090`, `ADR-0091`)
+- [ ] WAV integer/float bit depths and sample rates for writing: integer 8 to 32 bits, float 32 and 64, G.711 and ADPCM, plain, extensible and RF64, built on Phase 07's writer; AIFF and AIFF-C writing
+- [ ] Multichannel metadata/layout preservation: speaker masks including 7.1 and 7.1.4, ambisonic layouts, `CHAN`, and each codec's channel order (`ADR-0093`)
+- [ ] Metadata/loop metadata: `MetadataMap` and its mapping for every format, in both directions, and the import of loops and cue points as regions and markers (`ADR-0093`)
+- [ ] Import analysis/progress/cancellation for the formats this phase adds, and batch import: the codec worker, `SyncAudioBytes`, the storage needed stated before storing, staged progress, `ImportJob` over many files and folders
+- [ ] Export quality/expert controls: `ExportSettings`, presets, the Export dialog with progressive disclosure, Quick Edit's, the region list's and the File menu's export (`ADR-0092`)
+- [ ] Collision policy: `CollisionPolicy`, apply to all, trusted folders and their silent overwrite of unchanged earlier exports (`ADR-0092`)
+- [ ] Deterministic/application-owned codecs where required: every local export reproducible and held by hashes; dither seeded by the job
+- [ ] Streaming/chunked I/O: rendered and decoded blocks over message channels between workers, staging, and delivery through `createWritable`
+- [ ] Export records in the project's history, with codec, version and reproducibility (`REQ-STOR-197`)
 
 ## Explicitly Out of Scope
 
@@ -9966,39 +10078,54 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - Batch variation generation
 - Cloud encoding
 - Importing uncompressed WAV and AIFF at the native rate, opening the project's assets in the editor, and moving the markers and regions into the project, which are Phase 05's (`ADR-0050`, amending `ADR-0021`)
+- Persistent export recipes as project objects: Phase 11 (`REQ-GODOT-119`), built on this phase's `ExportSettings`
+- A local AAC encoder: none is lawful and mature for this project (`ADR-0091`); AAC export is served by the browser's encoder where one is probed, and refused with alternatives elsewhere
+- HE-AAC decoding without a browser decoder: no local decoder exists (`ADR-0091`)
 
 ## Owned Modules / Packages
 
-- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; Phase 07 adds the recorded-media WAV writer, 32-bit float PCM and RF64, `ADR-0071`; this phase adds its registry, decoders and every other writer, building its WAV writing on Phase 07's, `ADR-0050` amended)
-- `packages/import-export`
-- `packages/export-recipes core`
-- `crates/codec-* as selected`
-- `packages/storage destination adapters`
+- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; Phase 07 adds the recorded-media WAV writer, 32-bit float PCM and RF64, `ADR-0071`; this phase adds its registry, decoders and every other writer, building its WAV writing on Phase 07's, `ADR-0050` amended): the registry, capabilities, in-place compressed readers, `SyncAudioBytes`, the WAV, AIFF and AIFF-C writers, the Ogg, FLAC, MP4 and MP3 framing, and `MetadataMap` with its readers and writers
+- `packages/import-export` (new, portable): `ExportSettings`, `ExportPreset`, `ImportJob`, `ExportJob`, `CollisionPolicy`, dither and quantisation, file naming (`ADR-0092`); the export-recipe core, with no separate package
+- `packages/codec-runtime` (new): the codec worker, the codec module's loader, the prebuilt encoders' loader and the WebCodecs adapters
+- `crates/codecs` and `crates/codec-bindings` (new): the codec module (`ADR-0091`)
+- `packages/storage`, `packages/storage-runtime` and `packages/browser-storage` destination adapters: renditions, export staging, delivery and folder destinations
+- `packages/project-format`: compressed provenance, metadata and the export record's fields; `packages/capabilities`: the codec probes
+- `apps/web`: the import and export commands, the Export dialog, the collision prompt, batch import, trusted folders, and the codec worker's start
 
 ## Cross-Package Dependency Rules
 
 - Codec modules consume audio-stream contracts and storage destinations through public interfaces.
 - Game/Godot-specific policy layers may depend on generic export contracts, not the reverse.
+- `packages/codecs` depends on the domain alone, and stays portable.
+- `packages/import-export` depends on the domain, the codecs, the project format and the engine's contracts, and reads no browser global.
+- `packages/codec-runtime` depends on the codecs and the import-export contracts; only `packages/capabilities` probes the browser's codecs, and only `packages/codec-runtime` calls them.
+- Only the storage worker writes renditions and staged exports; no sample passes through the page.
 
 ## Required Public Contracts
 
-- CodecDescriptor
-- CodecCapability
-- ImportJob
-- ExportJob
-- AudioFormatDescriptor (introduced by Phase 05, `ADR-0050`; extended here)
-- MetadataMap
-- ExportSettings
-- CollisionPolicy
+- CodecDescriptor (`packages/codecs`, `ADR-0090`)
+- CodecCapability (`packages/codecs`, `ADR-0090`)
+- ImportJob (`packages/import-export`, `ADR-0090`)
+- ExportJob (`packages/import-export`, `ADR-0092`)
+- AudioFormatDescriptor (introduced by Phase 05, `ADR-0050`; extended here with the compressed containers and codes)
+- MetadataMap (`packages/codecs`, `ADR-0093`)
+- ExportSettings and ExportPreset (`packages/import-export`, `ADR-0092`)
+- CollisionPolicy (`packages/import-export`, `ADR-0092`)
+- SyncAudioBytes (`packages/codecs`, `ADR-0090`)
+- The codec module's ABI (`crates/codec-bindings`, `ADR-0091`)
 
 ## Data / Schema Changes
 
 - Introduces codec descriptors/capability metadata, import/export job state, typed export settings, metadata/loop metadata mappings and collision-policy records.
+- The asset's provenance gains the compressed source's container and codec, its metadata, and the decoder and its version; the project gains its last export settings; both raise `projectDocument`. The person's preferences gain export presets and trusted folders, raising `userPreferences`. Before 1.0 nothing migrates (`REQ-STOR-052`).
+- The storage gains the export staging area, a cache category.
+- Settled by this phase's readiness review (`ADR-0090` to `ADR-0093`): how a compressed file becomes an asset, which codec serves each format, how an export is staged and delivered, and how metadata and layouts are mapped.
 
 ## Browser / Platform Considerations
 
 - Native codec availability differs by browser; local fallback implementations are required where selected support demands them.
 - External destination filesystem access is capability/permission-sensitive.
+- Assumed nowhere (`REQ-EXEC-216`): WebAssembly, WebCodecs or any codec it serves; a save dialog or a folder picker; write permission that lasts; a file that fits in memory; a sample rate or a channel layout; storage quota for a rendition or a staged export; a destination that is free or may be overwritten. Each is probed or given, and its absence has stated behaviour.
 
 ## Architectural Invariants
 
@@ -10007,42 +10134,51 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - Final render uses canonical processing before encoding.
 - Unsupported formats fail explicitly with alternatives.
 - Exports never silently overwrite unless user policy explicitly allows it.
+- A format is recognised from its bytes, never its name.
+- A project's sound never changes because a decoder changed: compressed sources are heard through their rendition.
+- No sample passes through the page, and no file is held whole in memory.
 
 ## Internal Work Units
 
 ### WU-09.A — Codec contracts and WAV
 
 - [ ] Implement the registry and capability descriptors over Phase 05's read contract, and the streaming write interface
-- [ ] Implement comprehensive WAV writing on Phase 07's recorded-media writer (`ADR-0071`), the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write
+- [ ] Implement comprehensive WAV writing on Phase 07's recorded-media writer (`ADR-0071`), the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write; AIFF and AIFF-C likewise; every domain layout (`ADR-0093`)
 
 ### WU-09.B — Common codecs
 
-- [ ] Integrate legal/open-source codec implementations and browser acceleration where compatible
-- [ ] Implement capability/licence documentation and deterministic-path rules
+- [ ] Integrate legal/open-source codec implementations and browser acceleration where compatible: the codec module (Symphonia, `flacenc`, the conformant Opus), the prebuilt MP3 and Vorbis encoders, the Ogg, FLAC, MP4 and MP3 framing, and the WebCodecs adapters
+- [ ] Implement capability/licence documentation and deterministic-path rules: the probes, the third-party notices, the reproducibility of every local export
 
 ### WU-09.C — Import/export jobs
 
-- [ ] Implement progress/cancellation/worker execution
+- [ ] Implement progress/cancellation/worker execution: the codec worker, renditions, import analysis, batch import, and the export job through render, encode, stage and deliver
 - [ ] Implement resample/bit-depth/dither/channel conversion hooks and maximum-quality default
 
 ### WU-09.D — Presets/expert settings and destinations
 
 - [ ] Implement preset layer over full settings
-- [ ] Implement collision policies, trusted overwrite options and metadata controls
+- [ ] Implement collision policies, trusted overwrite options and metadata controls, the Export dialog, the collision prompt and the import views
 
 ## Failure and Recovery Behaviour
 
 - Malformed/untrusted media must be validated and fail without corrupting project state.
 - Partial export must not be reported as successful.
 - Destination permission loss/collision must preserve source/project and offer retry/new destination.
+- A decode that fails part way keeps nothing; a cancelled import keeps nothing.
+- A staged export survives a refused delivery, so a retry or another destination needs no new render; staging is removed after delivery and at start.
+- A codec module or encoder that fails to load makes its formats unavailable with the reason, and leaves every other format working.
 
 ## Required Verification Commands / Suites
 
-- `pnpm test --filter codecs --filter import-export`
+- `pnpm test:codecs`, which this phase adds: the Vitest projects of `packages/codecs`, `packages/import-export` and `packages/codec-runtime`
 - `cargo test --workspace`
 - `pnpm test:codec-fixtures`
-- `pnpm test:roundtrip-audio`
+- `pnpm test:roundtrip-audio`, which this phase adds: every lossless format bit for bit, every lossy format within a stated error, metadata and loops through every format that holds them
 - `pnpm test:malformed-media`
+- `pnpm test:opus-conformance`, which this phase adds: the RFC 6716 and RFC 8251 vectors, fetched on demand with their hashes
+- `pnpm test:project-roundtrip` and `pnpm test:architecture`
+- `pnpm test:e2e:import-export`, which this phase adds: a Chromium project that imports a compressed file and a folder, exports a region to a folder with a collision, and reloads
 
 ## Acceptance Criteria
 
@@ -10051,6 +10187,8 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - [ ] Import/export does not require loading entire long files into duplicated memory.
 - [ ] Preset and expert settings resolve to the same typed export settings model.
 - [ ] Collision policies are deterministic and safe by default.
+- [ ] Every local export gives the same bytes for the same project and settings on every machine.
+- [ ] A format no implementation serves in a browser is refused before anything is stored or rendered, naming the formats that can be used.
 
 ## Forbidden Shortcuts
 
@@ -10062,6 +10200,8 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - No extension-only format detection.
 - No silent lossy transcoding.
 - No browser codec as the sole path for a format where cross-browser support is required and a local fallback is viable.
+- No second read contract beside `packages/codecs`', and no switch over formats where a descriptor belongs.
+- No decoding on the page or in the storage worker, and no browser decoder for a format a local decoder serves.
 
 ## Required Review Lenses
 
@@ -10081,6 +10221,16 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - ADRs created/changed and evidence that public contracts match them.
 - Verified review findings, remediation commits, and re-review disposition.
 - Screenshots/video/interaction evidence only where automated evidence cannot sufficiently demonstrate the UX behaviour.
+
+## Inherited Debt
+
+Assigned to this phase by earlier handoffs and by this phase's readiness review:
+
+- F-51 (Phase 02): a bundle import whose disposable caches the storage cannot hold fails whole; the import analysis decides what a disposable part may cost, so such caches are skipped and rebuilt, and the import says so.
+- F-192 and F-618 (Phase 01): the diagnostics path rules stop before a date or "and/or", read percent-encoded runs undecoded, and miss a `data:` written with a space after its scheme; imports bring paths into the log in volume, so they are corrected here.
+- The reference picture's sound is extracted assuming at most eight channels (Phase 04): its audio track's real channel count is read by the codec module's demultiplexer before extraction.
+- Phase 07's WAV writer refuses 7.1, 7.1.4 and ambisonic layouts, left with no owner: resolved by `ADR-0093`.
+- The packet's verification named `pnpm test --filter codecs --filter import-export` and `pnpm test:roundtrip-audio`, which did not exist (found by this review): corrected above.
 
 ## Handoff Capsule
 
@@ -11724,7 +11874,7 @@ These identifiers are planning-level verification suites. Implementation phases 
 | 06 — Effect Rack and Core DSP | `PASS` | 03, 05 | 11 | traceability/handoffs/phase-06.md |
 | 07 — Recording | `PASS` | 02, 03, 05, 06 | 10 | traceability/handoffs/phase-07.md |
 | 08 — Spectral Editing | `NOT_READY` | 03, 04, 05, 06 | 1 | — |
-| 09 — Import, Export, and Codec System | `NOT_READY` | 02, 03, 05, 06 | 3 | — |
+| 09 — Import, Export, and Codec System | `READY` | 02, 03, 05, 06 | 3 | — |
 | 10 — Game-Audio Tooling | `NOT_READY` | 05, 06, 09 | 5 | — |
 | 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10 | 29 | — |
 | 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09 | 8 | — |
@@ -11780,4 +11930,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:b91684ed0cdfd50d00e6e5adfe373a1ac00e176339312b45131b423d9ae3d23f`
+`sha256:1739e00c3dccbafddac5dcfb1e2de4a64077fbd52d68f29339b62a681a2cc123`

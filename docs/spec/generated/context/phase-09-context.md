@@ -112,15 +112,15 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 02, 03, 05, 06 reaching `PASS`.
+`READY` — its hard dependencies, Phases 02, 03, 05 and 06, are `PASS`, and its readiness review on 2026-10-10 settled its open placements in `ADR-0090`, `ADR-0091`, `ADR-0092` and `ADR-0093`.
 
 ## Objective
 
-Implement the extensible import/export/codec subsystem and deterministic export pipeline for common professional/game formats, broad WAV variants, metadata, multichannel layouts, presets/expert controls, and collision-safe destinations.
+Implement the extensible import/export/codec subsystem and deterministic export pipeline for common professional/game formats, broad WAV variants, metadata, multichannel layouts, presets/expert controls, and collision-safe destinations. Codecs are registered and probed, and a compressed file becomes an asset through a decoded rendition made once in a codec worker (`ADR-0090`); every format has a local codec where one is lawful and mature, in Rust where it can be, and the browser's codec only adds to it (`ADR-0091`); an export renders canonically, encodes, stages and only then delivers under a collision policy (`ADR-0092`); one metadata map, with its loops and the channel layout, is read from and written to every format (`ADR-0093`).
 
 ## User-Visible Outcome
 
-Users can import common audio formats, render projects/regions through the canonical engine, and export high-quality game/professional files using presets or detailed expert settings.
+Users can import common audio formats, render projects/regions through the canonical engine, and export high-quality game/professional files using presets or detailed expert settings. They import one file, many, or a folder, and see each file's format, size and progress, and why any file was refused; the loops and cue points of a file arrive as loops and markers they can undo; they export the project, a region, every region or the selection from the Export dialog, Quick Edit or the region list, with a preset or every setting, into a file, a folder or a trusted folder, and are asked before anything is overwritten unless they chose otherwise.
 
 ## Hard Dependencies
 
@@ -136,6 +136,35 @@ Users can import common audio formats, render projects/regions through the canon
 - `REQ-ARCH-054` — Export Collision Policy (`CURRENT`)
 
 Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-010` as `REQ-AUDIO-220` and is Phase 05's (`ADR-0050`); this phase's codecs extend the read contract Phase 05 introduces in `packages/codecs`.
+
+### Requirements Consumed From Other Phases
+
+Owned elsewhere; this phase delivers the part named, or keeps what it asks.
+
+- `REQ-ARCH-004` — Core Architectural Principles (Phase 01): a source file is never changed by import or export; a decoded rendition is derived media.
+- `REQ-ARCH-011` — Audio Precision (Phase 03): export precision is chosen apart from the working precision.
+- `REQ-ARCH-049` and `REQ-ARCH-081` — Deterministic Rendering and Canonical Deterministic Processing (Phase 03): a local export gives the same bytes on every machine; a browser-encoded export is marked as not reproducible.
+- `REQ-ARCH-085` — Native Asset Sample Rates and Future Session Rate (Phase 03): decoding never resamples.
+- `REQ-ARCH-141` — DSP Implementation Languages (Phase 03): the codec module in Rust behind a narrow ABI.
+- `REQ-ARCH-153` — State Ownership and Workflow State (Phase 01): import and export jobs are explicit state machines.
+- `REQ-ARCH-157` — Multichannel, Surround, and Ambisonic Audio (Phase 03): layouts are read, kept, converted and written, never inferred from a count where a file states one.
+- `REQ-AUDIO-143` — Render Quality Policy (Phase 06): export defaults to the highest-quality path for its format.
+- `REQ-AUDIO-145` — Processor Versioning and Reproducibility (Phase 06): the export record names the codec and its version.
+- `REQ-AUDIO-220` — Native-Rate Reading of Uncompressed Audio (Phase 05): its contract, extended.
+- `REQ-EDIT-008` — Editing Modes (Phase 05): Quick Edit's export.
+- `REQ-EDIT-014` — Regions (Phase 05): per-region and batch export, loop settings and metadata.
+- `REQ-EDIT-015` — Channel Editing (Phase 05): no export contract assumes stereo.
+- `REQ-EDIT-072` — Contextual Inspector (Phase 01): the Inspector describes an asset's source and an export job.
+- `REQ-EDIT-073` — Unified Typed Command Architecture (Phase 01): every import, export and collision answer is a command.
+- `REQ-STOR-025`, `REQ-STOR-099` and `REQ-STOR-104` — storage model, content-addressed media and external source identity (Phase 02): copy or link, renditions in the store, the source's identity.
+- `REQ-STOR-052` — Project Schema Compatibility Policy (Phase 02): the raised versions are refused, never migrated, before 1.0.
+- `REQ-STOR-106` — Storage Cleanup Priority (Phase 02): export staging is a cache category.
+- `REQ-STOR-166` — Asset Provenance (Phase 02): the source's codec, metadata and decoder in provenance; metadata stripped or minimised on export.
+- `REQ-STOR-197` and `REQ-STOR-198` — Export Provenance and External Side Effects (Phase 02): exports are history records, never undone.
+- `REQ-GAME-121` — Seamless Loop Analysis (Phase 10): loop metadata is written so loops survive export.
+- `REQ-GODOT-046` and `REQ-GODOT-133` — the download fallback and ordinary Godot-importable files (Phase 11).
+- `REQ-REPO-033` and `REQ-REPO-142` — Source Control and Licensing, Open-Source Licence (Phase 01): every codec's licence and patent position reviewed and noticed.
+- `REQ-UX-005` — User Experience Goals (Phase 01): every import and export action has a keyboard form.
 
 ## Referenced Global Execution Requirements
 
@@ -156,16 +185,17 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 
 ## In Scope
 
-- [ ] Codec registry/abstraction
-- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`)
-- [ ] WAV integer/float bit depths and sample rates for writing
-- [ ] Multichannel metadata/layout preservation
-- [ ] Metadata/loop metadata
-- [ ] Import analysis/progress/cancellation for the formats this phase adds, and batch import
-- [ ] Export quality/expert controls
-- [ ] Collision policy
-- [ ] Deterministic/application-owned codecs where required
-- [ ] Streaming/chunked I/O
+- [ ] Codec registry/abstraction: `CodecDescriptor`, `CodecCapability`, the registry and its probes (`ADR-0090`)
+- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`): G.711 and ADPCM read in place, every other compressed format as a decoded rendition, the codec module, the prebuilt MP3 and Vorbis encoders, and AAC export by the browser's encoder where probed (`ADR-0090`, `ADR-0091`)
+- [ ] WAV integer/float bit depths and sample rates for writing: integer 8 to 32 bits, float 32 and 64, G.711 and ADPCM, plain, extensible and RF64, built on Phase 07's writer; AIFF and AIFF-C writing
+- [ ] Multichannel metadata/layout preservation: speaker masks including 7.1 and 7.1.4, ambisonic layouts, `CHAN`, and each codec's channel order (`ADR-0093`)
+- [ ] Metadata/loop metadata: `MetadataMap` and its mapping for every format, in both directions, and the import of loops and cue points as regions and markers (`ADR-0093`)
+- [ ] Import analysis/progress/cancellation for the formats this phase adds, and batch import: the codec worker, `SyncAudioBytes`, the storage needed stated before storing, staged progress, `ImportJob` over many files and folders
+- [ ] Export quality/expert controls: `ExportSettings`, presets, the Export dialog with progressive disclosure, Quick Edit's, the region list's and the File menu's export (`ADR-0092`)
+- [ ] Collision policy: `CollisionPolicy`, apply to all, trusted folders and their silent overwrite of unchanged earlier exports (`ADR-0092`)
+- [ ] Deterministic/application-owned codecs where required: every local export reproducible and held by hashes; dither seeded by the job
+- [ ] Streaming/chunked I/O: rendered and decoded blocks over message channels between workers, staging, and delivery through `createWritable`
+- [ ] Export records in the project's history, with codec, version and reproducibility (`REQ-STOR-197`)
 
 ## Explicitly Out of Scope
 
@@ -173,39 +203,54 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - Batch variation generation
 - Cloud encoding
 - Importing uncompressed WAV and AIFF at the native rate, opening the project's assets in the editor, and moving the markers and regions into the project, which are Phase 05's (`ADR-0050`, amending `ADR-0021`)
+- Persistent export recipes as project objects: Phase 11 (`REQ-GODOT-119`), built on this phase's `ExportSettings`
+- A local AAC encoder: none is lawful and mature for this project (`ADR-0091`); AAC export is served by the browser's encoder where one is probed, and refused with alternatives elsewhere
+- HE-AAC decoding without a browser decoder: no local decoder exists (`ADR-0091`)
 
 ## Owned Modules / Packages
 
-- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; Phase 07 adds the recorded-media WAV writer, 32-bit float PCM and RF64, `ADR-0071`; this phase adds its registry, decoders and every other writer, building its WAV writing on Phase 07's, `ADR-0050` amended)
-- `packages/import-export`
-- `packages/export-recipes core`
-- `crates/codec-* as selected`
-- `packages/storage destination adapters`
+- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; Phase 07 adds the recorded-media WAV writer, 32-bit float PCM and RF64, `ADR-0071`; this phase adds its registry, decoders and every other writer, building its WAV writing on Phase 07's, `ADR-0050` amended): the registry, capabilities, in-place compressed readers, `SyncAudioBytes`, the WAV, AIFF and AIFF-C writers, the Ogg, FLAC, MP4 and MP3 framing, and `MetadataMap` with its readers and writers
+- `packages/import-export` (new, portable): `ExportSettings`, `ExportPreset`, `ImportJob`, `ExportJob`, `CollisionPolicy`, dither and quantisation, file naming (`ADR-0092`); the export-recipe core, with no separate package
+- `packages/codec-runtime` (new): the codec worker, the codec module's loader, the prebuilt encoders' loader and the WebCodecs adapters
+- `crates/codecs` and `crates/codec-bindings` (new): the codec module (`ADR-0091`)
+- `packages/storage`, `packages/storage-runtime` and `packages/browser-storage` destination adapters: renditions, export staging, delivery and folder destinations
+- `packages/project-format`: compressed provenance, metadata and the export record's fields; `packages/capabilities`: the codec probes
+- `apps/web`: the import and export commands, the Export dialog, the collision prompt, batch import, trusted folders, and the codec worker's start
 
 ## Cross-Package Dependency Rules
 
 - Codec modules consume audio-stream contracts and storage destinations through public interfaces.
 - Game/Godot-specific policy layers may depend on generic export contracts, not the reverse.
+- `packages/codecs` depends on the domain alone, and stays portable.
+- `packages/import-export` depends on the domain, the codecs, the project format and the engine's contracts, and reads no browser global.
+- `packages/codec-runtime` depends on the codecs and the import-export contracts; only `packages/capabilities` probes the browser's codecs, and only `packages/codec-runtime` calls them.
+- Only the storage worker writes renditions and staged exports; no sample passes through the page.
 
 ## Required Public Contracts
 
-- CodecDescriptor
-- CodecCapability
-- ImportJob
-- ExportJob
-- AudioFormatDescriptor (introduced by Phase 05, `ADR-0050`; extended here)
-- MetadataMap
-- ExportSettings
-- CollisionPolicy
+- CodecDescriptor (`packages/codecs`, `ADR-0090`)
+- CodecCapability (`packages/codecs`, `ADR-0090`)
+- ImportJob (`packages/import-export`, `ADR-0090`)
+- ExportJob (`packages/import-export`, `ADR-0092`)
+- AudioFormatDescriptor (introduced by Phase 05, `ADR-0050`; extended here with the compressed containers and codes)
+- MetadataMap (`packages/codecs`, `ADR-0093`)
+- ExportSettings and ExportPreset (`packages/import-export`, `ADR-0092`)
+- CollisionPolicy (`packages/import-export`, `ADR-0092`)
+- SyncAudioBytes (`packages/codecs`, `ADR-0090`)
+- The codec module's ABI (`crates/codec-bindings`, `ADR-0091`)
 
 ## Data / Schema Changes
 
 - Introduces codec descriptors/capability metadata, import/export job state, typed export settings, metadata/loop metadata mappings and collision-policy records.
+- The asset's provenance gains the compressed source's container and codec, its metadata, and the decoder and its version; the project gains its last export settings; both raise `projectDocument`. The person's preferences gain export presets and trusted folders, raising `userPreferences`. Before 1.0 nothing migrates (`REQ-STOR-052`).
+- The storage gains the export staging area, a cache category.
+- Settled by this phase's readiness review (`ADR-0090` to `ADR-0093`): how a compressed file becomes an asset, which codec serves each format, how an export is staged and delivered, and how metadata and layouts are mapped.
 
 ## Browser / Platform Considerations
 
 - Native codec availability differs by browser; local fallback implementations are required where selected support demands them.
 - External destination filesystem access is capability/permission-sensitive.
+- Assumed nowhere (`REQ-EXEC-216`): WebAssembly, WebCodecs or any codec it serves; a save dialog or a folder picker; write permission that lasts; a file that fits in memory; a sample rate or a channel layout; storage quota for a rendition or a staged export; a destination that is free or may be overwritten. Each is probed or given, and its absence has stated behaviour.
 
 ## Architectural Invariants
 
@@ -214,42 +259,51 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - Final render uses canonical processing before encoding.
 - Unsupported formats fail explicitly with alternatives.
 - Exports never silently overwrite unless user policy explicitly allows it.
+- A format is recognised from its bytes, never its name.
+- A project's sound never changes because a decoder changed: compressed sources are heard through their rendition.
+- No sample passes through the page, and no file is held whole in memory.
 
 ## Internal Work Units
 
 ### WU-09.A — Codec contracts and WAV
 
 - [ ] Implement the registry and capability descriptors over Phase 05's read contract, and the streaming write interface
-- [ ] Implement comprehensive WAV writing on Phase 07's recorded-media writer (`ADR-0071`), the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write
+- [ ] Implement comprehensive WAV writing on Phase 07's recorded-media writer (`ADR-0071`), the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write; AIFF and AIFF-C likewise; every domain layout (`ADR-0093`)
 
 ### WU-09.B — Common codecs
 
-- [ ] Integrate legal/open-source codec implementations and browser acceleration where compatible
-- [ ] Implement capability/licence documentation and deterministic-path rules
+- [ ] Integrate legal/open-source codec implementations and browser acceleration where compatible: the codec module (Symphonia, `flacenc`, the conformant Opus), the prebuilt MP3 and Vorbis encoders, the Ogg, FLAC, MP4 and MP3 framing, and the WebCodecs adapters
+- [ ] Implement capability/licence documentation and deterministic-path rules: the probes, the third-party notices, the reproducibility of every local export
 
 ### WU-09.C — Import/export jobs
 
-- [ ] Implement progress/cancellation/worker execution
+- [ ] Implement progress/cancellation/worker execution: the codec worker, renditions, import analysis, batch import, and the export job through render, encode, stage and deliver
 - [ ] Implement resample/bit-depth/dither/channel conversion hooks and maximum-quality default
 
 ### WU-09.D — Presets/expert settings and destinations
 
 - [ ] Implement preset layer over full settings
-- [ ] Implement collision policies, trusted overwrite options and metadata controls
+- [ ] Implement collision policies, trusted overwrite options and metadata controls, the Export dialog, the collision prompt and the import views
 
 ## Failure and Recovery Behaviour
 
 - Malformed/untrusted media must be validated and fail without corrupting project state.
 - Partial export must not be reported as successful.
 - Destination permission loss/collision must preserve source/project and offer retry/new destination.
+- A decode that fails part way keeps nothing; a cancelled import keeps nothing.
+- A staged export survives a refused delivery, so a retry or another destination needs no new render; staging is removed after delivery and at start.
+- A codec module or encoder that fails to load makes its formats unavailable with the reason, and leaves every other format working.
 
 ## Required Verification Commands / Suites
 
-- `pnpm test --filter codecs --filter import-export`
+- `pnpm test:codecs`, which this phase adds: the Vitest projects of `packages/codecs`, `packages/import-export` and `packages/codec-runtime`
 - `cargo test --workspace`
 - `pnpm test:codec-fixtures`
-- `pnpm test:roundtrip-audio`
+- `pnpm test:roundtrip-audio`, which this phase adds: every lossless format bit for bit, every lossy format within a stated error, metadata and loops through every format that holds them
 - `pnpm test:malformed-media`
+- `pnpm test:opus-conformance`, which this phase adds: the RFC 6716 and RFC 8251 vectors, fetched on demand with their hashes
+- `pnpm test:project-roundtrip` and `pnpm test:architecture`
+- `pnpm test:e2e:import-export`, which this phase adds: a Chromium project that imports a compressed file and a folder, exports a region to a folder with a collision, and reloads
 
 ## Acceptance Criteria
 
@@ -258,6 +312,8 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - [ ] Import/export does not require loading entire long files into duplicated memory.
 - [ ] Preset and expert settings resolve to the same typed export settings model.
 - [ ] Collision policies are deterministic and safe by default.
+- [ ] Every local export gives the same bytes for the same project and settings on every machine.
+- [ ] A format no implementation serves in a browser is refused before anything is stored or rendered, naming the formats that can be used.
 
 ## Forbidden Shortcuts
 
@@ -269,6 +325,8 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - No extension-only format detection.
 - No silent lossy transcoding.
 - No browser codec as the sole path for a format where cross-browser support is required and a local fallback is viable.
+- No second read contract beside `packages/codecs`', and no switch over formats where a descriptor belongs.
+- No decoding on the page or in the storage worker, and no browser decoder for a format a local decoder serves.
 
 ## Required Review Lenses
 
@@ -288,6 +346,16 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 - ADRs created/changed and evidence that public contracts match them.
 - Verified review findings, remediation commits, and re-review disposition.
 - Screenshots/video/interaction evidence only where automated evidence cannot sufficiently demonstrate the UX behaviour.
+
+## Inherited Debt
+
+Assigned to this phase by earlier handoffs and by this phase's readiness review:
+
+- F-51 (Phase 02): a bundle import whose disposable caches the storage cannot hold fails whole; the import analysis decides what a disposable part may cost, so such caches are skipped and rebuilt, and the import says so.
+- F-192 and F-618 (Phase 01): the diagnostics path rules stop before a date or "and/or", read percent-encoded runs undecoded, and miss a `data:` written with a space after its scheme; imports bring paths into the log in volume, so they are corrected here.
+- The reference picture's sound is extracted assuming at most eight channels (Phase 04): its audio track's real channel count is read by the codec module's demultiplexer before extraction.
+- Phase 07's WAV writer refuses 7.1, 7.1.4 and ambisonic layouts, left with no owner: resolved by `ADR-0093`.
+- The packet's verification named `pnpm test --filter codecs --filter import-export` and `pnpm test:roundtrip-audio`, which did not exist (found by this review): corrected above.
 
 ## Handoff Capsule
 
@@ -407,6 +475,873 @@ The asset must record the file's sample rate, bit depth, sample encoding, channe
 A file in a format this requirement does not cover must be refused before anything is stored, with a message naming its format and the formats that can be read. A malformed file must fail without changing the project. A file whose audio data ends before the length it declares, as a recording cut off by a crash does, must be read to its last whole frame, and the shortfall reported.
 
 The source file's bytes must not change, whether it is copied into the project or linked where it lies.
+
+---
+
+## REQ-ARCH-004 — Core Architectural Principles
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 4 of the pre-hardening baseline
+
+#### 4.1 Local-First
+
+The editor must function primarily on the user's local machine.
+
+Core editing functionality must not depend on:
+
+- A user account
+- A remote application server
+- Cloud storage
+- External processing
+- Mandatory telemetry
+- Uploading audio to third parties
+
+Audio should remain local unless the user explicitly invokes a future online integration.
+
+Future user-configured cloud integrations should be possible through provider-neutral abstractions, but the local project model must never depend on a cloud provider.
+
+---
+
+#### 4.2 Non-Destructive Editing
+
+Non-destructive editing is mandatory.
+
+Original source audio must remain unchanged unless the user explicitly requests a destructive export or replacement workflow.
+
+Edits must be represented as operations and parameters rather than repeatedly rewriting the source audio.
+
+---
+
+#### 4.3 Parametric Editing
+
+The editing architecture shall use a parametric model wherever practical.
+
+Examples include:
+
+- Gain changes
+- Normalisation
+- Equalisation
+- Compression
+- Filters
+- Fades
+- Time ranges
+- Noise-reduction parameters
+- Pitch processing
+- Time stretching
+- Spectral operations
+- Loop definitions
+- Region boundaries
+
+The authoritative project state should be composed of:
+
+- Immutable source assets or source references
+- Parametric edit operations
+- Effect chains
+- Region and marker data
+- Project metadata
+- User configuration
+
+Rendered intermediates, waveform peaks, spectrogram tiles, preview renders, proxies, and other derived data should be treated as disposable caches.
+
+---
+
+#### 4.4 Future Multitrack Readiness
+
+Initial releases shall focus on high-quality single-file and region-based waveform editing.
+
+True multitrack editing is deferred to a later approved phase/specification, but the architecture SHALL remain multitrack-ready from the first production phase.
+
+The initial internal model must therefore avoid assumptions such as:
+
+> one project = one waveform
+
+The domain model should already support concepts such as:
+
+- Projects
+- Assets
+- Clips
+- Regions
+- Tracks
+- Processors
+- Effect chains
+- Buses
+- Routing
+- Automation-ready parameters
+
+Even if some of those concepts are not exposed in the first UI.
+
+---
+
+## REQ-ARCH-011 — Audio Precision
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 11 of the pre-hardening baseline
+
+Recommended baseline:
+
+- 32-bit floating-point working PCM for normal editing and real-time processing
+- Higher precision for offline calculations where materially beneficial
+- Export precision independent of working precision
+- No repeated unnecessary quantisation between operations
+
+Where feasible, users should be given meaningful quality/precision controls rather than being locked to one mode.
+
+---
+
+## REQ-ARCH-049 — Deterministic Rendering
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 49 of the pre-hardening baseline
+
+The application shall aim for deterministic rendering wherever technically practical.
+
+Given identical:
+
+- Source audio
+- Project state
+- Processor settings
+- Export settings
+- Application version
+
+rendered output should be reproducible across supported browsers and machines where feasible.
+
+This requirement should influence DSP, codec, and resampling architecture.
+
+Where browser-native behaviour is not deterministic enough for a required feature, application-owned or WebAssembly-based processing may be preferred.
+
+Any unavoidable sources of platform-dependent variation must be documented.
+
+---
+
+## REQ-ARCH-081 — Canonical Deterministic Processing
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 81 of the pre-hardening baseline
+
+AudioGubbins shall aim for deterministic, reproducible output wherever technically practical.
+
+The long-term canonical processing path should favour application-controlled DSP, resampling, and encoding implementations when that materially improves reproducibility.
+
+Browser-native implementations may be used as accelerators or convenience paths when they meet correctness and reproducibility requirements.
+
+Given identical source data, project state, processing settings, export settings, and AudioGubbins version, the target is bit-identical PCM output across supported machines and browsers wherever feasible.
+
+Where bit-identical behaviour cannot be guaranteed, the cause and expected tolerance must be documented and tested.
+
+---
+
+## REQ-ARCH-085 — Native Asset Sample Rates and Future Session Rate
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 85 of the pre-hardening baseline
+
+During single-asset editing, source assets should retain their native sample rates internally wherever practical.
+
+AudioGubbins must avoid unnecessary resampling merely to conform to a global project rate.
+
+When multitrack sessions are introduced, a session or mix sample rate may be defined while preserving original source assets at their native rates.
+
+Resampling must remain explicit, deterministic, and high quality.
+
+---
+
+## REQ-ARCH-141 — DSP Implementation Languages
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 141 of the pre-hardening baseline
+
+TypeScript remains the primary application, domain, orchestration, and UI language.
+
+Performance-critical, numerically sensitive, safety-critical, or deterministic DSP infrastructure should use WebAssembly where it provides material benefits.
+
+For new AudioGubbins-owned WASM/DSP infrastructure, Rust is the preferred default implementation language because of:
+
+- Memory safety
+- Strong type system
+- Mature WebAssembly support
+- Suitability for deterministic numerical code
+- Strong tooling
+- Good interoperability with generated bindings
+
+This is a default, not an ideological restriction.
+
+Mature C/C++ or other native-code libraries may be used where they provide objectively stronger DSP, codec, numerical, or interoperability capabilities and satisfy licensing, security, maintainability, portability, and deterministic-render requirements.
+
+Language selection must never be made solely because one option is easier or faster for the implementation agent.
+
+Bindings between TypeScript and WASM must use narrow, documented, typed interfaces and avoid leaking implementation-specific memory ownership throughout the application.
+
+---
+
+## REQ-ARCH-153 — State Ownership and Workflow State
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 153 of the pre-hardening baseline
+
+AudioGubbins must not create a single global application store containing all project, UI, renderer, audio, and job state.
+
+State shall be partitioned according to ownership and lifetime, including at least:
+
+- Authoritative project/domain state
+- Persisted command journal/history state
+- User preferences
+- Workspace/layout state
+- Per-editor-view state
+- Ephemeral interaction state
+- Audio-engine runtime state
+- Renderer runtime state
+- Background job state
+- Capability/runtime diagnostics
+
+The typed command/domain layer remains authoritative for meaningful project mutations.
+
+React-facing state libraries may be used for UI-oriented state, but they must not become an alternative domain model or bypass command validation, transactions, undo/redo, persistence, or architectural boundaries.
+
+Explicit state machines should be used where workflows have meaningful lifecycle rules, failure/recovery states, or concurrency constraints—for example recording, export jobs, schema reset/backup flows, project ownership transfer, PWA updates, and long-running model installation—rather than representing complex lifecycle behaviour through scattered booleans.
+
+---
+
+## REQ-ARCH-157 — Multichannel, Surround, and Ambisonic Audio
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 157 of the pre-hardening baseline
+
+AudioGubbins shall support professional multichannel authoring beyond mono and stereo.
+
+The channel model must be layout-aware rather than relying only on channel count. It should be capable of representing, validating, displaying, processing, and exporting layouts such as:
+
+- Mono
+- Stereo
+- LCR
+- Quadraphonic layouts
+- 5.1
+- 7.1
+- Other discrete-channel layouts supported by relevant formats
+- Ambisonic channel sets and ordering/normalisation conventions where supported
+- Custom labelled channel maps
+
+The architecture shall include explicit channel-layout metadata and channel-role identity. Channel order must not be inferred from array position alone when a format or workflow requires semantic channel identity.
+
+Waveform, metering, selection, processor, routing, analysis, export, and future multitrack contracts must all be designed for N-channel operation.
+
+Where a processor cannot support an input layout, it must declare that limitation explicitly and provide a well-defined adaptation policy where one is acoustically valid. Silent downmixing or accidental channel truncation is prohibited.
+
+AudioGubbins should support professional channel-layout operations, including:
+
+- Remapping
+- Reordering
+- Extraction
+- Duplication
+- Downmixing
+- Upmix-assist workflows where appropriate
+- Per-channel gain/polarity/delay
+- Linked and unlinked processing
+- Mid/side and other matrix operations
+- Surround metering
+- Phase/correlation analysis
+- Ambisonic encode/decode/rotate/normalisation utilities where supported
+
+Export recipes must preserve or intentionally transform channel-layout metadata according to explicit user configuration.
+
+---
+
+## REQ-AUDIO-143 — Render Quality Policy
+
+- **Owner:** Phase 06 — Effect Rack and Core DSP
+- **Scope:** `CURRENT`
+- **Legacy source:** section 143 of the pre-hardening baseline
+
+Final rendering and export shall default to the highest-quality practical processing path appropriate to the selected output format and operation.
+
+The final-render path should prioritise:
+
+1. Signal quality
+2. Determinism/reproducibility
+3. Numerical correctness
+4. Preservation of source fidelity
+5. Robustness
+6. Performance
+
+Performance must not be prioritised over final quality merely to reduce render time.
+
+Users must retain control over quality/performance trade-offs.
+
+Where meaningful, rendering should expose presets such as:
+
+- Draft
+- Standard
+- High
+- Maximum
+- Custom
+
+The normal default for final export should favour High or Maximum quality according to the processor/format, while preview workflows may use lower-latency paths.
+
+Advanced settings should expose the actual underlying parameters rather than presenting opaque quality labels only.
+
+Any non-deterministic or platform-native fast-render path must be explicitly identified and must not silently replace the canonical deterministic render path.
+
+---
+
+## REQ-AUDIO-145 — Processor Versioning and Reproducibility
+
+- **Owner:** Phase 06 — Effect Rack and Core DSP
+- **Scope:** `CURRENT`
+- **Legacy source:** section 145 of the pre-hardening baseline
+
+Processor identity and implementation version shall be persisted as part of authoritative project state where the processor's behaviour can affect rendered output.
+
+At minimum, reproducibility metadata should be capable of identifying:
+
+- Processor type
+- Processor implementation version
+- Parameter schema version
+- Relevant model version for ML processors
+- Relevant codec/resampler implementation version where necessary
+- Render-engine version or compatibility level where necessary
+
+Before version 1.0.0, the existing pre-1.0 breaking-change policy applies: legacy processor compatibility layers are not required, and incompatible stored data may require backup/export followed by reset.
+
+From version 1.0.0 onward, AudioGubbins must deliberately manage processor evolution so that opening an older project does not silently alter its sound.
+
+Post-1.0 strategies may include:
+
+- Retaining compatible legacy implementations
+- Explicit processor migration
+- Version-pinned rendering
+- User-visible upgrade comparison
+- Render-freezing/archive workflows
+
+Silent sonic changes caused solely by an application upgrade are not acceptable after 1.0.0.
+
+---
+
+## REQ-EDIT-008 — Editing Modes
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** section 8 of the pre-hardening baseline
+
+#### 8.1 Project Mode
+
+A full project-oriented workflow with persistent project state.
+
+#### 8.2 Quick Edit Mode
+
+The user may choose a lightweight Quick Edit workflow.
+
+Quick Edit should allow the user to:
+
+- Open a file
+- Edit it
+- Preview changes
+- Export it
+
+without forcing explicit project-management steps.
+
+Internally, Quick Edit may still use the same project model to preserve architectural consistency.
+
+---
+
+## REQ-EDIT-014 — Regions
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** section 14 of the pre-hardening baseline
+
+A single source asset may contain multiple independently editable regions.
+
+Regions may support:
+
+- Independent names
+- Independent boundaries
+- Independent processing
+- Shared processing chains
+- Per-region export
+- Batch export
+- Loop settings
+- Metadata
+
+Example:
+
+- `footstep_grass_01`
+- `footstep_grass_02`
+- `footstep_grass_03`
+
+A long source recording should be capable of producing many separately exported game-audio assets.
+
+---
+
+## REQ-EDIT-015 — Channel Editing
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** section 15 of the pre-hardening baseline
+
+The editor shall support:
+
+- Separate left/right waveform rendering
+- Per-channel selection
+- Per-channel editing
+- Stereo to mono conversion
+- Mono to stereo conversion
+- Channel swapping
+- Copying one channel to another
+- Channel balancing
+- Additional channel operations where useful
+
+AudioGubbins shall support channel layouts beyond mono/stereo as a real authoring capability, not merely as a future-compatible data model.
+
+The channel architecture must support arbitrary labelled channel layouts where the container/codec and browser/runtime capabilities permit them, including surround and ambisonic workflows. Stereo remains a common default, but no core editing, metering, processor, project, renderer, or export contract may assume that an asset contains at most two channels.
+
+---
+
+## REQ-EDIT-072 — Contextual Inspector
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 72 of the pre-hardening baseline
+
+A contextual Inspector shall be a core workspace concept.
+
+Depending on selection, it may expose properties for:
+
+- Assets
+- Regions
+- Clips
+- Markers
+- Loop definitions
+- Channels
+- Processors
+- Effect racks
+- Recording configuration
+- Export jobs
+- Future tracks/buses/automation objects
+
+Direct manipulation in the editor and property editing in the Inspector must update the same underlying domain state.
+
+---
+
+## REQ-EDIT-073 — Unified Typed Command Architecture
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 73 of the pre-hardening baseline
+
+Every meaningful application action should invoke a shared typed command system.
+
+This includes actions initiated from:
+
+- Menus
+- Context menus
+- Toolbars
+- Keyboard shortcuts
+- Command palette
+- Touch UI
+- Gestures
+- Inspector controls
+- Guided workflows
+- Future macros
+- Future scripting/plugin APIs
+
+The command architecture should support:
+
+- Validation
+- Target resolution
+- Undo/redo integration
+- Transaction grouping
+- Telemetry-free diagnostics
+- Testing
+- Accessibility
+- Command discovery
+- Future automation
+
+UI components must not bypass the command/domain layer for convenience.
+
+---
+
+## REQ-STOR-025 — Storage Model
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 25 of the pre-hardening baseline
+
+The application should use a hybrid storage model.
+
+Working project data should primarily use browser-managed persistent storage such as OPFS where available.
+
+The system should support:
+
+- Internal project storage
+- External file references
+- Imported copies
+- Portable project bundles
+- User-configurable source handling
+- Capability-based directory access
+
+The user should be able to choose whether imported source assets are:
+
+- Copied into managed project storage
+- Referenced externally
+
+The application should clearly explain trade-offs.
+
+---
+
+## REQ-STOR-099 — Content-Addressed Media Storage and Deduplication
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 99 of the pre-hardening baseline
+
+AudioGubbins should support internal content-addressed media storage so that byte-identical imported source media can be shared across multiple local projects without unnecessary duplication.
+
+The deduplication system should:
+
+- Identify identical media by cryptographic content identity rather than filename
+- Preserve logical project ownership/reference metadata independently of physical storage
+- Maintain reference counts or equivalent reachability information
+- Never remove media that is still reachable from an active project, retained history, backup, recovery state, or protected snapshot
+- Support deterministic garbage collection
+- Remain transparent to ordinary project editing workflows
+
+Deduplication is an internal storage optimisation and must not prevent projects from being exported as fully self-contained portable bundles.
+
+Users should be able to request project consolidation/materialisation when they want all linked/shared media copied into a self-contained project representation.
+
+---
+
+## REQ-STOR-104 — External Source Identity and Integrity Tracking
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 104 of the pre-hardening baseline
+
+Externally linked source media shall not be identified solely by filename or path.
+
+AudioGubbins should track a combination of available identity signals, including where practical:
+
+- Persistent filesystem handle or equivalent capability token
+- File size
+- Modification timestamp
+- Media/container metadata
+- Fast fingerprints
+- Cryptographic content hashes
+
+For very large media, full cryptographic hashing may be performed progressively in the background when immediate full hashing would harm responsiveness.
+
+The project should retain enough identity information to distinguish:
+
+- The same unchanged file
+- A modified version of the same external file
+- A moved/relinked copy with identical content
+- A different file occupying the previous path
+
+External-change detection must integrate with the configurable external-source change policy defined elsewhere in this specification.
+
+---
+
+## REQ-STOR-052 — Project Schema Compatibility Policy
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 52 of the pre-hardening baseline
+
+#### Pre-1.0.0
+
+Before version 1.0.0, the project and storage schemas are explicitly allowed to break.
+
+The application must not accumulate backwards-compatibility shims or migration code during this period.
+
+When a breaking schema change is detected, the application shall present a blocking compatibility screen that clearly explains that the current stored data is incompatible with the new schema.
+
+The user must be able to choose, where technically possible, to:
+
+- Back up/export current data before proceeding
+- Cancel and remain on the current state
+- Proceed and wipe incompatible local application data
+
+After wipe, the application shall initialise storage using the current schema.
+
+#### Version 1.0.0 and Later
+
+From 1.0.0 onward, backwards-compatible project/schema migration becomes a supported product responsibility.
+
+Migration infrastructure should then include:
+
+- Versioned schemas
+- Explicit migration steps
+- Validation
+- Recovery/failure handling
+- Migration tests
+- Preservation of user project data wherever technically possible
+
+---
+
+## REQ-STOR-106 — Storage Cleanup Priority
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 106 of the pre-hardening baseline
+
+When storage pressure occurs, AudioGubbins should reclaim data in a safety-first order.
+
+The default cleanup priority should be approximately:
+
+1. Regenerable temporary data
+2. Old disposable render/analysis caches
+3. Rebuildable waveform/spectrogram caches
+4. Unprotected redundant intermediates
+5. User-approved expired backup/history data according to retention policy
+6. Explicitly purged deleted media
+
+Authoritative project state and live source media must never be silently sacrificed to free storage.
+
+Before any cleanup that reduces recoverability, AudioGubbins must explain the consequence and require the user or an explicitly configured policy to authorise it.
+
+---
+
+## REQ-STOR-166 — Asset Provenance and Traceability
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 166 of the pre-hardening baseline
+
+AudioGubbins should retain structured provenance for assets and generated outputs so that developers and sound designers can determine how a game-ready audio file was produced.
+
+Provenance may include:
+
+- Original filename
+- Original source reference/handle where appropriate
+- Import date/time
+- Source fingerprint/hash
+- Source size and format
+- Source sample rate, bit depth, channel layout, and duration
+- Originating AudioGubbins project and project identifier
+- Asset/region identifiers
+- Processing graph and processor-version references
+- Relevant render/export recipe identifier
+- Export date/time
+- Destination information
+- Generated Godot resource identifiers
+- Variation-set/event membership
+- Application version used for render
+- Determinism/render-quality mode
+- ML model version where applicable
+
+Provenance must be represented as structured project metadata rather than inferred from filenames.
+
+Users must be able to strip or minimise provenance and embedded metadata during export where privacy, distribution, or file-size requirements make that desirable.
+
+Provenance metadata must not require network services and must remain compatible with local-first operation.
+
+For deterministic or Git-friendly project modes, provenance serialisation should use stable ordering and avoid meaningless timestamp churn where the timestamp itself is not semantically required.
+
+---
+
+## REQ-STOR-197 — Export Provenance in Project History
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 197 of the pre-hardening baseline
+
+Export operations shall be recorded as provenance/history events but shall not be treated as ordinary reversible audio-edit mutations.
+
+Export provenance should record, where applicable:
+
+- Source project-state fingerprint/history node.
+- Export recipe identifier/version.
+- Render-engine/processor versions.
+- Output format/settings.
+- Target path or logical destination.
+- Output fingerprint/hash where practical.
+- Godot target/project linkage.
+- Timestamp.
+- Result status.
+
+This shall allow a user to answer questions such as:
+
+> Which project state and settings produced this game asset?
+
+Normal Undo must not misleadingly imply that it can reliably remove or reverse arbitrary external filesystem side effects.
+
+---
+
+## REQ-STOR-198 — External Side Effects and Undo Semantics
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 198 of the pre-hardening baseline
+
+Internal project edits that lead to an external operation remain fully subject to the normal non-destructive history model.
+
+External side effects, such as writing or overwriting files in a Godot project, must use explicit transactional/recovery behaviour where technically possible.
+
+Rules:
+
+- Never claim an external operation is undoable when it is not reliably reversible.
+- Preserve pre-write data or recovery metadata where practical and proportionate.
+- Clearly distinguish internal undo from external recovery/revert operations.
+- Batch external writes should use explicit transaction boundaries where possible.
+- Partial external failures must be surfaced and reconciled rather than hidden.
+- Provenance must retain enough information to diagnose what was written and from which project state.
+
+---
+
+## REQ-GAME-121 — Seamless Loop Analysis and Validation
+
+- **Owner:** Phase 10 — Game-Audio Tooling
+- **Scope:** `CURRENT`
+- **Legacy source:** section 121 of the pre-hardening baseline
+
+Loop authoring shall include automatic quality analysis and diagnostics.
+
+Potential checks include:
+
+- Boundary discontinuity.
+- DC mismatch.
+- Level mismatch.
+- Phase mismatch.
+- Click/transient risk.
+- Zero-crossing proximity.
+- Spectral discontinuity.
+- Crossfade suitability.
+- Repeated-cycle stability.
+
+AudioGubbins should be able to suggest candidate loop boundaries and appropriate micro-crossfades where beneficial while preserving user control.
+
+Loop preview should support repeated cycling and stress-testing of the boundary.
+
+Where target formats or Godot integration support loop metadata, exported configuration should preserve the intended loop semantics.
+
+---
+
+## REQ-GODOT-046 — Godot Integration Capability Strategy
+
+- **Owner:** Phase 11 — Godot Integration
+- **Scope:** `CURRENT`
+- **Legacy source:** section 46 of the pre-hardening baseline
+
+Deep Godot integration shall use progressive enhancement.
+
+Where browser filesystem capabilities permit, the application may provide direct project-folder access and export/synchronisation workflows.
+
+Where those capabilities are unavailable, the core editor must remain fully usable and provide equivalent export/download workflows without reducing the editor to the lowest common denominator.
+
+Direct filesystem integration is an enhancement, not a prerequisite for core editing.
+
+---
+
+## REQ-GODOT-133 — Runtime Independence and Open Asset Principle
+
+- **Owner:** Phase 11 — Godot Integration
+- **Scope:** `CURRENT`
+- **Legacy source:** section 133 of the pre-hardening baseline
+
+AudioGubbins-rendered audio must remain ordinary usable audio assets.
+
+The runtime addon must not trap rendered media in a proprietary package that makes the underlying files unusable without AudioGubbins.
+
+If the runtime addon is removed:
+
+- Rendered WAV/Ogg/MP3/etc. assets remain valid ordinary Godot-importable files.
+- AudioGubbins source projects remain valid outside Godot.
+- Only AudioGubbins-specific event/variation/runtime behaviour is lost.
+
+Generated AudioGubbins runtime resources must be documented and versioned.
+
+The runtime layer should favour Godot-native resources and APIs where that improves interoperability and inspectability.
+
+---
+
+## REQ-REPO-033 — Source Control and Licensing
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 33 of the pre-hardening baseline
+
+The project will be:
+
+- Open source
+- Hosted on GitHub
+
+Dependency selection must therefore consider:
+
+- Licence compatibility
+- Redistribution rights
+- Codec licensing
+- Patent implications where relevant
+- Long-term maintainability
+- Project health
+
+---
+
+## REQ-REPO-142 — Open-Source Licence
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 142 of the pre-hardening baseline
+
+AudioGubbins shall use the **Apache License 2.0** as the default project licence unless a later explicit project decision changes it.
+
+This choice is intended to preserve permissive commercial and non-commercial reuse while providing an explicit patent licence/grant suitable for a project expected to include DSP, codecs, WebAssembly, and external contributors.
+
+Dependency selection must include explicit licence review.
+
+The project must maintain machine-readable and human-readable third-party attribution/licence information where required.
+
+Dependencies with reciprocal/copyleft obligations must be evaluated deliberately before adoption. No implementation agent may introduce a dependency whose licence materially changes redistribution obligations for AudioGubbins without documenting the implications and passing the relevant architecture/licensing review gate.
+
+Codec patent/licensing status must be considered separately from source-code licence compatibility.
+
+---
+
+## REQ-UX-005 — User Experience Goals
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 5 of the pre-hardening baseline
+
+The application shall behave as a modern, sleek, visually rich multimedia application rather than a conventional form-based web application.
+
+The UX should support:
+
+- Mouse
+- Keyboard
+- Touch
+- Pen/stylus where available
+- Hybrid devices
+- Surface-class devices
+- Desktop
+- Laptop
+- Tablet
+- Mobile
+
+The interface should support professional desktop-style interaction patterns where appropriate, including:
+
+- Menu systems
+- Toolbars
+- Context menus
+- Dockable or resizable panels
+- Drag and drop
+- Keyboard shortcuts
+- Command palette
+- Status and transport controls
+- Timeline interactions
+- Touch-friendly controls
+- Responsive layout adaptation
+- Smooth animations and transitions
+
+Accessibility must remain a first-class requirement.
+
+Highly visual editing modes may use specialised interactions, but keyboard-operable and semantic alternatives should be provided wherever realistically possible.
 
 ---
 
@@ -1063,7 +1998,71 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 ---
 
+## REQ-GODOT-119 — Persistent Export Recipes
+
+- **Owner:** Phase 11 — Godot Integration
+- **Scope:** `CURRENT`
+- **Legacy source:** section 119 of the pre-hardening baseline
+
+Export configurations shall be first-class persistent project objects rather than transient dialog state.
+
+An export recipe may define:
+
+- Output format.
+- Codec settings.
+- Sample rate.
+- Bit depth or quality.
+- Channel layout.
+- Dithering policy where relevant.
+- Processing/render-quality overrides.
+- Naming template.
+- Folder template.
+- Target project.
+- Target platform/profile.
+- Collision behaviour.
+- Live-export policy.
+- Godot integration metadata.
+- Runtime-resource generation policy.
+- Inclusion in rebuild-all operations.
+
+One source asset, region, or variation set may reference multiple export recipes.
+
+This shall support one authoritative source producing multiple platform/game outputs without duplicating edit graphs.
+
+---
+
 # Relevant Accepted ADRs
+
+<!-- adr/ADR-0001-web-stack.md -->
+
+# ADR-0001 — Web Application Stack
+
+- **Status:** Accepted
+- **Decision:** Use React 19.x + TypeScript + Vite 8.x for the web shell, Radix Primitives for accessible low-level controls, Dockview behind an AudioGubbins-owned workspace abstraction, and Motion for React for application-shell animation.
+- **Drivers:** rich professional UI, accessibility, mature ecosystem, dockable workspaces, strong animation, static/PWA deployment.
+- **Constraints:** React must not own high-frequency audio/render state or authoritative project state. Domain packages remain framework-agnostic.
+- **Related requirements:** `REQ-ARCH-151`, `REQ-ARCH-153`, `REQ-UX-057`, `REQ-EDIT-073`.
+- **Superseded in part:** the animation clause, by `ADR-0014`. Motion for React is not installed until a component imports it.
+
+<!-- adr/ADR-0002-project-persistence.md -->
+
+# ADR-0002 — Local-First Project Persistence
+
+- **Status:** Accepted
+- **Decision:** Use an application-owned versioned project model with browser-managed persistent storage (OPFS where available), content-addressed media storage, external-source adapters, a command journal, immutable snapshots, portable bundles, and deterministic unpacked/Git-friendly projects.
+- **Drivers:** local-first operation, recoverability, unlimited/branching history, large media, project portability, developer workflows.
+- **Constraints:** caches are disposable; one project has one writer per storage context; external changes are detected; encryption is out of scope.
+- **Related requirements:** `REQ-STOR-025`, `REQ-STOR-026`, `REQ-STOR-098` through `REQ-STOR-106`, `REQ-STOR-193` through `REQ-STOR-200`.
+
+<!-- adr/ADR-0003-audio-engine-wasm.md -->
+
+# ADR-0003 — Canonical Audio Engine and WASM Strategy
+
+- **Status:** Accepted
+- **Decision:** Use Web Audio/AudioWorklet for real-time browser I/O and a typed processing graph, with Rust as the default language for new performance/safety-critical canonical DSP compiled to WebAssembly. Mature C/C++/other libraries may be used when objectively superior and licence-compatible.
+- **Drivers:** deterministic rendering, performance, numerical correctness, local processing, portability.
+- **Constraints:** SharedArrayBuffer/threaded WASM is an enhancement, not a GitHub Pages hard dependency. Final render defaults to maximum quality.
+- **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`.
 
 <!-- adr/ADR-0009-design-system-boundary.md -->
 
@@ -1094,6 +2093,39 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** state partitioned by ownership; a store testable without React; a composition root that is the only place knowing what the real clock, storage and capability probes are.
 - **Constraints:** a store exposes its members as properties rather than methods, so a reader cannot capture an unbound method. Authoritative project and audio state does not live here, and React never owns high-frequency state.
 - **Related requirements:** `REQ-ARCH-153`, `REQ-EXEC-136.4`, `REQ-EDIT-073`.
+
+<!-- adr/ADR-0012-perceptual-colour-tokens.md -->
+
+# ADR-0012 — Perceptual Colour Tokens with Computed Contrast
+
+- **Status:** Accepted
+- **Decision:** Every chrome colour is derived in OKLCH from one base surface lightness, and the text, border and accent tokens are solved by binary search against a WCAG contrast target rather than chosen by hand. Brightness moves the single base number within a safe band; the derived tokens are recomputed.
+- **Drivers:** a theme whose contrast holds across the whole brightness range, both themes, every accent and both contrast levels, rather than at the settings the designer happened to try.
+- **Constraints:** a component may not hard-code a colour or bypass the semantic tokens. A uniform lightness offset is not acceptable: it flattens the palette and collapses the surfaces at the ends of the range. The tests assert the computed ratio across the whole matrix of theme, accent, brightness step and contrast level, and an accessibility audit checks the rendered result.
+- **Related requirements:** `REQ-UX-070`, `REQ-UX-005`, `REQ-UX-071`.
+
+<!-- adr/ADR-0013-command-first-shell.md -->
+
+# ADR-0013 — Command-First Shell Surfaces
+
+- **Status:** Accepted
+- **Decision:** Every meaningful shell action is a registered command with a label, a category, an availability answer and a reason when it is unavailable. Menus, the command palette and the keyboard bindings are views onto the same registry, and a surface that cannot offer an action as a command does not offer it at all. Closing a panel is a command rather than a control on the docking tab.
+- **Drivers:** one definition per action; a palette and a menu that cannot disagree; an action reachable by pointer, keyboard and touch alike; rebindable shortcuts; an unavailable action that says why instead of vanishing.
+- **Constraints:** the engine's own tab close control nests an interactive element inside the element carrying `role="tab"` and is not reachable from the keyboard, so the tab renders its title only. A refused command announces its reason, because a shortcut that appears to do nothing reads as an unreliable application.
+- **Related requirements:** `REQ-EDIT-073`, `REQ-UX-005`, `REQ-UX-066`, `REQ-UX-067`.
+
+<!-- adr/ADR-0015-phase-01-owns-domain-value-model.md -->
+
+# ADR-0015 — Phase 01 Owns the Non-Authoritative Domain Value Model
+
+- **Status:** Accepted. Approved by the project owner on 2026-09-18, as the disposition of Phase 01 review finding F-24.
+- **Supersedes:** the `packages/domain/project` entry in Phase 02's owned modules. Phase 02 keeps everything else it owns, including the authoritative project schema.
+- **Decision:** Phase 01 owns the domain value model in `packages/domain`: the result and failure model, branded identifiers and their generator, sample time, channel layout, and the project, asset, timeline, routing, processing-parameter, effect-chain and selection value types. These are in-memory values that nothing persists. Phase 02 owns the authoritative, versioned, persisted project format built on them, in `packages/project-format` and the storage packages, and extends these types where the format needs it rather than owning a second copy of them. Phase 01's statement that it owns no authoritative audio-project schema stands, because this model is not one: it has no schema version, no serialisation and no storage path.
+- **Drivers:** `REQ-REPO-191` makes Phase 01 own deterministic fixtures and example projects, and a fixture project needs a project type to be built from; `REQ-ARCH-151` requires core editing logic and project state to be testable without rendering a component, which is what the package's dependency-free compilation provides; the review found the model present in Phase 01's tree against the packet's wording, and the two ways to reconcile them were to move the code or to state the ownership. The owner chose to state it.
+- **Constraints:** no Phase 01 module persists these types or treats them as a format. A later phase that needs a persisted shape defines it in its own format package and converts, so a change to an in-memory value type is never silently a change to users' stored projects (`REQ-STOR-052`). Two phases do not claim one module: the Phase 02 packet no longer lists `packages/domain/project`.
+- **Change record:** affected requirements `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`; affected phases 01 and 02; compatibility impact none, because nothing has been persisted in this format and Phase 02 has not started; already-passed phase remediation none; verification unchanged, because the package's existing tests and the architecture rule that it depends on no other package already cover it.
+- **Related requirements:** `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`, `REQ-STOR-026`, `REQ-STOR-052`.
+- **Amended by:** `ADR-0051` (2026-10-02), in the timeline values: the project-timeline `Region` and `Marker`, which no phase had built on and nothing stored, are restated as values of one asset, anchored to its content, and the editor draws them as `PlacedRegion` and `PlacedMarker`. Every other clause stands.
 
 <!-- adr/ADR-0016-version-registry-package.md -->
 
@@ -1184,6 +2216,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** the storage core's packages stay framework-free and take every platform object through their ports, so the worker is only a new composition root; no rule moves. One operation table names each operation with its argument and answer types, and both ends compile from it, so no payload is described twice; the envelopes are read field by field, as the tree's messages were. A failure crosses as the `DomainResult` it is, and a refused tree operation as its kind. The page's mirror of an open project publishes a new snapshot value only when the worker publishes, so identity still marks a change for `useSyncExternalStore`. Tests run the worker's real composition over an in-process pair that structured-clones every message, and a dependency rule keeps the page to the storage package's types.
 - **Change record:** affected requirements `REQ-STOR-021`, `REQ-STOR-098`, `REQ-STOR-193`, `REQ-EXEC-216`; affected phase 02, whose review found the page doing the storage work, and whose owner ruled that it is fixed in Phase 02 rather than Phase 14; compatibility impact none, because nothing persisted changes; verification by the history delta's tests, the port's tests over a structured clone, the application's tests through the client, the dependency rule, cancellation and yield tests for each long path, and a measurement of the page's time for a change and an open at 16,000 changes.
 - **Amended by:** `ADR-0071` (2026-10-09): the storage worker gains the recording area, which receives a capture channel from the capture worklet, writes its chunks, makes a whole recording an asset, and lists interrupted sessions when a project opens. Every other clause stands.
+- **Amended by:** `ADR-0090` and `ADR-0092` (2026-10-10): the storage worker writes the decoded renditions it receives from the codec worker, and keeps the export staging area and delivers from it. Every other clause stands.
 - **Related requirements:** `REQ-STOR-021`, `REQ-STOR-098`, `REQ-STOR-193`, `REQ-EXEC-216`, `REQ-EXEC-136`.
 
 <!-- adr/ADR-0030-audio-engine-package-topology.md -->
@@ -1214,6 +2247,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-ARCH-141` asks for narrow, documented, typed bindings that do not leak memory ownership through the application. Generated bindings (`wasm-bindgen`) emit JavaScript glue that reads `TextDecoder`, which an AudioWorkletGlobalScope does not have, and pin a command-line tool to the crate's exact version on every contributor's machine. A hand-written ABI of a dozen functions is narrower than generated glue and runs in every scope the engine runs in. The failure path the packet requires ("WASM/accelerator failure must fall back to a documented supported path") is the reference implementation, which `ADR-0032` makes bit-identical.
 - **Constraints:** `unsafe` is allowed in `crates/wasm-bindings` alone, by a crate-level `allow` naming this ADR, and each `unsafe` block states the invariant it relies on. `dsp-core` and `resampling` keep the workspace's `deny`. A module whose ABI version differs, or which lacks an export, is refused with a failure that names what is missing, and the engine runs on the reference path with that reason reported. The build of the module is part of the test setup, so a test never runs against a stale binary.
 - **Change record:** affected requirements `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-REPO-186`; affected phase 03; compatibility impact none; verification by `cargo test --workspace`, the ABI conformance tests in the engine, and the golden tests that run both paths.
+- **Amended by:** `ADR-0091` (2026-10-10): `crates/codec-bindings`, the C ABI of the separate codec module, may hold `unsafe` under the same rules as `crates/wasm-bindings`. Every other clause stands.
 - **Related requirements:** `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-ARCH-049`, `REQ-EXEC-216`.
 
 <!-- adr/ADR-0032-canonical-arithmetic.md -->
@@ -1365,7 +2399,46 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-AUDIO-220` (recognition by content, native rate, chunked and cancellable reading off the UI thread, refusal before storing, the shortfall reported), `REQ-STOR-025` and `REQ-STOR-104` (copy or link, the change policy), `REQ-STOR-166` (the audio shape in provenance), `ADR-0022` (the page reaches storage only through `StorageClient`), `ADR-0030` (sources belong to the engine), `REQ-EXEC-216`.
 - **Constraints:** every read takes an `AbortSignal`, and the header walk is bounded in chunks and in bytes, so a hostile file cannot make a reader read without end or allocate past its chunk. RF64 and BW64 sizes are read as 64-bit values and must fit a safe integer. A file the storage worker answers is a snapshot of a written-once object, never a handle that can write. Phase 09 adds its decoders and writers to this package and introduces no second contract.
 - **Change record:** affected requirements `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`; affected phases 03 (whose source description gains a kind), 04 (whose peak worker reads it) and 09 (which extends this package); compatibility impact none beyond `ADR-0051`'s schema change; verification by the codec fixtures, written by a test writer for every encoding, depth, byte order and form and compared sample for sample, the malformed-media suite, and the import's tests.
+- **Amended by:** `ADR-0090` (2026-10-10): the contract gains the codec registry and capabilities, the in-place readers of the block-coded WAV and AIFF-C encodings, and `SyncAudioBytes` for the codec worker; a file in another compressed format is imported as a decoded rendition read by this contract. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0053-clipboard-and-quick-edit.md -->
+
+# ADR-0053 — The Clipboard Holds A Payload Of Plan Segments, And Quick Edit Is A Project The Shell Makes
+
+- **Status:** Accepted
+- **Decision:** `packages/clipboard` (`@audiogubbins/clipboard`) owns what copying and pasting mean.
+  - **The payload.** `ClipboardPayload` is a slice of an edit plan (`ADR-0051`): its streams, rate and layout, and the asset records of the media its segments read. It names immutable sources only, never an operation, so what was copied sounds the same whatever later happens to the asset it came from.
+  - **Copy and cut.** Copying takes the resolved target's range and channels from the plan of the asset or region shown; a cut is a copy and a deletion, recorded as one change.
+  - **Paste.** Pasting inserts the payload at the target's position, or replaces the target's range. A payload whose layout differs is mapped by the conversion matrix the domain states for the two layouts, and refused with the reason when it states none. A payload at another rate is pasted only when the person asks for it to be converted. A payload copied from another project brings the asset records it reads, which the storage worker adds only after it has checked that the stored or linked media is there, so a missing or changed source refuses the paste and leaves the destination unchanged. A payload too large for one recorded change is inserted as consecutive insertions in one change.
+  - **The holder.** The clipboard is held by the page for its session, replaced by each copy, and never persisted or sent anywhere.
+  - **Quick Edit.** `REQ-EDIT-008`'s Quick Edit is a facade over the project model: choosing a file makes a project named after it, imports the file with the person's copy-or-link setting and opens it in the editor, with no project dialogue. The `QuickEditSession` the shell holds names that project and asset, and every edit is the same project command Project Mode runs, so the two make the same structures. Exporting is Phase 09's.
+- **Drivers:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, the packet's failure rule that clipboard data from missing or relinked media must not corrupt the destination, `REQ-ARCH-085`.
+- **Constraints:** a paste is a project command and undoes with the project's history; the clipboard itself is not project state and is not undone.
+- **Change record:** affected requirements `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`; affected phase 05; compatibility impact none beyond `ADR-0051`; verification by the clipboard's tests, the commands' tests and the browser test of the core edits.
+- **Amended by:** `ADR-0060` (2026-10-05): the payload has a second kind, a processor, a slot, a group or a chain in the chain's persisted form, which a rack pastes as a copy under new identifiers. Every other clause stands.
+- **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-ARCH-085`.
+
+<!-- adr/ADR-0060-effect-racks-in-the-edit-model.md -->
+
+# ADR-0060 — An Effect Rack Is A Shared Chain That The Edit Plan Runs, On A Range Or On A Whole Target
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review places the effect rack inside the edit model of `ADR-0051` rather than beside it, so the edit plan stays the only description of an edited sound.
+  - **The chain is the domain's.** A rack's persisted form is the domain's `EffectChain` (`packages/domain/src/processing/effect-chain.ts`, Phase 01), held in the project's `effectChains` map and changed only by project commands with inverses. Phase 06 extends that value and introduces no second one: a chain is an ordered list of slots, each holding a processor instance or a parallel group whose branches are chains of their own, summed by a stated law; each slot has a wet/dry mix, and the chain keeps the enable and solo rules it has: a slot or a group is bypassed by the `enabled` flag a processor instance already has, extended to slots and groups, not by a second flag. `ProcessorInstance` keeps its parameter values and gains its versioned state (`ADR-0061`).
+  - **Two placements, one mechanism.** A chain reaches audio in exactly two ways, and the plan realises both by the same kind of stream: a stream that reads a range of an earlier stream processed by a chain, as a rate-converted stream reads one converted.
+    - *Processing a range.* Selection-first, as every edit is (`REQ-EDIT-012`): applying a chain to a selection is a processing operation whose edit is a rack edit naming a chain, anchored and folded like the gains and fades of `ADR-0051`. It is made on an asset's chain, or, in a region's view, on the region's own processing. It changes no time and carries every position unchanged: the processed range keeps its length, and what a processor would add past the range's end (a reverb's or a delay's tail) is not added.
+    - *A target's rack.* An asset and a region each name at most one rack, a chain that processes the whole target as it stands after every operation on it, so it follows the target through later edits. The order is fixed: the asset's chain, with each region's processing folded in at its basis; the asset's rack over the whole edited asset; the region's span of that; the region's rack over the whole region.
+  - **Sharing is naming one chain.** A rack edit and a target's rack name a chain by its `EffectChainId`. A chain several operations or targets name is shared: a change to it reaches all of them, which is the shared processing chain of `REQ-EDIT-014`. Making one independent copies the chain under a new identifier. A chain that something names cannot be removed until nothing does, as an asset cannot (`ADR-0051`).
+  - **Saved chains and presets.** A saved chain and a processor preset are the same values kept outside any project, in the person's library, read and written by the project format's chain reader, so a chain has one persisted form. Applying a saved chain copies it into the project; applying it to several selected targets is one command and one history step. A preset names explicit parameter values (`REQ-AUDIO-086`).
+  - **Copy and paste.** A processor, a slot, a group or a whole chain is copied to the clipboard of `ADR-0053` as a payload of its own kind, the chain's persisted form, and pasted into any rack as a copy under new identifiers; there is no second clipboard (`REQ-AUDIO-017`).
+  - **Canonical rendering of a processed stream.** A processed stream is rendered from its own start, so the audio a region's rack reads is exactly that span of its asset's processed audio, and a render of either is one answer. Real-time playback, which `ADR-0032` already keeps out of the canonical path, may start a stateful processor part way through with the lead-in its descriptor declares, and says it is a preview; an expensive chain is played from a cached render, which is derived data (`REQ-STOR-027`) and never authoritative.
+  - **Racks elsewhere.** `Track.effectChainId` and `Bus.effectChainId` stay as Phase 01 made them. No track, bus or master exists to process yet; when one does, its rack is a chain named the same way and run the same way (`REQ-AUDIO-017`, its future racks).
+- **Drivers:** `REQ-AUDIO-017` asks for stacking, reordering, bypass, presets, A/B, copy and paste, saved chains and batch reuse. `REQ-EDIT-014` asks for shared processing chains, which the Phase 05 handoff gave to Phase 06. `REQ-ARCH-004` makes effect chains part of authoritative state, and `ADR-0051` makes the plan the only description of an edited sound, so a rack that rendered outside the plan would be a second description that playback, the render worker, the peak worker and the clipboard each had to learn. Phase 01 already persists `EffectChain`, and the history already compares chains and processors (`packages/history/src/state-diff.ts`), so a new rack model would leave two. A rack that only processed whole targets would break the selection-first invariant of Phase 05, and one that only processed ranges fixed at their basis would not follow a target through later edits, which is what a rack in an audio editor does.
+- **Constraints:** the time-changing processors of `REQ-AUDIO-018`, time stretching and sample-rate conversion of an asset, are operations in the asset's chain, not rack slots, because they move every later position; each states how it carries a position, as `ADR-0051` requires, and acts on every channel. Pitch shifting that keeps the length is a processor. Fades, polarity inversion, reversal, silence, per-channel gains, channel swap and copy, and layout conversion stay the edit operations Phase 05 made, and are not written again as processors; a rack's gain is the engine's existing gain node. Every operation that names a chain is validated against the project's chains when a command makes it and when the project is read. Persisting racks raises the project's schema version, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-AUDIO-017`, `REQ-AUDIO-019`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`; affected phases 06, which becomes `READY` with this placement, and 05, whose edit model this extends (`ADR-0051` amended) and whose handoff gave it the shared chains; Phases 01 to 05, already passed, need no remediation. Compatibility impact: the project's format gains rack edits and the racks of assets and regions, raising its schema version; no build has shipped, so no stored project is affected. Public API: `EffectChain` and `ProcessorInstance` in `@audiogubbins/domain` gain slots, parallel groups, bypass, wet/dry and state; the plan gains the processed stream. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with rack edits and racks against the domain's oracle, a project round trip of chains with identical parameter state, the commands' selection tests, and golden renders of a processed range and of a region's span against its asset.
+- **Amends:** `ADR-0051`, in its clauses on the plan and on regions, and `ADR-0053`, whose payload gains the chain kind. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-017`, `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-086`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-ARCH-140`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`, `REQ-STOR-195`.
 
 <!-- adr/ADR-0061-processors-quality-and-reproducibility.md -->
 
@@ -1386,6 +2459,29 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Amended:** on 2026-10-07, by Phase 06's build, in the clause on preview and the cached producer: the cached render is made by the preview worker, not the render worker. The render worker is a pool thread that lives for one job, while the cache outlives jobs and serves three readers, the feeder, the peak worker and the detection worker, each through a channel of its own. Renders are held in memory within a stated bound, least recently used first and never while one is read, at most two made at once; a render that cannot fit is declined before it takes memory, and the reader then runs the chain itself. A read past a render's progress waits and never answers silence. Every other clause stands.
 - **Amended:** on 2026-10-09, by Phase 06's build: running the detectors and assistants over a target's processed audio is a package of its own, `packages/detection-runtime`, the detection worker's core, protocol and thread entry. It depends on `packages/domain`, `packages/audio-engine` and `packages/processors`, whose detectors and learners it runs, and, in its thread entry and test support only, on `packages/effect-rack` and `packages/ml-runtime`; it knows no interface, storage or command package. The application starts it and keeps its results. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-080`, `REQ-AUDIO-086`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-AUDIO-146`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`, `REQ-ARCH-157`, `REQ-REPO-187`, `REQ-EXEC-180`.
+
+<!-- adr/ADR-0062-local-inference-and-model-packs.md -->
+
+# ADR-0062 — Local Inference Runs ONNX Runtime Web In A Worker, Pinned For Final Renders, From Model Packs Kept On The Device
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review settles the runtime, the determinism rule and the first model packs that the packet left as "agreed".
+  - **The runtime.** Inference runs ONNX Runtime Web (MIT licence), self-hosted with the application's own files and loaded only when an ML processor first runs, so the base bundle carries none of it (`REQ-AUDIO-139`). It runs in a dedicated worker, never on the UI thread or in the worklet. `packages/ml-runtime` holds the inference port the ML processors call, its adapter over ONNX Runtime Web and the worker that hosts it; the port knows no browser global, only the adapter knows the runtime, and the port is the seam the tests run a fake runtime through. The runtime's capabilities (WebAssembly SIMD, threads, WebGPU) are probed by `packages/capabilities`, never by the runtime itself (`ADR-0030`).
+  - **Determinism.** An ML processor is a processor of `ADR-0061`, whose determinism class is *pinned*: its final render runs the WebAssembly CPU backend with fixed-width SIMD, one thread, no reduced precision and a stated graph optimisation level, a fixed chunk length and overlap, and the runtime build and model identified by their hashes. Those are persisted with the instance (`REQ-AUDIO-138`, `REQ-AUDIO-145`), so the same project renders the same bits with the same pack and runtime. Golden tests hold each pack's final render to one hash in every browser the tests run; where a browser cannot meet it, the cause and the tolerance are documented and tested (`REQ-ARCH-081`). A faster path, more threads or WebGPU, may serve preview, and the interface says it is a preview (`REQ-AUDIO-080`); it never replaces the pinned path for a final render (`REQ-AUDIO-143`). A model's rate is converted to and from by the canonical resampler, stated in the instance.
+  - **Model packs.** A pack is a manifest (`ModelPackManifest`) and the files it names: its name and purpose, version, download and installed sizes, the hash of every file, the licence of its code and of its weights, the runtime versions and capabilities it needs, its quality tier, and the processors and detectors it serves. `packages/model-packs` holds the manifest, the pack's install state machine (`REQ-ARCH-153`: available, downloading with its progress in bytes, paused, verifying, installed, failed, removing, with update available and incompatible as stated conditions) and the integrity check, and stores packs through the storage package's public client, never through OPFS directly. A pack is installed by download from the catalogue the build configures, which the application's own origin serves by default, or imported from a file the person has; both verify every hash before anything is used. Download sends a request for the pack and nothing else: no audio, no project data and nothing derived from either leaves the device (`REQ-AUDIO-138`). A pack is never fetched because a project was opened, unless it is required and the person has chosen automatic download (`REQ-AUDIO-139`). A version a post-1.0 project needs is retained until the person removes it knowingly.
+  - **The first packs.** Each was chosen because its code and weights are licensed for redistribution, which is recorded in its manifest and checked again when the pack is built:
+    - DeepFilterNet 3 (MIT or Apache-2.0): broadband noise removal and speech enhancement at 48 kHz, the Standard and High tiers.
+    - MossFormer2 SE 48K (Apache-2.0): speech and dialogue enhancement, the Maximum tier.
+    - Spleeter, two and four stems (MIT): source separation and stem isolation.
+  - **Excluded until their weights are licensed for redistribution:** HTDemucs and its variants, whose author states the weights are for research; Open-Unmix's published weights, non-commercial or trained on research-only data; and the UVR, MDX and RoFormer families, whose weights carry no licence or a non-commercial one. The infrastructure admits any of them as a pack, without change, once one is.
+  - **What is not ML.** Dereverberation (weighted prediction error) and click and pop detection and repair are canonical DSP processors (`ADR-0061`), because no model with redistributable weights does them better and the canonical path is reproducible to the bit. The other candidate families of `REQ-AUDIO-138`, transient and noise classification, restoration assistance, repair suggestions and analysis that recommends processing, have no model licensed for redistribution today, so Phase 06 delivers them on `crates/analysis`'s detectors (clicks, hum, noise floor, clipping, DC offset, transients): an assistant reports what it found and recommends a chain, which the person applies or not; none applies processing itself. Each detector is an `AudioDetector` (`ADR-0061`), the contract a model pack's detector also implements, so a pack licensed for redistribution replaces or joins it without change.
+- **Drivers:** `REQ-AUDIO-138` and `REQ-AUDIO-139` put local ML and model packs in Phase 06's scope and forbid sending audio anywhere. `REQ-ARCH-081` asks for reproducible renders, and `REQ-AUDIO-145` for the model's identity and version in project state. ONNX Runtime Web is maintained, runs in a worker, and has a WebAssembly CPU backend whose arithmetic is the same on every machine when pinned: fixed-width SIMD is deterministic, while relaxed SIMD, thread scheduling and GPU drivers are not. TensorFlow.js has had no release since 2024, LiteRT has almost no audio models, and the Rust runtimes that compile into the existing module cover too few operators for the first packs. A model's weights are distributed with the application's packs, so their licence decides whether a pack can exist at all.
+- **Constraints:** missing, corrupt or incompatible packs make the processor that needs them unavailable, saying which of `REQ-AUDIO-139`'s five conditions holds, and never make a project invalid; a project that names a pack keeps its instances and renders nothing in their place until the pack is present, saying so. No ML path calls a remote service, and the ML locality test asserts no request carrying audio, project data or derived content. Model weights and large test media are not committed to the repository (`REQ-REPO-191`); the golden tests fetch pinned fixtures by hash. ML results are stored as the inputs, model identity, settings, masks and regions that reproduce them; a cached inference output is derived data and never the only record (`REQ-AUDIO-138`).
+- **Change record:** affected requirements `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-REPO-191`; affected phases 06, and 08, whose spectral editing integrates ML processors on this infrastructure; no passed phase needs remediation. Compatibility impact: the project format gains ML processor state, under `ADR-0061`'s schema change. Public API: `ModelPackManifest`, `MLProcessorCapability`, the inference port, and packs serving `AudioDetector` (`ADR-0061`). Godot interchange and runtime: none. PWA and browser: the runtime's WebAssembly files are served by the application, and Phase 12 caches them for offline use with the rest. Verification: `pnpm test:ml-locality`, the pack manifest and integrity tests, the install state machine tests, and each pack's pinned golden render.
+- **Amends:** `ADR-0032`, by stating that inference is outside its two-implementation rule and held to this record's pinned determinism instead, and `ADR-0030`, by naming `packages/ml-runtime` and `packages/model-packs` among the packages that build on its three. Their other clauses stand.
+- **Amended:** on 2026-10-07, by Phase 06's build, in two clauses. The install state machine gains `queued`: one download runs at a time per installer, and a pack waiting for it is queued, which the person may pause or cancel like a download (`REQ-ARCH-153`); removal, the storage cleanup's included, goes through the installer, so no installer is left holding a state the storage no longer has. The runtime's WebAssembly is read from the application's own origin through a port of its own, the second network exception beside the pack download, checked against the SHA-256 the build states from the bytes it ships, and given to the runtime as bytes, so the runtime itself requests nothing; a page the host does not isolate across origins offers one thread, and a threaded preview is refused there with its reason. Every other clause stands.
+- **Amended:** on 2026-10-09, by Phase 06's build, in the clause on model packs: `packages/model-packs` defines a `PackStore` port and the storage package implements it (`ModelPackStore`), so the dependency runs from `packages/storage` to `packages/model-packs` and model-packs imports no storage package, the port inverted so that the pack's state machine and installer run in tests without storage. Packs are still kept only through storage, never through OPFS directly. In the clause on determinism: no faster preview path is built. Every inference, a preview's included, runs the pinned WebAssembly path, one runtime build and one WebAssembly file, so the 2026-10-07 amendment's threaded preview and the WebGPU probe are withdrawn; a faster path returns only when a processor can choose it through the quality mode, and the interface then says it is a preview. In the clause on the runtime: every worker is started from a same-origin `blob:` module that imports its script, so the page's Content-Security-Policy governs its requests; the inference worker reads a model's bytes only when a session needs them, keyed by the model's SHA-256, and shares one session per model among its clients, keeping idle sessions up to a stated bound. In the clauses on model packs and the first packs: a pack's quality tier describes its model's own speed against thoroughness, one of light, balanced and thorough (`REQ-AUDIO-139`'s quality/performance tier), and is never a render quality; the same pack runs at every render and preview quality. DeepFilterNet 3 and Spleeter two stems are light, Spleeter four stems balanced, and MossFormer2 SE 48K thorough, in place of the render-quality names the first-packs clause gives. Every other clause stands.
+- **Related requirements:** `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-080`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-PRIV-161`, `REQ-REPO-191`.
 
 <!-- adr/ADR-0070-recording-capture-monitoring-and-latency.md -->
 
@@ -1429,7 +2525,100 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`; affected phases 07, which becomes `READY` with this persistence, 02, whose storage worker gains the recording area and whose media recovery is finally run (a Phase 02 gap this review found, given to Phase 07 as inherited debt), 05, whose codecs package gains the recorded-media writer (`ADR-0050` amended), and 09, which keeps every other writer; Phases 02 and 05, already passed, need no remediation beyond that inherited debt. Compatibility impact: the project's storage gains recording sessions and its document gains recorded provenance, raising `projectStorage` and `projectDocument`; no build has shipped. Public API: the storage worker's recording operations in `@audiogubbins/storage-runtime`, the recording area in `@audiogubbins/storage`, `RecoveryChunkManifest` and the recorded provenance in `@audiogubbins/project-format`, and the recorded-media WAV writer in `@audiogubbins/codecs`. Godot interchange and runtime: none. PWA and browser: the storage estimate is read through the capabilities package and never assumed. Verification: recovery tests that stop the writer at every step of a session, a torn chunk, a refused write for quota and a lost device; a round trip of a recorded asset's provenance; the WAV writer's tests against the read contract; and a browser test that reloads mid-recording and recovers.
 - **Amends:** `ADR-0050`, in its clause that every writer is Phase 09's: the recorded-media writer is Phase 07's. `ADR-0020` and `ADR-0022`, whose storage worker gains the recording area. Their other clauses stand.
 - **Amended:** on 2026-10-09, by Phase 07's build: the media store's recovery of an incomplete store runs when the storage worker starts, with the storage-wide lock held alone, which is before any project opens and so before any project's recording sessions are listed. It undoes only the store's own incoming files and the objects its intents name, and a session's chunks and manifest lie under the project, outside the store, so it never runs over a session; a recording cut short while its file was being stored keeps its session and is recovered from its chunks. The manifest also keeps the take the recording was begun for, so a recovered take keeps its name and placement. Every other clause stands.
+- **Amended by:** `ADR-0093` (2026-10-10): exported WAV files state 7.1, 7.1.4 and ambisonic layouts, which the recorded-media writer refused. Every other clause stands.
 - **Related requirements:** `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`.
+
+<!-- adr/ADR-0072-take-stacks-and-punch-recording-in-the-edit-model.md -->
+
+# ADR-0072 — A Take Is A Recorded Asset In A Stack, And A Punch Is An Edit That Reads The Stack's Chosen Take
+
+- **Status:** Accepted
+- **Decision:** Phase 07's readiness review places take stacks and punch recording in the edit model of `ADR-0051`, as `ADR-0060` placed racks, so no recording ever overwrites audio and every change to a take is a project command with its inverse.
+  - **A take is a whole recorded asset.** Every recording, a punch's included, makes a new asset of origin `recorded` (`ADR-0071`); an asset's source never changes (`REQ-ARCH-004`), so no take can overwrite another.
+  - **A take stack groups takes.** `TakeStack` is a project entity, held in the project's `takeStacks` map: an identifier, a name, its takes in the order they were made, the chosen take, and, for a punch, its `PunchRange`. Each `Take` names its recorded asset, and carries its own name and note, whether it is kept, rejected or removed from the active stack, and the latency compensation applied to it in frames (`ADR-0070`). Successive recordings of the same material go into the stack that is armed (`REQ-REC-089`).
+  - **Choosing, rejecting and removing keep everything.** Promoting a take makes it the stack's chosen take. Rejecting keeps it in the stack, marked. Removing takes it from the active stack, and it stays recoverable through the stack's removed takes, the history and project recovery: an asset a take stack names cannot be removed, as one a region names cannot (`ADR-0051`), and storage keeps its media while any state reaches it (`REQ-STOR-102`). Duplicating a take adds a take that names the same recorded asset under its own name and note; branching starts a new stack from a take. Each is a project command with its inverse and a history description, and the history compares take stacks as it compares other entities (`REQ-STOR-195`).
+  - **A punch is an edit naming a stack.** Punch-in records over a range of a target asset. The range, its pre-roll and post-roll, and the crossfade at each boundary are the stack's `PunchRange`; the recording runs through the pre-roll and the post-roll, so the take holds them, and the punch reads only its range. The target asset's chain gains a punch edit: a range edit, anchored and folded as `ADR-0051` folds a gain, that replaces the range with the stack's chosen take, read from the pre-roll's end and shifted by the take's compensation, with the stated crossfade, default 10 ms, at each boundary. It changes no time: the range keeps its length, and a take shorter than the range is refused for it, with the reason. The punch edit names the stack by its identifier, as a rack edit names a chain (`ADR-0060`), so choosing another take changes what the punch plays without a new edit, and undoing the punch leaves the earlier audio as it was.
+  - **Consolidation keeps the history.** Keeping only the chosen take marks the stack's other takes removed; nothing is deleted, and every step is undone by one undo (`REQ-REC-093`).
+  - **Comping is not built here.** Choosing parts of several takes over one range is deferred by `REQ-REC-089` to the multitrack and clip architecture, and no phase of this specification builds that; a stack chooses one take for its range.
+- **Drivers:** `REQ-REC-089` asks for take stacks that never overwrite, with naming, notes, audition, promotion, rejection, duplication and removal that keeps history; `REQ-REC-093` for punch-in that makes new material and keeps the previous recoverable, with pre-roll and post-roll; `REQ-ARCH-004` keeps sources immutable. The edit model already folds anchored range edits and names shared entities by identifier; the timeline has no clip or track commands, and regions and markers belong to assets, so a take placed on a timeline would need a multitrack model that does not exist.
+- **Constraints:** a punch edit is validated against the project's take stacks when a command makes it and when the project is read; a stack that a punch edit names cannot be removed while the edit does. A take's audition plays its asset, or, for a punch stack, the target with that take chosen, without changing the project. Persisting take stacks and the punch edit raises `projectDocument`, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`; affected phases 07, which becomes `READY` with this placement, and 05, whose edit model gains the punch edit (`ADR-0051` amended); Phase 05, already passed, needs no remediation. Compatibility impact: the project document gains take stacks and the punch edit, raising its schema version; no build has shipped. Public API: `TakeStack`, `Take` and `PunchRange` in `@audiogubbins/domain`, their persisted form in `@audiogubbins/project-format`, the take commands in `@audiogubbins/project-commands`, and their differences in `@audiogubbins/history`. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with punch edits against the domain's oracle, the take commands' inverse tests and the random command walk, a project round trip of take stacks, and a browser test that punches in, chooses another take, undoes, and reloads.
+- **Amends:** `ADR-0051`, whose chain gains the punch edit and whose assets cannot be removed while a take stack names them. Its other clauses stand.
+- **Related requirements:** `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`.
+
+<!-- adr/ADR-0090-codec-registry-and-decoded-renditions.md -->
+
+# ADR-0090 — Codecs Are Registered And Probed, And A Compressed File Becomes An Asset Through A Decoded Rendition
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review extends the read contract of `packages/codecs` (`ADR-0052`) with a registry, and decides how audio in a compressed format becomes an asset.
+  - **The registry.** `packages/codecs` publishes a `CodecDescriptor` for every format it knows: its identity, the containers and codes it covers (recognised from the bytes, never the name), the directions it serves (read, write or both), whether it is lossless, the sample encodings, rates and channel counts it accepts, the implementation that serves it (`application`, the codec module, or the browser), whether that implementation gives the same bytes on every machine, and its licence. The registry is a value built once, never a switch: a new format is a new descriptor and a new implementation of the contract.
+  - **Capability, never assumption.** A `CodecCapability` is what one runtime can do with one descriptor: available, or unavailable with the reason and the formats that serve instead. The application's own codecs and the codec module are available wherever WebAssembly is; a browser implementation is available only where `packages/capabilities` probes it (`AudioDecoder.isConfigSupported`, `AudioEncoder.isConfigSupported`). A format no implementation serves is refused before anything is stored or rendered, with a sentence naming the format and the formats that can be used.
+  - **Read in place where the code allows it.** The compressed codes WAV and AIFF-C carry that are decoded in independent blocks, G.711 A-law and µ-law (WAV codes 6 and 7, AIFF-C `alaw`, `ulaw`, `ALAW`, `ULAW`), IMA ADPCM (WAV code `0x11`, AIFF-C `ima4`) and Microsoft ADPCM (WAV code 2), are read by the application's own readers through the existing `AudioReader`, at any frame, block by block, like uncompressed PCM. MPEG audio in a WAV file (code `0x55`) is decoded as MP3 below. Any other code is refused with its name.
+  - **A decoded rendition for every other compressed format.** FLAC, MP3, Ogg Vorbis, Opus (in Ogg, WebM or Matroska), ALAC and AAC (in M4A, MP4 or ADTS) cannot be read at an arbitrary frame without decoding from an earlier point, and a decoder's output may change with its version. Importing one decodes it once, from start to end, at the rate the stream states, with the encoder's priming and padding trimmed where the file states them, into a decoded rendition: a 32-bit float WAV file (RF64 past four gibibytes) written by Phase 07's writer (`ADR-0071`) into the content-addressed media store. The asset's media is the rendition, read by every audio thread through the existing reader; the source file is kept as the person chose, copied into the store or linked where it lies (`REQ-STOR-025`), and the asset's provenance records the source's container, codec, rate, channel layout, length, bit rate where stated, and the decoder and its version. A project's sound therefore never changes because a decoder was updated (`REQ-ARCH-049`), and a reader of a rendition seeks exactly.
+  - **The codec worker.** Decoding and encoding run in a dedicated codec worker, never on the page and never in the storage worker, whose writes must not wait on a decode. The codec worker reads a source through `SyncAudioBytes`, a synchronous ranged read that a worker can give over a file (`FileReaderSync`) or an origin-private file (a sync access handle), and posts decoded blocks to the storage worker over a message channel; only the storage worker writes (`ADR-0022`). The page sends commands and receives progress; no sample passes through it.
+  - **Import analysis.** Before anything is stored, an import is analysed: the format is recognised, the stream's description read from its headers, and the storage it will need stated (the source if copied, and the rendition), against the storage estimate. A file that cannot fit is refused before anything is written. Analysis, copying and decoding report progress in stages and frames, and each takes the import's `AbortSignal`; a cancelled import keeps nothing.
+  - **Batch import.** An `ImportJob` is a list of files from a multiple choice or a folder, run one file at a time in the storage worker with the codec worker decoding ahead by at most one file, each file's outcome reported (imported, refused with the reason, or cancelled) and one failure stopping nothing else. Cancelling stops the file in progress and every file after it.
+  - **Metadata on import.** A file's metadata and loop metadata are read into a `MetadataMap` (`ADR-0093`) and kept in the asset's provenance. Its loops become regions with loops, and its cue points and markers become markers, through project commands, as one change the person can undo.
+- **Drivers:** `REQ-AUDIO-010` (the formats, capability detection and fallbacks), `REQ-ARCH-085` (native rate), `REQ-ARCH-049` and `REQ-ARCH-081` (one answer on every machine), `REQ-AUDIO-220` (the read contract), `REQ-STOR-025` and `REQ-STOR-166`, `REQ-EXEC-216` (a file never fits in memory, quota is never assumed). A reader of MP3, AAC, Vorbis or Opus at an arbitrary frame needs a pre-roll from an earlier point, the decoder's state and the stream's priming, on every audio thread for every seek; a rendition is read like any WAV file. The storage tree has no append and only the storage worker writes, so decoded blocks reach it over a channel, as recorded blocks do (`ADR-0071`).
+- **Constraints:** no format is recognised by its name. No decoder resamples. No file is read whole into memory to analyse, decode or write it. The rendition's channel order is the asset's layout, taken from the stream's stated layout or the codec's channel order (Vorbis, Opus mapping family 1, AAC channel configurations, FLAC's channel assignments). A stream whose decode fails part way is refused whole, and nothing is kept. The read contract stays one contract: renditions and in-place compressed codes are read by `openAudio`.
+- **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-AUDIO-220`, `REQ-ARCH-049`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-166`; affected phases 09, which becomes `READY` with this design, and 02, 05 and 07, already passed, whose storage worker, read contract and writer are extended, needing no remediation. Compatibility impact: the asset's provenance gains the compressed containers, the decoder and the metadata, raising `projectDocument`, with no migration before 1.0 (`REQ-STOR-052`). Public API: `CodecDescriptor`, `CodecCapability`, the registry, `SyncAudioBytes` and the in-place compressed readers in `@audiogubbins/codecs`; `ImportJob` in `@audiogubbins/import-export`; the codec worker in `@audiogubbins/codec-runtime`. Godot interchange and runtime: none. PWA and browser: WebAssembly and WebCodecs are probed, never assumed. Verification: generated fixtures of every in-place code; decodes of every format compared with the expected samples; a rendition's provenance round trip; malformed and truncated files of every format; cancellation at every stage; a batch with refused files.
+- **Amends:** `ADR-0052`, whose read contract gains the registry and the in-place compressed readers, and whose import path gains renditions; `ADR-0022`, whose storage worker writes renditions received from the codec worker. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-AUDIO-220`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-052`, `REQ-STOR-166`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0091-codec-implementations-and-licences.md -->
+
+# ADR-0091 — Each Format Has A Local Codec Where One Is Lawful And Mature, Built In Rust Where It Can Be, And The Browser's Codec Only Adds To It
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review chooses an implementation for every format and direction, so no format depends on one browser's codec where a local one is viable.
+  - **The application's own codecs** (TypeScript in `packages/codecs`): reading and writing WAV, RF64, BW64, AIFF and AIFF-C in every integer depth from 8 to 32 bits, 32- and 64-bit float, G.711 A-law and µ-law, IMA ADPCM and Microsoft ADPCM; the Ogg page writer, the FLAC, MP4 (M4A) and MP3 frame-header writers, and every metadata writer of `ADR-0093`. These give the same bytes on every machine.
+  - **The codec module** (Rust, compiled to one WebAssembly module, `audiogubbins-codecs.wasm`): `crates/codecs` (`audiogubbins-codecs`) decodes through Symphonia (MPL-2.0): FLAC, MP3, Vorbis, AAC-LC and ALAC, and demultiplexes Ogg, MP4/M4A, ADTS, WebM and Matroska; encodes FLAC through `flacenc` (Apache-2.0); and decodes and encodes Opus through a pure-Rust Opus implementation, which the build chooses as the first candidate that decodes the RFC 6716 and RFC 8251 test vectors within `opus_compare`'s conformance threshold, `opus-rs` (BSD-3-Clause) first. `crates/codec-bindings` (`audiogubbins-codec-bindings`) is its narrow C ABI with integer handles, its own ABI version refused on mismatch, and one import, the synchronous read of `ADR-0090`. The module is separate from the DSP module, so the engine never loads a codec it does not use.
+  - **Prebuilt encoders, each a separate file.** No mature, permissively licensed MP3 or Vorbis encoder exists in Rust. MP3 is encoded by LAME 3.100 and Vorbis by libvorbis 1.3.7, as the WebAssembly builds of `wasm-media-encoders` (MIT; LAME is LGPL-2.0, libvorbis BSD-3-Clause), each loaded by the codec worker from its own file only when that format is exported. LAME stays a separate, replaceable module, its licence text and the location of its corresponding source are in the third-party notices, and nothing of it is compiled into AudioGubbins' own code (`REQ-REPO-142`).
+  - **The browser's codecs add, never replace.** WebCodecs decodes HE-AAC and HE-AACv2, which no local decoder serves, where the browser probes support; elsewhere such a file is refused with the reason. AAC-LC is encoded only by the browser's encoder (WebCodecs, `mp4a.40.2`) and written into M4A by the application's own MP4 writer: the only mature, copyright-clean AAC encoder is FFmpeg's (LGPL-2.1), distributed only compiled into a single script that cannot be replaced apart from its loader, FDK-AAC's licence is not free for this project, the pure-Rust encoders are unproven, and the AAC patent position outside the United States is unsettled. Where no browser encoder is found, AAC export is unavailable with that reason, and the dialog offers Opus, Vorbis and MP3. A browser codec is never the only path for FLAC, MP3, Vorbis or Opus.
+  - **The deterministic path.** Every local codec gives the same bytes for the same rendered samples and settings on every machine: WAV, AIFF, FLAC, Opus, MP3 and Vorbis exports are reproducible, and tests hold their hashes. An AAC export made by a browser encoder is not, and its export record says so (`REQ-ARCH-081`). Local codecs are the default for every format they serve.
+- **Drivers:** `REQ-AUDIO-010` (local fallbacks where browsers differ), `REQ-ARCH-141` (Rust preferred for owned WebAssembly, narrow typed bindings, C libraries allowed where licensing, security, portability and determinism are met), `REQ-REPO-142` and `REQ-REPO-033` (licence review, codec patents considered apart from licences), `REQ-ARCH-049` and `REQ-ARCH-081`. No browser encodes FLAC or MP3; only Firefox encodes Vorbis; Firefox encodes no AAC; Opus encoding is missing in Firefox for Android. Symphonia decodes no Opus. The build machine compiles Rust to `wasm32-unknown-unknown` and has no C toolchain for WebAssembly, so a C library enters only as a vetted prebuilt module.
+- **Constraints:** every codec runs in the codec worker. `unsafe` is allowed in `crates/codec-bindings` as in `crates/wasm-bindings`, and nowhere else. A dependency enters only with its licence in the third-party notices, its version pinned, and a test that it builds and runs in the suite. A decoder that fails a fixture fails the build; a decoder's output is never repaired after it.
+- **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-141`, `REQ-REPO-033`, `REQ-REPO-142`; affected phase 09; Phase 03's DSP module and its ABI are unchanged. Compatibility impact: none. Public API: the codec module's ABI in `crates/codec-bindings` and its loader in `@audiogubbins/codec-runtime`. Godot interchange and runtime: the exported WAV, Ogg Vorbis and MP3 files are ordinary files Godot imports (`REQ-GODOT-133`). PWA and browser: the codec module and the two encoders are precached with the application. Verification: `cargo test --workspace`; the Opus conformance vectors, fetched on demand with their hashes (`REQ-REPO-191`); round trips of every lossless format bit for bit; lossy round trips within a stated error against the source; the hashes of local exports; a browser test of AAC export where Chromium encodes it.
+- **Amends:** `ADR-0031`, whose rule that only `crates/wasm-bindings` may hold `unsafe` gains `crates/codec-bindings`. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-141`, `REQ-REPO-033`, `REQ-REPO-142`, `REQ-GODOT-133`.
+
+<!-- adr/ADR-0092-export-jobs-settings-and-destinations.md -->
+
+# ADR-0092 — An Export Renders Canonically, Encodes, Stages, And Only Then Delivers Under A Collision Policy
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review places export in a new, portable `packages/import-export` (`@audiogubbins/import-export`), which owns the typed settings, the presets, the job state machines and the collision rules, and takes every effect through injected ports.
+  - **One settings model.** `ExportSettings` is a discriminated record per format: WAV (integer 8, 16, 24 or 32 bits, float 32 or 64, A-law, µ-law, IMA or Microsoft ADPCM; plain, extensible or RF64 by need), AIFF and AIFF-C, FLAC (16, 24 or 32 bits, compression level), MP3 (constant, average or variable bit rate, quality), Ogg Vorbis (quality or nominal bit rate), Opus in Ogg (bit rate, mode, frame length, complexity) and AAC in M4A (bit rate); with, for every format, the sample rate, the channel layout and its conversion, the dither (none, rectangular or triangular, with or without noise shaping), the range (the project, a region, every region, or the selection), the metadata policy and fields (`ADR-0093`), and the file name template. Every value is validated against the format's `CodecDescriptor`, and an invalid setting is refused with the reason, never clamped.
+  - **Presets over the full settings.** An `ExportPreset` is a name and a partial `ExportSettings`; resolving it fills every omitted value from the format's defaults and gives the same typed record the expert controls edit (`REQ-AUDIO-050`). The built-in presets cover game effects (WAV 16-bit at 48 kHz, Ogg Vorbis, Opus), masters (WAV 24-bit and 32-bit float, FLAC) and distribution (MP3 at 320 kbit/s and V0, AAC). The person's own presets are kept in their preferences, raising `userPreferences`. A change to any value in the expert controls is kept as edited settings, never lost to a preset. The default is the highest-quality path for the format: the project's own rate and layout, 32-bit float for WAV and AIFF-C, the highest FLAC depth the source needs, and the highest quality of a lossy format, with no conversion the person did not ask for (`REQ-AUDIO-143`).
+  - **The job.** An `ExportJob` is a state machine: `planned`, `rendering`, `encoding`, `staged`, `delivering`, `delivered`, and `failed` or `cancelled` from any state before `delivered`. The render worker renders the range through the canonical engine at the target rate, with the effect racks, the conversion to the target layout as graph nodes (`ADR-0060`), and the dither as the last step before integer quantisation, from a generator seeded by the job's settings so the same export gives the same bits (`REQ-ARCH-049`). Rendered blocks pass from the render worker to the codec worker, and encoded bytes from the codec worker to the storage worker, over message channels; the page sends commands and receives progress. A batch export is a list of jobs run one at a time, with progress for each and the whole.
+  - **Staged before delivered.** The storage worker writes the encoded body into an export staging area in the origin-private file system; a container whose header depends on the whole stream (FLAC's stream information, MP4's movie box, MP3's information frame) is completed when the stream ends. Delivery then writes header and body to the destination; only a whole delivered file is reported as exported, and an export that fails or is cancelled leaves the destination as it was. A delivery refused for permission or collision keeps the staged file, so the person can retry or choose another destination without rendering again; staging is a cache category removed after delivery and at start, never a root. The storage estimate is checked before rendering, for the staged file.
+  - **Destinations.** A destination is a save dialog's file, a chosen folder, a kept trusted folder, or a download where no dialog exists (`REQ-GODOT-046`). A folder delivery writes through `createWritable`, which replaces a file only when it closes, so no destination is ever half written.
+  - **Collision policy.** `CollisionPolicy` is `prompt` (the default), `overwrite`, `skip` or `rename`, with apply-to-all for the rest of a batch. A collision is decided by the destination's listing at delivery, never assumed. `rename` takes the first free name of the form `name (2).ext` in a stated order, the same answer for the same listing. A trusted destination is a kept folder the person marks trusted; in it, a file that AudioGubbins exported there earlier, unchanged since by its size and the hash its export record holds, is overwritten silently, and any other collision falls to the folder's policy (`REQ-ARCH-054`). Nothing overwrites by default.
+  - **Exports are history, not edits.** A delivered export is recorded as an `ExportRecord` (`REQ-STOR-197`) with its settings, destination kind, file name, size, hash, the codec and its version, whether its bytes are reproducible, and its status; it is never undone, and undo says so (`REQ-STOR-198`).
+  - **The interface.** The Export dialog shows the presets and, disclosed on request, every setting, with what each preset sets; Quick Edit, the region list and the File menu open it with their range. Every action is a command; the dialog, the collision prompt, the progress and the trusted-folder setting say what will happen before it happens.
+- **Drivers:** `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-AUDIO-010`, `REQ-AUDIO-143`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-157`, `REQ-STOR-197`, `REQ-STOR-198`, `REQ-EDIT-014` (per-region and batch export), `REQ-EDIT-008` (Quick Edit's export), `REQ-EXEC-216` (destinations can never be assumed writable or free). The renderer already renders a range in chunks at a target rate through the canonical resampler; the layout conversion nodes exist; no dither exists. A browser file writer replaces a file only on close, and a folder listing is the only evidence of a collision.
+- **Constraints:** `packages/import-export` depends on the domain, the codecs, the project format and the engine's contracts, never on a browser global; Godot's recipes depend on it, never the reverse. No export reads a whole rendered file into memory. Dither never applies to float output, and a 24- or 32-bit integer export dithers only if asked. Export recipes as persistent project objects are Phase 11's (`REQ-GODOT-119`), built on these settings.
+- **Change record:** affected requirements `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-AUDIO-010`, `REQ-AUDIO-143`, `REQ-STOR-197`, `REQ-STOR-198`, `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-GODOT-046`; affected phases 09, and 11 and 13, which build recipes and batches on these contracts. Compatibility impact: the person's preferences gain export presets and trusted folders, raising `userPreferences`; the project's state gains its last export settings, raising `projectDocument`; no migration before 1.0. Public API: `ExportSettings`, `ExportPreset`, `ExportJob`, `CollisionPolicy` in `@audiogubbins/import-export`; the staging area and delivery in `@audiogubbins/storage` and `@audiogubbins/storage-runtime`; the folder destination in `@audiogubbins/browser-storage`. Godot interchange and runtime: trusted overwrite serves rapid iteration (`REQ-ARCH-054`). PWA and browser: dialogs and folders are probed; a download is the fallback. Verification: settings and presets resolving to the same record; dither's bits from its seed; every collision policy over listed folders; a failed, cancelled and refused delivery leaving the destination unchanged; the export record's round trip; a browser test exporting a region to a folder with a collision.
+- **Amends:** `ADR-0022`, whose storage worker gains the export staging area and delivery. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-AUDIO-010`, `REQ-AUDIO-143`, `REQ-ARCH-049`, `REQ-ARCH-157`, `REQ-STOR-197`, `REQ-STOR-198`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0093-metadata-loops-and-channel-layouts-in-files.md -->
+
+# ADR-0093 — One Metadata Map Is Read From And Written To Every Format, With Its Loops And Its Channel Layout
+
+- **Status:** Accepted
+- **Decision:** Phase 09's readiness review gives file metadata one typed model, `MetadataMap` in `packages/codecs`, and a mapping per format in each direction.
+  - **The map.** Text fields with typed keys (title, artist, album, album artist, track and disc numbers, date, genre, comment, copyright, encoder, ISRC, and others a format names, kept by their own key), the Broadcast Wave description (originator, its reference, origination date and time, time reference, coding history), cue points with names, loops (start, length, play count or endless, and direction: forward, alternating or backward), the MIDI unity note and fine tuning, and embedded cover art as bytes with its type. A field a format cannot hold is reported as dropped before an export, never dropped silently.
+  - **The mappings.** WAV: `LIST`/`INFO`, `bext`, `cue ` with `LIST`/`adtl` labels, `smpl` loops, `iXML` read and kept; AIFF and AIFF-C: `NAME`, `AUTH`, `(c) `, `ANNO`, `MARK` and `INST` loops; FLAC: Vorbis comments, `PICTURE`, and a WAV's `smpl` and `cue ` carried in an `APPLICATION` `riff` block where the person keeps them; Ogg Vorbis and Opus: Vorbis comments, with loops as `LOOPSTART` and `LOOPLENGTH`, the convention game engines and tools read; MP3: ID3v2.4 frames (with ID3v2.3 and ID3v1 read), loops as `TXXX` `LOOPSTART` and `LOOPLENGTH`; M4A: the `ilst` atoms. Every reader is bounded in chunks, frames, lengths and nesting, and treats every value as untrusted text or bytes (`REQ-EXEC-136`).
+  - **Loops in frames at the file's rate.** A loop or cue read from a file is in that file's frames; on import it becomes a region with a loop or a marker at the asset's frames, and on export a region's loop is written at the exported rate, scaled by the one rounding rule of the rate conversion, so a loop exported at the project's rate is exact (`REQ-GAME-121`).
+  - **The metadata policy.** An export carries the project's and the region's metadata by its policy: `full`, `minimal` (title and loops only) or `none`, with any field added, edited or removed (`REQ-STOR-166`); AudioGubbins never writes a path, a user name, a machine name or a time zone it was not given.
+  - **Channel layouts in files.** A WAV export states a layout by `WAVE_FORMAT_EXTENSIBLE`'s speaker mask wherever the mask can hold it, including 7.1 with side and back pairs and 7.1.4 with the top speakers, which Phase 07's writer refused; an ambisonic export writes the AmbiX order and normalisation in the extensible form with an empty mask and states them in `iXML`, which the reader honours. AIFF-C states its layout in a `CHAN` chunk. FLAC, Vorbis and Opus write their codec's own channel order and mapping, and AAC its channel configuration, and a layout a format cannot state is refused for that format before rendering, with the formats that can hold it named. No layout is inferred from a channel count alone where the file states one (`REQ-ARCH-157`).
+- **Drivers:** `REQ-AUDIO-010` (metadata, loop metadata, multichannel layouts), `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`, `REQ-GODOT-133`, `REQ-EXEC-136` (imported metadata is untrusted). Phase 07's writer refused `surround7_1`, `surround7_1_4` and every ambisonic layout, which its handoff left with no owner.
+- **Constraints:** the map is a value; the readers and writers are pure functions over it in `packages/codecs`, so every mapping is tested on generated fixtures without a browser. Metadata read on import is kept in the asset's provenance, which provenance stripping already covers.
+- **Change record:** affected requirements `REQ-AUDIO-010`, `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`; affected phases 09, and 07, already passed, whose writer's refusal of 7.1, 7.1.4 and ambisonic layouts is resolved here as inherited debt. Compatibility impact: provenance gains the metadata map, within the `projectDocument` raise of `ADR-0090`. Public API: `MetadataMap` and the per-format metadata readers and writers in `@audiogubbins/codecs`. Godot interchange and runtime: the loop conventions Godot and its tools read. PWA and browser: none. Verification: a round trip of every field and loop through every format that holds it; fields a format cannot hold reported; hostile chunks, frames and atoms refused within their bounds; every domain layout through WAV and AIFF-C.
+- **Amends:** `ADR-0071`, whose WAV writer's refusal of layouts no speaker mask holds is replaced by the statement above for exports. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`, `REQ-GODOT-133`, `REQ-EXEC-136`.
 
 # Passed Dependency Handoffs
 
@@ -2277,7 +3466,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 9,
   "name": "Import, Export, and Codec System",
-  "status": "NOT_READY",
+  "status": "READY",
   "hard_dependencies": [
     2,
     3,
