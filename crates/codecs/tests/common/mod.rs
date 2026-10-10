@@ -11,7 +11,7 @@
 
 use audiogubbins_codecs::{
     ByteSource, CodecFailure, DecodeSession, FlacFrameEncoder, FlacSettings, OpusEncoder,
-    OpusSettings, ReadFailure,
+    OpusPacket, OpusSettings, ReadFailure,
 };
 
 /// Bytes in memory read as a file.
@@ -153,13 +153,36 @@ fn ogg_page(serial: u32, sequence: u32, granule: u64, flags: u8, packets: &[&[u8
     page
 }
 
-/// An Ogg Opus file of `planes` encoded by the module's Opus encoder, its
-/// granule positions written as RFC 7845 asks: each audio page's is the
-/// pre-skip and every frame of its packets, and the last page's the end
-/// granule, which trims the final packet's padding.
-pub fn ogg_opus(settings: OpusSettings, planes: &[Vec<f32>]) -> Vec<u8> {
+/// What the module's Opus encoder made of a signal.
+pub struct EncodedOpus {
+    /// The identification header.
+    pub head: Vec<u8>,
+    pub pre_skip: u64,
+    pub packets: Vec<OpusPacket>,
+    /// The pre-skip and every frame of the signal: the granule position
+    /// that ends the stream.
+    pub end_granule: u64,
+}
+
+impl EncodedOpus {
+    /// The frames the signal lasted at 48 kHz.
+    pub fn stated_length(&self) -> u64 {
+        self.end_granule - self.pre_skip
+    }
+
+    /// The frames every packet decodes to.
+    pub fn decoded_length(&self) -> u64 {
+        self.packets
+            .iter()
+            .map(|packet| u64::from(packet.frames))
+            .sum()
+    }
+}
+
+/// `planes` encoded by the module's Opus encoder, pushed in uneven blocks,
+/// as a renderer's might arrive.
+pub fn encode_opus(settings: OpusSettings, planes: &[Vec<f32>]) -> EncodedOpus {
     let mut encoder = OpusEncoder::new(settings).expect("valid settings");
-    // Pushed in uneven blocks, as a renderer's might arrive.
     let total = planes[0].len();
     let mut start = 0;
     let mut sizes = Lcg(7);
@@ -172,23 +195,41 @@ pub fn ogg_opus(settings: OpusSettings, planes: &[Vec<f32>]) -> Vec<u8> {
         start = end;
     }
     encoder.finish().expect("finishable");
-    let serial = 0x5eed;
-    let mut file = ogg_page(serial, 0, 0, 0x02, &[&encoder.head().to_bytes()]);
-    let tags = b"OpusTags\x08\0\0\0testcase\0\0\0\0";
-    file.extend(ogg_page(serial, 1, 0, 0, &[tags]));
     let mut packets = Vec::new();
     while let Some(packet) = encoder.next_packet() {
         packets.push(packet);
     }
-    let mut granule = u64::from(encoder.head().pre_skip);
-    let pages: Vec<_> = packets.chunks(10).collect();
+    EncodedOpus {
+        head: encoder.head().to_bytes(),
+        pre_skip: u64::from(encoder.head().pre_skip),
+        packets,
+        end_granule: encoder.end_granule(),
+    }
+}
+
+/// An Ogg Opus file of `planes` encoded by the module's Opus encoder, its
+/// granule positions written as RFC 7845 asks: each audio page's is the
+/// pre-skip and every frame of its packets, and the last page's the end
+/// granule, which trims the final packet's padding.
+pub fn ogg_opus(settings: OpusSettings, planes: &[Vec<f32>]) -> Vec<u8> {
+    ogg_of(&encode_opus(settings, planes))
+}
+
+/// The Ogg Opus file of `encoded`.
+pub fn ogg_of(encoded: &EncodedOpus) -> Vec<u8> {
+    let serial = 0x5eed;
+    let mut file = ogg_page(serial, 0, 0, 0x02, &[&encoded.head]);
+    let tags = b"OpusTags\x08\0\0\0testcase\0\0\0\0";
+    file.extend(ogg_page(serial, 1, 0, 0, &[tags]));
+    let mut granule = encoded.pre_skip;
+    let pages: Vec<_> = encoded.packets.chunks(10).collect();
     for (index, page) in pages.iter().enumerate() {
         granule += page
             .iter()
             .map(|packet| u64::from(packet.frames))
             .sum::<u64>();
         let last = index + 1 == pages.len();
-        let position = if last { encoder.end_granule() } else { granule };
+        let position = if last { encoded.end_granule } else { granule };
         let bytes: Vec<&[u8]> = page.iter().map(|packet| packet.bytes.as_slice()).collect();
         let sequence = u32::try_from(index + 2).expect("few pages");
         file.extend(ogg_page(
@@ -200,6 +241,176 @@ pub fn ogg_opus(settings: OpusSettings, planes: &[Vec<f32>]) -> Vec<u8> {
         ));
     }
     file
+}
+
+/// An EBML element of `content`, its size written in eight bytes.
+pub fn ebml(id: u32, content: &[u8]) -> Vec<u8> {
+    let mut element = ebml_id(id);
+    element.push(0x01);
+    element.extend_from_slice(&(content.len() as u64).to_be_bytes()[1..]);
+    element.extend_from_slice(content);
+    element
+}
+
+/// An element identifier's bytes, its length marker kept.
+fn ebml_id(id: u32) -> Vec<u8> {
+    let bytes = id.to_be_bytes();
+    let first = bytes.iter().position(|&byte| byte != 0).unwrap_or(3);
+    bytes[first..].to_vec()
+}
+
+/// The header of an element of unknown size, whose content follows.
+pub fn ebml_unknown(id: u32) -> Vec<u8> {
+    let mut header = ebml_id(id);
+    header.extend_from_slice(&[0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+    header
+}
+
+/// An element holding an unsigned integer in eight bytes.
+pub fn ebml_unsigned(id: u32, value: u64) -> Vec<u8> {
+    ebml(id, &value.to_be_bytes())
+}
+
+/// An element holding a signed integer in eight bytes.
+pub fn ebml_signed(id: u32, value: i64) -> Vec<u8> {
+    ebml(id, &value.to_be_bytes())
+}
+
+/// How [`matroska`] writes a file.
+#[derive(Clone, Copy)]
+pub struct MatroskaLayout<'a> {
+    /// The EBML document type: `webm` or `matroska`.
+    pub doc_type: &'a str,
+    /// The codec's identifier, such as `A_OPUS`.
+    pub codec_id: &'a str,
+    pub rate: u32,
+    pub channels: u8,
+    /// The track's `CodecDelay` in nanoseconds, where written.
+    pub codec_delay: Option<u64>,
+    /// The `DiscardPadding` of the first block, where written.
+    pub first_padding: Option<i64>,
+    /// The `DiscardPadding` of the last block, where written.
+    pub last_padding: Option<i64>,
+    /// How many packets the last block holds, Xiph-laced where more than one.
+    pub last_block_packets: usize,
+    /// Whether the segment and its clusters are of unknown size, as a live
+    /// recorder writes them.
+    pub unknown_sizes: bool,
+}
+
+/// The block of `packets`, Xiph-laced where more than one, for track 1 at
+/// `timestamp` milliseconds into its cluster.
+fn block(packets: &[&[u8]], timestamp: i16, flags: u8) -> Vec<u8> {
+    let mut bytes = vec![0x81];
+    bytes.extend_from_slice(&timestamp.to_be_bytes());
+    if packets.len() == 1 {
+        bytes.push(flags);
+    } else {
+        bytes.push(flags | 0x02);
+        bytes.push((packets.len() - 1) as u8);
+        for packet in &packets[..packets.len() - 1] {
+            bytes.extend(std::iter::repeat_n(255u8, packet.len() / 255));
+            bytes.push((packet.len() % 255) as u8);
+        }
+    }
+    for packet in packets {
+        bytes.extend_from_slice(packet);
+    }
+    bytes
+}
+
+/// A Matroska file of one audio track whose codec configuration is
+/// `private`, holding `packets` of `frames` frames each at the layout's
+/// rate, in clusters of twenty blocks.
+pub fn matroska(layout: MatroskaLayout<'_>, private: &[u8], packets: &[(&[u8], u64)]) -> Vec<u8> {
+    let header = [
+        ebml_unsigned(0x4286, 1),
+        ebml_unsigned(0x42f7, 1),
+        ebml_unsigned(0x42f2, 4),
+        ebml_unsigned(0x42f3, 8),
+        ebml(0x4282, layout.doc_type.as_bytes()),
+        ebml_unsigned(0x4287, 4),
+        ebml_unsigned(0x4285, 2),
+    ]
+    .concat();
+    let info = ebml(
+        0x1549_a966,
+        &[
+            ebml_unsigned(0x002a_d7b1, 1_000_000),
+            ebml(0x4d80, b"test"),
+            ebml(0x5741, b"test"),
+        ]
+        .concat(),
+    );
+    let mut audio = ebml(0xb5, &f64::from(layout.rate).to_be_bytes());
+    audio.extend(ebml_unsigned(0x9f, u64::from(layout.channels)));
+    let mut entry = [
+        ebml_unsigned(0xd7, 1),
+        ebml_unsigned(0x73c5, 1),
+        ebml_unsigned(0x83, 2),
+        ebml(0x86, layout.codec_id.as_bytes()),
+        ebml(0x63a2, private),
+        ebml_unsigned(0x56bb, 80_000_000),
+        ebml(0xe1, &audio),
+    ]
+    .concat();
+    if let Some(delay) = layout.codec_delay {
+        entry.extend(ebml_unsigned(0x56aa, delay));
+    }
+    let tracks = ebml(0x1654_ae6b, &ebml(0xae, &entry));
+    // The packets in blocks: the last block holds the last few, laced.
+    let split = packets.len() - layout.last_block_packets;
+    let mut blocks: Vec<Vec<(&[u8], u64)>> = packets[..split]
+        .iter()
+        .map(|&packet| vec![packet])
+        .collect();
+    blocks.push(packets[split..].to_vec());
+    let mut segment = [info, tracks].concat();
+    let mut elapsed = 0u64;
+    let last = blocks.len() - 1;
+    for (number, cluster_blocks) in blocks.chunks(20).enumerate() {
+        let cluster_start = elapsed;
+        let mut cluster = ebml_unsigned(0xe7, cluster_start * 1_000 / u64::from(layout.rate));
+        for (index, held) in cluster_blocks.iter().enumerate() {
+            let at = number * 20 + index;
+            let relative = ((elapsed - cluster_start) * 1_000 / u64::from(layout.rate)) as i16;
+            let data: Vec<&[u8]> = held.iter().map(|&(data, _)| data).collect();
+            elapsed += held.iter().map(|&(_, frames)| frames).sum::<u64>();
+            let padding = match at {
+                0 if layout.first_padding.is_some() => layout.first_padding,
+                at if at == last => layout.last_padding,
+                _ => None,
+            };
+            match padding {
+                Some(padding) => {
+                    let mut group = ebml(0xa1, &block(&data, relative, 0));
+                    group.extend(ebml_signed(0x75a2, padding));
+                    cluster.extend(ebml(0xa0, &group));
+                }
+                None => cluster.extend(ebml(0xa3, &block(&data, relative, 0x80))),
+            }
+        }
+        if layout.unknown_sizes {
+            segment.extend(ebml_unknown(0x1f43_b675));
+            segment.extend(cluster);
+        } else {
+            segment.extend(ebml(0x1f43_b675, &cluster));
+        }
+    }
+    let mut file = ebml(0x1a45_dfa3, &header);
+    if layout.unknown_sizes {
+        file.extend(ebml_unknown(0x1853_8067));
+        file.extend(segment);
+    } else {
+        file.extend(ebml(0x1853_8067, &segment));
+    }
+    file
+}
+
+/// `frames` at `rate` in nanoseconds, as a muxer writes them: rounded to
+/// the nearest.
+pub fn nanoseconds(frames: u64, rate: u32) -> u64 {
+    (frames * 1_000_000_000 + u64::from(rate) / 2) / u64::from(rate)
 }
 
 /// Every frame a session decodes, one plane per channel.

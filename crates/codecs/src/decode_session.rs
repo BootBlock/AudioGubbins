@@ -1,8 +1,6 @@
 //! A decode session: one file, its default audio track described and decoded
 //! in order (ADR-0090).
 
-use std::collections::VecDeque;
-
 use symphonia::core::audio::{Channels, Position};
 use symphonia::core::codecs::CodecParameters;
 use symphonia::core::codecs::audio::AudioCodecParameters;
@@ -21,20 +19,21 @@ use symphonia::core::formats::well_known::{
 use symphonia::core::formats::{FormatOptions, FormatReader, Track, TrackType};
 use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::packet::Packet;
 
 use crate::aac_signalling::{AacForm, ImplicitSbrSearch, form_of_config, implicit_form};
 use crate::byte_source::{ByteSource, SourceReader, read_failure_of};
 use crate::description::{Codec, Container, StatedLayout, StreamDescription};
 use crate::failure::CodecFailure;
 use crate::leading_bytes::{Leading, leading};
+use crate::matroska_blocks::{MatroskaBlocks, MatroskaTrack};
 use crate::mp4_gapless::{Mp4Trim, read_mp4_boxes};
 use crate::opus_decoding::OPUS_RATE;
 use crate::opus_head::{FieldOrder, OpusHead};
 use crate::opus_track::OpusTrack;
 use crate::planar_queue::PlanarQueue;
-use crate::symphonia_track::{SymphoniaTrack, failure_of};
+use crate::symphonia_track::SymphoniaTrack;
 use crate::track_decoder::TrackDecoder;
+use crate::track_packets::{BlockTrim, Timing, TrackPacket, TrackPackets, frames_of};
 use crate::vorbis_order::vorbis_layout;
 
 /// The speaker bits `WAVE_FORMAT_EXTENSIBLE` names, which Symphonia's
@@ -89,26 +88,6 @@ fn container_of(reader: &dyn FormatReader, leading: Leading) -> Result<Container
     Ok(container)
 }
 
-/// The next packet of the track `track_id`: one held back first, then the
-/// reader's, passing over other tracks'.
-fn next_packet(
-    reader: &mut dyn FormatReader,
-    held: &mut VecDeque<Packet>,
-    track_id: u32,
-) -> Result<Option<Packet>, CodecFailure> {
-    if let Some(packet) = held.pop_front() {
-        return Ok(Some(packet));
-    }
-    loop {
-        match reader.next_packet() {
-            Ok(Some(packet)) if packet.track_id == track_id => return Ok(Some(packet)),
-            Ok(Some(_)) => {}
-            Ok(None) => return Ok(None),
-            Err(error) => return Err(failure_of(&error)),
-        }
-    }
-}
-
 /// What a track's codec is, before any decoder is made.
 enum Recognised {
     /// A codec the module decodes.
@@ -122,7 +101,8 @@ enum Recognised {
 pub struct EncodedPacket<'a> {
     /// The packet's bytes.
     pub data: &'a [u8],
-    /// The frames it presents, in the track's own frames.
+    /// The frames it presents, in the track's own frames, or 0 where the
+    /// container does not say (a Matroska block without a duration).
     pub frames: u64,
 }
 
@@ -135,19 +115,49 @@ enum Use {
     ReadingPackets,
 }
 
+/// The trimming of the Matroska block being decoded, in frames: its frames
+/// are held until its last is decoded, so its end can be taken back.
+#[derive(Clone, Copy, Debug, Default)]
+struct OpenBlock {
+    /// Frames its start drops.
+    start: u64,
+    /// Frames its end drops.
+    end: u64,
+    /// Frames its packets decoded to.
+    decoded: u64,
+    /// Frames of them kept after the start's trimming and the stream's.
+    kept: usize,
+}
+
+impl OpenBlock {
+    /// A block whose `DiscardPadding` is `padding` nanoseconds, at `rate`.
+    fn of(padding: i64, rate: u32) -> Self {
+        let frames = frames_of(padding.unsigned_abs(), rate);
+        if padding < 0 {
+            Self {
+                start: frames,
+                ..Self::default()
+            }
+        } else {
+            Self {
+                end: frames,
+                ..Self::default()
+            }
+        }
+    }
+}
+
 /// One file's default audio track, described and decoded in order.
 pub struct DecodeSession {
-    reader: Box<dyn FormatReader>,
-    track_id: u32,
+    packets: TrackPackets,
     description: StreamDescription,
     codec_config: Box<[u8]>,
     decoder: Option<Box<dyn TrackDecoder>>,
     queue: PlanarQueue,
-    /// Packets read ahead while the track was recognised, given before the
-    /// reader's.
-    held: VecDeque<Packet>,
+    /// The Matroska block being decoded, where it has trimming.
+    block: Option<OpenBlock>,
     /// The packet last given by [`read_packet`](Self::read_packet).
-    packet: Option<Packet>,
+    packet: Option<TrackPacket>,
     use_: Use,
     delivered: u64,
     ended: bool,
@@ -183,7 +193,7 @@ impl DecodeSession {
         let metadata = MetadataOptions::default()
             .limit_tag_bytes(Limit::Maximum(0))
             .limit_visual_bytes(Limit::Maximum(0));
-        let mut reader = symphonia::default::get_probe()
+        let reader = symphonia::default::get_probe()
             .probe(&Hint::new(), stream, FormatOptions::default(), metadata)
             .map_err(|error| probe_failure(&error))?;
         let container = container_of(reader.as_ref(), leading)?;
@@ -194,17 +204,28 @@ impl DecodeSession {
         let Some(CodecParameters::Audio(params)) = track.codec_params.clone() else {
             return Err(CodecFailure::NoAudioTrack);
         };
-        let mut held = VecDeque::new();
-        let recognised = recognise(reader.as_mut(), &track, &params, &mut held)?;
+        // Symphonia has read the tracks; the module reads Matroska's blocks
+        // itself, for the trimming Symphonia's reader drops.
+        let (mut packets, matroska) = if matches!(container, Container::Webm | Container::Matroska)
+        {
+            let blocks = MatroskaBlocks::open(reader.into_inner(), track.id, size)?;
+            let facts = blocks.track();
+            (TrackPackets::matroska(blocks), Some(facts))
+        } else {
+            (TrackPackets::symphonia(reader, track.id), None)
+        };
+        let recognised = recognise(&mut packets, &params)?;
         let mp4_trim = |rate: u32| {
             mp4_boxes
                 .as_ref()
                 .and_then(|boxes| boxes.trim(track.id, rate))
         };
         let opened = match recognised {
-            Recognised::Decodable(Codec::Opus) => open_opus(&track, &params, container, &mp4_trim)?,
+            Recognised::Decodable(Codec::Opus) => {
+                open_opus(&track, &params, container, &mp4_trim, matroska)?
+            }
             Recognised::Decodable(codec) => {
-                open_symphonia(&track, &params, codec, container, &mp4_trim)?
+                open_symphonia(&track, &params, codec, container, &mp4_trim, matroska)?
             }
             Recognised::HighEfficiencyAac(form) => describe_he_aac(&params, form, &mp4_trim)?,
         };
@@ -219,13 +240,12 @@ impl DecodeSession {
         let channels =
             usize::try_from(description.channel_count).map_err(|_| CodecFailure::Malformed)?;
         Ok(Self {
-            reader,
-            track_id: track.id,
+            packets,
             description,
             codec_config: params.extra_data.clone().unwrap_or_default(),
             decoder,
             queue: PlanarQueue::new(channels, skip, length),
-            held,
+            block: None,
             packet: None,
             use_: Use::Unstarted,
             delivered: 0,
@@ -282,16 +302,14 @@ impl DecodeSession {
     }
 
     /// Decodes packets until frames wait or the stream ends, refusing a
-    /// stream that ends short of the length its container states.
+    /// stream that ends short of the length its container states. A
+    /// Matroska block with trimming is decoded whole before any of it is
+    /// given out, so its end can be taken back.
     fn fill(&mut self) -> Result<(), CodecFailure> {
         let track_decoder = self.decoder.as_mut().ok_or(CodecFailure::Unsupported)?;
-        while self.queue.waiting() == 0 && !self.ended {
-            if let Some(packet) = next_packet(self.reader.as_mut(), &mut self.held, self.track_id)?
-            {
-                let output = track_decoder.decode(&packet)?;
-                self.queue.push(&output);
-                self.ended = self.queue.complete();
-            } else {
+        let rate = self.description.sample_rate;
+        while !self.ended && (self.queue.waiting() == 0 || self.block.is_some()) {
+            let Some(packet) = self.packets.next()? else {
                 self.ended = true;
                 let given = self.delivered + self.queue.waiting() as u64;
                 if self
@@ -301,7 +319,38 @@ impl DecodeSession {
                 {
                     return Err(CodecFailure::Malformed);
                 }
+                break;
+            };
+            let trim = match packet.timing {
+                Timing::Matroska { trim, .. } => trim,
+                Timing::Frames => None,
+            };
+            if let Some(BlockTrim {
+                padding,
+                opens: true,
+                ..
+            }) = trim
+            {
+                let block = OpenBlock::of(padding, rate);
+                self.queue.skip_at_least(block.start);
+                self.block = Some(block);
             }
+            let output = track_decoder.decode(&packet.packet)?;
+            let kept = self.queue.push(&output);
+            if let Some(block) = self.block.as_mut() {
+                block.decoded += output.frames.len() as u64;
+                block.kept += kept;
+            }
+            if trim.is_some_and(|trim| trim.closes) {
+                let block = self.block.take().ok_or(CodecFailure::Malformed)?;
+                // Padding past the block's own frames would trim another's.
+                if block.start > block.decoded || block.end > block.decoded {
+                    return Err(CodecFailure::Malformed);
+                }
+                let end = usize::try_from(block.end).map_err(|_| CodecFailure::Malformed)?;
+                self.queue.retract(end.min(block.kept));
+            }
+            self.ended = self.queue.complete();
         }
         Ok(())
     }
@@ -323,7 +372,7 @@ impl DecodeSession {
             return Err(CodecFailure::Refused);
         }
         self.use_ = Use::ReadingPackets;
-        match next_packet(self.reader.as_mut(), &mut self.held, self.track_id) {
+        match self.packets.next() {
             Ok(packet) => {
                 self.packet = packet;
                 Ok(self.last_packet())
@@ -341,18 +390,16 @@ impl DecodeSession {
     #[must_use]
     pub fn last_packet(&self) -> Option<EncodedPacket<'_>> {
         self.packet.as_ref().map(|packet| EncodedPacket {
-            data: &packet.data,
-            frames: packet.dur.get(),
+            data: &packet.packet.data,
+            frames: packet.frames(self.description.sample_rate),
         })
     }
 }
 
 /// A track's codec, from its parameters and, for AAC, its first packets.
 fn recognise(
-    reader: &mut dyn FormatReader,
-    track: &Track,
+    packets: &mut TrackPackets,
     params: &AudioCodecParameters,
-    held: &mut VecDeque<Packet>,
 ) -> Result<Recognised, CodecFailure> {
     let codec = match params.codec {
         id if id == CODEC_ID_FLAC => Codec::Flac,
@@ -360,7 +407,7 @@ fn recognise(
         id if id == CODEC_ID_MP3 => Codec::Mp3,
         id if id == CODEC_ID_VORBIS => Codec::Vorbis,
         id if id == CODEC_ID_OPUS => Codec::Opus,
-        id if id == CODEC_ID_AAC => return recognise_aac(reader, track, params, held),
+        id if id == CODEC_ID_AAC => return recognise_aac(packets, params),
         _ => return Err(CodecFailure::Unsupported),
     };
     Ok(Recognised::Decodable(codec))
@@ -369,10 +416,8 @@ fn recognise(
 /// Whether an AAC track is AAC-LC or HE-AAC: by its configuration where it
 /// states SBR, and otherwise by its first packets.
 fn recognise_aac(
-    reader: &mut dyn FormatReader,
-    track: &Track,
+    packets: &mut TrackPackets,
     params: &AudioCodecParameters,
-    held: &mut VecDeque<Packet>,
 ) -> Result<Recognised, CodecFailure> {
     let stated = params.extra_data.as_deref().map(form_of_config);
     if let Some(form @ AacForm::HighEfficiency { .. }) = stated {
@@ -389,11 +434,10 @@ fn recognise_aac(
     }
     let mut search = ImplicitSbrSearch::default();
     while !search.decided() {
-        let Some(packet) = next_packet(reader, &mut VecDeque::new(), track.id)? else {
+        let Some(data) = packets.read_ahead()? else {
             break;
         };
-        search.examine(&packet.data);
-        held.push_back(packet);
+        search.examine(data);
     }
     if search.carries_sbr() {
         let rate = params.sample_rate.ok_or(CodecFailure::Malformed)?;
@@ -451,6 +495,7 @@ fn open_symphonia(
     codec: Codec,
     container: Container,
     mp4_trim: &dyn Fn(u32) -> Option<Mp4Trim>,
+    matroska: Option<MatroskaTrack>,
 ) -> Result<Opened, CodecFailure> {
     let track_decoder = SymphoniaTrack::new(params)?;
     // The decoder completes the parameters from the codec's own headers.
@@ -488,6 +533,14 @@ fn open_symphonia(
             description.padding = track.padding.map(u64::from);
             description.total_frames = track.delay.and(track.num_frames);
         }
+        // Matroska states the delay of any codec, which Symphonia's reader
+        // reads but applies to nothing; its end padding is in the blocks.
+        Container::Webm | Container::Matroska => {
+            if let Some(delay) = matroska.and_then(|track| track.codec_delay) {
+                skip = frames_of(delay, rate);
+                description.priming = Some(skip);
+            }
+        }
         _ => {
             description.priming = track.delay.map(u64::from);
             description.padding = track.padding.map(u64::from);
@@ -507,6 +560,7 @@ fn open_opus(
     params: &AudioCodecParameters,
     container: Container,
     mp4_trim: &dyn Fn(u32) -> Option<Mp4Trim>,
+    matroska: Option<MatroskaTrack>,
 ) -> Result<Opened, CodecFailure> {
     let config = params
         .extra_data
@@ -530,6 +584,8 @@ fn open_opus(
     // The pre-skip is trimmed from the start. Ogg states the end in its last
     // granule position, which Symphonia counts from the stream's start, so
     // the length is that less the pre-skip; an MP4 edit list states both.
+    // Matroska states the delay as `CodecDelay`, which wins where stated, as
+    // the edit list does, and the end in its last block's `DiscardPadding`.
     let (skip, length) = match container {
         Container::Ogg => (
             pre_skip,
@@ -538,6 +594,12 @@ fn open_opus(
         Container::Mp4 => {
             mp4_trim(OPUS_RATE).map_or((pre_skip, None), |trim| (trim.priming, trim.length))
         }
+        Container::Webm | Container::Matroska => (
+            matroska
+                .and_then(|track| track.codec_delay)
+                .map_or(pre_skip, |delay| frames_of(delay, OPUS_RATE)),
+            None,
+        ),
         _ => (pre_skip, None),
     };
     description.priming = Some(skip);

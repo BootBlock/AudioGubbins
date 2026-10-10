@@ -1582,7 +1582,7 @@ Published paths
   FlacFrameEncoder.release: () => void
   interface FlacFrameSettings
   readonly FlacFrameSettings.channels: number
-  readonly FlacFrameSettings.bitsPerSample: 12 | 16 | 20 | 24 | 8
+  readonly FlacFrameSettings.bitsPerSample: number
   readonly FlacFrameSettings.sampleRate: number
   readonly FlacFrameSettings.blockSize: number
   readonly FlacFrameSettings.level: number
