@@ -851,6 +851,12 @@ const PACKAGES = [
       '@audiogubbins/storage',
       '@audiogubbins/browser-storage',
       '@audiogubbins/storage-runtime',
+      // The codec registry and capabilities, the codec worker it starts and
+      // talks to, and the export settings, jobs and collision rules it runs
+      // (ADR-0090, ADR-0092).
+      '@audiogubbins/codecs',
+      '@audiogubbins/codec-runtime',
+      '@audiogubbins/import-export',
       '@audiogubbins/audio-graph',
       '@audiogubbins/audio-engine',
       '@audiogubbins/audio-runtime',
