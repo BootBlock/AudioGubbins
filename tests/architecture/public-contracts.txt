@@ -899,7 +899,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29109: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29126: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1190,7 +1190,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29109: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@29126: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2940,6 +2940,7 @@ Published paths
   function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
   function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
   function stackUsers(project: Project, stack: TakeStackId): readonly StackUse[]
+  function streamChain(processing: StreamProcessing | undefined): StreamChain | undefined
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
@@ -7346,6 +7347,9 @@ packages/detection-runtime/src/detection-worker-core.ts
   readonly Job.request: DetectRequest
   readonly Job.cancellation: CancellationSource
   Job.failedWith: string | undefined
+
+packages/domain/src/editing/operations.ts
+  type StreamChain = { readonly kind: "chain"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; } | { readonly kind: "process"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; }
 
 packages/domain/src/processing/effect-chain.ts
   interface SlotControls
