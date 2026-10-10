@@ -7,10 +7,10 @@
 
 import { FailureKind, fail, failure } from '@audiogubbins/domain';
 
-import { CANVAS_2D_BACKEND } from './canvas2d-backend.js';
+import { canvas2dBackend } from './canvas2d-backend.js';
 import { RendererKind, type BackendFactory, type Schedule } from './renderer-backend.js';
-import { webGl2Backend } from './webgl2-backend.js';
-import { isGpu, webGpuBackend } from './webgpu-backend.js';
+import { webGl2Backend } from './webgl2-context.js';
+import { isGpu, webGpuBackend } from './webgpu-device.js';
 
 const NO_WEBGPU: BackendFactory = {
   kind: RendererKind.WebGpu,
@@ -27,9 +27,18 @@ const NO_WEBGPU: BackendFactory = {
 };
 
 /**
- * The backends to try, given what the browser offers as `navigator.gpu` and the
- * page's timers as `schedule`.
+ * The backends to try, given what the browser offers as `navigator.gpu`, the
+ * page's timers as `schedule`, and `offscreen`, which makes a canvas that is
+ * never shown, for the Canvas 2D backend to compose a field's image on.
  */
-export function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[] {
-  return [isGpu(gpu) ? webGpuBackend(gpu) : NO_WEBGPU, webGl2Backend(schedule), CANVAS_2D_BACKEND];
+export function browserBackends(
+  gpu: unknown,
+  schedule: Schedule,
+  offscreen: () => HTMLCanvasElement,
+): readonly BackendFactory[] {
+  return [
+    isGpu(gpu) ? webGpuBackend(gpu) : NO_WEBGPU,
+    webGl2Backend(schedule),
+    canvas2dBackend(offscreen),
+  ];
 }

@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27324: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1172,7 +1172,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27319: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27324: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -4896,6 +4896,16 @@ Published paths
   readonly BackendFactory.kind: RendererKind
   BackendFactory.create: (canvas: HTMLCanvasElement, events: BackendEvents) => Promise<DomainResult<RendererBackend>>
   type Colour = readonly [number, number, number, number]
+  interface ColourRamp
+  readonly ColourRamp.key: string
+  readonly ColourRamp.colours: Uint8Array<ArrayBuffer>
+  interface FieldBatch
+  readonly FieldBatch.kind: "field"
+  readonly FieldBatch.field: ScalarField
+  readonly FieldBatch.ramp: ColourRamp
+  readonly FieldBatch.at: Rectangle
+  readonly FieldBatch.columns: { readonly from: number; readonly to: number; }
+  readonly FieldBatch.rows: Float32Array<ArrayBufferLike>
   interface ImageBatch
   readonly ImageBatch.kind: "images"
   readonly ImageBatch.images: readonly PlacedImage[]
@@ -4916,7 +4926,7 @@ Published paths
   readonly RectangleBatch.colour: Colour
   readonly RectangleBatch.values: Float32Array<ArrayBufferLike>
   readonly RectangleBatch.count: number
-  type RenderBatch = ImageBatch | RectangleBatch | SegmentBatch | TextBatch
+  type RenderBatch = FieldBatch | ImageBatch | RectangleBatch | SegmentBatch | TextBatch
   interface RenderFrame
   readonly RenderFrame.width: number
   readonly RenderFrame.height: number
@@ -4972,6 +4982,11 @@ Published paths
   readonly RendererReport.recoveries: number
   const RendererState: { readonly Starting: "starting"; readonly Drawing: "drawing"; readonly Recovering: "recovering"; readonly Unavailable: "unavailable"; }
   type RendererState = "drawing" | "recovering" | "starting" | "unavailable"
+  interface ScalarField
+  readonly ScalarField.key: string
+  readonly ScalarField.width: number
+  readonly ScalarField.height: number
+  readonly ScalarField.values: Uint8Array<ArrayBuffer>
   interface SegmentBatch
   readonly SegmentBatch.kind: "segments"
   readonly SegmentBatch.colour: Colour
@@ -4989,7 +5004,7 @@ Published paths
   readonly TextLabel.font: string
   readonly TextLabel.align: "centre" | "left" | "right"
   readonly TextLabel.baseline: "bottom" | "middle" | "top"
-  function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
+  function browserBackends(gpu: unknown, schedule: Schedule, offscreen: () => HTMLCanvasElement): readonly BackendFactory[]
 
 @audiogubbins/storage
   type Alone<TValue> = { readonly kind: "busy"; } | { readonly kind: "done"; readonly value: TValue; } | { readonly kind: "unavailable"; }
