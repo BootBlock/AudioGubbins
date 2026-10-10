@@ -11,8 +11,8 @@ import {
   type DomainFailure,
   type SampleCount,
 } from '@audiogubbins/domain';
+import type { DecoderIdentity } from '@audiogubbins/codecs';
 
-import type { DecoderIdentity } from '../decoding/decoder-identity.js';
 import { SourceUnreadable } from '../files/async-file-bytes.js';
 import type { ImportAnalysis } from './codec-worker-messages.js';
 

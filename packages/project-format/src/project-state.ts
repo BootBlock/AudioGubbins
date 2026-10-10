@@ -15,6 +15,7 @@
  * REQ-STOR-026, REQ-STOR-053, REQ-STOR-099, REQ-STOR-104 and REQ-STOR-166.
  */
 
+import type { CodecId, ContainerId, DecoderIdentity } from '@audiogubbins/codecs';
 import type {
   AssetId,
   ChannelLayout,
@@ -24,13 +25,22 @@ import type {
   SampleRate,
 } from '@audiogubbins/domain';
 
+import type { ExportSettings } from '@audiogubbins/import-export';
+
 import type { ContentId } from './content-identity.js';
+import type { KeptMetadata } from './kept-metadata.js';
 import type { RecordedProvenance } from './recorded-provenance.js';
 
 /** A project and the source of each of its assets. */
 export interface ProjectState {
   readonly project: Project;
   readonly sources: ReadonlyMap<AssetId, AssetSource>;
+
+  /**
+   * The settings the project was last exported with, which the Export dialog
+   * opens with, or absent where it has never been exported (ADR-0092).
+   */
+  readonly exportSettings?: ExportSettings;
 }
 
 /** Where one asset's bytes come from, and how it came into the project. */
@@ -172,10 +182,20 @@ export interface AssetProvenance {
   readonly originProjectId: ProjectId;
 
   /**
-   * The audio shape of the file imported, where it was read from one: what
-   * its header states and how much of it was there (REQ-AUDIO-220).
+   * The audio shape of the file imported, where its audio is read where it
+   * lies: what its header states and how much of it was there (REQ-AUDIO-220).
    */
   readonly audio?: SourceAudioShape;
+
+  /**
+   * The compressed file the asset's media was decoded from, where its media
+   * is a decoded rendition of one (ADR-0090): what the file is, the decoder
+   * that made the rendition, and how the file itself is kept.
+   */
+  readonly rendition?: DecodedRendition;
+
+  /** The file's metadata, as the file states it, in the file's frames (ADR-0093). */
+  readonly metadata?: KeptMetadata;
 
   /** How it was recorded, where it is a recording (ADR-0071). */
   readonly recording?: RecordedProvenance;
@@ -193,11 +213,7 @@ export interface AssetProvenance {
 export interface SourceAudioShape {
   readonly container: SourceContainer;
   readonly sampleRate: SampleRate;
-  readonly encoding: 'integer' | 'float';
-
-  /** Bits per sample, as the file states them. */
-  readonly bitDepth: number;
-  readonly byteOrder: 'little' | 'big';
+  readonly encoding: SourceEncoding;
 
   /** The layout the file states, or absent where it states none. */
   readonly statedLayout?: ChannelLayout;
@@ -207,6 +223,82 @@ export interface SourceAudioShape {
 
   /** The frames the header declared, more than `frames` where the file was cut short. */
   readonly declaredFrames: SampleCount;
+}
+
+/**
+ * How an imported file stores its samples where they are read in place
+ * (ADR-0052, ADR-0090): uncompressed PCM, with its bits and byte order as
+ * the file states them, or one of the codes WAV and AIFF-C carry that decode
+ * in independent blocks, each kind named as the codec registry names it.
+ */
+export type SourceEncoding =
+  | {
+      readonly kind: 'integer' | 'float';
+
+      /** Bits per sample, as the file states them. */
+      readonly bits: number;
+      readonly byteOrder: 'little' | 'big';
+    }
+  /** ITU-T G.711, a companded byte a sample. */
+  | { readonly kind: 'g711-alaw' | 'g711-ulaw' }
+  /** IMA or Microsoft ADPCM, four bits a sample in blocks of `framesPerBlock` frames. */
+  | { readonly kind: 'ima-adpcm' | 'ms-adpcm'; readonly framesPerBlock: number };
+
+/**
+ * How the compressed file is kept: copied into the media store under its
+ * content identity, or linked where it lies, known by its identity, with a
+ * protected copy where the person keeps one.
+ */
+export type KeptCompressedSource =
+  | { readonly kind: 'copied'; readonly contentId: ContentId }
+  | {
+      readonly kind: 'linked';
+      readonly identity: ExternalSourceIdentity;
+      readonly retainedCopy?: ContentId;
+    };
+
+/**
+ * The compressed file an asset's media was decoded from (ADR-0090,
+ * REQ-STOR-166, REQ-ARCH-049).
+ *
+ * A file in a format that cannot be read at an arbitrary frame is decoded
+ * once, at the rate its stream states, into a rendition: a 32-bit float WAV
+ * file in the media store, which is the asset's media and which every audio
+ * thread reads. The project's sound is the rendition's, so a decoder updated
+ * later never changes it; what produced it is recorded here: the file's
+ * container and codec, its stream's rate, layout and length, its bit rate
+ * where it states one, the decoder and its version, and where the file itself
+ * is kept, copied into the store or linked where it lies, as the person chose
+ * (REQ-STOR-025).
+ *
+ * The rendition is the decoded stream from its first frame after the priming
+ * the file states, trimmed; `leadingFrames` counts the file's frames before
+ * it, which the file's own positions, its loops and cues, count from, so a
+ * position of the file is the rendition's frame `position - leadingFrames`.
+ */
+export interface DecodedRendition {
+  readonly container: ContainerId;
+  readonly codec: CodecId;
+
+  /** The stream's rate, which the rendition and the asset keep. */
+  readonly sampleRate: SampleRate;
+
+  /** The stream's channels, in the order the rendition holds them. */
+  readonly layout: ChannelLayout;
+
+  /** The frames decoded, which the rendition holds. */
+  readonly frames: SampleCount;
+
+  /** The frames the stream states it holds, where it states them. */
+  readonly statedFrames?: SampleCount;
+
+  /** The file's average bit rate in bits a second, where it states one. */
+  readonly bitRate?: number;
+
+  /** The file's frames before the rendition's first: the priming trimmed. */
+  readonly leadingFrames: SampleCount;
+  readonly decoder: DecoderIdentity;
+  readonly kept: KeptCompressedSource;
 }
 
 /** The containers an imported file's audio is read from (ADR-0052). */

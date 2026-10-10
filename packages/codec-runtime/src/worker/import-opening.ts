@@ -23,6 +23,7 @@ import {
   type CodecEnvironment,
   type CodecId,
   type ContainerId,
+  type DecoderIdentity,
   type ReadableContainer,
   type SyncAudioBytes,
 } from '@audiogubbins/codecs';
@@ -43,12 +44,7 @@ import type { CodecModule } from '../codec-module.js';
 import type { DecoderSession } from '../decoder-session.js';
 import { browserAacBlocks } from '../decoding/browser-aac-blocks.js';
 import { moduleDecodedBlocks, type DecodedBlocks } from '../decoding/decoded-blocks.js';
-import {
-  browserDecoder,
-  isModuleDecoded,
-  moduleDecoder,
-  type DecoderIdentity,
-} from '../decoding/decoder-identity.js';
+import { browserDecoder, isModuleDecoded, moduleDecoder } from '../decoding/decoder-identity.js';
 import { streamLayout } from '../decoding/stream-layout.js';
 import type { AnalysedStream, MetadataOutcome } from './codec-worker-messages.js';
 

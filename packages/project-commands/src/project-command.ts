@@ -32,6 +32,7 @@ import type { ProjectState, ProvenanceArguments } from '@audiogubbins/project-fo
 export const ProjectCommandId = {
   Rename: commandId('project.rename'),
   SetName: commandId('project.set-name'),
+  SetExportSettings: commandId('project.set-export-settings'),
   AddAsset: commandId('project.add-asset'),
   RemoveAsset: commandId('project.remove-asset'),
   RenameAsset: commandId('project.rename-asset'),

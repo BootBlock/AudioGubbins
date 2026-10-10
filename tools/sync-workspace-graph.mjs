@@ -626,7 +626,13 @@ const PACKAGES = [
       'The authoritative, versioned AudioGubbins project and the forms it is written in: its validated document, content identity, the portable bundle and the unpacked tree.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/text', '@audiogubbins/version'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/codecs',
+      '@audiogubbins/import-export',
+      '@audiogubbins/text',
+      '@audiogubbins/version',
+    ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
@@ -735,6 +741,7 @@ const PACKAGES = [
       '@audiogubbins/commands',
       '@audiogubbins/diagnostics',
       '@audiogubbins/history',
+      '@audiogubbins/import-export',
       '@audiogubbins/media-store',
       '@audiogubbins/model-packs',
       '@audiogubbins/project-format',
@@ -757,6 +764,7 @@ const PACKAGES = [
     jsx: false,
     deps: [
       '@audiogubbins/diagnostics',
+      '@audiogubbins/import-export',
       '@audiogubbins/media-store',
       '@audiogubbins/project-format',
       '@audiogubbins/storage',
@@ -781,6 +789,11 @@ const PACKAGES = [
       '@audiogubbins/capabilities',
       '@audiogubbins/commands',
       '@audiogubbins/history',
+      '@audiogubbins/codecs',
+      // The codec worker's protocol and its readers, which the storage worker
+      // asks for an import's analysis and decoding (ADR-0090).
+      '@audiogubbins/codec-runtime',
+      '@audiogubbins/import-export',
       '@audiogubbins/project-format',
       '@audiogubbins/project-commands',
       '@audiogubbins/media-store',

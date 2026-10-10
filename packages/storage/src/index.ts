@@ -228,7 +228,47 @@ export { type ListedEntry } from './library-entry-files.js';
 export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
-export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';
+export { importAudio } from './audio-import.js';
+export {
+  type AudioImport,
+  type AudioImportServices,
+  type ImportCommands,
+  type ImportObserver,
+  type ImportedAudio,
+} from './import-contracts.js';
+export { type DecodedStream, type FileDecoding, type StreamAnalysis } from './decoded-stream.js';
+export { type FileMetadata } from './import-analysis.js';
+export {
+  type BatchFile,
+  type BatchObserver,
+  type BatchOutcome,
+  type ImportBatch,
+  type ImportedBatch,
+  importBatch,
+} from './import-batch.js';
+export { type StorageRoom } from './import-analysis.js';
+export { decodingUnavailable } from './import-failures.js';
+export { stagedExportMissing } from './export-failures.js';
+export { clearStaging } from './staging-paths.js';
+export { type EncodedStream } from './encoded-stream.js';
+export {
+  type ExportOrigin,
+  ExportStaging,
+  type StagedExport,
+  type StagingServices,
+} from './export-staging.js';
+export {
+  type CollisionPrompt,
+  type CollisionReply,
+  type Delivery,
+  type DeliveryDestination,
+  type DeliveryFile,
+  type DeliveryFolder,
+  type DeliveryServices,
+  type DestinationAccess,
+  deliverStaged,
+  exportRecordOf,
+} from './export-delivery.js';
 export { type AudioPaste, pasteAudio } from './audio-paste.js';
 
 export { type CaptureStream, type CapturedEvent } from './capture-stream.js';

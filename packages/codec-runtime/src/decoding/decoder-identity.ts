@@ -12,15 +12,7 @@
  */
 
 import type { BrowserFamily } from '@audiogubbins/capabilities';
-import type { CodecId, CodecImplementation } from '@audiogubbins/codecs';
-
-/** The implementation that decoded a stream, and its version. */
-export interface DecoderIdentity {
-  readonly implementation: CodecImplementation;
-  /** The decoder's own name, such as a crate's or a browser's. */
-  readonly name: string;
-  readonly version: string;
-}
+import type { CodecId, DecoderIdentity } from '@audiogubbins/codecs';
 
 /** The codecs the codec module decodes. */
 export type ModuleDecodedCodec = 'flac' | 'alac' | 'mp3' | 'vorbis' | 'opus' | 'aac-lc';

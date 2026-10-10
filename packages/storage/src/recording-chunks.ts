@@ -21,10 +21,11 @@
 
 import { TreeFailure, type ByteSink, type StorageTree } from '@audiogubbins/project-format';
 
+import { FLOAT_SAMPLE_BYTES, interleaveFloats } from './interleaved-floats.js';
 import type { RecordingPaths } from './storage-layout.js';
 
 /** The bytes one sample of a chunk takes: a 32-bit float. */
-export const CHUNK_SAMPLE_BYTES = 4;
+export const CHUNK_SAMPLE_BYTES = FLOAT_SAMPLE_BYTES;
 
 const NOTHING = new Uint8Array(0);
 
@@ -121,14 +122,8 @@ export class ChunkWriter {
 
   /** Copies `frames` frames of `channels` from `from` into the buffer, interleaved. */
   #interleave(channels: readonly Float32Array[], from: number, frames: number): void {
-    const count = this.#channels;
-    let at = this.#waiting * count * CHUNK_SAMPLE_BYTES;
-    for (let frame = from; frame < from + frames; frame += 1) {
-      for (const channel of channels) {
-        this.#view.setFloat32(at, channel[frame] ?? 0, true);
-        at += CHUNK_SAMPLE_BYTES;
-      }
-    }
+    const at = this.#waiting * this.#channels * CHUNK_SAMPLE_BYTES;
+    interleaveFloats(channels, from, frames, this.#view, at);
     this.#waiting += frames;
   }
 }

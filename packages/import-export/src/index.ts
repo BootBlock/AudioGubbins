@@ -75,6 +75,7 @@ export { Quantiser, type QuantiserSettings } from './quantiser.js';
 export { type MetadataRates, exportMetadata } from './export-metadata.js';
 
 export {
+  type AnsweredDecision,
   type CollisionAnswer,
   type CollisionDecision,
   type CollisionPolicy,

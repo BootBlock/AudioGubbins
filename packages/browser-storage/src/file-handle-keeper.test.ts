@@ -2,7 +2,8 @@ import { countingTokens } from '@audiogubbins/media-store/testing';
 import { TreeFailure, TreeFailureKind } from '@audiogubbins/project-format';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
-import { FileHandleKeeper, type HandleDatabaseFactory } from './file-handle-keeper.js';
+import { FileHandleKeeper } from './file-handle-keeper.js';
+import type { HandleDatabaseFactory } from './handle-database.js';
 import { FakeFileHandle, installFakeHandles } from './testing/file-handles.js';
 import { MemoryDatabases } from './testing/memory-indexed-db.js';
 

@@ -25,7 +25,8 @@ export interface ByteSource {
  *
  * Nothing written is final until `close` resolves. `abort` abandons what was
  * written, so a torn file is never mistaken for a whole one; a sink cannot be
- * written to after either.
+ * written to after either. A write has taken its chunk once it resolves, so
+ * the writer may fill the chunk's buffer again.
  */
 export interface ByteSink {
   write(chunk: Uint8Array): Promise<void>;

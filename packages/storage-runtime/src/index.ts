@@ -34,6 +34,14 @@ export { type FolderFile, type HeldFile } from './protocol/page-operations.js';
 export { type RootClient } from './client/root-client.js';
 export { type SourcesClient } from './client/sources-client.js';
 export { type AudioFileImport, type MediaClient } from './client/media-client.js';
+export { type FilesImport, type ImportsClient } from './client/imports-client.js';
+export { type ImportReport } from './protocol/import-operations.js';
+export {
+  type ExportStage,
+  type ExportsClient,
+  type PageDestination,
+} from './client/exports-client.js';
+export { type DeliveryAnswer, type StagedFile } from './protocol/export-operations.js';
 export { type RecordingBegin, type RecordingClient } from './client/recording-client.js';
 export { type RecordingStatus } from './protocol/recording-operations.js';
 export { type CacheClient } from './client/cache-client.js';

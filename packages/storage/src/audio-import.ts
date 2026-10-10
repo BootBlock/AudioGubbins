@@ -1,178 +1,125 @@
 /**
  * Bringing an audio file into an open project as a new asset, in one change
- * undo reverses (ADR-0052, REQ-AUDIO-220, REQ-STOR-025).
+ * undo reverses (ADR-0052, ADR-0090, REQ-AUDIO-220, REQ-STOR-025).
  *
- * The file is opened with the read contract first, so a file in a format
- * AudioGubbins does not read, or a malformed one, is refused with the sentence
- * that names what it is before a byte is stored. It is then brought in by copy
- * or by link as the person's setting says, through the media store's own
- * pipeline, and the asset is built from what the reader found: the rate, the
- * layout and the whole frames present, with the file's audio shape in its
- * provenance (REQ-STOR-166). The asset is added by the project command, whose
- * builder the caller gives, since the storage does not depend on the project
- * commands.
+ * The file is analysed first (`import-analysis.ts`), so a file in a format no
+ * implementation reads, a malformed one, or one the storage has no room for, is
+ * refused with the sentence that names why before a byte is stored. A file the
+ * read contract reads where it lies is then brought in by copy or by link as
+ * the person's setting says, through the media store's own pipeline, and the
+ * asset is built from what the reader found: the rate, the layout and the whole
+ * frames present, with the file's audio shape, the code its samples are stored
+ * in, and its metadata in its provenance (REQ-STOR-166). Any other file is
+ * decoded once into a rendition (`decoded-import.ts`). Either way the file's
+ * loops and cue points become regions with loops and markers
+ * (`import-placements.ts`), added with the asset as one change; the commands
+ * are the caller's, since the storage does not depend on the project commands.
  *
- * A managed object the import stored is held in the media store until storage
+ * An import is prepared, everything it stores stored and held, then added, so
+ * a batch prepares one file while the one before it is added (ADR-0090). A
+ * managed object the import stored is held in the media store until storage
  * holds the change that refers to it, and released at once where the change is
- * not made, so collection never takes it in between and a cancelled import
- * keeps nothing.
+ * not made, so collection never takes it in between and a refused or cancelled
+ * import keeps nothing.
  */
 
-import type { CommandInvocation } from '@audiogubbins/commands';
-import { openAudio, type AudioFormatDescriptor } from '@audiogubbins/codecs';
-import {
-  AssetOrigin,
-  FailureKind,
-  fail,
-  failure,
-  succeed,
-  type Asset,
-  type AssetId,
-  type DomainResult,
-} from '@audiogubbins/domain';
-import {
-  importMedia,
-  type ExternalFile,
-  type ImportChoice,
-  type ImportServices,
-} from '@audiogubbins/media-store';
-import {
-  nameFromFile,
-  storageKeyOf,
-  type AssetSource,
-  type SourceAudioShape,
-} from '@audiogubbins/project-format';
+import { succeed, type DomainResult } from '@audiogubbins/domain';
+import { nameFromFile } from '@audiogubbins/project-format';
+import { quoted } from '@audiogubbins/text';
 
+import { prepareDecoded } from './decoded-import.js';
+import { analyseFile } from './import-analysis.js';
+import type {
+  AudioImport,
+  AudioImportServices,
+  ImportCommands,
+  ImportObserver,
+  ImportedAudio,
+  PreparedImport,
+} from './import-contracts.js';
+import { prepareInPlace } from './in-place-import.js';
 import { runHolding } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
-import type { ChangeOutcome } from './session-contracts.js';
-
-/** One audio file to bring into the open project. */
-export interface AudioImport {
-  readonly file: ExternalFile;
-  readonly choice: ImportChoice;
-
-  /** The identity the new asset takes, made by the page's generator. */
-  readonly assetId: AssetId;
-
-  /** When the import happens, in whole milliseconds since the epoch. */
-  readonly importedAt: number;
-}
-
-/** What an import works with, each made once by the composition root. */
-export interface AudioImportServices extends ImportServices {
-  /** The project commands' `addAssetInvocation`. */
-  readonly invocation: (asset: Asset, source: AssetSource) => CommandInvocation;
-}
-
-/** An audio file brought in. */
-export interface ImportedAudio {
-  readonly outcome: ChangeOutcome;
-  readonly asset: Asset;
-
-  /**
-   * How many frames the header declared that the file does not hold, zero for
-   * a whole file: a file cut short is read to its last whole frame, and the
-   * person is told by how much it fell short.
-   */
-  readonly shortfall: number;
-}
 
 /** Imports `request.file` into the session's project (see the module comment). */
 export async function importAudio(
   session: ProjectSession,
   request: AudioImport,
   services: AudioImportServices,
+  observe: ImportObserver = () => undefined,
   signal?: AbortSignal,
 ): Promise<DomainResult<ImportedAudio>> {
-  const { file } = request;
-  const opened = await openAudio(file.source, signal);
-  if (!opened.ok) return opened;
-  const { format } = opened.value;
-  const audio = audioShape(format);
-  if (!audio.ok) return audio;
-  const name = nameFromFile('asset', file.fileName);
-  if (!name.ok) return name;
+  const prepared = await prepareImport(session, request, services, observe, signal);
+  if (!prepared.ok) return prepared;
+  observe({ kind: 'add' });
+  return await addPrepared(session, prepared.value, services.commands);
+}
 
-  const imported = await importMedia(
-    {
-      file,
-      choice: request.choice,
-      projectId: session.getSnapshot().model.state.project.id,
-      importedAt: request.importedAt,
-      audio: audio.value,
-    },
+/**
+ * Analyses, keeps and, where it needs it, decodes `request.file`, ready to be
+ * added to the session's project (see the module comment). Rejects with the
+ * signal's reason, having kept nothing, where the import is cancelled.
+ */
+export async function prepareImport(
+  session: ProjectSession,
+  request: AudioImport,
+  services: AudioImportServices,
+  observe: ImportObserver,
+  signal?: AbortSignal,
+): Promise<DomainResult<PreparedImport>> {
+  observe({ kind: 'analyse' });
+  const analysis = await analyseFile(request.file, signal);
+  if (!analysis.ok) return analysis;
+  const name = nameFromFile('asset', request.file.fileName);
+  if (!name.ok) return name;
+  const project = session.getSnapshot().model.state.project.id;
+  if (analysis.value.kind === 'decode') {
+    return await prepareDecoded(
+      { ...request, displayName: name.value, project },
+      services,
+      observe,
+      signal,
+    );
+  }
+  return await prepareInPlace(
+    { ...request, displayName: name.value, project, format: analysis.value.format },
+    analysis.value.metadata,
     services,
-    signal === undefined ? {} : { signal },
+    observe,
+    signal,
   );
-  if (!imported.ok) return imported;
-  const { source, held } = imported.value;
-  const asset = importedAsset(request, name.value, format, source);
-  const ran = await runHolding(
-    session,
-    () => {
-      if (held !== undefined) services.store.release(held);
-    },
-    async () => {
-      signal?.throwIfAborted();
-      return await session.run(services.invocation(asset, source));
-    },
-  );
+}
+
+/**
+ * Adds a prepared import's asset, with the regions and markers its file's
+ * loops and cues became, as one change, then lets go of what it holds once
+ * storage holds the change, or at once where the change is not made.
+ */
+export async function addPrepared(
+  session: ProjectSession,
+  prepared: PreparedImport,
+  commands: ImportCommands,
+): Promise<DomainResult<ImportedAudio>> {
+  const { asset, source, placements } = prepared;
+  const ran = await runHolding(session, prepared.release, async () => {
+    const added = commands.addAsset(asset, source);
+    const placed = [
+      ...placements.regions.map(commands.addRegion),
+      ...placements.markers.map(commands.addMarker),
+    ];
+    return placed.length === 0
+      ? await session.run(added)
+      : await session.runGroup(`Import ${quoted(asset.displayName)}`, [added, ...placed]);
+  });
   if (!ran.ok) return ran;
   return succeed({
     outcome: ran.value,
     asset,
-    shortfall: format.declaredFrames - format.frames,
-  });
-}
-
-/** The asset an import adds: the shape the reader found, under the request's identity. */
-function importedAsset(
-  request: AudioImport,
-  displayName: string,
-  format: AudioFormatDescriptor,
-  source: AssetSource,
-): Asset {
-  return {
-    id: request.assetId,
-    displayName,
-    origin: AssetOrigin.Imported,
-    sampleRate: format.sampleRate,
-    channelLayout: format.layout,
-    length: format.frames,
-    storageKey: storageKeyOf(request.assetId, source.media),
-    edits: [],
-  };
-}
-
-/**
- * The audio shape the reader found, as the provenance records it, or why the
- * provenance cannot record it. The read contract reads G.711 and ADPCM in place
- * (ADR-0090), but the provenance's shape holds only an uncompressed encoding:
- * the source's codec joins it when the provenance gains the compressed source,
- * and until then such a file is refused before anything is stored rather than
- * recorded as a PCM file it is not.
- */
-export function audioShape(format: AudioFormatDescriptor): DomainResult<SourceAudioShape> {
-  const { encoding } = format;
-  if (encoding.kind !== 'integer' && encoding.kind !== 'float') {
-    return fail(
-      failure(
-        'storage.source-codec-unrecorded',
-        FailureKind.Rejected,
-        "This file's samples are compressed, and a project cannot yet record a compressed source, so it is not imported.",
-        { details: { encoding: encoding.kind } },
-      ),
-    );
-  }
-  return succeed({
-    container: format.container,
-    sampleRate: format.sampleRate,
-    encoding: encoding.kind,
-    bitDepth: encoding.bits,
-    byteOrder: encoding.byteOrder,
-    ...(format.statedLayout === undefined ? {} : { statedLayout: format.statedLayout }),
-    frames: format.frames,
-    declaredFrames: format.declaredFrames,
+    shortfall: prepared.shortfall,
+    placed: { regions: placements.regions.length, markers: placements.markers.length },
+    skipped: placements.skipped,
+    ...(prepared.metadataRefused === undefined
+      ? {}
+      : { metadataRefused: prepared.metadataRefused }),
   });
 }

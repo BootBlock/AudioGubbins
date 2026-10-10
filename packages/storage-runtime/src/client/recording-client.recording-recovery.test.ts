@@ -198,8 +198,7 @@ describe('a recording through the storage worker', () => {
     expect(state.project.assets.get(finished.asset.id)).toEqual(finished.asset);
     expect(await dataOf(storage, state, finished.asset.id)).toEqual(interleaved(audio));
     expect(state.sources.get(finished.asset.id)?.provenance?.audio).toMatchObject({
-      encoding: 'float',
-      bitDepth: 32,
+      encoding: { kind: 'float', bits: 32, byteOrder: 'little' },
       frames: 110_000,
     });
     expect(tree.paths().filter((path) => path.includes('/recordings/'))).toEqual([]);

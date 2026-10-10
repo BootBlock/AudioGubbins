@@ -18,7 +18,6 @@
 import type { Asset, AssetId } from '@audiogubbins/domain';
 
 import type { JsonObject, JsonValue } from './canonical-json.js';
-import { DIGEST_HEX } from './content-identity.js';
 import {
   anyObjectOf,
   checkMembers,
@@ -30,20 +29,22 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
-import { asContentId, asId, oneOfConverter, textConverter } from './scalar-reading.js';
+import { asContentId, asId, oneOfConverter } from './scalar-reading.js';
 import {
   SourceChangePolicy,
   storageKeyOf,
   type AssetProvenance,
   type AssetSource,
   type ExternalMedia,
-  type ExternalSourceIdentity,
   type ManagedMedia,
   type MediaSource,
 } from './project-state.js';
+import { checkRenditionAgainstAsset, readDecodedRendition } from './decoded-rendition-json.js';
+import { asDigestHex, readExternalIdentity } from './external-identity-json.js';
+import { readKeptMetadata } from './kept-metadata-json.js';
 import { checkAudioAgainstAsset, readSourceAudioShape } from './source-audio-reading.js';
 import { checkRecordingAgainstAsset, readRecordedProvenance } from './recorded-provenance-json.js';
-import { asFileName, asHandleKey, asRelativePath } from './source-rules.js';
+import { asFileName } from './source-rules.js';
 import { MAXIMUM_ENTITIES, asMediaType, asWholeQuantity } from './value-reading.js';
 
 const SOURCE_MEMBERS: ReadonlySet<string> = new Set(['assetId', 'media', 'provenance']);
@@ -59,17 +60,6 @@ const EXTERNAL_MEMBERS: ReadonlySet<string> = new Set([
   'policy',
   'retainedCopy',
 ]);
-const IDENTITY_MEMBERS: ReadonlySet<string> = new Set([
-  'handleKey',
-  'fileName',
-  'relativePath',
-  'byteLength',
-  'lastModified',
-  'mediaType',
-  'signature',
-  'fastFingerprint',
-  'contentId',
-]);
 const PROVENANCE_MEMBERS: ReadonlySet<string> = new Set([
   'originalFileName',
   'importedAt',
@@ -79,24 +69,13 @@ const PROVENANCE_MEMBERS: ReadonlySet<string> = new Set([
   'mediaType',
   'originProjectId',
   'audio',
+  'rendition',
+  'metadata',
   'recording',
 ]);
 
 const asMediaKind = oneOfConverter(['managed', 'external'] as const);
 const asPolicy = oneOfConverter(Object.values(SourceChangePolicy));
-const asDigestHex = textConverter({
-  maximumLength: 64,
-  pattern: DIGEST_HEX,
-  shape: '64 lower-case hexadecimal digits',
-});
-
-/** The first bytes of a file, up to 16, as lower-case hexadecimal. */
-const asSignature = textConverter({
-  maximumLength: 32,
-  pattern: /^(?:[0-9a-f]{2}){0,16}$/u,
-  shape: 'up to 16 bytes in lower-case hexadecimal',
-});
-
 /**
  * A converter reading the sources, checked against the project's assets where
  * those could be read.
@@ -179,14 +158,24 @@ export function checkAgainstAsset(
   }
   const provenanceAt = pathOf(at, 'provenance');
   const audio = source.provenance?.audio;
+  const rendition = source.provenance?.rendition;
   const recording = source.provenance?.recording;
+  const renditionAgrees =
+    rendition === undefined ||
+    checkRenditionAgainstAsset(
+      reading,
+      rendition,
+      source,
+      asset,
+      pathOf(provenanceAt, 'rendition'),
+    );
   const audioAgrees =
     audio === undefined ||
     checkAudioAgainstAsset(reading, audio, asset, pathOf(provenanceAt, 'audio'));
   const recordingAgrees =
     recording === undefined ||
     checkRecordingAgainstAsset(reading, recording, asset, pathOf(provenanceAt, 'recording'));
-  return audioAgrees && recordingAgrees;
+  return audioAgrees && renditionAgrees && recordingAgrees;
 }
 
 /** Reads one source entry: an asset's source and the asset it belongs to. */
@@ -255,49 +244,6 @@ function readExternal(reading: Reading, object: JsonObject, at: string): Externa
   };
 }
 
-/** Reads what an external file was known by when it was last seen. */
-export const readExternalIdentity: Converter<ExternalSourceIdentity> = (
-  reading,
-  value,
-  parent,
-  key,
-) => {
-  const object = objectOf(reading, value, parent, key, IDENTITY_MEMBERS);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-
-  const handleKey = optional(reading, object, at, 'handleKey', asHandleKey);
-  const fileName = optional(reading, object, at, 'fileName', asFileName);
-  const relativePath = optional(reading, object, at, 'relativePath', asRelativePath);
-  const byteLength = required(reading, object, at, 'byteLength', asWholeQuantity);
-  const lastModified = required(reading, object, at, 'lastModified', asWholeQuantity);
-  const mediaType = required(reading, object, at, 'mediaType', asMediaType);
-  const signature = required(reading, object, at, 'signature', asSignature);
-  const fastFingerprint = required(reading, object, at, 'fastFingerprint', asDigestHex);
-  const contentId = optional(reading, object, at, 'contentId', asContentId);
-
-  if (
-    byteLength === undefined ||
-    lastModified === undefined ||
-    mediaType === undefined ||
-    signature === undefined ||
-    fastFingerprint === undefined
-  ) {
-    return undefined;
-  }
-  return {
-    ...(handleKey === undefined ? {} : { handleKey }),
-    ...(fileName === undefined ? {} : { fileName }),
-    ...(relativePath === undefined ? {} : { relativePath }),
-    byteLength,
-    lastModified,
-    mediaType,
-    signature,
-    fastFingerprint,
-    ...(contentId === undefined ? {} : { contentId }),
-  };
-};
-
 const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, PROVENANCE_MEMBERS);
   if (object === undefined) return undefined;
@@ -311,6 +257,8 @@ const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) =
   const mediaType = required(reading, object, at, 'mediaType', asMediaType);
   const originProjectId = required(reading, object, at, 'originProjectId', asId<'ProjectId'>);
   const audio = optional(reading, object, at, 'audio', readSourceAudioShape);
+  const rendition = optional(reading, object, at, 'rendition', readDecodedRendition);
+  const metadata = optional(reading, object, at, 'metadata', readKeptMetadata);
   const recording = optional(reading, object, at, 'recording', readRecordedProvenance);
 
   if (
@@ -330,6 +278,8 @@ const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) =
     mediaType,
     originProjectId,
     ...(audio === undefined ? {} : { audio }),
+    ...(rendition === undefined ? {} : { rendition }),
+    ...(metadata === undefined ? {} : { metadata }),
     ...(recording === undefined ? {} : { recording }),
   };
 };

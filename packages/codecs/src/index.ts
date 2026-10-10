@@ -62,6 +62,7 @@ export {
   type CodecImplementation,
   type CodecUse,
   type ContainerId,
+  type DecoderIdentity,
   type SampleRateSupport,
 } from './codec-descriptor.js';
 

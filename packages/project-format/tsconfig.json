@@ -20,6 +20,12 @@
       "path": "../../packages/domain"
     },
     {
+      "path": "../../packages/codecs"
+    },
+    {
+      "path": "../../packages/import-export"
+    },
+    {
       "path": "../../packages/text"
     },
     {

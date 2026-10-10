@@ -446,6 +446,9 @@ importers:
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../diagnostics
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store
@@ -831,9 +834,15 @@ importers:
 
   packages/project-format:
     dependencies:
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
       '@audiogubbins/text':
         specifier: workspace:*
         version: link:../text
@@ -894,6 +903,9 @@ importers:
       '@audiogubbins/history':
         specifier: workspace:*
         version: link:../history
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store
@@ -928,6 +940,12 @@ importers:
       '@audiogubbins/capabilities':
         specifier: workspace:*
         version: link:../capabilities
+      '@audiogubbins/codec-runtime':
+        specifier: workspace:*
+        version: link:../codec-runtime
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@audiogubbins/commands':
         specifier: workspace:*
         version: link:../commands
@@ -940,6 +958,9 @@ importers:
       '@audiogubbins/history':
         specifier: workspace:*
         version: link:../history
+      '@audiogubbins/import-export':
+        specifier: workspace:*
+        version: link:../import-export
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store

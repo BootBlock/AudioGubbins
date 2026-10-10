@@ -1,19 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
+import { createWavWriter } from '@audiogubbins/codecs';
 import { writeAiff, writeCompressedWav, writeWav } from '@audiogubbins/codecs/testing';
-import { StandardLayouts, type AssetId } from '@audiogubbins/domain';
+import {
+  StandardLayouts,
+  derivedSampleCount,
+  sampleRate,
+  type AssetId,
+} from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceHandling, type ExternalFile } from '@audiogubbins/media-store';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf, type ByteSource } from '@audiogubbins/project-format';
 
-import { importAudio, type AudioImportServices } from './audio-import.js';
+import { importAudio } from './audio-import.js';
+import type { AudioImportServices } from './import-contracts.js';
 import { bytesSource } from './byte-streams.js';
 import { FillableTree } from './testing/fillable-tree.js';
 import { storageOf } from './testing/memory-ports.js';
 import { harness, nodeDigest } from './testing/node-services.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
-import { addRecord } from './testing/test-commands.js';
+import { NO_DECODING } from './testing/decoded-streams.js';
+import { addMarker, addRecord, addRegion } from './testing/test-commands.js';
 
 /**
  * Importing an audio file into an open project (ADR-0052, REQ-AUDIO-220): the
@@ -64,7 +72,11 @@ async function setUp() {
     store: storage.store,
     digest: nodeDigest,
     yieldToHost: () => Promise.resolve(),
-    invocation: addRecord,
+    commands: { addAsset: addRecord, addRegion, addMarker },
+    tree,
+    ids: test.ids,
+    nextToken: () => test.ids.next<'AssetId'>(),
+    room: () => Promise.resolve(undefined),
   };
   const assetId: AssetId = test.ids.next<'AssetId'>();
   return { session, services, storage, sessionTree, assetId, tree };
@@ -89,6 +101,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -116,9 +129,7 @@ describe('importing an audio file (ADR-0052)', () => {
     expect(source?.provenance?.audio).toEqual({
       container: 'wav',
       sampleRate: 44_100,
-      encoding: 'integer',
-      bitDepth: 24,
-      byteOrder: 'little',
+      encoding: { kind: 'integer', bits: 24, byteOrder: 'little' },
       frames: 1_000,
       declaredFrames: 1_000,
     });
@@ -144,6 +155,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Link, keepProtectedCopy: false },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -155,8 +167,7 @@ describe('importing an audio file (ADR-0052)', () => {
     expect(source?.media.kind).toBe('external');
     expect(source?.provenance?.audio).toMatchObject({
       container: 'aiff',
-      byteOrder: 'big',
-      bitDepth: 16,
+      encoding: { kind: 'integer', bits: 16, byteOrder: 'big' },
       frames: 480,
     });
     expect(await storedObjects(scene)).toEqual([]);
@@ -164,26 +175,33 @@ describe('importing an audio file (ADR-0052)', () => {
 
   it('refuses a file it does not read before storing anything, naming what the file is', async () => {
     const scene = await setUp();
-    const flac = new Uint8Array(4_096);
-    flac.set([0x66, 0x4c, 0x61, 0x43, 0x00, 0x00, 0x00, 0x22]);
+    // An Ogg page whose first packet is Speex, which no implementation decodes.
+    const speex = new Uint8Array(4_096);
+    speex.set([0x4f, 0x67, 0x67, 0x53, 0x00, 0x02]);
+    speex.set([0x01, 0x50], 26);
+    speex.set(
+      Array.from('Speex   ', (character) => character.charCodeAt(0)),
+      28,
+    );
     const result = await importAudio(
       scene.session,
       {
-        file: fileOf(memorySource(flac), 'Rain.flac'),
+        file: fileOf(memorySource(speex), 'Rain.spx'),
         choice: { mode: SourceHandling.Copy },
         assetId: scene.assetId,
         importedAt: IMPORTED_AT,
+        decoding: NO_DECODING,
       },
       scene.services,
     );
 
     expect(expectFailureCode(result)).toBe('codecs.unsupported-format');
-    expect(result.ok ? '' : result.failures[0].summary).toContain('FLAC');
+    expect(result.ok ? '' : result.failures[0].summary).toContain('Speex');
     expect(await storedObjects(scene)).toEqual([]);
     expect(scene.session.getSnapshot().model.state.project.assets.size).toBe(0);
   });
 
-  it('refuses a file of compressed samples the provenance cannot record, before storing anything', async () => {
+  it('imports a file of block-coded samples in place, recording the code they are stored in', async () => {
     const scene = await setUp();
     const alaw = writeCompressedWav({
       sampleRate: 8_000,
@@ -191,20 +209,128 @@ describe('importing an audio file (ADR-0052)', () => {
       coding: { kind: 'g711-alaw' },
       data: new Uint8Array(800).fill(0xd5),
     });
-    const result = await importAudio(
-      scene.session,
-      {
-        file: fileOf(memorySource(Uint8Array.from(alaw)), 'Phone line.wav'),
-        choice: { mode: SourceHandling.Copy },
-        assetId: scene.assetId,
-        importedAt: IMPORTED_AT,
-      },
-      scene.services,
+    const imported = expectSuccess(
+      await importAudio(
+        scene.session,
+        {
+          file: fileOf(memorySource(Uint8Array.from(alaw)), 'Phone line.wav'),
+          choice: { mode: SourceHandling.Copy },
+          assetId: scene.assetId,
+          importedAt: IMPORTED_AT,
+          decoding: NO_DECODING,
+        },
+        scene.services,
+      ),
     );
 
-    expect(expectFailureCode(result)).toBe('storage.source-codec-unrecorded');
+    expect(imported.asset.length).toBe(800);
+    const source = scene.session.getSnapshot().model.state.sources.get(scene.assetId);
+    expect(source?.provenance?.audio).toMatchObject({
+      container: 'wav',
+      encoding: { kind: 'g711-alaw' },
+      frames: 800,
+    });
+    expect(source?.provenance?.rendition).toBeUndefined();
+  });
+
+  it('keeps a file’s metadata and places its loops and cues, undone with the asset as one change', async () => {
+    const scene = await setUp();
+    const opened = expectSuccess(
+      createWavWriter({
+        form: 'riff',
+        sampleRate: expectSuccess(sampleRate(44_100)),
+        layout: StandardLayouts.mono,
+        sampleFormat: { kind: 'integer', bits: 16 },
+        metadata: {
+          text: { title: 'Bell' },
+          cues: [{ position: derivedSampleCount(100), name: 'Strike' }],
+          loops: [
+            {
+              start: derivedSampleCount(200),
+              length: derivedSampleCount(400),
+              playCount: 'endless',
+              direction: 'forward',
+            },
+            // Past the file's end, so it places nothing.
+            {
+              start: derivedSampleCount(900),
+              length: derivedSampleCount(400),
+              playCount: 'endless',
+              direction: 'forward',
+            },
+          ],
+        },
+      }),
+    );
+    const body = expectSuccess(
+      await opened.writer.write([new Float32Array(1_000).fill(0.25)], 1_000),
+    );
+    const ends = expectSuccess(await opened.writer.finish());
+    const bytes = Uint8Array.from(
+      [ends.head, ...body, ends.tail].flatMap((part) => Array.from(part)),
+    );
+    const imported = expectSuccess(
+      await importAudio(
+        scene.session,
+        {
+          file: fileOf(memorySource(bytes), 'Bell.wav'),
+          choice: { mode: SourceHandling.Copy },
+          assetId: scene.assetId,
+          importedAt: IMPORTED_AT,
+          decoding: NO_DECODING,
+        },
+        scene.services,
+      ),
+    );
+
+    expect(imported.placed).toEqual({ regions: 1, markers: 1 });
+    expect(imported.skipped).toEqual({ loops: 1, cues: 0 });
+    const state = scene.session.getSnapshot().model.state;
+    expect(state.sources.get(scene.assetId)?.provenance?.metadata).toMatchObject({
+      text: { title: 'Bell' },
+      cues: [{ position: 100, name: 'Strike' }],
+    });
+    expect([...state.project.regions.values()][0]).toMatchObject({
+      displayName: 'Loop 1',
+      start: 0,
+      end: 1_000,
+      loop: { start: 200, end: 600 },
+    });
+    expect([...state.project.markers.values()][0]).toMatchObject({
+      displayName: 'Strike',
+      position: 100,
+    });
+    expectSuccess(await scene.session.undo());
+    const undone = scene.session.getSnapshot().model.state.project;
+    expect([undone.assets.size, undone.regions.size, undone.markers.size]).toEqual([0, 0, 0]);
+  });
+
+  it('refuses a copy the storage has no room for before storing anything, and links one', async () => {
+    const scene = await setUp();
+    const bytes = stereoWav(500);
+    const services = { ...scene.services, room: () => Promise.resolve(bytes.length - 1) };
+    const request = {
+      file: fileOf(memorySource(bytes)),
+      assetId: scene.assetId,
+      importedAt: IMPORTED_AT,
+      decoding: NO_DECODING,
+    };
+    const copied = await importAudio(
+      scene.session,
+      { ...request, choice: { mode: SourceHandling.Copy } },
+      services,
+    );
+    expect(expectFailureCode(copied)).toBe('import.no-room');
     expect(await storedObjects(scene)).toEqual([]);
-    expect(scene.session.getSnapshot().model.state.project.assets.size).toBe(0);
+
+    // A link stores nothing of the file, so it needs no room.
+    expectSuccess(
+      await importAudio(
+        scene.session,
+        { ...request, choice: { mode: SourceHandling.Link, keepProtectedCopy: false } },
+        services,
+      ),
+    );
   });
 
   it('reads a file cut short to its last whole frame and says how far short it fell', async () => {
@@ -218,6 +344,7 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
+          decoding: NO_DECODING,
         },
         scene.services,
       ),
@@ -236,6 +363,7 @@ describe('importing an audio file (ADR-0052)', () => {
       choice: { mode: SourceHandling.Copy },
       assetId: scene.assetId,
       importedAt: IMPORTED_AT,
+      decoding: NO_DECODING,
     } as const;
 
     scene.sessionTree.full = true;
@@ -274,8 +402,10 @@ describe('importing an audio file (ADR-0052)', () => {
           choice: { mode: SourceHandling.Copy },
           assetId: scene.assetId,
           importedAt: IMPORTED_AT,
+          decoding: NO_DECODING,
         },
         scene.services,
+        () => undefined,
         controller.signal,
       ),
     ).rejects.toThrow('Called off.');

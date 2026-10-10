@@ -72,6 +72,12 @@ export {
   fingerprintOf,
 } from './content-hashing.js';
 
+export { type DecodedRendition, type KeptCompressedSource } from './project-state.js';
+export { writeDecodedRendition } from './decoded-rendition-json.js';
+export { type KeptCoverArt, type KeptMetadata, keptMetadata } from './kept-metadata.js';
+export { writeKeptMetadata } from './kept-metadata-json.js';
+export { readExportSettings, writeExportSettings } from './export-settings-json.js';
+
 export {
   type AssetProvenance,
   type AssetSource,
@@ -84,6 +90,7 @@ export {
   SOURCE_CONTAINERS,
   type SourceAudioShape,
   type SourceContainer,
+  type SourceEncoding,
   SourceChangePolicy,
   emptyProjectState,
   storageKeyOf,
@@ -91,8 +98,10 @@ export {
 
 export {
   ExportDestinationKind,
+  type ExportCodec,
   type ExportDestination,
   type ExportOutput,
+  type ExportedAudioFile,
   type ExportRecipeReference,
   type ExportRecord,
   type ExportRecordId,
@@ -187,8 +196,9 @@ export {
 } from './project-json.js';
 
 export { type AssetRecord, readAssetRecord, writeAssetRecord } from './asset-record-json.js';
-export { readExternalIdentity, readMediaSource } from './source-reading.js';
-export { writeExternalIdentity, writeMediaSource } from './project-writing.js';
+export { readMediaSource } from './source-reading.js';
+export { writeMediaSource } from './project-writing.js';
+export { readExternalIdentity, writeExternalIdentity } from './external-identity-json.js';
 export { FOLDER_KEY_PREFIX, isFileName, isHandleKey, isRelativePath } from './source-rules.js';
 
 export { readEditOperation, readRegionOperation } from './edit-reading.js';

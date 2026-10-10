@@ -12,10 +12,12 @@
  * - `full` keeps everything.
  * - `minimal` keeps what identifies content and when it arrived: the import
  *   time, the source's content identity and fingerprint, its length, media
- *   type and audio shape, the originating project, and how a recording was
- *   made. It drops the original file name, the label and group of the device
- *   a recording was made on, and from an external source's identity the kept
- *   handle, the file name and the relative path.
+ *   type and audio shape, the compressed file a rendition was decoded from
+ *   and its decoder, the originating project, and how a recording was made.
+ *   It drops the original file name, the file's metadata, the label and group
+ *   of the device a recording was made on, and from an external source's
+ *   identity, a linked compressed file's among them, the kept handle, the
+ *   file name and the relative path.
  * - `none` drops each asset's provenance whole, and strips external identity
  *   as `minimal` does. What an external source needs to be recognised again
  *   (its length, time, type, signature, fingerprint and content identity) is
@@ -29,9 +31,10 @@
  *
  * - `full` keeps everything.
  * - `minimal` keeps what was exported and how: the state, history node,
- *   recipe, versions, output, destination kind, output identity and status.
- *   It drops the destination's label, the Godot linkage and the problems'
- *   text, any of which may name the user's files or projects.
+ *   recipe, versions, output, destination kind, output identity, the audio
+ *   file's settings, size, hash and codec, and status. It drops the
+ *   destination's label, the audio file's name, the Godot linkage and the
+ *   problems' text, any of which may name the user's files or projects.
  * - `none` keeps no record.
  *
  * An asset's display name is project content the user edits, not provenance,
@@ -42,9 +45,10 @@
 
 import type { AssetId } from '@audiogubbins/domain';
 
-import type { ExportRecord } from './export-provenance.js';
+import type { ExportRecord, ExportedAudioFile } from './export-provenance.js';
 import type {
   AssetSource,
+  DecodedRendition,
   ExternalSourceIdentity,
   MediaSource,
   ProjectState,
@@ -104,7 +108,7 @@ export function rewriteSources(state: ProjectState, rewrite: SourceRewrite): Pro
     sources ??= new Map(state.sources);
     sources.set(assetId, rewritten);
   }
-  return sources === undefined ? state : { project: state.project, sources };
+  return sources === undefined ? state : { ...state, sources };
 }
 
 /** The rewrite to `level` that treats an external identity with `identity`. */
@@ -120,7 +124,7 @@ function sourceStripping(
   };
   const source = (value: AssetSource): AssetSource => {
     const rewritten = media(value.media);
-    const provenance = strippedProvenance(value, level);
+    const provenance = strippedProvenance(value, level, identity);
     if (rewritten === value.media && provenance === value.provenance) return value;
     return { media: rewritten, ...(provenance === undefined ? {} : { provenance }) };
   };
@@ -134,23 +138,58 @@ const KEEP_EVERYTHING: SourceRewrite = {
 };
 
 /**
- * A source's provenance at a level below `full`: without the file's name, and
- * without the label and group of the device it was recorded on, which name
- * the person's own as a file's name does.
+ * A source's provenance at a level below `full`: without the file's name, the
+ * label and group of the device it was recorded on, and the file's metadata,
+ * each of which may name the person or what they work on as a file's name
+ * does; and with the compressed file a rendition was decoded from, where it
+ * is linked, known as `identity` gives it.
  */
 function strippedProvenance(
   source: AssetSource,
   level: 'minimal' | 'none',
+  identity: (identity: ExternalSourceIdentity) => ExternalSourceIdentity,
 ): AssetSource['provenance'] {
   const { provenance } = source;
   if (provenance === undefined || level === ProvenanceLevel.None) return undefined;
   const recording =
     provenance.recording === undefined ? undefined : withoutDevice(provenance.recording);
-  if (provenance.originalFileName === undefined && recording === provenance.recording) {
+  const rendition =
+    provenance.rendition === undefined
+      ? undefined
+      : withKeptIdentity(provenance.rendition, identity);
+  if (
+    provenance.originalFileName === undefined &&
+    provenance.metadata === undefined &&
+    recording === provenance.recording &&
+    rendition === provenance.rendition
+  ) {
     return provenance;
   }
-  const { originalFileName: _originalFileName, recording: _recording, ...kept } = provenance;
-  return { ...kept, ...(recording === undefined ? {} : { recording }) };
+  const {
+    originalFileName: _originalFileName,
+    metadata: _metadata,
+    recording: _recording,
+    rendition: _rendition,
+    ...kept
+  } = provenance;
+  return {
+    ...kept,
+    ...(rendition === undefined ? {} : { rendition }),
+    ...(recording === undefined ? {} : { recording }),
+  };
+}
+
+/** A rendition's record, with a linked file known as `identity` gives it. */
+function withKeptIdentity(
+  rendition: DecodedRendition,
+  identity: (identity: ExternalSourceIdentity) => ExternalSourceIdentity,
+): DecodedRendition {
+  const { kept } = rendition;
+  if (kept.kind !== 'linked') return rendition;
+  const rewritten = identity(kept.identity);
+  return rewritten === kept.identity
+    ? rendition
+    : { ...rendition, kept: { ...kept, identity: rewritten } };
 }
 
 /** A recording's provenance without what names the device it was made on. */
@@ -202,14 +241,25 @@ export function stripExportRecords(
       return [];
     case ProvenanceLevel.Minimal:
       return records.map((record) => {
-        const { godot, ...kept } = record;
+        const { godot, file, ...kept } = record;
         const stripped =
           godot === undefined &&
+          file?.fileName === undefined &&
           record.destination.label === undefined &&
           record.problems.length === 0;
-        return stripped
-          ? record
-          : { ...kept, destination: { kind: record.destination.kind }, problems: [] };
+        if (stripped) return record;
+        return {
+          ...kept,
+          ...(file === undefined ? {} : { file: withoutFileName(file) }),
+          destination: { kind: record.destination.kind },
+          problems: [],
+        };
       });
   }
+}
+
+/** An exported file's record without the name it was written under. */
+function withoutFileName(file: ExportedAudioFile): ExportedAudioFile {
+  const { fileName: _fileName, ...unnamed } = file;
+  return unnamed;
 }

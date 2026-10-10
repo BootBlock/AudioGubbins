@@ -52,8 +52,6 @@ export { readFromCodecWorker } from './worker/codec-worker-message-reading.js';
 
 export { type ExportEncoderServices, type OpenExportEncoder } from './worker/encode-job.js';
 
-export { type DecoderIdentity } from './decoding/decoder-identity.js';
-
 export { type FileHandleLike, type FileSource } from './files/file-source.js';
 
 export { type BlobLike } from './files/sync-file-bytes.js';

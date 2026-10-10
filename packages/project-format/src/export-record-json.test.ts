@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { unsafeBrandId } from '@audiogubbins/domain';
+import { StandardLayouts, sampleRate, unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { canonicalJson, type JsonValue } from './canonical-json.js';
@@ -12,10 +12,30 @@ import {
   ExportStatus,
   type ExportOutput,
   type ExportRecord,
+  type ExportedAudioFile,
 } from './export-provenance.js';
 import { ProvenanceLevel, stripExportRecords } from './provenance-stripping.js';
 import { edited, withValue, without } from './testing/json-editing.js';
 import { contentIdOfDigit } from './testing/project-states.js';
+
+/** A WAV file exported into a trusted folder. */
+const FILE: ExportedAudioFile = {
+  settings: {
+    format: 'wav',
+    encoding: { kind: 'integer', bits: 16 },
+    sampleRate: expectSuccess(sampleRate(48_000)),
+    channels: { kind: 'fold', to: StandardLayouts.mono },
+    dither: { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 0 },
+    range: { kind: 'project' },
+    metadata: { policy: 'full', edits: [] },
+    fileName: '{project}',
+  },
+  fileName: 'Forest steps.wav',
+  byteLength: 96_044,
+  sha256: 'ab'.repeat(32),
+  codec: { id: 'pcm', implementation: 'application', version: '0.1.0' },
+  reproducible: true,
+};
 
 const RECORD: ExportRecord = {
   id: unsafeBrandId<'ExportRecordId'>('e0e0e0e0-00000001'),
@@ -37,6 +57,7 @@ const RECORD: ExportRecord = {
   },
   destination: { kind: ExportDestinationKind.GodotProject, label: 'Forest game' },
   outputContentId: contentIdOfDigit('9'),
+  file: FILE,
   godot: { projectLabel: 'Forest game', resources: ['res://audio/step.ogg'] },
   status: ExportStatus.Partial,
   problems: ['The second file could not be written.'],
@@ -67,6 +88,21 @@ describe('export records as JSON', () => {
         expect(read(writeExportRecord(record))).toEqual(record);
       }
     }
+  });
+
+  it('keep an exported file’s settings, size, hash and codec below full, and drop its name', () => {
+    const [minimal] = stripExportRecords(
+      [
+        {
+          ...RECORD,
+          destination: { kind: ExportDestinationKind.TrustedDirectory, label: 'Sounds' },
+        },
+      ],
+      ProvenanceLevel.Minimal,
+    );
+    const { fileName: _name, ...unnamed } = FILE;
+    expect(minimal?.file).toEqual(unnamed);
+    expect(minimal?.destination).toEqual({ kind: ExportDestinationKind.TrustedDirectory });
   });
 
   it('write maps as lists sorted by name, so equal records give equal text', () => {
@@ -128,6 +164,24 @@ describe('export records as JSON', () => {
       (value: JsonValue) => without(value, ['status']),
       'schema.missing-member',
       'exports[0].status',
+    ],
+    [
+      'a hash that is not a SHA-256',
+      (value: JsonValue) => withValue(value, ['file', 'sha256'], 'AB'.repeat(32)),
+      'schema.text-malformed',
+      'exports[0].file.sha256',
+    ],
+    [
+      'a file name that is a path',
+      (value: JsonValue) => withValue(value, ['file', 'fileName'], 'Sounds/step.wav'),
+      'schema.text-malformed',
+      'exports[0].file.fileName',
+    ],
+    [
+      'a codec the registry does not name',
+      (value: JsonValue) => withValue(value, ['file', 'codec', 'id'], 'speex'),
+      'schema.unknown-value',
+      'exports[0].file.codec.id',
     ],
     [
       'a malformed identifier',

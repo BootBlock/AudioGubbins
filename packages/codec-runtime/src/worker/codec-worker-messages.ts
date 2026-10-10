@@ -24,10 +24,10 @@ import type {
   MetadataMap,
   ReadableContainer,
 } from '@audiogubbins/codecs';
+import type { DecoderIdentity } from '@audiogubbins/codecs';
 import type { ChannelLayout, DomainFailure, SampleCount, SampleRate } from '@audiogubbins/domain';
 import type { DitherSettings, ExportTarget, FormatEncoding } from '@audiogubbins/import-export';
 
-import type { DecoderIdentity } from '../decoding/decoder-identity.js';
 import type { FileSource } from '../files/file-source.js';
 import type { MessagePortLike } from '../streams/stream-port.js';
 

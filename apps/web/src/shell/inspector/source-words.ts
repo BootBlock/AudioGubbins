@@ -8,7 +8,12 @@
  */
 
 import { channelCount, type Asset } from '@audiogubbins/domain';
-import type { AssetSource, SourceAudioShape, SourceContainer } from '@audiogubbins/project-format';
+import type {
+  AssetSource,
+  SourceAudioShape,
+  SourceContainer,
+  SourceEncoding,
+} from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
@@ -41,6 +46,23 @@ function keptWords(source: AssetSource): string {
   return name === undefined ? 'Linked to a file' : `Linked to ${quoted(name)}`;
 }
 
+/** How a file stores its samples, as a sentence names it. */
+function encodingWords(encoding: SourceEncoding): string {
+  switch (encoding.kind) {
+    case 'integer':
+    case 'float':
+      return `${String(encoding.bits)}-bit ${encoding.kind === 'float' ? 'floating point' : 'integer'}, ${encoding.byteOrder === 'little' ? 'little-endian' : 'big-endian'}`;
+    case 'g711-alaw':
+      return 'G.711 A-law';
+    case 'g711-ulaw':
+      return 'G.711 µ-law';
+    case 'ima-adpcm':
+      return `IMA ADPCM, ${counted(encoding.framesPerBlock, 'frame', 'frames')} a block`;
+    case 'ms-adpcm':
+      return `Microsoft ADPCM, ${counted(encoding.framesPerBlock, 'frame', 'frames')} a block`;
+  }
+}
+
 /** The facts of the audio shape a file's reader found. */
 function shapeFacts(shape: SourceAudioShape, asset: Asset): readonly SourceFact[] {
   const layout = shape.statedLayout ?? asset.channelLayout;
@@ -49,7 +71,7 @@ function shapeFacts(shape: SourceAudioShape, asset: Asset): readonly SourceFact[
     { term: 'Sample rate', detail: sampleRateWords(shape.sampleRate) },
     {
       term: 'Samples',
-      detail: `${String(shape.bitDepth)}-bit ${shape.encoding === 'float' ? 'floating point' : 'integer'}, ${shape.byteOrder === 'little' ? 'little-endian' : 'big-endian'}`,
+      detail: encodingWords(shape.encoding),
     },
     {
       term: 'Channels',

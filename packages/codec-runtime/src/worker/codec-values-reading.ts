@@ -15,6 +15,7 @@ import {
   type ModuleLoad,
   type ReadableContainer,
 } from '@audiogubbins/codecs';
+import type { DecoderIdentity } from '@audiogubbins/codecs';
 import {
   Malformed,
   boundedItemsOf,
@@ -24,8 +25,6 @@ import {
   oneOfValues,
   textOf,
 } from '@audiogubbins/domain';
-
-import type { DecoderIdentity } from '../decoding/decoder-identity.js';
 
 /** Every codec the registry names. */
 const CODECS: Readonly<Record<string, CodecId>> = Object.fromEntries(

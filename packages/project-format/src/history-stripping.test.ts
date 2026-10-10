@@ -11,7 +11,8 @@ import { stripHistory, type HistoryProvenanceParts } from './history-stripping.j
 import type { ExternalMedia, ExternalSourceIdentity, ProjectState } from './project-state.js';
 import { readProjectTree } from './project-tree-reading.js';
 import { projectTree, type ProjectTreeContent } from './project-tree-writing.js';
-import { writeExternalIdentity, writeMediaSource } from './project-writing.js';
+import { writeExternalIdentity } from './external-identity-json.js';
+import { writeMediaSource } from './project-writing.js';
 import { ProvenanceLevel } from './provenance-stripping.js';
 import { immediateTurns } from './testing/host-turns.js';
 import { nodeDigest } from './testing/node-digest.js';

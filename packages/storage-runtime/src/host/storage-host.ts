@@ -9,7 +9,8 @@
  */
 
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
-import { recoverMediaStore } from '@audiogubbins/storage';
+import { TreeFailure } from '@audiogubbins/project-format';
+import { clearStaging, recoverMediaStore } from '@audiogubbins/storage';
 
 import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import type { HostChannel } from '../protocol/storage-operations.js';
@@ -17,6 +18,9 @@ import { backupHandlers } from './backup-area.js';
 import { cacheHandlers } from './cache-area.js';
 import { hostLogs } from './host-logs.js';
 import { hostServices, type HostLogs, type HostParts, type HostServices } from './host-services.js';
+import { CodecWorkerLink } from './codec-worker-link.js';
+import { exportHandlers } from './export-area.js';
+import { importHandlers } from './import-area.js';
 import { libraryHandlers } from './library-area.js';
 import { mediaHandlers } from './media-area.js';
 import { OpenProjects } from './open-projects.js';
@@ -44,7 +48,9 @@ export function serveStorage(
   const logs = hostLogs(channel, clock);
   const services = hostServices(partsOf(logs));
   const projects = new OpenProjects(channel);
+  const codecs = new CodecWorkerLink();
   recoverMedia(services, logs.loggerFor('media'));
+  clearStaged(services, logs.loggerFor('storage'));
   channel.serve({
     ...libraryHandlers(services),
     ...processingLibraryHandlers(services),
@@ -53,7 +59,9 @@ export function serveStorage(
     ...backupHandlers(services, projects, channel),
     ...rootHandlers(services, channel),
     ...sourceHandlers(services, projects, channel),
-    ...mediaHandlers(services, projects, channel),
+    ...mediaHandlers(services, projects, channel, codecs),
+    ...importHandlers(services, projects, channel, codecs),
+    ...exportHandlers(services, projects, channel),
     ...cacheHandlers(services),
     ...packHandlers(services, channel),
     ...usageHandlers(services, projects),
@@ -88,4 +96,29 @@ function recoverMedia(services: HostServices, logger: Logger): void {
     if (undone === 0) logger.debug('The media store had nothing to recover.');
     else logger.info('The media store undid what a crash left of its writing.', { count: undone });
   });
+}
+
+/**
+ * Removes what a window left staged, a rendition it was decoding or an export
+ * it had not delivered, once, as the worker starts (ADR-0090, ADR-0092): work
+ * no window can finish now, made again by doing it again. Where another window
+ * is storing or staging, nothing is removed this time.
+ */
+function clearStaged(services: HostServices, logger: Logger): void {
+  void (async () => {
+    try {
+      const alone = await clearStaging(services.tree, services.coordinator);
+      if (alone.kind !== 'done') {
+        logger.debug(
+          'The staging was not cleared: another window is staging, or windows cannot be told apart.',
+          { reason: alone.kind },
+        );
+      }
+    } catch (error) {
+      // A staging the storage would not clear now is cleared at a later start;
+      // nothing depends on it, so the worker goes on, and says so.
+      if (!(error instanceof TreeFailure)) throw error;
+      logger.warning('The staging could not be cleared.', { kind: error.kind });
+    }
+  })();
 }

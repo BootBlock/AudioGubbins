@@ -13,6 +13,8 @@ import { importAudio, pasteAudio } from '@audiogubbins/storage';
 import type { AreaHandlers, HostChannel } from '../protocol/storage-operations.js';
 import type { HostServices } from './host-services.js';
 import type { OpenProjects } from './open-projects.js';
+import { importServices } from './import-area.js';
+import type { CodecWorkerLink } from './codec-worker-link.js';
 import { pageFile, pageLocate } from './remote-page-ports.js';
 
 /** The operations of audio files, over the worker's store, its open projects and the page's files. */
@@ -20,19 +22,16 @@ export function mediaHandlers(
   services: HostServices,
   projects: OpenProjects,
   channel: HostChannel,
+  codecs: CodecWorkerLink,
 ): AreaHandlers<'media'> {
-  const importing = {
-    store: services.store,
-    digest: services.digest,
-    yieldToHost: services.yieldToHost,
-    invocation: addAssetInvocation,
-  };
+  const importing = importServices(services);
   return {
     'media.import': ({ handle, file, ...request }, { signal }) =>
       importAudio(
         projects.session(handle),
-        { file: pageFile(channel, file), ...request },
+        { file: pageFile(channel, file), decoding: codecs.decoding(file.bytes), ...request },
         importing,
+        () => undefined,
         signal,
       ),
     'media.file': async (contentId) => {

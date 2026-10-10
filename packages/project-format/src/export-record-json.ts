@@ -18,6 +18,7 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
+import { readExportedFile, writeExportedFile } from './exported-file-json.js';
 import {
   asContentId,
   asId,
@@ -54,6 +55,7 @@ const RECORD_MEMBERS: ReadonlySet<string> = new Set([
   'output',
   'destination',
   'outputContentId',
+  'file',
   'godot',
   'status',
   'problems',
@@ -105,6 +107,7 @@ export function writeExportRecord(record: ExportRecord): JsonObject {
     },
     destination: presentMembers({ kind: record.destination.kind, label: record.destination.label }),
     outputContentId: record.outputContentId,
+    file: record.file === undefined ? undefined : writeExportedFile(record.file),
     godot:
       record.godot === undefined
         ? undefined
@@ -129,6 +132,7 @@ export const readExportRecord: Converter<ExportRecord> = (reading, value, parent
   const output = required(reading, object, at, 'output', asOutput);
   const destination = required(reading, object, at, 'destination', asDestination);
   const outputContentId = optional(reading, object, at, 'outputContentId', asContentId);
+  const file = optional(reading, object, at, 'file', readExportedFile);
   const godot = optional(reading, object, at, 'godot', asGodot);
   const status = required(reading, object, at, 'status', asStatus);
   const problems = required(reading, object, at, 'problems', asProblems);
@@ -155,6 +159,7 @@ export const readExportRecord: Converter<ExportRecord> = (reading, value, parent
     output,
     destination,
     ...(outputContentId === undefined ? {} : { outputContentId }),
+    ...(file === undefined ? {} : { file }),
     ...(godot === undefined ? {} : { godot }),
     status,
     problems,

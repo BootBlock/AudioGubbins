@@ -49,6 +49,7 @@ import {
   maybe,
   randomAssetRecord,
   randomCount,
+  randomExportSettings,
   randomLayout,
   randomHeldName,
   randomName,
@@ -120,7 +121,9 @@ class StateBuilder {
       takeStacks,
       trackOrder: this.shuffled(trackIds),
     };
-    return { project, sources };
+    // Drawn last, so every other part of a seed's state is the one it always was.
+    const exportSettings = maybe(this.random, () => randomExportSettings(this.random));
+    return { project, sources, ...(exportSettings === undefined ? {} : { exportSettings }) };
   }
 
   /**

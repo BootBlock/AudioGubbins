@@ -100,6 +100,9 @@ export interface HostServices extends OpeningServices, CleanupRunServices, PackS
 
   /** The storage estimate (see {@link HostParts.estimate}). */
   readonly estimate: HostParts['estimate'];
+
+  /** Tokens no other window draws (see {@link HostParts.nextToken}). */
+  readonly nextToken: HostParts['nextToken'];
 }
 
 /** The services made from their parts (see the module comment). */
@@ -140,6 +143,7 @@ export function hostServices(parts: HostParts): HostServices {
     yieldToHost: parts.yieldToHost,
     fileAt: parts.fileAt,
     estimate: parts.estimate,
+    nextToken,
     processingLibrary: new ProcessingLibraryStore({
       tree,
       digest,

@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { JsonValue } from './canonical-json.js';
 import { startReading } from './document-reading.js';
-import { writeExternalIdentity } from './project-writing.js';
-import { readExternalIdentity } from './source-reading.js';
+import { readExternalIdentity, writeExternalIdentity } from './external-identity-json.js';
 import { isFileName, isHandleKey, isRelativePath } from './source-rules.js';
 
 /** An identity whose optional signals each test sets. */

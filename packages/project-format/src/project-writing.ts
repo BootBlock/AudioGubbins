@@ -28,10 +28,12 @@ import { writeMarker, writeRegion } from './placement-writing.js';
 import type {
   AssetProvenance,
   AssetSource,
-  ExternalSourceIdentity,
   MediaSource,
   SourceAudioShape,
 } from './project-state.js';
+import { writeDecodedRendition } from './decoded-rendition-json.js';
+import { writeExternalIdentity } from './external-identity-json.js';
+import { writeKeptMetadata } from './kept-metadata-json.js';
 import { writeRecordedProvenance } from './recorded-provenance-json.js';
 import { writeTakeStack } from './take-stack-writing.js';
 import { writeLayout } from './value-writing.js';
@@ -155,21 +157,6 @@ export function writeMediaSource(media: MediaSource): JsonObject {
   });
 }
 
-/** Writes what an external file was known by when it was last seen. */
-export function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject {
-  return presentMembers({
-    handleKey: identity.handleKey,
-    fileName: identity.fileName,
-    relativePath: identity.relativePath,
-    byteLength: identity.byteLength,
-    lastModified: identity.lastModified,
-    mediaType: identity.mediaType,
-    signature: identity.signature,
-    fastFingerprint: identity.fastFingerprint,
-    contentId: identity.contentId,
-  });
-}
-
 function writeProvenance(provenance: AssetProvenance): JsonObject {
   return presentMembers({
     originalFileName: provenance.originalFileName,
@@ -180,6 +167,10 @@ function writeProvenance(provenance: AssetProvenance): JsonObject {
     mediaType: provenance.mediaType,
     originProjectId: provenance.originProjectId,
     audio: provenance.audio === undefined ? undefined : writeSourceAudioShape(provenance.audio),
+    rendition:
+      provenance.rendition === undefined ? undefined : writeDecodedRendition(provenance.rendition),
+    metadata:
+      provenance.metadata === undefined ? undefined : writeKeptMetadata(provenance.metadata),
     recording:
       provenance.recording === undefined
         ? undefined
@@ -192,9 +183,7 @@ function writeSourceAudioShape(audio: SourceAudioShape): JsonObject {
   return presentMembers({
     container: audio.container,
     sampleRate: audio.sampleRate,
-    encoding: audio.encoding,
-    bitDepth: audio.bitDepth,
-    byteOrder: audio.byteOrder,
+    encoding: { ...audio.encoding },
     statedLayout: audio.statedLayout === undefined ? undefined : writeLayout(audio.statedLayout),
     frames: audio.frames,
     declaredFrames: audio.declaredFrames,

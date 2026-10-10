@@ -39,6 +39,7 @@ export {
   type Random,
   randomAssetRecord,
   randomContentId,
+  randomExportSettings,
   randomIdentity,
   randomMedia,
   randomName,

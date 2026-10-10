@@ -81,7 +81,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     expect(source?.provenance?.audio).toMatchObject({
       container: 'wav',
       sampleRate: 44_100,
-      bitDepth: 16,
+      encoding: { kind: 'integer', bits: 16, byteOrder: 'little' },
       frames: 22_050,
       declaredFrames: 22_050,
     });

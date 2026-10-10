@@ -28,8 +28,11 @@ import {
   type SampleCount,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
+import type { CommonExportSettings, ExportSettings } from '@audiogubbins/import-export';
 
 import type { AssetRecord } from '../asset-record-json.js';
+import type { DecodedRendition } from '../project-state.js';
+import type { KeptMetadata } from '../kept-metadata.js';
 import {
   CaptureProfileKind,
   RecordingEnding,
@@ -45,6 +48,7 @@ import {
   storageKeyOf,
   type AssetProvenance,
   type SourceAudioShape,
+  type SourceEncoding,
   type ExternalMedia,
   type ExternalSourceIdentity,
   type ManagedMedia,
@@ -264,7 +268,7 @@ export function randomAssetRecord(
     storageKey: storageKeyOf(id, media),
     edits: [],
   };
-  const provenance = maybe(random, () => randomProvenance(random, ids, projectId, asset));
+  const provenance = maybe(random, () => randomProvenance(random, ids, projectId, asset, media));
   return { asset, source: { media, ...(provenance === undefined ? {} : { provenance }) } };
 }
 
@@ -273,6 +277,7 @@ function randomProvenance(
   ids: IdGenerator,
   projectId: ProjectId,
   asset: Asset,
+  media: MediaSource,
 ): AssetProvenance {
   const originalFileName = maybe(random, () => `${randomHex(random, 5)} ß.flac`);
   const sourceContentId = maybe(random, () => randomContentId(random));
@@ -282,6 +287,12 @@ function randomProvenance(
     asset.origin === AssetOrigin.Recorded
       ? maybe(random, () => randomRecording(random, asset))
       : undefined;
+  // A rendition is the asset's managed media, and the only record of how its audio was read.
+  const rendition =
+    media.kind === 'managed' && audio === undefined && recording === undefined
+      ? maybe(random, () => randomRendition(random, asset))
+      : undefined;
+  const metadata = maybe(random, () => randomMetadata(random));
   return {
     ...(originalFileName === undefined ? {} : { originalFileName }),
     importedAt: random.below(2 ** 42),
@@ -291,8 +302,106 @@ function randomProvenance(
     mediaType: random.pick(MEDIA_TYPES),
     originProjectId: random.chance(0.7) ? projectId : ids.next<'ProjectId'>(),
     ...(audio === undefined ? {} : { audio }),
+    ...(rendition === undefined ? {} : { rendition }),
+    ...(metadata === undefined ? {} : { metadata }),
     ...(recording === undefined ? {} : { recording }),
   };
+}
+
+/** The compressed file an asset's media was decoded from, agreeing with the asset. */
+function randomRendition(random: Random, asset: Asset): DecodedRendition {
+  const statedFrames = maybe(random, () => randomCount(random, 20_000_000));
+  const bitRate = maybe(random, () => 1 + random.below(2 ** 20));
+  return {
+    container: random.pick(['flac', 'mp3', 'ogg', 'mp4', 'adts', 'webm', 'matroska'] as const),
+    codec: random.pick(['flac', 'alac', 'mp3', 'vorbis', 'opus', 'aac-lc', 'he-aac'] as const),
+    sampleRate: asset.sampleRate,
+    layout: asset.channelLayout,
+    frames: asset.length,
+    ...(statedFrames === undefined ? {} : { statedFrames }),
+    ...(bitRate === undefined ? {} : { bitRate }),
+    leadingFrames: randomCount(random, 5_000),
+    decoder: {
+      implementation: random.pick(['codec-module', 'browser', 'prebuilt-module'] as const),
+      name: randomHeldName(random).slice(0, 200),
+      version: `${String(random.below(10))}.${String(random.below(100))}.${String(random.below(100))}`,
+    },
+    kept: random.chance(0.5)
+      ? { kind: 'copied', contentId: randomContentId(random) }
+      : {
+          kind: 'linked',
+          identity: randomIdentity(random),
+          ...(random.chance(0.5) ? { retainedCopy: randomContentId(random) } : {}),
+        },
+  };
+}
+
+/** A file's metadata, each part sometimes present, its text in any script. */
+function randomMetadata(random: Random): KeptMetadata {
+  const title = maybe(random, () => randomHeldName(random));
+  const comment = maybe(
+    random,
+    () => `${randomHeldName(random)}
+${randomHeldName(random)}`,
+  );
+  const parts: KeptMetadata = {
+    ...(title === undefined && comment === undefined
+      ? {}
+      : {
+          text: {
+            ...(title === undefined ? {} : { title }),
+            ...(comment === undefined ? {} : { comment }),
+          },
+        }),
+    ...(random.chance(0.5)
+      ? { foreign: [{ scheme: 'vorbis-comment', key: 'MOOD', value: randomHeldName(random) }] }
+      : {}),
+    ...(random.chance(0.3)
+      ? {
+          broadcast: {
+            description: randomHeldName(random),
+            originator: 'AudioGubbins',
+            originatorReference: randomHex(random, 8),
+            originationDate: '2026-10-10',
+            originationTime: '12:00:00',
+            timeReference: randomCount(random, 2 ** 40),
+            codingHistory: 'A=PCM,F=48000,W=24,M=stereo',
+          },
+        }
+      : {}),
+    ...(random.chance(0.5)
+      ? {
+          cues: Array.from({ length: random.below(4) }, () => ({
+            position: randomCount(random, 1_000_000),
+            name: randomHeldName(random),
+          })),
+        }
+      : {}),
+    ...(random.chance(0.5)
+      ? {
+          loops: Array.from({ length: random.below(3) }, () => ({
+            start: randomCount(random, 1_000_000),
+            length: randomCount(random, 1_000_000),
+            playCount: random.chance(0.5) ? ('endless' as const) : random.below(100),
+            direction: random.pick(['forward', 'alternating', 'backward'] as const),
+            ...(random.chance(0.5) ? { name: randomHeldName(random) } : {}),
+          })),
+        }
+      : {}),
+    ...(random.chance(0.3)
+      ? { tuning: { unityNote: random.below(128), fineTuneCents: random.below(101) - 50 } }
+      : {}),
+    ...(random.chance(0.3)
+      ? {
+          coverArt: {
+            mediaType: 'image/png',
+            description: randomHeldName(random),
+            byteLength: random.below(1_048_577),
+          },
+        }
+      : {}),
+  };
+  return parts;
 }
 
 /**
@@ -302,12 +411,22 @@ function randomProvenance(
 function randomAudioShape(random: Random, asset: Asset): SourceAudioShape {
   const statedLayout = maybe(random, () => asset.channelLayout);
   const float = random.chance(0.3);
+  const byteOrder = random.chance(0.5) ? 'little' : 'big';
+  const coded = random.chance(0.3);
+  const encoding: SourceEncoding = coded
+    ? random.pick([
+        { kind: 'g711-alaw' },
+        { kind: 'g711-ulaw' },
+        { kind: 'ima-adpcm', framesPerBlock: 1 + random.below(2_048) },
+        { kind: 'ms-adpcm', framesPerBlock: 2 + random.below(2_048) },
+      ] as const)
+    : float
+      ? { kind: 'float', bits: random.pick([32, 64]), byteOrder }
+      : { kind: 'integer', bits: random.pick([8, 12, 16, 20, 24, 32]), byteOrder };
   return {
     container: random.pick(SOURCE_CONTAINERS),
     sampleRate: asset.sampleRate,
-    encoding: float ? 'float' : 'integer',
-    bitDepth: float ? random.pick([32, 64]) : random.pick([8, 12, 16, 20, 24, 32]),
-    byteOrder: random.chance(0.5) ? 'little' : 'big',
+    encoding,
     ...(statedLayout === undefined ? {} : { statedLayout }),
     frames: asset.length,
     declaredFrames: random.chance(0.8)
@@ -385,4 +504,46 @@ export function randomRecording(random: Random, asset: Asset): RecordedProvenanc
     ending: random.pick(Object.values(RecordingEnding)),
     ...(gaps === undefined ? {} : { gaps }),
   };
+}
+
+/** Random export settings of any format, every shared choice among them. */
+export function randomExportSettings(random: Random): ExportSettings {
+  const common: CommonExportSettings = {
+    sampleRate: expectSuccess(sampleRate(random.pick(RATES))),
+    channels: random.pick([
+      { kind: 'keep' },
+      { kind: 'fold', to: StandardLayouts.stereo },
+      { kind: 'matrix', matrix: 'mid-side-encode' },
+      { kind: 'map', channels: [0, 0], to: StandardLayouts.stereo },
+    ] as const),
+    dither: random.chance(0.5)
+      ? { kind: 'none' }
+      : {
+          kind: random.pick(['rectangular', 'triangular'] as const),
+          amplitude: 0.5 + random.below(4),
+          shaping: random.pick(['none', 'first-order', 'lipshitz-e-weighted'] as const),
+          seed: random.below(2 ** 32),
+        },
+    range: random.pick([{ kind: 'project' }, { kind: 'every-region' }] as const),
+    metadata: {
+      policy: random.pick(['full', 'minimal', 'none'] as const),
+      edits: random.chance(0.5)
+        ? []
+        : [{ kind: 'set', key: 'title', value: randomHeldName(random) }],
+    },
+    fileName: '{project} {index}',
+  };
+  return random.pick<ExportSettings>([
+    { ...common, format: 'wav', encoding: { kind: 'integer', bits: 24 } },
+    { ...common, format: 'aifc', encoding: { kind: 'float', bits: 32 } },
+    { ...common, format: 'flac', encoding: { bits: 16, compressionLevel: random.below(9) } },
+    { ...common, format: 'mp3', encoding: { mode: 'average', bitRate: 192 } },
+    { ...common, format: 'ogg-vorbis', encoding: { mode: 'quality', quality: random.below(11) } },
+    {
+      ...common,
+      format: 'opus',
+      encoding: { bitRate: 96, application: 'voip', frameDuration: 20, complexity: 10 },
+    },
+    { ...common, format: 'aac', encoding: { bitRate: 128 } },
+  ]);
 }

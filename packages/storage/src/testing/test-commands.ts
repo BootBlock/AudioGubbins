@@ -32,6 +32,8 @@ import {
   type Asset,
   type EditOperation,
   type EffectChain,
+  type Marker,
+  type Region,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
@@ -44,14 +46,19 @@ import {
   readAssetRecord,
   readEditOperation,
   readEffectChain,
+  readMarker,
   readMediaSource,
+  readRegion,
   startReading,
   storageKeyOf,
   writeAssetRecord,
   writeEditOperation,
   writeEffectChain,
+  writeMarker,
   writeMediaSource,
+  writeRegion,
   type ContentId,
+  type Converter,
   type InvocationProvenance,
   type AssetSource,
   type MediaSource,
@@ -70,6 +77,10 @@ const REMOVE_RECORD = commandId('test.remove-record');
 const APPLY_EDIT = commandId('test.apply-edit');
 const WITHDRAW_EDIT = commandId('test.withdraw-edit');
 const ADD_CHAIN = commandId('test.add-chain');
+const ADD_REGION = commandId('test.add-region');
+const REMOVE_REGION = commandId('test.remove-region');
+const ADD_MARKER = commandId('test.add-marker');
+const REMOVE_MARKER = commandId('test.remove-marker');
 const REMOVE_CHAIN = commandId('test.remove-chain');
 
 const RATE = expectSuccess(sampleRate(48_000));
@@ -423,8 +434,96 @@ export const TEST_INVOCATION_PROVENANCE: InvocationProvenance = invocationProven
     [WITHDRAW_EDIT, {}],
     [ADD_CHAIN, {}],
     [REMOVE_CHAIN, {}],
+    [ADD_REGION, {}],
+    [REMOVE_REGION, {}],
+    [ADD_MARKER, {}],
+    [REMOVE_MARKER, {}],
   ]),
 );
+
+/** Adds a region, as the project commands' `addRegionInvocation` does, with none of their checks. */
+export function addRegion(region: Region): CommandInvocation {
+  return { commandId: ADD_REGION, arguments: { region: canonicalJson(writeRegion(region)) } };
+}
+
+/** Adds a marker, as the project commands' `addMarkerInvocation` does, with none of their checks. */
+export function addMarker(marker: Marker): CommandInvocation {
+  return { commandId: ADD_MARKER, arguments: { marker: canonicalJson(writeMarker(marker)) } };
+}
+
+/** The value a nested argument holds, read by the project format's reader for its shape. */
+function nestedArgument<TValue>(
+  invocation: CommandInvocation,
+  name: string,
+  read: Converter<TValue>,
+): TValue | undefined {
+  const text = invocation.arguments?.[name];
+  const parsed = typeof text === 'string' ? parseJson(text, NESTED_ARGUMENT_LIMITS) : undefined;
+  if (parsed?.ok !== true) return undefined;
+  const reading = startReading();
+  const value = reading.outcome(read(reading, parsed.value, '', name));
+  return value.ok ? value.value : undefined;
+}
+
+/** Adding and removing regions and markers, each the other's inverse. */
+function placementCommands(): readonly Command<ProjectState>[] {
+  const removing = (invocation: CommandInvocation): string | undefined => {
+    const id = invocation.arguments?.['id'];
+    return typeof id === 'string' ? id : undefined;
+  };
+  return [
+    command(ADD_REGION, (state, invocation): CommandOutcome<ProjectState> => {
+      const region = nestedArgument(invocation, 'region', readRegion);
+      if (region === undefined) return refusal('test.region', 'A region is needed.');
+      const regions = new Map(state.project.regions).set(region.id, region);
+      return {
+        kind: 'applied',
+        next: { ...state, project: { ...state.project, regions } },
+        inverse: { commandId: REMOVE_REGION, arguments: { id: region.id } },
+        description: 'Add a region',
+      };
+    }),
+    command(REMOVE_REGION, (state, invocation): CommandOutcome<ProjectState> => {
+      const region = [...state.project.regions.values()].find(
+        (each) => each.id === removing(invocation),
+      );
+      if (region === undefined) return refusal('test.region-missing', 'No such region.');
+      const regions = new Map(state.project.regions);
+      regions.delete(region.id);
+      return {
+        kind: 'applied',
+        next: { ...state, project: { ...state.project, regions } },
+        inverse: addRegion(region),
+        description: 'Remove a region',
+      };
+    }),
+    command(ADD_MARKER, (state, invocation): CommandOutcome<ProjectState> => {
+      const marker = nestedArgument(invocation, 'marker', readMarker);
+      if (marker === undefined) return refusal('test.marker', 'A marker is needed.');
+      const markers = new Map(state.project.markers).set(marker.id, marker);
+      return {
+        kind: 'applied',
+        next: { ...state, project: { ...state.project, markers } },
+        inverse: { commandId: REMOVE_MARKER, arguments: { id: marker.id } },
+        description: 'Add a marker',
+      };
+    }),
+    command(REMOVE_MARKER, (state, invocation): CommandOutcome<ProjectState> => {
+      const marker = [...state.project.markers.values()].find(
+        (each) => each.id === removing(invocation),
+      );
+      if (marker === undefined) return refusal('test.marker-missing', 'No such marker.');
+      const markers = new Map(state.project.markers);
+      markers.delete(marker.id);
+      return {
+        kind: 'applied',
+        next: { ...state, project: { ...state.project, markers } },
+        inverse: addMarker(marker),
+        description: 'Remove a marker',
+      };
+    }),
+  ];
+}
 
 /** A bus running the test commands. */
 export function testBus(): CommandBus<ProjectState> {
@@ -440,6 +539,7 @@ export function testBus(): CommandBus<ProjectState> {
     withdrawEditCommand(),
     addChainCommand(),
     removeChainCommand(),
+    ...placementCommands(),
     ...takeCommands(),
   ]) {
     registry.register(each);

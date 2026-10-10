@@ -316,4 +316,38 @@ describe('project.set-asset-media', () => {
       'source.media-unchanged',
     );
   });
+
+  it('keeps a decoded rendition in the store, refusing to link it to a file (ADR-0090)', () => {
+    const step = state.sources.get(assets.footstep.id);
+    if (step?.media.kind !== 'managed' || step.provenance === undefined) {
+      throw new Error('The reference state copies the footstep.');
+    }
+    const decoded: ProjectState = {
+      ...state,
+      sources: new Map(state.sources).set(assets.footstep.id, {
+        media: step.media,
+        provenance: {
+          importedAt: step.provenance.importedAt,
+          byteLength: 1_000,
+          mediaType: 'audio/ogg',
+          originProjectId: step.provenance.originProjectId,
+          rendition: {
+            container: 'ogg',
+            codec: 'opus',
+            sampleRate: assets.footstep.sampleRate,
+            layout: assets.footstep.channelLayout,
+            frames: assets.footstep.length,
+            leadingFrames: assets.footstep.length,
+            decoder: { implementation: 'codec-module', name: 'ropus', version: '0.3.0' },
+            kept: { kind: 'copied', contentId: contentIdOfDigit('9') },
+          },
+        },
+      }),
+    };
+    assertReadsBack(decoded);
+    const linked = setAssetMediaInvocation(assets.footstep.id, externalOf(state, assets.forest));
+    expect(refusalCodeOf(bus.execute(decoded, linked))).toBe('source.rendition-kept-in-store');
+    const managed: MediaSource = { ...step.media, contentId: contentIdOfDigit('8') };
+    appliedAndUndone(decoded, setAssetMediaInvocation(assets.footstep.id, managed));
+  });
 });

@@ -55,7 +55,7 @@ import { cacheKeyOf, type CacheScope, type CacheStore } from './cache-store.js';
 import { begunHistory, writeProject, type ProjectContents } from './project-creation.js';
 import { claimFor, type ImportIdentity, type ImportedProject } from './import-claim.js';
 import { movedHistory, stateOf } from './project-identity.js';
-import { noCoordination, refusalsReported } from './storage-failures.js';
+import { isStorageFull, noCoordination, refusalsReported } from './storage-failures.js';
 import type { UnprovedBodies } from './tree-bodies.js';
 import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
 
@@ -106,14 +106,17 @@ export async function importTree(
     const contents = await contentsOf(content, project, at, services);
     if (!contents.ok) return contents;
     const written = await refusalsReported(async () => {
-      const brought = await bringBodies(content, project, open, held, services, signal);
+      const brought = await bringMedia(content, open, held, services, signal);
       if (!brought.ok) return brought;
       const imported = { from, at };
-      return await writeProject(
+      const header = await writeProject(
         files,
         { ...contents.value, imported },
         { ids: services.ids, turns, coordinator },
       );
+      if (!header.ok) return header;
+      const caches = await bringCaches(content, { from, project }, open, services, signal);
+      return caches.ok ? succeed({ header: header.value, skippedCaches: caches.value }) : caches;
     });
     // A designed failure leaves nothing of the project behind; a crash, which
     // rejects, leaves it unfinished, for cleanup or the next import to remove.
@@ -121,7 +124,7 @@ export async function importTree(
       await services.tree.remove(files.paths.directory);
       return written;
     }
-    return succeed({ header: written.value, asCopy });
+    return succeed({ ...written.value, asCopy });
   } finally {
     for (const contentId of held) services.store.release(contentId);
     await lease.release();
@@ -256,29 +259,51 @@ async function contentsOf(
 }
 
 /**
- * Keeps the tree's media in the store and its caches in the cache store, each
- * read from where the tree was. The identity of each object stored is held in
- * `held` until the project that refers to it is written.
+ * Keeps the tree's media in the store, each piece read from where the tree
+ * was. The identity of each object stored is held in `held` until the project
+ * that refers to it is written.
  */
-async function bringBodies(
+async function bringMedia(
   content: ProjectTreeContent,
-  project: ProjectId,
   open: UnprovedBodies,
   held: ContentId[],
   services: ImportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
-  const from = content.state.project.id;
   for (const file of projectTree(content)) {
     const { body } = file;
-    if (body.kind === 'text') continue;
-    const brought =
-      body.kind === 'media'
-        ? await bringMedia(file, body.contentId, open, held, services, signal)
-        : await bringCache(file, body, { from, project }, open, services, signal);
+    if (body.kind !== 'media') continue;
+    const brought = await bringPiece(file, body.contentId, open, held, services, signal);
     if (!brought.ok) return brought;
   }
   return succeed(undefined);
+}
+
+/**
+ * Keeps the tree's caches in the cache store once the project is written, so
+ * a cache never takes the room the project needs (F-51): a cache the storage
+ * has no room for is given up, since it is made again when it is next needed,
+ * and its path is answered among those skipped. A cache whose bytes are not
+ * the ones the tree lists still refuses the import, which says the tree is
+ * not what it claims.
+ */
+async function bringCaches(
+  content: ProjectTreeContent,
+  identity: { readonly from: ProjectId; readonly project: ProjectId },
+  open: UnprovedBodies,
+  services: ImportServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<readonly string[]>> {
+  const skipped: string[] = [];
+  for (const file of projectTree(content)) {
+    const { body } = file;
+    if (body.kind !== 'cache') continue;
+    const brought = await bringCache(file, body, identity, open, services, signal);
+    if (brought.ok) continue;
+    if (!isStorageFull(brought.failures[0])) return brought;
+    skipped.push(body.path);
+  }
+  return succeed(skipped);
 }
 
 /**
@@ -286,7 +311,7 @@ async function bringBodies(
  * says, which the store proves as it writes it, or by hashing the object it
  * holds already without reading the tree's at all.
  */
-async function bringMedia(
+async function bringPiece(
   file: ProjectTreeFile,
   named: ContentId,
   open: UnprovedBodies,
