@@ -178,6 +178,17 @@ export type SettingsByFormat = {
   };
 };
 
+/** Each format with its encoding. */
+type FormatEncodingByFormat = {
+  readonly [F in ExportFormat]: { readonly format: F; readonly encoding: FormatEncodings[F] };
+};
+
+/** One format with its encoding. */
+export type FormatEncodingOf<F extends ExportFormat> = FormatEncodingByFormat[F];
+
+/** A format and its encoding: all a file's encoder and its target are made from. */
+export type FormatEncoding = FormatEncodingByFormat[ExportFormat];
+
 /** The settings of an export in one format. */
 export type ExportSettingsOf<F extends ExportFormat> = SettingsByFormat[F];
 

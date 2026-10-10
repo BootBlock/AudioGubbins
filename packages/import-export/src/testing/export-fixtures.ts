@@ -95,7 +95,8 @@ export const TEST_CODECS: ReadonlyMap<CodecId, CodecDescriptor> = new Map([
     codec(
       'vorbis',
       'Ogg Vorbis',
-      writer(['ogg'], { kind: 'any', minimum: 8_000, maximum: 192_000 }, 8),
+      // The prebuilt libvorbis, as the registry states it, encodes one or two channels.
+      writer(['ogg'], { kind: 'any', minimum: 8_000, maximum: 192_000 }, 2),
     ),
   ],
   [

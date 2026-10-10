@@ -78,6 +78,29 @@ describe('validating export settings against the codec', () => {
     expect(checked(downmixed, context)).toEqual([]);
   });
 
+  it('refuses a layout the format cannot state, naming the formats that can, before rendering', () => {
+    const sevenOne = contextOf({ layout: StandardLayouts.surround7_1 });
+    const aac = validateExportSettings(defaultExportSettings('aac', sevenOne), sevenOne);
+    expect(codes(aac)).toEqual(['import-export.layout-unstated']);
+    // Vorbis states 7.1, but its encoder writes two channels at most, so it is not named.
+    expect(aac.ok ? '' : aac.failures[0].summary).toMatch(
+      /^AAC cannot state this layout of 8 channels; WAV, AIFF, AIFF-C, FLAC, Opus can\./,
+    );
+    expect(checked(defaultExportSettings('flac', sevenOne), sevenOne)).toEqual([]);
+
+    const surround = contextOf({ layout: StandardLayouts.surround5_1 });
+    expect(checked(defaultExportSettings('flac', surround), surround)).toEqual([]);
+
+    const stems = contextOf({ layout: expectSuccess(discreteLayout(2)) });
+    const mp3 = defaultExportSettings('mp3', stems);
+    expect(checked(mp3, stems)).toEqual(['import-export.layout-unstated']);
+    const mapped: ExportSettings = {
+      ...mp3,
+      channels: { kind: 'map', channels: [0, 1], to: StandardLayouts.stereo },
+    };
+    expect(checked(mapped, stems)).toEqual([]);
+  });
+
   it('reports a problem every file of a batch shares once', () => {
     const context = contextOf({ layout: StandardLayouts.surround5_1 });
     const mp3: ExportSettings = {

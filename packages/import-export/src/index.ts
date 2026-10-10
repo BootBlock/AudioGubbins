@@ -28,6 +28,8 @@ export {
   type ExportSettingsOf,
   type FlacEncoding,
   type FloatPcm,
+  type FormatEncoding,
+  type FormatEncodingOf,
   type FormatEncodings,
   type IntegerPcm,
   type MetadataEdit,
@@ -51,7 +53,7 @@ export {
   type SourcePrecision,
 } from './export-context.js';
 
-export { type ExportTarget, exportTarget, formatName } from './export-formats.js';
+export { type ExportTarget, exportTarget, formatName, formatsStating } from './export-formats.js';
 export { validateExportSettings } from './settings-validation.js';
 export { defaultExportSettings } from './default-settings.js';
 export {
