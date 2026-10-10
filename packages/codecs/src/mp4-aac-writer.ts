@@ -30,6 +30,7 @@ import { invalidEncodedStream, unwritableStream, writerEnded } from './framing-f
 import { GAPLESS_NAME, ITUNES_MEAN, encodeIlstItems, freeFormItem } from './ilst-metadata.js';
 import type { MetadataMap } from './metadata-map.js';
 import { box, fullBox } from './mp4-box.js';
+import { SizeList } from './size-list.js';
 
 /** What an M4A file states beyond its access units. */
 export interface Mp4AacSettings {
@@ -50,26 +51,6 @@ const UNITY_MATRIX = [0x00010000, 0, 0, 0, 0x00010000, 0, 0, 0, 0x40000000];
 const UNDETERMINED_LANGUAGE = 0x55c4;
 
 const LARGEST_32 = 0xffffffff;
-
-/** A growing list of 32-bit sizes, held as a typed array rather than an array of numbers. */
-class SizeList {
-  private sizes = new Uint32Array(1_024);
-  length = 0;
-
-  push(size: number): void {
-    if (this.length === this.sizes.length) {
-      const grown = new Uint32Array(this.sizes.length * 2);
-      grown.set(this.sizes);
-      this.sizes = grown;
-    }
-    this.sizes[this.length] = size;
-    this.length += 1;
-  }
-
-  at(index: number): number {
-    return this.sizes[index] ?? 0;
-  }
-}
 
 /** An M4A file being written. */
 export class Mp4AacWriter implements EncodedStreamWriter<EncodedStreamLength> {
