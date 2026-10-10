@@ -118,7 +118,7 @@ function randomFeather(random: Random, length: number): SpectralFeather {
  * A random mask within a range of `length`: up to four shapes, the first
  * adding, since a mask with nothing adding to it selects nothing.
  */
-export function randomMask(random: Random, length: number): SpectralMask {
+function randomMask(random: Random, length: number): SpectralMask {
   const rest = Array.from({ length: random.below(4) }, () =>
     randomShape(random, random.pick(Object.values(MaskEffect)), length),
   );
