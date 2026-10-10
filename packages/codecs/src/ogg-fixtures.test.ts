@@ -21,7 +21,12 @@ import {
 } from './ogg-page.js';
 import { OggPageWriter } from './ogg-page-writer.js';
 import { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
-import { opusPacketDuration } from './opus-header.js';
+import {
+  encodeOpusHead,
+  opusPacketDuration,
+  readOpusHead,
+  type OpusHeadSettings,
+} from './opus-header.js';
 import { fullMetadata, memoryBytes, oggPages, random } from './testing/index.js';
 import { encodeVorbisComment } from './vorbis-comment.js';
 
@@ -201,6 +206,35 @@ describe('Ogg Opus', () => {
     expect(Array.from(oggPages(file)[0]?.body.subarray(19) ?? [])).toEqual([
       4, 2, 0, 4, 1, 2, 3, 5,
     ]);
+  });
+
+  it('reads back every header it writes, and refuses one it could not have written', () => {
+    const stereo: OpusHeadSettings = {
+      channels: 2,
+      preSkip: 312,
+      inputRate: 44_100,
+      outputGain: -256,
+      mapping: { family: 0 },
+    };
+    const surround: OpusHeadSettings = {
+      ...stereo,
+      channels: 6,
+      mapping: { family: 1, streams: 4, coupledStreams: 2, table: [0, 4, 1, 2, 3, 5] },
+    };
+    for (const head of [stereo, surround]) {
+      expect(expectSuccess(readOpusHead(expectSuccess(encodeOpusHead(head))))).toEqual(head);
+    }
+    const written = expectSuccess(encodeOpusHead(stereo));
+    const truncated = written.subarray(0, 18);
+    const versionTwo = written.slice();
+    versionTwo[8] = 2;
+    const familyTwo = written.slice();
+    familyTwo[18] = 2;
+    const threeInFamilyZero = written.slice();
+    threeInFamilyZero[9] = 3;
+    for (const bytes of [truncated, versionTwo, familyTwo, threeInFamilyZero]) {
+      expect(expectFailureCode(readOpusHead(bytes))).toBe('codecs.encoded-stream-invalid');
+    }
   });
 
   it('refuses settings the header cannot state', () => {

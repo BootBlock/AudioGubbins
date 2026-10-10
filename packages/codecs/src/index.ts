@@ -117,7 +117,7 @@ export {
 
 export { OggOpusWriter, type OggOpusSettings } from './ogg-opus-writer.js';
 
-export { type OpusChannelMapping, type OpusHeadSettings } from './opus-header.js';
+export { type OpusChannelMapping, type OpusHeadSettings, readOpusHead } from './opus-header.js';
 
 export { OggVorbisCommentRewriter } from './ogg-vorbis-comment-rewriter.js';
 

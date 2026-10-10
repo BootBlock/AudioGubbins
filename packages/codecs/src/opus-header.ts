@@ -103,6 +103,50 @@ export function encodeOpusHead(settings: OpusHeadSettings): DomainResult<Uint8Ar
   return succeed(writer.toBytes().slice());
 }
 
+/** The bytes of a header of mapping family 0, and of family 1's before its table. */
+const FAMILY_0_BYTES = 19;
+const FAMILY_1_TABLE_OFFSET = 21;
+
+/**
+ * What an identification header states, as `encodeOpusHead` writes it, so an
+ * encoder's own header is framed by the writer that states it: refused where
+ * it is not version 1 of mapping family 0 or 1, or states what the writer
+ * could not.
+ */
+export function readOpusHead(bytes: Uint8Array): DomainResult<OpusHeadSettings> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const signature = String.fromCharCode(...bytes.subarray(0, OPUS_HEAD.length));
+  if (bytes.length < FAMILY_0_BYTES || signature !== OPUS_HEAD || bytes[8] !== 1) {
+    return fail(invalidEncodedStream('The Opus identification header is not of version 1.'));
+  }
+  const channels = view.getUint8(9);
+  const family = view.getUint8(18);
+  let mapping: OpusChannelMapping;
+  if (family === 0 && bytes.length === FAMILY_0_BYTES) {
+    mapping = { family: 0 };
+  } else if (family === 1 && bytes.length === FAMILY_1_TABLE_OFFSET + channels) {
+    mapping = {
+      family: 1,
+      streams: view.getUint8(19),
+      coupledStreams: view.getUint8(20),
+      table: Array.from(bytes.subarray(FAMILY_1_TABLE_OFFSET)),
+    };
+  } else {
+    return fail(
+      invalidEncodedStream('The Opus identification header is not of mapping family 0 or 1.'),
+    );
+  }
+  const settings: OpusHeadSettings = {
+    channels,
+    preSkip: view.getUint16(10, true),
+    inputRate: view.getUint32(12, true),
+    outputGain: view.getInt16(16, true),
+    mapping,
+  };
+  const problem = settingsProblem(settings);
+  return problem === undefined ? succeed(settings) : fail(invalidEncodedStream(problem));
+}
+
 /** Each configuration's frame length, in samples at 48 kHz (RFC 6716, table 2). */
 const FRAME_SAMPLES: readonly number[] = Array.from({ length: 32 }, (_, config) => {
   if (config < 12) return [480, 960, 1920, 2880][config % 4] ?? 0;
