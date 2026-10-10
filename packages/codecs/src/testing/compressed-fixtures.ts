@@ -8,6 +8,7 @@ import type { SampleCount } from '@audiogubbins/domain';
 
 import type { MetadataMap } from '../metadata-map.js';
 import { OGG_HEADER_BYTES, readOggPage, readOggPageHeader, type OggPage } from '../ogg-page.js';
+import { OggPageWriter } from '../ogg-page-writer.js';
 
 /** A count of frames, for a map a test writes. */
 export const frames = (count: number): SampleCount => {
@@ -112,4 +113,63 @@ export function mutations(
     damaged.push(copy);
   }
   return damaged;
+}
+
+/** One FLAC frame and the samples it decodes to. */
+export interface OggFlacFrame {
+  readonly bytes: Uint8Array;
+  readonly samples: number;
+}
+
+/** The serial number of the Ogg FLAC streams a test writes. */
+const OGG_FLAC_SERIAL = 0x666c6163;
+
+/**
+ * A native FLAC file's head, `fLaC` and its metadata blocks, and its frames
+ * mapped into Ogg as the FLAC-to-Ogg mapping lays them: a first packet of
+ * `0x7F`, `FLAC`, version 1.0, the count of header packets after it, then
+ * `fLaC` and the stream information; each other metadata block in a packet
+ * of its own, the first page and the headers each ending a page; then each
+ * frame in a packet of its own, every page's granule position the samples
+ * through its last frame. `statedHeaders` overrides the count the first
+ * packet states.
+ */
+export function oggFlacFile(
+  head: Uint8Array,
+  frames: readonly OggFlacFrame[],
+  statedHeaders?: number,
+): Uint8Array {
+  if (String.fromCharCode(...head.subarray(0, 4)) !== 'fLaC') {
+    throw new Error('A native FLAC head begins with fLaC.');
+  }
+  const blocks: Uint8Array[] = [];
+  for (let offset = 4; offset < head.length;) {
+    const length = new DataView(head.buffer, head.byteOffset + offset).getUint32(0) & 0xffffff;
+    blocks.push(head.subarray(offset, offset + 4 + length));
+    offset += 4 + length;
+  }
+  const [streamInfo, ...others] = blocks;
+  if (streamInfo === undefined) throw new Error('A native FLAC head holds its stream information.');
+  const count = statedHeaders ?? others.length;
+  const first = new Uint8Array(13 + streamInfo.length);
+  first.set([0x7f, 0x46, 0x4c, 0x41, 0x43, 1, 0, (count >> 8) & 0xff, count & 0xff]);
+  first.set([0x66, 0x4c, 0x61, 0x43], 9);
+  first.set(streamInfo, 13);
+  const pages = new OggPageWriter(OGG_FLAC_SERIAL);
+  const out: Uint8Array[] = [...pages.addPacket(first, 0), ...pages.flush()];
+  for (const block of others) out.push(...pages.addPacket(block, 0));
+  out.push(...pages.flush());
+  let samples = 0;
+  frames.forEach((frame, index) => {
+    samples += frame.samples;
+    out.push(...pages.addPacket(frame.bytes, samples));
+    if (index === frames.length - 1) out.push(...pages.flush(true));
+  });
+  const file = new Uint8Array(out.reduce((sum, page) => sum + page.length, 0));
+  let at = 0;
+  for (const page of out) {
+    file.set(page, at);
+    at += page.length;
+  }
+  return file;
 }

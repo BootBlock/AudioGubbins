@@ -10,3 +10,4 @@
 
 export { codecModule, codecModuleBytes } from './codec-module.js';
 export { memoryBytes } from './memory-bytes.js';
+export { type FlacFixture, flacFile, oggOpusFile } from './encoded-fixtures.js';

@@ -1,13 +1,17 @@
 /**
- * The messages the codec worker and the storage worker exchange over a message
- * channel (ADR-0090, ADR-0092).
+ * The messages the workers exchange over a message channel of their own for
+ * each stream (ADR-0090, ADR-0092).
  *
  * Only the storage worker writes, and no sample passes through the page, so a
  * decoded import and an encoded export each travel from the codec worker to
- * the storage worker over a channel of their own: blocks or bytes in order,
- * then one end. The storage worker answers each `ready` with how many more
- * messages it will take, so the codec worker never runs ahead of the writes by
- * more than that credit and neither worker holds a whole sound.
+ * the storage worker, and a rendered export from the render worker to the
+ * codec worker: blocks or bytes in order, then one end. The receiver grants
+ * credit, how many more messages it will take, by `ready`, and the sender
+ * sends no message, its end included, past the credit granted; a receiver
+ * that awaits a stream keeps credit outstanding, so a sender always has room
+ * to end. Neither side runs ahead of the other by more than the credit, and
+ * neither holds a whole sound. Each message is read field by field on arrival
+ * (`stream-message-reading.ts`).
  */
 
 import type { FinishedAudioFile, MetadataMap } from '@audiogubbins/codecs';
@@ -45,7 +49,17 @@ export type EncodedStreamMessage =
   | { readonly kind: 'failed'; readonly failure: DomainFailure };
 
 /**
- * The storage worker's side of either channel: credit for more messages, or a
+ * The render worker's side of a rendered export: planar 32-bit float blocks at
+ * the export's rate and layout (their buffers transferred), then the end with
+ * the frames rendered, or the failure that ends the stream.
+ */
+export type RenderedStreamMessage =
+  | { readonly kind: 'block'; readonly channels: readonly Float32Array[]; readonly frames: number }
+  | { readonly kind: 'end'; readonly frames: SampleCount }
+  | { readonly kind: 'failed'; readonly failure: DomainFailure };
+
+/**
+ * The receiver's side of any of the channels: credit for more messages, or a
  * refusal that ends the stream, such as a write refused for quota or a
  * cancelled job.
  */

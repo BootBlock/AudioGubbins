@@ -11,20 +11,12 @@
 
 import type { SyncAudioBytes } from '@audiogubbins/codecs';
 
+import { thrownName } from './thrown-name.js';
+
 /** A registered file, and what its last failed read threw. */
 interface HostFile {
   readonly bytes: SyncAudioBytes;
   failure: string | undefined;
-}
-
-/**
- * The name of what a read threw, such as `NotReadableError`: never its
- * message, which may name the file's path.
- */
-function nameOf(thrown: unknown): string {
-  const name: unknown =
-    typeof thrown === 'object' && thrown !== null ? Reflect.get(thrown, 'name') : undefined;
-  return typeof name === 'string' ? name : typeof thrown;
 }
 
 /** What the import answers for a read that failed. */
@@ -78,7 +70,7 @@ export class HostFiles {
     } catch (error) {
       // A file the person removed, or whose permission was withdrawn, throws;
       // the module answers the read as unreadable and the session says why.
-      file.failure = nameOf(error);
+      file.failure = thrownName(error);
       return READ_FAILED;
     }
   };
