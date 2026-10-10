@@ -338,13 +338,15 @@ async function buildModule(zig, flags, module) {
   writeFileSync(stamp, `${hash}\n`);
 }
 
+/** @typedef {{ readonly mp3: string, readonly vorbis: string }} EncoderModulePaths */
+
 /**
  * Builds whichever encoder modules changed, answering their paths. The
  * compiler is obtained, and downloaded where it is not cached, only when one
  * has to be built.
  *
  * @param {readonly string[]} flags
- * @returns {Promise<{ readonly mp3: string, readonly vorbis: string }>}
+ * @returns {Promise<EncoderModulePaths>}
  */
 async function buildChanged(flags) {
   /** @type {Promise<string> | undefined} */
@@ -365,7 +367,7 @@ async function buildChanged(flags) {
  * second fails or links half a module. Forgotten once settled, so a watch
  * rebuild after an edit runs again.
  *
- * @type {Map<string, Promise<{ readonly mp3: string, readonly vorbis: string }>>}
+ * @type {Map<string, Promise<EncoderModulePaths>>}
  */
 const RUNNING = new Map();
 
@@ -375,7 +377,7 @@ const RUNNING = new Map();
  *
  * @param {readonly string[]} features the WebAssembly features the modules
  *   may use
- * @returns {Promise<{ readonly mp3: string, readonly vorbis: string }>}
+ * @returns {Promise<EncoderModulePaths>}
  */
 export function buildEncoderModules(features) {
   const flags = commonFlags(features);
