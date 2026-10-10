@@ -99,6 +99,32 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
    Left to S2b: 32-bit FLAC encoding, and Matroska `DiscardPadding`/`CodecDelay`.
    Left to S6: real-audio fixtures for MP3, Vorbis and AAC decoding, made with
    the prebuilt encoders and the browser.
+4. **S5 (merged `62ebed2f`).** A slashed word after a path is prose only if it
+   is digits joined by slashes or one of `and/or`, `either/or`, `n/a`, `w/o`,
+   `i/o`, `on/off`, `yes/no`, `read/write`; a path ends before it. Text is
+   redacted as written, then each of up to three percent-encoding layers is
+   decoded and redacted again; a word still encoded becomes `<data>`. Invalid
+   bytes decode to U+FFFD. `data :` is treated as `data:`.
+5. **S4 (merged `d59b7689`).** Defaults and presets take `{ source, codecs }`;
+   the default rate is the project's if the codec writes it, else the lowest
+   written above it, else the highest. Defaults: WAV and AIFF-C float 32; AIFF
+   and FLAC the shallowest depth holding the source (32 for float); FLAC level
+   5; MP3 the highest CBR; Vorbis q10; Opus 255 kbit/s per channel, audio, 20
+   ms, complexity 10; AAC 128 kbit/s per channel. Default dither: triangular,
+   one step, unshaped, seed 0, for integer depths of 16 bits or less (G.711 and
+   ADPCM count as 16). The dither key is the CRC-32 of the settings as canonical
+   text; the generator is lowbias32 over key, channel and draw. Noise shaping is
+   `first-order` or the 9-tap `lipshitz-e-weighted` (44.1 kHz only). Channel
+   conversion is `keep`, `fold`, `matrix` or `map`. Names: tokens `{project}`,
+   `{region}`, `{index}`, `{date}`, `{format}`; NFC, Windows-forbidden and
+   control characters to `_`, device names prefixed `_`, 255 UTF-8 bytes.
+   Collisions compare NFC lower case; trusted overwrite needs the last record of
+   the name to match size and hash; rename from ` (2)`. The render graph is
+   `export-source` → `export-conversion` → `export-output`; the integrator binds
+   the span's `PcmSource` and the encoder's sink and quantises before an integer
+   encoder. Left to S6: `AudioFileWriter.write` must take `Float64Array` for a
+   dithered 32-bit integer export, since a float32 cannot hold every k/2^31; and
+   the check that a layout can be stated by the format, against the writers.
 
 ## Left to do
 
