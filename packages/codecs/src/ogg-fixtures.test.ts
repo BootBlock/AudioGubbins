@@ -26,8 +26,7 @@ import {
   readOpusHead,
   type OpusHeadSettings,
 } from './opus-header.js';
-import { fullMetadata, memoryBytes, oggPages, random } from './testing/index.js';
-import { encodeVorbisComment } from './vorbis-comment.js';
+import { fullMetadata, memoryBytes, oggPages } from './testing/index.js';
 
 const ascii = (text: string) => Uint8Array.from(text, (character) => character.charCodeAt(0));
 

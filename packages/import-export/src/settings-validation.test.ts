@@ -12,7 +12,7 @@ import type { CodecDescriptor } from '@audiogubbins/codecs';
 
 import { defaultExportSettings } from './default-settings.js';
 import type { ExportContext } from './export-context.js';
-import type { ExportSettings, ExportSettingsOf } from './export-settings.js';
+import type { ExportSettings, ExportSettingsOf, Mp3Encoding } from './export-settings.js';
 import { validateExportSettings } from './settings-validation.js';
 import { TEST_CODECS, contextOf, rate } from './testing/export-fixtures.js';
 
@@ -82,9 +82,8 @@ describe('validating export settings against the codec', () => {
     const sevenOne = contextOf({ layout: StandardLayouts.surround7_1 });
     const aac = validateExportSettings(defaultExportSettings('aac', sevenOne), sevenOne);
     expect(codes(aac)).toEqual(['import-export.layout-unstated']);
-    // Vorbis states 7.1, but its encoder writes two channels at most, so it is not named.
     expect(aac.ok ? '' : aac.failures[0].summary).toMatch(
-      /^AAC cannot state this layout of 8 channels; WAV, AIFF, AIFF-C, FLAC, Opus can\./,
+      /^AAC cannot state this layout of 8 channels; WAV, AIFF, AIFF-C, FLAC, Ogg Vorbis, Opus can\./,
     );
     expect(checked(defaultExportSettings('flac', sevenOne), sevenOne)).toEqual([]);
 
@@ -150,8 +149,8 @@ describe("validating each format's encoding", () => {
       { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: 10.5 } },
     ],
     [
-      'a Vorbis bit rate below 16 a channel',
-      { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 31 } },
+      'a Vorbis bit rate below 22.5 a channel of a stereo pair',
+      { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 44 } },
     ],
     [
       'a Vorbis bit rate past 250 a channel',
@@ -200,8 +199,8 @@ describe("validating each format's encoding", () => {
     ['FLAC at level 0', { format: 'flac', encoding: { bits: 16, compressionLevel: 0 } }],
     ['Vorbis at quality -1', { format: 'ogg-vorbis', encoding: { mode: 'quality', quality: -1 } }],
     [
-      'Vorbis at 32 kbit/s for two channels',
-      { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 32 } },
+      'Vorbis at 45 kbit/s for two channels',
+      { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 45 } },
     ],
     [
       'Opus at 510 kbit/s for two channels',
@@ -221,17 +220,58 @@ describe("validating each format's encoding", () => {
     expect(checked(settings as ExportSettings)).toEqual([]);
   });
 
-  it("holds MP3's bit rate to the table of the rate's MPEG version", () => {
-    const at = (hertz: number, bitRate: number): readonly string[] =>
-      checked({
-        ...defaultExportSettings('mp3', CONTEXT),
-        sampleRate: rate(hertz),
-        encoding: { mode: 'constant', bitRate },
-      });
-    expect(at(22_050, 320)).toEqual(['import-export.encoding-invalid']);
-    expect(at(22_050, 144)).toEqual([]);
-    expect(at(44_100, 144)).toEqual(['import-export.encoding-invalid']);
-    expect(at(8_000, 8)).toEqual([]);
+  it("holds MP3's bit rate to the encoder's table at the rate, before rendering", () => {
+    const at = (hertz: number, encoding: Mp3Encoding): readonly string[] =>
+      checked({ ...defaultExportSettings('mp3', CONTEXT), sampleRate: rate(hertz), encoding });
+    const constant = (bitRate: number) => ({ mode: 'constant', bitRate }) as const;
+    const average = (bitRate: number) => ({ mode: 'average', bitRate }) as const;
+    expect(at(22_050, constant(320))).toEqual(['import-export.encoding-invalid']);
+    expect(at(22_050, constant(144))).toEqual([]);
+    expect(at(44_100, constant(144))).toEqual(['import-export.encoding-invalid']);
+    expect(at(8_000, constant(8))).toEqual([]);
+    // MPEG-2.5 codes up to 160 kbit/s, but the encoder's table ends at 64.
+    expect(at(8_000, constant(64))).toEqual([]);
+    expect(at(8_000, constant(80))).toEqual(['import-export.encoding-invalid']);
+    expect(at(11_025, average(64))).toEqual([]);
+    const refused = validateExportSettings(
+      { ...defaultExportSettings('mp3', CONTEXT), sampleRate: rate(11_025), encoding: average(65) },
+      CONTEXT,
+    );
+    expect(refused.ok ? '' : refused.failures[0].summary).toBe(
+      'An MP3 at 11025 Hz of average bit rate takes a whole number of kbit/s from 8 to 64.',
+    );
+    expect(at(48_000, average(31))).toEqual(['import-export.encoding-invalid']);
+    expect(at(48_000, average(200))).toEqual([]);
+  });
+
+  it("holds a Vorbis nominal bit rate to what the encoder holds the stream's rate and channels to", () => {
+    const vorbis = (hertz: number, nominalBitRate: number, context = CONTEXT): ExportSettings => ({
+      ...defaultExportSettings('ogg-vorbis', context),
+      sampleRate: rate(hertz),
+      encoding: { mode: 'bit-rate', nominalBitRate },
+    });
+    const summary = (settings: ExportSettings, context = CONTEXT) => {
+      const result = validateExportSettings(settings, context);
+      return result.ok ? '' : result.failures[0].summary;
+    };
+    expect(summary(vorbis(96_000, 128))).toBe(
+      'Ogg Vorbis of 2 channels at 96000 Hz takes no average bit rate; choose a quality.',
+    );
+    expect(summary(vorbis(48_000, 501))).toBe(
+      'Ogg Vorbis of 2 channels at 48000 Hz takes a whole number of kbit/s from 45 to 500.',
+    );
+    expect(summary(vorbis(32_000, 59))).toBe(
+      'Ogg Vorbis of 2 channels at 32000 Hz takes a whole number of kbit/s from 60 to 380.',
+    );
+    const surround = contextOf({ layout: StandardLayouts.surround5_1 });
+    // Six channels have a band of their own to 70 kHz, and a lower floor a channel.
+    expect(checked(vorbis(64_000, 84, surround), surround)).toEqual([]);
+    expect(summary(vorbis(48_000, 83, surround), surround)).toBe(
+      'Ogg Vorbis of 6 channels at 48000 Hz takes a whole number of kbit/s from 84 to 1440.',
+    );
+    // A quality is taken at every rate and every count Vorbis orders.
+    const sevenOne = contextOf({ layout: StandardLayouts.surround7_1, hertz: 96_000 });
+    expect(checked(defaultExportSettings('ogg-vorbis', sevenOne), sevenOne)).toEqual([]);
   });
 });
 
