@@ -6,10 +6,10 @@
  * An export runs as a batch of jobs, one file at a time, each rendered,
  * encoded, staged and only then delivered. A delivery refused, for permission
  * or a file the person chose to keep, keeps its file staged: the batch goes on
- * without it, and once every job has settled the person may retry the
- * delivery or choose another destination, with no new render, or give the
- * file up. Nothing here holds a project: each call that records into one is
- * given the session of the project the export was made from.
+ * without it, and once every job has settled the person may retry the delivery
+ * or choose another destination, with no new render, or give the file up.
+ * Nothing here holds a project: each call that records into one is given the
+ * session of the project the export was made from.
  */
 
 import type { AssetId, DomainResult } from '@audiogubbins/domain';
