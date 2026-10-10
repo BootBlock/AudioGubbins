@@ -50,6 +50,7 @@
     "test:e2e:effect-rack": "playwright test --project=chromium-effect-rack",
     "test:e2e:recording": "playwright test --project=chromium-recording",
     "test:e2e:ml-golden": "playwright test --project=chromium-ml-golden --project=firefox-ml-golden --project=webkit-ml-golden",
+    "test:e2e:spectral": "playwright test --project=chromium-spectral",
     "test:e2e:worker-policy": "playwright test --project=chromium-worker-policy",
     "test:renderer-loss": "playwright test --project=chromium-renderer --project=chromium-renderer-webgpu --project=chromium-renderer-reduced",
     "test:touch-pen": "playwright test --project=chromium-touch-pen",

@@ -185,6 +185,17 @@ export default defineConfig<SuiteOptions>({
       testMatch: /recording\.spec\.ts/,
     },
     {
+      // Spectral editing in the Spectral Repair workspace: an area selected by
+      // pointer and from the keyboard, attenuated and healed, compared with
+      // before, undone and found again after a reload, and the lasso and the
+      // brush drawing the same mask from the same stroke (the packet's
+      // `test:e2e:spectral`). WebGL is switched off, so the spectrogram the
+      // suite reads by pixel is drawn by the reduced renderer, Canvas 2D.
+      name: 'chromium-spectral',
+      use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--disable-webgl'] } },
+      testMatch: /spectral\.spec\.ts/,
+    },
+    {
       // Every worker under the page's security policy: the storage and
       // inference workers each refused a fetch from another origin. The second
       // test installs a model pack, so the build must carry the packs
