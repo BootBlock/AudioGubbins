@@ -221,7 +221,7 @@ describe('the Inspector describing an export (REQ-EDIT-072)', () => {
       File: '“Harbour.wav”',
       Exports: 'The whole asset',
       Settings: SETTINGS_WORDS,
-      'Encoded as': `${codecDescriptor(FAKE_ENCODER.id).name} by AudioGubbins ${FAKE_ENCODER.version}`,
+      'Encoded as': `${codecDescriptor(FAKE_ENCODER.id).name} by AudioGubbins 0.1.0`,
       'Its bytes': 'The project gives the same bytes on every machine.',
       'SHA-256': record.file?.sha256 ?? '',
       'Where it went': 'Into “Game sounds”.',

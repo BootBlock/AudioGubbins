@@ -28,17 +28,24 @@ export function describeNode(node: HistoryNode): string {
   }
 }
 
-/** Who served a codec, as a phrase names it. */
+/**
+ * Where an encoder ran, as the end of a phrase after its version, which names
+ * the encoder itself ("flacenc 0.5.1"): nothing for AudioGubbins' own writers,
+ * whose version is the product's ("AudioGubbins 0.1.0").
+ */
 const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
-  application: 'AudioGubbins',
-  'codec-module': 'the codec module',
-  'encoder-module': 'its encoder module',
-  browser: "the browser's encoder",
+  application: '',
+  'codec-module': ' in the codec module',
+  'encoder-module': ' in its encoder module',
+  browser: ", the browser's own encoder",
 };
 
-/** The codec an export was encoded with, and what served it at which version: "FLAC by the codec module 1.2.0". */
+/**
+ * The codec an export was encoded with, by which encoder at which version and
+ * where it ran: "FLAC by flacenc 0.5.1 in the codec module".
+ */
 export function encodedByWords(codec: ExportCodec): string {
-  return `${codecDescriptor(codec.id).name} by ${IMPLEMENTATION_WORDS[codec.implementation]} ${codec.version}`;
+  return `${codecDescriptor(codec.id).name} by ${codec.version}${IMPLEMENTATION_WORDS[codec.implementation]}`;
 }
 
 /** Whether the same project and settings give an export's bytes again, as a phrase. */
