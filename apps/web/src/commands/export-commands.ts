@@ -314,7 +314,8 @@ function inspectCommand(): Command<ShellContext> {
     ExportCommand.Inspect,
     'Describe the export in the Inspector',
     CommandCategory.View,
-    (context) => batchProblem(context) ?? describe(context, { kind: 'batch' }),
+    // The bus runs it only where its availability allows, so an export has run.
+    (context) => describe(context, { kind: 'batch' }),
     {
       keywords: ['inspect', 'inspector', 'properties', 'describe', 'export', 'progress'],
       availability: (context) => availableUnless(batchProblem(context)),
