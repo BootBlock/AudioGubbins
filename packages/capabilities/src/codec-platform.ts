@@ -5,14 +5,13 @@
  * The codec worker runs the codec module, which needs WebAssembly, and the
  * browser's own WebCodecs classes, which only add to it: HE-AAC decoding and
  * AAC-LC encoding, where a browser has them. Neither is assumed. This module
- * reads the scope it is given, a worker's or a page's, for both, and hands
- * the classes on as typed values, so the codec runtime calls them without
- * ever asking the browser what it has; and it probes each codec with
- * `isConfigSupported` on representative configurations, and the bit rates
- * the AAC encoder takes stream by stream (`aac-bit-rate-probe.ts`), answering
- * the part of a `CodecEnvironment` the browser decides. The codec worker
- * probes once, as it starts, and the page keeps what it found for the
- * session.
+ * reads the scope it is given, a worker's or a page's, for both, and hands the
+ * classes on as typed values, so the codec runtime calls them without ever
+ * asking the browser what it has; and it probes each codec with
+ * `isConfigSupported` on representative configurations, and the bit rates the
+ * AAC encoder takes stream by stream (`aac-bit-rate-probe.ts`), answering the
+ * part of a `CodecEnvironment` the browser decides. The codec worker probes
+ * once, as it starts, and the page keeps what it found for the session.
  *
  * The classes are named here by the members the codec runtime uses, so a test
  * hands fakes of the same shape and a scope that lacks a member offers

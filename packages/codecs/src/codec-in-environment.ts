@@ -4,13 +4,13 @@
  * registry cannot know.
  *
  * The registry states the bit rates of the encoders AudioGubbins builds, from
- * their sources (`encoder-bit-rates.ts`). A browser's encoder is each
- * browser's own, and takes what its platform's encoder takes, as Chromium's
- * AAC encoder on Windows takes 96, 128, 160 or 192 kbit/s and nothing else;
- * so a direction the browser serves states the bit rates its encoder was
- * probed to take here. Validation and the
- * defaults read the direction's `bitRates` alike whoever serves it, so an
- * export is refused before it renders, never by the encoder after.
+ * their sources (`encoder-bit-rates.ts`). A browser's encoder is each browser's
+ * own, and takes what its platform's encoder takes, as Chromium's AAC encoder
+ * on Windows takes 96, 128, 160 or 192 kbit/s and nothing else; so a direction
+ * the browser serves states the bit rates its encoder was probed to take here.
+ * Validation and the defaults read the direction's `bitRates` alike whoever
+ * serves it, so an export is refused before it renders, never by the encoder
+ * after.
  */
 
 import { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';

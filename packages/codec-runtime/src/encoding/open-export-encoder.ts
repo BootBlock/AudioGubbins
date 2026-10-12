@@ -8,14 +8,14 @@
  * plan made it, or the request is refused rather than written as a file other
  * than the one planned. Its layout and its encoding's values are refused here
  * by the rules validation refused them by, should a request reach the worker
- * unvalidated (`writtenChannelOrder`, `encodingProblems`, against the bit
- * rates the browser's encoder was probed to take), so no encoder is asked for
- * what it would replace or refuse. An integer target is dithered and
- * quantised by one `Quantiser` for the file, seeded by the planned file's
- * dither key, before the writer takes a block. Each format is a row of the
- * table below, which loads only what its format needs: the codec module for
- * FLAC and Opus, LAME for MP3, libvorbis for Vorbis, and the browser's encoder
- * for AAC; and names the encoder it opened, which the export's record keeps.
+ * unvalidated (`writtenChannelOrder`, `encodingProblems`, against the bit rates
+ * the browser's encoder was probed to take), so no encoder is asked for what it
+ * would replace or refuse. An integer target is dithered and quantised by one
+ * `Quantiser` for the file, seeded by the planned file's dither key, before the
+ * writer takes a block. Each format is a row of the table below, which loads
+ * only what its format needs: the codec module for FLAC and Opus, LAME for MP3,
+ * libvorbis for Vorbis, and the browser's encoder for AAC; and names the
+ * encoder it opened, which the export's record keeps.
  */
 
 import {

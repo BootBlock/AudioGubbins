@@ -1,11 +1,11 @@
 /**
  * What an export of an asset is planned against (ADR-0092): the asset's audio
  * as it is heard, its regions each as its own audio, and the codecs as this
- * browser serves them, read from its codec environment as it stands, so the
- * bit rates its encoder was probed to take hold the settings from the moment
- * the probe is heard.
- * The source is named by the project, which a file name's `{project}` fills
- * with; a region's file is named by its region through `{region}`.
+ * browser serves them, read from its codec environment as it stands, so the bit
+ * rates its encoder was probed to take hold the settings from the moment the
+ * probe is heard. The source is named by the project, which a file name's
+ * `{project}` fills with; a region's file is named by its region through
+ * `{region}`.
  *
  * The export renders what the person hears. The asset's audio is its plan,
  * racks and edits included, at the rate and layout its plan gives; a region's

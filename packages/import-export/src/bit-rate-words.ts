@@ -1,9 +1,9 @@
 /**
  * A list of bit rates as a sentence gives it, the same in a refusal and in the
  * Export dialog: each one where there are few, such as "96, 128, 160 or 192";
- * and where there are many, each even run of three or more as one stretch,
- * such as "every 8 from 8 to 576", so a browser's encoder that takes every
- * bit rate it was asked is said in a few words.
+ * and where there are many, each even run of three or more as one stretch, such
+ * as "every 8 from 8 to 576", so a browser's encoder that takes every bit rate
+ * it was asked is said in a few words.
  */
 
 /** The most bit rates listed one by one. */

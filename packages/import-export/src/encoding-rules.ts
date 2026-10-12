@@ -4,16 +4,16 @@
  *
  * The bit rates an encoder module takes are its descriptor's
  * (`CodecDirection.bitRates`): LAME's constant and average bit rates at the
- * stream's rate, and the nominal bit rates libvorbis holds a stream of its
- * rate and channels to; and the bit rates a browser's encoder was probed to
- * code each stream at, as its descriptor in that browser states them
+ * stream's rate, and the nominal bit rates libvorbis holds a stream of its rate
+ * and channels to; and the bit rates a browser's encoder was probed to code
+ * each stream at, as its descriptor in that browser states them
  * (`codecDescriptorIn`). The other bounds are the codec's: AAC's lowest is 8
  * kbit/s and its ceiling 6144 bits a channel for each frame of 1024 samples
- * (ISO/IEC 14496-3, `aac-bit-rates.ts` in the codecs); Opus
- * codes 6 kbit/s and up, to 255 kbit/s a channel, 510 for a stereo pair (RFC
- * 6716); libvorbis's quality runs from -1 to 10, LAME's variable quality from
- * 0 to 9 and FLAC's compression levels from 0 to 8. A value outside is
- * refused, never replaced by the nearest the encoder would choose.
+ * (ISO/IEC 14496-3, `aac-bit-rates.ts` in the codecs); Opus codes 6 kbit/s and
+ * up, to 255 kbit/s a channel, 510 for a stereo pair (RFC 6716); libvorbis's
+ * quality runs from -1 to 10, LAME's variable quality from 0 to 9 and FLAC's
+ * compression levels from 0 to 8. A value outside is refused, never replaced by
+ * the nearest the encoder would choose.
  */
 
 import {
