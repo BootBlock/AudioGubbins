@@ -8341,6 +8341,8 @@ packages/browser-storage/src/testing/memory-indexed-db.ts
   MemoryTransaction.#request: (refusal: DOMException | undefined, work: () => unknown) => MemoryRequest<unknown>
 
 packages/codec-runtime/src/files/sync-file-bytes.ts
+  interface FileReaderSyncLike
+  FileReaderSyncLike.readAsArrayBuffer: (blob: BlobLike) => ArrayBuffer
   interface SyncAccessHandleLike
   SyncAccessHandleLike.getSize: () => number
   SyncAccessHandleLike.read: (buffer: Uint8Array, options: { readonly at: number; }) => number
@@ -8356,6 +8358,7 @@ packages/codec-runtime/src/testing/worker-harness.ts
   readonly HarnessOptions.probes?: Partial<CodecProbes>
   readonly HarnessOptions.codecModule?: ModuleSource
   readonly HarnessOptions.openExportEncoder?: OpenExportEncoder
+  readonly HarnessOptions.fileReader?: FileReaderSyncLike
 
 packages/codecs/src/aac-config.ts
   interface AacConfig
