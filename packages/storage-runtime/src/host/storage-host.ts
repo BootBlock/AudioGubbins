@@ -9,8 +9,7 @@
  */
 
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
-import { TreeFailure } from '@audiogubbins/project-format';
-import { clearStaging, recoverMediaStore } from '@audiogubbins/storage';
+import { cleanAtStart, type StartUpCleaning } from '@audiogubbins/storage';
 
 import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import type { HostChannel } from '../protocol/storage-operations.js';
@@ -37,7 +36,8 @@ import { usageHandlers } from './usage-area.js';
 /**
  * Serves the page on the other side of `endpoint`, with the services made from
  * the parts `partsOf` makes with the worker's loggers, whose records are timed
- * by `clock`, and runs the media store's recovery as the worker starts.
+ * by `clock`, and cleans what a crash or another window left as the worker
+ * starts.
  */
 export function serveStorage(
   endpoint: PortEndpoint,
@@ -49,8 +49,7 @@ export function serveStorage(
   const services = hostServices(partsOf(logs));
   const projects = new OpenProjects(channel);
   const codecs = new CodecWorkerLink();
-  recoverMedia(services, logs.loggerFor('media'));
-  clearStaged(services, logs.loggerFor('storage'));
+  cleanStorage(services, logs);
   channel.serve({
     ...libraryHandlers(services),
     ...processingLibraryHandlers(services),
@@ -71,54 +70,49 @@ export function serveStorage(
 }
 
 /**
- * Undoes what a crash left of the media store's writing, once, as the worker
- * starts and before it stores anything (ADR-0071), and says what came of it
- * (`media-recovery.ts` in the storage).
+ * Undoes what a crash left of the media store's writing (ADR-0071) and removes
+ * what a window left staged, a rendition it was decoding or an export it had
+ * not delivered (ADR-0090, ADR-0092), once, as the worker starts and before it
+ * stores anything, and says what came of it (`start-up-cleaning.ts` in the
+ * storage). Where another window is storing or staging, nothing is undone or
+ * removed this time.
  */
-function recoverMedia(services: HostServices, logger: Logger): void {
-  void recoverMediaStore(services.store, services.coordinator).then((alone) => {
+function cleanStorage(services: HostServices, logs: HostLogs): void {
+  void cleanAtStart(services).then((alone) => {
     if (alone.kind !== 'done') {
-      logger.debug(
-        'The media store was not recovered: another window is storing media, or windows cannot be told apart.',
-        { reason: alone.kind },
-      );
+      logs
+        .loggerFor('storage')
+        .debug(
+          'The storage was not cleaned at start: another window is storing or staging, or windows cannot be told apart.',
+          { reason: alone.kind },
+        );
       return;
     }
-    const recovered = alone.value;
-    if (!recovered.ok) {
-      logger.warning('The media store could not be recovered.', {
-        code: recovered.failures[0].code,
-      });
-      return;
-    }
-    const undone = recovered.value.undone.length;
-    // A start with nothing to undo is the usual one, and says nothing worth keeping.
-    if (undone === 0) logger.debug('The media store had nothing to recover.');
-    else logger.info('The media store undid what a crash left of its writing.', { count: undone });
+    reportRecovery(alone.value.recovered, logs.loggerFor('media'));
+    reportStaging(alone.value.staging, logs.loggerFor('storage'));
   });
 }
 
+/** Says what the media store's recovery came to. */
+function reportRecovery(recovered: StartUpCleaning['recovered'], logger: Logger): void {
+  if (!recovered.ok) {
+    logger.warning('The media store could not be recovered.', {
+      code: recovered.failures[0].code,
+    });
+    return;
+  }
+  const undone = recovered.value.undone.length;
+  // A start with nothing to undo is the usual one, and says nothing worth keeping.
+  if (undone === 0) logger.debug('The media store had nothing to recover.');
+  else logger.info('The media store undid what a crash left of its writing.', { count: undone });
+}
+
 /**
- * Removes what a window left staged, a rendition it was decoding or an export
- * it had not delivered, once, as the worker starts (ADR-0090, ADR-0092): work
- * no window can finish now, made again by doing it again. Where another window
- * is storing or staging, nothing is removed this time.
+ * Says where the staging could not be removed: nothing depends on it, so the
+ * worker goes on, and a later start removes it.
  */
-function clearStaged(services: HostServices, logger: Logger): void {
-  void (async () => {
-    try {
-      const alone = await clearStaging(services.tree, services.coordinator);
-      if (alone.kind !== 'done') {
-        logger.debug(
-          'The staging was not cleared: another window is staging, or windows cannot be told apart.',
-          { reason: alone.kind },
-        );
-      }
-    } catch (error) {
-      // A staging the storage would not clear now is cleared at a later start;
-      // nothing depends on it, so the worker goes on, and says so.
-      if (!(error instanceof TreeFailure)) throw error;
-      logger.warning('The staging could not be cleared.', { kind: error.kind });
-    }
-  })();
+function reportStaging(staging: StartUpCleaning['staging'], logger: Logger): void {
+  if (staging.kind === 'failed') {
+    logger.warning('The staging could not be cleared.', { kind: staging.reason });
+  }
 }

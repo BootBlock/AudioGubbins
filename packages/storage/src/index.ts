@@ -246,7 +246,6 @@ export {
 export { type StorageRoom } from './import-analysis.js';
 export { decodingUnavailable } from './import-failures.js';
 export { stagedExportMissing } from './export-failures.js';
-export { clearStaging } from './staging-paths.js';
 export { type EncodedStream } from './encoded-stream.js';
 export {
   type ExportOrigin,
@@ -287,5 +286,5 @@ export { type RecordingCommands } from './recording-takes.js';
 export { type InterruptedRecording } from './recording-sessions.js';
 export { recordingInProgress } from './recording-failures.js';
 export { discardRecording, interruptedRecordings, recoverRecording } from './recording-recovery.js';
-export { recoverMediaStore } from './media-recovery.js';
+export { type StartUpCleaning, cleanAtStart } from './start-up-cleaning.js';
 export { type Alone } from './storage-sharing.js';
