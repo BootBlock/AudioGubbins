@@ -53,7 +53,7 @@ import type { ProjectState } from '@audiogubbins/project-format';
 
 import { planContextOf } from '../assets/project-assets.js';
 import type { Observable } from '../state/observable.js';
-import { runsChains } from '../assets/project-entry.js';
+import { bypassesProcessing } from '../assets/project-entry.js';
 import type { ExportContextOf } from './export-types.js';
 
 /** The codecs as `environment` serves them as it stands, the lookup every export is checked against. */
@@ -93,7 +93,7 @@ function filePrecision(state: ProjectState, asset: Asset): SourcePrecision {
 function heardPrecision(state: ProjectState, asset: Asset, region?: Region): SourcePrecision {
   const processed =
     asset.edits.length > 0 ||
-    runsChains(asset, region) ||
+    bypassesProcessing(asset, region) ||
     (region !== undefined && region.operations.length > 0);
   return processed ? FLOAT : filePrecision(state, asset);
 }

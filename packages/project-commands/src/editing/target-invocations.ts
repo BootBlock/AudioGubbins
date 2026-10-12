@@ -9,7 +9,7 @@
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
-  isLevelEdit,
+  takesChannelScope,
   type EditOperationId,
   type EditTarget,
   type EffectChain,
@@ -22,8 +22,9 @@ import { applyRegionEditInvocation } from './region-invocations.js';
 /**
  * The invocation that processes `target`'s range with `edit`, as operation
  * `id`, a rack edit's chain going with it where `chain` is given whole. A
- * level edit acts on the target's channels; a channel edit names its own
- * channels and takes no scope, so the target's are not kept on it.
+ * level edit and a spectral edit act on the target's channels; a channel edit
+ * names its own channels and takes no scope, so the target's are not kept on
+ * it.
  */
 export function processTargetInvocation(
   target: EditTarget,
@@ -33,7 +34,7 @@ export function processTargetInvocation(
 ): CommandInvocation {
   const { range } = target;
   const channels =
-    target.channels === undefined || !isLevelEdit(edit) ? {} : { channels: target.channels };
+    target.channels === undefined || !takesChannelScope(edit) ? {} : { channels: target.channels };
   switch (target.kind) {
     case 'region':
       return applyRegionEditInvocation(

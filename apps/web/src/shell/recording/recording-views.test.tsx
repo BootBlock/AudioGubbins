@@ -311,6 +311,7 @@ describe("the Inspector's recording configuration", () => {
           audioSettings: context.audioSettings,
           exports: context.exports,
           exportSubject: context.exportFocus.subject,
+          modelGate: context.modelGate,
         }}
         commands={commandsOver(context)}
       />,

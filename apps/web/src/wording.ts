@@ -36,6 +36,19 @@ export function sampleRateWords(rate: number): string {
   return `${KILOHERTZ.format(rate / 1000)} kHz`;
 }
 
+/** Hertz, whole. */
+const HERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
+
+/** Kilohertz, to ten hertz. */
+const FREQUENCY_KILOHERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 });
+
+/** A frequency, as the person reads it: "440 Hz", "2.5 kHz". */
+export function frequencyWords(hertz: number): string {
+  return hertz >= 1000
+    ? `${FREQUENCY_KILOHERTZ.format(hertz / 1000)} kHz`
+    : `${HERTZ.format(hertz)} Hz`;
+}
+
 /** The units, smallest first, each 1,024 of the one before. */
 const UNITS = ['bytes', 'kB', 'MB', 'GB', 'TB'] as const;
 

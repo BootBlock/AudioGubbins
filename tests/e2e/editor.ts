@@ -80,6 +80,26 @@ export async function samplesInPixelOf(panel: Locator): Promise<number> {
 }
 
 /**
+ * Where `panel`'s surface is on the page, once it is scrolled wholly into the
+ * panel's view, as a person scrolls it before they touch it.
+ *
+ * The dock clips a panel's content to the panel and scrolls it, so on a short
+ * page the surface's box can lie partly under the next panel or its sash, and
+ * an event sent to a point of the box measured there reaches that instead.
+ */
+export async function surfaceBoxOf(
+  panel: Locator,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  const surface = surfaceOf(panel);
+  await surface.evaluate((element) => {
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  const box = await surface.boundingBox();
+  if (box === null) throw new Error('The surface is not on screen.');
+  return box;
+}
+
+/**
  * Where boundary `position` is on `panel`'s surface, in page coordinates, at
  * the height `fraction` of the way down its first lane, or on the ruler.
  */
@@ -88,8 +108,7 @@ export async function pointAt(
   position: number,
   fraction: number | 'ruler' = 0.5,
 ): Promise<{ x: number; y: number }> {
-  const box = await surfaceOf(panel).boundingBox();
-  if (box === null) throw new Error('The surface is not on screen.');
+  const box = await surfaceBoxOf(panel);
   const { start } = await shownOf(panel);
   const perPixel = await samplesInPixelOf(panel);
   const x = box.x + 1 + (position - start) / perPixel;

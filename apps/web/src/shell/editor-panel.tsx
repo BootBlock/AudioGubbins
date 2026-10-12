@@ -1,7 +1,8 @@
 /**
  * The Editor panel: one view of an asset (REQ-EDIT-061). Its toolbar, the
- * active selection scope, the waveform surface, the scroll position and what
- * the view is waiting for; or, where it shows no asset, the assets it can open.
+ * active selection scope, the waveform surface, the scroll position, what the
+ * view is waiting for and why its spectrogram is not drawn; or, where it shows
+ * no asset, the assets it can open.
  *
  * The surface is a canvas the renderer draws (`editor-surface.ts`), mounted
  * once per panel and fed from the stores, so React draws the controls around
@@ -16,6 +17,7 @@
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -34,6 +36,7 @@ import { KEYBOARD_HOME } from '@audiogubbins/workspace';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { visibleRange } from '@audiogubbins/timeline';
 import type { PeakStatus } from '@audiogubbins/waveform';
+import type { SpectrogramStatus } from '@audiogubbins/spectral-analysis';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { EDITOR_PANEL } from '../input/use-shortcuts.js';
@@ -44,6 +47,7 @@ import { EditorReadouts, MarkerList } from './editor-readouts.js';
 import { EditorToolbar } from './editor-toolbar.js';
 import { PeaksNote } from './peaks-note.js';
 import { SelectionScope } from './selection-scope.js';
+import { SpectrogramNote } from './spectrogram-note.js';
 
 /** The editor's context actions, each a command run as the menus run it. */
 const CONTEXT_GROUPS: readonly (readonly string[])[] = [
@@ -105,6 +109,12 @@ function contextGroups(parts: EditorPanelParts, panel: string): readonly MenuGro
   }));
 }
 
+/** Where the view's peaks and spectrogram are told to, which the panel says beside the canvas. */
+interface SurfaceStatus {
+  readonly onPeaks: (status: PeakStatus) => void;
+  readonly onSpectrogram: (status: SpectrogramStatus | undefined) => void;
+}
+
 /**
  * Mounts the surface in `host` for panel `panel`, once, and hands it the
  * theme's colours as they change: a change of theme reaches its next frame.
@@ -116,7 +126,7 @@ function useEditorSurface(
   host: RefObject<HTMLDivElement | null>,
   panel: string,
   parts: EditorPanelParts,
-  onPeaks: (status: PeakStatus) => void,
+  { onPeaks, onSpectrogram }: SurfaceStatus,
   actions: RefObject<ContextActionsOpener | null>,
 ): void {
   const theme = useTheme();
@@ -136,6 +146,7 @@ function useEditorSurface(
       panel,
       stores: parts.stores,
       peaks: parts.peaks,
+      spectrograms: parts.spectrograms,
       graphics: parts.graphics,
       look: () => look.current,
       run: (command) => {
@@ -145,6 +156,7 @@ function useEditorSurface(
         parts.rendererReports.report(panel, report);
       },
       peaksChanged: onPeaks,
+      spectrogramChanged: onSpectrogram,
       contextActions: (clientX, clientY) => {
         actions.current?.openAt(clientX, clientY);
       },
@@ -156,7 +168,7 @@ function useEditorSurface(
       surface.current = undefined;
       parts.rendererReports.forget(panel);
     };
-  }, [host, panel, parts, onPeaks, actions]);
+  }, [host, panel, parts, onPeaks, onSpectrogram, actions]);
 }
 
 /** The waveform surface, mounted once for the panel in `host`, and described by `describedBy`. */
@@ -166,17 +178,17 @@ function Surface({
   panel,
   asset,
   parts,
-  onPeaks,
+  status,
 }: {
   readonly host: RefObject<HTMLDivElement | null>;
   readonly describedBy: string;
   readonly panel: string;
   readonly asset: EditorAsset;
   readonly parts: EditorPanelParts;
-  readonly onPeaks: (status: PeakStatus) => void;
+  readonly status: SurfaceStatus;
 }): ReactNode {
   const actions = useRef<ContextActionsOpener>(null);
-  useEditorSurface(host, panel, parts, onPeaks, actions);
+  useEditorSurface(host, panel, parts, status, actions);
   return (
     <ContextActions label="Editor actions" groups={contextGroups(parts, panel)} opener={actions}>
       <div
@@ -240,6 +252,12 @@ function EditorView({
   readonly parts: EditorPanelParts;
 }): ReactNode {
   const [peaks, setPeaks] = useState<PeakStatus | undefined>(undefined);
+  const [spectrogram, setSpectrogram] = useState<SpectrogramStatus | undefined>(undefined);
+  // One value for the surface's life: a new one would mount the surface again.
+  const status = useMemo<SurfaceStatus>(
+    () => ({ onPeaks: setPeaks, onSpectrogram: setSpectrogram }),
+    [],
+  );
   const surface = useRef<HTMLDivElement>(null);
   const readings = useId();
   const selection = parts.stores.selections.of(asset.id);
@@ -261,7 +279,7 @@ function EditorView({
         panel={panel}
         asset={asset}
         parts={parts}
-        onPeaks={setPeaks}
+        status={status}
       />
       <ScrollPosition panel={panel} asset={asset} state={state} parts={parts} />
       <EditorReadouts id={readings} surface={surface} asset={asset} state={state} parts={parts} />
@@ -274,6 +292,7 @@ function EditorView({
         parts={parts}
       />
       <PeaksNote status={peaks} />
+      <SpectrogramNote status={spectrogram} />
     </section>
   );
 }

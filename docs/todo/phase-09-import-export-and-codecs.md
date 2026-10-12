@@ -18,12 +18,12 @@ decisions that shape the work are `ADR-0090`, `ADR-0091`, `ADR-0092` and
 | Base   | `main` at `1c357d0e`                                    |
 | Head   | see `git log`, not pushed                               |
 
-Phase 08 is built at the same time on `phase-08-spectral`, not merged. It raises
-`projectDocument` 7 to 8, `userPreferences` 1 to 2 and `editorViews` 1 to 2.
-Whichever phase lands second merges `main` in, raises the versions it needs above
-what `main` then holds, reruns `pnpm version:sync` and `pnpm contracts:update`,
-and runs `verify:commit`. `packages/domain/src/index.ts` is over its cohesion
-threshold on Phase 08's branch: add nothing to it that a consumer does not need.
+Phase 08 landed on `main` at `063c0494`, raising `projectDocument` 7 to 8,
+`userPreferences` 1 to 2 and `editorViews` 1 to 2, and `main` is merged into this
+branch. Phase 09 takes the next versions: `projectDocument` 8 to 9 (a document of
+7 or 8 is refused as older, since nothing migrates before 1.0) and
+`userPreferences` 2 to 3 (decision 12). `packages/domain/src/index.ts` is over its
+cohesion threshold: add nothing to it that a consumer does not need.
 
 ## Gates
 
@@ -191,7 +191,8 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
     one record per kind (PCM, G.711, ADPCM). `ProjectState.exportSettings` is set
     by the undoable `project.set-export-settings`. `ExportRecord.file` holds
     settings, name, size, SHA-256, codec and version and reproducibility; new
-    destination kinds `file` and `trusted-directory`. `projectDocument` 7 → 8.
+    destination kinds `file` and `trusted-directory`. `projectDocument` 8 → 9
+    (7 → 8 before Phase 08 took 8).
     `project-format` depends on `codecs` and `import-export`, so `import-export`
     never depends on `project-format`. `DecoderIdentity` is one type in codecs.
     An asset frame is the file position minus the leading frames. Each loop
@@ -237,8 +238,10 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
     the project's name; the room for the whole batch is checked before
     rendering; a refused delivery holds the file for retry or another
     destination without a new render; a download's staging is kept until the
-    next export. `userPreferences` 1 → 2 migrates the version-1 record and adds
-    the person's presets (`own:<name>`, at most 256). The Export dialog resolves
+    next export. `userPreferences` 2 → 3 (1 → 2 before Phase 08 took 2) reads
+    a version-1 record with its appearance and the default pressure choice, and
+    a version-2 one with its appearance and pressure choice, each with no
+    presets, and adds the person's presets (`own:<name>`, at most 256). The Export dialog resolves
     every path through the package's presets and defaults and keeps edits as
     "Your edited settings". The reference picture's sound is weighed at the
     channels the codec worker reads. There is no multitrack mixdown in this

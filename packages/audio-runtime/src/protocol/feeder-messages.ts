@@ -42,17 +42,14 @@ import {
   type QualityMode,
 } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
-import { DspImplementation, type ParameterChange } from '@audiogubbins/audio-engine';
-
-import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
+  DspImplementation,
+  type ParameterChange,
+  type DspDelivery,
   dspDeliveryAt,
-  graphAt,
-  moduleAt,
-  nodeAt,
-  portAt,
-  sharedMemoryAt,
-} from './message-reading.js';
+} from '@audiogubbins/audio-engine';
+
+import { graphAt, moduleAt, nodeAt, portAt, sharedMemoryAt } from './message-reading.js';
 import { FeedTransport } from './processor-messages.js';
 import { sourceFrom, type SourceDescription } from './source-descriptions.js';
 

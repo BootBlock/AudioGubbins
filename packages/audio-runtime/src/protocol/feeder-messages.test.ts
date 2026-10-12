@@ -23,10 +23,10 @@ import {
   DspImplementation,
   toneRecipe,
   PcmDescriptionKind,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
 import { crossingThreads } from '@audiogubbins/domain/testing';
 import { FakeMessagePort } from '../testing/fake-message-channel.js';

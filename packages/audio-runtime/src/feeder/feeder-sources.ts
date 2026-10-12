@@ -23,9 +23,10 @@ import {
   type CachedStreams,
   type ChainProcessing,
   type PcmSource,
+  type ScopeDsp,
 } from '@audiogubbins/audio-engine';
 
-import type { DspChooser, ScopeDsp } from '../dsp/dsp-instance.js';
+import type { DspChooser } from '../dsp/dsp-instance.js';
 import { watchDspUse } from '../dsp/dsp-use.js';
 import type { ToFeeder, ToFeederKind } from '../protocol/feeder-messages.js';
 import { renderEndpoints } from '../render/render-endpoints.js';

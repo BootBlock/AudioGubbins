@@ -9,6 +9,7 @@ import type { EditOperation, EditRange, RangeEdit, RegionOperation } from '@audi
 import type { JsonObject } from './canonical-json.js';
 import { presentMembers } from './document-writing.js';
 import { writeEditPlan } from './plan-writing.js';
+import { writeSpectralMask, writeSpectralOperation } from './spectral-writing.js';
 import { writeLayout } from './value-writing.js';
 
 /** Writes a span between two sample boundaries. */
@@ -36,6 +37,13 @@ function writeRangeEdit(edit: RangeEdit): JsonObject {
       return { kind: edit.kind, chain: edit.chain };
     case 'punch':
       return { kind: edit.kind, stack: edit.stack };
+    case 'spectral':
+      return {
+        kind: edit.kind,
+        mask: writeSpectralMask(edit.mask),
+        resolution: edit.resolution,
+        operation: writeSpectralOperation(edit.operation),
+      };
   }
 }
 

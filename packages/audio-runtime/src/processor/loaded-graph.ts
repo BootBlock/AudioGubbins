@@ -20,9 +20,9 @@ import {
   type GraphExecutor,
   type KernelContext,
   type NodeImplementations,
+  type ScopeDsp,
 } from '@audiogubbins/audio-engine';
 
-import type { ScopeDsp } from '../dsp/dsp-instance.js';
 import { watchDspUse } from '../dsp/dsp-use.js';
 import { PostedFeed } from '../feed/posted-feed.js';
 import type { ProcessorFeed } from '../feed/processor-feed.js';

@@ -9,12 +9,13 @@
  * clipped. A person plays a phrase, stops, and hears how loud it was.
  */
 
+import { decibelsToGain } from '@audiogubbins/audio-engine';
 import type { InputMeterReport } from '@audiogubbins/audio-runtime';
 
 import { peakText } from '../audio-format.js';
 
 /** A peak at or below this is quiet: −50 dB, below a room's noise through most inputs. */
-const QUIET_PEAK = 10 ** (-50 / 20);
+const QUIET_PEAK = decibelsToGain(-50);
 
 /** How long the input must stay quiet before a passage is summarised. */
 const QUIET_SECONDS = 1.5;

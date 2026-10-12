@@ -66,7 +66,7 @@ async function racked(): Promise<{ audio: AudioWindow; rack: EffectChain }> {
   const audio = await windowWithAudio({ fixture: TONE, name: 'Tone', regions: REGIONS });
   const { context } = audio.window;
   context.editorViews.open('editor', audio.asset());
-  context.editorViews.measured('editor', 1000, audio.asset().length);
+  context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
   context.editorViews.focus('editor');
   const rack: EffectChain = {
     id: context.ids.next<'EffectChainId'>(),

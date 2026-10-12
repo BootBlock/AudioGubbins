@@ -1,10 +1,10 @@
 /**
- * Hearing an asset processed or as its original (REQ-AUDIO-019): every chain
- * it runs bypassed, its range rack edits, its rack and a region's rack, and
- * every other edit kept. A listening choice of the page, never a change of
- * the project; the transport follows it where it plays, from where the
- * listener is (`playing-asset.ts`), and the Transport panel shows which is
- * heard.
+ * Hearing an asset processed or as its original (REQ-AUDIO-019): every chain it
+ * runs bypassed, its range rack edits, its rack and a region's rack, with its
+ * spectral edits (ADR-0081), and every other edit kept. A listening choice of
+ * the page, never a change of the project; the transport follows it where it
+ * plays, from where the listener is (`playing-asset.ts`), and the Transport
+ * panel shows which is heard.
  */
 
 import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
@@ -19,7 +19,7 @@ function noOriginal(context: ShellContext): string | undefined {
   const view = focusedEditor(context);
   if (typeof view === 'string') return view;
   return view.asset.original === undefined
-    ? `No chain processes ${view.asset.name}, so its original is the sound heard.`
+    ? `No chain or spectral edit processes ${view.asset.name}, so its original is the sound heard.`
     : undefined;
 }
 
@@ -35,14 +35,14 @@ function listenOriginalCommand(): Command<ShellContext> {
         return unchanged('transport.hearing-unchanged', 'The original is heard already.');
       }
       context.hearing.choose(Hearing.Original);
-      context.interaction.announce('Hearing the original, every chain bypassed.');
+      context.interaction.announce('Hearing the original, every chain and spectral edit bypassed.');
       return undefined;
     },
     {
       availability: (context) => availableUnless(noOriginal(context)),
       keywords: ['original', 'bypass', 'compare', 'dry', 'unprocessed', 'listen'],
       description:
-        'Plays the asset in the editor in use with every chain it runs bypassed and every other edit kept, from where it plays.',
+        'Plays the asset in the editor in use with every chain it runs and every spectral edit bypassed, and every other edit kept, from where it plays.',
     },
   );
 }

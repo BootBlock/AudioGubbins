@@ -25,11 +25,15 @@ import { HearingSwitch } from './hearing-switch.js';
 import { LibraryControls, NO_LIBRARY } from './library-controls.js';
 import { useShown, type RackContext, type ShownRack } from './shown-rack.js';
 
-/** The commands of the bar at the head of the rack, and what each button says. */
-const BAR: readonly (readonly [id: string, label: string])[] = [
-  ['rack.copy', 'Copy'],
-  ['rack.compare-before-change', 'Compare with before'],
-  ['rack.remove-rack', 'Take the rack away'],
+/**
+ * The commands of the bar at the head of the rack, what each button says, and
+ * whether it says so when it finds nothing to do: a comparison already open is
+ * shown in the History panel, not here.
+ */
+const BAR: readonly (readonly [id: string, label: string, sayWhenUnchanged: boolean])[] = [
+  ['rack.copy', 'Copy', false],
+  ['rack.compare-before-change', 'Compare with before', true],
+  ['rack.remove-rack', 'Take the rack away', false],
 ];
 
 const BAR_IDS = BAR.map(([id]) => id);
@@ -48,7 +52,7 @@ function RackBar({
       <HearingSwitch hearing={context.hearing} commands={context} />
       <SharedReasonNotes reasons={reasons} />
       <div className="ag-inspector-row">
-        {BAR.map(([id, label]) => (
+        {BAR.map(([id, label, sayWhenUnchanged]) => (
           <CommandButton
             key={id}
             id={id}
@@ -57,6 +61,7 @@ function RackBar({
             args={{ view: shown.panel }}
             compact
             shared={reasons}
+            sayWhenUnchanged={sayWhenUnchanged}
           />
         ))}
       </div>

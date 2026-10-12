@@ -2,8 +2,22 @@ import { describe, expect, it } from 'vitest';
 
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { DisplayMode, ToolId } from '@audiogubbins/editor-view';
-import { SnapKind, StandardFrameRates, pixelsPerSample } from '@audiogubbins/timeline';
+import { StftWindow } from '@audiogubbins/audio-engine';
+import {
+  DEFAULT_SPECTROGRAM_DISPLAY,
+  DisplayMode,
+  SpectrogramColours,
+  ToolId,
+  newDrawing,
+  pointPlaced,
+} from '@audiogubbins/editor-view';
+import {
+  SnapKind,
+  SpectralCombination,
+  StandardFrameRates,
+  pixelsPerSample,
+} from '@audiogubbins/timeline';
+import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { testAssets } from '../assets/test-assets.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
@@ -30,7 +44,7 @@ describe('the editor views', () => {
   it('fit a new view to its asset once its width is measured', () => {
     const views = storeOver(ephemeralStorage());
     views.open('editor', TONES);
-    views.measured('editor', 1000, TONES.length);
+    views.measured('editor', { width: 1000, height: 300 }, TONES.length);
 
     expect(views.entry('editor')?.state.viewport).toMatchObject({
       start: 0,
@@ -43,7 +57,7 @@ describe('the editor views', () => {
     const raw = ephemeralStorage();
     const first = storeOver(raw);
     first.open('editor', LONG);
-    first.measured('editor', 800, LONG.length);
+    first.measured('editor', { width: 800, height: 300 }, LONG.length);
     first.change('editor', (state) => ({
       ...state,
       viewport: { ...state.viewport, start: state.viewport.start, zoom: pixelsPerSample(8) },
@@ -65,6 +79,38 @@ describe('the editor views', () => {
       viewport: { zoom: { kind: 'pixels-per-sample', pixels: 8 }, width: 0 },
     });
     expect([...(kept?.state.snapping.kinds ?? [])]).toEqual([SnapKind.Marker]);
+  });
+
+  it('hold its surface’s height and a keyboard drawing without writing either, nor keeping them', () => {
+    const raw = ephemeralStorage();
+    let writes = 0;
+    const views = createEditorViewStore(
+      createStateStorage(
+        {
+          ...raw,
+          write: (key, value) => {
+            writes += 1;
+            raw.write(key, value);
+          },
+        },
+        logger,
+        () => undefined,
+      ),
+      logger,
+      (write) => {
+        write();
+      },
+    );
+    views.open('editor', TONES);
+    views.measured('editor', { width: 1000, height: 300 }, TONES.length);
+    const written = writes;
+    views.measured('editor', { width: 1000, height: 420 }, TONES.length);
+    const drawing = pointPlaced(newDrawing(1), TONES.length);
+    views.draw('editor', () => drawing);
+
+    expect(views.entry('editor')).toMatchObject({ height: 420, drawing });
+    expect(writes).toBe(written);
+    expect(storeOver(raw).entry('editor')).toMatchObject({ height: 0, drawing: undefined });
   });
 
   it('note the editor in use without writing, since the person changed nothing', () => {
@@ -99,7 +145,7 @@ describe('the editor views', () => {
     raw.write(
       EDITOR_VIEWS_KEY,
       JSON.stringify({
-        schemaVersion: 1,
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
         views: {
           editor: { asset: TONES.id, tool: 'chainsaw', amplitude: 3, displayMode: 'overlay' },
           broken: { tool: 'hand' },
@@ -114,6 +160,132 @@ describe('the editor views', () => {
       displayMode: DisplayMode.Overlay,
     });
     expect(views.entry('broken')).toBeUndefined();
+  });
+
+  it('keep the settings the spectral tools draw with, the softness in both its parts', () => {
+    const raw = ephemeralStorage();
+    const first = storeOver(raw);
+    first.open('editor', TONES);
+    const tools = {
+      brushRadius: 30,
+      hardness: 0.25,
+      feather: { time: 480, frequency: 50 },
+      combination: SpectralCombination.Subtract,
+    };
+    first.change('editor', (state) => ({ ...state, spectralTools: tools }));
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual(tools);
+  });
+
+  it('take a stored brush to its control’s steps, a softness in one part alone as none, and an unknown combination as replacing', () => {
+    const raw = ephemeralStorage();
+    raw.write(
+      EDITOR_VIEWS_KEY,
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
+        views: {
+          editor: {
+            asset: TONES.id,
+            spectralTools: {
+              brushRadius: 500,
+              hardness: 0.333,
+              feather: { time: 480, frequency: 0 },
+              combination: 'intersect',
+            },
+          },
+        },
+      }),
+    );
+
+    expect(storeOver(raw).entry('editor')?.state.spectralTools).toEqual({
+      brushRadius: 96,
+      hardness: 0.35,
+      feather: { time: 0, frequency: 0 },
+      combination: SpectralCombination.Replace,
+    });
+  });
+
+  it('keep each view’s spectrogram between visits: its analysis, range, ramp and axis', () => {
+    const raw = ephemeralStorage();
+    const first = storeOver(raw);
+    first.open('editor', TONES);
+    first.change('editor', (state) => ({
+      ...state,
+      spectral: { frequencyScale: 'linear', lowest: 0, highest: 24_000 },
+      spectrogram: {
+        analysis: { windowLength: 8192, window: StftWindow.Hann, overlap: 8 },
+        range: { floor: -96.5, ceiling: -12 },
+        colours: SpectrogramColours.Greyscale,
+      },
+    }));
+
+    expect(storeOver(raw).entry('editor')?.state).toMatchObject({
+      spectral: { frequencyScale: 'linear', lowest: 0, highest: 24_000 },
+      spectrogram: {
+        analysis: { windowLength: 8192, window: StftWindow.Hann, overlap: 8 },
+        range: { floor: -96.5, ceiling: -12 },
+        colours: SpectrogramColours.Greyscale,
+      },
+    });
+  });
+
+  it('take each spectrogram setting a spectrogram cannot be drawn with as its default', () => {
+    const raw = ephemeralStorage();
+    const stored = (spectrogram: unknown) =>
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSIONS.editorViews,
+        views: { editor: { asset: TONES.id, spectrogram } },
+      });
+    for (const [spectrogram, expected] of [
+      [
+        {
+          analysis: { windowLength: 3000, window: 'hann', overlap: 4 },
+          range: { floor: -60, ceiling: 6 },
+          colours: 'rainbow',
+        },
+        DEFAULT_SPECTROGRAM_DISPLAY,
+      ],
+      [
+        {
+          analysis: { windowLength: 1024, window: 'kaiser', overlap: 4 },
+          range: { floor: -60.25, ceiling: 0 },
+          colours: 'greyscale',
+        },
+        { ...DEFAULT_SPECTROGRAM_DISPLAY, colours: SpectrogramColours.Greyscale },
+      ],
+      [
+        {
+          analysis: { windowLength: 1024, window: 'hann', overlap: 3 },
+          range: { floor: -10, ceiling: -8 },
+        },
+        DEFAULT_SPECTROGRAM_DISPLAY,
+      ],
+      [
+        { analysis: { windowLength: 512, window: 'hann', overlap: 2 }, range: { floor: -140 } },
+        {
+          ...DEFAULT_SPECTROGRAM_DISPLAY,
+          analysis: { windowLength: 512, window: StftWindow.Hann, overlap: 2 },
+        },
+      ],
+      ['none', DEFAULT_SPECTROGRAM_DISPLAY],
+    ] as const) {
+      raw.write(EDITOR_VIEWS_KEY, stored(spectrogram));
+      expect(storeOver(raw).entry('editor')?.state.spectrogram).toEqual(expected);
+    }
+  });
+
+  it('refuse views of the first schema, which held no spectrogram or spectral tools, and start afresh', () => {
+    // Before 1.0 a raised schema is refused rather than migrated (REQ-STOR-052).
+    const raw = ephemeralStorage();
+    raw.write(
+      EDITOR_VIEWS_KEY,
+      JSON.stringify({
+        schemaVersion: 1,
+        views: { editor: { asset: TONES.id, displayMode: 'spectrogram' } },
+      }),
+    );
+
+    expect(storeOver(raw).get().views.size).toBe(0);
   });
 
   it('start afresh from views written for another version', () => {

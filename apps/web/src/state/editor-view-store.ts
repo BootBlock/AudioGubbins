@@ -18,7 +18,11 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { SampleCount } from '@audiogubbins/domain';
-import { newViewState, type EditorViewState } from '@audiogubbins/editor-view';
+import {
+  newViewState,
+  type EditorViewState,
+  type KeyboardDrawing,
+} from '@audiogubbins/editor-view';
 import { resized, viewportFitting } from '@audiogubbins/timeline';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
@@ -38,6 +42,17 @@ export interface EditorViewEntry {
   readonly state: EditorViewState;
   /** Whether it is to show the whole asset once its width is known, as a new view does. */
   readonly fitting: boolean;
+  /**
+   * The height its surface is laid out at, in CSS pixels, nothing until it is
+   * measured: what its lanes are laid out in, which a shape drawn from the
+   * keyboard is read against as a pointer's is.
+   */
+  readonly height: number;
+  /**
+   * A spectral shape being drawn from the keyboard, if one is: not kept,
+   * since it is a drag in progress and not how the view is presented.
+   */
+  readonly drawing: KeyboardDrawing | undefined;
 }
 
 /** Every editor panel's view. */
@@ -59,8 +74,20 @@ export interface EditorViewStore extends Observable<EditorViewsState> {
   readonly open: (panel: string, asset: EditorAsset) => void;
   /** Replaces panel `panel`'s presentation by `change` of it. */
   readonly change: (panel: string, change: (state: EditorViewState) => EditorViewState) => void;
-  /** Takes the width panel `panel` was measured at, for an asset of `length` frames. */
-  readonly measured: (panel: string, width: number, length: SampleCount) => void;
+  /** Takes the size panel `panel`'s surface was measured at, for an asset of `length` frames. */
+  readonly measured: (
+    panel: string,
+    size: { readonly width: number; readonly height: number },
+    length: SampleCount,
+  ) => void;
+  /**
+   * Replaces panel `panel`'s keyboard drawing by `change` of it, which writes
+   * nothing, since a drawing is not kept.
+   */
+  readonly draw: (
+    panel: string,
+    change: (drawing: KeyboardDrawing | undefined) => KeyboardDrawing | undefined,
+  ) => void;
   /** Makes panel `panel` the view commands act on. */
   readonly focus: (panel: string) => void;
   /** Forgets the view of every editor panel not among `open`. */
@@ -93,7 +120,9 @@ function readViews(stored: string | null, logger: Logger): EditorViewsState {
   if (isRecord(storedViews)) {
     for (const [panel, value] of Object.entries(storedViews)) {
       const view = readStoredView(value);
-      if (view !== undefined) views.set(panel, { ...view, fitting: false });
+      if (view !== undefined) {
+        views.set(panel, { ...view, fitting: false, height: 0, drawing: undefined });
+      }
     }
   }
   return { views, focused: undefined };
@@ -121,6 +150,11 @@ function measuredEntry(
   return { ...entry, state: { ...entry.state, viewport }, fitting: false };
 }
 
+/** `entry` laid out at `height`; or itself. */
+function heightened(entry: EditorViewEntry, height: number): EditorViewEntry {
+  return height === entry.height ? entry : { ...entry, height };
+}
+
 /** `state` without the views of panels not among `open`; or itself where it holds none. */
 function withoutClosed(state: EditorViewsState, open: readonly string[]): EditorViewsState {
   const kept = new Set(open);
@@ -133,7 +167,13 @@ function withoutClosed(state: EditorViewsState, open: readonly string[]): Editor
 
 /** A new view of `asset`, to be fitted to its width once that is measured. */
 function opened(asset: EditorAsset): EditorViewEntry {
-  return { asset: asset.id, state: newViewState(asset.length, 0), fitting: true };
+  return {
+    asset: asset.id,
+    state: newViewState(asset.length, 0),
+    fitting: true,
+    height: 0,
+    drawing: undefined,
+  };
 }
 
 /**
@@ -202,12 +242,23 @@ export function createEditorViewStore(
       if (next !== entry.state) adopt(withEntry(panel, { ...entry, state: next }));
     },
 
-    measured: (panel, width, length) => {
+    measured: (panel, { width, height }, length) => {
       const entry = state.get().views.get(panel);
       // A panel behind another tab is laid out at no width, and keeps the one it had.
       if (entry === undefined || !(width > 0)) return;
-      const next = measuredEntry(entry, width, length);
-      if (next !== entry) adopt(withEntry(panel, next));
+      const presented = measuredEntry(entry, width, length);
+      const next = heightened(presented, height);
+      if (presented !== entry) adopt(withEntry(panel, next));
+      // The height alone is a measurement, and no part of how the view is
+      // presented, so it writes nothing.
+      else if (next !== entry) state.set(withEntry(panel, next));
+    },
+
+    draw: (panel, change) => {
+      const entry = state.get().views.get(panel);
+      if (entry === undefined) return;
+      const drawing = change(entry.drawing);
+      if (drawing !== entry.drawing) state.set(withEntry(panel, { ...entry, drawing }));
     },
 
     focus: (panel) => {

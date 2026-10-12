@@ -26,6 +26,7 @@ import { Audio } from './settings/audio.js';
 import { Diagnostics } from './settings/diagnostics.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { UnreadText } from '../state/text-custody.js';
+import { PressureControls } from './pressure-controls.js';
 import { Backups } from './settings/backups.js';
 import { ExportPresetsSection } from './settings/export-presets.js';
 import { TrustedFoldersSection } from './settings/trusted-folders.js';
@@ -39,6 +40,10 @@ export interface SettingsDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 
+  /**
+   * The person's preferences: the theme's, whether a pen's pressure sets a
+   * tool's strength, and their own export presets.
+   */
   readonly preferences: UserPreferences;
 
   /** Runs a command by identifier, which is how every control acts. */
@@ -123,6 +128,19 @@ function exportTab(props: SettingsDialogProps) {
   };
 }
 
+/** How a pen's pressure sets a tool's strength, the person's input choice (REQ-UX-068). */
+function penAndTouchTab(props: SettingsDialogProps) {
+  return {
+    value: 'pen-and-touch',
+    label: 'Pen and touch',
+    content: (
+      <div className="ag-settings-section">
+        <PressureControls pressure={props.preferences.pressure} run={props.run} />
+      </div>
+    ),
+  };
+}
+
 /** The settings dialogue. */
 export function SettingsDialog(props: SettingsDialogProps): ReactNode {
   const { open, onOpenChange, section, onSectionChange } = props;
@@ -149,6 +167,7 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
             label: 'Accessibility',
             content: <Accessibility preferences={props.preferences} run={props.run} />,
           },
+          penAndTouchTab(props),
           {
             value: 'workspaces',
             label: 'Workspaces',

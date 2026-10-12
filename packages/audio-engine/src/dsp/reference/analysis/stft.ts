@@ -1,14 +1,32 @@
 /**
  * The short-time Fourier transform, as `stft.rs` computes it, operation for
- * operation: each frame's samples times the periodic Hann window
- * `0.5 − 0.5 · cosineOfTurns(n / N)`, transformed by the canonical FFT when
- * the frame is pulled; magnitudes `√(re · re + im · im)` and phases
- * `arctangentTurns(im, re)` (ADR-0032).
+ * operation: each frame's samples times its window, transformed by the
+ * canonical FFT when the frame is pulled; magnitudes `√(re · re + im · im)`
+ * and phases `arctangentTurns(im, re)` (ADR-0032). Each cosine of the window
+ * is `cosineOfTurns(((k · n) mod N) / N)`, an exact argument, and each sum is
+ * taken left to right: the periodic Hann `0.5 − 0.5 · c1` and the four-term
+ * Blackman–Harris `a0 − a1 · c1 + a2 · c2 − a3 · c3`.
  */
 
+import { StftWindow } from '../../canonical-analysis.js';
 import { ReferenceFft } from '../fft.js';
 import { arctangentTurns, cosineOfTurns } from '../trigonometry.js';
 import { ReferenceFraming } from './framing.js';
+
+/** The four terms of the Blackman–Harris window, `a0` first: `BLACKMAN_HARRIS` in `stft.rs`. */
+const BLACKMAN_HARRIS = [0.35875, 0.48829, 0.14128, 0.01168] as const;
+
+/** `cos(2π · harmonic · n / size)`, the turns reduced exactly to `[0, 1)`. */
+function cosineOf(harmonic: number, n: number, size: number): number {
+  return cosineOfTurns(((harmonic * n) % size) / size);
+}
+
+/** `w[n]` of `window` of `size` samples; `StftWindow::weight`. */
+function weight(window: StftWindow, n: number, size: number): number {
+  if (window === StftWindow.Hann) return 0.5 - 0.5 * cosineOf(1, n, size);
+  const [a0, a1, a2, a3] = BLACKMAN_HARRIS;
+  return a0 - a1 * cosineOf(1, n, size) + a2 * cosineOf(2, n, size) - a3 * cosineOf(3, n, size);
+}
 
 /** A short-time Fourier transform, its settings already checked. */
 export class ReferenceStft {
@@ -22,14 +40,14 @@ export class ReferenceStft {
   readonly #real: Float64Array;
   readonly #imaginary: Float64Array;
 
-  constructor(channels: number, size: number, hop: number) {
+  constructor(channels: number, size: number, hop: number, window: StftWindow) {
     this.size = size;
     this.hop = hop;
     this.#framing = new ReferenceFraming(channels, size, hop);
     this.#fft = new ReferenceFft(size);
     this.bins = this.#fft.bins;
     this.#window = new Float64Array(size);
-    for (let n = 0; n < size; n += 1) this.#window[n] = 0.5 - 0.5 * cosineOfTurns(n / size);
+    for (let n = 0; n < size; n += 1) this.#window[n] = weight(window, n, size);
     this.#signal = new Float64Array(size);
     this.#real = new Float64Array(this.bins);
     this.#imaginary = new Float64Array(this.bins);

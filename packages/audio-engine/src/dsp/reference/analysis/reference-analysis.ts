@@ -31,8 +31,8 @@ import { ReferenceStft } from './stft.js';
 import { ReferenceTransients } from './transients.js';
 
 /** A short-time Fourier transform on the reference path, its settings checked. */
-export function referenceStft({ channels, size, hop }: StftSettings): CanonicalStft {
-  const stft = new ReferenceStft(channels, size, hop);
+export function referenceStft({ channels, size, hop, window }: StftSettings): CanonicalStft {
+  const stft = new ReferenceStft(channels, size, hop, window);
   const length = channels * stft.bins;
   const what = 'A short-time Fourier transform';
   return {

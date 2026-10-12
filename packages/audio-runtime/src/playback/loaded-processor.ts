@@ -16,9 +16,11 @@ import { channelCount, type DomainFailureResult } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { GraphDescriptor } from '@audiogubbins/audio-graph';
 
+import { deliveredAs, type DspDelivery } from '@audiogubbins/audio-engine';
+
 import type { AudioContextPort } from '../context/audio-context-port.js';
 import { sendToDevice } from '../context/device-channels.js';
-import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import type { Schedule } from '../schedule.js';
 import { ENGINE_PROCESSOR_NAME } from '../processor/engine-processor-name.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';

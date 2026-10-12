@@ -134,6 +134,13 @@
     display: none;
   }
 
+  /* A container its notice can measure, so the notice gives up its padding
+     when the menu bar and the status bar leave less room than the padding
+     asks for, as a touch screen's wrapped chrome does on a short page. */
+  .ag-workspace {
+    container-type: size;
+  }
+
   .ag-too-narrow {
     display: flex;
     flex-direction: column;
@@ -143,12 +150,14 @@
        edge, where no scroll position brings it back: without `safe`, at a short
        viewport the heading would go out of reach on every engine. */
     justify-content: safe center;
-    /* Its padding counted in. Content-box with `block-size: 100%`, its border
-       box would be a padding taller than the workspace, and the shell is
-       `overflow: hidden`, so the foot of the notice would be cut off. */
+    /* Its padding counted in, and above and below at most a quarter of the
+       room. The shell is `overflow: hidden`, so a notice taller than the
+       workspace has its foot cut off: content-box with `block-size: 100%`, it
+       would always be a padding taller, and a border box is never shorter
+       than its padding, so a whole padding would outgrow a short room. */
     box-sizing: border-box;
     block-size: 100%;
-    padding: var(--ag-space-large);
+    padding: min(var(--ag-space-large), 25cqb) var(--ag-space-large);
     overflow-y: auto;
     color: var(--ag-chrome-text-primary);
   }

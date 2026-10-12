@@ -32,7 +32,7 @@ export type SampleRate = number & { readonly [SampleRateTag]: 'SampleRate' };
  * at the boundary rather than producing a project that cannot be played.
  */
 const MINIMUM_SAMPLE_RATE = 8_000;
-const MAXIMUM_SAMPLE_RATE = 768_000;
+export const MAXIMUM_SAMPLE_RATE = 768_000;
 
 /**
  * The largest sample count the domain accepts.

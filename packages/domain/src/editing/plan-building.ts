@@ -6,11 +6,11 @@
  * and a reversal cut and reorder them, a level or channel edit adds a stage to
  * those it covers, a layout conversion adds a matrix to all of them, and an
  * insertion splices in its payload, or one segment reading it converted where
- * its rate differs. A rack edit, a stretch and a conversion of rate each move
- * segments into a stream of their own that the first stream reads processed
- * (`processed-streams.ts`). A chain is validated before it is folded
- * (`operation-validation.ts`), so this fold assumes every position lies where
- * its operation says.
+ * its rate differs. A rack edit, a spectral edit, a stretch and a conversion
+ * of rate each move segments into a stream of their own that the first stream
+ * reads processed (`processed-streams.ts`). A chain is validated before it is
+ * folded (`operation-validation.ts`), so this fold assumes every position lies
+ * where its operation says.
  *
  * A region's own processing is folded in among the chain, each operation just
  * before the asset's operation its basis counts to, on the timeline it was
@@ -27,6 +27,7 @@ import type { EffectChainId } from '../identity/branded-id.js';
 import { chainOutputLayout } from '../processing/chain-validation.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
+import type { PlannedSpectralEdit, SpectralEdit } from '../spectral/spectral-edit.js';
 import { FailureKind, fail, failure, mapResult, succeed, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { versionKnown } from './algorithm-version.js';
@@ -38,6 +39,7 @@ import {
   lengthOf,
   rackRange,
   rackWhole,
+  spectralRange,
   stretchRange,
   type Folding,
 } from './processed-streams.js';
@@ -75,28 +77,14 @@ function namedChain(context: PlanContext, id: EffectChainId): DomainResult<Effec
     : succeed(chain);
 }
 
-/** The folding with `processing` applied over its range of the first stream. */
-function processRange(
+/** A chain that a range is processed through keeping its layout, or why it cannot be. */
+function rangeChain(
   folding: Folding,
-  processing: Processing,
-  racks: RangeRacks,
-): DomainResult<Folding> {
+  id: EffectChainId,
+  context: PlanContext,
+): DomainResult<EffectChain> {
   const { stream } = folding;
-  const { range } = processing;
-  const edit: RangeEdit = processing.edit;
-  if (edit.kind === 'punch') return punchRange(folding, range, edit, racks.context);
-  if (edit.kind !== 'rack') {
-    const stage = rangeEditStage(edit, range, processing.channels, channelCount(stream.layout));
-    return succeed({
-      ...folding,
-      stream: { ...stream, segments: changeRange(stream.segments, range.start, range.end, stage) },
-    });
-  }
-  // A rack edit changes no time and keeps the layout, so leaving it out
-  // leaves every later edit where it was made.
-  if (racks.kind === 'bypassed') return succeed(folding);
-  const { context } = racks;
-  const chain = namedChain(context, edit.chain);
+  const chain = namedChain(context, id);
   if (!chain.ok) return chain;
   const layout = chainOutputLayout(
     chain.value,
@@ -111,11 +99,65 @@ function processRange(
         'editing.rack-changes-layout',
         FailureKind.Rejected,
         'A chain applied to a range must keep the audio’s channels; give it to the whole asset or region as its rack instead.',
-        { details: { chain: edit.chain } },
+        { details: { chain: id } },
       ),
     );
   }
-  return succeed(rackRange(folding, range.start, range.end, chain.value));
+  return chain;
+}
+
+/** A spectral edit as the plan carries it, its chain read from the project where it names one. */
+function plannedSpectralEdit(
+  edit: SpectralEdit,
+  channels: readonly number[] | undefined,
+  folding: Folding,
+  context: PlanContext,
+): DomainResult<PlannedSpectralEdit> {
+  const scope = channels === undefined ? {} : { channels };
+  const { operation } = edit;
+  if (operation.kind !== 'process') {
+    return succeed({ mask: edit.mask, resolution: edit.resolution, operation, ...scope });
+  }
+  return mapResult(rangeChain(folding, operation.chain, context), (chain) => ({
+    mask: edit.mask,
+    resolution: edit.resolution,
+    operation: { kind: 'process', chain, input: folding.stream.layout },
+    ...scope,
+  }));
+}
+
+/** The folding with `processing` applied over its range of the first stream. */
+function processRange(
+  folding: Folding,
+  processing: Processing,
+  racks: RangeRacks,
+): DomainResult<Folding> {
+  const { stream } = folding;
+  const { range } = processing;
+  const edit: RangeEdit = processing.edit;
+  if (edit.kind === 'punch') return punchRange(folding, range, edit, racks.context);
+  if (edit.kind === 'spectral') {
+    // A spectral edit changes no time and keeps the layout, so leaving it out
+    // leaves every later edit where it was made, as a rack edit's does.
+    if (racks.kind === 'bypassed') return succeed(folding);
+    return mapResult(
+      plannedSpectralEdit(edit, processing.channels, folding, racks.context),
+      (planned) => spectralRange(folding, range.start, range.end, planned),
+    );
+  }
+  if (edit.kind !== 'rack') {
+    const stage = rangeEditStage(edit, range, processing.channels, channelCount(stream.layout));
+    return succeed({
+      ...folding,
+      stream: { ...stream, segments: changeRange(stream.segments, range.start, range.end, stage) },
+    });
+  }
+  // A rack edit changes no time and keeps the layout, so leaving it out
+  // leaves every later edit where it was made.
+  if (racks.kind === 'bypassed') return succeed(folding);
+  return mapResult(rangeChain(folding, edit.chain, racks.context), (chain) =>
+    rackRange(folding, range.start, range.end, chain),
+  );
 }
 
 /** The first stream's segments after an operation that only cuts or turns them. */

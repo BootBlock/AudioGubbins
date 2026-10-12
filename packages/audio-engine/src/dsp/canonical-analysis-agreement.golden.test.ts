@@ -12,7 +12,7 @@ import { StandardLayouts, sampleRate, type SampleRate } from '@audiogubbins/doma
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { dspModuleExports } from '../testing/dsp-module.js';
-import { DetectorKind, type DetectorSettings } from './canonical-analysis.js';
+import { DetectorKind, type DetectorSettings, StftWindow } from './canonical-analysis.js';
 import type { CanonicalDsp } from './canonical-dsp.js';
 import { REFERENCE_DSP } from './reference/reference-dsp.js';
 import { wasmDsp } from './wasm/wasm-dsp.js';
@@ -96,13 +96,16 @@ const rate = (hertz: number): SampleRate => expectSuccess(sampleRate(hertz));
 
 describe.each([false, true])('with poisoned input %s, the two paths agree on', (poisoned) => {
   it.each([
-    [64, 17],
-    [512, 512],
-    [2_048, 300],
-  ])('every STFT frame of %s samples %s apart', (size, hop) => {
+    [64, 17, StftWindow.Hann],
+    [512, 512, StftWindow.Hann],
+    [2_048, 300, StftWindow.Hann],
+    [64, 17, StftWindow.BlackmanHarris],
+    [512, 512, StftWindow.BlackmanHarris],
+    [2_048, 300, StftWindow.BlackmanHarris],
+  ])('every STFT frame of %s samples %s apart through the %s window', (size, hop, window) => {
     const planar = signal(size + hop, 3, 12_000, poisoned);
     agree((dsp) => {
-      const stft = expectSuccess(dsp.createStft({ channels: 3, size, hop }));
+      const stft = expectSuccess(dsp.createStft({ channels: 3, size, hop, window }));
       const first = new Float64Array(3 * stft.bins);
       const second = new Float64Array(3 * stft.bins);
       const out: number[] = [];

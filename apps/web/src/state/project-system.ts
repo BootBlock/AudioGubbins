@@ -27,6 +27,7 @@ import {
 import type { TrustedFolders } from '@audiogubbins/browser-storage';
 import type { DiagnosticCentre } from '@audiogubbins/diagnostics';
 import type { Digest } from '@audiogubbins/project-format';
+import type { SpectralTileCache } from '@audiogubbins/spectral-analysis';
 import type { ExportsClient, StorageClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
@@ -35,6 +36,7 @@ import { browserExportDestinations, type ExportDestinations } from '../io/export
 import { libraryChannel } from '../io/library-channel.js';
 import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
+import { NO_SPECTROGRAM_CACHE, storedSpectrogramCache } from '../io/stored-spectrogram-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf, type ProjectServices } from '../storage/project-services.js';
 import { abandonment, isAbandoned } from './abandoning.js';
@@ -63,6 +65,9 @@ export interface ProjectSystem {
 
   /** Where the editor keeps waveform peaks: among the storage's caches (ADR-0043). */
   readonly peakCache: PeakCacheStore;
+
+  /** Where the editor keeps spectrogram tiles: among the storage's caches (ADR-0080). */
+  readonly spectrogramCache: SpectralTileCache;
 
   /**
    * The storage worker's client, for what keeps its own state there beside the
@@ -155,6 +160,7 @@ export function startProjectSystem(
       projects: undefined,
       storageAbsences,
       peakCache: NO_PEAK_CACHE,
+      spectrogramCache: NO_SPECTROGRAM_CACHE,
       storage: undefined,
       exporting: undefined,
       dispose: () => undefined,
@@ -178,8 +184,8 @@ export function startProjectSystem(
 
 /**
  * The project system over the storage `services` reach and the page's `ports`,
- * started: the root opened, the stores made, and the peak cache kept to a root
- * that is ready.
+ * started: the root opened, the stores made, and the peak and spectrogram
+ * caches kept to a root that is ready.
  */
 export function projectSystemOver(
   services: ProjectServices,
@@ -195,6 +201,11 @@ export function projectSystemOver(
     storageRoot,
     projects,
     peakCache: storedPeakCache({
+      ready: () => storageRoot.get().kind === 'ready',
+      caches: services.client.caches,
+      digest: services.digest,
+    }),
+    spectrogramCache: storedSpectrogramCache({
       ready: () => storageRoot.get().kind === 'ready',
       caches: services.client.caches,
       digest: services.digest,

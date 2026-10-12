@@ -9,8 +9,9 @@
  * values, so what a person sees and what their pointer lands on cannot differ.
  */
 
-import type { SampleCount } from '@audiogubbins/domain';
+import { ZERO_SAMPLES, type SampleCount } from '@audiogubbins/domain';
 import {
+  drawingPreview,
   layoutView,
   snapTargetsOf,
   visibleChannels,
@@ -18,8 +19,12 @@ import {
   type EditorType,
   type EditorViewState,
   type KnownAudio,
+  type KeyboardDrawing,
+  type KnownSpectrogram,
   type ToolPreview,
+  type ViewLayout,
   type ViewScene,
+  type DrawingMarks,
 } from '@audiogubbins/editor-view';
 import type { PlacedImage, Rectangle } from '@audiogubbins/renderer';
 import {
@@ -37,6 +42,8 @@ import {
 
 import { channelNames } from '../assets/channel-names.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
+import { drawingContextOf } from './drawing-context.js';
+import { spectralEditOutlines } from './spectral-edit-outlines.js';
 
 /** The fewest CSS pixels between two labelled ticks of the ruler. */
 const LABEL_SPACING = 88;
@@ -49,9 +56,16 @@ export interface SceneSources {
   readonly state: EditorViewState;
   readonly asset: EditorAsset;
   readonly audio: KnownAudio;
+  readonly spectrogram: KnownSpectrogram;
+  /** How often the spectrogram's tiles have changed, which a frame waiting on some shows. */
+  readonly spectrogramVersion: number;
   readonly selection: SelectionSet;
   readonly playhead: SampleCount | undefined;
   readonly preview: ToolPreview | undefined;
+  /** A spectral shape being drawn from the keyboard, if one is. */
+  readonly drawing: KeyboardDrawing | undefined;
+  /** The fixed strength, which a shape drawn from the keyboard is drawn at. */
+  readonly strength: number;
   readonly snap: SnapTarget | undefined;
   /** The picture's binding where it is bound to this asset. */
   readonly picture: ReferenceMediaClockBinding | undefined;
@@ -61,15 +75,23 @@ export interface SceneSources {
   readonly type: EditorType;
 }
 
+/** What the last frame drew that was not yet known, so may change as it comes. */
+export interface FrameWaiting {
+  /** Columns whose peaks were not yet known. */
+  readonly peaks: boolean;
+  /** Spectrogram tiles pending or stale. */
+  readonly spectrogram: boolean;
+}
+
 /**
  * The values of `sources` a frame is drawn from, in a fixed order, each to be
  * compared by identity: a store gives the same value for what has not changed,
  * so a view whose own values are all the same as its last frame's has nothing
- * new to draw, whatever else in the stores changed. The peaks made since count
- * only while the last frame was `waiting` on some, since a frame whose columns
- * were all known shows none of them.
+ * new to draw, whatever else in the stores changed. The peaks and the tiles
+ * made since count only while the last frame was `waiting` on some, since a
+ * frame whose columns and tiles were all known shows none of them.
  */
-export function frameInputsOf(sources: SceneSources, waiting: boolean): readonly unknown[] {
+export function frameInputsOf(sources: SceneSources, waiting: FrameWaiting): readonly unknown[] {
   const { audio } = sources;
   return [
     sources.state,
@@ -80,11 +102,15 @@ export function frameInputsOf(sources: SceneSources, waiting: boolean): readonly
     sources.palette,
     sources.type,
     sources.preview,
+    sources.drawing,
+    sources.strength,
     sources.snap,
     audio.pyramid,
-    waiting ? audio.pyramid?.version : undefined,
+    waiting.peaks ? audio.pyramid?.version : undefined,
     audio.buckets,
     audio.samples,
+    sources.spectrogram,
+    waiting.spectrogram ? sources.spectrogramVersion : undefined,
   ];
 }
 
@@ -102,6 +128,33 @@ function namesOf(asset: EditorAsset): readonly string[] {
   const names = channelNames(asset.layout);
   NAMES.set(asset, names);
   return names;
+}
+
+/**
+ * What a view laid out as `layout` shows of the shape being drawn from the
+ * keyboard: its points and cursor, and the selection its shape would leave;
+ * nothing where none is drawn, or none can be.
+ */
+function keyboardDrawn(
+  sources: SceneSources,
+  layout: ViewLayout,
+): { readonly preview: ToolPreview | undefined; readonly marks: DrawingMarks } | undefined {
+  const { drawing } = sources;
+  if (drawing === undefined) return undefined;
+  const context = drawingContextOf(drawing, {
+    ...sources,
+    layout,
+    playhead: sources.playhead ?? ZERO_SAMPLES,
+  });
+  if (typeof context === 'string') return undefined;
+  const { marks, drawn, selection } = drawingPreview(drawing, context);
+  return {
+    marks,
+    preview:
+      drawn === undefined || selection === undefined
+        ? undefined
+        : { kind: 'spectral-shape', drawn, selection },
+  };
 }
 
 /** The scene of a view `width` by `height` CSS pixels at `pixelRatio`. */
@@ -126,6 +179,7 @@ export function sceneOf(
     asset.layout.roles.length,
     sources.picture !== undefined,
   );
+  const drawn = keyboardDrawn(sources, layout);
   return {
     layout,
     state,
@@ -135,11 +189,15 @@ export function sceneOf(
       channelNames: namesOf(asset),
       markers: asset.markers,
       regions: asset.regions,
+      spectralEdits: asset.owner.kind === 'project' ? spectralEditOutlines(asset.owner) : [],
     },
     audio: sources.audio,
+    spectrogram: sources.spectrogram,
     selection: sources.selection,
     playhead: sources.playhead,
-    preview: sources.preview,
+    // A pointer's drag is drawn over a keyboard drawing it interrupts.
+    preview: sources.preview ?? drawn?.preview,
+    drawing: drawn?.marks,
     snap: sources.snap,
     ruler,
     grid: state.overlays.grid ? gridPositions(ruler) : undefined,

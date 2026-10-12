@@ -10,8 +10,10 @@
  * in the Library (`library/library-panel.tsx`), the rack of what the editor
  * acts on in the Effects rack (`rack/rack-panel.tsx`), the model packs in the
  * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
- * latency in the Recording panel (`recording/recording-panel.tsx`), and the
- * project system's History and Storage panels (`project-panels.tsx`).
+ * latency in the Recording panel (`recording/recording-panel.tsx`), the
+ * spectral selection, tools and edits in the Spectral panel
+ * (`spectral/spectral-panel.tsx`), and the project system's History and Storage
+ * panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -36,6 +38,7 @@ import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-
 import type { ModelGate } from '../assets/model-gate.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { Hearing } from '../state/hearing-store.js';
+import type { UserPreferences } from '../state/preferences-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { ExportSubject } from '../export/export-focus.js';
 import type { ExportRunState } from '../export/export-types.js';
@@ -54,10 +57,12 @@ import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-pa
 import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
 import { RackPanel } from './rack/rack-panel.js';
+import { SpectralPanel } from './spectral/spectral-panel.js';
 import { RecordingDiagnosticsList } from './recording/recording-diagnostics-list.js';
 import { RecordingPanel } from './recording/recording-panel.js';
 import { useRecordingDiagnostics, useWatchedInputs } from './recording/use-recording.js';
 import { RendererReportList } from './renderer-report-list.js';
+import { SpectrogramDspReading } from './spectrogram-dsp-reading.js';
 import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
 import { TransportPanel } from './transport-panel.js';
@@ -90,7 +95,7 @@ function RecordingCapability({
 export function CapabilitiesPanel({
   title,
   capabilities,
-  renderers,
+  editor,
   storageAbsences,
   recording,
   audioSettings,
@@ -98,8 +103,8 @@ export function CapabilitiesPanel({
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
-  /** What each editor view's renderer tried and draws with. */
-  readonly renderers: EditorPanelParts['rendererReports'];
+  /** What each editor view's renderer tried and draws with, and which DSP the spectrogram worker runs. */
+  readonly editor: Pick<EditorPanelParts, 'rendererReports' | 'spectrogramDsp'>;
   /** What this browser lacks for keeping projects, and what that costs. */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
   /** The input, for what recording can do here. */
@@ -148,7 +153,8 @@ export function CapabilitiesPanel({
         audioSettings={audioSettings}
         commands={commands}
       />
-      <RendererReportList reports={renderers} />
+      <RendererReportList reports={editor.rendererReports} />
+      <SpectrogramDspReading dsp={editor.spectrogramDsp} />
     </section>
   );
 }
@@ -207,6 +213,9 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** The export the Inspector describes, while one is its subject. */
   readonly exportSubject: Observable<ExportSubject | undefined>;
+
+  /** The person's preferences, whose pressure choice the Spectral panel shows. */
+  readonly preferences: Observable<UserPreferences>;
 }
 
 /**
@@ -244,6 +253,7 @@ export function panelContextOf(
     recording: context.recording,
     exports: context.exports,
     exportSubject: context.exportFocus.subject,
+    preferences: context.preferences,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
@@ -286,7 +296,7 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
         <CapabilitiesPanel
           title={title}
           capabilities={context.capabilities}
-          renderers={context.editor.rendererReports}
+          editor={context.editor}
           storageAbsences={context.storageAbsences}
           recording={context.recording}
           audioSettings={context.audioSettings}
@@ -326,6 +336,7 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             audioSettings: context.audioSettings,
             exports: context.exports,
             exportSubject: context.exportSubject,
+            modelGate: context.modelGate,
           }}
           commands={context}
         />
@@ -371,6 +382,9 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case EditingPanelKinds.Rack:
       return <RackPanel title={title} context={context} />;
+
+    case PanelKinds.Spectral:
+      return <SpectralPanel title={title} context={context} />;
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;

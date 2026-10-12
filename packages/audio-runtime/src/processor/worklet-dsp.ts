@@ -13,10 +13,14 @@
  * them at each load, which costs most of what it saves.
  */
 
-import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
+import {
+  REFERENCE_DSP,
+  DspDeliveryKind,
+  type DspDelivery,
+  type ScopeDsp,
+} from '@audiogubbins/audio-engine';
 
-import { DspDeliveryKind, type DspDelivery } from '../dsp/dsp-delivery.js';
-import { scopeDsp, type ScopeDsp } from '../dsp/dsp-instance.js';
+import { scopeDsp } from '../dsp/dsp-instance.js';
 
 /**
  * The DSP from the module's bytes, or the reference path with the reason: the

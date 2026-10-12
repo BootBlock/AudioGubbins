@@ -77,6 +77,7 @@ function inspectorOver(audio: AudioWindow): void {
         audioSettings: context.audioSettings,
         exports: context.exports,
         exportSubject: context.exportFocus.subject,
+        modelGate: context.modelGate,
       }}
       commands={{ run: () => undefined, unavailableReason: () => undefined }}
     />,

@@ -33,11 +33,13 @@ import {
   selectNodePaths,
   type PerformanceProfile,
   type PerformanceSettings,
+  DspDeliveryKind,
+  type DspDelivery,
 } from '@audiogubbins/audio-engine';
 
 import type { AudioContextPort } from '../context/audio-context-port.js';
 import type { ContextLifecycle } from '../context/context-lifecycle.js';
-import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import type { FromFeeder } from '../protocol/feeder-messages.js';
 import type { Schedule } from '../schedule.js';
 import { FeederLink } from './feeder-link.js';

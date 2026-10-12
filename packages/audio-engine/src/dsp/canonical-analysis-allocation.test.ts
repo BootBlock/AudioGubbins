@@ -17,7 +17,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { QUANTA, allocatedBy } from '../testing/allocation.js';
 import { dspModuleExports } from '../testing/dsp-module.js';
-import { DetectorKind, type DetectorSettings } from './canonical-analysis.js';
+import { DetectorKind, type DetectorSettings, StftWindow } from './canonical-analysis.js';
 import type { CanonicalDsp } from './canonical-dsp.js';
 import { REFERENCE_DSP } from './reference/reference-dsp.js';
 import { wasmDsp } from './wasm/wasm-dsp.js';
@@ -109,7 +109,9 @@ describe.each([
   ['the reference path', (): CanonicalDsp => REFERENCE_DSP, false],
 ])('%s allocates nothing per call', (_name, dspOf, pullsPolar) => {
   it('pushing to an STFT and pulling its frames', () => {
-    const stft = expectSuccess(dspOf().createStft({ channels: 2, size: 256, hop: 128 }));
+    const stft = expectSuccess(
+      dspOf().createStft({ channels: 2, size: 256, hop: 128, window: StftWindow.Hann }),
+    );
     const first = new Float64Array(2 * stft.bins);
     const second = new Float64Array(2 * stft.bins);
     let frames = 0;

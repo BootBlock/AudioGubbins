@@ -20,9 +20,9 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { PriorityScheduler, RenderSink } from '@audiogubbins/audio-engine';
+import type { PriorityScheduler, RenderSink, DspDelivery } from '@audiogubbins/audio-engine';
 
-import type { CompiledDspModule, DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import { renderEndpoints } from './render-endpoints.js';
 import type { RenderRequest, RenderRunOptions, WorkerRenderSummary } from './render-request.js';
 import { renderOnWorker, type BoundSink, type RenderWorkerPort } from './worker-render.js';

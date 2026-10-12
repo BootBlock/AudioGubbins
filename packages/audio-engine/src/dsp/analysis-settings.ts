@@ -14,6 +14,7 @@ import {
   type LoudnessMeterSettings,
   type PeakMeterSettings,
   type StftSettings,
+  StftWindow,
 } from './canonical-analysis.js';
 import { LARGEST_FFT_SIZE, SMALLEST_FFT_SIZE } from './canonical-dsp.js';
 
@@ -60,6 +61,9 @@ function channelsRefusal(channels: number, code: string, what: string): DomainRe
     : refused(code, what, `needs a whole number of channels from 1 to ${String(MOST_CHANNELS)}`);
 }
 
+/** Every window an STFT takes: the settings may come from data, so the union is checked. */
+const STFT_WINDOWS: ReadonlySet<string> = new Set(Object.values(StftWindow));
+
 /** The settings, or why a short-time Fourier transform cannot be made from them. */
 export function checkStft(settings: StftSettings): DomainResult<StftSettings> {
   const code = 'dsp.stft-settings-invalid';
@@ -73,6 +77,9 @@ export function checkStft(settings: StftSettings): DomainResult<StftSettings> {
       what,
       `takes frames of a power of two from ${String(SMALLEST_FFT_SIZE)} to ${String(LARGEST_FFT_SIZE)} samples, a hop of 1 to that many apart`,
     );
+  }
+  if (!STFT_WINDOWS.has(settings.window)) {
+    return refused(code, what, 'takes the Hann or the Blackman–Harris window');
   }
   return succeed(settings);
 }
@@ -170,6 +177,12 @@ export function checkDetector(settings: DetectorSettings): DomainResult<Detector
   const reason = detectorReason(settings);
   return reason === null ? succeed(settings) : refused(code, what, reason);
 }
+
+/** Each window's code in the ABI: `StftWindow::from_code` in `stft.rs`. */
+export const STFT_WINDOW_CODES: Readonly<Record<StftWindow, number>> = {
+  [StftWindow.Hann]: 0,
+  [StftWindow.BlackmanHarris]: 1,
+};
 
 /** Each kind's code in the ABI: `DetectorKind::from_code` in `detectors/mod.rs`. */
 export const DETECTOR_CODES: Readonly<Record<DetectorKind, number>> = {

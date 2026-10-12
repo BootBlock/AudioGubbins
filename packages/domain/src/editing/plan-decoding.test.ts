@@ -18,6 +18,8 @@ import { readValue } from '../messages/message-fields.js';
 import type { DomainResult } from '../result.js';
 import { editPlanOf } from './plan-decoding.js';
 import type { EditPlan, PlanSegment } from './plan.js';
+import type { PlannedSpectralOperation } from '../spectral/spectral-edit.js';
+import { MaskEffect, type SpectralMask } from '../spectral/spectral-mask.js';
 
 /** The plan `value` holds, read as a message carrying it reads it, or why it holds none. */
 function editPlanFrom(value: unknown): DomainResult<EditPlan> {
@@ -164,6 +166,77 @@ describe('editPlanFrom', () => {
     const read = expectSuccess(editPlanFrom(structuredClone(plan)));
     expect(read).toEqual(plan);
     expect(read.streams[0].layout.ambisonic?.ordering).toBe(AmbisonicOrdering.FuMa);
+  });
+
+  it('reads a spectral stream back with its mask, its operation, its chain and its channels', () => {
+    const mask: SpectralMask = {
+      shapes: [
+        {
+          kind: 'rectangle',
+          effect: MaskEffect.Add,
+          range: { start: frames(2), end: frames(8) },
+          band: { low: 100, high: 2_000 },
+        },
+        {
+          kind: 'stroke',
+          effect: MaskEffect.Subtract,
+          hardness: 0.25,
+          points: [
+            {
+              position: frames(4),
+              frequency: 500,
+              strength: 0.5,
+              radius: { time: 2, frequency: 80 },
+            },
+          ],
+        },
+      ],
+      feather: { time: 1, frequency: 20 },
+    };
+    const spectral = (operation: PlannedSpectralOperation): EditPlan => ({
+      streams: [
+        {
+          sampleRate: OTHER_RATE,
+          layout: StandardLayouts.stereo,
+          segments: [reading({ kind: 'stream', stream: 1 }, 10)],
+        },
+        {
+          sampleRate: OTHER_RATE,
+          layout: StandardLayouts.stereo,
+          segments: [reading({ kind: 'media', asset: ASSET }, 10)],
+          processing: {
+            kind: 'spectral',
+            edit: { mask, resolution: 512, operation, channels: [1] },
+          },
+        },
+      ],
+    });
+    for (const operation of [
+      { kind: 'attenuate', gain: 0.25 },
+      { kind: 'isolate', gain: 0 },
+      { kind: 'heal' },
+      { kind: 'process', chain: CHAIN, input: StandardLayouts.stereo },
+    ] as const) {
+      const plan = spectral(operation);
+      expect(expectSuccess(editPlanFrom(structuredClone(plan)))).toEqual(plan);
+    }
+    const unknown = structuredClone(spectral({ kind: 'heal' }));
+    expect(
+      expectFailureCode(
+        editPlanFrom({
+          streams: [
+            unknown.streams[0],
+            {
+              ...unknown.streams[1],
+              processing: {
+                kind: 'spectral',
+                edit: { mask, resolution: 512, operation: { kind: 'blur' } },
+              },
+            },
+          ],
+        }),
+      ),
+    ).toBe('editing.plan-unreadable');
   });
 
   it('keeps processing absent where a stream had none, so a read plan processes nothing extra', () => {

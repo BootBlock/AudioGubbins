@@ -1,7 +1,8 @@
 /**
  * A view's options: what it draws over the audio, what it snaps to
- * (REQ-EDIT-013), the format it writes positions in (REQ-EDIT-012) and
- * whether it follows the playhead. Each is the view's own (REQ-EDIT-061),
+ * (REQ-EDIT-013), the format it writes positions in (REQ-EDIT-012), whether
+ * it follows the playhead, and how its spectral tools draw
+ * (`spectral-tool-commands.ts`). Each is the view's own (REQ-EDIT-061),
  * changed through the builder the presentation commands use.
  */
 
@@ -20,7 +21,10 @@ import {
   type TimeFormat,
 } from '@audiogubbins/timeline';
 
+import { frequencyWords } from '../wording.js';
 import { presentationCommand } from './editor-presentation-commands.js';
+import { spectrogramCommands } from './spectrogram-commands.js';
+import { spectralToolCommands } from './spectral-tool-commands.js';
 import type { ShellContext } from './shell-context.js';
 
 /** What each overlay is called. */
@@ -31,6 +35,7 @@ const OVERLAYS: Readonly<Record<keyof Overlays, string>> = {
   markers: 'Markers',
   regions: 'Regions',
   filmstrip: 'Picture strip',
+  spectralEdits: 'Spectral edit outlines',
 };
 
 const OVERLAY_ORDER: readonly (keyof Overlays)[] = [
@@ -40,6 +45,7 @@ const OVERLAY_ORDER: readonly (keyof Overlays)[] = [
   'markers',
   'regions',
   'filmstrip',
+  'spectralEdits',
 ];
 
 /** What each snap target is called. */
@@ -111,11 +117,19 @@ function snappingCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** A capital letter, where an overlay's name joins two words. */
+const CAPITAL = /[A-Z]/g;
+
+/** An overlay's name as a command identifier writes it: `spectralEdits` as `spectral-edits`. */
+function identifierOf(overlay: keyof Overlays): string {
+  return overlay.replace(CAPITAL, (letter) => `-${letter.toLowerCase()}`);
+}
+
 function overlayCommands(): readonly Command<ShellContext>[] {
   return [
     ...OVERLAY_ORDER.map((overlay) =>
       presentationCommand(
-        `editor.overlay-${overlay}`,
+        `editor.overlay-${identifierOf(overlay)}`,
         `Show ${OVERLAYS[overlay].toLowerCase()}`,
         CommandCategory.View,
         (state) => ({
@@ -168,10 +182,6 @@ const LOWEST_LOGARITHMIC = 20;
 /** The top of hearing, where the audible band ends. */
 const HIGHEST_AUDIBLE = 20_000;
 
-function hertz(value: number): string {
-  return value >= 1000 ? `${String(value / 1000)} kHz` : `${String(value)} Hz`;
-}
-
 /** `settings` with its band, and its lowest frequency kept above nothing on a logarithmic scale. */
 function withBand(settings: SpectralSettings, lowest: number, highest: number): SpectralSettings {
   const floor = settings.frequencyScale === 'logarithmic' ? LOWEST_LOGARITHMIC : 0;
@@ -195,7 +205,7 @@ function spectralCommands(): readonly Command<ShellContext>[] {
   const changed = (state: EditorViewState, spectral: SpectralSettings): EditorViewState =>
     sameSpectral(spectral, state.spectral) ? state : { ...state, spectral };
   const said = (state: EditorViewState): string =>
-    `The spectrogram shows ${hertz(state.spectral.lowest)} to ${hertz(state.spectral.highest)}, ${state.spectral.frequencyScale}.`;
+    `The spectrogram shows ${frequencyWords(state.spectral.lowest)} to ${frequencyWords(state.spectral.highest)}, ${state.spectral.frequencyScale}.`;
   return [
     ...(['linear', 'logarithmic'] as const).map((scale) =>
       presentationCommand(
@@ -249,5 +259,7 @@ export function editorOptionCommands(): readonly Command<ShellContext>[] {
     ...timeFormatCommands(),
     ...followCommands(),
     ...spectralCommands(),
+    ...spectrogramCommands(),
+    ...spectralToolCommands(),
   ];
 }

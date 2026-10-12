@@ -5,4 +5,5 @@
 - **Drivers:** `REQ-AUDIO-152` (a renderer contract AudioGubbins owns, WebGPU where validated, WebGL2 as the production fallback, Canvas 2D for degradation, high-DPI, context loss recovery and diagnostics); `REQ-AUDIO-082` (WebGPU is never a prerequisite for core editing); `ADR-0004`.
 - **Constraints:** no DOM element per sample or peak; no state kept only in the scene. Text and images are drawn on a Canvas 2D surface above a GPU backend's canvas, so the GPU backends draw geometry alone. The GPU object and the canvases are handed to the renderer; it reads no global.
 - **Change record:** affected requirements `REQ-AUDIO-082`, `REQ-AUDIO-152`; affected phase 04; compatibility impact none; verification by the renderer's unit tests and the `test:renderer-loss` browser suite.
+- **Amended by:** `ADR-0082` (2026-10-10): a frame may carry a field batch, a byte per cell drawn through a row map and a colour ramp in its layer's order; the GPU backends hold a field's texture as a cache within a memory budget, and a lost device or context loses only those caches.
 - **Related requirements:** `REQ-AUDIO-082`, `REQ-AUDIO-152`, `REQ-ARCH-037`.

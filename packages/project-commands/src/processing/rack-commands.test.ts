@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
+  MaskEffect,
+  NO_FEATHER,
   assetPlan,
   createDeterministicIdGenerator,
   instantiateProcessor,
@@ -208,6 +210,37 @@ describe('a chain enters with what first names it and leaves with what last name
       withdrawRegionEditInvocation(loop, regionEdit),
     ).next;
     expect(unprocessed.project.effectChains.has(chain.id)).toBe(false);
+  });
+
+  it('keeps a chain a spectral edit runs where a rack sharing it is taken away, removing it with the edit', () => {
+    const chain = chainOf(filter());
+    const cleaned: EditOperation = {
+      id: ids.next<'EditOperationId'>(),
+      kind: 'process',
+      range: { start: at(0), end: at(1_000) },
+      edit: {
+        kind: 'spectral',
+        mask: {
+          shapes: [
+            {
+              kind: 'rectangle',
+              effect: MaskEffect.Add,
+              range: { start: at(300), end: at(700) },
+              band: { low: 100, high: 400 },
+            },
+          ],
+          feather: NO_FEATHER,
+        },
+        resolution: 256,
+        operation: { kind: 'process', chain: chain.id },
+      },
+    };
+    const shared = after(state, setRackInvocation(RAIN, chain), applyInvocation(footstep, cleaned));
+
+    const unracked = appliedAndUndone(shared, setRackInvocation(current(shared, RAIN), undefined));
+    expect(unracked.next.project.effectChains.get(chain.id)).toEqual(chain);
+    const withdrawn = appliedAndUndone(unracked.next, withdrawInvocation(footstep, cleaned)).next;
+    expect(withdrawn.project.effectChains.has(chain.id)).toBe(false);
   });
 
   it('refuses to name by its identifier a chain nothing names, or a chain given whole that differs', () => {

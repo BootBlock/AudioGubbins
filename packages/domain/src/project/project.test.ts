@@ -12,6 +12,7 @@ import {
 import type { EditOperation, RegionOperation } from '../editing/operations.js';
 import type { EditPlan } from '../editing/plan.js';
 import type { EffectChain } from '../processing/effect-chain.js';
+import { MaskEffect, NO_FEATHER } from '../spectral/spectral-mask.js';
 import { assetOf, operationId, range } from '../testing/editing-fixtures.js';
 import { sampleRate, type SampleCount } from '../time/sample-time.js';
 import { expectSuccess } from '../testing/unwrap.js';
@@ -397,5 +398,46 @@ describe('projectChains', () => {
     };
 
     expect([...projectChains(project)]).toEqual([own, carried]);
+  });
+
+  it('yields the chain a pasted spectral edit runs inside its frames, as a rack’s', () => {
+    const framed: EffectChain = { id: unsafeBrandId<'EffectChainId'>('33333333-ffff'), slots: [] };
+    const layout = StandardLayouts.mono;
+    const payload: EditPlan = {
+      streams: [
+        {
+          sampleRate: settings.sampleRate,
+          layout,
+          segments: [],
+          processing: {
+            kind: 'spectral',
+            edit: {
+              mask: {
+                shapes: [
+                  {
+                    kind: 'rectangle',
+                    effect: MaskEffect.Add,
+                    range: range(10, 90),
+                    band: { low: 100, high: 400 },
+                  },
+                ],
+                feather: NO_FEATHER,
+              },
+              resolution: 256,
+              operation: { kind: 'process', chain: framed, input: layout },
+            },
+          },
+        },
+      ],
+    };
+    const pasted = assetOf('0006', 100, [
+      { id: operationId('paste'), kind: 'insert', at: 0 as SampleCount, payload },
+    ]);
+    const project: Project = {
+      ...createProject(projectId, 'Pasted', settings),
+      assets: new Map([[pasted.id, pasted]]),
+    };
+
+    expect([...projectChains(project)]).toEqual([framed]);
   });
 });

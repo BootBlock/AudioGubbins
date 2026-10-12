@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DspImplementation } from '@audiogubbins/audio-engine';
+import { DspImplementation, DspDeliveryKind } from '@audiogubbins/audio-engine';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { workletDsp } from './worklet-dsp.js';
 
 /** Makes `new WebAssembly.Module` throw `error`, as the engine compiling in the worklet would. */

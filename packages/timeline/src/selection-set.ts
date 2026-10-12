@@ -14,45 +14,23 @@
  * the same precedence.
  */
 
-import type {
-  AssetId,
-  ClipId,
-  MarkerId,
-  ProcessorId,
-  RegionId,
-  SampleCount,
-  TrackId,
+import {
+  MaskEffect,
+  clippedMask,
+  masksEqual,
+  type AssetId,
+  type ClipId,
+  type MarkerId,
+  type ProcessorId,
+  type RegionId,
+  type SampleCount,
+  type SpectralFeather,
+  type SpectralMask,
+  type SpectralShape,
+  type TrackId,
 } from '@audiogubbins/domain';
 
 import type { BoundaryRange } from './viewport.js';
-
-/** A frequency band in hertz, `low` below `high`. */
-export interface FrequencyBand {
-  readonly low: number;
-  readonly high: number;
-}
-
-/** A point of a spectral lasso: a boundary and a frequency. */
-export interface SpectralPoint {
-  readonly position: SampleCount;
-  readonly frequency: number;
-}
-
-/** The outline a spectral selection takes within its range and band. */
-export type SpectralShape =
-  | { readonly kind: 'rectangle' }
-  | {
-      readonly kind: 'lasso';
-      /** At least three points, each inside the range and band. */
-      readonly points: readonly [SpectralPoint, SpectralPoint, SpectralPoint, ...SpectralPoint[]];
-    };
-
-/** An area of time and frequency. */
-export interface SpectralArea {
-  readonly range: BoundaryRange;
-  readonly band: FrequencyBand;
-  readonly shape: SpectralShape;
-}
 
 /** One or more selected objects of one kind. */
 export type ObjectSelection =
@@ -80,7 +58,11 @@ export type MadeFacet = Exclude<SelectionFacet, typeof SelectionFacet.None>;
 export interface SelectionSet {
   /** A time range, `[start, end)`, at least one sample long. */
   readonly time?: BoundaryRange;
-  readonly spectral?: SpectralArea;
+  /**
+   * An area of time and frequency, as the domain's mask (ADR-0042 amended,
+   * ADR-0081); its range and band are the mask's outline.
+   */
+  readonly spectral?: SpectralMask;
   readonly objects?: ObjectSelection;
   /**
    * The channels a time, spectral or whole-asset target covers, by index in the
@@ -113,12 +95,46 @@ export function withTimeRange(set: SelectionSet, time: BoundaryRange): Selection
   return { ...set, time, recency: madeLast(set, SelectionFacet.Time) };
 }
 
-/** `set` with `area` as its active spectral selection. */
-export function withSpectralArea(set: SelectionSet, area: SpectralArea): SelectionSet {
-  if (area.range.end <= area.range.start || !(area.band.high > area.band.low)) {
-    return withoutFacet(set, SelectionFacet.Spectral);
+/** `set` with `mask` as its active spectral selection. */
+export function withSpectralMask(set: SelectionSet, mask: SpectralMask): SelectionSet {
+  return { ...set, spectral: mask, recency: madeLast(set, SelectionFacet.Spectral) };
+}
+
+/** How a shape a spectral tool made joins the spectral selection. */
+export const SpectralCombination = {
+  /** The shape is the whole selection. */
+  Replace: 'replace',
+  /** The shape adds to the selection. */
+  Add: 'add',
+  /** The shape takes from the selection. */
+  Subtract: 'subtract',
+} as const;
+
+/** How a shape a spectral tool made joins the spectral selection. */
+export type SpectralCombination = (typeof SpectralCombination)[keyof typeof SpectralCombination];
+
+/**
+ * `set` with `shape` joined to its spectral selection as `combination` says,
+ * the mask softened by `feather`. A shape that takes away from no selection
+ * selects nothing, so the set is returned as it was.
+ */
+export function withSpectralShape(
+  set: SelectionSet,
+  shape: SpectralShape,
+  combination: SpectralCombination,
+  feather: SpectralFeather,
+): SelectionSet {
+  const existing = set.spectral;
+  if (combination === SpectralCombination.Replace || existing === undefined) {
+    return combination === SpectralCombination.Subtract
+      ? set
+      : withSpectralMask(set, { shapes: [{ ...shape, effect: MaskEffect.Add }], feather });
   }
-  return { ...set, spectral: area, recency: madeLast(set, SelectionFacet.Spectral) };
+  const effect = combination === SpectralCombination.Add ? MaskEffect.Add : MaskEffect.Subtract;
+  return withSpectralMask(set, {
+    shapes: [...existing.shapes, { ...shape, effect }],
+    feather,
+  });
 }
 
 /** `set` with `objects` as its active object selection. */
@@ -205,8 +221,9 @@ function survivingObjects(
  * `set` made valid for `content` after a change to it (REQ-EDIT-064): a range
  * past the end is clipped, or dropped if nothing of it is left, channels the
  * layout no longer has are dropped, and objects that no longer exist are
- * removed. A facet that is left whole is kept exactly, so an unrelated change
- * never disturbs a selection.
+ * removed; a spectral selection's shapes are clipped as `clippedMask` says. A
+ * facet that is left whole is kept exactly, so an unrelated change never
+ * disturbs a selection.
  */
 export function reconciled(set: SelectionSet, content: SelectableContent): SelectionSet {
   let next = set;
@@ -215,11 +232,9 @@ export function reconciled(set: SelectionSet, content: SelectableContent): Selec
     next = time === undefined ? withoutFacet(next, SelectionFacet.Time) : { ...next, time };
   }
   if (set.spectral !== undefined) {
-    const range = clippedRange(set.spectral.range, content.length);
+    const spectral = clippedMask(set.spectral, content.length);
     next =
-      range === undefined
-        ? withoutFacet(next, SelectionFacet.Spectral)
-        : { ...next, spectral: { ...set.spectral, range } };
+      spectral === undefined ? withoutFacet(next, SelectionFacet.Spectral) : { ...next, spectral };
   }
   if (set.objects !== undefined) {
     const objects = survivingObjects(set.objects, content);
@@ -238,15 +253,17 @@ function listsEqual(left: readonly unknown[] = [], right: readonly unknown[] = [
   return left.length === right.length && left.every((each, index) => each === right[index]);
 }
 
+function spectralEqual(left?: SpectralMask, right?: SpectralMask): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return masksEqual(left, right);
+}
+
 /** Whether two selections select the same things with the same facet active. */
 export function selectionsEqual(left: SelectionSet, right: SelectionSet): boolean {
   return (
     listsEqual(left.recency, right.recency) &&
     rangesEqual(left.time, right.time) &&
-    rangesEqual(left.spectral?.range, right.spectral?.range) &&
-    left.spectral?.band.low === right.spectral?.band.low &&
-    left.spectral?.band.high === right.spectral?.band.high &&
-    left.spectral?.shape === right.spectral?.shape &&
+    spectralEqual(left.spectral, right.spectral) &&
     left.objects?.kind === right.objects?.kind &&
     listsEqual(left.objects?.ids, right.objects?.ids) &&
     listsEqual(left.channels, right.channels)

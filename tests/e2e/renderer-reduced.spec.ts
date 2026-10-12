@@ -4,9 +4,20 @@ import {
   crashGpuProcess,
   expectDrawnAsShown,
   expectLabelled,
+  expectSpectrogramDrawn,
   openWithCapabilities,
   rendererReport,
 } from './renderer.js';
+import {
+  drawPattern,
+  expectCanvasHoldsNoTiles,
+  expectPatternDrawn,
+  expectRecovered,
+  expectRedrawnAsBefore,
+  offeredBackends,
+  openHarness,
+  openOn,
+} from './renderer-field.js';
 import { test } from './test.js';
 
 /**
@@ -27,6 +38,12 @@ test.describe('the editor renderer', () => {
     await expectLabelled(page, panel);
   });
 
+  test('draws the spectrogram the worker makes with Canvas 2D', async ({ page }) => {
+    const panel = await openWithCapabilities(page);
+    await expect(rendererReport(page)).toContainText('Drawn with Canvas 2D.');
+    await expectSpectrogramDrawn(page, panel);
+  });
+
   test('draws the view and its labels again when the GPU process crashes', async ({
     page,
     browser,
@@ -43,5 +60,39 @@ test.describe('the editor renderer', () => {
     await expect(rendererReport(page)).toContainText('Drawn with Canvas 2D.');
     await expectDrawnAsShown(page, panel);
     await expectLabelled(page, panel);
+  });
+});
+
+/**
+ * A field batch (ADR-0082) in the same Chromium, drawn by the editor's renderer
+ * on the renderer harness: through its ramp on Canvas 2D, read back by pixel,
+ * drawn again as it was when the GPU process crashes, and composed tile after
+ * tile on one canvas, with no texture held for any.
+ */
+test.describe('a field batch', () => {
+  test('is drawn through its ramp by Canvas 2D, the one backend offered', async ({ page }) => {
+    await openHarness(page);
+    expect(await offeredBackends(page)).toEqual(['canvas-2d']);
+    await openOn(page, 'canvas-2d');
+    await drawPattern(page);
+    await expectPatternDrawn(page);
+  });
+
+  test('is drawn again as it was when the GPU process crashes', async ({ page, browser }) => {
+    await openHarness(page);
+    await openOn(page, 'canvas-2d');
+    await drawPattern(page);
+    const before = await expectPatternDrawn(page);
+
+    await crashGpuProcess(browser);
+
+    await expectRecovered(page, 1);
+    await expectRedrawnAsBefore(page, before);
+  });
+
+  test('is composed tile after tile on one canvas, holding nothing per tile', async ({ page }) => {
+    await openHarness(page);
+    await openOn(page, 'canvas-2d');
+    await expectCanvasHoldsNoTiles(page);
   });
 });

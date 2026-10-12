@@ -11,6 +11,7 @@ import {
   type PcmSource,
   toneRecipe,
   PcmDescriptionKind,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -22,7 +23,6 @@ import {
   wire,
 } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { scopeDsp, type DspChooser } from '../dsp/dsp-instance.js';
 import { RingReader, createSampleRing } from '../feed/sample-ring.js';
 import {

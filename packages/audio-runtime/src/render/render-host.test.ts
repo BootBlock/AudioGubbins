@@ -24,10 +24,10 @@ import {
   type RenderProgress,
   type RenderSink,
   PcmDescriptionKind,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import { graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,

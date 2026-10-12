@@ -11,8 +11,8 @@ import type { Call } from './export-call.js';
 
 /** The analysis functions, each answering an unsigned 32-bit integer. */
 export interface AnalysisExports {
-  /** An STFT of `channels`, frames of `size` samples `hop` apart, or 0. */
-  readonly stftCreate: (channels: number, size: number, hop: number) => number;
+  /** An STFT of `channels`, frames of `size` samples `hop` apart through the window `window` codes, or 0. */
+  readonly stftCreate: (channels: number, size: number, hop: number, window: number) => number;
   readonly stftPush: (stft: number, buffer: number, frames: number) => number;
   /** 1 where it wrote a frame's real then imaginary parts to the `f64` buffer, 0 where none was ready. */
   readonly stftPullComplex: (stft: number, output: number) => number;

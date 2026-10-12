@@ -104,6 +104,21 @@ describe('reading a project tree (REQ-STOR-103)', () => {
     });
   });
 
+  it('refuses a tree an older build wrote, since nothing migrates before 1.0', async () => {
+    const older = SCHEMA_VERSIONS.projectDocument - 1;
+    const files = edited(await sampleTree(), 'audiogubbins-project.json', (header) => ({
+      ...header,
+      projectDocumentSchemaVersion: older,
+    }));
+    const read = await readProjectTree(listingOf(files), TREE_READING);
+    expect(read.ok).toBe(false);
+    if (read.ok) return;
+    expect(read.failures[0]).toMatchObject({
+      code: 'format.schema-incompatible',
+      details: { schema: 'projectDocument', found: older, direction: 'older' },
+    });
+  });
+
   it('refuses each file that keeps more of where the audio came from than the header says', async () => {
     const files = edited(await sampleTree(), 'audiogubbins-project.json', (header) => ({
       ...header,

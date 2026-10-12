@@ -17,10 +17,10 @@ import {
   ResamplingQuality,
   toneRecipe,
   PcmDescriptionKind,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import { dspModuleBytes, graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,

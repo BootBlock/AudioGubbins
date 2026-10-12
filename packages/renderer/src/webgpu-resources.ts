@@ -1,9 +1,13 @@
 /**
  * What the WebGPU backend makes on a device: its shader, pipeline, bind group
- * and buffers, made again whole on a new device after a loss (ADR-0044).
+ * and buffers, and what draws its fields, made again whole on a new device
+ * after a loss (ADR-0044, ADR-0082).
  */
 
 /// <reference types="@webgpu/types" />
+
+import { GpuFields } from './webgpu-fields.js';
+import { BufferUsage, STRAIGHT_ALPHA, ShaderStage, UNIFORM_STRIDE } from './webgpu-flags.js';
 
 const SHADER = /* wgsl */ `
 struct Batch { scale: vec2f, mode: f32, halfWidth: f32, colour: vec4f };
@@ -29,27 +33,13 @@ fn fragmentMain() -> @location(0) vec4f {
 }
 `;
 
-/** Bytes between one batch's uniforms and the next: the smallest dynamic offset WebGPU allows. */
-export const UNIFORM_STRIDE = 256;
-
-/**
- * The buffer usage flags the backend asks for, by the values the WebGPU
- * specification fixes. The browser's `GPUBufferUsage` and `GPUShaderStage`
- * namespaces are globals, which the renderer does not read (ADR-0044): it draws
- * with the GPU object it is handed, and a device handed in from anywhere else
- * takes the same numbers.
- */
-const BufferUsage = { CopyDst: 0x08, Vertex: 0x20, Uniform: 0x40 } as const;
-
-/** The shader stage flags, by the specification's values, for the same reason. */
-const ShaderStage = { Vertex: 0x1, Fragment: 0x2 } as const;
-
 /** A device's pipeline and buffers, made again on a new device. */
 export interface Resources {
   readonly device: GPUDevice;
   readonly pipeline: GPURenderPipeline;
   readonly layout: GPUBindGroupLayout;
   readonly corners: GPUBuffer;
+  readonly fields: GpuFields;
   uniforms: GPUBuffer;
   group: GPUBindGroup;
   instances: GPUBuffer;
@@ -79,22 +69,14 @@ function pipelineFor(
     fragment: {
       module,
       entryPoint: 'fragmentMain',
-      targets: [
-        {
-          format,
-          blend: {
-            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha' },
-            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
-          },
-        },
-      ],
+      targets: [{ format, blend: STRAIGHT_ALPHA }],
     },
     primitive: { topology: 'triangle-strip' },
   });
 }
 
-/** Everything the backend draws with on `device`. */
-export function build(device: GPUDevice, format: GPUTextureFormat): Resources {
+/** Everything the backend draws with on `device`, holding field textures within `fieldBudget` bytes. */
+export function build(device: GPUDevice, format: GPUTextureFormat, fieldBudget: number): Resources {
   const layout = device.createBindGroupLayout({
     entries: [
       {
@@ -115,6 +97,7 @@ export function build(device: GPUDevice, format: GPUTextureFormat): Resources {
     pipeline: pipelineFor(device, format, layout),
     layout,
     corners,
+    fields: new GpuFields(device, format, fieldBudget),
     uniforms,
     group: bindGroup(device, layout, uniforms),
     instances: instanceBuffer(device, 4096),

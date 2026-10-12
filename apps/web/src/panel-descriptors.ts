@@ -34,6 +34,7 @@ export const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [ProjectPanelKinds.Storage, 'Storage', DockRegion.Bottom],
       [PanelKinds.Picture, 'Picture', DockRegion.Right],
       [PanelKinds.Recording, 'Recorder', DockRegion.Bottom],
+      [PanelKinds.Spectral, 'Spectral', DockRegion.Right],
       [EditingPanelKinds.Analysis, 'Analysis', DockRegion.Bottom],
       [EditingPanelKinds.Library, 'Library', DockRegion.Left],
       [EditingPanelKinds.Rack, 'Effects rack', DockRegion.Right],

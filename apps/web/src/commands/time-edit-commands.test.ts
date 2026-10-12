@@ -32,7 +32,7 @@ async function editedLoop(
   const audio = await windowWithAudio({ regions });
   const { context } = audio.window;
   context.editorViews.open('editor', audio.asset());
-  context.editorViews.measured('editor', 1000, audio.asset().length);
+  context.editorViews.measured('editor', { width: 1000, height: 300 }, audio.asset().length);
   context.editorViews.focus('editor');
   return audio;
 }

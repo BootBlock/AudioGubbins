@@ -9,7 +9,7 @@
  * written in British English whatever the browser's own locale.
  */
 
-import { DspImplementation } from '@audiogubbins/audio-engine';
+import { DspImplementation, decibelsToGain, gainToDecibels } from '@audiogubbins/audio-engine';
 
 const WHOLE = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 const TENTHS = new Intl.NumberFormat('en-GB', {
@@ -45,7 +45,7 @@ export function peakText(peak: number): string {
   if (peak <= 0) return '−∞ dB';
   // The typographic minus, which a screen reader says as "minus" rather than
   // reading a hyphen as a dash.
-  return `${TENTHS.format(20 * Math.log10(peak)).replace('-', '−')} dB`;
+  return `${TENTHS.format(gainToDecibels(peak)).replace('-', '−')} dB`;
 }
 
 const HUNDREDTHS = new Intl.NumberFormat('en-GB', {
@@ -74,8 +74,8 @@ export const MeterZone = {
 export type MeterZone = (typeof MeterZone)[keyof typeof MeterZone];
 
 /** The linear peaks at −18 dB and −6 dB, where a meter turns amber and then red. */
-const MID_FROM = 10 ** (-18 / 20);
-const HIGH_FROM = 10 ** (-6 / 20);
+const MID_FROM = decibelsToGain(-18);
+const HIGH_FROM = decibelsToGain(-6);
 
 export function meterZone(peak: number): MeterZone {
   if (peak >= 1) return MeterZone.Clip;

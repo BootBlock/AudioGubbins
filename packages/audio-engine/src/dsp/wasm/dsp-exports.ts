@@ -14,7 +14,7 @@ import { readAnalysisExports, type AnalysisExports } from './analysis-exports.js
 import type { Call } from './export-call.js';
 
 /** The ABI version this binding speaks; `ABI_VERSION` in `wasm-bindings`. */
-const DSP_ABI_VERSION = 6;
+const DSP_ABI_VERSION = 7;
 
 /** What a call that answers a status answers; `STATUS_*` in `wasm-bindings`. */
 export const DspStatus = {

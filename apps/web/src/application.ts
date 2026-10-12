@@ -65,6 +65,7 @@ import { browserSchedule } from './audio/browser-schedule.js';
 import type { OpenCapture } from './audio/capture-parts.js';
 import type { AudioContextHost } from './audio/context-host.js';
 import { PlaybackControl } from './audio/playback-control.js';
+import { pageDsp, type PageDsp } from './audio/page-dsp.js';
 import { followPlayingAsset } from './audio/playing-asset.js';
 import { browserPreviews } from './audio/preview-threads.js';
 import { RenderControl } from './audio/render-control.js';
@@ -73,7 +74,8 @@ import { suspendsCapture } from './recording/input-diagnostics.js';
 import { startRecording } from './recording/recording-part.js';
 import { shellCommands } from './commands/shell-commands.js';
 import type { ShellContext } from './commands/shell-context.js';
-import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
+import { executeVoiced } from './commands/voiced-execution.js';
+import type { VoicedOptions } from './state/interaction-store.js';
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
 import { startEditor, type PanelControls } from './editor-part.js';
@@ -170,6 +172,8 @@ function startAudio(
     'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
   readonly previews: PreviewHost;
+  /** The page's DSP module, which the spectrogram worker runs as the engine's threads do. */
+  readonly dsp: PageDsp;
   /** The page's one audio context, which an input joins. */
   readonly host: AudioContextHost;
   /** Makes a capture session over the context, once the engine is loaded. */
@@ -182,7 +186,8 @@ function startAudio(
   const previews = browserPreviews(logger, audio, models);
   let stopFollowing = (): void => undefined;
   const runtime = audioRuntimeCapabilities(capabilities);
-  const engine = browserEngineLoader(runtime, previews.host, models);
+  const dsp = pageDsp(runtime);
+  const engine = browserEngineLoader(runtime, previews.host, models, dsp);
   const host = browserContextHost(runtime, logger);
   const audioSettings = createAudioSettingsStore(storage, logger);
   const renderStrategy = createRenderStrategyStore();
@@ -212,6 +217,7 @@ function startAudio(
   return {
     parts: { audio, audioSettings, renderStrategy, playback, hearing, rendering },
     previews: previews.host,
+    dsp,
     host,
     openCapture: browserCapture(engine, logger),
     followAssets: (assets) => {
@@ -240,12 +246,12 @@ function panelControls(
   context: ShellContext,
   registry: CommandRegistry<ShellContext>,
   bus: CommandBus<ShellContext>,
-  run: (id: CommandId, args?: CommandInvocation['arguments']) => unknown,
+  run: (id: CommandId, args?: CommandInvocation['arguments'], options?: VoicedOptions) => unknown,
   convention: KeyboardConvention,
 ): PanelControls {
   return {
-    run: (id, args) => {
-      run(commandId(id), args);
+    run: (id, args, options) => {
+      run(commandId(id), args, options);
     },
     unavailableReason: (id) => {
       const availability = bus.availability(context, commandId(id));
@@ -360,6 +366,7 @@ export function createApplication() {
     audioPart.previews,
     models,
     codecs,
+    audioPart.dsp,
   );
   audioPart.followAssets(editorPart.parts.assets);
   const packsPart = startPackManager(projectSystem, models);

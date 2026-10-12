@@ -1,9 +1,9 @@
 /**
  * The reference DSP, counting the objects it has made that are not released.
  *
- * An oscillator, a resampler or an FFT made on the WebAssembly path holds the
- * module's memory until it is released, so a test of an owner's release
- * counts what the owner leaves held.
+ * An oscillator, a resampler, an FFT or a measuring object made on the
+ * WebAssembly path holds the module's memory until it is released, so a test
+ * of an owner's release counts what the owner leaves held.
  */
 
 import { mapResult, type DomainResult } from '@audiogubbins/domain';
@@ -40,6 +40,10 @@ export function countingDsp(): CountingDsp {
       createOscillator: (settings) => counted(REFERENCE_DSP.createOscillator(settings)),
       createResampler: (settings) => counted(REFERENCE_DSP.createResampler(settings)),
       createFft: (size) => counted(REFERENCE_DSP.createFft(size)),
+      createStft: (settings) => counted(REFERENCE_DSP.createStft(settings)),
+      createPeakMeter: (settings) => counted(REFERENCE_DSP.createPeakMeter(settings)),
+      createLoudnessMeter: (settings) => counted(REFERENCE_DSP.createLoudnessMeter(settings)),
+      createDetectorFeatures: (settings) => counted(REFERENCE_DSP.createDetectorFeatures(settings)),
     },
     held: () => held,
     made: () => made,

@@ -2,11 +2,24 @@ import { expect } from '@playwright/test';
 
 import { readingOf, surfaceOf } from './editor.js';
 import {
+  destroyWebGpuDevice,
   expectDrawnAsShown,
   expectLabelled,
   openWithCapabilities,
   rendererReport,
 } from './renderer.js';
+import {
+  TILE_BUDGET,
+  drawPattern,
+  expectPatternDrawn,
+  expectRecovered,
+  expectRedrawnAsBefore,
+  expectTilesWithinBudget,
+  fieldTextures,
+  offeredBackends,
+  openHarness,
+  openOn,
+} from './renderer-field.js';
 import { test } from './test.js';
 
 /**
@@ -27,22 +40,7 @@ test.describe('the editor renderer', () => {
     await expectDrawnAsShown(page, panel);
     const before = await readingOf(panel, 'Zoom').innerText();
 
-    await page.evaluate(() => {
-      // Read without the WebGPU type definitions, which the suites are not
-      // compiled with: the context's configuration names the device it draws
-      // on.
-      const canvas = document.querySelector<HTMLCanvasElement>('.ag-editor-canvas-geometry');
-      const context: unknown = canvas?.getContext('webgpu');
-      const member = (host: unknown, name: string): unknown =>
-        typeof host === 'object' && host !== null ? Reflect.get(host, name) : undefined;
-      const configuration = member(context, 'getConfiguration');
-      if (typeof configuration !== 'function')
-        throw new Error('The view draws with no WebGPU context.');
-      const device = member(Reflect.apply(configuration, context, []), 'device');
-      const destroy = member(device, 'destroy');
-      if (typeof destroy !== 'function') throw new Error('The WebGPU context names no device.');
-      Reflect.apply(destroy, device, []);
-    });
+    await destroyWebGpuDevice(page);
     // Whether the new device is given before or after it, the change is what
     // the view shows from then on.
     await surfaceOf(panel).press('ArrowUp');
@@ -54,5 +52,51 @@ test.describe('the editor renderer', () => {
     await expect(rendererReport(page)).toContainText('Drawn with WebGPU.');
     await expectDrawnAsShown(page, panel);
     await expectLabelled(page, panel);
+  });
+});
+
+/**
+ * A field batch (ADR-0082) in the same Chromium, drawn by the editor's renderer
+ * on the renderer harness: through its ramp on WebGPU, WebGL 2 and Canvas 2D,
+ * each read back by pixel, drawn again as it was on the device asked for once
+ * the one it drew with is destroyed, and held within its texture budget.
+ */
+test.describe('a field batch', () => {
+  test('is drawn through its ramp by every backend the browser offers', async ({ page }) => {
+    await openHarness(page);
+    const offered = await offeredBackends(page);
+    expect(offered).toEqual(['webgpu', 'webgl2', 'canvas-2d']);
+    for (const kind of offered) {
+      await openOn(page, kind);
+      await drawPattern(page);
+      await expectPatternDrawn(page);
+    }
+  });
+
+  test('is uploaded and drawn again as it was on the WebGPU device asked for after a loss', async ({
+    page,
+  }) => {
+    await openHarness(page);
+    await openOn(page, 'webgpu');
+    await drawPattern(page);
+    const before = await expectPatternDrawn(page);
+    const uploaded = await fieldTextures(page);
+    expect(uploaded.held).toBe(1);
+
+    await destroyWebGpuDevice(page);
+
+    await expectRecovered(page, 1);
+    await expectRedrawnAsBefore(page, before);
+    const again = await fieldTextures(page);
+    expect(again.made - uploaded.made, 'field textures uploaded again').toBe(1);
+    expect(again.held).toBe(1);
+  });
+
+  test('holds no WebGPU texture for a tile it does not draw, beyond its budget', async ({
+    page,
+  }) => {
+    await openHarness(page);
+    await openOn(page, 'webgpu', TILE_BUDGET);
+    await expectTilesWithinBudget(page);
   });
 });

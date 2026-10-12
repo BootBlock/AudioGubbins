@@ -38,13 +38,15 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 
+import { deliveredAs, type DspDelivery } from '@audiogubbins/audio-engine';
+
 import type { AudioContextPort } from '../context/audio-context-port.js';
 import {
   LifecycleEventKind,
   type ContextLifecycle,
   type LifecycleEvent,
 } from '../context/context-lifecycle.js';
-import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
 import type { ChannelEnds } from '../playback/channel-ends.js';
 import { WorkletModule } from '../playback/worklet-module.js';

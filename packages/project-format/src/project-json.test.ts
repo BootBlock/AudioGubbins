@@ -181,6 +181,8 @@ describe('a seeded property: every valid state survives the document', () => {
       takeStacks: 0,
       punches: 0,
       recordings: 0,
+      spectralEdits: 0,
+      spectralRegionProcessing: 0,
     };
     for (let seed = 1; seed <= 400; seed += 1) {
       const { project, sources } = randomState(seed);
@@ -210,9 +212,15 @@ describe('a seeded property: every valid state survives the document', () => {
         totals.punches += asset.edits.filter(
           (edit) => edit.kind === 'process' && edit.edit.kind === 'punch',
         ).length;
+        totals.spectralEdits += asset.edits.filter(
+          (edit) => edit.kind === 'process' && edit.edit.kind === 'spectral',
+        ).length;
       }
       for (const region of project.regions.values()) {
         totals.regionProcessing += region.operations.length;
+        totals.spectralRegionProcessing += region.operations.filter(
+          (operation) => operation.edit.kind === 'spectral',
+        ).length;
       }
     }
     for (const [kind, total] of Object.entries(totals)) expect(total, kind).toBeGreaterThan(50);
@@ -768,6 +776,39 @@ describe('readProjectDocument refuses', () => {
       'format.schema-incompatible',
     ]);
   });
+
+  it('a document an older build wrote, since nothing migrates before 1.0 (REQ-STOR-052)', () => {
+    const older = SCHEMA_VERSIONS.projectDocument - 1;
+    const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], older));
+    expect(result.ok ? [] : result.failures).toMatchObject([
+      {
+        code: 'format.schema-incompatible',
+        kind: 'unrecoverable',
+        details: {
+          schema: 'projectDocument',
+          found: older,
+          current: SCHEMA_VERSIONS.projectDocument,
+          direction: 'older',
+        },
+      },
+    ]);
+  });
+
+  // Version 7 holds take stacks and version 8 spectral edits; neither holds a
+  // decoded rendition, the file's metadata or the export settings, so a build
+  // that reads either as its own would read a document missing what it keeps.
+  it.each([7, 8])(
+    'a document of version %i, from before decoded renditions and export settings',
+    (written) => {
+      const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], written));
+      expect(result.ok ? [] : result.failures).toMatchObject([
+        {
+          code: 'format.schema-incompatible',
+          details: { schema: 'projectDocument', found: written, direction: 'older' },
+        },
+      ]);
+    },
+  );
 
   it('every problem at once, up to the bound, as integrity violations', () => {
     const broken = withValue(

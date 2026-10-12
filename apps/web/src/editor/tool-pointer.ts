@@ -11,12 +11,15 @@
  * drawn from. A zero crossing needs the audio, which the peak worker searches;
  * events are taken in order, each waiting for its search, so where a press or a
  * release lands does not depend on how quickly the worker answered, and a drag
- * that outruns it skips the moves that were overtaken. A press that is
- * abandoned, or overtaken by the next, abandons the search it is waiting on.
+ * that outruns it skips the moves that were overtaken. A drag that traces a
+ * path, a lasso's or a brush's, skips none: every move is a point of its shape,
+ * so a shape whose moves were skipped would depend on how quickly the worker
+ * answered. A press that is abandoned, or overtaken by the next, abandons the
+ * search it is waiting on.
  */
 
 import { SnapKind, boundaryAt, samplesWithin, type SnapTarget } from '@audiogubbins/timeline';
-import type { PointerSample } from '@audiogubbins/input';
+import { toolStrength, type GestureSettings, type PointerSample } from '@audiogubbins/input';
 import {
   IDLE,
   hitTest,
@@ -25,6 +28,7 @@ import {
   press,
   release,
   snapInView,
+  tracesPath,
   type Interaction,
   type ToolInput,
   type ToolPreview,
@@ -54,6 +58,8 @@ export interface ToolPointerHost {
   readonly snapshot: () => PointerSnapshot | undefined;
   /** Whether the space bar is held, which makes any tool the hand. */
   readonly panning: () => boolean;
+  /** How gestures are read, whose pressure choice gives a pointer its strength. */
+  readonly gestures: () => GestureSettings;
   readonly run: (command: IntentCommand) => void;
   /** Shows the drag in progress, and the target a position snapped to. */
   readonly show: (preview: ToolPreview | undefined, snap: SnapTarget | undefined) => void;
@@ -90,6 +96,12 @@ export class ToolPointer {
   /** The event being taken, and the move waiting behind it, which a later move replaces. */
   #busy: Promise<void> = Promise.resolve();
   #waitingMove: (() => Promise<void>) | undefined;
+  /**
+   * Whether the press under way traces a path, every move of which is taken:
+   * read as it is pressed, since the press may still wait on its search when
+   * its first moves come.
+   */
+  #tracing = false;
 
   constructor(host: ToolPointerHost) {
     this.#host = host;
@@ -105,6 +117,8 @@ export class ToolPointer {
     this.#abandon();
     this.#pointer = sample.pointerId;
     this.#press = new AbortController();
+    const pressed = this.#host.snapshot()?.sources.state.tool;
+    this.#tracing = !this.#host.panning() && pressed !== undefined && tracesPath(pressed);
     const signal = this.#press.signal;
     this.#enqueue(signal, async () => {
       const snapshot = this.#host.snapshot();
@@ -131,6 +145,15 @@ export class ToolPointer {
             hit,
             selection: selection.time,
             visibleChannels: shownChannels(state, snapshot.sources.asset),
+            spectral: {
+              lane: laneAt(snapshot.layout, sample.y),
+              axis: state.spectral,
+              viewport: state.viewport,
+              length: snapshot.sources.asset.length,
+              channelCount: snapshot.sources.asset.layout.roles.length,
+              selection,
+              settings: state.spectralTools,
+            },
           },
           input,
         ),
@@ -148,6 +171,10 @@ export class ToolPointer {
       const input = await this.#input(snapshot, sample, modifiers, this.#exclusions(), signal);
       this.#apply(move(this.#interaction, input), input.snap);
     };
+    if (this.#tracing) {
+      this.#enqueue(signal, step);
+      return;
+    }
     // A move not yet taken is overtaken by this one.
     const waiting = this.#waitingMove !== undefined;
     this.#waitingMove = step;
@@ -256,6 +283,7 @@ export class ToolPointer {
       channel: laneAt(snapshot.layout, sample.y)?.channel,
       shift: modifiers.shift,
       alt: modifiers.alt,
+      strength: toolStrength(sample, this.#host.gestures()),
       snap: result.target,
     };
   }

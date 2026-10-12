@@ -49,7 +49,7 @@ import {
   projectCommand,
   type ProjectCommand,
 } from '../project-command.js';
-import { rackChainOf, stateNaming, withoutUnnamed } from '../processing/chain-naming.js';
+import { operationChain, stateNaming, withoutUnnamed } from '../processing/chain-naming.js';
 import { idArgument, targetRegion } from './editing-arguments.js';
 import {
   KEPT_BY_THE_REGION,
@@ -229,7 +229,7 @@ function applyRegionEdit(
       'The region already has processing with that identifier.',
     );
   }
-  const naming = stateNaming(state, invocation, rackChainOf(operation.value));
+  const naming = stateNaming(state, invocation, operationChain(operation.value));
   if (!naming.ok) return refusedBy(naming);
   const next = standing(naming.value, {
     ...region.value,
@@ -260,7 +260,7 @@ function withdrawRegionEdit(
   }
   const next = withoutUnnamed(
     withRegion(state, { ...region.value, operations: region.value.operations.slice(0, -1) }),
-    rackChainOf(last),
+    operationChain(last),
   );
   return applied(
     next.state,

@@ -53,7 +53,13 @@ function regionOperationProblem(
     return 'The region’s processing is placed on edits the asset does not have.';
   return (
     rangeProblem(operation.range, shape.length) ??
-    rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout), chains)
+    rangeEditProblem(
+      operation.edit,
+      operation.range,
+      operation.channels,
+      channelCount(shape.layout),
+      chains,
+    )
   );
 }
 

@@ -28,11 +28,13 @@ import {
   type ChainProcessing,
   type PcmSource,
   type PresetProfile,
+  DspDeliveryKind,
+  type DspDelivery,
 } from '@audiogubbins/audio-engine';
 
 import { AudioContextState, type WorkletNodeShape } from '../context/audio-context-port.js';
 import { ContextLifecycle } from '../context/context-lifecycle.js';
-import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import type { Schedule } from '../schedule.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
 import { PlaybackSession } from '../playback/playback-session.js';

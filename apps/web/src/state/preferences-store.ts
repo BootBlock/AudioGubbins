@@ -1,13 +1,13 @@
 /**
- * The user's preferences, and how they survive a reload.
+ * The user's preferences, and how they survive a reload: how the interface
+ * looks and moves, whether a pen's pressure varies a tool (REQ-UX-068,
+ * ADR-0082), and the person's own export presets (ADR-0092).
  *
  * REQ-ARCH-153 gives preferences their own partition, separate from project
  * state, with their own lifetime. REQ-UX-059 requires that separation to be
  * clear enough that a display choice cannot corrupt the project, and this is
  * where that holds: preferences are written to their own key, in their own
  * format, with their own version, and nothing here can reach project data.
- * They are the interface's appearance and the person's own export presets
- * (ADR-0092).
  *
  * Storage is injected. REQ-EXEC-216 prohibits assuming a browser API is
  * available, and private browsing, a blocked-cookies setting and a quota
@@ -18,6 +18,11 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { ExportSettings } from '@audiogubbins/import-export';
+import {
+  DEFAULT_PRESSURE_PREFERENCE,
+  pressurePreferenceOf,
+  type PressurePreference,
+} from '@audiogubbins/input';
 import { isJsonObject, parseJson, type JsonObject } from '@audiogubbins/project-format';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import {
@@ -48,11 +53,20 @@ import {
 export const PREFERENCES_KEY = 'audiogubbins.preferences';
 
 /**
- * The version of the record before it kept export presets. A record of it is
- * read into this version with its appearance unchanged and no presets, so
- * raising the version to keep presets never costs the person their appearance.
+ * The first version of the record to keep the pressure choice (ADR-0082). A
+ * record from before it is read with its appearance and the default choice.
  */
-const BEFORE_EXPORT_PRESETS = 1;
+const PRESSURE_SINCE = 2;
+
+/**
+ * The first version of the record to keep export presets (ADR-0092). A record
+ * from before it is read with every choice it holds and no presets, so raising
+ * the version to keep presets never costs the person a choice they made.
+ */
+const EXPORT_PRESETS_SINCE = 3;
+
+/** The first version of the record, the oldest one read. */
+const FIRST_VERSION = 1;
 
 /**
  * The bounds stored preferences are read within: room for every preset kept
@@ -61,15 +75,25 @@ const BEFORE_EXPORT_PRESETS = 1;
  */
 const PREFERENCES_LIMITS = { maximumLength: 4 * 1024 * 1024, maximumDepth: 16 } as const;
 
-/** The person's preferences: how the interface looks, and their own export presets. */
+/**
+ * Everything the person's preferences hold (schema `userPreferences`): the
+ * theme's choices, the pressure choice, which the input model owns, and their
+ * own export presets.
+ */
 export interface UserPreferences extends ThemePreferences {
+  readonly pressure: PressurePreference;
+
   /** In the order they were saved. */
   readonly exportPresets: readonly OwnExportPreset[];
 }
 
+/** What a change replaces: any choice but the presets, which have methods of their own. */
+type PreferenceChanges = Partial<Omit<UserPreferences, 'exportPresets'>>;
+
 /** The preferences before a person changes anything. */
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
   ...DEFAULT_THEME_PREFERENCES,
+  pressure: DEFAULT_PRESSURE_PREFERENCE,
   exportPresets: [],
 };
 
@@ -119,9 +143,9 @@ function readPresets(candidate: JsonObject, logger: Logger): readonly OwnExportP
 }
 
 /**
- * Reads stored preferences: a record of this version as it is, one from before
- * export presets with its appearance and no presets, and anything else as the
- * defaults, said in the log.
+ * Reads stored preferences: a record of this version as it is, one of an
+ * earlier version with every choice it holds and the defaults of those it
+ * predates, and anything else as the defaults, said in the log.
  */
 function readPreferences(stored: string | null, logger: Logger): UserPreferences {
   if (stored === null) return DEFAULT_USER_PREFERENCES;
@@ -138,23 +162,29 @@ function readPreferences(stored: string | null, logger: Logger): UserPreferences
     return DEFAULT_USER_PREFERENCES;
   }
 
-  const version = candidate['schemaVersion'];
-  if (version === BEFORE_EXPORT_PRESETS) {
-    logger.info('Stored preferences were brought up to this version, keeping their appearance.', {
-      found: BEFORE_EXPORT_PRESETS,
-      expected: SCHEMA_VERSIONS.userPreferences,
-    });
-    return { ...readTheme(candidate), exportPresets: [] };
-  }
-  if (version !== SCHEMA_VERSIONS.userPreferences) {
+  const version = versionFound(candidate['schemaVersion']);
+  if (version < FIRST_VERSION || version > SCHEMA_VERSIONS.userPreferences) {
     logger.info('Stored preferences were written for another version and were not used.', {
-      found: versionFound(version),
+      found: version,
       expected: SCHEMA_VERSIONS.userPreferences,
     });
     return DEFAULT_USER_PREFERENCES;
   }
+  if (version < SCHEMA_VERSIONS.userPreferences) {
+    logger.info('Stored preferences were brought up to this version, keeping their choices.', {
+      found: version,
+      expected: SCHEMA_VERSIONS.userPreferences,
+    });
+  }
 
-  return { ...readTheme(candidate), exportPresets: readPresets(candidate, logger) };
+  return {
+    ...readTheme(candidate),
+    pressure:
+      version < PRESSURE_SINCE
+        ? DEFAULT_PRESSURE_PREFERENCE
+        : pressurePreferenceOf(candidate['pressure']),
+    exportPresets: version < EXPORT_PRESETS_SINCE ? [] : readPresets(candidate, logger),
+  };
 }
 
 /** The text preferences are stored as. */
@@ -167,8 +197,8 @@ function writePreferences(preferences: UserPreferences): string {
 
 /** Holds the user's preferences and writes them back. */
 export interface PreferencesStore extends Observable<UserPreferences> {
-  /** Replaces some of the appearance and stores the result. */
-  readonly change: (changes: Partial<ThemePreferences>) => void;
+  /** Replaces some of the preferences and stores the result. */
+  readonly change: (changes: PreferenceChanges) => void;
 
   /**
    * Removes the user's motion choice, so the system setting applies again.
@@ -183,7 +213,7 @@ export interface PreferencesStore extends Observable<UserPreferences> {
   /** Removes the user's contrast choice, so the system setting applies again. */
   readonly followSystemContrast: () => void;
 
-  /** Returns the appearance to its default, keeping the person's export presets. */
+  /** Returns every choice to its default, keeping the person's export presets. */
   readonly reset: () => void;
 
   /**
@@ -225,7 +255,7 @@ export function createPreferencesStore(storage: StateStorage, logger: Logger): P
     },
 
     reset: () => {
-      put({ ...DEFAULT_THEME_PREFERENCES, exportPresets: state.get().exportPresets });
+      put({ ...DEFAULT_USER_PREFERENCES, exportPresets: state.get().exportPresets });
     },
 
     keepExportPreset: (name, settings) => {

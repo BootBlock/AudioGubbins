@@ -40,7 +40,9 @@ export function HearingSwitch({
         Hear the original
       </Button>
       <p className="ag-panel-note">
-        {original ? 'The original is heard, every chain bypassed.' : 'It is heard processed.'}
+        {original
+          ? 'The original is heard, every chain and spectral edit bypassed.'
+          : 'It is heard processed.'}
       </p>
       {reason !== undefined && (
         <p id={reasonId} className="ag-panel-note">

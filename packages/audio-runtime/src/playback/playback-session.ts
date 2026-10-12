@@ -36,6 +36,7 @@ import {
   type ParameterChange,
   type PerformanceProfile,
   type PerformanceSettings,
+  type DspDelivery,
 } from '@audiogubbins/audio-engine';
 
 import {
@@ -45,7 +46,7 @@ import {
 } from '../context/context-lifecycle.js';
 import { deviceChannelsFor } from '../context/device-channels.js';
 import type { DeviceReport } from '../context/device-report.js';
-import type { CompiledDspModule, DspDelivery } from '../dsp/dsp-delivery.js';
+import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import { ToProcessorKind } from '../protocol/processor-messages.js';
 import type { Schedule } from '../schedule.js';
 import { GraphLoader, summaries } from './graph-loader.js';

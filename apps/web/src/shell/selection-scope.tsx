@@ -28,6 +28,7 @@ import {
 } from '@audiogubbins/timeline';
 
 import { channelNames } from '../assets/channel-names.js';
+import { frequencyWords } from '../wording.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
 
 /** A command that processes: it takes any facet, and the whole asset with nothing selected (REQ-EDIT-012). */
@@ -39,8 +40,6 @@ const PROCESSING: TargetRequest = {
   ]),
   whenNothing: 'whole-asset',
 };
-
-const HERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
 /** The scope, in words, and whether it is outside the view. */
 export function scopeOf(
@@ -59,7 +58,7 @@ export function scopeOf(
     position: (position) => formatPosition(position, asset.sampleRate, state.timeFormat),
     channel: (index) => names[index] ?? String(index + 1),
     channelCount: count,
-    frequency: (hertz) => `${HERTZ.format(hertz)} Hz`,
+    frequency: frequencyWords,
     counted,
   });
   return {

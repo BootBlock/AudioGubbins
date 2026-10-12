@@ -15,15 +15,15 @@ export const PRODUCT_VERSION = '0.1.0' as const;
  * independently of the product version and of every other entry.
  */
 export const SCHEMA_VERSIONS = {
-  userPreferences: 2,
+  userPreferences: 3,
   workspaceLayout: 1,
   shortcutProfile: 1,
   logVerbosity: 1,
   keyboardLayout: 1,
   audioSettings: 3,
-  editorViews: 1,
+  editorViews: 2,
   diagnosticBundle: 1,
-  projectDocument: 8,
+  projectDocument: 9,
   projectStorage: 11,
   processingLibrary: 1,
   portableBundle: 2,

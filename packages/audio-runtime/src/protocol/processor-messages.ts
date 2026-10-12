@@ -39,16 +39,9 @@ import {
   type MessageFields,
 } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
-import { DspImplementation } from '@audiogubbins/audio-engine';
+import { DspImplementation, type DspDelivery, dspDeliveryAt } from '@audiogubbins/audio-engine';
 
-import type { DspDelivery } from '../dsp/dsp-delivery.js';
-import {
-  dspDeliveryAt,
-  graphAt,
-  nodeAt,
-  optionalPortAt,
-  sharedMemoryAt,
-} from './message-reading.js';
+import { graphAt, nodeAt, optionalPortAt, sharedMemoryAt } from './message-reading.js';
 
 /** How a graph input's audio reaches the processor. */
 export const FeedTransport = {

@@ -28,7 +28,7 @@ pub use error::AnalysisError;
 pub use k_weighting::{Biquad, k_weighting};
 pub use loudness::LoudnessMeter;
 pub use peak::{PeakMeter, PeakReading};
-pub use stft::Stft;
+pub use stft::{Stft, StftWindow};
 
 /// The most channels an analysis object takes: the largest channel count the
 /// domain accepts (`MAXIMUM_CHANNEL_COUNT`).

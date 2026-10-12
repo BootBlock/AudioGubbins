@@ -1,22 +1,66 @@
 //! The short-time Fourier transform of a planar stream.
 //!
 //! Frame `k` of each channel is the `N` samples from sample `k · hop`, the
-//! first frame at the stream's first sample, each multiplied by the periodic
-//! Hann window `w[n] = 0.5 − 0.5 · cos(2πn/N)`, the cosine
-//! [`cosine_of_turns`] of `n/N`, an exact argument, and transformed by the
-//! canonical [`Fft`], unscaled: a full-scale sine centred on bin `k` has a
-//! magnitude of `N/4` there, the window's mean of one half times `N/2`. A
+//! first frame at the stream's first sample, each multiplied by the
+//! [`StftWindow`] it was made with and transformed by the canonical [`Fft`],
+//! unscaled: through the Hann window a full-scale sine centred on bin `k` has
+//! a magnitude of `N/4` there, the window's mean of one half times `N/2`. A
 //! frame is ready once its last sample has been pushed, and is transformed
 //! when it is pulled, so the object holds samples, never spectra. To reach
 //! the last samples of a stream, push `N − hop` zeros after them.
 //!
 //! The spectral processors read it, and so do the hum and transient
-//! detectors here (ADR-0061).
+//! detectors here (ADR-0061), through the Hann window; the spectrogram reads
+//! it through either (ADR-0080).
 
 use audiogubbins_dsp_core::{Fft, arctangent_turns, cosine_of_turns};
 
 use crate::error::AnalysisError;
 use crate::framing::Framing;
+
+/// The window a frame is weighted by: `w[n]` for `n` from 0 to `N − 1`, each
+/// cosine [`cosine_of_turns`] of `(k · n mod N) / N` turns, an exact argument
+/// reduced to `[0, 1)`, and each sum taken left to right, so the reference
+/// path computes the same bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StftWindow {
+    /// The periodic Hann window, `0.5 − 0.5 · cos(2πn/N)`.
+    Hann,
+    /// The periodic four-term Blackman–Harris window,
+    /// `a0 − a1 · cos(2πn/N) + a2 · cos(4πn/N) − a3 · cos(6πn/N)` with
+    /// `a0 = 0.35875`, `a1 = 0.48829`, `a2 = 0.14128` and `a3 = 0.01168`,
+    /// whose side lobes lie 92 dB down.
+    BlackmanHarris,
+}
+
+/// The four terms of [`StftWindow::BlackmanHarris`], `a0` first.
+const BLACKMAN_HARRIS: [f64; 4] = [0.358_75, 0.488_29, 0.141_28, 0.011_68];
+
+impl StftWindow {
+    /// The window an ABI code names, or `None`: 0 Hann, 1 Blackman–Harris.
+    #[must_use]
+    pub const fn from_code(code: u32) -> Option<Self> {
+        match code {
+            0 => Some(Self::Hann),
+            1 => Some(Self::BlackmanHarris),
+            _ => None,
+        }
+    }
+
+    /// `w[n]` of a window of `size` samples, `n` below `size`.
+    fn weight(self, n: usize, size: usize) -> f64 {
+        let cosine = |harmonic: usize| {
+            cosine_of_turns(crate::exact((harmonic * n) % size) / crate::exact(size))
+        };
+        match self {
+            Self::Hann => 0.5 - 0.5 * cosine(1),
+            Self::BlackmanHarris => {
+                let [a0, a1, a2, a3] = BLACKMAN_HARRIS;
+                a0 - a1 * cosine(1) + a2 * cosine(2) - a3 * cosine(3)
+            }
+        }
+    }
+}
 
 /// A short-time Fourier transform of `N` samples a hop apart, per channel.
 #[derive(Debug, Clone)]
@@ -31,14 +75,20 @@ pub struct Stft {
 
 impl Stft {
     /// A transform of `channels` channels in frames of `size` samples, a
-    /// power of two from 2 to 65 536, `hop` samples apart, from 1 to `size`.
+    /// power of two from 2 to 65 536, `hop` samples apart, from 1 to `size`,
+    /// each weighted by `window`.
     ///
     /// # Errors
     ///
     /// [`AnalysisError::ChannelsRefused`] for no channels or more than
     /// [`crate::MOST_CHANNELS`]; [`AnalysisError::SettingRefused`] for a size
     /// or a hop out of range.
-    pub fn new(channels: usize, size: usize, hop: usize) -> Result<Self, AnalysisError> {
+    pub fn new(
+        channels: usize,
+        size: usize,
+        hop: usize,
+        window: StftWindow,
+    ) -> Result<Self, AnalysisError> {
         if channels == 0 || channels > crate::MOST_CHANNELS {
             return Err(AnalysisError::ChannelsRefused);
         }
@@ -46,10 +96,7 @@ impl Stft {
         if hop == 0 || hop > size {
             return Err(AnalysisError::SettingRefused);
         }
-        let length = crate::exact(size);
-        let window = (0..size)
-            .map(|n| 0.5 - 0.5 * cosine_of_turns(crate::exact(n) / length))
-            .collect();
+        let window = (0..size).map(|n| window.weight(n, size)).collect();
         Ok(Self {
             framing: Framing::new(channels, size, hop),
             fft,
@@ -177,7 +224,7 @@ mod tests {
 
     use audiogubbins_dsp_core::sine_of_turns;
 
-    use super::Stft;
+    use super::{BLACKMAN_HARRIS, Stft, StftWindow};
     use crate::error::AnalysisError;
     use crate::fingerprint;
     use crate::signals::golden;
@@ -185,16 +232,16 @@ mod tests {
     #[test]
     fn refuses_settings_out_of_range() {
         assert_eq!(
-            Stft::new(0, 64, 16).unwrap_err(),
+            Stft::new(0, 64, 16, StftWindow::Hann).unwrap_err(),
             AnalysisError::ChannelsRefused
         );
         assert_eq!(
-            Stft::new(257, 64, 16).unwrap_err(),
+            Stft::new(257, 64, 16, StftWindow::Hann).unwrap_err(),
             AnalysisError::ChannelsRefused
         );
         for (size, hop) in [(48, 16), (1, 1), (131_072, 16), (64, 0), (64, 65)] {
             assert_eq!(
-                Stft::new(1, size, hop).unwrap_err(),
+                Stft::new(1, size, hop, StftWindow::Hann).unwrap_err(),
                 AnalysisError::SettingRefused,
                 "{size}, {hop}"
             );
@@ -213,7 +260,7 @@ mod tests {
                 value
             })
             .collect();
-        let mut stft = Stft::new(1, 64, 64).expect("valid");
+        let mut stft = Stft::new(1, 64, 64, StftWindow::Hann).expect("valid");
         stft.push(&samples, 64).expect("one channel");
         let mut magnitudes = vec![0.0; stft.bins()];
         let mut phases = vec![0.0; stft.bins()];
@@ -240,7 +287,7 @@ mod tests {
 
     #[test]
     fn refuses_outputs_of_the_wrong_length_and_writes_nothing() {
-        let mut stft = Stft::new(2, 8, 4).expect("valid");
+        let mut stft = Stft::new(2, 8, 4, StftWindow::Hann).expect("valid");
         stft.push(&[0.5; 16], 8).expect("two channels");
         let mut real = [7.0; 9];
         let mut imaginary = [7.0; 10];
@@ -252,12 +299,87 @@ mod tests {
         assert!(stft.ready());
     }
 
-    /// The golden run: two channels of [`golden`], 1 000 frames, pushed in
-    /// chunks of 97, framed by 256 samples 96 apart; every frame's polar and
-    /// complex form alternately, folded into one fingerprint each.
-    pub(crate) fn golden_run() -> [u64; 2] {
+    #[test]
+    fn reads_window_codes() {
+        assert_eq!(StftWindow::from_code(0), Some(StftWindow::Hann));
+        assert_eq!(StftWindow::from_code(1), Some(StftWindow::BlackmanHarris));
+        assert_eq!(StftWindow::from_code(2), None);
+    }
+
+    #[test]
+    fn weights_by_the_four_term_blackman_harris_window() {
+        let stft = Stft::new(1, 256, 64, StftWindow::BlackmanHarris).expect("valid");
+        let window = &stft.window;
+        let [a0, a1, a2, a3] = BLACKMAN_HARRIS;
+        // At n = 0 every cosine is 1, and at N/2 they alternate from −1.
+        assert_eq!(window[0], a0 - a1 + a2 - a3);
+        assert_eq!(window[128], a0 + a1 + a2 + a3);
+        // Periodic: symmetric about N/2, to the bit, with no repeated end.
+        for n in 1..256 {
+            assert_eq!(window[n], window[256 - n], "{n}");
+        }
+        assert!((window[64] - (a0 - a2)).abs() < 1.0e-15);
+        assert_eq!(
+            fingerprint::of(window),
+            GOLDEN_BLACKMAN_HARRIS,
+            "window bits changed: {:#x}",
+            fingerprint::of(window)
+        );
+    }
+
+    /// The window of 256 samples [`StftWindow::BlackmanHarris`] gives.
+    const GOLDEN_BLACKMAN_HARRIS: u64 = 0xa506_c82f_f715_8ba1;
+
+    #[test]
+    fn keeps_a_sine_within_four_bins_through_blackman_harris() {
+        // A full-scale sine on bin 8 of 64: the window's mean of a0 times N/2
+        // at the bin, its neighbours a1 · N/4, a2 · N/4 and a3 · N/4 out to
+        // bin 8 ± 3, and nothing further.
+        let samples: Vec<f32> = (0..64)
+            .map(|n| {
+                #[allow(clippy::cast_possible_truncation, reason = "a sample")]
+                let value = sine_of_turns(f64::from(n) * 8.0 / 64.0) as f32;
+                value
+            })
+            .collect();
+        let mut stft = Stft::new(1, 64, 64, StftWindow::BlackmanHarris).expect("valid");
+        stft.push(&samples, 64).expect("one channel");
+        let mut magnitudes = vec![0.0; stft.bins()];
+        let mut phases = vec![0.0; stft.bins()];
+        assert!(
+            stft.pull_polar(&mut magnitudes, &mut phases)
+                .expect("lengths agree")
+        );
+        let [a0, a1, a2, a3] = BLACKMAN_HARRIS;
+        for (distance, expected) in [
+            (0, a0 * 32.0),
+            (1, a1 * 16.0),
+            (2, a2 * 16.0),
+            (3, a3 * 16.0),
+        ] {
+            assert!(
+                (magnitudes[8 + distance] - expected).abs() < 1.0e-5,
+                "+{distance}"
+            );
+            assert!(
+                (magnitudes[8 - distance] - expected).abs() < 1.0e-5,
+                "-{distance}"
+            );
+        }
+        for (bin, magnitude) in magnitudes.iter().enumerate() {
+            if !(5..=11).contains(&bin) {
+                assert!(*magnitude < 1.0e-5, "bin {bin}: {magnitude}");
+            }
+        }
+    }
+
+    /// The golden run through `window`: two channels of [`golden`], 1 000
+    /// frames, pushed in chunks of 97, framed by 256 samples 96 apart; every
+    /// frame's polar and complex form alternately, folded into one
+    /// fingerprint each.
+    pub(crate) fn golden_run(window: StftWindow) -> [u64; 2] {
         let planar = golden(2, 1_000);
-        let mut stft = Stft::new(2, 256, 96).expect("valid");
+        let mut stft = Stft::new(2, 256, 96, window).expect("valid");
         let bins = stft.bins();
         let (mut first, mut second) = (vec![0.0; 2 * bins], vec![0.0; 2 * bins]);
         let (mut polar, mut complex) = (Vec::new(), Vec::new());
@@ -292,10 +414,19 @@ mod tests {
 
     #[test]
     fn gives_the_golden_bits_the_reference_path_is_held_to() {
-        let hashes = golden_run();
+        let hashes = golden_run(StftWindow::Hann);
         assert_eq!(hashes, GOLDEN_STFT, "stft bits changed: {hashes:#x?}");
+        let hashes = golden_run(StftWindow::BlackmanHarris);
+        assert_eq!(
+            hashes, GOLDEN_STFT_BLACKMAN_HARRIS,
+            "stft bits changed: {hashes:#x?}"
+        );
     }
 
-    /// The polar frames and the complex frames of [`golden_run`].
+    /// The polar frames and the complex frames of [`golden_run`] through the
+    /// Hann window.
     const GOLDEN_STFT: [u64; 2] = [0x7ce2_8db8_1390_9753, 0xe3df_76af_e3a0_5176];
+
+    /// As [`GOLDEN_STFT`], through the Blackman–Harris window.
+    const GOLDEN_STFT_BLACKMAN_HARRIS: [u64; 2] = [0x9077_07fc_c42f_2c34, 0x992b_a50a_c971_3cc6];
 }

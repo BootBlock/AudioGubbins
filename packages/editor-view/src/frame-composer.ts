@@ -7,10 +7,10 @@
  * keeps only reusable arrays between frames (G4), never anything the frame is
  * about.
  *
- * A spectrogram lane is the presentation shell REQ-EDIT-062 asks of this phase:
- * its place in each arrangement, its frequency axis, and the spectral selection
- * drawn on it. The spectrogram itself is drawn by spectral analysis (Phase 08),
- * which the lane says.
+ * A spectrogram lane draws the host's tiles of its channel under its frequency
+ * axis, the waveform over them where the lane is an overlay, and the spectral
+ * selection over both (REQ-EDIT-062, ADR-0082). Which tiles the frame shows is
+ * worked out once, for every lane.
  */
 
 import type {
@@ -27,14 +27,24 @@ import type {
   RenderLayer,
   TextLabel,
 } from '@audiogubbins/renderer';
+import type { SpectrogramView } from '@audiogubbins/spectral-analysis';
 import type { RulerTicks, SelectionSet, SnapTarget } from '@audiogubbins/timeline';
 
 import { BuilderPool } from './batch-buffers.js';
 import type { EditorPalette, EditorType } from './editor-palette.js';
 import { LaneKind, type Lane, type ViewLayout } from './lane-layout.js';
-import { drawLaneOverlay, frequencyY } from './overlay-drawing.js';
+import { MaskPainter, type SpectralEditOutline } from './mask-drawing.js';
+import { frequencyY } from './frequency-axis.js';
+import { drawLaneOverlay, type LaneOverlay } from './overlay-drawing.js';
 import { drawRuler, drawStrip, type OverlayStyle } from './ruler-drawing.js';
-import type { ToolPreview } from './pointer-tools.js';
+import {
+  SpectrogramPainter,
+  shownSpectrogram,
+  type KnownSpectrogram,
+  type SpectrogramStyle,
+} from './spectrogram-drawing.js';
+import type { DrawingMarks } from './keyboard-drawing.js';
+import type { ToolPreview } from './tool-values.js';
 import type { EditorViewState } from './view-state.js';
 import { WaveformPainter, type KnownAudio } from './waveform-drawing.js';
 
@@ -45,6 +55,8 @@ export interface ViewContent {
   readonly channelNames: readonly string[];
   readonly markers: readonly PlacedMarker[];
   readonly regions: readonly PlacedRegion[];
+  /** Where each of the asset's spectral edits applies, placed on the view's timeline. */
+  readonly spectralEdits: readonly SpectralEditOutline[];
 }
 
 /** Everything one frame of a view is composed from. */
@@ -54,9 +66,12 @@ export interface ViewScene {
   readonly pixelRatio: number;
   readonly content: ViewContent;
   readonly audio: KnownAudio;
+  readonly spectrogram: KnownSpectrogram;
   readonly selection: SelectionSet;
   readonly playhead: SampleCount | undefined;
   readonly preview: ToolPreview | undefined;
+  /** A spectral shape being drawn from the keyboard, if one is. */
+  readonly drawing: DrawingMarks | undefined;
   readonly snap: SnapTarget | undefined;
   readonly ruler: RulerTicks;
   /** The ruler's ticks and the grid's, where the grid is on. */
@@ -67,14 +82,41 @@ export interface ViewScene {
   readonly type: EditorType;
 }
 
-/** The note a spectrogram lane shows until spectral analysis draws it. */
-export const SPECTROGRAM_SHELL_NOTE =
-  'The spectrogram is drawn by spectral analysis, which arrives with spectral editing.';
+/** What every lane's overlays read of a scene, as its overlays say. */
+function laneOverlayOf(scene: ViewScene): LaneOverlay {
+  const { state, content } = scene;
+  return {
+    selection: scene.selection,
+    markers: state.overlays.markers ? content.markers : [],
+    regions: state.overlays.regions ? content.regions : [],
+    playhead: scene.playhead,
+    preview: scene.preview,
+    drawing: scene.drawing,
+    grid: scene.grid,
+    spectral: state.spectral,
+    spectralEdits: state.overlays.spectralEdits ? content.spectralEdits : [],
+  };
+}
+
+/** How a scene's spectrogram lanes are drawn. */
+function spectrogramStyleOf(scene: ViewScene): SpectrogramStyle {
+  const { state } = scene;
+  return {
+    viewport: state.viewport,
+    pixelRatio: scene.pixelRatio,
+    axis: state.spectral,
+    display: state.spectrogram,
+    palette: scene.palette,
+    type: scene.type,
+  };
+}
 
 /** Composes a view's frames, keeping its arrays between them. */
 export class FrameComposer {
   readonly #pool = new BuilderPool();
   readonly #waveform = new WaveformPainter();
+  readonly #masks = new MaskPainter();
+  readonly #spectrogram = new SpectrogramPainter();
 
   /**
    * Whether the last frame composed drew a column whose peaks were not yet
@@ -85,9 +127,20 @@ export class FrameComposer {
     return this.#waveform.waiting;
   }
 
+  /**
+   * Whether the last frame composed drew a spectrogram tile pending or stale,
+   * so the tiles made since may change it; a frame with none cannot be
+   * changed by them, since a tile of the current revision never changes.
+   */
+  get spectrogramWaiting(): boolean {
+    return this.#spectrogram.waiting;
+  }
+
   compose(scene: ViewScene): RenderFrame {
     this.#pool.reset();
     this.#waveform.begin();
+    this.#masks.begin();
+    this.#spectrogram.begin();
     const { layout, palette } = scene;
     const style: OverlayStyle = {
       viewport: scene.state.viewport,
@@ -95,9 +148,15 @@ export class FrameComposer {
       palette,
       type: scene.type,
     };
+    const overlay = laneOverlayOf(scene);
+    const known = scene.spectrogram;
+    const shown =
+      known.kind === 'tiles'
+        ? shownSpectrogram(scene.state, known.geometry, scene.content.length, scene.pixelRatio)
+        : undefined;
     const layers: RenderLayer[] = layout.lanes.map((lane) => ({
       clip: lane.area,
-      batches: this.#lane(lane, scene, style),
+      batches: this.#lane(lane, scene, shown, overlay, style),
     }));
     const separators = this.#pool.rectangles(palette.laneSeparator);
     for (const lane of layout.lanes)
@@ -150,10 +209,26 @@ export class FrameComposer {
     return layers;
   }
 
-  #lane(lane: Lane, scene: ViewScene, style: OverlayStyle): RenderBatch[] {
+  #lane(
+    lane: Lane,
+    scene: ViewScene,
+    shown: SpectrogramView | undefined,
+    overlay: LaneOverlay,
+    style: OverlayStyle,
+  ): RenderBatch[] {
     const { state } = scene;
     const out: RenderBatch[] = [];
-    if (lane.kind !== LaneKind.Waveform) this.#spectrogramShell(lane, scene, out);
+    if (lane.kind !== LaneKind.Waveform) {
+      this.#spectrogram.draw(
+        this.#pool,
+        lane,
+        scene.spectrogram,
+        shown,
+        spectrogramStyleOf(scene),
+        out,
+      );
+      this.#frequencyAxis(lane, scene, out);
+    }
     if (lane.kind !== LaneKind.Spectrogram) {
       this.#waveform.draw(
         this.#pool,
@@ -170,21 +245,7 @@ export class FrameComposer {
         out,
       );
     }
-    drawLaneOverlay(
-      this.#pool,
-      lane,
-      {
-        selection: scene.selection,
-        markers: state.overlays.markers ? scene.content.markers : [],
-        regions: state.overlays.regions ? scene.content.regions : [],
-        playhead: scene.playhead,
-        preview: scene.preview,
-        grid: scene.grid,
-        spectral: state.spectral,
-      },
-      style,
-      out,
-    );
+    drawLaneOverlay(this.#pool, this.#masks, lane, overlay, style, out);
     const name = scene.content.channelNames[lane.channel] ?? `Channel ${String(lane.channel + 1)}`;
     const label: TextLabel = {
       text: lane.kind === LaneKind.Spectrogram ? `${name} · spectrogram` : name,
@@ -199,11 +260,9 @@ export class FrameComposer {
     return out;
   }
 
-  #spectrogramShell(lane: Lane, scene: ViewScene, out: RenderBatch[]): void {
+  /** The frequencies marked at a spectrogram lane's right edge. */
+  #frequencyAxis(lane: Lane, scene: ViewScene, out: RenderBatch[]): void {
     const { area } = lane;
-    const background = this.#pool.rectangles(scene.palette.spectrogramBackground);
-    background.add(area.x, area.y, area.width, area.height);
-    out.push(background.batch());
     const settings = scene.state.spectral;
     const labels: TextLabel[] = [];
     const ticks = this.#pool.rectangles(scene.palette.grid);
@@ -219,17 +278,6 @@ export class FrameComposer {
         colour: scene.palette.quietText,
         font: scene.type.small,
         align: 'right',
-        baseline: 'middle',
-      });
-    }
-    if (lane.kind === LaneKind.Spectrogram) {
-      labels.push({
-        text: SPECTROGRAM_SHELL_NOTE,
-        x: area.x + area.width / 2,
-        y: area.y + area.height / 2,
-        colour: scene.palette.quietText,
-        font: scene.type.small,
-        align: 'centre',
         baseline: 'middle',
       });
     }

@@ -54,6 +54,9 @@ export interface QualitySettings {
   readonly spectralOverlap: 2 | 4 | 8;
 }
 
+/** The fewest frames a spectral processor may cover each sample with, so its widest hop. */
+export const FEWEST_SPECTRAL_OVERLAP: QualitySettings['spectralOverlap'] = 2;
+
 /** The name of one quality setting, as a processor's descriptor names those it reads. */
 export type QualitySettingKey = keyof QualitySettings;
 

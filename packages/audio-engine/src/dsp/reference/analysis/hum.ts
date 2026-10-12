@@ -6,6 +6,7 @@
  * floor width less the five about the peak (ADR-0032).
  */
 
+import { StftWindow } from '../../canonical-analysis.js';
 import { gainToDecibels } from '../decibels.js';
 import type { FeatureExtractor } from './feature-extractor.js';
 import { rankAt, selectRank } from './selection.js';
@@ -68,7 +69,7 @@ export class ReferenceHum implements FeatureExtractor {
     widths: { readonly search: number; readonly floor: number },
   ) {
     this.recordWidth = channels * 3 * HUM_FREQUENCIES.length;
-    this.#stft = new ReferenceStft(channels, stft.size, stft.hop);
+    this.#stft = new ReferenceStft(channels, stft.size, stft.hop, StftWindow.Hann);
     this.#rate = sampleRate;
     const last = stft.size / 2;
     const bin = (hertz: number, round: (value: number) => number, low: number, high: number) =>

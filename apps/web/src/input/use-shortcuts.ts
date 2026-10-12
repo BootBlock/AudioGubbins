@@ -64,7 +64,7 @@ const TYPES_AHEAD = selectorOf(
 ).concat(', ', selectorOf(['tree', 'treegrid', 'grid', 'combobox'], []));
 
 /** The keys a control moves with. */
-const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
+const MOVING_KEYS: ReadonlySet<string> = new Set([
   'ArrowLeft',
   'ArrowRight',
   'ArrowUp',
@@ -83,8 +83,21 @@ const MODAL_DIALOGUE = ['dialog', 'alertdialog']
   .map((role) => `[role="${role}"][aria-modal="true"]`)
   .join(', ');
 
+/**
+ * The keys a control moves with, and those it acts with: a button or a link is
+ * pressed with Enter or Space, and a menu, a popover or a list closes with
+ * Escape. Each is a shortcut only where nothing else takes it.
+ */
+const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
+  ...MOVING_KEYS,
+  'Enter',
+  'NumpadEnter',
+  'Space',
+  'Escape',
+]);
+
 /** The keys a text field moves its caret, and deletes, with, alone or with any modifier. */
-const CARET_KEYS: ReadonlySet<string> = new Set([...NAVIGATION_KEYS, 'Backspace', 'Delete']);
+const CARET_KEYS: ReadonlySet<string> = new Set([...MOVING_KEYS, 'Backspace', 'Delete']);
 
 /** The letters a text field selects all, undoes, redoes, cuts, copies and pastes with. */
 const FIELD_LETTERS: ReadonlySet<string> = new Set(['a', 'c', 'v', 'x', 'y', 'z']);
@@ -132,11 +145,12 @@ function fieldEditsWith(reading: KeyEventReading): boolean {
  *
  * Elsewhere, a press made with no modifier but Shift. A navigation key pressed
  * alone moves, scrolls or changes whatever has the keyboard, a list, a toolbar,
- * a slider, a scrolled panel or a dialogue, so it is a shortcut only in the
- * editor's surface and where nothing has the keyboard; any other key pressed
- * alone is a list's or a menu's, which finds an entry by its letter. A shortcut
- * on a key pressed alone gives way there, so the editor's keys never take what
- * a control or a page does with them.
+ * a slider, a scrolled panel or a dialogue, and Enter, Space and Escape press a
+ * button or close what is open, so each is a shortcut only in the editor's
+ * surface and where nothing has the keyboard; any other key pressed alone is a
+ * list's or a menu's, which finds an entry by its letter. A shortcut on a key
+ * pressed alone gives way there, so the editor's keys never take what a control
+ * or a page does with them.
  */
 export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading): boolean {
   if (isTextField(target)) return fieldEditsWith(reading);
@@ -255,6 +269,12 @@ export interface ShortcutBindingOptions {
    */
   readonly runsInADialogue: (id: CommandId) => boolean;
 
+  /**
+   * Whether a command's shortcut takes its key now; a press it does not take
+   * reaches the page, as though no shortcut were bound to it.
+   */
+  readonly takesItsKey: (id: CommandId) => boolean;
+
   /** How this platform's keyboard uses AltGr, and whether Option types in a field. */
   readonly platform: KeyboardPlatform;
 
@@ -361,6 +381,10 @@ function listen(options: ShortcutBindingOptions): () => void {
       if (waiting) cancelChord();
       return;
     }
+    // A key the page uses too is left to it while its command could do
+    // nothing, unanswered, so a stray Escape still backs out of what it backs
+    // out of and no refusal is said of it.
+    if (outcome.kind === 'run' && !options.takesItsKey(outcome.commandId)) return;
     answer(outcome, event, { ...options, modal });
   };
 
@@ -389,7 +413,7 @@ function listen(options: ShortcutBindingOptions): () => void {
 /** Listens for shortcuts while the component is mounted. */
 export function useShortcuts(options: ShortcutBindingOptions): void {
   const { tracker, run, onPendingChange, onAnnounce, onChordCancelled } = options;
-  const { runsInADialogue, platform, reader, logger } = options;
+  const { runsInADialogue, takesItsKey, platform, reader, logger } = options;
 
   useEffect(
     () =>
@@ -400,6 +424,7 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
         onAnnounce,
         onChordCancelled,
         runsInADialogue,
+        takesItsKey,
         platform,
         reader,
         logger,
@@ -411,6 +436,7 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
       onAnnounce,
       onChordCancelled,
       runsInADialogue,
+      takesItsKey,
       platform,
       reader,
       logger,

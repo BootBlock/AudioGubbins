@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HintProvider } from '@audiogubbins/design-system';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { ToolId, newViewState } from '@audiogubbins/editor-view';
+import { SpectralCombination } from '@audiogubbins/timeline';
 
 import { testAssets } from '../assets/test-assets.js';
 import { TOOLS } from '../commands/editor-presentation-commands.js';
@@ -62,5 +63,56 @@ describe('the tool buttons', () => {
       within(tools).getByRole('button', { name: TOOLS[tool].name }).click();
       expect(run).toHaveBeenLastCalledWith(`editor.tool-${tool}`, { view: 'editor' });
     }
+  });
+});
+
+describe('the combination mode', () => {
+  it('is offered beside a spectral tool, each mode pressed while in use and chosen in this view', () => {
+    const run = vi.fn();
+    const state = {
+      ...newViewState(TONES.length, 1000),
+      tool: ToolId.SpectralBrush,
+    };
+    render(
+      <HintProvider>
+        <EditorToolbar
+          panel="editor"
+          asset={TONES}
+          state={{
+            ...state,
+            spectralTools: { ...state.spectralTools, combination: SpectralCombination.Add },
+          }}
+          commands={{ run, shortcutFor: () => undefined }}
+        />
+      </HintProvider>,
+    );
+    const modes = screen.getByRole('toolbar', { name: 'Combination mode' });
+
+    expect(within(modes).getByRole('button', { name: 'Add' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(modes).getByRole('button', { name: 'Replace' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    within(modes).getByRole('button', { name: 'Take away' }).click();
+    expect(run).toHaveBeenLastCalledWith('editor.spectral-combination-subtract', {
+      view: 'editor',
+    });
+  });
+
+  it('is not offered while a tool that draws no spectral shape is in use', () => {
+    render(
+      <HintProvider>
+        <EditorToolbar
+          panel="editor"
+          asset={TONES}
+          state={newViewState(TONES.length, 1000)}
+          commands={{ run: vi.fn(), shortcutFor: () => undefined }}
+        />
+      </HintProvider>,
+    );
+    expect(screen.queryByRole('toolbar', { name: 'Combination mode' })).toBeNull();
   });
 });

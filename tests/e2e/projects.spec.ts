@@ -38,7 +38,7 @@ async function makeProject(page: Page, name: string): Promise<void> {
   await dialogue.getByRole('textbox', { name: 'Name' }).fill(name);
   await dialogue.getByRole('button', { name: 'Make the project' }).click();
   await expect(dialogue).toBeHidden();
-  await expect(banner(page).getByText(`"${name}"`, { exact: true })).toBeVisible();
+  await expect(banner(page).getByText(`“${name}”`, { exact: true })).toBeVisible();
 }
 
 /** Chooses an entry of a menu of the menu bar. */
@@ -55,10 +55,10 @@ async function renameProject(page: Page, name: string): Promise<void> {
   await field.fill(name);
   await dialogue.getByRole('button', { name: 'Rename', exact: true }).click();
   // Said in the dialogue, which hides the page behind it until it closes.
-  await expect(dialogue.getByText(`The project is now called "${name}".`)).toBeVisible();
+  await expect(dialogue.getByText(`The project is now called “${name}”.`)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialogue).toBeHidden();
-  await expect(banner(page).getByText(`"${name}"`, { exact: true })).toBeVisible();
+  await expect(banner(page).getByText(`“${name}”`, { exact: true })).toBeVisible();
 }
 
 /** Whether every change of the open project is saved, as the status bar says. */
@@ -79,7 +79,7 @@ test.describe('projects kept in the browser', () => {
 
     // Opened again at the start, as the person left it, with its history: the
     // rename is there to undo.
-    await expect(banner(page).getByText('"Forest walk at dawn"', { exact: true })).toBeVisible();
+    await expect(banner(page).getByText('“Forest walk at dawn”', { exact: true })).toBeVisible();
     await menuBarMenu(page, 'Edit').click();
     await expect(page.getByRole('menuitem', { name: /^Undo Rename/ })).toBeEnabled();
     await page.keyboard.press('Escape');
@@ -99,17 +99,17 @@ test.describe('projects kept in the browser', () => {
     await second.goto('/');
     await expect(
       banner(second).getByText(
-        /"Harbour" is open to read here, because the tab opened at \d\d:\d\d:\d\d is changing it\./,
+        /“Harbour” is open to read here, because the tab opened at \d\d:\d\d:\d\d is changing it\./,
       ),
     ).toBeVisible();
 
     // Asked, the first tab hands it over, and reads it from then on.
     await banner(second).getByRole('button', { name: 'Ask to change it' }).click();
-    await expect(banner(page).getByText(/asks to change "Harbour"/)).toBeVisible();
+    await expect(banner(page).getByText(/asks to change “Harbour”/)).toBeVisible();
     await banner(page).getByRole('button', { name: 'Hand it over' }).click();
     await expect(banner(second).getByText(/is open to read here/)).toBeHidden();
     await expect(
-      banner(page).getByText(/"Harbour" is open to read here, because the tab opened at/),
+      banner(page).getByText(/“Harbour” is open to read here, because the tab opened at/),
     ).toBeVisible();
 
     // The first tab asks for it back, and the second does not answer. The
@@ -121,7 +121,7 @@ test.describe('projects kept in the browser', () => {
       AbortSignal.timeout = () => timeout(1_000);
     });
     await banner(page).getByRole('button', { name: 'Ask to change it' }).click();
-    await expect(banner(second).getByText(/asks to change "Harbour"/)).toBeVisible();
+    await expect(banner(second).getByText(/asks to change “Harbour”/)).toBeVisible();
     await expect(banner(page).getByText(/did not answer/)).toBeVisible();
 
     // It takes it over, after reading what that costs, and the second is told
@@ -132,7 +132,7 @@ test.describe('projects kept in the browser', () => {
     await expect(banner(page).getByText(/is open to read here/)).toBeHidden();
     await expect(
       banner(second).getByText(
-        /^The tab opened at \d\d:\d\d:\d\d took "Harbour" over, so this tab can no longer change it\./,
+        /^The tab opened at \d\d:\d\d:\d\d took “Harbour” over, so this tab can no longer change it\./,
       ),
     ).toBeVisible();
 
@@ -186,7 +186,7 @@ test.describe('projects kept in the browser', () => {
     await download.saveAs(bundle);
     // Said aloud and shown, so the words are on the page twice.
     await expect(
-      page.getByText('"Night market, mixed" is exported as a bundle.').first(),
+      page.getByText('“Night market, mixed” is exported as a bundle.').first(),
     ).toBeVisible();
 
     // Brought in while this browser keeps the project, it comes in as a copy
@@ -195,7 +195,7 @@ test.describe('projects kept in the browser', () => {
     await chooseFromMenu(page, 'File', 'Import a bundle…');
     await (await choosing).setFiles(bundle);
     await expect(
-      page.getByText(/"Night market, mixed" is brought in as a copy/).first(),
+      page.getByText(/“Night market, mixed” is brought in as a copy/).first(),
     ).toBeVisible();
 
     await chooseFromMenu(page, 'File', 'Open project…');

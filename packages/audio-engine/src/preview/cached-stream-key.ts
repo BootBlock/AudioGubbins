@@ -105,15 +105,36 @@ class StreamValues {
   }
 }
 
-/** A stream's processing as its sound is decided: a chain without its identifiers. */
+/**
+ * A stream's processing as its sound is decided: a chain without its
+ * identifiers, and a spectral edit's chain likewise.
+ */
 function processingValue(processing: StreamProcessing | undefined): unknown {
-  return processing?.kind === 'chain'
-    ? {
-        kind: processing.kind,
-        input: processing.input,
-        slots: processing.chain.slots.map(slotValue),
-      }
-    : processing;
+  if (processing?.kind === 'chain') {
+    return {
+      kind: processing.kind,
+      input: processing.input,
+      slots: processing.chain.slots.map(slotValue),
+    };
+  }
+  if (processing?.kind === 'spectral') {
+    const { operation } = processing.edit;
+    return {
+      kind: processing.kind,
+      edit: {
+        ...processing.edit,
+        operation:
+          operation.kind === 'process'
+            ? {
+                kind: operation.kind,
+                input: operation.input,
+                slots: operation.chain.slots.map(slotValue),
+              }
+            : operation,
+      },
+    };
+  }
+  return processing;
 }
 
 /** A slot without its identifier, and its branches' slots likewise. */

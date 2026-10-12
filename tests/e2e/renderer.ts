@@ -66,10 +66,10 @@ export async function webglLoss(page: Page, what: 'loseContext' | 'restoreContex
 }
 
 /** A colour as the page shows it, red, green and blue from 0 to 255. */
-type Rgb = readonly [number, number, number];
+export type Rgb = readonly [number, number, number];
 
 /** What the page shows over a surface, canvases and all, as rows of RGBA. */
-interface Shown {
+export interface Shown {
   readonly width: number;
   readonly height: number;
   /** Where the picture's first pixel is on the page, and pixels to a CSS pixel. */
@@ -80,7 +80,7 @@ interface Shown {
 }
 
 /** The pixel at page coordinates `x`, `y` of `shown`. */
-function pixelOf(shown: Shown, x: number, y: number): Rgb {
+export function pixelOf(shown: Shown, x: number, y: number): Rgb {
   const column = Math.floor((x - shown.left) * shown.scale);
   const row = Math.floor((y - shown.top) * shown.scale);
   const at = (row * shown.width + column) * 4;
@@ -88,7 +88,7 @@ function pixelOf(shown: Shown, x: number, y: number): Rgb {
 }
 
 /** Whether two colours are the same to within what compositing rounds. */
-function alike(one: Rgb, other: Rgb): boolean {
+export function alike(one: Rgb, other: Rgb): boolean {
   return one.every((channel, index) => Math.abs(channel - (other[index] ?? 0)) <= 3);
 }
 
@@ -110,13 +110,12 @@ async function themeColour(page: Page, property: string): Promise<Rgb> {
 }
 
 /**
- * What the page shows over `panel`'s surface: a screenshot, which is what a
- * person sees, decoded by the page. Read back from the canvas instead, a GPU
+ * What the page shows over `surface`: a screenshot, which is what a person
+ * sees, decoded by the page. Read back from the canvas instead, a GPU
  * backend's picture is gone once the page has shown it, since neither GPU
  * backend keeps its drawing buffer, and keeping it would cost every frame.
  */
-async function shownOver(page: Page, panel: Locator): Promise<Shown> {
-  const surface = surfaceOf(panel);
+export async function shownOver(page: Page, surface: Locator): Promise<Shown> {
   const box = await surface.boundingBox();
   if (box === null) throw new Error('The surface is not on screen.');
   const png = await surface.screenshot({ animations: 'disabled', caret: 'hide' });
@@ -192,7 +191,7 @@ export async function expectDrawnAsShown(page: Page, panel: Locator): Promise<vo
   const peak = await themeColour(page, '--ag-waveform-peak');
   const clear = await themeColour(page, '--ag-waveform-background');
   await expect(async () => {
-    const shown = await shownOver(page, panel);
+    const shown = await shownOver(page, surfaceOf(panel));
     const { start } = await shownOf(panel);
     const perPixel = await samplesInPixelOf(panel);
     const origin = await pointAt(panel, start, 0.5 + READ_AT / 2);
@@ -228,7 +227,7 @@ export async function expectDrawnAsShown(page: Page, panel: Locator): Promise<vo
 export async function expectLabelled(page: Page, panel: Locator): Promise<void> {
   const label = await themeColour(page, '--ag-waveform-label-secondary');
   await expect(async () => {
-    const shown = await shownOver(page, panel);
+    const shown = await shownOver(page, surfaceOf(panel));
     const { start } = await shownOf(panel);
     const corner = await pointAt(panel, start, 0);
     let written = 0;
@@ -242,6 +241,28 @@ export async function expectLabelled(page: Page, panel: Locator): Promise<void> 
 }
 
 /**
+ * Destroys the WebGPU device the geometry canvas draws with, as a device lost
+ * to the browser is: the canvas's context names it in its configuration.
+ */
+export async function destroyWebGpuDevice(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    // Read without the WebGPU type definitions, which the suites are not
+    // compiled with.
+    const canvas = document.querySelector<HTMLCanvasElement>('.ag-editor-canvas-geometry');
+    const context: unknown = canvas?.getContext('webgpu');
+    const member = (host: unknown, name: string): unknown =>
+      typeof host === 'object' && host !== null ? Reflect.get(host, name) : undefined;
+    const configuration = member(context, 'getConfiguration');
+    if (typeof configuration !== 'function')
+      throw new Error('The view draws with no WebGPU context.');
+    const device = member(Reflect.apply(configuration, context, []), 'device');
+    const destroy = member(device, 'destroy');
+    if (typeof destroy !== 'function') throw new Error('The WebGPU context names no device.');
+    Reflect.apply(destroy, device, []);
+  });
+}
+
+/**
  * Crashes the browser's GPU process, which takes every canvas's context away at
  * once, the overlay's with the geometry's, and gives them back in an order the
  * browser chooses.
@@ -250,4 +271,63 @@ export async function crashGpuProcess(browser: Browser): Promise<void> {
   const session = await browser.newBrowserCDPSession();
   await session.send('Browser.crashGpuProcess');
   await session.detach();
+}
+
+/** The height `frequency` is drawn at in a lane `top` to `top + height`, on the default axis of octaves. */
+function heightOf(frequency: number, top: number, height: number): number {
+  return top + height * (1 - Math.log(frequency / 20) / Math.log(20_000 / 20));
+}
+
+/** How bright a colour is: the sum of its channels. */
+function brightness(colour: Rgb): number {
+  return colour[0] + colour[1] + colour[2];
+}
+
+/**
+ * Shows `panel` as a spectrogram and checks, from what the page shows, that its
+ * first lane draws the spectrogram the worker made (ADR-0080, ADR-0082): at the
+ * height of the loud tone's 440 Hz, bright wherever the tone sounds and the
+ * ramp's quietest colour wherever the channel is silent, at the column the
+ * panel's readings put each; and dark at 3 kHz under the tone, which holds no
+ * energy there. Columns under the lane's name, at its top left, are not judged.
+ * A lane that says why it is not drawn, a pending lane or rows read off another
+ * axis have the wrong colours there.
+ */
+export async function expectSpectrogramDrawn(page: Page, panel: Locator): Promise<void> {
+  await runCommand(page, 'Show as spectrogram');
+  const quiet = await themeColour(page, '--ag-spectrogram-0');
+  await expect(async () => {
+    const shown = await shownOver(page, surfaceOf(panel));
+    const { start } = await shownOf(panel);
+    const perPixel = await samplesInPixelOf(panel);
+    const origin = await pointAt(panel, start, 0);
+    const lane = (await pointAt(panel, start, 1)).y - origin.y;
+    const tone = heightOf(440, origin.y, lane);
+    const high = heightOf(3_000, origin.y, lane);
+    const wrong: string[] = [];
+    let loud = 0;
+    let silent = 0;
+    const right = shown.left + shown.width / shown.scale - 60;
+    // Six columns clear of each tone's edges, which a window reaches past.
+    const margin = 6 * perPixel;
+    for (let x = Math.ceil(origin.x) + 120; x < right; x += 1) {
+      const from = start + (x - origin.x) * perPixel;
+      const to = from + perPixel;
+      if (within(BURSTS.loud, from, to, margin)) {
+        loud += 1;
+        const bright = pixelOf(shown, x, tone);
+        const above = pixelOf(shown, x, high);
+        if (brightness(bright) < brightness(above) + 150) {
+          wrong.push(`${String(x)}: ${bright.join(',')} at 440 Hz, ${above.join(',')} at 3 kHz`);
+        }
+      } else if (within(BURSTS.silent, from, to, margin)) {
+        silent += 1;
+        const seen = pixelOf(shown, x, tone);
+        if (!alike(seen, quiet)) wrong.push(`${String(x)}: ${seen.join(',')} where silent`);
+      }
+    }
+    expect(loud, 'columns of the loud tone judged').toBeGreaterThan(10);
+    expect(silent, 'silent columns judged').toBeGreaterThan(10);
+    expect(wrong, 'columns not drawn as the spectrogram of the tone bursts').toEqual([]);
+  }).toPass({ timeout: 30_000 });
 }

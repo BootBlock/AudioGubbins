@@ -154,6 +154,9 @@ export function randomTakeInvocation(
   }
   switch (choice) {
     case 2: {
+      // Where no chain ends with a punch to remove, one is made, so a later
+      // turn can remove it: the walk reaches the removal by its own steps
+      // rather than by the seeds' luck in leaving a punch last.
       const punched = assets.filter((asset) => {
         const last = asset.edits.at(-1);
         return last !== undefined && punchStackOf(last) !== undefined;
@@ -162,7 +165,8 @@ export function randomTakeInvocation(
       const last = asset?.edits.at(-1);
       return asset !== undefined && last !== undefined
         ? removePunchInvocation(asset, last)
-        : removeTakeStackInvocation(stack);
+        : (freshPunch(random, ids, random.pick(assets), recorded) ??
+            removeTakeStackInvocation(stack));
     }
     case 3:
       return removeTakeStackInvocation(stack);

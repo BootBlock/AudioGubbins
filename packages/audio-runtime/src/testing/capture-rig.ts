@@ -21,6 +21,7 @@ import {
   PRESET_SETTINGS,
   PerformanceProfile,
   type ChainProcessing,
+  DspDeliveryKind,
 } from '@audiogubbins/audio-engine';
 import {
   instantiateProcessor,
@@ -41,7 +42,6 @@ import { processorValues } from '@audiogubbins/processors/testing';
 import { AudioContextState, type WorkletNodeShape } from '../context/audio-context-port.js';
 import { ContextLifecycle } from '../context/context-lifecycle.js';
 import { CaptureSession } from '../capture-session/capture-session.js';
-import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
 import { FakeAudioContext, type FakeAudioContextSettings } from './fake-audio-context.js';
 import { FakeCaptureNode } from './fake-capture-node.js';

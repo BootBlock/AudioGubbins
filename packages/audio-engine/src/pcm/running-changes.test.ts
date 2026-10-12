@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MaskEffect,
+  NO_FEATHER,
   StandardLayouts,
   derivedSampleCount,
   sampleRate,
@@ -90,5 +92,37 @@ describe('the changes playback takes running (REQ-AUDIO-019)', () => {
       { stream: 2, processor: PROCESSOR, parameter: LEVEL, value: -3 },
     ]);
     expect(runningChanges(withPaste(-6, -6), withPaste(-6, -6))).toEqual([]);
+  });
+
+  it('takes none from a spectral edit’s chain, which runs inside its frames and is read again', () => {
+    const cleaned = (decibels: number): EditPlan => ({
+      streams: [
+        {
+          sampleRate: RATE,
+          layout: LAYOUT,
+          segments: [{ ...WHOLE, source: { kind: 'media', asset: ASSET } }],
+          processing: {
+            kind: 'spectral',
+            edit: {
+              mask: {
+                shapes: [
+                  {
+                    kind: 'rectangle',
+                    effect: MaskEffect.Add,
+                    range: { start: derivedSampleCount(100), end: derivedSampleCount(900) },
+                    band: { low: 100, high: 400 },
+                  },
+                ],
+                feather: NO_FEATHER,
+              },
+              resolution: 256,
+              operation: { kind: 'process', chain: gainChain(decibels), input: LAYOUT },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(runningChanges(cleaned(-6), cleaned(-3))).toBeUndefined();
   });
 });

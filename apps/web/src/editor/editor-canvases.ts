@@ -49,6 +49,11 @@ export class EditorCanvases implements RenderSurface {
     return canvas;
   }
 
+  /** A canvas never put in the page, which the Canvas 2D backend composes a field's image on. */
+  offscreen(): HTMLCanvasElement {
+    return this.#host.ownerDocument.createElement('canvas');
+  }
+
   overlay(): Painter | undefined {
     this.#painter ??= this.#overlay.getContext('2d');
     return this.#painter ?? undefined;

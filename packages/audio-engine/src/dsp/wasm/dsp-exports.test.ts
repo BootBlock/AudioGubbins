@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, sampleRate, type DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
-import { DetectorKind } from '../canonical-analysis.js';
+import { DetectorKind, StftWindow } from '../canonical-analysis.js';
 import { ResamplingQuality } from '../canonical-dsp.js';
 import { readDspExports } from './dsp-exports.js';
 import { wasmDsp } from './wasm-dsp.js';
@@ -20,7 +20,7 @@ import { wasmDsp } from './wasm-dsp.js';
  * The ABI version the engine speaks, written here rather than read from the
  * binding, so a change of version is a change this test is made to agree to.
  */
-const DSP_ABI_VERSION = 6;
+const DSP_ABI_VERSION = 7;
 
 /** Every function the engine calls, each answering 0 unless a test says otherwise. */
 const FUNCTIONS = [
@@ -190,7 +190,7 @@ describe('wasmDsp over a module that refuses to make an object', () => {
   it('reports the refusal of each measuring object', () => {
     const rate = expectSuccess(sampleRate(48_000));
     const made: readonly DomainResult<{ release(): void }>[] = [
-      dsp.createStft({ channels: 2, size: 1_024, hop: 256 }),
+      dsp.createStft({ channels: 2, size: 1_024, hop: 256, window: StftWindow.Hann }),
       dsp.createPeakMeter({ channels: 2, sampleRate: rate }),
       dsp.createLoudnessMeter({ sampleRate: rate, layout: StandardLayouts.stereo }),
       dsp.createDetectorFeatures({

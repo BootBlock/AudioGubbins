@@ -14,7 +14,7 @@
 use crate::detectors::within;
 use crate::error::AnalysisError;
 use crate::selection::{rank_at, select};
-use crate::stft::Stft;
+use crate::stft::{Stft, StftWindow};
 
 /// Each channel's spectral flux and its threshold.
 #[derive(Debug, Clone)]
@@ -45,7 +45,7 @@ impl TransientFeatures {
         history: usize,
         (multiplier, offset): (f64, f64),
     ) -> Result<Self, AnalysisError> {
-        let stft = Stft::new(channels, size, hop)?;
+        let stft = Stft::new(channels, size, hop, StftWindow::Hann)?;
         within(history, 1, crate::MOST_HISTORY_FRAMES)?;
         let finite = |value: f64| value.is_finite() && value >= 0.0;
         if !(finite(multiplier) && finite(offset)) {
