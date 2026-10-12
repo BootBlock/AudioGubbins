@@ -213,6 +213,11 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
 
     expect(context.exportFocus.subject.get()).toEqual({ kind: 'batch' });
     expect(activePanelOf(context.workspace.get().layout)?.kind).toBe(PanelKinds.Inspector);
+    // Run again, it would change nothing.
+    expect(audio.window.run(ExportCommand.Inspect)).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'The Inspector describes that export already.' }],
+    });
   });
 
   it('describes an export the open project’s history records, and refuses one it does not', async () => {
@@ -238,5 +243,14 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
     ).not.toBe('refused');
     expect(context.exportFocus.subject.get()).toEqual({ kind: 'record', record: record?.id });
     expect(activePanelOf(context.workspace.get().layout)?.kind).toBe(PanelKinds.Inspector);
+    expect(
+      audio.window.run(ExportCommand.InspectRecord, { record: record?.id ?? '' }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'The Inspector describes that export already.' }],
+    });
+    // The page's export is another subject, so it is described in its place.
+    expect(audio.window.run(ExportCommand.Inspect).kind).not.toBe('refused');
+    expect(context.exportFocus.subject.get()).toEqual({ kind: 'batch' });
   });
 });

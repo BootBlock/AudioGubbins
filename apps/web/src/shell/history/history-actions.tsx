@@ -195,6 +195,20 @@ function exportName(record: ExportRecord): string {
   return name === undefined ? `made ${when(record.at)}` : quoted(name);
 }
 
+/** Describing in the Inspector each export made from the point. */
+function Exports({ row, run, unavailableReason }: HistoryActionsProps): ReactNode {
+  return row.exports.map((record) => (
+    <div key={record.id} className="ag-settings-row">
+      <ReasonedButton
+        reason={unavailableReason(ExportCommand.InspectRecord)}
+        onPress={() => run(ExportCommand.InspectRecord, { record: record.id })}
+      >
+        {`Describe the export ${exportName(record)} in the Inspector`}
+      </ReasonedButton>
+    </div>
+  ));
+}
+
 /** The actions (see the module comment). */
 export function HistoryActions(props: HistoryActionsProps): ReactNode {
   const { row, run, unavailableReason } = props;
@@ -223,16 +237,7 @@ export function HistoryActions(props: HistoryActionsProps): ReactNode {
           unavailable={unavailableReason('history.name-branch')}
         />
       )}
-      {row.exports.map((record) => (
-        <div key={record.id} className="ag-settings-row">
-          <ReasonedButton
-            reason={unavailableReason(ExportCommand.InspectRecord)}
-            onPress={() => run(ExportCommand.InspectRecord, { record: record.id })}
-          >
-            {`Describe the export ${exportName(record)} in the Inspector`}
-          </ReasonedButton>
-        </div>
-      ))}
+      <Exports {...props} />
       {row.snapshots.map((snapshot) => (
         <div key={snapshot.id} className="ag-settings-row">
           <ComparingWith

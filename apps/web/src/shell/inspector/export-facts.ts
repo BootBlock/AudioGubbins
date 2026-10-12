@@ -63,7 +63,7 @@ function settingsFacts(settings: ExportSettings, wording: ExportWording): readon
 }
 
 /** Where the page's export is, in a sentence. */
-export function batchStateWords(state: ShownExport): string {
+function batchStateWords(state: ShownExport): string {
   switch (state.kind) {
     case 'running': {
       if (state.asking !== undefined) {
