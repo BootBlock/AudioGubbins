@@ -70,6 +70,8 @@ export { type ExportClock } from './file-name-template.js';
 export { type ExportFileName, safeFileName } from './file-name-safety.js';
 
 export { type EncodingFacts, encodingProblems } from './encoding-rules.js';
+export { offeredBitRates } from './offered-bit-rates.js';
+export { bitRatesWords } from './bit-rate-words.js';
 
 export { Quantiser, type QuantiserSettings } from './quantiser.js';
 export { type MetadataRates, exportMetadata } from './export-metadata.js';

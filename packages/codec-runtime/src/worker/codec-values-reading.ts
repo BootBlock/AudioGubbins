@@ -8,6 +8,7 @@
 
 import {
   CODEC_REGISTRY,
+  type BitRateBand,
   type CodecEnvironment,
   type CodecId,
   type CodecImplementation,
@@ -19,9 +20,11 @@ import type { DecoderIdentity } from '@audiogubbins/codecs';
 import {
   Malformed,
   boundedItemsOf,
+  countOf,
   fieldsOf,
   flagOf,
   isTagged,
+  numberOf,
   oneOfValues,
   textOf,
 } from '@audiogubbins/domain';
@@ -113,6 +116,69 @@ function moduleLoadsOf(value: unknown, field: string): ReadonlyMap<CodecId, Modu
   );
 }
 
+/** The most bands, and constant bit rates in each, a codec's probed bit rates may hold. */
+const MAXIMUM_BANDS = 1_024;
+const MAXIMUM_CONSTANT_RATES = 4_096;
+
+const AVERAGE_PER: Readonly<Record<string, 'stream' | 'channel'>> = {
+  stream: 'stream',
+  channel: 'channel',
+};
+
+/** A field that is a range of numbers, both ends finite. */
+function rangeOf(value: unknown, field: string): { minimum: number; maximum: number } {
+  const fields = fieldsOf(value, field);
+  return {
+    minimum: numberOf(fields['minimum'], `${field}.minimum`),
+    maximum: numberOf(fields['maximum'], `${field}.maximum`),
+  };
+}
+
+/** The band of bit rates an encoder takes for a band of streams. */
+function bitRateBandOf(value: unknown, field: string): BitRateBand {
+  const fields = fieldsOf(value, field);
+  const channels = fields['channels'];
+  const constant = fields['constant'];
+  const average = fields['average'];
+  return {
+    ...(channels === undefined ? {} : { channels: countOf(channels, `${field}.channels`) }),
+    sampleRates: rangeOf(fields['sampleRates'], `${field}.sampleRates`),
+    ...(constant === undefined
+      ? {}
+      : {
+          constant: boundedItemsOf(constant, `${field}.constant`, MAXIMUM_CONSTANT_RATES, numberOf),
+        }),
+    ...(average === undefined
+      ? {}
+      : {
+          average: {
+            ...rangeOf(average, `${field}.average`),
+            per: oneOfValues(
+              fieldsOf(average, `${field}.average`)['per'],
+              `${field}.average.per`,
+              AVERAGE_PER,
+            ),
+          },
+        }),
+  };
+}
+
+/** The bit rates the browser's encoder was probed to take, by codec. */
+function bitRatesOf(value: unknown, field: string): ReadonlyMap<CodecId, readonly BitRateBand[]> {
+  const entries = membersOf(value, field, 'Map');
+  return new Map(
+    boundedItemsOf(entries, field, CODEC_REGISTRY.size, (entry, name) => {
+      if (!Array.isArray(entry)) throw new Malformed(name, 'a codec and its bands');
+      const codec: unknown = entry[0];
+      const bands: unknown = entry[1];
+      return [
+        codecOf(codec, `${name}[0]`),
+        boundedItemsOf(bands, `${name}[1]`, MAXIMUM_BANDS, bitRateBandOf),
+      ] as const;
+    }),
+  );
+}
+
 /** What the worker reports it can do with the codecs. */
 export function codecEnvironmentOf(value: unknown, field: string): CodecEnvironment {
   const fields = fieldsOf(value, field);
@@ -122,6 +188,7 @@ export function codecEnvironmentOf(value: unknown, field: string): CodecEnvironm
     encoderModules: moduleLoadsOf(fields['encoderModules'], `${field}.encoderModules`),
     browserDecoders: codecSetOf(fields['browserDecoders'], `${field}.browserDecoders`),
     browserEncoders: codecSetOf(fields['browserEncoders'], `${field}.browserEncoders`),
+    browserBitRates: bitRatesOf(fields['browserBitRates'], `${field}.browserBitRates`),
   };
 }
 

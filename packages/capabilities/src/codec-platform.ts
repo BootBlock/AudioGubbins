@@ -8,35 +8,29 @@
  * reads the scope it is given, a worker's or a page's, for both, and hands
  * the classes on as typed values, so the codec runtime calls them without
  * ever asking the browser what it has; and it probes each codec with
- * `isConfigSupported` on representative configurations, answering the part
- * of a `CodecEnvironment` the browser decides.
+ * `isConfigSupported` on representative configurations, and the bit rates
+ * the AAC encoder takes stream by stream (`aac-bit-rate-probe.ts`), answering
+ * the part of a `CodecEnvironment` the browser decides. The codec worker
+ * probes once, as it starts, and the page keeps what it found for the
+ * session.
  *
  * The classes are named here by the members the codec runtime uses, so a test
  * hands fakes of the same shape and a scope that lacks a member offers
  * nothing rather than something half usable.
  */
 
-import type { CodecEnvironment, CodecId } from '@audiogubbins/codecs';
+import type { BitRateBand, CodecEnvironment, CodecId } from '@audiogubbins/codecs';
+import { throwIfCancelled, type CancellationSignal } from '@audiogubbins/domain';
 
+import { probeAacBitRates } from './aac-bit-rate-probe.js';
 import { method } from './browser-reads.js';
+import {
+  supports,
+  type AskSupport,
+  type ConfigSupport,
+  type WebCodecsAudioConfig,
+} from './config-support.js';
 import { browserFamilyOf, type BrowserFamily } from './platform.js';
-
-/** An audio codec's configuration, as WebCodecs takes one to decode or encode. */
-export interface WebCodecsAudioConfig {
-  /** The codec string of the WebCodecs codec registry, such as `mp4a.40.5`. */
-  readonly codec: string;
-  readonly sampleRate: number;
-  readonly numberOfChannels: number;
-  /** The codec's own configuration, such as an AAC `AudioSpecificConfig`. */
-  readonly description?: Uint8Array;
-  /** The encoder's target, in bits a second. */
-  readonly bitrate?: number;
-}
-
-/** What `isConfigSupported` answers. */
-export interface ConfigSupport {
-  readonly supported?: boolean;
-}
 
 /** The options of `AudioData.copyTo` the runtime uses: one plane of 32-bit floats. */
 export interface PlaneCopy {
@@ -169,7 +163,7 @@ export interface CodecPlatform {
 /** The part of a `CodecEnvironment` the browser decides, as the probes found it. */
 export type CodecProbes = Pick<
   CodecEnvironment,
-  'webAssembly' | 'browserDecoders' | 'browserEncoders'
+  'webAssembly' | 'browserDecoders' | 'browserEncoders' | 'browserBitRates'
 >;
 
 /**
@@ -311,50 +305,32 @@ const DECODER_PROBES: readonly CodecProbe[] = [
 ];
 
 /**
- * What the browser's encoder is asked: AAC-LC, which only the browser
- * encodes (ADR-0091), and the rest for information.
+ * What the browser's encoder is asked for information. AAC-LC, which only the
+ * browser encodes (ADR-0091), is asked for every stream and bit rate apart
+ * (`probeAacBitRates`), and counts where it takes any.
  */
 const ENCODER_PROBES: readonly CodecProbe[] = [
-  { codec: 'aac-lc', configs: [{ codec: 'mp4a.40.2', ...STEREO_48K, bitrate: 128_000 }] },
   { codec: 'opus', configs: [{ codec: 'opus', ...STEREO_48K, bitrate: 128_000 }] },
   { codec: 'flac', configs: [{ codec: 'flac', ...STEREO_44K }] },
   { codec: 'mp3', configs: [{ codec: 'mp3', ...STEREO_44K, bitrate: 192_000 }] },
   { codec: 'vorbis', configs: [{ codec: 'vorbis', ...STEREO_44K, bitrate: 192_000 }] },
 ];
 
-/** Whether the browser supports one configuration. */
-async function supports(
-  isConfigSupported: (config: WebCodecsAudioConfig) => unknown,
-  config: WebCodecsAudioConfig,
-): Promise<boolean> {
-  try {
-    const answer: unknown = await isConfigSupported(config);
-    return (
-      typeof answer === 'object' && answer !== null && Reflect.get(answer, 'supported') === true
-    );
-  } catch (error) {
-    // A configuration the browser holds invalid rejects with a `TypeError`,
-    // and one it refuses to consider with a `DOMException`: either way, not
-    // supported. Anything else is a fault.
-    if (error instanceof TypeError || error instanceof DOMException) return false;
-    throw error;
-  }
-}
-
 /**
  * The codecs every configuration of whose probe the browser supports, asked
  * one configuration at a time, so the probes hold one request open at most.
  */
 async function supported(
-  host: AudioDecoderClass | AudioEncoderClass | undefined,
+  ask: AskSupport | undefined,
   probes: readonly CodecProbe[],
-): Promise<ReadonlySet<CodecId>> {
-  const ask = method(host, 'isConfigSupported');
+  signal: CancellationSignal | undefined,
+): Promise<Set<CodecId>> {
   const found = new Set<CodecId>();
   if (ask === undefined) return found;
   for (const probe of probes) {
     let all = true;
     for (const config of probe.configs) {
+      throwIfCancelled(signal);
       if (!(await supports(ask, config))) {
         all = false;
         break;
@@ -365,11 +341,24 @@ async function supported(
   return found;
 }
 
-/** What the browser decides of the codecs here: WebAssembly, and what its codecs decode and encode. */
-export async function probeCodecs(platform: CodecPlatform): Promise<CodecProbes> {
-  return {
-    webAssembly: platform.webAssembly,
-    browserDecoders: await supported(platform.decoding?.AudioDecoder, DECODER_PROBES),
-    browserEncoders: await supported(platform.encoding?.AudioEncoder, ENCODER_PROBES),
-  };
+/**
+ * What the browser decides of the codecs here: WebAssembly, what its codecs
+ * decode and encode, and the bit rates its AAC encoder takes. Throws the
+ * cancellation's reason once `signal` is cancelled, asking nothing more.
+ */
+export async function probeCodecs(
+  platform: CodecPlatform,
+  signal?: CancellationSignal,
+): Promise<CodecProbes> {
+  const decoding = method(platform.decoding?.AudioDecoder, 'isConfigSupported');
+  const encoding = method(platform.encoding?.AudioEncoder, 'isConfigSupported');
+  const browserDecoders = await supported(decoding, DECODER_PROBES, signal);
+  const browserEncoders = await supported(encoding, ENCODER_PROBES, signal);
+  const aac = encoding === undefined ? [] : await probeAacBitRates(encoding, signal);
+  const browserBitRates = new Map<CodecId, readonly BitRateBand[]>();
+  if (aac.length > 0) {
+    browserEncoders.add('aac-lc');
+    browserBitRates.set('aac-lc', aac);
+  }
+  return { webAssembly: platform.webAssembly, browserDecoders, browserEncoders, browserBitRates };
 }

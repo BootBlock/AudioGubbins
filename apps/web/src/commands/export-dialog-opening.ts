@@ -14,7 +14,7 @@ import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
 import { assetEntryId } from '../assets/project-entry.js';
-import { exportContextOf } from '../export/export-context.js';
+import { exportContextOf, servedCodecs } from '../export/export-context.js';
 import type { ExportControl } from '../export/export-types.js';
 import { exportClockAt } from '../export/page-export.js';
 import type { ProjectStores } from '../state/project-stores.js';
@@ -127,12 +127,13 @@ export function openOver(context: ShellContext, target: DialogTarget): BodyAnswe
   const editorAsset = context.assets.find(assetEntryId(target.asset));
   if (editorAsset === undefined) return 'The asset to export is not open in this session yet.';
   const { state } = session.getSnapshot().model;
-  const planned = exportContextOf(editorAsset, state);
+  const planned = exportContextOf(editorAsset, state, servedCodecs(context.codecs.environment));
   if (!planned.ok) return reasonsOf(planned.failures);
   stores.exportDialog.open({
     project: session.project,
     asset: target.asset,
     context: planned.value,
+    codecChanges: context.codecs.environment,
     clock: exportClockAt(context.clock.now()),
     range: target.range,
     selection: target.selection,

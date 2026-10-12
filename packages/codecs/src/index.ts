@@ -105,10 +105,16 @@ export { quantiseSample } from './sample-quantisation.js';
 export { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';
 
 export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec-capability.js';
+export { codecDescriptorIn } from './codec-in-environment.js';
+export { AAC_LOWEST_BIT_RATE, aacHighestBitRate } from './aac-bit-rates.js';
 
 export { type ImportRoute, importRoute } from './import-route.js';
 
-export { type WrittenChannelOrder, writtenChannelOrder } from './layout-statement.js';
+export {
+  type WrittenChannelOrder,
+  statedChannelCounts,
+  writtenChannelOrder,
+} from './layout-statement.js';
 
 export { adtsAudioConfig } from './adts-config.js';
 

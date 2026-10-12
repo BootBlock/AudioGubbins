@@ -885,7 +885,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35417: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35575: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1180,7 +1180,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@35417: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@35575: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1499,7 +1499,7 @@ Published paths
   readonly CodecPlatform.decoding: BrowserAudioDecoding | undefined
   readonly CodecPlatform.encoding: BrowserAudioEncoding | undefined
   readonly CodecPlatform.browser: BrowserFamily | undefined
-  type CodecProbes = { readonly webAssembly: boolean; readonly browserDecoders: ReadonlySet<CodecId>; readonly browserEncoders: ReadonlySet<CodecId>; }
+  type CodecProbes = { readonly browserBitRates: ReadonlyMap<CodecId, readonly BitRateBand[]>; readonly webAssembly: boolean; readonly browserDecoders: ReadonlySet<CodecId>; readonly browserEncoders: ReadonlySet<CodecId>; }
   type CodecState = "closed" | "configured" | "unconfigured"
   interface ConfigSupport
   readonly ConfigSupport.supported?: boolean
@@ -1667,7 +1667,7 @@ Published paths
   function missingStorageCapabilities(platform: StoragePlatform): readonly StorageCapabilityAbsence[]
   function operatingSystemOf(signals: PlatformSignals): OperatingSystem
   function present(key: CapabilityKey): CapabilityPresent
-  function probeCodecs(platform: CodecPlatform): Promise<CodecProbes>
+  function probeCodecs(platform: CodecPlatform, signal?: CancellationSignal | undefined): Promise<CodecProbes>
   function readCodecPlatform(scope: object): CodecPlatform
   function readGraphicsPlatform(): GraphicsPlatform
   function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
@@ -1750,6 +1750,7 @@ Published paths
   readonly ExportEncoderServices.codecModule: () => Promise<DomainResult<CodecModule>>
   readonly ExportEncoderServices.encoderModule: (encoder: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>
   readonly ExportEncoderServices.encoding: BrowserAudioEncoding | undefined
+  readonly ExportEncoderServices.browserBitRates: ReadonlyMap<import("packages/codecs/src/codec-descriptor").CodecId, readonly import("packages/codecs/src/codec-descriptor").BitRateBand[]>
   readonly ExportEncoderServices.browser: BrowserFamily | undefined
   readonly ExportEncoderServices.signal: CancellationSignal
   interface FileHandleLike
@@ -1847,6 +1848,7 @@ Published paths
   function pageWorker(options?: Omit<HarnessOptions, "codecModule">): PageWorker
 
 @audiogubbins/codecs
+  const AAC_LOWEST_BIT_RATE: 8
   type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; readonly byteOrder: "big" | "little"; }
   interface AiffWriterSettings
   readonly AiffWriterSettings.container: "aifc" | "aiff"
@@ -1917,6 +1919,7 @@ Published paths
   readonly CodecEnvironment.encoderModules: ReadonlyMap<CodecId, ModuleLoad>
   readonly CodecEnvironment.browserDecoders: ReadonlySet<CodecId>
   readonly CodecEnvironment.browserEncoders: ReadonlySet<CodecId>
+  readonly CodecEnvironment.browserBitRates: ReadonlyMap<CodecId, readonly BitRateBand[]>
   type CodecId = "aac-lc" | "alac" | "flac" | "g711-alaw" | "g711-ulaw" | "he-aac" | "ima-adpcm" | "mp3" | "ms-adpcm" | "opus" | "pcm" | "vorbis"
   type CodecImplementation = "application" | "browser" | "codec-module" | "encoder-module"
   type CodecUse = "read" | "write"
@@ -2143,10 +2146,12 @@ Published paths
   readonly WavWriterSettings.sampleFormat: WavSampleFormat
   readonly WavWriterSettings.metadata: MetadataMap
   type WrittenChannelOrder = readonly number[]
+  function aacHighestBitRate(channels: number, sampleRate: number): number
   function adtsAudioConfig(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<Uint8Array<ArrayBufferLike>>>
   function averageBitRateRanges(direction: CodecDirection, stream: BitRateStream): readonly NumberRange[]
   function codecCapability(environment: CodecEnvironment, codec: CodecId, use: CodecUse): CodecCapability
   function codecDescriptor(id: CodecId): CodecDescriptor
+  function codecDescriptorIn(environment: Pick<CodecEnvironment, "browserBitRates">, codec: CodecId): CodecDescriptor
   function constantBitRates(direction: CodecDirection, stream: BitRateStream): readonly number[] | undefined
   function containerName(container: ContainerId): string
   function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
@@ -2163,6 +2168,7 @@ Published paths
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
   function speakerMaskLayout(mask: number, channelCount: number): ChannelLayout | undefined
+  function statedChannelCounts(codec: CodecId): readonly number[] | undefined
   function takesAverageBitRate(direction: CodecDirection, stream: BitRateStream, kbps: number): boolean | undefined
   function writtenChannelOrder(codec: CodecId, container: ContainerId, layout: ChannelLayout): DomainResult<WrittenChannelOrder>
 
@@ -2213,6 +2219,8 @@ Published paths
   interface ReadRequest
   readonly ReadRequest.offset: number
   readonly ReadRequest.length: number
+  const WINDOWS_AAC_BIT_RATES: readonly BitRateBand[]
+  const WINDOWS_BROWSER_BIT_RATES: ReadonlyMap<CodecId, readonly BitRateBand[]>
   type WavCoding = { readonly kind: "g711-alaw" | "g711-ulaw"; } | { readonly kind: "ima-adpcm"; readonly blockAlign: number; readonly framesPerBlock: number; } | { readonly kind: "ms-adpcm"; readonly blockAlign: number; readonly framesPerBlock: number; readonly coefficients: readonly (readonly [number, number])[]; }
   type WavEncoding = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "integer"; readonly bits: number; readonly bytes?: number; }
   interface WavOptions
@@ -4096,6 +4104,7 @@ Published paths
   type WavEncoding = CodedPcm | FloatPcm | IntegerPcm
   function answerCollision(query: CollisionQuery, answer: CollisionAnswer): AnsweredDecision
   function batchProgress(batch: ExportBatch): BatchProgress
+  function bitRatesWords(rates: readonly number[]): string
   function cancelExportBatch(batch: ExportBatch): ExportBatch
   function cancelImport(job: ImportJob): ImportJob
   function decideCollision(query: CollisionQuery): CollisionDecision
@@ -4111,6 +4120,7 @@ Published paths
   function nextExportJob(job: ExportJob, event: ExportJobEvent): DomainResult<ExportJob>
   function nextImportJob(job: ImportJob, index: number, event: ImportFileEvent): DomainResult<ImportJob>
   function nextJobToStart(batch: ExportBatch): ExportJob | undefined
+  function offeredBitRates(settings: ExportSettings, context: ExportContext): readonly number[] | undefined
   function planExport(settings: ExportSettings, context: ExportContext, clock: ExportClock): DomainResult<readonly PlannedFile[]>
   function plannedExport(id: string, framesTotal: number): ExportJob
   function readDecodedStreamMessage(value: unknown): DomainResult<DecodedStreamMessage>

@@ -6,6 +6,7 @@
  */
 
 import type { AudioFileWriter } from '@audiogubbins/codecs';
+import { WINDOWS_BROWSER_BIT_RATES } from '@audiogubbins/codecs/testing';
 import {
   FailureKind,
   StandardLayouts,
@@ -136,6 +137,7 @@ describe('the codec worker’s messages', () => {
           encoderModules: new Map([['mp3', 'loaded']]),
           browserDecoders: new Set(['he-aac']),
           browserEncoders: new Set(['aac-lc']),
+          browserBitRates: WINDOWS_BROWSER_BIT_RATES,
         },
       },
       {
@@ -201,6 +203,20 @@ describe('the codec worker’s messages', () => {
         }),
       ),
     ).toBe('environment.browserDecoders[0]');
+    const environment = answers[0]?.kind === 'environment' ? answers[0].environment : undefined;
+    expect(
+      refusedField(
+        readFromCodecWorker({
+          kind: 'environment',
+          environment: {
+            ...environment,
+            browserBitRates: new Map([
+              ['aac-lc', [{ sampleRates: { minimum: 48_000, maximum: 48_000 }, constant: ['96'] }]],
+            ]),
+          },
+        }),
+      ),
+    ).toBe('environment.browserBitRates[0][1][0].constant[0]');
   });
 });
 

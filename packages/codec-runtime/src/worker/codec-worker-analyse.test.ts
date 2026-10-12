@@ -170,6 +170,7 @@ describe('the codec worker analysing a file', () => {
           webAssembly: true,
           browserDecoders: new Set(),
           browserEncoders: new Set(),
+          browserBitRates: new Map(),
           codecModule: 'failed',
           encoderModules: new Map([
             ['mp3', 'failed'],
@@ -313,6 +314,7 @@ function heAacServices(probed: boolean, released: { count: number }): ImportServ
       encoderModules: new Map(),
       browserDecoders: new Set(probed ? (['he-aac'] as const) : []),
       browserEncoders: new Set(),
+      browserBitRates: new Map(),
     }),
     platform,
   };

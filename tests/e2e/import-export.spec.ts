@@ -169,6 +169,7 @@ function builtServices(module: CodecModule): ExportEncoderServices {
     encoderModule: async (name) =>
       succeed(await WebAssembly.compile(new Uint8Array(readFileSync(encoders[name])))),
     encoding: undefined,
+    browserBitRates: new Map(),
     browser: undefined,
     signal: new AbortController().signal,
   };

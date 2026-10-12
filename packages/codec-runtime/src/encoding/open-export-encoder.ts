@@ -8,8 +8,9 @@
  * plan made it, or the request is refused rather than written as a file other
  * than the one planned. Its layout and its encoding's values are refused here
  * by the rules validation refused them by, should a request reach the worker
- * unvalidated (`writtenChannelOrder`, `encodingProblems`), so no encoder is
- * asked for what it would replace or refuse. An integer target is dithered and
+ * unvalidated (`writtenChannelOrder`, `encodingProblems`, against the bit
+ * rates the browser's encoder was probed to take), so no encoder is asked for
+ * what it would replace or refuse. An integer target is dithered and
  * quantised by one `Quantiser` for the file, seeded by the planned file's
  * dither key, before the writer takes a block. Each format is a row of the
  * table below, which loads only what its format needs: the codec module for
@@ -18,7 +19,7 @@
  */
 
 import {
-  codecDescriptor,
+  codecDescriptorIn,
   writtenChannelOrder,
   type AudioFileWriter,
   type WrittenChannelOrder,
@@ -186,7 +187,7 @@ export const openExportEncoder: OpenExportEncoder = async (request, services) =>
   const [problem, ...others] = encodingProblems(request.encoding, {
     sampleRate: request.sampleRate,
     channels: order.value.length,
-    write: codecDescriptor(codec).write,
+    write: codecDescriptorIn(services, codec).write,
   });
   if (problem !== undefined) return fail(problem, ...others);
   const opened = await openFormat(request.encoding, { request, services, order: order.value });

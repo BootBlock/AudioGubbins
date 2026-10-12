@@ -133,6 +133,7 @@ const EVERYTHING: CodecEnvironment = {
   ]),
   browserDecoders: new Set(['aac-lc', 'he-aac']),
   browserEncoders: new Set(['aac-lc', 'opus']),
+  browserBitRates: new Map(),
 };
 
 /** A runtime with nothing but the application's own codecs. */
@@ -142,6 +143,7 @@ const BARE: CodecEnvironment = {
   encoderModules: new Map(),
   browserDecoders: new Set(),
   browserEncoders: new Set(),
+  browserBitRates: new Map(),
 };
 
 describe('a codec’s capability', () => {

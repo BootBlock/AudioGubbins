@@ -2,10 +2,12 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { WINDOWS_BROWSER_BIT_RATES } from '@audiogubbins/codecs/testing';
 import { unsafeBrandId } from '@audiogubbins/domain';
-import { BUILT_IN_PRESETS, resolvePreset } from '@audiogubbins/import-export';
+import { BUILT_IN_PRESETS, resolvePreset, type ExportSettings } from '@audiogubbins/import-export';
 
 import { ExportCommand } from '../../commands/import-export-ids.js';
+import { servedCodecs } from '../../export/export-context.js';
 import { ExportDialogStore } from '../../state/export-dialog-store.js';
 import { observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
@@ -15,23 +17,25 @@ import { ScriptedCodecs } from '../../testing/codec-fakes.js';
 import { renderInTheShell } from '../../testing/in-the-shell.js';
 import { ExportDialog } from './export-dialog.js';
 
-const context = exportContextOver();
-
-/** The dialog open over the project, and the commands it ran. */
-function shown(dialogs = true) {
+/**
+ * The dialog open over the project, planned against the codecs as the test's
+ * codec environment serves them, as the page plans it; and the commands it ran.
+ */
+function shown(dialogs = true, kept?: ExportSettings) {
   const project = observable<OpenProjectState>({ kind: 'none' });
   const dialog = new ExportDialogStore(project);
+  const codecs = new ScriptedCodecs();
   dialog.open({
     project: unsafeBrandId('project-one'),
     asset: unsafeBrandId('asset-one'),
-    context,
+    context: { ...exportContextOver(), codecs: servedCodecs(codecs.environment) },
+    codecChanges: codecs.environment,
     clock: EXPORT_CLOCK,
     range: { kind: 'project' },
     selection: undefined,
-    kept: undefined,
+    kept,
     dialogs,
   });
-  const codecs = new ScriptedCodecs();
   const ran: { readonly id: string; readonly args: unknown }[] = [];
   renderInTheShell(
     <ExportDialog
@@ -86,7 +90,7 @@ describe('the Export dialog', () => {
 
     await userEvent.click(screen.getByRole('radio', { name: master.name }));
     expect(settingsOf(dialog).settings).toEqual({
-      ...resolvePreset(master, context),
+      ...resolvePreset(master, settingsOf(dialog).context),
       range: { kind: 'project' },
     });
     expect(screen.getByRole('radio', { name: master.name })).toBeChecked();
@@ -181,6 +185,33 @@ describe('the Export dialog', () => {
         /The MP3 encoder .*could not be loaded.*This browser can write .* instead\./u,
       )[0],
     ).toBeVisible();
+  });
+
+  it("offers AAC at the bit rates the browser's encoder codes, and reports a preset it cannot export as it is", async () => {
+    const { codecs, dialog } = shown();
+    codecs.adopt({
+      ...codecs.environment.get(),
+      browserEncoders: new Set(['aac-lc']),
+      browserBitRates: WINDOWS_BROWSER_BIT_RATES,
+    });
+    const refused =
+      "This browser's encoder codes AAC of 2 channels at 48000 Hz at 96, 128, 160 or 192 kbit/s, not at 256.";
+
+    await choose('Format', 'AAC');
+    expect(settingsOf(dialog).settings.encoding).toEqual({ bitRate: 192 });
+    const preset = screen.getByRole('radio', { name: 'Distribution, AAC 256 kbit/s' });
+    expect(preset).toHaveAccessibleDescription(
+      `Sets AAC, 256 kbit/s; everything else is the highest quality for this asset. As it is, it cannot be exported here: ${refused}`,
+    );
+    await userEvent.click(screen.getByText('Every setting'));
+    expect(screen.getByRole('textbox', { name: 'Bit rate' })).toHaveAccessibleDescription(
+      "In kbit/s. This browser's encoder codes this audio at 96, 128, 160 or 192 kbit/s.",
+    );
+
+    await userEvent.click(preset);
+    expect(settingsOf(dialog).settings.encoding).toEqual({ bitRate: 256 });
+    const reasons = screen.getByRole('list', { name: 'Why this cannot be exported yet' });
+    expect(within(reasons).getByText(refused)).toBeVisible();
   });
 
   it('starts and closes through their commands', async () => {

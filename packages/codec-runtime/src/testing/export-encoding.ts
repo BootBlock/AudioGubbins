@@ -4,7 +4,7 @@
  * blocks, and the error of a decoded file against its source.
  */
 
-import { writeWhole } from '@audiogubbins/codecs/testing';
+import { WINDOWS_BROWSER_BIT_RATES, writeWhole } from '@audiogubbins/codecs/testing';
 import {
   StandardLayouts,
   sampleRate,
@@ -73,7 +73,9 @@ export function exportRequest(
 
 /**
  * The services of a Node test: the run's codec module, the encoder modules'
- * files, and the browser's encoder where a test gives one, said to be Chrome's.
+ * files, and the browser's encoder where a test gives one, said to be
+ * Chrome's on Windows and taking the bit rates its encoder was found to take
+ * there.
  */
 export function testServices(
   encoding?: ExportEncoderServices['encoding'],
@@ -83,6 +85,7 @@ export function testServices(
     codecModule: async () => succeed(await codecModule()),
     encoderModule: encoderModuleLoader(),
     encoding,
+    browserBitRates: encoding === undefined ? new Map() : WINDOWS_BROWSER_BIT_RATES,
     browser: { name: 'Chrome', majorVersion: '131' },
     signal,
   };

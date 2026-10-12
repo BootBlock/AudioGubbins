@@ -152,13 +152,12 @@ export {
   type CodecPlatform,
   type CodecProbes,
   type CodecState,
-  type ConfigSupport,
   type EncodedAudioChunkClass,
   type EncodedAudioChunkInit,
   type EncodedAudioChunkLike,
   type EncodedAudioChunkMetadata,
   type PlaneCopy,
-  type WebCodecsAudioConfig,
   probeCodecs,
   readCodecPlatform,
 } from './codec-platform.js';
+export { type ConfigSupport, type WebCodecsAudioConfig } from './config-support.js';

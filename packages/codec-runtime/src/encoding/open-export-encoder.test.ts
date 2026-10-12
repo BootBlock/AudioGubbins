@@ -5,6 +5,7 @@
  * cancelled write; and the encoder each format names.
  */
 
+import { WINDOWS_BROWSER_BIT_RATES } from '@audiogubbins/codecs/testing';
 import { StandardLayouts } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { succeed } from '@audiogubbins/domain';
@@ -68,6 +69,22 @@ describe('opening an export’s encoder', () => {
       expect(loaded).toEqual([]);
     },
   );
+
+  it("refuses AAC the browser's encoder was not found to take, by validation's rule, before opening it", async () => {
+    // No browser encoder is given, so a request the rule let through would be
+    // refused as unavailable instead.
+    const services = { ...testServices(), browserBitRates: WINDOWS_BROWSER_BIT_RATES };
+    const aac = (bitRate: number) => ({ format: 'aac', encoding: { bitRate } }) as const;
+    const refused = await openExportEncoder(exportRequest(aac(256), 48_000), services);
+    expect(expectFailureCode(refused)).toBe('import-export.encoding-invalid');
+    const lcr = await openExportEncoder(
+      exportRequest(aac(192), 48_000, StandardLayouts.lcr),
+      services,
+    );
+    expect(expectFailureCode(lcr)).toBe('import-export.stream-not-encoded');
+    const taken = await openExportEncoder(exportRequest(aac(192), 48_000), services);
+    expect(expectFailureCode(taken)).toBe('codec-runtime.encoder-unavailable');
+  });
 
   it('refuses an encoder module of another encoder', async () => {
     const vorbis = await WebAssembly.compile(encoderModuleBytes('vorbis'));
