@@ -14,11 +14,10 @@
  * kept, and the rendition, whose size is its frames times its channels times
  * four bytes and its header, where the stream states its frames. A stream that
  * states none cannot be sized, so the need is stated as unknown beyond the
- * copy, only the copy is checked, and a write the storage
- * refuses while it is decoded ends the import as a cancelled one does, with
- * nothing kept. An estimate the browser does not give is never taken for
- * room, nor for its lack: the import goes ahead and the storage refuses what
- * it cannot hold.
+ * copy, only the copy is checked, and a write the storage refuses while it is
+ * decoded ends the import as a cancelled one does, with nothing kept. An
+ * estimate the browser does not give is never taken for room, nor for its lack:
+ * the import goes ahead and the storage refuses what it cannot hold.
  */
 
 import {

@@ -7,21 +7,22 @@
  * `METADATA_READERS`. What a format holds reads back unchanged; what it cannot
  * hold is reported dropped by its writer, exactly, and is absent on reading.
  *
- * WAV holds every part in `LIST`/`INFO`, `bext`, `cue `/`adtl` and `smpl`,
- * with no `INFO` key for an album artist, a total, a disc or an ISRC (RIFF
- * `ISRC` means the source) and no free-form field. AIFF and AIFF-C hold four
- * texts, `MARK` cues and `INST` loops and tuning, and no broadcast description.
- * FLAC, Vorbis, Opus, MP3 and M4A hold every text and the foreign field, in
- * their own free-form field, and one forward endless loop as `LOOPSTART` and
+ * WAV holds every part in `LIST`/`INFO`, `bext`, `cue `/`adtl` and `smpl`, with
+ * no `INFO` key for an album artist, a total, a disc or an ISRC (RIFF `ISRC`
+ * means the source) and no free-form field. AIFF and AIFF-C hold four texts,
+ * `MARK` cues and `INST` loops and tuning, and no broadcast description. FLAC,
+ * Vorbis, Opus, MP3 and M4A hold every text and the foreign field, in their own
+ * free-form field, and one forward endless loop as `LOOPSTART` and
  * `LOOPLENGTH`, reporting the rest of the loops dropped; FLAC holds every loop,
  * the cues and the tuning as well where the person keeps the WAV chunks in
  * `riff` blocks. A sampler chunk (`smpl`, `INST`) must state a unity note, so
  * loops written with no tuning read back with the chunk's untuned middle C,
- * which adds to the map and takes nothing from it. AAC's audio comes from a fake of the browser's encoder; its
- * M4A file, `ilst` included, is the real writer's.
+ * which adds to the map and takes nothing from it. AAC's audio comes from a
+ * fake of the browser's encoder; its M4A file, `ilst` included, is the real
+ * writer's.
  *
- * RF64 and BW64 are not exercised here: an export is RF64 only past 4 GiB
- * and never BW64, and the codecs' own tests read every metadata chunk in both
+ * RF64 and BW64 are not exercised here: an export is RF64 only past 4 GiB and
+ * never BW64, and the codecs' own tests read every metadata chunk in both
  * forms.
  */
 

@@ -1,9 +1,9 @@
 /**
  * The files being imported (ADR-0090, REQ-UX-005): each file of the batch in
  * the order it runs, with its name, its size, its format once recognised, the
- * storage it needs, stated before any of it is stored, the stage it is at, a bar of how far it has got through a stage that is
- * measured, and once it ends, what it came to and why it was refused where it
- * was.
+ * storage it needs, stated before any of it is stored, the stage it is at, a
+ * bar of how far it has got through a stage that is measured, and once it ends,
+ * what it came to and why it was refused where it was.
  *
  * Each row is keyed by its place in the batch, which never changes while the
  * batch runs, so a report redraws the rows it changed and leaves the rest, and

@@ -50,9 +50,9 @@ export type ImportFileState =
 
 /**
  * The storage an import needs, stated before anything of it is stored
- * (ADR-0090): the copy of the file, where one is kept, and the rendition,
- * where the file is decoded. A rendition is sized by the length its stream
- * states, so a stream that states none leaves the need unknown beyond the copy.
+ * (ADR-0090): the copy of the file, where one is kept, and the rendition, where
+ * the file is decoded. A rendition is sized by the length its stream states, so
+ * a stream that states none leaves the need unknown beyond the copy.
  */
 export type ImportRoomNeeded =
   | { readonly kind: 'known'; readonly bytes: number }
