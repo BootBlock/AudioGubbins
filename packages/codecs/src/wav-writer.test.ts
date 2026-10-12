@@ -253,22 +253,28 @@ describe('the layout a WAV export states', () => {
 });
 
 describe('the form and the chunks of a WAV export', () => {
-  const formats: readonly [WavSampleFormat, number, number | undefined][] = [
-    [{ kind: 'integer', bits: 8 }, 1, undefined],
-    [{ kind: 'integer', bits: 16 }, 1, undefined],
-    [{ kind: 'integer', bits: 24 }, 0xfffe, undefined],
-    [{ kind: 'integer', bits: 32 }, 0xfffe, undefined],
-    [{ kind: 'float', bits: 32 }, 3, 600],
-    [{ kind: 'float', bits: 64 }, 3, 600],
-    [{ kind: 'g711-alaw' }, 6, 600],
-    [{ kind: 'g711-ulaw' }, 7, 600],
-    [{ kind: 'ima-adpcm' }, 0x11, 600],
-    [{ kind: 'ms-adpcm' }, 2, 600],
+  /** Each sample format, named for the title, with its format tag and its `fact` length. */
+  const formats: readonly {
+    readonly name: string;
+    readonly format: WavSampleFormat;
+    readonly tag: number;
+    readonly fact: number | undefined;
+  }[] = [
+    { name: 'integer 8', format: { kind: 'integer', bits: 8 }, tag: 1, fact: undefined },
+    { name: 'integer 16', format: { kind: 'integer', bits: 16 }, tag: 1, fact: undefined },
+    { name: 'integer 24', format: { kind: 'integer', bits: 24 }, tag: 0xfffe, fact: undefined },
+    { name: 'integer 32', format: { kind: 'integer', bits: 32 }, tag: 0xfffe, fact: undefined },
+    { name: 'float 32', format: { kind: 'float', bits: 32 }, tag: 3, fact: 600 },
+    { name: 'float 64', format: { kind: 'float', bits: 64 }, tag: 3, fact: 600 },
+    { name: 'G.711 A-law', format: { kind: 'g711-alaw' }, tag: 6, fact: 600 },
+    { name: 'G.711 µ-law', format: { kind: 'g711-ulaw' }, tag: 7, fact: 600 },
+    { name: 'IMA ADPCM', format: { kind: 'ima-adpcm' }, tag: 0x11, fact: 600 },
+    { name: 'Microsoft ADPCM', format: { kind: 'ms-adpcm' }, tag: 2, fact: 600 },
   ];
 
   it.each(formats)(
-    'writes stereo $kind $bits with tag %#, and a fact chunk where it is not integer PCM',
-    async (format, tag, fact) => {
+    'writes stereo $name with format tag $tag, and a fact chunk where it is not integer PCM',
+    async ({ format, tag, fact }) => {
       const { file, reader } = await roundTrip(StandardLayouts.stereo, { sampleFormat: format });
       expect(view(file).getUint16((chunkAt(file, 'fmt ') ?? 0) + 8, true)).toBe(tag);
       const factAt = chunkAt(file, 'fact');

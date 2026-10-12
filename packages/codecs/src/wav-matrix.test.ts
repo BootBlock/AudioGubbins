@@ -140,17 +140,18 @@ function rmsError(written: Float32Array, read: Float32Array): number {
   return Math.sqrt(sum / Math.max(1, counted));
 }
 
-const FORMATS: readonly WavSampleFormat[] = [
-  { kind: 'integer', bits: 8 },
-  { kind: 'integer', bits: 16 },
-  { kind: 'integer', bits: 24 },
-  { kind: 'integer', bits: 32 },
-  { kind: 'float', bits: 32 },
-  { kind: 'float', bits: 64 },
-  { kind: 'g711-alaw' },
-  { kind: 'g711-ulaw' },
-  { kind: 'ima-adpcm' },
-  { kind: 'ms-adpcm' },
+/** Each sample format, named for the title, since a coded format has no depth to print. */
+const FORMATS: readonly { readonly name: string; readonly format: WavSampleFormat }[] = [
+  { name: 'integer 8', format: { kind: 'integer', bits: 8 } },
+  { name: 'integer 16', format: { kind: 'integer', bits: 16 } },
+  { name: 'integer 24', format: { kind: 'integer', bits: 24 } },
+  { name: 'integer 32', format: { kind: 'integer', bits: 32 } },
+  { name: 'float 32', format: { kind: 'float', bits: 32 } },
+  { name: 'float 64', format: { kind: 'float', bits: 64 } },
+  { name: 'G.711 A-law', format: { kind: 'g711-alaw' } },
+  { name: 'G.711 µ-law', format: { kind: 'g711-ulaw' } },
+  { name: 'IMA ADPCM', format: { kind: 'ima-adpcm' } },
+  { name: 'Microsoft ADPCM', format: { kind: 'ms-adpcm' } },
 ];
 
 const RATES: readonly number[] = [8_000, 11_025, 22_050, 44_100, 48_000, 96_000, 192_000, 384_000];
@@ -177,7 +178,7 @@ const STRAY: Readonly<Record<WavSampleFormat['kind'], number>> = {
   'ms-adpcm': 0.04,
 };
 
-describe.each(FORMATS)('a WAV of $kind $bits', (format) => {
+describe.each(FORMATS)('a WAV of $name', ({ format }) => {
   it('reads back at every rate and channel count as the format says it must', async () => {
     for (const rate of RATES) {
       for (const layout of LAYOUTS) {
