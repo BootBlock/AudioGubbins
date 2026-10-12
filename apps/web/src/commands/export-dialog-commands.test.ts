@@ -8,6 +8,7 @@ import { exportBatch } from '@audiogubbins/import-export';
 import type { OpenExportDialog } from '../state/export-dialog-store.js';
 import { ScriptedCodecs } from '../testing/codec-fakes.js';
 import { busOfShellCommands } from '../testing/command-availability.js';
+import { shownRun } from '../testing/export-states.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 import { ScriptedExportControl } from '../testing/scripted-export-control.js';
 import { ExportCommand } from './import-export-ids.js';
@@ -222,7 +223,7 @@ describe('starting the export', () => {
     ]);
 
     audio.window.projects.exportDialog.chooseDestination({ kind: 'folder', policy: 'skip' });
-    exporting.run.set({ kind: 'held', batch: exportBatch([]), files: new Map() });
+    exporting.run.set({ kind: 'held', ...shownRun(exportBatch([])) });
     expect(refusalOf(audio, ExportCommand.Start)).toEqual([
       'An export waits for a file to be delivered; retry it, deliver it elsewhere, or cancel it.',
     ]);

@@ -51,7 +51,7 @@ export class ExportRun {
   #batch: ExportBatch;
 
   /** The name each delivered file was written under, which a rename may have changed. */
-  readonly #names = new Map<string, string>();
+  #names: ReadonlyMap<string, string> = new Map();
   #asking:
     | { readonly name: string; readonly answer: (reply: CollisionReply | undefined) => void }
     | undefined;
@@ -98,12 +98,16 @@ export class ExportRun {
   }
 
   /** What every shown state of the batch carries. */
-  #shownRun(): Pick<ExportRunState & { kind: 'held' }, 'batch' | 'files' | 'settings' | 'destinations'> {
+  #shownRun(): Pick<
+    ExportRunState & { kind: 'held' },
+    'batch' | 'files' | 'settings' | 'destinations' | 'names'
+  > {
     return {
       batch: this.#batch,
       files: this.files,
       settings: this.settings,
       destinations: this.#destinations,
+      names: this.#names,
     };
   }
 
@@ -114,7 +118,7 @@ export class ExportRun {
 
   /** Reports a whole file of `bytes` delivered, under the name it was written as. */
   delivered(id: string, bytes: number, name: string): void {
-    this.#names.set(id, name);
+    this.#names = new Map([...this.#names, [id, name]]);
     this.report(id, { kind: 'delivery-progress', bytesDelivered: bytes });
     this.report(id, { kind: 'delivered' });
   }

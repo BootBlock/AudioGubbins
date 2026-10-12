@@ -8,6 +8,10 @@
  * by the controls the Effects rack shows them with; otherwise what the rack of
  * the asset or region runs, and the command that shows the rack (REQ-EDIT-072).
  *
+ * Recording, and an export the person asked to have described, are subjects
+ * of their own: whichever made itself the subject last is shown, until the
+ * person brings an editor into use (`recording-focus.ts`, `export-focus.ts`).
+ *
  * It reads the stores and runs commands; it writes nothing itself (`CLAUDE.md`
  * G2), and it follows every change to them, an undo included.
  */
@@ -37,10 +41,13 @@ import { inspected, type Inspected } from './inspected.js';
 import { LevelControls } from './level-controls.js';
 import { RegionProperties } from './region-properties.js';
 import { AssetSourceFacts } from './asset-source.js';
+import { ExportDescription } from './export-description.js';
 import { TimeControls } from './time-controls.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
 import type { Observable } from '../../state/observable.js';
+import type { ExportSubject } from '../../export/export-focus.js';
+import type { ExportRunState } from '../../export/export-types.js';
 import { RecordingConfiguration } from '../recording/recording-configuration.js';
 import { TakeInspector } from '../recording/take-inspector.js';
 
@@ -49,8 +56,9 @@ const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
 /**
  * What the Inspector reads: the editor's views, their selections and assets,
- * command labels, and the recording part and settings for the recording
- * configuration it shows while recording is the subject.
+ * command labels, the recording part and settings for the recording
+ * configuration it shows while recording is the subject, and the page's
+ * export with the export it describes while one is the subject.
  */
 export interface InspectorParts {
   readonly editorViews: EditorPanelParts['stores']['editorViews'];
@@ -59,6 +67,12 @@ export interface InspectorParts {
   readonly labelFor: (id: string) => string;
   readonly recording: RecordingParts;
   readonly audioSettings: Observable<AudioSettings>;
+
+  /** The page's export, absent where this browser keeps no projects. */
+  readonly exports: Observable<ExportRunState> | undefined;
+
+  /** The export described, while one is the subject. */
+  readonly exportSubject: Observable<ExportSubject | undefined>;
 }
 
 /**
@@ -290,6 +304,20 @@ export function InspectorPanel({
     parts.recording.inspected.subscribe,
     parts.recording.inspected.get,
   );
+  const exportSubject = useSyncExternalStore(
+    parts.exportSubject.subscribe,
+    parts.exportSubject.get,
+  );
+  // An export is the subject only until recording claims the Inspector or an
+  // editor is brought into use, so where one is, it was asked for last.
+  if (exportSubject !== undefined) {
+    return (
+      <section className="ag-panel ag-inspector">
+        <h2 className="ag-panel-title">{title}</h2>
+        <ExportDescription subject={exportSubject} parts={{ exports: parts.exports, projects }} />
+      </section>
+    );
+  }
   if (recordingInFocus) {
     return (
       <section className="ag-panel ag-inspector">

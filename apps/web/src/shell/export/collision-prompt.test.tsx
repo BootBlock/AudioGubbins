@@ -8,6 +8,7 @@ import { ExportCommand } from '../../commands/import-export-ids.js';
 import type { ExportRunState } from '../../export/export-types.js';
 import { observable } from '../../state/observable.js';
 import { renderInTheShell } from '../../testing/in-the-shell.js';
+import { shownRun } from '../../testing/export-states.js';
 import { CollisionPrompt } from './collision-prompt.js';
 
 /** A batch of `files` files, the first asking about a taken name. */
@@ -15,7 +16,7 @@ function asking(files: number): ExportRunState {
   const jobs = Array.from({ length: files }, (_, index) =>
     plannedExport(`export-${String(index + 1)}`, 48_000),
   );
-  return { kind: 'running', batch: exportBatch(jobs), files: new Map(), asking: 'Loop.wav' };
+  return { kind: 'running', ...shownRun(exportBatch(jobs)), asking: 'Loop.wav' };
 }
 
 function promptOver(state: ExportRunState) {

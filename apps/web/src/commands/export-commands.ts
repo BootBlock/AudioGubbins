@@ -1,7 +1,9 @@
 /**
  * The export's own commands (ADR-0092, REQ-EDIT-073, REQ-UX-005): cancelling
- * it, answering a taken name, delivering a held file again or elsewhere, and
- * keeping folders trusted. Starting an export is the Export dialog's.
+ * it, answering a taken name, delivering a held file again or elsewhere,
+ * describing it, or an export the history records, in the Inspector
+ * (REQ-EDIT-072), and keeping folders trusted. Starting an export is the
+ * Export dialog's.
  *
  * Every chooser opens first in the body, in the person's gesture, since a
  * browser opens none outside one, and leave to write is asked there too; the
@@ -22,12 +24,15 @@ import {
   type CollisionAnswer,
   type CollisionPolicy,
 } from '@audiogubbins/import-export';
+import type { ProjectModel } from '@audiogubbins/storage';
+import { PanelKinds } from '@audiogubbins/workspace';
 
+import type { ExportSubject } from '../export/export-focus.js';
 import type { ExportControl, ExportDestinationChoice } from '../export/export-types.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import { ExportCommand } from './import-export-ids.js';
-import { readyProjects, sayWhenSettled, sessionOf } from './project-access.js';
-import { shellCommand, textArgument } from './shell-command.js';
+import { idArgument, readyProjects, sayWhenSettled, sessionOf } from './project-access.js';
+import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The answers a collision takes, by the words an invocation names them with. */
@@ -288,6 +293,69 @@ function forgetFolderCommand(): Command<ShellContext> {
   );
 }
 
+/** Why the page's export cannot be described, or `undefined` where it can. */
+function batchProblem(context: ShellContext): string | undefined {
+  const state = context.exports?.get();
+  return state === undefined || state.kind === 'idle'
+    ? 'No export has run since the page opened.'
+    : undefined;
+}
+
+/** Makes `subject` what the Inspector describes, bringing the Inspector into view. */
+function describe(context: ShellContext, subject: ExportSubject): string | undefined {
+  const refusal = context.workspace.openPanel(PanelKinds.Inspector);
+  if (refusal !== undefined) return refusal;
+  context.exportFocus.inspect(subject);
+  return undefined;
+}
+
+function inspectCommand(): Command<ShellContext> {
+  return shellCommand(
+    ExportCommand.Inspect,
+    'Describe the export in the Inspector',
+    CommandCategory.View,
+    (context) => batchProblem(context) ?? describe(context, { kind: 'batch' }),
+    {
+      keywords: ['inspect', 'inspector', 'properties', 'describe', 'export', 'progress'],
+      availability: (context) => availableUnless(batchProblem(context)),
+    },
+  );
+}
+
+/** The model of the project open here, whether or not this tab may change it, or why none is open. */
+function openModel(context: ShellContext): ProjectModel | string {
+  const stores = readyProjects(context);
+  if (typeof stores === 'string') return stores;
+  const open = stores.project.get();
+  return open.kind === 'open' ? open.snapshot.model : 'No project is open.';
+}
+
+function inspectRecordCommand(): Command<ShellContext> {
+  return shellCommand(
+    ExportCommand.InspectRecord,
+    'Describe an export of the history in the Inspector',
+    CommandCategory.View,
+    (context, invocation) => {
+      const model = openModel(context);
+      if (typeof model === 'string') return model;
+      const named = idArgument<'ExportRecordId'>(invocation, 'record', 'export');
+      if ('refused' in named) return named.refused;
+      if (!model.exports.some((record) => record.id === named.id)) {
+        return 'That export is not in the history of the project open now.';
+      }
+      return describe(context, { kind: 'record', record: named.id });
+    },
+    {
+      keywords: ['inspect', 'inspector', 'properties', 'describe', 'export', 'history'],
+      discoverable: false,
+      availability: (context) => {
+        const model = openModel(context);
+        return typeof model === 'string' ? unavailable(model) : AVAILABLE;
+      },
+    },
+  );
+}
+
 /** The export's own commands. */
 export function exportCommands(): readonly Command<ShellContext>[] {
   return [
@@ -295,6 +363,8 @@ export function exportCommands(): readonly Command<ShellContext>[] {
     answerCollisionCommand(),
     retryCommand(),
     deliverElsewhereCommand(),
+    inspectCommand(),
+    inspectRecordCommand(),
     trustFolderCommand(),
     forgetFolderCommand(),
   ];
