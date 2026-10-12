@@ -116,6 +116,7 @@ export {
   type ImportFileState,
   type ImportJob,
   type ImportProgress,
+  type ImportRoomNeeded,
   type ImportStage,
   cancelImport,
   importJob,

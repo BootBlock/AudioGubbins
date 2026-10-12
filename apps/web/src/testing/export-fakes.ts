@@ -45,7 +45,7 @@ export const FAKE_TAIL = Uint8Array.from([0x45, 0x4e, 0x44]);
 export const FAKE_ENCODER: ExportCodec = {
   id: 'pcm',
   implementation: 'application',
-  version: '0.1.0',
+  version: 'AudioGubbins 0.1.0',
 };
 
 /** A step a fake waits at until a test lets it go on. */

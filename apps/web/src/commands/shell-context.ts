@@ -37,6 +37,7 @@ import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
 import type { CodecServices } from '../codecs/codec-services.js';
+import type { ExportFocus } from '../export/export-focus.js';
 import type { ExportControl } from '../export/export-types.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
@@ -165,6 +166,12 @@ export interface ShellContext {
    * browser cannot keep projects, since an export is staged in their storage.
    */
   readonly exports: ExportControl | undefined;
+
+  /**
+   * Which export the Inspector describes, where the person asked for one,
+   * until recording or an editor takes the Inspector back (REQ-EDIT-072).
+   */
+  readonly exportFocus: ExportFocus;
 
   /**
    * The codecs: what this browser can do with each, and the codec worker that

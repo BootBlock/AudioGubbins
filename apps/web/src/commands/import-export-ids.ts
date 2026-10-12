@@ -51,6 +51,12 @@ export const ExportCommand = {
   /** Delivers a held file, named by its `job` argument, to a destination chosen anew. */
   DeliverElsewhere: 'export.deliver-elsewhere',
 
+  /** Describes the page's export, running, waiting or last ended, in the Inspector. */
+  Inspect: 'export.inspect',
+
+  /** Describes an export the open project's history records, named by its `record` argument, in the Inspector. */
+  InspectRecord: 'export.inspect-record',
+
   /** Chooses a folder and keeps it trusted for exports. */
   TrustFolder: 'export.trust-folder',
 

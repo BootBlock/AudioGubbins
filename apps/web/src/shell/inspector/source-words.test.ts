@@ -6,7 +6,8 @@ import { contentIdOfDigit } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { metadataFacts } from './metadata-words.js';
-import { sourceFacts, type SourceFact } from './source-words.js';
+import type { Fact } from './facts.js';
+import { sourceFacts } from './source-words.js';
 
 const { ambience } = sampleProject().assets;
 
@@ -56,7 +57,7 @@ function decodedSource(metadata?: KeptMetadata): AssetSource {
   };
 }
 
-function asWords(facts: readonly SourceFact[]): readonly string[] {
+function asWords(facts: readonly Fact[]): readonly string[] {
   return facts.map(({ term, detail }) => `${term}: ${detail}`);
 }
 

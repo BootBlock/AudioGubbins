@@ -57,6 +57,15 @@ export interface ExportStart {
 interface ExportRun {
   readonly batch: ExportBatch;
   readonly files: ReadonlyMap<string, PlannedFile>;
+
+  /** The settings every file of the batch is made by. */
+  readonly settings: ExportSettings;
+
+  /** Where each job's file goes, by its id: where the person chose, or where they asked it delivered instead. */
+  readonly destinations: ReadonlyMap<string, ExportDestinationChoice>;
+
+  /** The name each delivered file was written under, by its job's id, which a rename may have changed. */
+  readonly names: ReadonlyMap<string, string>;
 }
 
 /**

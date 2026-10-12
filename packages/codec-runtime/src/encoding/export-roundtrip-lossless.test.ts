@@ -173,7 +173,7 @@ describe('FLAC exports, decoded by the codec module', () => {
         const source = testSignal(layout.roles.length, FRAMES, RATE);
         const file = await encodeWhole(
           exportRequest(
-            { format: 'flac', encoding: { bits, compressionLevel: level } },
+            { format: 'flac', encoding: { bits, compressionLevel: level, keepRiffChunks: false } },
             RATE,
             layout,
           ),
@@ -213,7 +213,10 @@ describe('FLAC exports, decoded by the codec module', () => {
         seed: 5,
       };
       const request = {
-        ...exportRequest({ format: 'flac', encoding: { bits: 32, compressionLevel: 5 } }, RATE),
+        ...exportRequest(
+          { format: 'flac', encoding: { bits: 32, compressionLevel: 5, keepRiffChunks: false } },
+          RATE,
+        ),
         dither: { settings: dither, key: 77 },
       };
       const file = await encodeWhole(request, source);
@@ -244,11 +247,11 @@ describe('the reproducibility of lossless exports', () => {
       'eefd19ae8eb080b25c40f2fe8a67c67af34452c4e96f64145fd9149d3211cb46',
     ],
     [
-      { format: 'flac', encoding: { bits: 16, compressionLevel: 5 } },
+      { format: 'flac', encoding: { bits: 16, compressionLevel: 5, keepRiffChunks: false } },
       'afead68c20b3629aff6c6aa35f8156b708c671008ed22470fc382f09e37f2711',
     ],
     [
-      { format: 'flac', encoding: { bits: 24, compressionLevel: 8 } },
+      { format: 'flac', encoding: { bits: 24, compressionLevel: 8, keepRiffChunks: false } },
       '94c1e29a7afa8dcb09d2f17c94606b169acc85cfd3f74ecc30e33dc627c0d623',
     ],
   ];

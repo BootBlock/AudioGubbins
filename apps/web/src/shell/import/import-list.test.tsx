@@ -19,16 +19,19 @@ const JOB: ImportJob = {
       file: { name: 'Step.wav', bytes: 96_044 },
       state: { kind: 'imported' },
       format: { kind: 'audio', container: 'wav', codec: { kind: 'named', codec: 'pcm' } },
+      room: { kind: 'known', bytes: 96_044 },
     },
     {
       file: { name: 'Rain.ogg', bytes: 412_000 },
       state: { kind: 'decoding', framesDecoded: 24_000, framesTotal: 96_000 },
       format: { kind: 'audio', container: 'ogg', codec: { kind: 'named', codec: 'vorbis' } },
+      room: { kind: 'known', bytes: 1_180_058 },
     },
     {
       file: { name: 'Wind.m4a', bytes: 2_048 },
       state: { kind: 'copying', bytesCopied: 1_024, bytesTotal: 2_048 },
       format: { kind: 'audio', container: 'mp4', codec: { kind: 'unstated' } },
+      room: { kind: 'unknown', atLeast: 2_048 },
     },
     {
       file: { name: 'notes.txt', bytes: 19 },
@@ -47,16 +50,16 @@ function rows(): readonly string[] {
 }
 
 describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
-  it('lists each file with its size, format and stage, and a named bar for a measured stage', () => {
+  it('lists each file with its size, format, storage needed and stage, and a named bar for a measured stage', () => {
     render(<ImportList job={JOB} ended={false} />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Importing 5 files.');
     expect(rows()).toEqual([
-      'Step.wavSize93.8 kBFormatWAV, uncompressed PCMStageImported',
-      'Rain.oggSize402.3 kBFormatOgg, VorbisStageDecoding',
-      'Wind.m4aSize2 kBFormatMPEG-4StageCopying into the project',
-      'notes.txtSize19 bytesFormatNot recognisedStageRefused: This file is not in an audio format AudioGubbins recognises.',
-      'Hum.wavSize4.9 kBFormatNot known yetStageWaiting its turn',
+      'Step.wavSize93.8 kBFormatWAV, uncompressed PCMStorage needed93.8 kBStageImported',
+      'Rain.oggSize402.3 kBFormatOgg, VorbisStorage needed1.1 MBStageDecoding',
+      'Wind.m4aSize2 kBFormatMPEG-4Storage neededAt least 2 kB: its stream does not state its length, so its decoded audio cannot be sizedStageCopying into the project',
+      'notes.txtSize19 bytesFormatNot recognisedStorage neededNone: nothing of it was storedStageRefused: This file is not in an audio format AudioGubbins recognises.',
+      'Hum.wavSize4.9 kBFormatNot known yetStorage neededNot known yetStageWaiting its turn',
     ]);
     const decoding = screen.getByRole('progressbar', { name: 'Import of Rain.ogg' });
     expect(decoding).toHaveAttribute('max', '96000');
@@ -67,6 +70,29 @@ describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
       '1 kB of 2 kB copied',
     );
     expect(screen.getAllByRole('progressbar')).toHaveLength(2);
+  });
+
+  it('says a linked file needs no storage, and a linked stream of no stated length an unknown amount', () => {
+    const linked: ImportJob = {
+      entries: [
+        {
+          file: { name: 'Step.wav', bytes: 96_044 },
+          state: { kind: 'adding' },
+          room: { kind: 'known', bytes: 0 },
+        },
+        {
+          file: { name: 'Rain.ogg', bytes: 412_000 },
+          state: { kind: 'decoding', framesDecoded: 0, framesTotal: undefined },
+          room: { kind: 'unknown', atLeast: 0 },
+        },
+      ],
+    };
+    render(<ImportList job={linked} ended={false} />);
+    const [step, rain] = rows();
+    expect(step).toContain('Storage neededNoneStage');
+    expect(rain).toContain(
+      'Storage neededNot known: its stream does not state its length, so its decoded audio cannot be sizedStage',
+    );
   });
 
   it('holds the bar unmeasured where a stream states no length', () => {

@@ -27,31 +27,7 @@ import { ExportCommand } from '../../commands/import-export-ids.js';
 import type { ExportRunState } from '../../export/export-types.js';
 import type { Observable } from '../../state/observable.js';
 import type { RunCommand } from '../settings/section.js';
-
-/** Where a file of the batch is, in a phrase. */
-function stageWords(job: ExportJob): string {
-  const { state } = job;
-  switch (state.kind) {
-    case 'planned':
-      return 'Waiting';
-    case 'rendering':
-      return `Rendering, ${String(Math.floor((state.framesRendered / Math.max(1, job.framesTotal)) * 100))}%`;
-    case 'encoding':
-      return 'Finishing the file';
-    case 'staged':
-      return state.refused === undefined
-        ? 'Ready to deliver'
-        : `Not delivered: ${state.refused.summary}`;
-    case 'delivering':
-      return 'Delivering';
-    case 'delivered':
-      return 'Exported';
-    case 'failed':
-      return `Failed: ${state.failure.summary}`;
-    case 'cancelled':
-      return 'Cancelled';
-  }
-}
+import { stageWords } from './export-job-words.js';
 
 /** One file of the batch, and, where it waits, what may be done with it. */
 function JobRow({

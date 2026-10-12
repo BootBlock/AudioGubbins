@@ -25,12 +25,7 @@ import { counted, quoted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
 import { sampleRateWords } from '../../wording.js';
-
-/** One fact of the source: what it is about, and what it is. */
-export interface SourceFact {
-  readonly term: string;
-  readonly detail: string;
-}
+import type { Fact } from './facts.js';
 
 /** Where each kind of decoder runs, as the person is told it. */
 const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
@@ -97,9 +92,9 @@ function encodingWords(encoding: SourceEncoding): string {
 }
 
 /** The facts of the audio shape a file's reader found. */
-function shapeFacts(shape: SourceAudioShape, asset: Asset): readonly SourceFact[] {
+function shapeFacts(shape: SourceAudioShape, asset: Asset): readonly Fact[] {
   const layout = shape.statedLayout ?? asset.channelLayout;
-  const facts: SourceFact[] = [
+  const facts: Fact[] = [
     { term: 'Format', detail: containerName(shape.container) },
     { term: 'Sample rate', detail: sampleRateWords(shape.sampleRate) },
     {
@@ -120,9 +115,9 @@ function shapeFacts(shape: SourceAudioShape, asset: Asset): readonly SourceFact[
 }
 
 /** The facts of the compressed file a rendition was decoded from, and of what decoded it. */
-function renditionFacts(rendition: DecodedRendition): readonly SourceFact[] {
+function renditionFacts(rendition: DecodedRendition): readonly Fact[] {
   const { decoder } = rendition;
-  const facts: SourceFact[] = [
+  const facts: Fact[] = [
     {
       term: 'Format',
       detail: `${containerName(rendition.container)}, ${codecDescriptor(rendition.codec).name}`,
@@ -160,10 +155,10 @@ function renditionFacts(rendition: DecodedRendition): readonly SourceFact[] {
 }
 
 /** The facts of `asset`'s source, or what is known where it kept no provenance. */
-export function sourceFacts(source: AssetSource | undefined, asset: Asset): readonly SourceFact[] {
+export function sourceFacts(source: AssetSource | undefined, asset: Asset): readonly Fact[] {
   if (source === undefined) return [];
   const provenance = source.provenance;
-  const facts: SourceFact[] = [{ term: 'Kept', detail: keptWords(source) }];
+  const facts: Fact[] = [{ term: 'Kept', detail: keptWords(source) }];
   if (provenance?.originalFileName !== undefined) {
     facts.push({ term: 'File', detail: provenance.originalFileName });
   }

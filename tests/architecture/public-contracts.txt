@@ -4005,6 +4005,7 @@ Published paths
   interface FlacEncoding
   readonly FlacEncoding.bits: 16 | 24 | 32
   readonly FlacEncoding.compressionLevel: number
+  readonly FlacEncoding.keepRiffChunks: boolean
   interface FloatPcm
   readonly FloatPcm.kind: "float"
   readonly FloatPcm.bits: 32 | 64
@@ -4023,10 +4024,11 @@ Published paths
   readonly ImportEntry.file: ImportFile
   readonly ImportEntry.state: ImportFileState
   readonly ImportEntry.format?: RecognisedFormat
+  readonly ImportEntry.room?: ImportRoomNeeded
   interface ImportFile
   readonly ImportFile.name: string
   readonly ImportFile.bytes: number
-  type ImportFileEvent = { readonly kind: "add"; } | { readonly kind: "analyse"; } | { readonly kind: "copy"; readonly bytesTotal: number; } | { readonly kind: "copy-progress"; readonly bytesCopied: number; } | { readonly kind: "decode"; readonly framesTotal: number | undefined; } | { readonly kind: "decode-progress"; readonly framesDecoded: number; } | { readonly kind: "imported"; } | { readonly kind: "recognised"; readonly format: RecognisedFormat; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
+  type ImportFileEvent = { readonly kind: "add"; } | { readonly kind: "analyse"; } | { readonly kind: "copy"; readonly bytesTotal: number; } | { readonly kind: "copy-progress"; readonly bytesCopied: number; } | { readonly kind: "decode"; readonly framesTotal: number | undefined; } | { readonly kind: "decode-progress"; readonly framesDecoded: number; } | { readonly kind: "imported"; } | { readonly kind: "recognised"; readonly format: RecognisedFormat; } | { readonly kind: "refused"; readonly failure: DomainFailure; } | { readonly kind: "room"; readonly needed: ImportRoomNeeded; }
   type ImportFileState = { readonly kind: "adding" | "analysing" | "queued"; } | { readonly kind: "cancelled"; readonly stage: ImportStage; } | { readonly kind: "copying"; readonly bytesCopied: number; readonly bytesTotal: number; } | { readonly kind: "decoding"; readonly framesDecoded: number; readonly framesTotal: number | undefined; } | { readonly kind: "imported"; } | { readonly kind: "refused"; readonly stage: ImportStage; readonly failure: DomainFailure; }
   interface ImportJob
   readonly ImportJob.entries: readonly ImportEntry[]
@@ -4035,6 +4037,7 @@ Published paths
   readonly ImportProgress.imported: number
   readonly ImportProgress.refused: number
   readonly ImportProgress.total: number
+  type ImportRoomNeeded = { readonly kind: "known"; readonly bytes: number; } | { readonly kind: "unknown"; readonly atLeast: number; }
   type ImportStage = "adding" | "analysing" | "copying" | "decoding" | "queued"
   interface IntegerPcm
   readonly IntegerPcm.kind: "integer"

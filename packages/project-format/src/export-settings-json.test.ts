@@ -45,7 +45,7 @@ const EVERY_FORMAT: readonly ExportSettings[] = [
   { ...COMMON, format: 'wav', encoding: { kind: 'ms-adpcm' } },
   { ...COMMON, format: 'aiff', encoding: { kind: 'integer', bits: 16 } },
   { ...COMMON, format: 'aifc', encoding: { kind: 'ima-adpcm' } },
-  { ...COMMON, format: 'flac', encoding: { bits: 24, compressionLevel: 5 } },
+  { ...COMMON, format: 'flac', encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: true } },
   { ...COMMON, format: 'mp3', encoding: { mode: 'constant', bitRate: 320 } },
   { ...COMMON, format: 'mp3', encoding: { mode: 'variable', quality: 0 } },
   { ...COMMON, format: 'ogg-vorbis', encoding: { mode: 'quality', quality: -1 } },
@@ -72,7 +72,7 @@ const EVERY_FORMAT: readonly ExportSettings[] = [
   {
     ...COMMON,
     format: 'flac',
-    encoding: { bits: 16, compressionLevel: 8 },
+    encoding: { bits: 16, compressionLevel: 8, keepRiffChunks: false },
     channels: { kind: 'map', channels: [1, 0], to: StandardLayouts.stereo },
     range: { kind: 'project' },
   },
@@ -112,7 +112,7 @@ describe('export settings as JSON (ADR-0092)', () => {
     const flac = writeExportSettings({
       ...COMMON,
       format: 'flac',
-      encoding: { bits: 24, compressionLevel: 5 },
+      encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: false },
     });
     expect(read(withValue(flac, ['encoding'], { kind: 'integer', bits: 24 }))).toContain(
       'schema.unknown-member',
@@ -136,6 +136,20 @@ describe('export settings as JSON (ADR-0092)', () => {
       'schema.unknown-value',
     ]);
     expect(read(withValue(wav, ['extra'], true))).toEqual(['schema.unknown-member']);
+  });
+
+  it('refuse a FLAC encoding that does not say, as a boolean, whether it keeps the WAV chunks', () => {
+    const flac = writeExportSettings({
+      ...COMMON,
+      format: 'flac',
+      encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: true },
+    });
+    expect(read(withValue(flac, ['encoding', 'keepRiffChunks'], 'yes'))).toEqual([
+      'schema.not-a-boolean',
+    ]);
+    expect(read(withValue(flac, ['encoding'], { bits: 24, compressionLevel: 5 }))).toEqual([
+      'schema.missing-member',
+    ]);
   });
 
   it('are kept in the project document, and the document reads back with them', () => {

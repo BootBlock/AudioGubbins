@@ -536,7 +536,15 @@ export function randomExportSettings(random: Random): ExportSettings {
   return random.pick<ExportSettings>([
     { ...common, format: 'wav', encoding: { kind: 'integer', bits: 24 } },
     { ...common, format: 'aifc', encoding: { kind: 'float', bits: 32 } },
-    { ...common, format: 'flac', encoding: { bits: 16, compressionLevel: random.below(9) } },
+    {
+      ...common,
+      format: 'flac',
+      encoding: {
+        bits: 16,
+        compressionLevel: random.below(9),
+        keepRiffChunks: random.chance(0.5),
+      },
+    },
     { ...common, format: 'mp3', encoding: { mode: 'average', bitRate: 192 } },
     { ...common, format: 'ogg-vorbis', encoding: { mode: 'quality', quality: random.below(11) } },
     {

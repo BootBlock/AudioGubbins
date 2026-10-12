@@ -40,7 +40,10 @@ describe('the most an export can stage (ADR-0092)', () => {
   });
 
   it('never bounds FLAC below its samples stored verbatim, a bit wider for the side channel', () => {
-    const flac = settingsOf({ format: 'flac', encoding: { bits: 16, compressionLevel: 5 } });
+    const flac = settingsOf({
+      format: 'flac',
+      encoding: { bits: 16, compressionLevel: 5, keepRiffChunks: false },
+    });
 
     expect(stagedSizeBound(flac, RATE, STEREO, {})).toBeGreaterThan(
       HEAD + Math.ceil((RATE * 2 * 17) / 8),

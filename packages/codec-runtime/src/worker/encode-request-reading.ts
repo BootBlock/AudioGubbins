@@ -12,6 +12,7 @@ import {
   Malformed,
   fieldsAt,
   fieldsOf,
+  flagOf,
   layoutOf,
   numberOf,
   rateOf,
@@ -97,6 +98,7 @@ function flacOf(value: unknown, field: string): FlacEncoding {
   return {
     bits: oneOfList(fields['bits'], `${field}.bits`, FLAC_BITS),
     compressionLevel: numberOf(fields['compressionLevel'], `${field}.compressionLevel`),
+    keepRiffChunks: flagOf(fields['keepRiffChunks'], `${field}.keepRiffChunks`),
   };
 }
 

@@ -25,7 +25,7 @@ import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import type { JobParts } from './export-preparation.js';
 import { endedSentence, heldSentence } from './export-sentences.js';
-import type { ExportRunState } from './export-types.js';
+import type { ExportDestinationChoice, ExportRunState } from './export-types.js';
 
 /** What a batch was made from: the project, the settings, the origin and the jobs by their ids. */
 export interface RunOf {
@@ -43,12 +43,15 @@ export class ExportRun {
   readonly jobs: ReadonlyMap<string, JobParts>;
   readonly files: ReadonlyMap<string, PlannedFile>;
 
+  /** Where each job's file goes, made afresh only when a delivery elsewhere changes one. */
+  #destinations: ReadonlyMap<string, ExportDestinationChoice>;
+
   /** Calls off the work of the batch, a render or a delivery under way. */
   readonly cancel = new AbortController();
   #batch: ExportBatch;
 
   /** The name each delivered file was written under, which a rename may have changed. */
-  readonly #names = new Map<string, string>();
+  #names: ReadonlyMap<string, string> = new Map();
   #asking:
     | { readonly name: string; readonly answer: (reply: CollisionReply | undefined) => void }
     | undefined;
@@ -61,6 +64,7 @@ export class ExportRun {
     this.origin = of.origin;
     this.jobs = of.jobs;
     this.files = new Map([...of.jobs].map(([id, job]) => [id, job.file]));
+    this.#destinations = new Map([...of.jobs].map(([id, job]) => [id, job.destination]));
     this.#batch = exportBatch(
       [...of.jobs].map(([id, job]) => plannedExport(id, job.file.render.range.length)),
     );
@@ -85,6 +89,28 @@ export class ExportRun {
     this.show();
   }
 
+  /** Sends the file of job `id` to `destination` from now on, where the person asked it delivered elsewhere. */
+  redirect(id: string, destination: ExportDestinationChoice): void {
+    const parts = this.jobs.get(id);
+    if (parts === undefined) return;
+    parts.destination = destination;
+    this.#destinations = new Map([...this.#destinations, [id, destination]]);
+  }
+
+  /** What every shown state of the batch carries. */
+  #shownRun(): Pick<
+    ExportRunState & { kind: 'held' },
+    'batch' | 'files' | 'settings' | 'destinations' | 'names'
+  > {
+    return {
+      batch: this.#batch,
+      files: this.files,
+      settings: this.settings,
+      destinations: this.#destinations,
+      names: this.#names,
+    };
+  }
+
   /** Holds `answer` for the rest of the batch, where the person gave one. */
   remember(answer: ExportBatch['remembered']): void {
     this.#batch = { ...this.#batch, remembered: answer };
@@ -92,7 +118,7 @@ export class ExportRun {
 
   /** Reports a whole file of `bytes` delivered, under the name it was written as. */
   delivered(id: string, bytes: number, name: string): void {
-    this.#names.set(id, name);
+    this.#names = new Map([...this.#names, [id, name]]);
     this.report(id, { kind: 'delivery-progress', bytesDelivered: bytes });
     this.report(id, { kind: 'delivered' });
   }
@@ -138,12 +164,7 @@ export class ExportRun {
 
   /** Shows the batch as running. */
   show(): void {
-    this.#shown({
-      kind: 'running',
-      batch: this.#batch,
-      files: this.files,
-      asking: this.#asking?.name,
-    });
+    this.#shown({ ...this.#shownRun(), kind: 'running', asking: this.#asking?.name });
   }
 
   /**
@@ -155,11 +176,11 @@ export class ExportRun {
     const waiting = this.#batch.jobs.some((job) => job.state.kind === 'staged');
     if (waiting && !this.cancel.signal.aborted) {
       return {
-        state: { kind: 'held', batch: this.#batch, files: this.files },
+        state: { ...this.#shownRun(), kind: 'held' },
         said: heldSentence(this.#batch, this.files),
       };
     }
     const said = endedSentence(this.#batch, this.#names);
-    return { state: { kind: 'ended', batch: this.#batch, files: this.files, said }, said };
+    return { state: { ...this.#shownRun(), kind: 'ended', said }, said };
   }
 }

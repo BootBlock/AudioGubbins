@@ -6,8 +6,10 @@
 
 import type { ReactNode } from 'react';
 
+import type { RegionId } from '@audiogubbins/domain';
 import type { ExportContext, ExportRange, ExportSettings } from '@audiogubbins/import-export';
 
+import { rangeWords } from './export-words.js';
 import { ChoiceField, type Choice } from './setting-fields.js';
 
 /** The ranges offered: the whole asset, each region, every region, and the selection where one is. */
@@ -18,16 +20,17 @@ function rangeChoices(
 ): readonly Choice<ExportRange>[] {
   const { regions } = context.source;
   const shown = selection ?? (current.kind === 'selection' ? current : undefined);
+  const names = new Map(regions.map((region) => [region.id, region.name]));
+  const nameOf = (id: RegionId): string | undefined => names.get(id);
+  const choice = (value: ExportRange): Choice<ExportRange> => ({
+    value,
+    label: rangeWords(value, nameOf),
+  });
   return [
-    { value: { kind: 'project' }, label: 'The whole asset' },
-    ...regions.map((region) => ({
-      value: { kind: 'region', region: region.id } as const,
-      label: `The region “${region.name}”`,
-    })),
-    ...(regions.length === 0
-      ? []
-      : [{ value: { kind: 'every-region' } as const, label: 'Every region, a file each' }]),
-    ...(shown === undefined ? [] : [{ value: shown, label: 'The selection' }]),
+    choice({ kind: 'project' }),
+    ...regions.map((region) => choice({ kind: 'region', region: region.id })),
+    ...(regions.length === 0 ? [] : [choice({ kind: 'every-region' })]),
+    ...(shown === undefined ? [] : [choice(shown)]),
   ];
 }
 

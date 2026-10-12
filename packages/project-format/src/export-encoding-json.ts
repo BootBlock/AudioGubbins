@@ -15,7 +15,12 @@ import type {
 
 import type { JsonObject, JsonValue } from './canonical-json.js';
 import { objectOf, pathOf, required, type Converter, type Reading } from './document-reading.js';
-import { integerConverter, namedValueConverter, numberConverter } from './scalar-reading.js';
+import {
+  asBoolean,
+  integerConverter,
+  namedValueConverter,
+  numberConverter,
+} from './scalar-reading.js';
 import { kindOf, literalConverter, members } from './variant-reading.js';
 
 const asIntegerBits = literalConverter([8, 16, 24, 32] as const);
@@ -228,14 +233,21 @@ function readFlac(
   value: JsonValue,
   at: string,
 ): FormatEncodings['flac'] | undefined {
-  const object = objectOf(reading, value, at, 'encoding', members('bits', 'compressionLevel'));
+  const object = objectOf(
+    reading,
+    value,
+    at,
+    'encoding',
+    members('bits', 'compressionLevel', 'keepRiffChunks'),
+  );
   if (object === undefined) return undefined;
   const inner = pathOf(at, 'encoding');
   const bits = required(reading, object, inner, 'bits', asFlacBits);
   const compressionLevel = required(reading, object, inner, 'compressionLevel', asWhole);
-  return bits === undefined || compressionLevel === undefined
+  const keepRiffChunks = required(reading, object, inner, 'keepRiffChunks', asBoolean);
+  return bits === undefined || compressionLevel === undefined || keepRiffChunks === undefined
     ? undefined
-    : { bits, compressionLevel };
+    : { bits, compressionLevel, keepRiffChunks };
 }
 
 function readMp3(

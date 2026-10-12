@@ -9,6 +9,11 @@
  * makes recording the subject too, wherever it was armed from. A take or a
  * take stack inspected from the Recording panel is the subject until another
  * is, or the recording configuration is asked for again.
+ *
+ * Each time recording makes itself the subject, by a Recording panel brought
+ * into use, an input armed or a take inspected, it is counted, so another
+ * subject the Inspector may show, an export's, gives way to it as an editor's
+ * does, whether or not recording was the subject already.
  */
 
 import type { TakeId, TakeStackId } from '@audiogubbins/domain';
@@ -27,6 +32,8 @@ export interface TakeSubject {
 /** Whether recording is the Inspector's subject, and which take or stack it shows. */
 export interface RecordingFocus {
   readonly focus: Observable<boolean>;
+  /** How many times recording has made itself the subject (see the module comment). */
+  readonly claimed: Observable<number>;
   /** The take or stack inspected, or none for the recording configuration. */
   readonly subject: Observable<TakeSubject | undefined>;
   /** Makes recording the subject, showing `subject`, or the configuration for none. */
@@ -40,27 +47,37 @@ export function followRecordingFocus(
   input: Observable<InputView>,
 ): RecordingFocus {
   const focus = observable(false);
+  const claimed = observable(0);
   const subject = observable<TakeSubject | undefined>(undefined);
+  const claim = (): void => {
+    focus.set(true);
+    claimed.update((count) => count + 1);
+  };
+  let active = activePanelOf(workspace.get().layout);
+  if (active?.kind === PanelKinds.Recording) focus.set(true);
   const followPanel = (): void => {
-    const kind = activePanelOf(workspace.get().layout)?.kind;
-    if (kind === PanelKinds.Recording) focus.set(true);
-    else if (kind === PanelKinds.Editor) focus.set(false);
+    const now = activePanelOf(workspace.get().layout);
+    const brought = now?.id !== active?.id;
+    active = now;
+    if (now?.kind === PanelKinds.Recording) {
+      if (brought) claim();
+    } else if (now?.kind === PanelKinds.Editor) focus.set(false);
   };
   let armed = input.get().session.kind === 'armed';
   const followInput = (): void => {
     const nowArmed = input.get().session.kind === 'armed';
-    if (nowArmed && !armed) focus.set(true);
+    if (nowArmed && !armed) claim();
     armed = nowArmed;
   };
-  followPanel();
   const stopPanel = workspace.subscribe(followPanel);
   const stopInput = input.subscribe(followInput);
   return {
     focus,
+    claimed,
     subject,
     inspect: (inspected) => {
       subject.set(inspected);
-      focus.set(true);
+      claim();
     },
     stop: () => {
       stopPanel();

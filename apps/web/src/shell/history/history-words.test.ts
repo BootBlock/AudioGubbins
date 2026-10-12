@@ -34,7 +34,7 @@ const FLAC: ExportRecord = {
   file: {
     settings: {
       format: 'flac',
-      encoding: { bits: 24, compressionLevel: 5 },
+      encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: false },
       sampleRate: expectSuccess(sampleRate(48_000)),
       channels: { kind: 'keep' },
       dither: { kind: 'none' },
@@ -45,7 +45,7 @@ const FLAC: ExportRecord = {
     fileName: 'Loop.flac',
     byteLength: 1_000,
     sha256: 'ab'.repeat(32),
-    codec: { id: 'flac', implementation: 'codec-module', version: '0.12.0' },
+    codec: { id: 'flac', implementation: 'codec-module', version: 'flacenc 0.5.1' },
     reproducible: true,
   },
 };
@@ -57,7 +57,7 @@ describe('what the History panel says of an export (REQ-STOR-197, REQ-AUDIO-145)
 
   it('names an audio file, where it went, its codec and version, and whether it is reproducible', () => {
     expect(describeExport(FLAC)).toBe(
-      `Exported as “Loop.flac” to “Game sounds” on ${when(AT)}, encoded as FLAC by the codec module 0.12.0, the same bytes on every machine`,
+      `Exported as “Loop.flac” to “Game sounds” on ${when(AT)}, encoded as FLAC by flacenc 0.5.1 in the codec module, the same bytes on every machine`,
     );
   });
 
@@ -76,7 +76,7 @@ describe('what the History panel says of an export (REQ-STOR-197, REQ-AUDIO-145)
     };
 
     expect(describeExport(aac)).toBe(
-      `Exported as “Loop.m4a” on ${when(AT)}, encoded as AAC-LC by the browser's encoder WebCodecs (Chromium) 130, bytes another machine may not repeat`,
+      `Exported as “Loop.m4a” on ${when(AT)}, encoded as AAC-LC by WebCodecs (Chromium) 130, the browser's own encoder, bytes another machine may not repeat`,
     );
   });
 });

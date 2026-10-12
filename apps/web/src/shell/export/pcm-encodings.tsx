@@ -1,7 +1,8 @@
 /**
  * The encoding controls of the uncompressed and lossless formats (ADR-0092):
  * WAV's and AIFF-C's kinds of sample and depths, AIFF's depths, and FLAC's
- * depth and compression level, each a row of the table of formats.
+ * depth, compression level and whether it keeps the WAV chunks of loops, cues
+ * and tuning, each a row of the table of formats.
  */
 
 import type { ReactNode } from 'react';
@@ -14,7 +15,13 @@ import type {
   WavEncoding,
 } from '@audiogubbins/import-export';
 
-import { ChoiceField, numberChoices, wholeNumbers, type EncodingRows } from './setting-fields.js';
+import {
+  ChoiceField,
+  numberChoices,
+  wholeNumbers,
+  type Choice,
+  type EncodingRows,
+} from './setting-fields.js';
 
 /** The kinds of PCM sample a WAV or AIFF-C file holds, and what each is called. */
 type PcmKind = WavEncoding['kind'];
@@ -29,6 +36,15 @@ const PCM_KIND_NAMES: Readonly<Record<PcmKind, string>> = {
 };
 
 const INTEGER_BITS: readonly IntegerPcm['bits'][] = [8, 16, 24, 32];
+
+/**
+ * Where a FLAC file keeps its loops, cues and tuning: the Vorbis comments hold
+ * the first loop alone, and the WAV chunks in `riff` blocks hold them all.
+ */
+const RIFF_CHUNK_CHOICES: readonly Choice<boolean>[] = [
+  { value: false, label: 'The first loop alone, as comments' },
+  { value: true, label: 'Every one, also as WAV chunks' },
+];
 const FLOAT_BITS: readonly FloatPcm['bits'][] = [32, 64];
 
 /** The encoding of `kind` a choice of it gives, at the depth held where the kind has that depth. */
@@ -150,6 +166,14 @@ export const PCM_ROWS: Pick<EncodingRows, 'wav' | 'aiff' | 'aifc' | 'flac'> = {
         )}
         onChoose={(compressionLevel) => {
           onEncoding({ ...settings.encoding, compressionLevel });
+        }}
+      />
+      <ChoiceField
+        label="Loops, cues and tuning"
+        value={settings.encoding.keepRiffChunks}
+        choices={RIFF_CHUNK_CHOICES}
+        onChoose={(keepRiffChunks) => {
+          onEncoding({ ...settings.encoding, keepRiffChunks });
         }}
       />
     </>

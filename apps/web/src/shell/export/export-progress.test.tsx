@@ -16,6 +16,7 @@ import {
 import { ExportCommand } from '../../commands/import-export-ids.js';
 import type { ExportRunState } from '../../export/export-types.js';
 import { observable } from '../../state/observable.js';
+import { shownRun } from '../../testing/export-states.js';
 import { renderInTheShell } from '../../testing/in-the-shell.js';
 import { ExportProgress } from './export-progress.js';
 
@@ -49,11 +50,13 @@ describe('the export under way (ADR-0092)', () => {
     const user = userEvent.setup();
     const { run } = progressOver({
       kind: 'running',
-      batch: batchAfter([
-        { kind: 'render-started' },
-        { kind: 'progress', framesRendered: FRAMES / 2, bytesStaged: 10 },
-      ]),
-      files: namedFiles(),
+      ...shownRun(
+        batchAfter([
+          { kind: 'render-started' },
+          { kind: 'progress', framesRendered: FRAMES / 2, bytesStaged: 10 },
+        ]),
+        namedFiles(),
+      ),
       asking: undefined,
     });
     const dialog = screen.getByRole('dialog', { name: 'Exporting' });
@@ -81,15 +84,17 @@ describe('the export under way (ADR-0092)', () => {
     );
     const { run } = progressOver({
       kind: 'held',
-      batch: batchAfter([
-        { kind: 'render-started' },
-        { kind: 'progress', framesRendered: FRAMES, bytesStaged: 10 },
-        { kind: 'render-finished' },
-        { kind: 'staged', staged: { bytes: 10, hash: 'ab', reproducible: true } },
-        { kind: 'delivery-started', target: { kind: 'folder', name: 'Waves.wav' } },
-        { kind: 'delivery-refused', failure: refused },
-      ]),
-      files: namedFiles(),
+      ...shownRun(
+        batchAfter([
+          { kind: 'render-started' },
+          { kind: 'progress', framesRendered: FRAMES, bytesStaged: 10 },
+          { kind: 'render-finished' },
+          { kind: 'staged', staged: { bytes: 10, hash: 'ab', reproducible: true } },
+          { kind: 'delivery-started', target: { kind: 'folder', name: 'Waves.wav' } },
+          { kind: 'delivery-refused', failure: refused },
+        ]),
+        namedFiles(),
+      ),
     });
     const waiting = screen.getByRole('group', { name: 'What to do with Waves.wav' });
 
@@ -103,7 +108,7 @@ describe('the export under way (ADR-0092)', () => {
   });
 
   it('is shut while the collision prompt asks, and once the export has ended', () => {
-    progressOver({ kind: 'ended', batch: batchAfter([]), files: namedFiles(), said: 'Done.' });
+    progressOver({ kind: 'ended', ...shownRun(batchAfter([]), namedFiles()), said: 'Done.' });
 
     expect(screen.queryByRole('dialog')).toBeNull();
   });

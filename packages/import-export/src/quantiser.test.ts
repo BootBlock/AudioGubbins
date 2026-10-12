@@ -192,7 +192,11 @@ describe('the dither key', () => {
     const { format, encoding, dither, ...rest } = settings;
     const reordered = {
       dither: { ...dither },
-      encoding: { compressionLevel: encoding.compressionLevel, bits: encoding.bits },
+      encoding: {
+        keepRiffChunks: encoding.keepRiffChunks,
+        compressionLevel: encoding.compressionLevel,
+        bits: encoding.bits,
+      },
       ...rest,
       format,
     };

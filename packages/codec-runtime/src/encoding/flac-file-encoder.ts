@@ -126,8 +126,7 @@ export function openFlacWriter(
     blockSize,
     metadata: request.metadata,
     vendor: FLAC_VENDOR,
-    // No setting asks for the WAV chunks, so loops and cues go in the comments alone.
-    keepRiffChunks: false,
+    keepRiffChunks: encoding.keepRiffChunks,
   });
   if (!framer.ok) {
     encoder.value.release();

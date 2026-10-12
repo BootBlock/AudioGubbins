@@ -9,15 +9,15 @@
  * stream's header and sends first; or refused with the sentence that names
  * what the file is and what can be read.
  *
- * The storage the import needs is stated against the storage estimate before
- * a byte is written: the file itself where a copy of it is kept, and the
- * rendition, whose size is its frames times its channels times four bytes and
- * its header, where the stream states its frames. A stream that states none
- * cannot be sized, so its rendition is not counted, and a write the storage
- * refuses while it is decoded ends the import as a cancelled one does, with
- * nothing kept. An estimate the browser does not give is never taken for
- * room, nor for its lack: the import goes ahead and the storage refuses what
- * it cannot hold.
+ * The storage the import needs is stated, and checked against the storage
+ * estimate, before a byte is written: the file itself where a copy of it is
+ * kept, and the rendition, whose size is its frames times its channels times
+ * four bytes and its header, where the stream states its frames. A stream that
+ * states none cannot be sized, so the need is stated as unknown beyond the
+ * copy, only the copy is checked, and a write the storage refuses while it is
+ * decoded ends the import as a cancelled one does, with nothing kept. An
+ * estimate the browser does not give is never taken for room, nor for its lack:
+ * the import goes ahead and the storage refuses what it cannot hold.
  */
 
 import {
@@ -40,6 +40,7 @@ import {
   type DomainResult,
   type SampleCount,
 } from '@audiogubbins/domain';
+import type { ImportFileEvent, ImportRoomNeeded } from '@audiogubbins/import-export';
 import { SourceHandling, type ExternalFile, type ImportChoice } from '@audiogubbins/media-store';
 
 import { importNeedsRoom } from './import-failures.js';
@@ -140,13 +141,38 @@ export function renditionBytes(
 }
 
 /**
- * Whether the storage has room for `needed` bytes, read from `room` now:
- * refused where the estimate says it has not, and allowed where it gives none.
+ * The storage an import of `file` as `choice` needs: the file where a copy of
+ * it is kept, and, where it is decoded, the rendition's `bytes`, which are
+ * `undefined` where its stream states no length.
  */
-export async function checkRoom(needed: number, room: StorageRoom): Promise<DomainResult<void>> {
-  if (needed === 0) return succeed(undefined);
+export function roomNeeded(
+  file: ExternalFile,
+  choice: ImportChoice,
+  rendition: { readonly bytes: number | undefined } | undefined,
+): ImportRoomNeeded {
+  const copied = keepsCopy(choice) ? file.source.size : 0;
+  if (rendition === undefined) return { kind: 'known', bytes: copied };
+  return rendition.bytes === undefined
+    ? { kind: 'unknown', atLeast: copied }
+    : { kind: 'known', bytes: copied + rendition.bytes };
+}
+
+/**
+ * States the storage `needed` to the import's observer, then answers whether
+ * the storage has room for it, read from `room` now: refused where the
+ * estimate says it has not, and allowed where it gives none. A need unknown
+ * beyond the copy is checked for the copy alone.
+ */
+export async function checkRoom(
+  needed: ImportRoomNeeded,
+  room: StorageRoom,
+  observe: (event: ImportFileEvent) => void,
+): Promise<DomainResult<void>> {
+  observe({ kind: 'room', needed });
+  const bytes = needed.kind === 'known' ? needed.bytes : needed.atLeast;
+  if (bytes === 0) return succeed(undefined);
   const available = await room();
-  return available === undefined || needed <= available
+  return available === undefined || bytes <= available
     ? succeed(undefined)
-    : fail(importNeedsRoom(needed, available));
+    : fail(importNeedsRoom(bytes, available));
 }

@@ -1,7 +1,8 @@
 /**
  * The export's own commands (ADR-0092, REQ-EDIT-073, REQ-UX-005): cancelling
  * it, answering a taken name, delivering a held file again or elsewhere, and
- * keeping folders trusted. Starting an export is the Export dialog's.
+ * keeping folders trusted. Starting an export is the Export dialog's, and
+ * describing one in the Inspector is `export-inspection-commands.ts`.
  *
  * Every chooser opens first in the body, in the person's gesture, since a
  * browser opens none outside one, and leave to write is asked there too; the

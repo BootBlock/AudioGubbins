@@ -10,7 +10,7 @@
 
 import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
 import { codecDescriptor, type CodecImplementation } from '@audiogubbins/codecs';
-import type { ExportedAudioFile, ExportRecord } from '@audiogubbins/project-format';
+import type { ExportCodec, ExportedAudioFile, ExportRecord } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { describeBytes, when } from '../../wording.js';
@@ -28,22 +28,34 @@ export function describeNode(node: HistoryNode): string {
   }
 }
 
-/** Who served a codec, as a phrase names it. */
+/**
+ * Where an encoder ran, as the end of a phrase after its version, which names
+ * the encoder itself ("flacenc 0.5.1"): nothing for AudioGubbins' own writers,
+ * whose version is the product's ("AudioGubbins 0.1.0").
+ */
 const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
-  application: 'AudioGubbins',
-  'codec-module': 'the codec module',
-  'encoder-module': 'its encoder module',
-  browser: "the browser's encoder",
+  application: '',
+  'codec-module': ' in the codec module',
+  'encoder-module': ' in its encoder module',
+  browser: ", the browser's own encoder",
 };
+
+/**
+ * The codec an export was encoded with, by which encoder at which version and
+ * where it ran: "FLAC by flacenc 0.5.1 in the codec module".
+ */
+export function encodedByWords(codec: ExportCodec): string {
+  return `${codecDescriptor(codec.id).name} by ${codec.version}${IMPLEMENTATION_WORDS[codec.implementation]}`;
+}
+
+/** Whether the same project and settings give an export's bytes again, as a phrase. */
+export function reproducibleWords(reproducible: boolean): string {
+  return reproducible ? 'the same bytes on every machine' : 'bytes another machine may not repeat';
+}
 
 /** The file an export wrote, as a phrase names it: its codec, what served it and whether it is reproducible. */
 function writtenFile(file: ExportedAudioFile): string {
-  const { codec } = file;
-  const by = `${IMPLEMENTATION_WORDS[codec.implementation]} ${codec.version}`;
-  const bytes = file.reproducible
-    ? 'the same bytes on every machine'
-    : 'bytes another machine may not repeat';
-  return `, encoded as ${codecDescriptor(codec.id).name} by ${by}, ${bytes}`;
+  return `, encoded as ${encodedByWords(file.codec)}, ${reproducibleWords(file.reproducible)}`;
 }
 
 /**

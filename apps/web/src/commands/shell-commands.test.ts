@@ -64,6 +64,7 @@ import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
 import { exportDialogCommands } from './export-dialog-commands.js';
 import { exportCommands } from './export-commands.js';
+import { exportInspectionCommands } from './export-inspection-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
@@ -809,6 +810,9 @@ describe('finding the shell commands in the palette', () => {
       ...audioImportCommands(),
       // The export's, run with its work awaited in `export-commands.test.ts`.
       ...exportCommands(),
+      // Each describes an export that must first have run, as it is run twice
+      // in `export-commands.test.ts`.
+      ...exportInspectionCommands(),
       ...quickEditCommands(),
       // Each is run twice, its work awaited, in `export-dialog-commands.test.ts`.
       ...exportDialogCommands(),

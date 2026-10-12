@@ -19,7 +19,7 @@ const context = exportContextOver();
 const EDITED: ExportSettings = {
   ...defaultExportSettings('flac', context),
   sampleRate: rateOf(44_100),
-  encoding: { bits: 24, compressionLevel: 8 },
+  encoding: { bits: 24, compressionLevel: 8, keepRiffChunks: false },
   metadata: { policy: 'minimal', edits: [{ kind: 'set', key: 'artist', value: 'Foley' }] },
   fileName: '{project} {date}',
   range: {

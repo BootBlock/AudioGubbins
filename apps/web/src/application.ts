@@ -52,6 +52,7 @@ import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 
 import { startAnalysis } from './analysis/analysis-part.js';
 import { browserCodecs } from './codecs/browser-codecs.js';
+import { followExportFocus } from './export/export-focus.js';
 import { exportClockAt, startExport, storageRoom } from './export/page-export.js';
 import {
   browserCapture,
@@ -401,6 +402,9 @@ export function createApplication() {
     clock: () => exportClockAt(clock.now()),
   });
 
+  // After recording, whose claims on the Inspector an export's description gives way to.
+  const exportFocus = followExportFocus(workspace, recordingPart.parts.claimed);
+
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
     workspace,
@@ -426,6 +430,7 @@ export function createApplication() {
     recording: recordingPart.parts,
     codecs,
     exports,
+    exportFocus,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -487,6 +492,7 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
+      exportFocus.stop();
       recordingPart.dispose();
       analysisPart.dispose();
       packsPart.dispose();

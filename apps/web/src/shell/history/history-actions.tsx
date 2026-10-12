@@ -3,7 +3,8 @@
  * going to it, comparing it or a snapshot kept at it with the current state or
  * with a side chosen first, forking a project from it, naming the branch it
  * starts, deleting a snapshot kept at it, and letting the history before it or
- * its branch go (REQ-STOR-193 to REQ-STOR-196, REQ-STOR-199, REQ-STOR-200).
+ * its branch go (REQ-STOR-193 to REQ-STOR-196, REQ-STOR-199, REQ-STOR-200),
+ * and describing in the Inspector an export made from it (REQ-EDIT-072).
  *
  * Every action runs a command naming the point, and each command's own reason
  * for not running is shown beside its button, as the menus show it. Letting
@@ -14,8 +15,14 @@ import { useState, type ReactNode } from 'react';
 
 import { TextField } from '@audiogubbins/design-system';
 import type { ComparisonSource, HistoryRow } from '@audiogubbins/history';
-import { LONGEST_HISTORY_LABEL, LONGEST_NAME } from '@audiogubbins/project-format';
+import {
+  LONGEST_HISTORY_LABEL,
+  LONGEST_NAME,
+  type ExportRecord,
+} from '@audiogubbins/project-format';
 
+import { ExportCommand } from '../../commands/import-export-ids.js';
+import { when } from '../../wording.js';
 import { ReasonedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 import { describeNode } from './history-words.js';
@@ -182,6 +189,26 @@ function Removing({ row, run, unavailableReason }: HistoryActionsProps): ReactNo
   );
 }
 
+/** What an export of the point is called on its button: the file it wrote, or when it was made. */
+function exportName(record: ExportRecord): string {
+  const name = record.file?.fileName;
+  return name === undefined ? `made ${when(record.at)}` : quoted(name);
+}
+
+/** Describing in the Inspector each export made from the point. */
+function Exports({ row, run, unavailableReason }: HistoryActionsProps): ReactNode {
+  return row.exports.map((record) => (
+    <div key={record.id} className="ag-settings-row">
+      <ReasonedButton
+        reason={unavailableReason(ExportCommand.InspectRecord)}
+        onPress={() => run(ExportCommand.InspectRecord, { record: record.id })}
+      >
+        {`Describe the export ${exportName(record)} in the Inspector`}
+      </ReasonedButton>
+    </div>
+  ));
+}
+
 /** The actions (see the module comment). */
 export function HistoryActions(props: HistoryActionsProps): ReactNode {
   const { row, run, unavailableReason } = props;
@@ -210,6 +237,7 @@ export function HistoryActions(props: HistoryActionsProps): ReactNode {
           unavailable={unavailableReason('history.name-branch')}
         />
       )}
+      <Exports {...props} />
       {row.snapshots.map((snapshot) => (
         <div key={snapshot.id} className="ag-settings-row">
           <ComparingWith

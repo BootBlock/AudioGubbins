@@ -25,7 +25,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { keepFile, withFileMetadata } from './file-keeping.js';
-import { checkRoom, keepsCopy, type FileMetadata } from './import-analysis.js';
+import { checkRoom, roomNeeded, type FileMetadata } from './import-analysis.js';
 import type {
   AudioImport,
   AudioImportServices,
@@ -54,8 +54,9 @@ export async function prepareInPlace(
 ): Promise<DomainResult<PreparedImport>> {
   const { format } = request;
   const room = await checkRoom(
-    keepsCopy(request.choice) ? request.file.source.size : 0,
+    roomNeeded(request.file, request.choice, undefined),
     services.room,
+    observe,
   );
   if (!room.ok) return room;
   const kept = await keepFile(

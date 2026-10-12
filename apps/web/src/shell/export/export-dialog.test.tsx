@@ -94,8 +94,19 @@ describe('the Export dialog', () => {
     await userEvent.click(screen.getByText('Every setting'));
     await choose('Compression level', '3');
 
-    expect(settingsOf(dialog).settings.encoding).toEqual({ bits: 24, compressionLevel: 3 });
+    expect(settingsOf(dialog).settings.encoding).toEqual({
+      bits: 24,
+      compressionLevel: 3,
+      keepRiffChunks: false,
+    });
     expect(screen.getByRole('radio', { name: 'Your edited settings' })).toBeChecked();
+
+    await choose('Loops, cues and tuning', 'Every one, also as WAV chunks');
+    expect(settingsOf(dialog).settings.encoding).toEqual({
+      bits: 24,
+      compressionLevel: 3,
+      keepRiffChunks: true,
+    });
   });
 
   it('labels every control, each reached from the keyboard, with every setting disclosed', async () => {

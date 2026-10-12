@@ -1,9 +1,9 @@
 /**
  * The files being imported (ADR-0090, REQ-UX-005): each file of the batch in
  * the order it runs, with its name, its size, its format once recognised, the
- * stage it is at, a bar of how far it has got through a stage that is
- * measured, and once it ends, what it came to and why it was refused where it
- * was.
+ * storage it needs, stated before any of it is stored, the stage it is at, a
+ * bar of how far it has got through a stage that is measured, and once it ends,
+ * what it came to and why it was refused where it was.
  *
  * Each row is keyed by its place in the batch, which never changes while the
  * batch runs, so a report redraws the rows it changed and leaves the rest, and
@@ -19,7 +19,7 @@ import type { ImportEntry, ImportJob } from '@audiogubbins/import-export';
 
 import { IMPORT_LIST_LABEL } from '../../import-export-words.js';
 import { describeBytes } from '../../wording.js';
-import { batchWords, formatWords, stageMeasure, stageWords } from './import-words.js';
+import { batchWords, formatWords, roomWords, stageMeasure, stageWords } from './import-words.js';
 
 /** One file of the batch, and how far it has got. */
 function ImportRow({ entry }: { readonly entry: ImportEntry }): ReactNode {
@@ -36,6 +36,10 @@ function ImportRow({ entry }: { readonly entry: ImportEntry }): ReactNode {
         <div>
           <dt>Format</dt>
           <dd>{formatWords(entry)}</dd>
+        </div>
+        <div>
+          <dt>Storage needed</dt>
+          <dd>{roomWords(entry)}</dd>
         </div>
         <div>
           <dt>Stage</dt>

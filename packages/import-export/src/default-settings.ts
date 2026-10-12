@@ -78,6 +78,8 @@ const DEFAULTS: Defaults = {
     encoding: {
       bits: depthFor(facts.precision, FLAC_DEPTHS),
       compressionLevel: FLAC_DEFAULT_LEVEL,
+      // ADR-0093 keeps the WAV chunks where the person asks for them.
+      keepRiffChunks: false,
     },
   }),
   mp3: (common, facts) => ({

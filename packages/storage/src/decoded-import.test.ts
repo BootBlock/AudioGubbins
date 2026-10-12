@@ -164,9 +164,15 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
       kind: 'recognised',
       format: { kind: 'audio', container: 'flac', codec: { kind: 'named', codec: 'flac' } },
     });
+    // The file copied and the 2,400-frame stereo float rendition with its 58-byte header (with `fact`).
+    expect(events[2]).toEqual({
+      kind: 'room',
+      needed: { kind: 'known', bytes: FLAC_BYTES.length + 2_400 * 2 * 4 + 58 },
+    });
     expect(events.map((event) => event.kind)).toEqual([
       'analyse',
       'recognised',
+      'room',
       'copy',
       'copy-progress',
       'decode',
@@ -264,17 +270,38 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
 
   it('keeps a linked file by its identity, storing the rendition alone', async () => {
     const scene = await setUp();
+    const events: ImportFileEvent[] = [];
     expectSuccess(
       await imported(scene, new FakeStream(wholeStream()), {
         choice: { mode: SourceHandling.Link, keepProtectedCopy: false },
+        events,
       }),
     );
+    expect(events.find((event) => event.kind === 'room')).toEqual({
+      kind: 'room',
+      needed: { kind: 'known', bytes: 2_400 * 2 * 4 + 58 },
+    });
     const source = scene.session.getSnapshot().model.state.sources.get(scene.assetId);
     expect(source?.provenance?.rendition?.kept).toMatchObject({
       kind: 'linked',
       identity: { handleKey: 'handle-7', fileName: 'Rain.flac', byteLength: FLAC_BYTES.length },
     });
     expect(await storedObjects(scene)).toHaveLength(1);
+  });
+
+  it('states the room needed as unknown beyond the copy where the stream states no length, and goes ahead', async () => {
+    const scene = await setUp(FLAC_BYTES.length);
+    const events: ImportFileEvent[] = [];
+    expectSuccess(
+      await imported(scene, new FakeStream(wholeStream()), {
+        analysis: { ...ANALYSIS, statedFrames: undefined },
+        events,
+      }),
+    );
+    expect(events.find((event) => event.kind === 'room')).toEqual({
+      kind: 'room',
+      needed: { kind: 'unknown', atLeast: FLAC_BYTES.length },
+    });
   });
 
   it('refuses a file the storage has no room for before storing anything or decoding at all', async () => {

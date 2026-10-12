@@ -46,6 +46,8 @@ function inspectorOver(
         labelFor: (id) => LABELS.get(id) ?? id,
         recording: context.recording,
         audioSettings: context.audioSettings,
+        exports: context.exports,
+        exportSubject: context.exportFocus.subject,
       }}
       commands={{
         run: (id, args) => {

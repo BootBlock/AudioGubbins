@@ -368,7 +368,7 @@ test.describe('import and export', () => {
 
       const history = await shownPanel(page, 'History');
       const record = new RegExp(
-        `Exported as “${escaped(kept)}” to “${escaped(CHOSEN_FOLDER)}” on .+, encoded as ${escaped(codecDescriptor('flac').name)} by the codec module ${escaped(FLACENC_ENCODER.version)}, the same bytes on every machine`,
+        `Exported as “${escaped(kept)}” to “${escaped(CHOSEN_FOLDER)}” on .+, encoded as ${escaped(codecDescriptor('flac').name)} by ${escaped(FLACENC_ENCODER.version)} in the codec module, the same bytes on every machine`,
         'u',
       );
       await expect(

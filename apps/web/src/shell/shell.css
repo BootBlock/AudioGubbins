@@ -1146,11 +1146,20 @@
 
 .ag-inspector-facts dd {
   margin: 0;
+  /* A SHA-256 or a long file name breaks rather than widening the panel. */
+  overflow-wrap: anywhere;
 }
 
 .ag-inspector-edits {
   margin: 0;
   padding-inline-start: var(--ag-space-large);
+}
+
+/* The files of an export, each under its name as a heading. */
+.ag-inspector-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* The Picture panel: the reference picture as large as the panel allows. */

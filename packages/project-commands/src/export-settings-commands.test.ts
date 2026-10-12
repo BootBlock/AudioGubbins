@@ -22,7 +22,7 @@ const { state } = referenceState(sampleProject());
 
 const SETTINGS: NonNullable<ProjectState['exportSettings']> = {
   format: 'flac',
-  encoding: { bits: 24, compressionLevel: 5 },
+  encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: false },
   sampleRate: expectSuccess(sampleRate(48_000)),
   channels: { kind: 'keep' },
   dither: { kind: 'none' },

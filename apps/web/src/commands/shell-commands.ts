@@ -34,6 +34,7 @@ import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
 import { exportDialogCommands } from './export-dialog-commands.js';
 import { exportCommands } from './export-commands.js';
+import { exportInspectionCommands } from './export-inspection-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackClipboardCommands } from './rack-clipboard-commands.js';
@@ -164,6 +165,7 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...projectTransferCommands(),
     ...audioImportCommands(),
     ...exportCommands(),
+    ...exportInspectionCommands(),
     ...quickEditCommands(),
     ...exportDialogCommands(),
     ...backupCommands(),
