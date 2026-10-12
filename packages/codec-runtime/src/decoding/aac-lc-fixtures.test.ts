@@ -6,11 +6,11 @@
  * runs.
  *
  * Each channel of a file is a sine of its own frequency and level from phase 0,
- * so each decoded channel is held to the tone its speaker was given, sample
- * for sample. That checks three things at once: the channels leave the module
- * in the speaker mask's order (ADR-0090); the priming an MP4 edit list states
- * is trimmed exactly, since a tone that starts early or late is out of phase
- * with its reference; and the length is the source's, not the encoder's whole
+ * so each decoded channel is held to the tone its speaker was given, sample for
+ * sample. That checks three things at once: the channels leave the module in
+ * the speaker mask's order (ADR-0090); the priming an MP4 edit list states is
+ * trimmed exactly, since a tone that starts early or late is out of phase with
+ * its reference; and the length is the source's, not the encoder's whole
  * packets. ADTS states no priming, so its decoded stream keeps the encoder's
  * 1,024 leading frames and its last packet whole, and the tones begin after
  * them.
@@ -43,9 +43,9 @@ const PACKET_FRAMES = 1_024;
 const EDGE = 2_048;
 
 /**
- * The least each channel keeps of its tone. The weakest channel here decodes
- * at 24 dB; a channel decoded at another speaker's place, or a tone a
- * packet early or late, falls below 8 dB.
+ * The least each channel keeps of its tone. The weakest channel here decodes at
+ * 24 dB; a channel decoded at another speaker's place, or a tone a packet early
+ * or late, falls below 8 dB.
  */
 const FLOOR_DB = 18;
 

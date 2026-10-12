@@ -6,11 +6,11 @@
  *
  * The codec module's decoders are the crates `crates/codecs` pins exactly,
  * Symphonia for every codec but Opus and `ropus` for Opus (ADR-0091, amended);
- * a test holds these versions to the pins. Symphonia's AAC and Vorbis
- * decoders are the pinned version vendored with fixes
- * (`third_party/symphonia-codec-aac`, `third_party/symphonia-codec-vorbis`),
- * so their version carries the build metadata `+patched`: a rendition decoded
- * by one says so, and still names the release it was made from. A browser's
+ * a test holds these versions to the pins. Symphonia's AAC and Vorbis decoders
+ * are the pinned version vendored with fixes
+ * (`third_party/symphonia-codec-aac`, `third_party/symphonia-codec-vorbis`), so
+ * their version carries the build metadata `+patched`: a rendition decoded by
+ * one says so, and still names the release it was made from. A browser's
  * decoder is the browser's own, named by its family and major version, all a
  * user-agent may say without identifying a machine.
  */
