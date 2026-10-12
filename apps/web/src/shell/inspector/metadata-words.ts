@@ -14,7 +14,7 @@ import type { KeptMetadata } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { describeBytes } from '../../wording.js';
-import type { SourceFact } from './source-words.js';
+import type { Fact } from './facts.js';
 
 /** Each text field, in the order the Inspector lists them, by the name a person knows it by. */
 const TEXT_TERMS: readonly (readonly [MetadataTextKey, string])[] = [
@@ -35,8 +35,8 @@ const TEXT_TERMS: readonly (readonly [MetadataTextKey, string])[] = [
 ];
 
 /** The facts of the metadata `metadata` holds; none where it holds none. */
-export function metadataFacts(metadata: KeptMetadata): readonly SourceFact[] {
-  const facts: SourceFact[] = [];
+export function metadataFacts(metadata: KeptMetadata): readonly Fact[] {
+  const facts: Fact[] = [];
   const text = metadata.text ?? {};
   for (const [key, term] of TEXT_TERMS) {
     const value = text[key];

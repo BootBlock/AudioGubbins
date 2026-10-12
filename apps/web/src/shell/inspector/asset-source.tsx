@@ -9,22 +9,9 @@ import type { ReactNode } from 'react';
 import type { Asset } from '@audiogubbins/domain';
 import type { AssetSource } from '@audiogubbins/project-format';
 
+import { Facts } from './facts.js';
 import { metadataFacts } from './metadata-words.js';
-import { sourceFacts, type SourceFact } from './source-words.js';
-
-/** Facts, each a term and its detail. */
-function Facts({ facts }: { readonly facts: readonly SourceFact[] }): ReactNode {
-  return (
-    <dl className="ag-inspector-facts">
-      {facts.map((fact) => (
-        <div key={fact.term}>
-          <dt>{fact.term}</dt>
-          <dd>{fact.detail}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
+import { sourceFacts } from './source-words.js';
 
 /** The facts of `asset`'s source, and its file's metadata where it was kept. */
 export function AssetSourceFacts({
