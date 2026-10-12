@@ -7,7 +7,7 @@ import { createCodecEnvironmentStore } from './codec-environment.js';
 function unstartedEnvironment(webAssembly: boolean): CodecEnvironment {
   return {
     webAssembly,
-    codecModule: 'not-loaded',
+    codecModule: { kind: 'not-loaded' },
     encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(),
@@ -37,14 +37,15 @@ describe('the codecs’ environment as the page holds it', () => {
 
     store.adopt({
       ...unstartedEnvironment(true),
-      encoderModules: new Map([['mp3', 'failed']]),
+      encoderModules: new Map([['mp3', { kind: 'failed', reason: 'The chunk would not load.' }]]),
       browserEncoders: new Set(['aac-lc']),
     });
 
     expect(told).toBe(1);
     expect(store.capability('mp3', 'write')).toMatchObject({
       kind: 'unavailable',
-      reason: 'The MP3 encoder could not be loaded, so MP3 cannot be exported here.',
+      reason:
+        'The MP3 encoder could not be loaded, so MP3 cannot be exported here: The chunk would not load.',
     });
     expect(store.capability('aac-lc', 'write')).toMatchObject({ kind: 'available' });
 

@@ -1,7 +1,8 @@
 /**
  * Reading the codec values a codec worker's message carries, field by field
  * (REQ-EXEC-136.12): a codec's and a container's identity, the environment
- * the worker reports, and a decoder's identity. A value is read against the
+ * the worker reports, each module's load with why one failed, and a
+ * decoder's identity. A value is read against the
  * registry's own names, so a forged one cannot name a codec no descriptor
  * describes.
  */
@@ -59,12 +60,11 @@ const READABLE_CONTAINERS: Readonly<Record<ReadableContainer, ReadableContainer>
   aifc: 'aifc',
 };
 
-const MODULE_LOADS: Readonly<Record<ModuleLoad, ModuleLoad>> = {
+const LOAD_KINDS: Readonly<Record<ModuleLoad['kind'], ModuleLoad['kind']>> = {
   'not-loaded': 'not-loaded',
   loaded: 'loaded',
   failed: 'failed',
 };
-
 const IMPLEMENTATIONS: Readonly<Record<CodecImplementation, CodecImplementation>> = {
   application: 'application',
   'codec-module': 'codec-module',
@@ -103,6 +103,15 @@ function codecSetOf(value: unknown, field: string): ReadonlySet<CodecId> {
   );
 }
 
+/** How far a module's load has gone, and why it failed where it did. */
+function moduleLoadOf(value: unknown, field: string): ModuleLoad {
+  const fields = fieldsOf(value, field);
+  const kind = oneOfValues(fields['kind'], `${field}.kind`, LOAD_KINDS);
+  return kind === 'failed'
+    ? { kind, reason: textOf(fields['reason'], `${field}.reason`) }
+    : { kind };
+}
+
 /** The load of each encoder module, by the codec it encodes. */
 function moduleLoadsOf(value: unknown, field: string): ReadonlyMap<CodecId, ModuleLoad> {
   const entries = membersOf(value, field, 'Map');
@@ -111,7 +120,7 @@ function moduleLoadsOf(value: unknown, field: string): ReadonlyMap<CodecId, Modu
       if (!Array.isArray(entry)) throw new Malformed(name, 'a codec and its load');
       const codec: unknown = entry[0];
       const load: unknown = entry[1];
-      return [codecOf(codec, `${name}[0]`), oneOfValues(load, `${name}[1]`, MODULE_LOADS)] as const;
+      return [codecOf(codec, `${name}[0]`), moduleLoadOf(load, `${name}[1]`)] as const;
     }),
   );
 }
@@ -184,7 +193,7 @@ export function codecEnvironmentOf(value: unknown, field: string): CodecEnvironm
   const fields = fieldsOf(value, field);
   return {
     webAssembly: flagOf(fields['webAssembly'], `${field}.webAssembly`),
-    codecModule: oneOfValues(fields['codecModule'], `${field}.codecModule`, MODULE_LOADS),
+    codecModule: moduleLoadOf(fields['codecModule'], `${field}.codecModule`),
     encoderModules: moduleLoadsOf(fields['encoderModules'], `${field}.encoderModules`),
     browserDecoders: codecSetOf(fields['browserDecoders'], `${field}.browserDecoders`),
     browserEncoders: codecSetOf(fields['browserEncoders'], `${field}.browserEncoders`),

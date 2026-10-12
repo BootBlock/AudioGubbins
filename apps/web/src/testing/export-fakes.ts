@@ -181,7 +181,7 @@ export class FakeExportRender {
 export function servedEnvironment(browserEncoders: readonly CodecId[] = []): CodecEnvironment {
   return {
     webAssembly: true,
-    codecModule: 'loaded',
+    codecModule: { kind: 'loaded' },
     encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(browserEncoders),

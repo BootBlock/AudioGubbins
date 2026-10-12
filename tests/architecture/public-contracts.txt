@@ -906,7 +906,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37382: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37398: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1198,7 +1198,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37382: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37398: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2057,7 +2057,7 @@ Published paths
   type MetadataPart = { readonly kind: "broadcast"; } | { readonly kind: "coverArt"; } | { readonly kind: "cues"; } | { readonly kind: "foreign"; readonly scheme: string; readonly key: string; } | { readonly kind: "loops"; } | { readonly kind: "text"; readonly key: MetadataTextKey; } | { readonly kind: "tuning"; }
   type MetadataReader = (bytes: AudioBytes, signal?: CancellationSignal) => Promise<DomainResult<MetadataMap>>
   type MetadataTextKey = "album" | "albumArtist" | "artist" | "comment" | "copyright" | "date" | "discNumber" | "discTotal" | "encoder" | "genre" | "isrc" | "title" | "trackNumber" | "trackTotal"
-  type ModuleLoad = "failed" | "loaded" | "not-loaded"
+  type ModuleLoad = { readonly kind: "failed"; readonly reason: string; } | { readonly kind: "loaded"; } | { readonly kind: "not-loaded"; }
   interface Mp3StreamSettings
   readonly Mp3StreamSettings.metadata: MetadataMap
   readonly Mp3StreamSettings.encoderDelay: number

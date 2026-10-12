@@ -184,8 +184,8 @@ describe('the Export dialog', () => {
     codecs.adopt({
       ...codecs.environment.get(),
       encoderModules: new Map([
-        ['mp3', 'failed'],
-        ['vorbis', 'loaded'],
+        ['mp3', { kind: 'failed', reason: 'CompileError: expected magic word 00 61 73 6d' }],
+        ['vorbis', { kind: 'loaded' }],
       ]),
     });
 
@@ -193,7 +193,7 @@ describe('the Export dialog', () => {
 
     expect(
       screen.getAllByText(
-        /The MP3 encoder .*could not be loaded.*This browser can write .* instead\./u,
+        /The MP3 encoder .*could not be loaded, so MP3 cannot be exported here: CompileError: expected magic word 00 61 73 6d\. This browser can write .* instead\./u,
       )[0],
     ).toBeVisible();
   });

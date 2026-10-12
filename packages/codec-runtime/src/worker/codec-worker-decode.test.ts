@@ -299,7 +299,7 @@ describe('the codec worker decoding a file', () => {
         codecModule: () => Promise.reject(thrown),
         environment: () => ({
           webAssembly: true,
-          codecModule: 'loaded',
+          codecModule: { kind: 'loaded' },
           encoderModules: new Map(),
           browserDecoders: new Set(),
           browserEncoders: new Set(),

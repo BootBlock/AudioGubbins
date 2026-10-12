@@ -221,7 +221,7 @@ describe('the Export dialog’s plan as the codecs are found', () => {
   /** Chromium's on Windows, as its probe finds it. */
   const WINDOWS: CodecEnvironment = {
     webAssembly: true,
-    codecModule: 'loaded',
+    codecModule: { kind: 'loaded' },
     encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(['aac-lc']),

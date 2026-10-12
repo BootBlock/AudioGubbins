@@ -19,6 +19,7 @@ import {
   type FlacFrameSettings,
 } from './flac-frame-encoder.js';
 import { HostFiles } from './host-files.js';
+import { thrownName, thrownSaid } from './thrown-name.js';
 import { createOpusEncoder, type OpusEncoder, type OpusEncoderSettings } from './opus-encoder.js';
 import { createOpusPacketDecoder, type OpusPacketDecoder } from './opus-packet-decoder.js';
 
@@ -62,13 +63,15 @@ export async function instantiateCodecModule(
       : (await WebAssembly.instantiate(code, imports)).instance.exports;
   } catch (error) {
     // Bytes that are not WebAssembly, or a module whose imports are not this
-    // runtime's, reject here; the module's own failures are its answers.
+    // runtime's, reject here; the module's own failures are its answers. The
+    // browser's message says which, and the person reads it as the reason the
+    // module's formats are unavailable.
     return fail(
       failure(
         'codec-runtime.module-instantiation-failed',
         FailureKind.Unrecoverable,
-        'The codec module could not be instantiated.',
-        { details: { reason: error instanceof Error ? error.name : String(error) } },
+        `The codec module could not be instantiated: ${thrownSaid(error)}`,
+        { details: { reason: thrownName(error) } },
       ),
     );
   }
