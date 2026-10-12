@@ -33,6 +33,14 @@ describe('the most an export can stage (ADR-0092)', () => {
     expect(stagedSizeBound(wav, RATE, STEREO, {})).toBe(HEAD + RATE * 2 * 3);
   });
 
+  it('counts an integer sample short of whole bytes at the bytes it is stored in', () => {
+    const twenty = settingsOf({ format: 'wav', encoding: { kind: 'integer', bits: 20 } });
+    const twelve = settingsOf({ format: 'aiff', encoding: { kind: 'integer', bits: 12 } });
+
+    expect(stagedSizeBound(twenty, RATE, STEREO, {})).toBe(HEAD + RATE * 2 * 3);
+    expect(stagedSizeBound(twelve, RATE, STEREO, {})).toBe(HEAD + RATE * 2 * 2);
+  });
+
   it('counts a companded or ADPCM sample at a byte, which holds its block headers', () => {
     const adpcm = settingsOf({ format: 'wav', encoding: { kind: 'ima-adpcm' } });
 

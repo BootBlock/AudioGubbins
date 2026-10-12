@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 import type { AudioBytes } from './audio-bytes.js';
 import { openAudio } from './index.js';
 import { readRiffMetadata } from './riff-metadata.js';
+import { quantiseSample } from './sample-quantisation.js';
 import { memoryBytes, writeWhole } from './testing/index.js';
 import {
   createWavWriter,
@@ -262,6 +263,8 @@ describe('the form and the chunks of a WAV export', () => {
   }[] = [
     { name: 'integer 8', format: { kind: 'integer', bits: 8 }, tag: 1, fact: undefined },
     { name: 'integer 16', format: { kind: 'integer', bits: 16 }, tag: 1, fact: undefined },
+    { name: 'integer 12', format: { kind: 'integer', bits: 12 }, tag: 0xfffe, fact: undefined },
+    { name: 'integer 20', format: { kind: 'integer', bits: 20 }, tag: 0xfffe, fact: undefined },
     { name: 'integer 24', format: { kind: 'integer', bits: 24 }, tag: 0xfffe, fact: undefined },
     { name: 'integer 32', format: { kind: 'integer', bits: 32 }, tag: 0xfffe, fact: undefined },
     { name: 'float 32', format: { kind: 'float', bits: 32 }, tag: 3, fact: 600 },
@@ -314,6 +317,56 @@ describe('the form and the chunks of a WAV export', () => {
       3_000,
     );
     expect(first.file).toEqual(second.file);
+  });
+});
+
+describe('every integer depth of a WAV export', () => {
+  const DEPTHS = Array.from({ length: 25 }, (_, index) => 8 + index);
+
+  it.each(DEPTHS)(
+    'writes %i bits left-justified in whole bytes, stating its valid bits, and reads back exactly',
+    async (bits) => {
+      const frames = 600;
+      const { file, reader, channels, into } = await roundTrip(
+        StandardLayouts.stereo,
+        { sampleFormat: { kind: 'integer', bits } },
+        frames,
+      );
+      const bytes = Math.ceil(bits / 8);
+      const fmt = chunkAt(file, 'fmt ') ?? 0;
+      const fields = view(file);
+      // Microsoft's rule: the plain form only for 8 or 16 bits, which fill their containers.
+      const plain = bits === 8 || bits === 16;
+      expect(fields.getUint16(fmt + 8, true)).toBe(plain ? 1 : 0xfffe);
+      expect(fields.getUint16(fmt + 20, true)).toBe(2 * bytes);
+      expect(fields.getUint16(fmt + 22, true)).toBe(bytes * 8);
+      if (!plain) expect(fields.getUint16(fmt + 26, true)).toBe(bits);
+      expect(reader.format.encoding).toMatchObject({ kind: 'integer', bits, bytes });
+      // The bits below the depth are zero in every sample.
+      const data = (chunkAt(file, 'data') ?? 0) + 8;
+      const padding = (1 << (bytes * 8 - bits)) - 1;
+      const lowest = Array.from({ length: 2 * frames }, (_, at) => file[data + at * bytes] ?? 0);
+      expect(lowest.filter((low) => (low & padding) !== 0)).toEqual([]);
+      for (const [index, samples] of into.entries()) {
+        const want = Array.from(channels[index] ?? [], (value) =>
+          // Adding zero makes the -0 of a rounding toward zero the +0 read back.
+          Math.fround((quantiseSample(value, bits) + 0) / 2 ** (bits - 1)),
+        );
+        expect(Array.from(samples)).toEqual(want);
+      }
+    },
+  );
+
+  it('refuses a depth short of 8 bits, past 32, or of part of a bit', () => {
+    for (const bits of [7, 33, 12.5]) {
+      expect(
+        expectFailureCode(
+          createWavWriter(
+            settings(StandardLayouts.mono, { sampleFormat: { kind: 'integer', bits } }),
+          ),
+        ),
+      ).toBe('codecs.write-invalid');
+    }
   });
 });
 

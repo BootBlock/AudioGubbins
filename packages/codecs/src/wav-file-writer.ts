@@ -1,13 +1,16 @@
 /**
- * The WAV writer of exports (ADR-0091, ADR-0093): integer PCM of 8, 16, 24 and
- * 32 bits, 32- and 64-bit float, A-law, µ-law, IMA ADPCM and Microsoft ADPCM,
- * in RIFF, RF64 past four gibibytes, or BW64, with the file's metadata and its
- * channel layout, over the streaming write contract.
+ * The WAV writer of exports (ADR-0091, ADR-0093): integer PCM of every depth
+ * from 8 to 32 bits, each sample left-justified in the next whole byte, 32-
+ * and 64-bit float, A-law, µ-law, IMA ADPCM and Microsoft ADPCM, in RIFF,
+ * RF64 past four gibibytes, or BW64, with the file's metadata and its channel
+ * layout, over the streaming write contract.
  *
  * The form is the plain one wherever it says all there is to say: up to two
- * channels in their default layout, at 16 bits or fewer for integer PCM, as
- * Microsoft's rule for WAVE_FORMAT_EXTENSIBLE has it; otherwise the extensible
- * form, with the speaker mask of `wave-layout-writing.ts`. ADPCM has no
+ * channels in their default layout, of integer PCM that is 8 or 16 bits and so
+ * fills its container, as Microsoft's rule for WAVE_FORMAT_EXTENSIBLE has it;
+ * otherwise the extensible form, which states a depth deeper than 16 bits or
+ * short of its container in its valid bits, with the speaker mask of
+ * `wave-layout-writing.ts`. ADPCM has no
  * extensible form, so a layout its plain form does not state is stated in
  * `iXML` alone. Every code but integer PCM carries a `fact` chunk. The head,
  * with RF64 or RIFF decided from the whole length, is written once the stream
@@ -15,16 +18,19 @@
  */
 
 import {
+  fail,
   succeed,
   type ChannelLayout,
+  type DomainFailure,
   type DomainResult,
   type SampleRate,
 } from '@audiogubbins/domain';
 
 import { adpcmBlockAlign, imaEncodingFor, msEncodingFor } from './adpcm-encoding.js';
 import type { AudioFileWriter } from './audio-file-writer.js';
-import { unwritableFile } from './codec-failures.js';
+import { unwritableFile, writeInvalid } from './codec-failures.js';
 import { encoderOf } from './frame-encoding.js';
+import { PCM_INTEGER_DEPTHS, containerBytes, holdsDepth } from './integer-depths.js';
 import { ixmlLayoutChunk } from './ixml-layout.js';
 import type { MetadataMap } from './metadata-map.js';
 import { riffMetadataChunks } from './riff-metadata-writing.js';
@@ -35,9 +41,9 @@ import { waveHeadPlan, writeWaveHead, type WaveHeadParts } from './wave-head.js'
 import { waveLayoutPlan, type WaveLayoutPlan } from './wave-layout-writing.js';
 import type { WrittenChunk } from './written-chunk.js';
 
-/** How a WAV export stores its samples. */
+/** How a WAV export stores its samples: integer PCM of `bits` bits, 8 to 32, or another code. */
 export type WavSampleFormat =
-  | { readonly kind: 'integer'; readonly bits: 8 | 16 | 24 | 32 }
+  | { readonly kind: 'integer'; readonly bits: number }
   | { readonly kind: 'float'; readonly bits: 32 | 64 }
   | { readonly kind: 'g711-alaw' | 'g711-ulaw' | 'ima-adpcm' | 'ms-adpcm' };
 
@@ -74,7 +80,7 @@ function waveEncoding(
       return {
         kind: 'integer',
         bits: format.bits,
-        bytes: format.bits / 8,
+        bytes: containerBytes(format.bits),
         byteOrder: 'little',
         signed: format.bits !== 8,
       };
@@ -94,6 +100,14 @@ function waveEncoding(
   }
 }
 
+/** Why a WAV file cannot hold `format`, or `undefined` where it can. */
+function formatProblem(format: WavSampleFormat): DomainFailure | undefined {
+  if (format.kind !== 'integer' || holdsDepth(PCM_INTEGER_DEPTHS, format.bits)) return undefined;
+  return writeInvalid(
+    `A WAV file holds integer samples of ${String(PCM_INTEGER_DEPTHS.lowest)} to ${String(PCM_INTEGER_DEPTHS.highest)} whole bits, not ${String(format.bits)}.`,
+  );
+}
+
 /** How the format chunk states the layout, and the `iXML` chunk where it cannot. */
 function layoutStatement(
   encoding: SampleEncoding,
@@ -106,14 +120,18 @@ function layoutStatement(
       ixml: plan.unstatedReads ? undefined : ixmlLayoutChunk(plan.written),
     };
   }
-  const wide = encoding.kind === 'integer' && encoding.bits > 16;
-  if (count <= 2 && !wide && plan.unstatedReads)
+  // Integer PCM deeper than 16 bits, or short of its container, is stated by the valid bits alone.
+  const validBitsStated =
+    encoding.kind === 'integer' && (encoding.bits > 16 || encoding.bits !== encoding.bytes * 8);
+  if (count <= 2 && !validBitsStated && plan.unstatedReads)
     return { form: { kind: 'plain' }, ixml: undefined };
   return { form: { kind: 'extensible', channelMask: plan.channelMask }, ixml: plan.ixml };
 }
 
 /** Opens a WAV writer for `settings`, or says why no WAV file can hold them. */
 export function createWavWriter(settings: WavWriterSettings): DomainResult<OpenedFileWriter> {
+  const problem = formatProblem(settings.sampleFormat);
+  if (problem !== undefined) return fail(problem);
   const planned = waveLayoutPlan(settings.layout);
   if (!planned.ok) return planned;
   const plan = planned.value;

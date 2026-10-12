@@ -102,6 +102,14 @@ export {
 
 export { quantiseSample } from './sample-quantisation.js';
 
+export {
+  FLAC_DEPTHS,
+  PCM_INTEGER_DEPTHS,
+  type IntegerDepths,
+  containerBytes,
+  holdsDepth,
+} from './integer-depths.js';
+
 export { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';
 
 export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec-capability.js';

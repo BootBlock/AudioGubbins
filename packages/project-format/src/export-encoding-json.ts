@@ -1,8 +1,10 @@
 /**
  * Reading each format's encoding of an export's settings
  * (`export-settings-json.ts`, ADR-0092, REQ-EXEC-136.12): its own members, the
- * literal depths and durations its type allows, and a PCM code only where the
- * format holds it.
+ * literal float depths and durations its type allows, and a PCM code only where
+ * the format holds it. An integer depth is any finite number, as a typed bit
+ * rate is: the person types it, and validation refuses one no format holds
+ * with its reason, so a preset holding one is read and reported, never lost.
  */
 
 import type {
@@ -23,9 +25,7 @@ import {
 } from './scalar-reading.js';
 import { kindOf, literalConverter, members } from './variant-reading.js';
 
-const asIntegerBits = literalConverter([8, 16, 24, 32] as const);
 const asFloatBits = literalConverter([32, 64] as const);
-const asFlacBits = literalConverter([16, 24, 32] as const);
 const asFrameDuration = literalConverter([2.5, 5, 10, 20, 40, 60] as const);
 
 /** A count or a level a setting takes: whole, and far within what any codec states. */
@@ -53,7 +53,7 @@ const asPcm: Converter<FormatEncodings['wav']> = (reading, value, parent, key) =
   const { object, at, kind } = read;
   switch (kind) {
     case 'integer': {
-      const bits = required(reading, object, at, 'bits', asIntegerBits);
+      const bits = required(reading, object, at, 'bits', asFinite);
       return bits === undefined ? undefined : { kind, bits };
     }
     case 'float': {
@@ -242,7 +242,7 @@ function readFlac(
   );
   if (object === undefined) return undefined;
   const inner = pathOf(at, 'encoding');
-  const bits = required(reading, object, inner, 'bits', asFlacBits);
+  const bits = required(reading, object, inner, 'bits', asFinite);
   const compressionLevel = required(reading, object, inner, 'compressionLevel', asWhole);
   const keepRiffChunks = required(reading, object, inner, 'keepRiffChunks', asBoolean);
   return bits === undefined || compressionLevel === undefined || keepRiffChunks === undefined

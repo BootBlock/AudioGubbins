@@ -27,6 +27,7 @@ import {
 } from '@audiogubbins/domain';
 
 import { malformed, unsupportedSampleRate } from './codec-failures.js';
+import { PCM_INTEGER_DEPTHS, holdsDepth } from './integer-depths.js';
 import type { ReadableContainer, RecognisedFormat } from './recognised-format.js';
 import type {
   ByteOrder,
@@ -112,10 +113,10 @@ export function integerEncoding(
   byteOrder: ByteOrder,
   signed: boolean,
 ): DomainResult<IntegerSampleEncoding> {
-  if (bits < 8 || bits > 32) {
+  if (!holdsDepth(PCM_INTEGER_DEPTHS, bits)) {
     return fail(
       malformed(
-        `The header states ${String(bits)}-bit samples, outside the 8 to 32 bits integer PCM is read at.`,
+        `The header states ${String(bits)}-bit samples, outside the ${String(PCM_INTEGER_DEPTHS.lowest)} to ${String(PCM_INTEGER_DEPTHS.highest)} bits integer PCM is read at.`,
       ),
     );
   }

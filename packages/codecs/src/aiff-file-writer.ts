@@ -4,6 +4,10 @@
  * `ima4`, with the file's metadata and a `CHAN` chunk for a layout the format's
  * default is not, over the streaming write contract.
  *
+ * Integer PCM is of every depth from 8 to 32 bits: `COMM`'s sample size states
+ * the depth, and each sample is left-justified in the next whole byte, its
+ * bits below the depth zero, as the AIFF specification lays out sample points.
+ *
  * Every size in an IFF file is 32 bits, so the writer knows its head's length
  * from the start and refuses a stream the moment it would pass four gibibytes,
  * naming WAV, whose RF64 form holds it. `ima4` counts whole 64-frame packets in
@@ -26,6 +30,7 @@ import { IMA4_FRAMES } from './adpcm-blocks.js';
 import { aiffMetadataChunks } from './aiff-metadata-writing.js';
 import { coreAudioLayoutOf, type CoreAudioLayout } from './channel-layouts.js';
 import { unwritableFile, writeInvalid } from './codec-failures.js';
+import { PCM_INTEGER_DEPTHS, containerBytes, holdsDepth } from './integer-depths.js';
 import { CHUNK_HEADER_BYTES, FieldWriter, chunkLength, chunkOf } from './field-writer.js';
 import { encoderOf } from './frame-encoding.js';
 import type { MetadataMap } from './metadata-map.js';
@@ -38,7 +43,8 @@ import type { WrittenChunk } from './written-chunk.js';
 export type AiffSampleFormat =
   | {
       readonly kind: 'integer';
-      readonly bits: 8 | 16 | 24 | 32;
+      /** 8 to 32. */
+      readonly bits: number;
       /** `little` is AIFF-C's `sowt`; plain AIFF is big-endian alone. */
       readonly byteOrder: 'big' | 'little';
     }
@@ -100,7 +106,7 @@ function aiffEncoding(
       return {
         kind: 'integer',
         bits: format.bits,
-        bytes: format.bits / 8,
+        bytes: containerBytes(format.bits),
         byteOrder: format.byteOrder,
         signed: true,
       };
@@ -149,11 +155,14 @@ function channelChunk(layout: CoreAudioLayout): WrittenChunk {
   });
 }
 
-/** Why a container cannot hold a format, or `undefined` where it can. */
+/** Why a container cannot hold a format, or a depth, or `undefined` where it can. */
 function containerProblem(
   container: AiffWriterSettings['container'],
   format: AiffSampleFormat,
 ): string | undefined {
+  if (format.kind === 'integer' && !holdsDepth(PCM_INTEGER_DEPTHS, format.bits)) {
+    return `An AIFF or AIFF-C file holds integer samples of ${String(PCM_INTEGER_DEPTHS.lowest)} to ${String(PCM_INTEGER_DEPTHS.highest)} whole bits, not ${String(format.bits)}.`;
+  }
   if (container === 'aifc') return undefined;
   return format.kind === 'integer' && format.byteOrder === 'big'
     ? undefined

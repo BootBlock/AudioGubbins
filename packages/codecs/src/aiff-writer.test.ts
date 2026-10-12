@@ -106,11 +106,14 @@ function expected(
 
 const FORMATS: readonly [AiffWriterSettings['container'], AiffSampleFormat][] = [
   ['aiff', { kind: 'integer', bits: 8, byteOrder: 'big' }],
+  ['aiff', { kind: 'integer', bits: 12, byteOrder: 'big' }],
   ['aiff', { kind: 'integer', bits: 16, byteOrder: 'big' }],
+  ['aiff', { kind: 'integer', bits: 20, byteOrder: 'big' }],
   ['aiff', { kind: 'integer', bits: 24, byteOrder: 'big' }],
   ['aiff', { kind: 'integer', bits: 32, byteOrder: 'big' }],
   ['aifc', { kind: 'integer', bits: 16, byteOrder: 'little' }],
   ['aifc', { kind: 'integer', bits: 24, byteOrder: 'little' }],
+  ['aifc', { kind: 'integer', bits: 27, byteOrder: 'little' }],
   ['aifc', { kind: 'float', bits: 32 }],
   ['aifc', { kind: 'float', bits: 64 }],
   ['aifc', { kind: 'g711-alaw' }],
@@ -216,6 +219,60 @@ describe('the layouts and forms an AIFF file cannot hold', () => {
     ]) {
       const { file } = await roundTrip(layout);
       expect(String.fromCharCode(...file)).not.toContain('CHAN');
+    }
+  });
+});
+
+describe('every integer depth of an AIFF or AIFF-C export', () => {
+  const DEPTHS = Array.from({ length: 25 }, (_, index) => 8 + index);
+
+  it.each(DEPTHS)(
+    'states %i bits in COMM, left-justifies each sample in whole bytes, and reads back exactly',
+    async (bits) => {
+      for (const container of ['aiff', 'aifc'] as const) {
+        const frames = 640;
+        const { file, reader, channels, into } = await roundTrip(
+          StandardLayouts.stereo,
+          { container, sampleFormat: { kind: 'integer', bits, byteOrder: 'big' } },
+          frames,
+        );
+        const bytes = Math.ceil(bits / 8);
+        const comm = String.fromCharCode(...file).indexOf('COMM');
+        const fields = new DataView(file.buffer, file.byteOffset, file.byteLength);
+        // COMM: channels, frames, then the sample size.
+        expect(fields.getInt16(comm + 14, false)).toBe(bits);
+        expect(reader.format.encoding).toMatchObject({ kind: 'integer', bits, bytes });
+        // Big-endian, so the last byte of each sample holds the bits below the depth, all zero.
+        const padding = (1 << (bytes * 8 - bits)) - 1;
+        const data = reader.format.dataOffset;
+        const lowest = Array.from(
+          { length: 2 * frames },
+          (_, at) => file[data + at * bytes + bytes - 1] ?? 0,
+        );
+        expect(lowest.filter((low) => (low & padding) !== 0)).toEqual([]);
+        for (const [index, samples] of into.entries()) {
+          const want = Array.from(channels[index] ?? [], (value) =>
+            // Adding zero makes the -0 of a rounding toward zero the +0 read back.
+            Math.fround((quantiseSample(value, bits) + 0) / 2 ** (bits - 1)),
+          );
+          expect(Array.from(samples)).toEqual(want);
+        }
+      }
+    },
+  );
+
+  it('refuses a depth short of 8 bits, past 32, or of part of a bit', () => {
+    for (const bits of [7, 33, 12.5]) {
+      expect(
+        expectFailureCode(
+          createAiffWriter(
+            settings(StandardLayouts.mono, {
+              container: 'aiff',
+              sampleFormat: { kind: 'integer', bits, byteOrder: 'big' },
+            }),
+          ),
+        ),
+      ).toBe('codecs.write-invalid');
     }
   });
 });

@@ -14,6 +14,11 @@
  * the rate AAC's encoders give as transparent, within what AAC holds; where
  * the encoder codes none, validation says so.
  *
+ * AIFF and FLAC take every whole depth in their runs, so the shallowest that
+ * holds the source is the source's own depth: a 20-bit source makes a 20-bit
+ * file, never a 24-bit one padded with zeros. Only a source shallower than a
+ * format's shallowest depth is raised to it, as a 4-bit FLAC to an 8-bit AIFF.
+ *
  * Where a format cannot code the project's rate, as Opus at 44.1 kHz, the
  * default is the lowest rate it codes above the project's, so nothing is
  * lost, or its highest where none is above. Dither is triangular, one step
@@ -21,7 +26,14 @@
  * or in floating point, where a 24- or 32-bit export dithers only if asked.
  */
 
-import { aacHighestBitRate, constantBitRates, type CodecDirection } from '@audiogubbins/codecs';
+import {
+  FLAC_DEPTHS,
+  PCM_INTEGER_DEPTHS,
+  aacHighestBitRate,
+  constantBitRates,
+  type CodecDirection,
+  type IntegerDepths,
+} from '@audiogubbins/codecs';
 import { channelCount, sampleRate, type SampleRate } from '@audiogubbins/domain';
 
 import { acceptsRate } from './codec-checks.js';
@@ -32,8 +44,6 @@ import type {
   CommonExportSettings,
   DitherSettings,
   ExportFormat,
-  FlacEncoding,
-  IntegerPcm,
   SettingsByFormat,
 } from './export-settings.js';
 import { layoutConversion } from './layout-conversion.js';
@@ -52,10 +62,9 @@ const FLAC_DEFAULT_LEVEL = 5;
 const DITHERED_UP_TO = 16;
 
 /** The shallowest of `depths` that holds the precision whole, or the deepest. */
-function depthFor<D extends number>(precision: SourcePrecision, depths: readonly [D, ...D[]]): D {
-  const deepest = depths.at(-1) ?? depths[0];
-  if (precision.kind === 'float') return deepest;
-  return depths.find((depth) => depth >= precision.bits) ?? deepest;
+function depthFor(precision: SourcePrecision, depths: IntegerDepths): number {
+  if (precision.kind === 'float') return depths.highest;
+  return Math.min(Math.max(precision.bits, depths.lowest), depths.highest);
 }
 
 /** AAC's bit rate: the highest its encoder codes the stream at, or a transparent one (see the module comment). */
@@ -77,15 +86,12 @@ type Defaults = {
   ) => SettingsByFormat[F];
 };
 
-const AIFF_DEPTHS: readonly [IntegerPcm['bits'], ...IntegerPcm['bits'][]] = [8, 16, 24, 32];
-const FLAC_DEPTHS: readonly [FlacEncoding['bits'], ...FlacEncoding['bits'][]] = [16, 24, 32];
-
 const DEFAULTS: Defaults = {
   wav: (common) => ({ ...common, format: 'wav', encoding: { kind: 'float', bits: 32 } }),
   aiff: (common, facts) => ({
     ...common,
     format: 'aiff',
-    encoding: { kind: 'integer', bits: depthFor(facts.precision, AIFF_DEPTHS) },
+    encoding: { kind: 'integer', bits: depthFor(facts.precision, PCM_INTEGER_DEPTHS) },
   }),
   aifc: (common) => ({ ...common, format: 'aifc', encoding: { kind: 'float', bits: 32 } }),
   flac: (common, facts) => ({

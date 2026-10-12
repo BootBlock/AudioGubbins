@@ -9,7 +9,7 @@
  */
 
 /**
- * The integer of `bits` bits (8 to 32) nearest `value × 2^(bits-1)`, a tie
+ * The integer of `bits` bits (4 to 32) nearest `value × 2^(bits-1)`, a tie
  * going to the even integer, clamped to the depth's range. Not-a-number
  * quantises to zero. Every step is exact or correctly rounded IEEE-754
  * arithmetic, so every machine gives the same integer.

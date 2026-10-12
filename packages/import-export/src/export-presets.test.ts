@@ -136,7 +136,7 @@ describe('the default settings', () => {
     }
   });
 
-  it('take the shallowest FLAC and AIFF depth that holds the source, and the deepest for float', () => {
+  it('take the shallowest FLAC and AIFF depth that holds the source, its own, and the deepest for float', () => {
     const depth = (precision: Parameters<typeof contextOf>[0]): [number, number] => {
       const context = contextOf(precision);
       return [
@@ -144,19 +144,25 @@ describe('the default settings', () => {
         defaultExportSettings('aiff', context).encoding.bits,
       ];
     };
-    expect(depth({ precision: { kind: 'integer', bits: 8 } })).toEqual([16, 8]);
+    // Every depth is offered, so a source's own depth holds it, raised only to a format's shallowest.
+    expect(depth({ precision: { kind: 'integer', bits: 4 } })).toEqual([4, 8]);
+    expect(depth({ precision: { kind: 'integer', bits: 8 } })).toEqual([8, 8]);
+    expect(depth({ precision: { kind: 'integer', bits: 12 } })).toEqual([12, 12]);
     expect(depth({ precision: { kind: 'integer', bits: 16 } })).toEqual([16, 16]);
-    expect(depth({ precision: { kind: 'integer', bits: 20 } })).toEqual([24, 24]);
+    expect(depth({ precision: { kind: 'integer', bits: 20 } })).toEqual([20, 20]);
     expect(depth({ precision: { kind: 'integer', bits: 24 } })).toEqual([24, 24]);
+    expect(depth({ precision: { kind: 'integer', bits: 27 } })).toEqual([27, 27]);
+    expect(depth({ precision: { kind: 'integer', bits: 32 } })).toEqual([32, 32]);
     expect(depth({ precision: { kind: 'float' } })).toEqual([32, 32]);
   });
 
-  it('dither a 16-bit default and leave a 24-bit one undithered', () => {
-    const sixteen = defaultExportSettings(
-      'flac',
-      contextOf({ precision: { kind: 'integer', bits: 16 } }),
-    );
-    expect(sixteen.dither).toEqual({ kind: 'triangular', amplitude: 1, shaping: 'none', seed: 0 });
+  it('dither a default of 16 bits or fewer and leave a deeper one undithered', () => {
+    const ditherOf = (bits: number) =>
+      defaultExportSettings('flac', contextOf({ precision: { kind: 'integer', bits } })).dither;
+    const triangular = { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 0 };
+    expect(ditherOf(16)).toEqual(triangular);
+    expect(ditherOf(12)).toEqual(triangular);
+    expect(ditherOf(17)).toEqual({ kind: 'none' });
     expect(defaultExportSettings('flac', contextOf()).dither).toEqual({ kind: 'none' });
   });
 

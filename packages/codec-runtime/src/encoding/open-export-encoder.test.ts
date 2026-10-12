@@ -60,6 +60,21 @@ describe('opening an export’s encoder', () => {
       { format: 'ogg-vorbis', encoding: { mode: 'bit-rate', nominalBitRate: 192 } },
       96_000,
     ],
+    [
+      'a FLAC depth past the 32 bits FLAC states',
+      { format: 'flac', encoding: { bits: 33, compressionLevel: 5, keepRiffChunks: false } },
+      48_000,
+    ],
+    [
+      'a WAV depth short of 8 bits',
+      { format: 'wav', encoding: { kind: 'integer', bits: 7 } },
+      48_000,
+    ],
+    [
+      'an AIFF depth of part of a bit',
+      { format: 'aiff', encoding: { kind: 'integer', bits: 20.5 } },
+      48_000,
+    ],
   ] as const)(
     'refuses %s by the rule validation refuses it by, before loading the encoder',
     async (_name, encoding: FormatEncoding, hertz) => {
@@ -151,8 +166,8 @@ describe('the encoder an export names', () => {
     }
   });
 
-  it('names flacenc at the depths it encodes, and the codec module’s own encoder at 32 bits', async () => {
-    for (const bits of [16, 24] as const) {
+  it('names flacenc at the depths it encodes, and the codec module’s own encoder at every other', async () => {
+    for (const bits of [8, 12, 16, 20, 24]) {
       expect(
         await encoderOf({
           format: 'flac',
@@ -160,12 +175,14 @@ describe('the encoder an export names', () => {
         }),
       ).toEqual(FLACENC_ENCODER);
     }
-    expect(
-      await encoderOf({
-        format: 'flac',
-        encoding: { bits: 32, compressionLevel: 5, keepRiffChunks: false },
-      }),
-    ).toEqual({ implementation: 'codec-module', version: `AudioGubbins ${PRODUCT_VERSION}` });
+    for (const bits of [4, 7, 13, 21, 28, 32]) {
+      expect(
+        await encoderOf({
+          format: 'flac',
+          encoding: { bits, compressionLevel: 5, keepRiffChunks: false },
+        }),
+      ).toEqual({ implementation: 'codec-module', version: `AudioGubbins ${PRODUCT_VERSION}` });
+    }
   });
 
   it('names ropus for Opus, LAME for MP3 and libvorbis for Vorbis', async () => {
