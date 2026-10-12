@@ -1,7 +1,6 @@
-> **Status:** In progress, paused. 2026-10-10: the phase is `READY` (`ADR-0090`
-> to `ADR-0093`); slices S1 to S8 are built and merged on `phase-09-codecs`;
-> three gap slices are paused with their work committed (see "Left to do"),
-> and the close is left.
+> **Status:** In progress. 2026-10-12: the phase is `READY` (`ADR-0090`
+> to `ADR-0093`); every slice is merged on `phase-09-codecs` with `main`;
+> three slices close the gaps a scope check found, and the close is left.
 
 # Phase 09 — Import, Export, and Codec System
 
@@ -250,80 +249,62 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
     "Your edited settings". The reference picture's sound is weighed at the
     channels the codec worker reads. There is no multitrack mixdown in this
     phase, so the range "the project" is the asset in the editor.
+13. **S8e, S6e and S8f (merged).** `test:e2e:import-export` imports a FLAC
+    file, refuses a folder's text file with its reason, exports a region with
+    "Keep both", checks the History record after a reload, and exports AAC and
+    reads it back at the source's length in bundled Chromium. Ten AAC-LC
+    fixtures made by FFmpeg's native `aac` encoder hold the decoder to each
+    channel's tone, the priming and the length; Symphonia 0.6.1 refuses AAC-LC
+    above two channels, so `third_party/symphonia-codec-aac` is vendored and
+    patched to decode configurations 3 to 7 to the right speakers (identity
+    `0.6.1+patched`; ADR-0091 amended). Metadata and loops round-trip through
+    every real encoder that holds them, with each format's dropped fields
+    checked; FLAC gains `keepRiffChunks` (default off; ADR-0092 amended). The
+    storage each import needs (`known` bytes or `unknown`) is reported before
+    storing and shown for every file. The Inspector describes an export
+    (REQ-EDIT-072) only when asked, by `export.inspect` (the page's batch) or
+    `export.inspect-record` (one History record, also in a read-only tab); it
+    gives way when an editor is brought into use or recording claims the
+    Inspector (recording's focus counts each claim); the batch is one subject,
+    listing every file under the name it was written as. An encoder's version
+    names the encoder, so History reads "FLAC by flacenc 0.5.1 in the codec
+    module".
+14. **S6f (merged).** The bit rates the browser's AAC encoder takes are
+    probed: `AudioEncoder.isConfigSupported` for each stream AAC-LC states
+    (configurations 1 to 7 at its twelve rates), then every multiple of 8
+    kbit/s up to 6,144 bits a channel a frame for each stream accepted, at
+    most four questions open, cancellable, once per worker start, kept by the
+    page for the session. Chromium's answer matched its encoder exactly, so
+    the probe never encodes. Bundled Chromium on Windows takes exactly 96,
+    128, 160 and 192 kbit/s, for one, two and six channels at 44.1 and 48 kHz,
+    and nothing for three, four, five or eight channels. Each accepted stream
+    is one band of exact rates; AAC-LC is encodable only where a band was
+    found. Validation and the worker refuse a stream with no band
+    (`import-export.stream-not-encoded`) and a rate outside it
+    (`import-export.encoding-invalid`), before rendering. The AAC default is
+    the highest accepted rate, else 128 kbit/s a channel capped at AAC's
+    ceiling. The built-in preset "Distribution, AAC 256 kbit/s" is kept and
+    reported as not exportable where the browser refuses it. ADR-0092 amended.
 
 ## Left to do
 
-S1 to S8 are merged into `phase-09-codecs`. Three slices were paused on
-2026-10-10 with their work committed, each in its own worktree beside the
-repository, branched from `phase-09-codecs`:
+Every slice so far is merged into `phase-09-codecs`, and `main` (with Phase 08) is merged in. The packet's commands all pass on `bfb35b65`. A scope check
+then found gaps, closed by three slices built from `5ee025a2`:
 
-| Branch    | Head       | State                                                                                                  |
-| --------- | ---------- | ------------------------------------------------------------------------------------------------------ |
-| `p09-s8e` | `9661733e` | Done; `verify:commit` green (782 files, 11,898 tests); `test:e2e:import-export` 2 of 2                 |
-| `p09-s6e` | `f6637f7d` | Done; codecs and codec-runtime projects and `cargo test` pass; its full `verify:commit` has not run    |
-| `p09-s8f` | `e1fd34fc` | Gaps 1 and 2 done and tested; gap 3 (the Inspector's export job) half built, not typechecked or tested |
+- `p09-s9d`: every integer depth from 8 to 32 written by WAV, AIFF and
+  AIFF-C (the packet's In Scope and ADR-0091), FLAC's offered depths, and
+  byte pins for Microsoft ADPCM, AIFF-C `ima4`, 32-bit FLAC and the new
+  depths.
+- `p09-s9e`: the reference picture's sound decoded through the codec worker,
+  never on the page; a rule that only `packages/codec-runtime` calls the
+  browser's codecs; the reason a codec module failed to load shown.
+- `p09-s9f`: long files through import and export held to the block caps;
+  the staging clear at start; import and export from the keyboard; the AAC
+  browser test asserting the branch the probe implies.
 
-- `p09-s8e`: the `chromium-import-export` project and script (a FLAC import,
-  a folder whose text file is refused with its reason, a region exported with
-  "Keep both", a reload that checks the History record, and AAC exported and
-  read back at the source's length in bundled Chromium). It fixed four product
-  defects, each with a failing-first test: two encoder builds racing on a
-  fresh checkout; a second asset in an Editor panel left at no width; a codec
-  job's fault leaving the export hanging; an AAC export failing without the
-  browser's reason. `test:e2e:worker-policy` passes 2 of 3; the inference test
-  needs a model-pack cache this machine lacks, which is not Phase 09's.
-- `p09-s6e`: ten AAC-LC fixtures made by FFmpeg's native `aac` encoder
-  (`packages/codec-runtime/fixtures/aac-lc/`, 244 KB, README with commands and
-  SHA-256s), and `src/decoding/aac-lc-fixtures.test.ts` (frames, priming,
-  layout, each channel's tone). It found that Symphonia 0.6.1 refuses AAC-LC
-  above two channels: `third_party/symphonia-codec-aac` is vendored, patched
-  to decode configurations 3 to 7 to the right speakers, marked modified in
-  the notices, identity `0.6.1+patched`.
-- `p09-s8f`: gap 1, metadata and loops through the real encoders of WAV,
-  AIFF, AIFF-C, FLAC, Ogg Vorbis, Opus, MP3 and AAC/M4A in
-  `test:roundtrip-audio`, with each format's dropped fields checked; it added
-  the FLAC setting `keepRiffChunks` (default off), which ADR-0092 must record.
-  Gap 2, the storage each import needs (`known` bytes or `unknown`) reported
-  before storing, kept on the job's entry and shown for every file. Gap 3 left:
-  an export focus that yields to the editor panels and recording; a command
-  that describes the export in the Inspector, and a History control per export
-  record; shared words for stage, settings and destination; the Inspector
-  section and its tests; a browser check; then `verify:commit`. Its commit
-  `e1fd34fc` (recording's focus counts each take-over; export states carry the
-  batch settings and each job's destination) is untested.
-
-In order:
-
-1. Finish `p09-s8f`'s gap 3 in its worktree, then run its `verify:commit`.
-2. Run `p09-s6e`'s `verify:commit`.
-3. Settle the AAC default. Chromium's Windows encoder accepts only 96 to 192
-   kbit/s for stereo, so the default 128 kbit/s per channel (256 for stereo)
-   is refused at encode. The correct fix: probe the bit rates the browser's
-   `AudioEncoder` accepts per channel count into the AAC capability, make the
-   default the highest accepted, and refuse an unaccepted rate in validation,
-   before rendering. Record it in ADR-0092.
-4. Merge `p09-s8e`, `p09-s6e` and `p09-s8f` into `phase-09-codecs` (the
-   exports lists in `tests/architecture` conflict: each side removed what its
-   code uses, so keep neither side's lines; regenerate
-   `public-contracts.txt` with `pnpm contracts:update`), then one integrated
-   `verify:commit`.
-5. Amend ADR-0092 for `keepRiffChunks` and the AAC bit-rate probe, and
-   ADR-0091 for the patched Symphonia AAC decoder; regenerate the spec and
-   run `spec:verify`.
-6. Run the packet's commands: `test:codecs`, `cargo test --workspace`,
-   `test:codec-fixtures`, `test:roundtrip-audio`, `test:malformed-media`,
-   `test:opus-conformance`, `test:project-roundtrip`, `test:architecture`, and
-   `pnpm run build` then `test:e2e:import-export`. A scope check on
-   `19c43426` found every In Scope item, acceptance criterion and failure
-   behaviour met except the four gaps the paused slices close.
-7. Write the evidence and the review record (lenses deferred), the handoff, the
-   ledger `PASS`, the README's readiness line; run `spec:verify`.
-8. Move this note to `docs/todo/done/`, merge `main` in (Phase 08 may have
-   landed: raise `projectDocument`, `userPreferences` and any other version
-   above `main`'s, rerun `pnpm version:sync` and `pnpm contracts:update`), run
-   `verify:commit`, merge into `main` with `--no-ff` from the primary checkout,
-   push, remove the worktrees, and delete the merged branches with
-   `git branch -d` (`p09-s1`, `p09-s2`, `p09-s2b`, `p09-s3`, `p09-s3i`,
-   `p09-s4`, `p09-s5`, `p09-s6a`, `p09-s6b`, `p09-s6c`, `p09-s6e`, `p09-s7`,
-   `p09-spec`, `p09-s8a`, `p09-s8b`, `p09-s8c`, `p09-s8d`, `p09-s8e`,
-   `p09-s8f`, `p09-s8x`, `phase-09-codecs`).
+Then, in order: merge the three and apply their ADR amendments; one
+`verify:commit` and `spec:verify`; the packet's commands again; the evidence,
+the review record (lenses deferred), the handoff, the ledger `PASS` and the
+README's readiness line; move this note to `docs/todo/done/`; merge `main`
+again if it moved; merge into `main` with `--no-ff` and push; remove the
+worktrees and delete the merged branches with `git branch -d`.
