@@ -2,19 +2,23 @@
  * The encoding controls of the lossy formats (ADR-0092): MP3's bit rate mode
  * with its rate or quality, Ogg Vorbis's quality or nominal bit rate, Opus's
  * bit rate, tuning, frame length and complexity, and AAC's bit rate, each a
- * row of the table of formats.
+ * row of the table of formats. A bit rate the encoder codes from a list is
+ * offered from the list its descriptor states for the stream: MP3's table at
+ * the rate, and the bit rates the browser's AAC encoder was probed to take,
+ * which the bit rate's field names.
  */
 
 import type { ReactNode } from 'react';
 
-import { constantBitRates } from '@audiogubbins/codecs';
-import { channelCount } from '@audiogubbins/domain';
-import type {
-  ExportContext,
-  Mp3Encoding,
-  OpusApplication,
-  OpusFrameDuration,
-  VorbisEncoding,
+import {
+  bitRatesWords,
+  offeredBitRates,
+  type ExportContext,
+  type ExportSettings,
+  type Mp3Encoding,
+  type OpusApplication,
+  type OpusFrameDuration,
+  type VorbisEncoding,
 } from '@audiogubbins/import-export';
 
 import { APPLICATION_NAMES } from './export-words.js';
@@ -54,15 +58,15 @@ function mp3Of(
 }
 
 /**
- * The constant bit rates MP3's encoder codes at `sampleRate`, as its descriptor
- * states them, for the source's channels; none where it states none.
+ * What AAC's bit rate field says of the bit rates the encoder codes the
+ * stream at, where its descriptor states them; nothing where it does not.
  */
-function mp3Rates(sampleRate: number, context: ExportContext): readonly number[] {
-  const write = context.codecs('mp3')?.write;
-  if (write === undefined) return [];
-  return (
-    constantBitRates(write, { sampleRate, channels: channelCount(context.source.layout) }) ?? []
-  );
+function aacRatesSentence(settings: ExportSettings, context: ExportContext): string | undefined {
+  const rates = offeredBitRates(settings, context);
+  if (rates === undefined) return undefined;
+  return rates.length === 0
+    ? "This browser's encoder does not code AAC of this audio's channels at this rate."
+    : `This browser's encoder codes this audio at ${bitRatesWords(rates)} kbit/s.`;
 }
 
 /** What MP3's mode sets: a constant rate the MPEG table holds, an average rate, or a quality. */
@@ -121,7 +125,7 @@ function Mp3Value({
 /** The rows of the lossy formats. */
 export const LOSSY_ROWS: Pick<EncodingRows, 'mp3' | 'ogg-vorbis' | 'opus' | 'aac'> = {
   mp3: ({ settings, context, onEncoding }) => {
-    const rates = mp3Rates(settings.sampleRate, context);
+    const rates = offeredBitRates(settings, context) ?? [];
     return (
       <>
         <ChoiceField
@@ -218,14 +222,18 @@ export const LOSSY_ROWS: Pick<EncodingRows, 'mp3' | 'ogg-vorbis' | 'opus' | 'aac
       </>
     );
   },
-  aac: ({ settings, onEncoding }) => (
-    <NumberField
-      label="Bit rate"
-      unit="kbit/s"
-      value={settings.encoding.bitRate}
-      onNumber={(bitRate) => {
-        onEncoding({ bitRate });
-      }}
-    />
-  ),
+  aac: ({ settings, context, onEncoding }) => {
+    const said = aacRatesSentence(settings, context);
+    return (
+      <NumberField
+        label="Bit rate"
+        unit="kbit/s"
+        {...(said === undefined ? {} : { description: said })}
+        value={settings.encoding.bitRate}
+        onNumber={(bitRate) => {
+          onEncoding({ bitRate });
+        }}
+      />
+    );
+  },
 };

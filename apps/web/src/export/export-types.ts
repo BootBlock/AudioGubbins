@@ -14,6 +14,7 @@
 
 import type { AssetId, DomainResult } from '@audiogubbins/domain';
 import type {
+  CodecLookup,
   CollisionPolicy,
   ExportBatch,
   ExportContext,
@@ -145,11 +146,12 @@ export interface ExportControl extends Observable<ExportRunState> {
 /**
  * What an export of `asset`'s audio is planned against in `state`: the asset
  * described, at the layout its racks give the audio heard, with the precision
- * its source needs and its regions in timeline order, and the codec registry.
- * Pure, so the dialog asks it on every change; refused with the reason where
- * the asset is not in `state`.
+ * its source needs and its regions in timeline order, and `codecs`, the
+ * codecs as this browser serves them. Pure, so the dialog asks it on every
+ * change; refused with the reason where the asset is not in `state`.
  */
 export type ExportContextOf = (
   asset: EditorAsset,
   state: ProjectState,
+  codecs: CodecLookup,
 ) => DomainResult<ExportContext>;

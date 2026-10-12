@@ -6,6 +6,7 @@
  */
 
 import type { AudioFileWriter } from '@audiogubbins/codecs';
+import { WINDOWS_BROWSER_BIT_RATES } from '@audiogubbins/codecs/testing';
 import {
   FailureKind,
   StandardLayouts,
@@ -25,14 +26,18 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import type { PortMessage } from '../streams/stream-port.js';
-import { messageChannel, workerHarness } from '../testing/worker-harness.js';
+import { messageChannel, workerHarness, type HarnessOptions } from '../testing/worker-harness.js';
 import {
   readCodecRequest,
   readFromCodecWorker,
   readToCodecWorker,
 } from './codec-worker-message-reading.js';
 import type { ExportEncodeRequest, FromCodecWorker } from './codec-worker-messages.js';
-import type { OpenExportEncoder, OpenedExportEncoder } from './encode-job.js';
+import type {
+  ExportEncoderServices,
+  OpenExportEncoder,
+  OpenedExportEncoder,
+} from './encode-job.js';
 import { FLACENC_ENCODER } from '../encoding/encoder-identity.js';
 import { openExportEncoder } from '../encoding/open-export-encoder.js';
 import { encodeWhole, testSignal } from '../testing/export-encoding.js';
@@ -139,6 +144,7 @@ describe('the codec worker’s messages', () => {
           encoderModules: new Map([['mp3', 'loaded']]),
           browserDecoders: new Set(['he-aac']),
           browserEncoders: new Set(['aac-lc']),
+          browserBitRates: WINDOWS_BROWSER_BIT_RATES,
         },
       },
       {
@@ -204,6 +210,20 @@ describe('the codec worker’s messages', () => {
         }),
       ),
     ).toBe('environment.browserDecoders[0]');
+    const environment = answers[0]?.kind === 'environment' ? answers[0].environment : undefined;
+    expect(
+      refusedField(
+        readFromCodecWorker({
+          kind: 'environment',
+          environment: {
+            ...environment,
+            browserBitRates: new Map([
+              ['aac-lc', [{ sampleRates: { minimum: 48_000, maximum: 48_000 }, constant: ['96'] }]],
+            ]),
+          },
+        }),
+      ),
+    ).toBe('environment.browserBitRates[0][1][0].constant[0]');
   });
 });
 
@@ -278,8 +298,12 @@ async function encodeThrough(
   open: OpenExportEncoder,
   blocks: readonly RenderedStreamMessage[],
   cancelAfter?: number,
+  probes?: HarnessOptions['probes'],
 ) {
-  const harness = await workerHarness({ openExportEncoder: open });
+  const harness = await workerHarness({
+    openExportEncoder: open,
+    ...(probes === undefined ? {} : { probes }),
+  });
   const rendered = messageChannel();
   const stored = messageChannel();
   const received: EncodedStreamMessage[] = [];
@@ -371,6 +395,22 @@ describe('the codec worker encoding an export', () => {
             : one.kind,
       ),
     ).toEqual([[100], [200], [44], [[1], [2], []]]);
+  });
+
+  it("opens the encoder with the bit rates the browser's encoder was probed to take", async () => {
+    let probed: ExportEncoderServices['browserBitRates'] | undefined;
+    const ended = sampleCount(100);
+    if (!ended.ok) throw new Error('frames');
+    await encodeThrough(
+      (_request, services) => {
+        probed = services.browserBitRates;
+        return Promise.resolve(succeed(countingWriter([])));
+      },
+      [block(100), { kind: 'end', frames: ended.value }],
+      undefined,
+      { browserEncoders: new Set(['aac-lc']), browserBitRates: WINDOWS_BROWSER_BIT_RATES },
+    );
+    expect(probed).toBe(WINDOWS_BROWSER_BIT_RATES);
   });
 
   it('encodes the export through the encoders the worker registers, the file a direct write makes', async () => {

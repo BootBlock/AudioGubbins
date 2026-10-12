@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { codecDescriptor } from '@audiogubbins/codecs';
 import { StandardLayouts, derivedSampleCount, unsafeBrandId } from '@audiogubbins/domain';
 import { applyInvocation } from '@audiogubbins/project-commands';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
@@ -21,7 +22,7 @@ describe('what an export of an asset is planned against (ADR-0092)', () => {
       ],
     });
     const context = expectSuccess(
-      exportContextOf(audio.asset(), audio.session.getSnapshot().model.state),
+      exportContextOf(audio.asset(), audio.session.getSnapshot().model.state, codecDescriptor),
     );
 
     expect(context.source).toMatchObject({
@@ -59,7 +60,9 @@ describe('what an export of an asset is planned against (ADR-0092)', () => {
     const edited = await audio.changed(before);
 
     expect(
-      expectSuccess(exportContextOf(edited, audio.session.getSnapshot().model.state)).source,
+      expectSuccess(
+        exportContextOf(edited, audio.session.getSnapshot().model.state, codecDescriptor),
+      ).source,
     ).toMatchObject({ length: 5 * SECOND, precision: { kind: 'float' } });
   });
 
@@ -71,7 +74,9 @@ describe('what an export of an asset is planned against (ADR-0092)', () => {
     if (region === undefined) throw new Error('The region opens.');
 
     expect(
-      expectFailureCode(exportContextOf(region, audio.session.getSnapshot().model.state)),
+      expectFailureCode(
+        exportContextOf(region, audio.session.getSnapshot().model.state, codecDescriptor),
+      ),
     ).toBe('export.asset-unavailable');
   });
 });

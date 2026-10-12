@@ -2,7 +2,9 @@
  * The Export dialog's state while it is open (ADR-0092): what it exports, the
  * settings the person is setting up, where they want the file, and what the
  * import-export package's planning makes of them, worked out afresh on every
- * change so the dialog says what is wrong as the person sets it.
+ * change so the dialog says what is wrong as the person sets it, and on every
+ * change in what the codecs can do here, such as the bit rates the browser's
+ * encoder is found to take.
  *
  * The settings are one typed record whichever way they were reached: the
  * project's last, a preset, or the expert controls. A change made in the
@@ -65,6 +67,12 @@ export interface ExportDialogRequest {
   /** What it is planned against, which the asset and the project's state gave as it opened. */
   readonly context: ExportContext;
 
+  /**
+   * Told of each change in what the context's codecs can do here, followed
+   * while the dialog is open so its plan is made again.
+   */
+  readonly codecChanges: Pick<Observable<unknown>, 'subscribe'>;
+
   /** When it was opened, for the `{date}` of a file name. */
   readonly clock: ExportClock;
   readonly range: ExportRange;
@@ -80,7 +88,10 @@ export interface ExportDialogRequest {
 }
 
 /** The dialog, open. */
-export interface OpenExportDialog extends Omit<ExportDialogRequest, 'range' | 'kept'> {
+export interface OpenExportDialog extends Omit<
+  ExportDialogRequest,
+  'range' | 'kept' | 'codecChanges'
+> {
   readonly kind: 'open';
   readonly settings: ExportSettings;
   readonly source: ExportSettingsSource;
@@ -113,6 +124,9 @@ function fileCount(planned: DomainResult<readonly PlannedFile[]>): number {
 export class ExportDialogStore implements Observable<ExportDialogState> {
   private readonly state = observable<ExportDialogState>(CLOSED);
 
+  /** Stops following the open dialog's codecs, where it follows them. */
+  private unfollow: (() => void) | undefined;
+
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
@@ -123,15 +137,19 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
       if (shown.kind === 'closed') return;
       const open = project.get();
       if (open.kind === 'open' && open.snapshot.project === shown.project) return;
-      this.state.set(CLOSED);
+      this.shut();
     });
   }
 
   /** Opens the dialog over `request`, in place of any it showed. */
   readonly open = (request: ExportDialogRequest): void => {
-    const { range, kept, ...rest } = request;
+    const { range, kept, codecChanges, ...rest } = request;
     const settings = openingSettings(kept, request.context, range);
     const planned = planExport(settings, request.context, request.clock);
+    this.unfollow?.();
+    this.unfollow = codecChanges.subscribe(() => {
+      this.replan();
+    });
     this.state.set({
       ...rest,
       kind: 'open',
@@ -146,7 +164,7 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
   /** Shuts the dialog; answers whether it was open. */
   readonly close = (): boolean => {
     if (this.state.get().kind === 'closed') return false;
-    this.state.set(CLOSED);
+    this.shut();
     return true;
   };
 
@@ -198,6 +216,20 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
     const shown = this.state.get();
     if (shown.kind === 'open') this.state.set({ ...shown, destination });
   };
+
+  /** Shuts the dialog, no longer following its codecs. */
+  private shut(): void {
+    this.unfollow?.();
+    this.unfollow = undefined;
+    this.state.set(CLOSED);
+  }
+
+  /** Plans the open dialog's settings again, as what its codecs can do has changed. */
+  private replan(): void {
+    const shown = this.state.get();
+    if (shown.kind === 'closed') return;
+    this.state.set({ ...shown, planned: planExport(shown.settings, shown.context, shown.clock) });
+  }
 
   /** Replaces the open dialog's settings, its source and its edits as `change` says, and plans them. */
   private change(

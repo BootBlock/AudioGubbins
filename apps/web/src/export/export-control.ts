@@ -58,7 +58,7 @@ import { pageDestination } from './page-destination.js';
 /** What the export works with, each made once by the composition root. */
 export interface ExportControlParts {
   readonly runner: Omit<ExportRunnerParts, 'exports' | 'codecs'>;
-  readonly codecs: Pick<CodecServices, 'capability' | 'encode'>;
+  readonly codecs: Pick<CodecServices, 'capability' | 'environment' | 'encode'>;
   readonly exports: Pick<ExportsClient, 'stage' | 'deliver' | 'discard'>;
 
   /** The assets the editor opens, whose audio an export renders as it is heard. */

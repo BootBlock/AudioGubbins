@@ -121,6 +121,7 @@ export class CodecWorkerCore {
       webAssembly: host.platform.webAssembly,
       browserDecoders: new Set(),
       browserEncoders: new Set(),
+      browserBitRates: new Map(),
     };
     this.#probed = host.probe().then((probes) => {
       this.#probes = probes;
@@ -308,6 +309,7 @@ export class CodecWorkerCore {
             codecModule: () => modules.codec.get(),
             encoderModule: (encoder) => modules.encoders[encoder].get(),
             encoding: this.#host.platform.encoding,
+            browserBitRates: this.#probes.browserBitRates,
             browser: this.#host.platform.browser,
           },
           context,

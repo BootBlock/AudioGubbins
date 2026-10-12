@@ -2,11 +2,19 @@
  * The Export dialog's presets (ADR-0092, REQ-AUDIO-050): AudioGubbins's and
  * the person's own as radios, each saying what it sets, and the person's
  * edited settings where they edited any, so a preset never loses their work.
+ * A preset that cannot be exported here as it is, such as a bit rate this
+ * browser's encoder does not code, says why beside it: it is offered as it
+ * is, never changed to something that can.
  */
 
 import { useId, type ReactNode } from 'react';
 
-import { BUILT_IN_PRESETS } from '@audiogubbins/import-export';
+import {
+  BUILT_IN_PRESETS,
+  validateExportSettings,
+  type ExportContext,
+  type ExportSettings,
+} from '@audiogubbins/import-export';
 
 import { presetSettingsOver, type OfferedPreset } from '../../state/export-draft.js';
 import type { ExportDialogStore, OpenExportDialog } from '../../state/export-dialog-store.js';
@@ -21,6 +29,14 @@ interface ListedPreset {
   readonly choose: () => void;
 }
 
+/** What a preset sets, and why its settings cannot be exported here where they cannot. */
+function sentenceOf(said: string, settings: ExportSettings, context: ExportContext): string {
+  const checked = validateExportSettings(settings, context);
+  return checked.ok
+    ? said
+    : `${said} As it is, it cannot be exported here: ${checked.failures[0].summary}`;
+}
+
 /** The presets listed: AudioGubbins's, the person's, and their edited settings where they edited any. */
 function listedPresets(
   open: OpenExportDialog,
@@ -32,17 +48,21 @@ function listedPresets(
     ...own.map((preset) => ({ kind: 'own', preset }) as const),
   ];
   return [
-    ...offered.map((one) => ({
-      key: one.preset.id,
-      name: one.preset.name,
-      sentence:
+    ...offered.map((one) => {
+      const settings = presetSettingsOver(one, open.context, open.settings.range);
+      const said =
         one.kind === 'own'
           ? ownPresetSentence(one.preset.settings)
-          : presetSentence(one.preset, presetSettingsOver(one, open.context, open.settings.range)),
-      choose: () => {
-        dialog.choosePreset(one);
-      },
-    })),
+          : presetSentence(one.preset, settings);
+      return {
+        key: one.preset.id,
+        name: one.preset.name,
+        sentence: sentenceOf(said, settings, open.context),
+        choose: () => {
+          dialog.choosePreset(one);
+        },
+      };
+    }),
     ...(open.edited === undefined
       ? []
       : [

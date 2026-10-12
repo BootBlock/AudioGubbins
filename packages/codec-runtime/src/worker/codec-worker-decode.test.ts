@@ -303,6 +303,7 @@ describe('the codec worker decoding a file', () => {
           encoderModules: new Map(),
           browserDecoders: new Set(),
           browserEncoders: new Set(),
+          browserBitRates: new Map(),
         }),
         platform: {
           webAssembly: true,

@@ -1,12 +1,8 @@
 import { codecCapability, type CodecEnvironment } from '@audiogubbins/codecs';
 import { describe, expect, it } from 'vitest';
 
-import {
-  probeCodecs,
-  readCodecPlatform,
-  type ConfigSupport,
-  type WebCodecsAudioConfig,
-} from './codec-platform.js';
+import { probeCodecs, readCodecPlatform } from './codec-platform.js';
+import type { ConfigSupport, WebCodecsAudioConfig } from './config-support.js';
 
 const CHROME_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -103,7 +99,7 @@ describe('probeCodecs', () => {
     const probes = await probeCodecs(platform);
     expect(probes.webAssembly).toBe(true);
     expect([...probes.browserDecoders]).toEqual(['he-aac', 'aac-lc', 'opus']);
-    expect([...probes.browserEncoders]).toEqual(['aac-lc', 'opus']);
+    expect(probes.browserEncoders).toEqual(new Set(['aac-lc', 'opus']));
     expect(asked).toContain('flac');
 
     const environment: CodecEnvironment = {
@@ -180,6 +176,7 @@ describe('probeCodecs', () => {
       webAssembly: true,
       browserDecoders: new Set(),
       browserEncoders: new Set(),
+      browserBitRates: new Map(),
     });
   });
 });

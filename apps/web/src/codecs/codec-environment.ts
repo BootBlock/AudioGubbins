@@ -37,6 +37,7 @@ function unstartedEnvironment(webAssembly: boolean): CodecEnvironment {
     encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(),
+    browserBitRates: new Map(),
   };
 }
 

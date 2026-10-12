@@ -39,7 +39,7 @@ import { assetEntryId, regionEntryId } from '../assets/project-entry.js';
 import type { CodecServices } from '../codecs/codec-services.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import { describeBytes } from '../wording.js';
-import { exportContextOf } from './export-context.js';
+import { exportContextOf, servedCodecs } from './export-context.js';
 import { exportRefusal } from './export-refusals.js';
 import type { StagedRun } from './export-runner.js';
 import type { ExportDestinationChoice, ExportStart } from './export-types.js';
@@ -70,7 +70,7 @@ export interface Prepared {
 /** What an export is made ready with. */
 export interface PreparationParts {
   readonly assets: AssetCatalogue;
-  readonly codecs: Pick<CodecServices, 'capability'>;
+  readonly codecs: Pick<CodecServices, 'capability' | 'environment'>;
   readonly clock: () => ExportClock;
 }
 
@@ -147,27 +147,30 @@ export function prepareExport(
     'That asset is not in the project open here.',
   );
   return flatMapResult(asset, (editor) =>
-    flatMapResult(exportContextOf(editor, state), (context) =>
-      flatMapResult(planExport(settings, context, parts.clock()), (files) => {
-        const [first] = files;
-        if (first === undefined) return fail(exportRefusal('nothing', 'The export makes no file.'));
-        if (files.length > 1 && destination.kind === 'file') {
-          return fail(
-            exportRefusal(
-              'one-file-destination',
-              `The export makes ${counted(files.length, 'file', 'files')}, and a save dialog gives one; choose a folder for them.`,
+    flatMapResult(
+      exportContextOf(editor, state, servedCodecs(parts.codecs.environment)),
+      (context) =>
+        flatMapResult(planExport(settings, context, parts.clock()), (files) => {
+          const [first] = files;
+          if (first === undefined)
+            return fail(exportRefusal('nothing', 'The export makes no file.'));
+          if (files.length > 1 && destination.kind === 'file') {
+            return fail(
+              exportRefusal(
+                'one-file-destination',
+                `The export makes ${counted(files.length, 'file', 'files')}, and a save dialog gives one; choose a folder for them.`,
+              ),
+            );
+          }
+          return flatMapResult(writable(parts, first.target.codec), () =>
+            mapResult(
+              combine(
+                files.map((file) => jobOf(parts.assets, editor, file, settings, kept, destination)),
+              ),
+              (jobs) => ({ jobs, snapshot, target: first.target }),
             ),
           );
-        }
-        return flatMapResult(writable(parts, first.target.codec), () =>
-          mapResult(
-            combine(
-              files.map((file) => jobOf(parts.assets, editor, file, settings, kept, destination)),
-            ),
-            (jobs) => ({ jobs, snapshot, target: first.target }),
-          ),
-        );
-      }),
+        }),
     ),
   );
 }

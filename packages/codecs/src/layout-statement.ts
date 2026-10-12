@@ -163,36 +163,50 @@ const CONTAINER_RULES: ReadonlyMap<ContainerId, LayoutRule> = new Map([
   ['aifc', chanRule],
 ]);
 
+/** A coded format: its container, the arrangements it states, and its rule over them. */
+interface CodedFormat {
+  readonly container: ContainerId;
+  readonly speakers: StatedSpeakers;
+  readonly rule: LayoutRule;
+}
+
+function coded(
+  container: ContainerId,
+  name: string,
+  speakers: StatedSpeakers,
+  holds: string,
+): CodedFormat {
+  return { container, speakers, rule: codedRule(name, speakers, holds) };
+}
+
 /** The coded formats, which state a layout by their codec's own mapping, each in its container. */
-const CODEC_RULES: ReadonlyMap<
-  CodecId,
-  { readonly container: ContainerId; readonly rule: LayoutRule }
-> = new Map([
-  [
-    'flac',
-    { container: 'flac', rule: codedRule('FLAC', VORBIS_ORDER_SPEAKERS, VORBIS_ORDER_HOLDS) },
-  ],
-  [
-    'vorbis',
-    { container: 'ogg', rule: codedRule('Ogg Vorbis', VORBIS_ORDER_SPEAKERS, VORBIS_ORDER_HOLDS) },
-  ],
-  [
-    'opus',
-    { container: 'ogg', rule: codedRule('Opus', VORBIS_ORDER_SPEAKERS, VORBIS_ORDER_HOLDS) },
-  ],
+const CODEC_RULES: ReadonlyMap<CodecId, CodedFormat> = new Map([
+  ['flac', coded('flac', 'FLAC', VORBIS_ORDER_SPEAKERS, VORBIS_ORDER_HOLDS)],
+  ['vorbis', coded('ogg', 'Ogg Vorbis', VORBIS_ORDER_SPEAKERS, VORBIS_ORDER_HOLDS)],
+  ['opus', coded('ogg', 'Opus', VORBIS_ORDER_SPEAKERS, VORBIS_ORDER_HOLDS)],
   [
     'aac-lc',
-    {
-      container: 'mp4',
-      rule: codedRule(
-        'AAC',
-        AAC_SPEAKERS,
-        'mono, stereo, LCR, 4.0, 5.0, 5.1 and 7.1 with a front-centre pair by its channel configuration',
-      ),
-    },
+    coded(
+      'mp4',
+      'AAC',
+      AAC_SPEAKERS,
+      'mono, stereo, LCR, 4.0, 5.0, 5.1 and 7.1 with a front-centre pair by its channel configuration',
+    ),
   ],
-  ['mp3', { container: 'mp3', rule: codedRule('MP3', MP3_SPEAKERS, 'mono and stereo alone') }],
+  ['mp3', coded('mp3', 'MP3', MP3_SPEAKERS, 'mono and stereo alone')],
 ]);
+
+/**
+ * The channel counts a coded format states a layout of, ascending, such as
+ * AAC's configurations 1 to 7; `undefined` for a codec whose layout is stated
+ * by its container instead, or that AudioGubbins does not write.
+ */
+export function statedChannelCounts(codec: CodecId): readonly number[] | undefined {
+  const format = CODEC_RULES.get(codec);
+  return format === undefined
+    ? undefined
+    : [...format.speakers.keys()].toSorted((left, right) => left - right);
+}
 
 /** The rule of a codec in a container, or `undefined` where AudioGubbins writes no such file. */
 function ruleOf(codec: CodecId, container: ContainerId): LayoutRule | undefined {

@@ -13,6 +13,7 @@
  */
 
 import type {
+  BitRateBand,
   CodecCapability,
   CodecDescriptor,
   CodecDirection,
@@ -40,6 +41,13 @@ export interface CodecEnvironment {
 
   /** The codecs the browser's encoder was probed to encode. */
   readonly browserEncoders: ReadonlySet<CodecId>;
+
+  /**
+   * The bit rates the browser's encoder was probed to take, by the codec it
+   * encodes, for each codec it encodes whose bit rates the browser alone
+   * decides: its write direction's `bitRates` here (`codecDescriptorIn`).
+   */
+  readonly browserBitRates: ReadonlyMap<CodecId, readonly BitRateBand[]>;
 }
 
 /** The words a reason uses for each use. */

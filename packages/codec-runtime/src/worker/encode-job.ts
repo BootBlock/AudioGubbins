@@ -12,7 +12,7 @@
  * worker waits on a stream that will not come.
  */
 
-import type { AudioFileWriter } from '@audiogubbins/codecs';
+import type { AudioFileWriter, CodecEnvironment } from '@audiogubbins/codecs';
 import type { BrowserAudioEncoding, BrowserFamily } from '@audiogubbins/capabilities';
 import {
   FailureKind,
@@ -43,6 +43,11 @@ export interface ExportEncoderServices {
   readonly encoderModule: (encoder: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>;
   /** The browser's encoding classes, where the scope has them; AAC-LC is encoded by them alone. */
   readonly encoding: BrowserAudioEncoding | undefined;
+  /**
+   * The bit rates the browser's encoder was probed to take, by codec, which
+   * a request is held to before its encoder is opened (`codecDescriptorIn`).
+   */
+  readonly browserBitRates: CodecEnvironment['browserBitRates'];
   /** The browser's family and major version, which names its encoder's version. */
   readonly browser: BrowserFamily | undefined;
   readonly signal: CancellationSignal;

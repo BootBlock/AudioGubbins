@@ -8,7 +8,11 @@
  * deepest for floating-point audio; and the best a lossy format codes: MP3's
  * highest constant bit rate at the rate, Vorbis's quality 10, Opus at its
  * highest bit rate for the channels with the encoder's full complexity, and
- * AAC at 128 kbit/s a channel, the rate its encoders give as transparent.
+ * AAC at the highest bit rate its encoder codes the stream at, which a
+ * browser's encoder was probed for (`codecDescriptorIn`). An AAC encoder that
+ * states no bit rates, or none for the stream, is given 128 kbit/s a channel,
+ * the rate AAC's encoders give as transparent, within what AAC holds; where
+ * the encoder codes none, validation says so.
  *
  * Where a format cannot code the project's rate, as Opus at 44.1 kHz, the
  * default is the lowest rate it codes above the project's, so nothing is
@@ -17,7 +21,7 @@
  * or in floating point, where a 24- or 32-bit export dithers only if asked.
  */
 
-import { constantBitRates, type CodecDirection } from '@audiogubbins/codecs';
+import { aacHighestBitRate, constantBitRates, type CodecDirection } from '@audiogubbins/codecs';
 import { channelCount, sampleRate, type SampleRate } from '@audiogubbins/domain';
 
 import { acceptsRate } from './codec-checks.js';
@@ -52,6 +56,18 @@ function depthFor<D extends number>(precision: SourcePrecision, depths: readonly
   const deepest = depths.at(-1) ?? depths[0];
   if (precision.kind === 'float') return deepest;
   return depths.find((depth) => depth >= precision.bits) ?? deepest;
+}
+
+/** AAC's bit rate: the highest its encoder codes the stream at, or a transparent one (see the module comment). */
+function aacBitRate(facts: EncodingFacts): number {
+  const coded = facts.write === undefined ? undefined : constantBitRates(facts.write, facts);
+  return (
+    coded?.at(-1) ??
+    Math.min(
+      AAC_TRANSPARENT_PER_CHANNEL * facts.channels,
+      aacHighestBitRate(facts.channels, facts.sampleRate),
+    )
+  );
 }
 
 type Defaults = {
@@ -109,7 +125,7 @@ const DEFAULTS: Defaults = {
   aac: (common, facts) => ({
     ...common,
     format: 'aac',
-    encoding: { bitRate: AAC_TRANSPARENT_PER_CHANNEL * facts.channels },
+    encoding: { bitRate: aacBitRate(facts) },
   }),
 };
 

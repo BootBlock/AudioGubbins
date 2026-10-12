@@ -223,3 +223,24 @@ export function projectOf(
 export function contextOf(options: Parameters<typeof projectOf>[0] = {}): ExportContext {
   return { source: projectOf(options), codecs: testCodecs };
 }
+
+/**
+ * The context of a project made with these options, against every test codec,
+ * AAC written by a browser's encoder that was probed to take `bands`.
+ */
+export function browserAacContextOf(
+  bands: readonly BitRateBand[],
+  options: Parameters<typeof projectOf>[0] = {},
+): ExportContext {
+  const aac = TEST_CODECS.get('aac-lc');
+  const write = aac?.write;
+  if (aac === undefined || write === undefined) throw new Error('The test codecs write AAC.');
+  const browser: CodecDescriptor = {
+    ...aac,
+    write: { ...write, implementation: 'browser', bitRates: bands },
+  };
+  return {
+    source: projectOf(options),
+    codecs: (id) => (id === 'aac-lc' ? browser : testCodecs(id)),
+  };
+}

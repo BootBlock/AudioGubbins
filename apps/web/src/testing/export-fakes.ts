@@ -33,6 +33,7 @@ import type { ExportCodec } from '@audiogubbins/project-format';
 import type { RenderRun } from '../audio/render-control.js';
 import type { CodecServices, EncodedFile } from '../codecs/codec-services.js';
 import { browserExportDestinations, type ExportDestinations } from '../io/export-destinations.js';
+import { observable } from '../state/observable.js';
 
 /** Frames a fake render sends in a block. */
 const BLOCK_FRAMES = 4_096;
@@ -184,16 +185,20 @@ export function servedEnvironment(browserEncoders: readonly CodecId[] = []): Cod
     encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(browserEncoders),
+    browserBitRates: new Map(),
   };
 }
 
 /** The codec worker of an export: it takes the rendered stream and writes a byte for each frame. */
-export class FakeExportCodecs implements Pick<CodecServices, 'capability' | 'encode'> {
-  environment: CodecEnvironment = servedEnvironment();
+export class FakeExportCodecs implements Pick<
+  CodecServices,
+  'capability' | 'environment' | 'encode'
+> {
+  readonly environment = observable<CodecEnvironment>(servedEnvironment());
   readonly requests: ExportEncodeRequest[] = [];
 
   capability: CodecServices['capability'] = (codec, use) =>
-    codecCapability(this.environment, codec, use);
+    codecCapability(this.environment.get(), codec, use);
 
   readonly encode: CodecServices['encode'] = async (request, ports, progress, signal) => {
     this.requests.push(request);

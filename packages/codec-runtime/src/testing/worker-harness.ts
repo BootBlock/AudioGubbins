@@ -109,6 +109,7 @@ export async function workerHarness(options: HarnessOptions = {}): Promise<Harne
     webAssembly: true,
     browserDecoders: new Set(),
     browserEncoders: new Set(),
+    browserBitRates: new Map(),
     ...options.probes,
   };
   const core = new CodecWorkerCore({
@@ -218,6 +219,7 @@ export function pageWorker(options: Omit<HarnessOptions, 'codecModule'> = {}): P
         webAssembly: true,
         browserDecoders: new Set(),
         browserEncoders: new Set(),
+        browserBitRates: new Map(),
         ...options.probes,
       }),
     fileReader: MEMORY_READER,

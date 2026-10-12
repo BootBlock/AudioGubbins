@@ -46,3 +46,5 @@ export {
   vorbisIdentification,
   vorbisSetup,
 } from './vorbis-packets.js';
+
+export { WINDOWS_AAC_BIT_RATES, WINDOWS_BROWSER_BIT_RATES } from './browser-bit-rates.js';

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import type { CodecEnvironment } from '@audiogubbins/codecs';
+import { WINDOWS_BROWSER_BIT_RATES } from '@audiogubbins/codecs/testing';
 import { unsafeBrandId, type AssetId, type ProjectId } from '@audiogubbins/domain';
 import {
   BUILT_IN_PRESETS,
+  defaultExportSettings,
   planExport,
   type ExportPreset,
   type ExportRange,
@@ -15,6 +18,8 @@ import {
   exportContextOver,
   rateOf,
 } from '../testing/export-contexts.js';
+import { createCodecEnvironmentStore } from '../codecs/codec-environment.js';
+import { servedCodecs } from '../export/export-context.js';
 import { ExportDialogStore, type ExportDialogRequest } from './export-dialog-store.js';
 import { observable } from './observable.js';
 import type { OpenProjectState } from './open-project-store.js';
@@ -29,6 +34,7 @@ function request(changes: Partial<ExportDialogRequest> = {}): ExportDialogReques
     project: PROJECT,
     asset: ASSET,
     context,
+    codecChanges: observable(undefined),
     clock: EXPORT_CLOCK,
     range: { kind: 'project' },
     selection: undefined,
@@ -196,6 +202,64 @@ describe('the Export dialog’s destination', () => {
       policy: 'rename',
     });
     expect(shown(store).settings).toBe(before);
+  });
+});
+
+describe('the Export dialog’s plan as the codecs are found', () => {
+  /** A dialog over AAC at 256 kbit/s, planned against the codecs an environment store serves. */
+  function overAac() {
+    const environment = createCodecEnvironmentStore(true);
+    const served = { ...context, codecs: servedCodecs(environment) };
+    const kept = {
+      ...defaultExportSettings('aac', served),
+      encoding: { bitRate: 256 },
+    } satisfies ExportSettings;
+    const { store } = opened({ context: served, codecChanges: environment, kept });
+    return { store, environment };
+  }
+
+  /** Chromium's on Windows, as its probe finds it. */
+  const WINDOWS: CodecEnvironment = {
+    webAssembly: true,
+    codecModule: 'loaded',
+    encoderModules: new Map(),
+    browserDecoders: new Set(),
+    browserEncoders: new Set(['aac-lc']),
+    browserBitRates: WINDOWS_BROWSER_BIT_RATES,
+  };
+
+  it("plans again once the browser's encoder is found, reporting a bit rate it does not code, never changing it", () => {
+    const { store, environment } = overAac();
+    expect(shown(store).planned.ok).toBe(true);
+
+    environment.adopt(WINDOWS);
+
+    const { planned, settings } = shown(store);
+    expect(settings.encoding).toEqual({ bitRate: 256 });
+    expect(planned.ok ? [] : planned.failures.map((one) => one.summary)).toEqual([
+      "This browser's encoder codes AAC of 2 channels at 48000 Hz at 96, 128, 160 or 192 kbit/s, not at 256.",
+    ]);
+  });
+
+  it('follows the codecs of the dialog open alone, letting go as it closes or opens again', () => {
+    let following = 0;
+    const codecChanges = {
+      subscribe: () => {
+        following += 1;
+        return () => {
+          following -= 1;
+        };
+      },
+    };
+    const { store, project } = opened({ codecChanges });
+    expect(following).toBe(1);
+    store.open(request({ codecChanges }));
+    expect(following).toBe(1);
+    store.close();
+    expect(following).toBe(0);
+    store.open(request({ codecChanges }));
+    project.set({ kind: 'none' });
+    expect(following).toBe(0);
   });
 });
 

@@ -1,8 +1,11 @@
 /**
  * What an export of an asset is planned against (ADR-0092): the asset's audio
- * as it is heard, its regions each as its own audio, and the codec registry.
- * The source is named by the project, which a file name's `{project}` fills
- * with; a region's file is named by its region through `{region}`.
+ * as it is heard, its regions each as its own audio, and the codecs as this
+ * browser serves them, read from its codec environment as it stands, so the bit
+ * rates its encoder was probed to take hold the settings from the moment the
+ * probe is heard. The source is named by the project, which a file name's
+ * `{project}` fills with; a region's file is named by its region through
+ * `{region}`.
  *
  * The export renders what the person hears. The asset's audio is its plan,
  * racks and edits included, at the rate and layout its plan gives; a region's
@@ -39,7 +42,7 @@ import {
   type PlacedRegion,
   type Region,
 } from '@audiogubbins/domain';
-import { CODEC_REGISTRY } from '@audiogubbins/codecs';
+import { codecDescriptorIn, type CodecEnvironment } from '@audiogubbins/codecs';
 import type {
   CodecLookup,
   ExportContext,
@@ -49,11 +52,14 @@ import type {
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import { planContextOf } from '../assets/project-assets.js';
+import type { Observable } from '../state/observable.js';
 import { runsChains } from '../assets/project-entry.js';
 import type { ExportContextOf } from './export-types.js';
 
-/** The registry, as the lookup every export is checked against. */
-const EXPORT_CODECS: CodecLookup = (codec) => CODEC_REGISTRY.get(codec);
+/** The codecs as `environment` serves them as it stands, the lookup every export is checked against. */
+export function servedCodecs(environment: Observable<CodecEnvironment>): CodecLookup {
+  return (codec) => codecDescriptorIn(environment.get(), codec);
+}
 
 /** The bits G.711 and ADPCM decode to, which their exports count as (ADR-0092). */
 const CODED_BITS = 16;
@@ -115,7 +121,7 @@ function exportableRegion(
 }
 
 /** What an export of `asset`'s audio is planned against in `state` (see the module comment). */
-export const exportContextOf: ExportContextOf = (editor, state) => {
+export const exportContextOf: ExportContextOf = (editor, state, codecs) => {
   const { owner } = editor;
   if (owner.kind !== 'project') return notExportable(owner.reason);
   if (owner.region !== undefined) {
@@ -143,7 +149,7 @@ export const exportContextOf: ExportContextOf = (editor, state) => {
           length: editor.length,
           regions,
         },
-        codecs: EXPORT_CODECS,
+        codecs,
       }),
   );
 };
