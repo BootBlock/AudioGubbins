@@ -238,7 +238,10 @@ test.describe('import and export', () => {
     test.setTimeout(240_000);
     const module = await builtCodecModule();
     const flac = await encodeWhole(
-      exportRequest({ format: 'flac', encoding: { bits: 16, compressionLevel: 5 } }, RATE),
+      exportRequest(
+        { format: 'flac', encoding: { bits: 16, compressionLevel: 5, keepRiffChunks: false } },
+        RATE,
+      ),
       testSignal(2, 2 * RATE, RATE),
       builtServices(module),
     );
@@ -385,7 +388,10 @@ test.describe('import and export', () => {
     const module = await builtCodecModule();
     const length = 2 * RATE;
     const flac = await encodeWhole(
-      exportRequest({ format: 'flac', encoding: { bits: 16, compressionLevel: 5 } }, RATE),
+      exportRequest(
+        { format: 'flac', encoding: { bits: 16, compressionLevel: 5, keepRiffChunks: false } },
+        RATE,
+      ),
       testSignal(2, length, RATE),
       builtServices(module),
     );
