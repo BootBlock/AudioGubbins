@@ -3,9 +3,9 @@
  * acceptance criterion, ADR-0090, ADR-0092): files made as they are read and
  * renders made as they are sent, measured at the ports the worker is given.
  *
- * - An RF64 file whose data runs past four gibibytes is recognised and
- *   analysed from its head and the chunk after its data, reading no more of
- *   it than a few small reads.
+ * - An RF64 file whose data runs past four gibibytes is recognised and analysed
+ *   from its head and the chunk after its data, reading no more of it than a
+ *   few small reads.
  * - FLAC files of eleven or more blocks, stereo and 5.1, are decoded in blocks
  *   within the stated caps, 65,536 frames and 1 MiB (the frame cap binds the
  *   stereo stream and the byte cap the 5.1), each read of the file small and
@@ -13,12 +13,12 @@
  *   every frame decoded to the sample it was made from.
  * - A render past four gibibytes is encoded to WAV, which becomes RF64: each
  *   body the encoder sends is one rendered block's, the head and tail are a
- *   head and a tail, and the two channels' credit bounds the audio between
- *   the render and the storage to a few blocks at any moment.
+ *   head and a tail, and the two channels' credit bounds the audio between the
+ *   render and the storage to a few blocks at any moment.
  *
- * Each length is the least that crosses what it tests: four gibibytes where
- * the RF64 path matters, and otherwise enough blocks to pass every cap and
- * the credit window several times over.
+ * Each length is the least that crosses what it tests: four gibibytes where the
+ * RF64 path matters, and otherwise enough blocks to pass every cap and the
+ * credit window several times over.
  */
 
 import { StandardLayouts, derivedSampleCount } from '@audiogubbins/domain';

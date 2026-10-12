@@ -40,11 +40,11 @@ import { addMarker, addRecord, addRegion } from './testing/test-commands.js';
  * one, each made a message at a time as the storage asks for it, written
  * through trees that measure every write and read of the audio.
  *
- * - A decoded import of many blocks, stereo and 5.1, each block at the caps
- *   the codec worker keeps to (65,536 frames, 1 MiB), is written to its
- *   rendition in the staging a block at a time, the next block asked for
- *   only once the last is written, and stored and kept in reads and writes
- *   of at most 1 MiB, every frame kept.
+ * - A decoded import of many blocks, stereo and 5.1, each block at the caps the
+ *   codec worker keeps to (65,536 frames, 1 MiB), is written to its rendition
+ *   in the staging a block at a time, the next block asked for only once the
+ *   last is written, and stored and kept in reads and writes of at most 1 MiB,
+ *   every frame kept.
  * - An export past four gibibytes is staged a body at a time, read back once
  *   for its SHA-256 and once for its delivery in chunks of at most 1 MiB, and
  *   delivered whole.
