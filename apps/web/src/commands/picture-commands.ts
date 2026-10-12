@@ -80,9 +80,9 @@ function needsPicture(context: ShellContext): CommandAvailability {
 /**
  * The file whose sound can be extracted now, and how long it lasts, or why
  * none can: a picture opened, whose sound is neither on its way nor open
- * already. Whether it fits in the memory the page can spare is known only once
- * its channels are read, so extracting weighs it first and says why where it
- * does not.
+ * already. Whether the codecs decode it, and whether it fits in the memory the
+ * page can spare, are known only once its file is analysed, so extracting
+ * analyses and weighs it first and says why where it cannot be.
  */
 function soundSource(
   context: ShellContext,
@@ -219,7 +219,7 @@ function calibrationCommands(): readonly Command<ShellContext>[] {
 
 /**
  * Extracts the picture's sound as an asset. Asked for rather than done on
- * opening, because the file is read whole and its sound held whole: it is
+ * opening, because its sound is held whole: the codecs analyse it and it is
  * weighed against the memory the page can spare first, and the picture says
  * the reason where it is refused.
  */

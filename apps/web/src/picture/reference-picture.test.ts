@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { StandardFrameRates } from '@audiogubbins/timeline';
 
@@ -8,7 +9,7 @@ import { testAssets } from '../assets/test-assets.js';
 import { fakeEditor, fakePicturePlatform } from '../testing/editor-fakes.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
-import { pictureSoundAsset, readWhole } from './picture-sound.js';
+import { pictureSoundAsset, type DecodedSound } from './picture-sound.js';
 import { ReferencePicture } from './reference-picture.js';
 
 const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor');
@@ -163,68 +164,46 @@ describe('the reference picture (ADR-0046)', () => {
 });
 
 describe("a picture's sound", () => {
-  it('becomes an asset of the channels the browser decoded, at the rate it was asked for', () => {
-    const asset = pictureSoundAsset(new File([new Uint8Array(4)], 'shot.webm'), {
-      channels: [new Float32Array([0, 0.5]), new Float32Array([0, -0.5])],
-    });
+  /** A sound decoded in `blocks`, at 44.1 kHz in stereo, as the codec module decodes it. */
+  function decoded(blocks: readonly (readonly Float32Array[])[]): DecodedSound {
+    return {
+      sampleRate: expectSuccess(sampleRate(44_100)),
+      layout: StandardLayouts.stereo,
+      blocks,
+      frames: blocks.reduce((frames, block) => frames + (block[0]?.length ?? 0), 0),
+      decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
+    };
+  }
+
+  it('becomes an asset of the channels decoded, at the rate the file holds it at', () => {
+    const asset = pictureSoundAsset(
+      new File([new Uint8Array(4)], 'shot.webm'),
+      decoded([
+        [new Float32Array([0, 0.5]), new Float32Array([0, -0.5])],
+        [new Float32Array([0.25]), new Float32Array([-0.25])],
+      ]),
+    );
     if (typeof asset === 'string') throw new Error(asset);
 
-    expect(asset).toMatchObject({ name: 'Sound of shot.webm', length: 2, sampleRate: 48_000 });
+    expect(asset).toMatchObject({ name: 'Sound of shot.webm', length: 3, sampleRate: 44_100 });
     expect(asset.layout.roles).toEqual(['left', 'right']);
-    // Each description is a copy, since its arrays are transferred away.
+    expect(asset.description).toBe(
+      'The sound of the reference picture, decoded by Symphonia 0.6.1 at its own rate of 44.1 kHz.',
+    );
+    // Each description joins the blocks afresh, since its arrays are transferred away.
     const one = asset.describe();
     const other = asset.describe();
-    expect(
-      one.kind === 'pcm' && other.kind === 'pcm' && one.channels[0] !== other.channels[0],
-    ).toBe(true);
+    if (one.kind !== 'pcm' || other.kind !== 'pcm') throw new Error('Not described as samples.');
+    expect(one.channels.map((channel) => [...channel])).toEqual([
+      [0, 0.5, 0.25],
+      [0, -0.5, -0.25],
+    ]);
+    expect(one.channels[0]).not.toBe(other.channels[0]);
   });
 
   it('is none for a picture without sound', () => {
-    expect(pictureSoundAsset(new File([], 'silent.webm'), { channels: [] })).toBe(
+    expect(pictureSoundAsset(new File([], 'silent.webm'), decoded([]))).toBe(
       'The picture has no sound.',
     );
-  });
-});
-
-describe("reading a picture's file", () => {
-  /** A stream of `chunks`, which records whether it was cancelled and serves each read on request. */
-  function chunked(chunks: readonly Uint8Array[]) {
-    const state = { cancelled: false, pulled: 0 };
-    const stream = new ReadableStream<Uint8Array>(
-      {
-        pull: (controller) => {
-          const chunk = chunks[state.pulled];
-          state.pulled += 1;
-          if (chunk === undefined) controller.close();
-          else controller.enqueue(chunk);
-        },
-        cancel: () => {
-          state.cancelled = true;
-        },
-      },
-      { highWaterMark: 0 },
-    );
-    return { stream, state };
-  }
-
-  it('reads every chunk into one buffer of the file size', async () => {
-    const { stream } = chunked([new Uint8Array([1, 2]), new Uint8Array([3])]);
-
-    const bytes = await readWhole(stream, 3, new AbortController().signal);
-
-    expect([...new Uint8Array(bytes)]).toEqual([1, 2, 3]);
-  });
-
-  it('stops reading as soon as it is abandoned', async () => {
-    const endless = Array.from({ length: 1000 }, () => new Uint8Array(1));
-    const { stream, state } = chunked(endless);
-    const controller = new AbortController();
-
-    const reading = readWhole(stream, 1000, controller.signal);
-    controller.abort(new Error('Another picture was opened.'));
-
-    await expect(reading).rejects.toThrow('Another picture was opened.');
-    expect(state.cancelled).toBe(true);
-    expect(state.pulled).toBeLessThan(10);
   });
 });

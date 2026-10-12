@@ -1,7 +1,7 @@
 /**
  * The page's codecs for a test that asks them nothing it does not script: an
  * environment where WebAssembly runs and the worker has said nothing, each
- * file's analysis answered as the test says, and nothing encoded.
+ * file's analysis answered as the test says, and nothing decoded or encoded.
  */
 
 import type { CodecCapability, CodecEnvironment, CodecId, CodecUse } from '@audiogubbins/codecs';
@@ -23,7 +23,7 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import { createCodecEnvironmentStore } from '../codecs/codec-environment.js';
-import type { CodecServices, EncodedFile } from '../codecs/codec-services.js';
+import type { CodecServices, DecodedFile, EncodedFile } from '../codecs/codec-services.js';
 import type { Observable } from '../state/observable.js';
 
 /** The analysis of an AAC stream in MP4 of `layout`, decoded by the codec module. */
@@ -91,6 +91,17 @@ export class ScriptedCodecs implements CodecServices {
   analyse(file: Blob, signal: AbortSignal): Promise<DomainResult<ImportAnalysis>> {
     this.analysed.push(file);
     return Promise.resolve(signal.aborted ? fail(WORK_CANCELLED) : this.#analysis(file));
+  }
+
+  decode(
+    _file: Blob,
+    _stream: MessagePort,
+    _progress: (frames: number) => void,
+    _signal: AbortSignal,
+  ): Promise<DomainResult<DecodedFile>> {
+    return Promise.resolve(
+      fail(failure('test.no-decoder', FailureKind.Rejected, 'This test decodes nothing.')),
+    );
   }
 
   encode(

@@ -8,11 +8,16 @@ import {
   type CommandInvocation,
   type ExecutionResult,
 } from '@audiogubbins/commands';
+import type { AnalysedStream } from '@audiogubbins/codec-runtime';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { StandardLayouts, succeed } from '@audiogubbins/domain';
 import { boundaryAt, pixelOf, samplesWithin } from '@audiogubbins/timeline';
 
-import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
+import {
+  PictureSoundDecoder,
+  type DecodeSound,
+  type DecodedSound,
+} from '../picture/picture-sound.js';
 import { ScriptedCodecs, decodedAnalysis, type ScriptedAnalysis } from '../testing/codec-fakes.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
 import { PROMPTLY, everythingQueued } from '../testing/waiting.js';
@@ -350,13 +355,32 @@ describe('the reference picture', () => {
 });
 
 describe("the reference picture's sound (REQ-EXEC-216)", () => {
-  /** What the decoder was asked, and a sound of two channels it answers each time. */
-  const asked: { file: Blob; signal: AbortSignal }[] = [];
+  /** What the decoder was asked, and a sound of the stream asked for that it answers each time. */
+  const asked: {
+    file: Blob;
+    expected: AnalysedStream;
+    limit: number;
+    signal: AbortSignal;
+  }[] = [];
 
-  const decode: DecodeSound = (file, signal) => {
-    asked.push({ file, signal });
-    return Promise.resolve({ channels: [new Float32Array(480), new Float32Array(480)] });
+  /** A sound of 480 frames of `expected`'s rate and channels. */
+  function soundOf(expected: AnalysedStream): DecodedSound {
+    return {
+      sampleRate: expected.sampleRate,
+      layout: expected.layout,
+      blocks: [expected.layout.roles.map(() => new Float32Array(480))],
+      frames: 480,
+      decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
+    };
+  }
+
+  const decode: DecodeSound = (file, expected, limit, signal) => {
+    asked.push({ file, expected, limit, signal });
+    return Promise.resolve(soundOf(expected));
   };
+
+  /** A file the codecs decode, in stereo. */
+  const STEREO: ScriptedAnalysis = () => succeed(decodedAnalysis(StandardLayouts.stereo));
 
   /** The codecs the picture's file is analysed by, refusing it unless a test says otherwise. */
   let codecs = new ScriptedCodecs();
@@ -394,21 +418,25 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
   }
 
   it('reads nothing of the sound when a picture is opened', () => {
-    soundIn(undefined);
+    soundIn(undefined, STEREO);
     openPicture();
 
+    expect(codecs.analysed).toEqual([]);
     expect(asked).toEqual([]);
     expect(context.picture.get().sound).toEqual({ kind: 'none' });
   });
 
-  it('opens the sound as an asset when asked, within the memory the page can spare', async () => {
-    soundIn(undefined);
+  it('opens the sound as an asset when asked, decoding the stream its analysis found', async () => {
+    soundIn(undefined, STEREO);
     openPicture();
 
     expect(run('picture.extract-sound').kind).toBe('applied');
     await everythingQueued();
 
     expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
+    expect(asked[0]?.expected.layout).toEqual(StandardLayouts.stereo);
+    // A gibibyte holds 134,217,728 frames of two 32-bit channels.
+    expect(asked[0]?.limit).toBe(134_217_728);
     const { sound } = context.picture.get();
     expect(sound.kind).toBe('decoded');
     expect(sound.kind === 'decoded' && context.assets.find(sound.asset)?.name).toBe(
@@ -416,17 +444,32 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
     );
   });
 
+  it('says why, decoding nothing, when the codecs here cannot decode the file', async () => {
+    soundIn(undefined);
+    openPicture();
+
+    run('picture.extract-sound');
+    await everythingQueued();
+
+    expect(context.picture.get().sound).toEqual({
+      kind: 'unavailable',
+      reason: 'This test analyses no file.',
+    });
+    expect(codecs.analysed).toEqual([context.picture.file]);
+    expect(asked).toEqual([]);
+  });
+
   it('says why, decoding nothing, when the sound would need more than the page can spare', async () => {
-    // Ten seconds in eight channels is 15 MB; a quarter of 40 MB is 10 MB.
-    soundIn(40e6);
+    // Ten seconds in 7.1 is 15.36 MB; a quarter of 40 MB is 10 MB.
+    soundIn(40e6, () => succeed(decodedAnalysis(StandardLayouts.surround7_1)));
     openPicture();
 
     expect(run('picture.extract-sound').kind).toBe('applied');
     await everythingQueued();
 
     const { sound } = context.picture.get();
-    expect(sound.kind === 'unavailable' && sound.reason).toContain(
-      'This page can spare 10 MB for it. Its channels are counted at 8',
+    expect(sound.kind === 'unavailable' && sound.reason).toBe(
+      'Extracting the picture’s sound needs 15 MB: 0.2 minutes of sound in 8 channels at 48 kHz. This page can spare 10 MB for it.',
     );
     expect(codecs.analysed).toEqual([context.picture.file]);
     expect(asked).toEqual([]);
@@ -434,18 +477,35 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
 
   it('weighs the sound at the channels the file’s analysis reads', async () => {
     // Ten seconds in two channels is 3.84 MB, within the 10 MB eight would not fit.
-    soundIn(40e6, () => succeed(decodedAnalysis(StandardLayouts.stereo)));
+    soundIn(40e6, STEREO);
     openPicture();
 
     run('picture.extract-sound');
     await everythingQueued();
 
     expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
+    expect(asked[0]?.limit).toBe(1_250_000);
     expect(context.picture.get().sound.kind).toBe('decoded');
   });
 
+  it('says why when the decode ends without the sound', async () => {
+    soundIn(undefined, STEREO, (file, expected, limit, signal) => {
+      asked.push({ file, expected, limit, signal });
+      return Promise.resolve('The file holds no audio.');
+    });
+    openPicture();
+
+    run('picture.extract-sound');
+    await everythingQueued();
+
+    expect(context.picture.get().sound).toEqual({
+      kind: 'unavailable',
+      reason: 'The file holds no audio.',
+    });
+  });
+
   it('abandons the sound being weighed when the picture is closed, decoding nothing', async () => {
-    soundIn(undefined);
+    soundIn(undefined, STEREO);
     openPicture();
     const { file } = context.picture;
     run('picture.extract-sound');
@@ -461,11 +521,11 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
   it('abandons the sound being decoded when the picture is closed', async () => {
     // A decoder that answers only once the test lets it, after the close.
     let answer: () => void = () => undefined;
-    soundIn(undefined, undefined, (file, signal) => {
-      asked.push({ file, signal });
+    soundIn(undefined, STEREO, (file, expected, limit, signal) => {
+      asked.push({ file, expected, limit, signal });
       return new Promise((resolve) => {
         answer = () => {
-          resolve({ channels: [new Float32Array(480)] });
+          resolve(soundOf(expected));
         };
       });
     });

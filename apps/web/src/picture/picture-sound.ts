@@ -1,121 +1,105 @@
 /**
- * The sound of a reference picture, decoded as an asset where the browser can
- * (REQ-AUDIO-156's extraction of embedded audio "where technically
- * practical"), so it can be opened in an editor view beside the picture.
+ * The sound of a reference picture, decoded as an asset (REQ-AUDIO-156's
+ * extraction of embedded audio "where technically practical"), so it can be
+ * opened in an editor view beside the picture.
  *
  * Extracted only when the person asks, and only within the memory the page can
- * spare ({@link soundRefusal}): the file is read whole and its sound held
- * whole, so opening a picture never costs either. It is weighed first, at the
- * channels the codec worker's analysis of the file reads from its headers, and
- * refused with the reason before a byte of its sound is decoded.
+ * spare ({@link soundRefusal}), since the sound is held whole, so opening a
+ * picture never costs it. The file is analysed by the codec worker first, as
+ * an import is: a file whose sound the codecs here cannot decode is refused
+ * with the reason an import gives, and the rest are weighed at the rate,
+ * channels and length the analysis read from the file's headers, and refused
+ * with the reason before a block of the sound is decoded.
  *
- * The browser decodes it, at the rate it is asked for: a browser gives
- * decoded audio at its decoder's rate rather than the file's, so the rate is
- * stated, 48 kHz, and the asset says it was converted. Its audio is held in
- * memory for the session and copied for each thread that reads it, since a
- * description's arrays are transferred away. A file with no sound, or one the
- * browser cannot decode, is said with the reason; the picture is unaffected.
+ * The codec worker decodes it (`codec-picture-sound.ts`), reading the file
+ * where it lies, at the sound's own rate, never resampled, and in its own
+ * channels, so the asset is the sound the file holds. Its audio is held in
+ * memory for the session as the blocks it arrived in, and copied into one
+ * array per channel for each thread that reads it, since a description's
+ * arrays are transferred away. A file with no sound, or one the codecs here
+ * cannot decode, is said with the reason; the picture is unaffected.
  */
 
 import type { ResourceFigures } from '@audiogubbins/capabilities';
-import type { ImportAnalysis } from '@audiogubbins/codec-runtime';
+import type { AnalysedStream, ImportAnalysis } from '@audiogubbins/codec-runtime';
+import type { DecoderIdentity } from '@audiogubbins/codecs';
 import type { Logger } from '@audiogubbins/diagnostics';
 import {
-  StandardLayouts,
-  discreteLayout,
   sampleCount,
-  sampleRate,
-  succeed,
   type ChannelLayout,
   type DomainResult,
+  type SampleRate,
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
 
 import { revisionOf, type EditorAsset } from '../assets/editor-asset.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ReferencePicture } from './reference-picture.js';
-import { soundBound, soundChannelsOf, soundRefusal } from './sound-bound.js';
+import { soundBound, soundFrameLimit, soundRefusal } from './sound-bound.js';
 
-/** The rate the browser is asked to decode a picture's sound at. */
-export const PICTURE_SOUND_RATE = 48_000;
-
-/** Decoded audio: one array per channel, at the rate asked for. */
+/** A picture's sound, decoded at its own rate, in the blocks it arrived in. */
 export interface DecodedSound {
-  readonly channels: readonly Float32Array[];
+  readonly sampleRate: SampleRate;
+  readonly layout: ChannelLayout;
+  /** Each block: one array per channel, in the layout's order, all of one length. */
+  readonly blocks: readonly (readonly Float32Array[])[];
+  /** The frames of every block together. */
+  readonly frames: number;
+  readonly decoder: DecoderIdentity;
 }
 
 /**
- * Decodes a file's sound, or says why it could not, reading no further once
- * `signal` abandons it.
+ * Decodes the sound of `file`, which its analysis described as `expected`,
+ * keeping at most `limit` frames, or says why it could not; reading no
+ * further once `signal` abandons it.
  */
-export type DecodeSound = (file: Blob, signal: AbortSignal) => Promise<DecodedSound | string>;
-
-/**
- * Reads `stream`, of `size` bytes, into one buffer of that size, cancelling the
- * read as soon as `signal` abandons it rather than reading the rest of a file
- * nobody wants. Throws the signal's reason once abandoned.
- */
-export async function readWhole(
-  stream: ReadableStream<Uint8Array>,
-  size: number,
+export type DecodeSound = (
+  file: Blob,
+  expected: AnalysedStream,
+  limit: number,
   signal: AbortSignal,
-): Promise<ArrayBuffer> {
-  signal.throwIfAborted();
-  const bytes = new Uint8Array(size);
-  const reader = stream.getReader();
-  const stop = (): void => {
-    void reader.cancel(signal.reason);
-  };
-  signal.addEventListener('abort', stop, { once: true });
-  try {
-    let at = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      signal.throwIfAborted();
-      if (done) break;
-      if (at + value.length > size) throw new Error('The file grew while it was read.');
-      bytes.set(value, at);
-      at += value.length;
-    }
-    if (at !== size) throw new Error('The file shrank while it was read.');
-    return bytes.buffer;
-  } finally {
-    signal.removeEventListener('abort', stop);
+) => Promise<DecodedSound | string>;
+
+/** One array per channel of `sound`'s blocks joined, fresh for each thread it is handed to. */
+function joined(sound: DecodedSound): Float32Array[] {
+  const channels = sound.layout.roles.map(() => new Float32Array(sound.frames));
+  let at = 0;
+  for (const block of sound.blocks) {
+    channels.forEach((channel, index) => {
+      const plane = block[index];
+      if (plane !== undefined) channel.set(plane, at);
+    });
+    at += block[0]?.length ?? 0;
   }
+  return channels;
 }
 
-function layoutFor(channels: number): DomainResult<ChannelLayout> {
-  if (channels === 1) return succeed(StandardLayouts.mono);
-  if (channels === 2) return succeed(StandardLayouts.stereo);
-  return discreteLayout(channels);
-}
+const KILOHERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
 
 /** The asset the sound of `file` makes, or why it makes none. */
 export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset | string {
-  const frames = sound.channels[0]?.length ?? 0;
-  if (sound.channels.length === 0 || frames === 0) return 'The picture has no sound.';
-  const layout = layoutFor(sound.channels.length);
-  const rate = sampleRate(PICTURE_SOUND_RATE);
-  const length = sampleCount(frames);
-  if (!layout.ok || !rate.ok || !length.ok)
-    return 'The picture’s sound has a shape AudioGubbins cannot hold.';
+  if (sound.frames === 0) return 'The picture has no sound.';
+  const length = sampleCount(sound.frames);
+  if (!length.ok) return 'The picture’s sound has a shape AudioGubbins cannot hold.';
+  const channels = sound.layout.roles.length;
   const id = `picture-sound:${file.name}:${String(file.size)}:${String(file.lastModified)}`;
-  const content = `${id}:${String(frames)}:${String(sound.channels.length)}`;
+  const content = `${id}:${String(sound.frames)}:${String(channels)}:${String(sound.sampleRate)}`;
+  const { decoder } = sound;
   return {
     id,
     name: `Sound of ${file.name}`,
-    description: `The sound of the reference picture, decoded by the browser at ${String(PICTURE_SOUND_RATE / 1000)} kHz.`,
-    sampleRate: rate.value,
-    layout: layout.value,
+    description: `The sound of the reference picture, decoded by ${decoder.name} ${decoder.version} at its own rate of ${KILOHERTZ.format(sound.sampleRate / 1000)} kHz.`,
+    sampleRate: sound.sampleRate,
+    layout: sound.layout,
     length: length.value,
     content,
     revision: revisionOf(content),
-    // Copied each time: a description's arrays are transferred to the thread
-    // that reads them, and the session keeps its own.
+    // Joined afresh each time: a description's arrays are transferred to the
+    // thread that reads them, and the session keeps its own.
     describe: () => ({
       kind: PcmDescriptionKind.Pcm,
-      sampleRate: rate.value,
-      channels: sound.channels.map((channel) => channel.slice()),
+      sampleRate: sound.sampleRate,
+      channels: joined(sound),
     }),
     // A picture's sound has no chain to run.
     unracked: undefined,
@@ -133,66 +117,86 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
 /** Analyses a file before anything of it is decoded, as the codecs do (`CodecServices.analyse`). */
 type AnalyseFile = (file: Blob, signal: AbortSignal) => Promise<DomainResult<ImportAnalysis>>;
 
+/** Why a file read in place is not extracted: it is audio, not a picture's sound. */
+const READ_IN_PLACE =
+  'The file is audio that AudioGubbins reads where it lies rather than decoding, so it has no picture’s sound to extract. Import it as audio instead.';
+
 /**
- * Weighs the sound of `file`, lasting `duration` seconds, against the memory
- * the page can spare, then decodes it and adds it to the catalogue, telling the
- * picture how it went. `signal` abandons it where the picture is closed or
- * another is opened.
+ * The sound stream the analysis of a picture's file found, or why there is
+ * none to decode: the refusal an import would give, with the reason.
  */
-async function decodePictureSound(options: {
-  readonly file: File;
-  readonly duration: number;
+function soundStreamOf(analysis: DomainResult<ImportAnalysis>): AnalysedStream | string {
+  if (!analysis.ok) return analysis.failures[0].summary;
+  const analysed = analysis.value;
+  switch (analysed.kind) {
+    case 'decode':
+      return analysed.stream;
+    case 'read-in-place':
+      return READ_IN_PLACE;
+    case 'refused':
+      return analysed.failure.summary;
+  }
+}
+
+/** What the decoder of pictures' sound is made with. */
+interface DecoderOptions {
+  /** Reads the file's sound stream from its headers, before any of it is decoded. */
+  readonly analyse: AnalyseFile;
   readonly decode: DecodeSound;
-  readonly weigh: (
-    file: Blob,
-    duration: number,
-    signal: AbortSignal,
-  ) => Promise<string | undefined>;
   readonly picture: ReferencePicture;
   readonly catalogue: AssetCatalogue;
   readonly logger: Logger;
-  readonly signal: AbortSignal;
-}): Promise<void> {
-  const { file, duration, decode, weigh, picture, catalogue, logger, signal } = options;
+  /** What the page has left, measured when each extraction is weighed, since it moves. */
+  readonly resources: () => ResourceFigures;
+}
+
+/**
+ * Analyses the sound of `file`, lasting `duration` seconds, weighs it against
+ * the memory the page can spare, then decodes it and adds it to the catalogue,
+ * telling the picture how it went. `signal` abandons it where the picture is
+ * closed or another is opened.
+ */
+async function decodePictureSound(
+  options: DecoderOptions,
+  file: File,
+  duration: number,
+  signal: AbortSignal,
+): Promise<void> {
+  const { analyse, decode, picture, catalogue, logger, resources } = options;
   // Read afresh after each wait, since the picture may be closed during it.
   const abandoned = (): boolean => signal.aborted;
+  const unavailable = (reason: string): void => {
+    logger.info('A reference picture’s sound was not decoded.', { reason });
+    picture.soundIs({ kind: 'unavailable', reason });
+  };
   picture.soundIs({ kind: 'decoding' });
-  const refused = await weigh(file, duration, signal);
+  const stream = soundStreamOf(await analyse(file, signal));
   if (abandoned()) return;
-  if (refused !== undefined) {
-    logger.info('A reference picture’s sound was not decoded.', { reason: refused });
-    picture.soundIs({ kind: 'unavailable', reason: refused });
+  if (typeof stream === 'string') {
+    unavailable(stream);
     return;
   }
-  let decoded: DecodedSound | string;
-  try {
-    decoded = await decode(file, signal);
-  } catch (error) {
-    // A file removed after it was chosen, or one the browser will not read; or
-    // the read abandoned, which the signal says below.
-    decoded = `The picture’s sound could not be read: ${error instanceof Error ? error.message : String(error)}`;
+  const bound = soundBound(resources());
+  const refused = soundRefusal(stream, duration, bound);
+  if (refused !== undefined) {
+    unavailable(refused);
+    return;
   }
+  const decoded = await decode(
+    file,
+    stream,
+    soundFrameLimit(stream.layout.roles.length, bound),
+    signal,
+  );
   if (abandoned()) return;
   const asset = typeof decoded === 'string' ? decoded : pictureSoundAsset(file, decoded);
   if (typeof asset === 'string') {
-    logger.info('A reference picture’s sound was not decoded.', { reason: asset });
-    picture.soundIs({ kind: 'unavailable', reason: asset });
+    unavailable(asset);
     return;
   }
   catalogue.add(asset);
   picture.soundIs({ kind: 'decoded', asset: asset.id });
 }
-
-/** What the decoder of pictures' sound is made with. */
-type DecoderOptions = Omit<
-  Parameters<typeof decodePictureSound>[0],
-  'file' | 'duration' | 'weigh' | 'signal'
-> & {
-  /** Reads the file's channels from its headers, before its sound is decoded. */
-  readonly analyse: AnalyseFile;
-  /** What the page has left, measured when each extraction is weighed, since it moves. */
-  readonly resources: () => ResourceFigures;
-};
 
 /** Decodes a picture's sound when asked, within the page's memory, one at a time. */
 export class PictureSoundDecoder {
@@ -204,36 +208,14 @@ export class PictureSoundDecoder {
   }
 
   /**
-   * Why the sound of `file`, lasting `duration` seconds, cannot be extracted in
-   * the memory the page can spare now, or `undefined` when it can, counted at
-   * the channels the file's analysis reads.
-   */
-  async refusal(file: Blob, duration: number, signal: AbortSignal): Promise<string | undefined> {
-    const channels = soundChannelsOf(await this.#options.analyse(file, signal));
-    return soundRefusal(
-      file.size,
-      duration,
-      PICTURE_SOUND_RATE,
-      channels,
-      soundBound(this.#options.resources()),
-    );
-  }
-
-  /**
-   * Weighs, then decodes, the sound of `file`, lasting `duration` seconds,
-   * abandoning any decoding before.
+   * Analyses, weighs, then decodes the sound of `file`, lasting `duration`
+   * seconds, abandoning any decoding before.
    */
   decode(file: File, duration: number): void {
     this.#current?.abort();
     const controller = new AbortController();
     this.#current = controller;
-    void decodePictureSound({
-      ...this.#options,
-      file,
-      duration,
-      weigh: (weighed, length, signal) => this.refusal(weighed, length, signal),
-      signal: controller.signal,
-    });
+    void decodePictureSound(this.#options, file, duration, controller.signal);
   }
 
   /** Abandons the sound being decoded. */

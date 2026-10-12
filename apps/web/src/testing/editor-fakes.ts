@@ -149,8 +149,8 @@ export function fakePicturePlatform(framesAnnounced = false): PicturePlatform & 
 
 /**
  * The editor part of a shell context, over the real stores and a fake picture,
- * whose sound is weighed as where the browser says nothing of its memory, at
- * the channels `codecs` analyses, and the codecs themselves.
+ * whose sound is analysed by `codecs` and weighed as where the browser says
+ * nothing of its memory, and the codecs themselves.
  */
 export function fakeEditor(
   storage: StateStorage,

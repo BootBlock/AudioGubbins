@@ -1745,6 +1745,16 @@ Published paths
   CodecModule.createOpusEncoder: (settings: OpusEncoderSettings) => DomainResult<OpusEncoder>
   CodecModule.createOpusPacketDecoder: (channels: 1 | 2) => DomainResult<OpusPacketDecoder>
   type CodecRequest = { readonly kind: typeof ToCodecWorkerKind.Analyse; readonly request: string; readonly file: FileSource; } | { readonly kind: typeof ToCodecWorkerKind.Cancel; readonly request: string; } | { readonly kind: typeof ToCodecWorkerKind.Decode; readonly request: string; readonly file: FileSource; readonly stream: MessagePortLike; } | { readonly kind: typeof ToCodecWorkerKind.Encode; readonly request: string; readonly encode: ExportEncodeRequest; readonly rendered: MessagePortLike; readonly stream: MessagePortLike; }
+  class CreditedReceiver<TMessage>
+  new CreditedReceiver<TMessage>(port: MessagePortLike, read: (value: unknown) => DomainResult<TMessage>, window: number): CreditedReceiver<TMessage>
+  readonly CreditedReceiver.#port: MessagePortLike
+  readonly CreditedReceiver.#arrived: DomainResult<TMessage>[]
+  CreditedReceiver.#waiting: (() => void) | undefined
+  CreditedReceiver.#arrive: (message: DomainResult<TMessage>) => void
+  CreditedReceiver.#tell: (message: StreamReceiverMessage) => void
+  CreditedReceiver.next: (signal: CancellationSignal) => Promise<DomainResult<TMessage>>
+  CreditedReceiver.refuse: (reason: DomainFailure) => void
+  CreditedReceiver.close: () => void
   interface DecoderSession
   readonly DecoderSession.description: StreamDescription
   DecoderSession.decode: (into: readonly Float32Array[]) => DomainResult<number>

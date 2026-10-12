@@ -37,7 +37,8 @@ import { browserSpectrogramWorker } from './editor/spectrogram-threads.js';
 import type { ModelServices } from './ml/model-services.js';
 import { modelGates } from './ml/model-words.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
-import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
+import { browserPicturePlatform } from './picture/browser-picture.js';
+import { codecSoundDecoder } from './picture/codec-picture-sound.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
 import { ReferencePicture } from './picture/reference-picture.js';
 import { createAssetCatalogue, type AssetCatalogue } from './state/asset-catalogue.js';
@@ -173,7 +174,7 @@ export function panelPartsOf(
 function referencePicture(
   capabilities: CapabilityRegistry,
   assets: AssetCatalogue,
-  codecs: Pick<CodecServices, 'analyse'>,
+  codecs: Pick<CodecServices, 'analyse' | 'decode'>,
   logger: Logger,
 ): { readonly picture: ReferencePicture; readonly pictureSound: PictureSoundDecoder } {
   const picture = new ReferencePicture({
@@ -181,9 +182,10 @@ function referencePicture(
     logger,
   });
   const pictureSound = new PictureSoundDecoder({
-    decode: browserSoundDecoder(),
-    // The file's channels, read from its headers, weigh its sound.
+    // The file's sound stream, read from its headers, weighs its sound before
+    // the codec worker decodes it.
     analyse: (file, signal) => codecs.analyse(file, signal),
+    decode: codecSoundDecoder(codecs),
     picture,
     catalogue: assets,
     logger,
@@ -197,7 +199,7 @@ function referencePicture(
  * Builds the editor part, its assets following the open project of `projects`
  * where this browser keeps projects, and its peaks drawn at the chosen render
  * quality of `audioSettings`, a racked sound's from the renders of `previews`,
- * and a reference picture's sound weighed at the channels `codecs` reads.
+ * and a reference picture's sound analysed, weighed and decoded by `codecs`.
  */
 export function startEditor(
   capabilities: CapabilityRegistry,
@@ -212,7 +214,7 @@ export function startEditor(
   },
   previews: PreviewHost,
   models: ModelServices,
-  codecs: Pick<CodecServices, 'analyse'>,
+  codecs: Pick<CodecServices, 'analyse' | 'decode'>,
   dsp: PageDsp,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);

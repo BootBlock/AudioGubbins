@@ -34,7 +34,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 
-import type { EncodedFile } from './codec-services.js';
+import type { DecodedFile, EncodedFile } from './codec-services.js';
 
 /** The codec worker, as the page talks to it. */
 export interface CodecWorkerPort {
@@ -142,6 +142,31 @@ export class CodecClient {
           ? succeed(answer.analysis)
           : fail(answeredOtherwise(answer.kind)),
       () => undefined,
+      signal,
+    );
+  }
+
+  /** Decodes a file in the worker into a stream over `stream` (see `CodecServices.decode`). */
+  decode(
+    file: Blob,
+    stream: MessagePort,
+    progress: (frames: number) => void,
+    signal: AbortSignal,
+  ): Promise<DomainResult<DecodedFile>> {
+    return this.#ask(
+      'decode',
+      (request) => ({
+        kind: ToCodecWorkerKind.Decode,
+        request,
+        file: { kind: 'file', file },
+        stream,
+      }),
+      [stream],
+      (answer) =>
+        answer.kind === FromCodecWorkerKind.Decoded
+          ? succeed({ frames: answer.frames, decoder: answer.decoder })
+          : fail(answeredOtherwise(answer.kind)),
+      progress,
       signal,
     );
   }

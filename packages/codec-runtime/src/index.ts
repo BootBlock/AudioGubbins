@@ -12,7 +12,8 @@
  *
  * The codec worker (`threads/codec-worker.ts`) serves analysis, decoding and
  * encoding requests over the protocol below, with the stream messages of
- * `@audiogubbins/import-export` on the channels its requests carry.
+ * `@audiogubbins/import-export` on the channels its requests carry; a
+ * stream's receiver reads them with credit (`CreditedReceiver`).
  */
 
 export { type CodecModule, instantiateCodecModule } from './codec-module.js';
@@ -63,5 +64,7 @@ export { type FileHandleLike, type FileSource } from './files/file-source.js';
 export { type BlobLike } from './files/sync-file-bytes.js';
 
 export { type MessagePortLike } from './streams/stream-port.js';
+
+export { CreditedReceiver } from './streams/credited-receiver.js';
 
 export { WORK_CANCELLED } from './work-cancelled.js';
