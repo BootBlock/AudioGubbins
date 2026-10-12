@@ -6,7 +6,7 @@
  */
 
 import type { MetadataTextKey } from '@audiogubbins/codecs';
-import { channelCount } from '@audiogubbins/domain';
+import { channelCount, type RegionId } from '@audiogubbins/domain';
 import {
   formatName,
   type ChannelConversion,
@@ -14,6 +14,7 @@ import {
   type DitherSettings,
   type ExportFormat,
   type ExportPreset,
+  type ExportRange,
   type ExportSettings,
   type FormatEncoding,
   type MetadataPolicy,
@@ -206,7 +207,17 @@ export function ownPresetSentence(settings: PresetSettings): string {
   return `Sets ${encodingWords(settings)} at ${sampleRateWords(settings.sampleRate)}, ${conversionWords(settings.channels)}, ${ditherWords(settings.dither)}, named ${quoted(settings.fileName)}.`;
 }
 
-/** Where the files go, as the end of a sentence. */
+/**
+ * A trusted folder, named by `name`, or said to be no longer kept where it is
+ * not, with what is done there with a name taken: the end of a sentence after
+ * "into".
+ */
+export function trustedFolderWords(name: string | undefined, policy: CollisionPolicy): string {
+  const folder = name === undefined ? 'a folder no longer kept trusted' : quoted(name);
+  return `${folder}, kept trusted, where a file AudioGubbins exported there and unchanged since is replaced without asking, and otherwise ${POLICY_WORDS[policy]}`;
+}
+
+/** Where the files will go, as the end of a sentence. */
 function destinationWords(
   destination: ExportDestinationDraft,
   trustedName: (key: string) => string | undefined,
@@ -218,11 +229,40 @@ function destinationWords(
       return 'as a download, since this browser gives no save dialog';
     case 'folder':
       return `into a folder you choose as the export starts, where ${POLICY_WORDS[destination.policy]}`;
-    case 'trusted-folder': {
-      const name = trustedName(destination.key);
-      const folder = name === undefined ? 'a folder no longer kept trusted' : quoted(name);
-      return `into ${folder}, kept trusted, where a file AudioGubbins exported there and unchanged since is replaced without asking, and otherwise ${POLICY_WORDS[destination.policy]}`;
+    case 'trusted-folder':
+      return `into ${trustedFolderWords(trustedName(destination.key), destination.policy)}`;
+  }
+}
+
+/**
+ * How settings make each file, as a phrase: "FLAC, 24-bit, compression level
+ * 8 at 48 kHz, the channels kept as they are, with no dither".
+ */
+export function settingsPhrase(settings: ExportSettings): string {
+  return `${encodingWords(settings)} at ${sampleRateWords(settings.sampleRate)}, ${conversionWords(settings.channels)}, with ${ditherWords(settings.dither)}`;
+}
+
+/**
+ * What a range exports, as a person reads it, naming a region by
+ * `regionName`, which answers nothing for a region no longer in the project.
+ */
+export function rangeWords(
+  range: ExportRange,
+  regionName: (region: RegionId) => string | undefined,
+): string {
+  switch (range.kind) {
+    case 'project':
+      return 'The whole asset';
+    case 'region': {
+      const name = regionName(range.region);
+      return name === undefined
+        ? 'A region no longer in the project'
+        : `The region ${quoted(name)}`;
     }
+    case 'every-region':
+      return 'Every region, a file each';
+    case 'selection':
+      return 'The selection';
   }
 }
 
@@ -242,5 +282,5 @@ export function whatWillHappen(
     files.length === 1
       ? `one file, ${named}`
       : `${counted(files.length, 'file', 'files')}, the first ${named}`;
-  return `Exports ${made}: ${encodingWords(settings)} at ${sampleRateWords(settings.sampleRate)}, ${conversionWords(settings.channels)}, with ${ditherWords(settings.dither)}, ${destinationWords(destination, trustedName)}.`;
+  return `Exports ${made}: ${settingsPhrase(settings)}, ${destinationWords(destination, trustedName)}.`;
 }

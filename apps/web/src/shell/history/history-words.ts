@@ -10,7 +10,7 @@
 
 import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
 import { codecDescriptor, type CodecImplementation } from '@audiogubbins/codecs';
-import type { ExportedAudioFile, ExportRecord } from '@audiogubbins/project-format';
+import type { ExportCodec, ExportedAudioFile, ExportRecord } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { describeBytes, when } from '../../wording.js';
@@ -36,14 +36,19 @@ const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
   browser: "the browser's encoder",
 };
 
+/** The codec an export was encoded with, and what served it at which version: "FLAC by the codec module 1.2.0". */
+export function encodedByWords(codec: ExportCodec): string {
+  return `${codecDescriptor(codec.id).name} by ${IMPLEMENTATION_WORDS[codec.implementation]} ${codec.version}`;
+}
+
+/** Whether the same project and settings give an export's bytes again, as a phrase. */
+export function reproducibleWords(reproducible: boolean): string {
+  return reproducible ? 'the same bytes on every machine' : 'bytes another machine may not repeat';
+}
+
 /** The file an export wrote, as a phrase names it: its codec, what served it and whether it is reproducible. */
 function writtenFile(file: ExportedAudioFile): string {
-  const { codec } = file;
-  const by = `${IMPLEMENTATION_WORDS[codec.implementation]} ${codec.version}`;
-  const bytes = file.reproducible
-    ? 'the same bytes on every machine'
-    : 'bytes another machine may not repeat';
-  return `, encoded as ${codecDescriptor(codec.id).name} by ${by}, ${bytes}`;
+  return `, encoded as ${encodedByWords(file.codec)}, ${reproducibleWords(file.reproducible)}`;
 }
 
 /**
