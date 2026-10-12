@@ -26,7 +26,7 @@ function batchProblem(context: ShellContext): string | undefined {
 
 /** Whether two subjects name the same export. */
 function sameSubject(one: ExportSubject | undefined, other: ExportSubject): boolean {
-  if (one === undefined || one.kind !== other.kind) return false;
+  if (one?.kind !== other.kind) return false;
   return one.kind === 'batch' || (other.kind === 'record' && one.record === other.record);
 }
 
