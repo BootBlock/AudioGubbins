@@ -2,8 +2,9 @@
  * Lossless exports, round trip and reproducibility (ADR-0091): WAV, AIFF and
  * AIFF-C read back bit for bit by the codecs' own readers, FLAC by the codec
  * module's decoder, each against the source as the export's quantiser made
- * it; and the same blocks and settings give the same bytes, whose hashes are
- * held here.
+ * it, at depths that fill their containers and at depths short of them; and
+ * the same blocks and settings give the same bytes, whose hashes are held
+ * here, for both ADPCM codes, flacenc and the module's own FLAC encoder.
  */
 
 import { createHash } from 'node:crypto';
@@ -72,6 +73,13 @@ describe('WAV, AIFF and AIFF-C exports, read back by the codecs', () => {
         [{ format: 'wav', encoding: { kind: 'integer', bits: 8 } }, 8],
         [{ format: 'aiff', encoding: { kind: 'integer', bits: 24 } }, 24],
         [{ format: 'aifc', encoding: { kind: 'integer', bits: 16 } }, 16],
+        // Depths short of their containers, stated in WAV's valid bits and AIFF's sample size.
+        [{ format: 'wav', encoding: { kind: 'integer', bits: 12 } }, 12],
+        [{ format: 'wav', encoding: { kind: 'integer', bits: 20 } }, 20],
+        [{ format: 'wav', encoding: { kind: 'integer', bits: 29 } }, 29],
+        [{ format: 'aiff', encoding: { kind: 'integer', bits: 20 } }, 20],
+        [{ format: 'aiff', encoding: { kind: 'integer', bits: 9 } }, 9],
+        [{ format: 'aifc', encoding: { kind: 'integer', bits: 27 } }, 27],
       ];
       for (const [encoding, bits] of cases) {
         const file = await encodeWhole(exportRequest(encoding, RATE), source);
@@ -162,12 +170,18 @@ describe('FLAC exports, decoded by the codec module', () => {
     'give back every depth bit for bit, in FLAC’s own channel order',
     async () => {
       const module = await codecModule();
-      const cases: readonly (readonly [16 | 24 | 32, ChannelLayout, number])[] = [
+      const cases: readonly (readonly [number, ChannelLayout, number])[] = [
         [16, StandardLayouts.stereo, 5],
         [32, StandardLayouts.stereo, 5],
         [24, StandardLayouts.mono, 8],
         [16, StandardLayouts.surround5_1, 0],
         [24, StandardLayouts.surround7_1, 2],
+        // flacenc's other depths, and the module's own encoder at depths flacenc has not.
+        [12, StandardLayouts.stereo, 5],
+        [20, StandardLayouts.stereo, 8],
+        [4, StandardLayouts.stereo, 5],
+        [13, StandardLayouts.mono, 2],
+        [28, StandardLayouts.stereo, 5],
       ];
       for (const [bits, layout, level] of cases) {
         const source = testSignal(layout.roles.length, FRAMES, RATE);
@@ -253,6 +267,44 @@ describe('the reproducibility of lossless exports', () => {
     [
       { format: 'flac', encoding: { bits: 24, compressionLevel: 8, keepRiffChunks: false } },
       '94c1e29a7afa8dcb09d2f17c94606b169acc85cfd3f74ecc30e33dc627c0d623',
+    ],
+    [
+      { format: 'wav', encoding: { kind: 'ms-adpcm' } },
+      'b96f0d3db843e7eeec30748b213fb2e56f38f55d472e944f22ed6342458f1a72',
+    ],
+    [
+      { format: 'aifc', encoding: { kind: 'ima-adpcm' } },
+      'd8000a5871a56bb8d560dfd0d5ed62f8c4a8202b190ca6e80c0b4bccd5c6da6b',
+    ],
+    // The codec module's own encoder, whose 32-bit frames flacenc cannot make.
+    [
+      { format: 'flac', encoding: { bits: 32, compressionLevel: 5, keepRiffChunks: false } },
+      'bc3cf59ce534871f1678969de91765b56dfbb763193e923d236c855e9730f20b',
+    ],
+    [
+      { format: 'wav', encoding: { kind: 'integer', bits: 20 } },
+      '04ee5be8e21b50b29320d95047b16178925d81c47b024cdf98c23abb745c7ff0',
+    ],
+    [
+      { format: 'wav', encoding: { kind: 'integer', bits: 12 } },
+      '5eb9e7edf382e1664e22e3eaf99313f634fea21156d6df1f59729209f174214e',
+    ],
+    [
+      { format: 'aiff', encoding: { kind: 'integer', bits: 20 } },
+      'dc5411c0b017288131613488ec0c6749add229554b8a937bd8e731a29a4edda4',
+    ],
+    [
+      { format: 'flac', encoding: { bits: 20, compressionLevel: 5, keepRiffChunks: false } },
+      '6f0b46dfc0a7d4e64e4f0c32403c8d52b9d01c061cc2657b96fb639d49fc4b06',
+    ],
+    [
+      { format: 'flac', encoding: { bits: 12, compressionLevel: 5, keepRiffChunks: false } },
+      '0372fb5aa54478a47adc72634218c2db0fe64baa764ec31658f3928d6405c1f7',
+    ],
+    // The module's own encoder at a depth short of whole bytes.
+    [
+      { format: 'flac', encoding: { bits: 13, compressionLevel: 5, keepRiffChunks: false } },
+      'aa2dad548463c44209e9ca290270b03d4fc52a264c1b1300ecb84ac28deb4c72',
     ],
   ];
 
