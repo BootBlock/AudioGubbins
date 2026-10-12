@@ -3,8 +3,8 @@
  * (`export-settings-json.ts`, ADR-0092, REQ-EXEC-136.12): its own members, the
  * literal float depths and durations its type allows, and a PCM code only where
  * the format holds it. An integer depth is any finite number, as a typed bit
- * rate is: the person types it, and validation refuses one no format holds
- * with its reason, so a preset holding one is read and reported, never lost.
+ * rate is: the person types it, and validation refuses one no format holds with
+ * its reason, so a preset holding one is read and reported, never lost.
  */
 
 import type {

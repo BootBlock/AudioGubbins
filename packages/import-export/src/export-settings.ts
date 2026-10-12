@@ -52,8 +52,8 @@ export type AifcEncoding =
 
 /**
  * FLAC: the depth of its integer samples, any whole depth from 4 to 32
- * (`FLAC_DEPTHS` in the codecs), how hard the encoder works, 0 to 8,
- * and whether the WAV chunks of the file's loops, cues and tuning (`smpl` and
+ * (`FLAC_DEPTHS` in the codecs), how hard the encoder works, 0 to 8, and
+ * whether the WAV chunks of the file's loops, cues and tuning (`smpl` and
  * `cue `) are kept in `APPLICATION` `riff` blocks beside the Vorbis comments,
  * which hold the first loop alone and no cue or tuning (ADR-0093).
  */

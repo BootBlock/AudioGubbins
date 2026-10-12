@@ -6,15 +6,14 @@
  * layout, over the streaming write contract.
  *
  * The form is the plain one wherever it says all there is to say: up to two
- * channels in their default layout, of integer PCM that is 8 or 16 bits and so
- * fills its container, as Microsoft's rule for WAVE_FORMAT_EXTENSIBLE has it;
+ * channels in their default layout, of integer PCM only at 8 or 16 bits, which
+ * fill their containers, as Microsoft's rule for WAVE_FORMAT_EXTENSIBLE has it;
  * otherwise the extensible form, which states a depth deeper than 16 bits or
  * short of its container in its valid bits, with the speaker mask of
- * `wave-layout-writing.ts`. ADPCM has no
- * extensible form, so a layout its plain form does not state is stated in
- * `iXML` alone. Every code but integer PCM carries a `fact` chunk. The head,
- * with RF64 or RIFF decided from the whole length, is written once the stream
- * has ended (`wave-head.ts`).
+ * `wave-layout-writing.ts`. ADPCM has no extensible form, so a layout its plain
+ * form does not state is stated in `iXML` alone. Every code but integer PCM
+ * carries a `fact` chunk. The head, with RF64 or RIFF decided from the whole
+ * length, is written once the stream has ended (`wave-head.ts`).
  */
 
 import {
