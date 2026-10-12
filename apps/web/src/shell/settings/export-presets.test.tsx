@@ -32,7 +32,6 @@ describe('the person’s export presets in Settings', () => {
 
   it('says a FLAC preset keeps its loops, cues and tuning as WAV chunks where it does', () => {
     const flac = defaultExportSettings('flac', exportContextOver());
-    if (flac.format !== 'flac') throw new Error('Not FLAC.');
     const settings = presetSettings({
       ...flac,
       encoding: { ...flac.encoding, keepRiffChunks: true },
