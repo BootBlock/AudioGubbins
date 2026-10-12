@@ -42,10 +42,12 @@ const PART_SEPARATOR = /, (?:then )?/u;
 
 /**
  * The lines of the list that run no script of the manifest, each read whole:
- * the Rust tests, the specification's own check and its checksums.
+ * the Rust tests, of the workspace or of the one crate a phase built, the
+ * specification's own check and its checksums.
  */
 const OUTSIDE_THE_MANIFEST: ReadonlySet<string> = new Set([
   'cargo test --workspace',
+  'cargo test -p audiogubbins-analysis',
   'python docs/spec/tools/verify_hardening.py',
   'sha256sum -c docs/spec/CHECKSUMS.sha256',
 ]);
