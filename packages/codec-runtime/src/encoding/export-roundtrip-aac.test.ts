@@ -99,6 +99,18 @@ interface FakeOptions {
   readonly priming: number;
   /** Fails the encoder once this many chunks have been answered. */
   readonly failAfter?: number;
+  /**
+   * Refuses the configuration with this message after `configure` returns,
+   * as a browser does a bit rate its encoder does not take: the codec is
+   * closed at once, a block given to it then is refused, and the error
+   * callback runs a task later.
+   */
+  readonly refuseConfiguration?: string;
+  /**
+   * Takes no block, and fails once this many are queued, so nothing is ever
+   * dequeued: a block waiting for the queue to drain hears only the error.
+   */
+  readonly failWithQueued?: number;
 }
 
 /**
@@ -131,7 +143,7 @@ function fakeWebCodecs(options: FakeOptions): {
       return Promise.resolve({ supported: true });
     }
 
-    readonly state: CodecState = 'configured';
+    state: CodecState = 'configured';
 
     constructor(init: AudioEncoderCallbacks) {
       this.#init = init;
@@ -143,12 +155,30 @@ function fakeWebCodecs(options: FakeOptions): {
 
     configure(config: WebCodecsAudioConfig): void {
       log.configured = config;
+      const refusal = options.refuseConfiguration;
+      if (refusal === undefined) return;
+      queueMicrotask(() => {
+        this.state = 'closed';
+        setTimeout(() => {
+          this.#init.error(new DOMException(refusal, 'NotSupportedError'));
+        }, 0);
+      });
     }
 
     encode(data: AudioDataLike): void {
       if (!(data instanceof FakeAudioData)) throw new TypeError('Not the fake’s AudioData.');
+      if (this.state === 'closed') {
+        throw new DOMException("Cannot call 'encode' on a closed codec.", 'InvalidStateError');
+      }
       this.#queue.push(data.init.numberOfFrames);
       log.highestQueue = Math.max(log.highestQueue, this.#queue.length);
+      if (this.#queue.length === options.failWithQueued) {
+        this.state = 'closed';
+        setTimeout(() => {
+          this.#init.error(new DOMException('The encoder failed.', 'EncodingError'));
+        }, 0);
+        return;
+      }
       queueMicrotask(() => {
         this.#take();
       });
@@ -174,6 +204,7 @@ function fakeWebCodecs(options: FakeOptions): {
     }
 
     #take(): void {
+      if (this.state === 'closed' || options.failWithQueued !== undefined) return;
       const frames = this.#queue.shift();
       if (frames === undefined) return;
       this.#pending += frames;
@@ -270,6 +301,41 @@ describe('AAC exports through the browser’s encoder', () => {
     const finished = written.ok ? await writer.finish() : written;
     expect(expectFailureCode(finished)).toBe('codec-runtime.browser-encoder-failed');
     expect(log.closed).toBe(true);
+  });
+
+  it('fails the export with the browser’s reason where it refuses the configuration after taking it', async () => {
+    const refusal = 'Unsupported bitrate. Supported values: 96000, 128000, 160000, 192000';
+    const { webCodecs } = fakeWebCodecs({ priming: 1_024, refuseConfiguration: refusal });
+    const writer = expectSuccess(
+      await openExportEncoder(exportRequest(AAC, RATE), testServices(webCodecs)),
+    ).writer;
+
+    const written = await writer.write(testSignal(2, 4_000, RATE), 4_000);
+
+    expect(written).toMatchObject({
+      ok: false,
+      failures: [
+        {
+          code: 'codec-runtime.browser-encoder-failed',
+          summary: `The browser's AAC encoder failed: ${refusal}`,
+        },
+      ],
+    });
+  });
+
+  it('fails a block waiting for the queue to drain where the encoder fails instead', async () => {
+    const { webCodecs } = fakeWebCodecs({ priming: 1_024, failWithQueued: 3 });
+    const writer = expectSuccess(
+      await openExportEncoder(exportRequest(AAC, RATE), testServices(webCodecs)),
+    ).writer;
+    const block = testSignal(2, 1_000, RATE);
+
+    expectSuccess(await writer.write(block, 1_000));
+    expectSuccess(await writer.write(block, 1_000));
+
+    expect(expectFailureCode(await writer.write(block, 1_000))).toBe(
+      'codec-runtime.browser-encoder-failed',
+    );
   });
 
   it('is unavailable, naming the formats that are, where the browser has no encoder', async () => {

@@ -185,6 +185,20 @@ export default defineConfig<SuiteOptions>({
       testMatch: /recording\.spec\.ts/,
     },
     {
+      // Import and export through the codec system: a FLAC file and a folder
+      // imported, a region exported into a folder whose name is taken and
+      // kept beside it, the export found in the History after a reload, and
+      // AAC exported where the browser has its encoder or offered as
+      // unavailable, with what can be written instead, where it has not (the
+      // packet's `test:e2e:import-export`). Which of the two a run proves is
+      // the browser's: no project of Chrome's own channel is kept for AAC,
+      // since one fails to start where Chrome is not installed, and a run
+      // measures the page, not what the machine has installed.
+      name: 'chromium-import-export',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /import-export\.spec\.ts/,
+    },
+    {
       // Every worker under the page's security policy: the storage and
       // inference workers each refused a fetch from another origin. The second
       // test installs a model pack, so the build must carry the packs

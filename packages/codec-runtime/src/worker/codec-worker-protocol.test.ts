@@ -13,6 +13,7 @@ import {
   sampleCount,
   sampleRate,
   succeed,
+  type DomainFailure,
   type SampleRate,
 } from '@audiogubbins/domain';
 import {
@@ -279,12 +280,17 @@ async function encodeThrough(
   const rendered = messageChannel();
   const stored = messageChannel();
   const received: EncodedStreamMessage[] = [];
+  const renderRefused: DomainFailure[] = [];
   let sent = 0;
   const renderSide = rendered.port2;
   // The render side sends a block for each credit granted, as the render worker does.
   renderSide.addEventListener('message', (event: PortMessage) => {
     const read = readStreamReceiverMessage(event.data);
-    if (!read.ok || read.value.kind === 'refused') return;
+    if (!read.ok) return;
+    if (read.value.kind === 'refused') {
+      renderRefused.push(read.value.failure);
+      return;
+    }
     for (let credit = read.value.credit; credit > 0 && sent < blocks.length; credit -= 1) {
       renderSide.postMessage(blocks[sent], []);
       sent += 1;
@@ -308,11 +314,20 @@ async function encodeThrough(
     rendered: rendered.port1,
     stream: stored.port1,
   });
-  const answer = await harness.answer('e');
+  // A fault the worker reports is thrown by the harness once the job has answered.
+  let fault: unknown;
+  const answer = await harness.answer('e').catch((thrown: unknown) => {
+    fault = thrown;
+    const answered = harness.posted.find(
+      (message) => message.kind === 'failed' && message.request === 'e',
+    );
+    if (answered === undefined) throw thrown;
+    return answered;
+  });
   await new Promise((resolve) => setTimeout(resolve, 20));
   renderSide.close();
   storageSide.close();
-  return { answer, received };
+  return { answer, received, renderRefused, fault };
 }
 
 const block = (frames: number): RenderedStreamMessage => ({
@@ -411,6 +426,23 @@ describe('the codec worker encoding an export', () => {
     expect(disagreeing.answer).toMatchObject({
       failure: { code: 'codec-runtime.rendered-frames-disagree' },
     });
+  });
+
+  it('ends both streams with a fault the encoder throws, so neither worker waits on a stream that will never come', async () => {
+    const thrown = new Error('An encoder broke.');
+    const writer: AudioFileWriter = {
+      write: () => Promise.reject(thrown),
+      finish: () => Promise.reject(thrown),
+    };
+    const { answer, received, renderRefused, fault } = await encodeThrough(
+      () => Promise.resolve(succeed({ writer, encoder: COUNTING_ENCODER })),
+      [block(10), block(10)],
+    );
+
+    expect(answer).toMatchObject({ kind: 'failed', failure: { code: 'codec-runtime.fault' } });
+    expect(received).toMatchObject([{ kind: 'failed', failure: { code: 'codec-runtime.fault' } }]);
+    expect(renderRefused).toMatchObject([{ code: 'codec-runtime.fault' }]);
+    expect(fault).toBe(thrown);
   });
 
   it('stops at a cancellation, ending the stored stream with it', async () => {

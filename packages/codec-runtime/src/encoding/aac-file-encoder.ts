@@ -73,12 +73,24 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
   #answered: Uint8Array[] = [];
   #first: FirstChunk | undefined;
   #failure: DomainFailure | undefined;
+  /**
+   * Settles with the encoder's failure once its error callback says it. The
+   * browser closes an encoder that fails, a configuration it refuses only
+   * after `configure` returns among them, before the callback runs; a block
+   * given to it then is refused as given to a closed codec, which says
+   * nothing of why, and a block waiting for the queue to drain hears no more.
+   */
+  readonly #errored: Promise<DomainFailure>;
   #frames = 0;
   #closed = false;
 
   constructor(webCodecs: BrowserAudioEncoding, sampleRate: number) {
     this.#webCodecs = webCodecs;
     this.#sampleRate = sampleRate;
+    let errored: (failure: DomainFailure) => void = () => undefined;
+    this.#errored = new Promise((resolve) => {
+      errored = resolve;
+    });
     this.#encoder = new webCodecs.AudioEncoder({
       output: (chunk, metadata) => {
         this.#output(chunk, metadata);
@@ -87,6 +99,7 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
         this.#failure ??= browserEncoderFailed(
           `The browser's AAC encoder failed: ${error.message}`,
         );
+        errored(this.#failure);
       },
     });
   }
@@ -117,6 +130,7 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
     frames: number,
   ): Promise<DomainResult<readonly Uint8Array[]>> {
     if (this.#failure !== undefined) return fail(this.#failure);
+    if (this.#encoder.state === 'closed') return fail(await this.#errored);
     if (frames > 0) {
       const samples = this.#planes.of(planes, frames);
       const data = new Float32Array(samples.length * frames);
@@ -144,6 +158,7 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
   async finish(): Promise<
     DomainResult<{ readonly units: readonly Uint8Array[]; readonly end: EncodedStreamLength }>
   > {
+    if (this.#failure === undefined && this.#encoder.state === 'closed') await this.#errored;
     if (this.#failure === undefined) {
       try {
         await this.#encoder.flush();
@@ -195,13 +210,15 @@ class AacUnits implements UnitEncoder<EncodedStreamLength> {
 
   async #queueBelowLimit(): Promise<void> {
     while (this.#encoder.encodeQueueSize > MAXIMUM_QUEUED && this.#failure === undefined) {
-      await new Promise<void>((resolve) => {
-        const dequeued = (): void => {
-          this.#encoder.removeEventListener('dequeue', dequeued);
-          resolve();
-        };
-        this.#encoder.addEventListener('dequeue', dequeued);
-      });
+      let dequeued = (): void => undefined;
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          dequeued = resolve;
+          this.#encoder.addEventListener('dequeue', dequeued);
+        }),
+        this.#errored,
+      ]);
+      this.#encoder.removeEventListener('dequeue', dequeued);
     }
   }
 }

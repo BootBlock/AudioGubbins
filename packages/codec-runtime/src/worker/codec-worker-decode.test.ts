@@ -5,13 +5,15 @@
  * samples they were made from.
  */
 
-import { ChannelRole, StandardLayouts } from '@audiogubbins/domain';
+import { ChannelRole, StandardLayouts, createCancellationSource } from '@audiogubbins/domain';
 import type { DecodedStreamMessage } from '@audiogubbins/import-export';
 import { describe, expect, it } from 'vitest';
 
 import { codecModule } from '../testing/codec-module.js';
 import { flacFile, oggOpusFile } from '../testing/encoded-fixtures.js';
+import { runDecode } from './decode-job.js';
 import {
+  MEMORY_READER,
   decodedReceiver,
   memoryFile,
   workerHarness,
@@ -276,6 +278,51 @@ describe('the codec worker decoding a file', () => {
     } as const;
     receiver.refuse({ kind: 'refused', failure: refusal });
     expect(await harness.answer('r')).toEqual({ kind: 'failed', request: 'r', failure: refusal });
+    receiver.close();
+  });
+
+  it('ends the stream with a fault the decode meets, so the storage worker does not wait on it', async () => {
+    const module = await codecModule();
+    const file = flacFile(module, [integers(4_096, 5, 16, 8)], {
+      sampleRate: 48_000,
+      bitsPerSample: 16,
+      blockSize: 4_096,
+    });
+    const thrown = new Error('A decoder broke.');
+    const receiver = decodedReceiver({ window: 4 });
+
+    const decoding = runDecode(
+      { kind: 'file', file: memoryFile(file) },
+      receiver.port,
+      MEMORY_READER,
+      {
+        codecModule: () => Promise.reject(thrown),
+        environment: () => ({
+          webAssembly: true,
+          codecModule: 'loaded',
+          encoderModules: new Map(),
+          browserDecoders: new Set(),
+          browserEncoders: new Set(),
+        }),
+        platform: {
+          webAssembly: true,
+          decoding: undefined,
+          encoding: undefined,
+          browser: undefined,
+        },
+      },
+      {
+        signal: createCancellationSource().signal,
+        yieldToHost: () => Promise.resolve(),
+        progress: () => undefined,
+      },
+    );
+
+    await expect(decoding).rejects.toBe(thrown);
+    expect(await receiver.ended).toMatchObject({
+      kind: 'failed',
+      failure: { code: 'codec-runtime.fault' },
+    });
     receiver.close();
   });
 });

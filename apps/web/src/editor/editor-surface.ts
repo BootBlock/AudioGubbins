@@ -144,6 +144,8 @@ export class EditorSurface {
     ]) {
       this.#stops.push(store.subscribe(this.redraw));
     }
+    this.#stops.push(stores.editorViews.subscribe(this.#fitOpened));
+    this.#stops.push(stores.assets.subscribe(this.#fitOpened));
     this.#stops.push(graphics.watchPixelRatio(this.redraw));
     this.#stops.push(stores.picture.subscribe(this.#watchFilmstrip));
     this.#stops.push(() => this.#filmstrip?.stop());
@@ -162,6 +164,23 @@ export class EditorSurface {
       resizing.disconnect();
     });
   }
+
+  /**
+   * Fits a view waiting to be fitted to the width this surface was laid out
+   * at. The surface outlives the asset it shows, so a view opened on another
+   * asset here keeps the surface's size, no resize follows to measure it, and
+   * it would otherwise be drawn at no width until the panel's size changed.
+   * The asset may open after the view does, so a change to the assets asks
+   * again.
+   */
+  readonly #fitOpened = (): void => {
+    const { stores, panel } = this.#options;
+    if (!(this.#size.width > 0) || stores.editorViews.entry(panel)?.fitting !== true) return;
+    const sources = this.#sources();
+    if (sources !== undefined) {
+      stores.editorViews.measured(panel, this.#size.width, sources.asset.length);
+    }
+  };
 
   /** Listens to the picture's filmstrip, which makes thumbnails the frame shows as they come. */
   readonly #watchFilmstrip = (): void => {

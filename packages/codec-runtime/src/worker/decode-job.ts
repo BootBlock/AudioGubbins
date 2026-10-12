@@ -26,7 +26,7 @@ import {
   readMetadata,
   type ImportServices,
 } from './import-opening.js';
-import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
+import { JOB_FAULT, endOfThrown, type JobContext, type JobEnd } from './job-end.js';
 
 /** The refusal of a file read where it lies, which is never decoded. */
 const READ_IN_PLACE: DomainFailure = failure(
@@ -66,7 +66,10 @@ export async function runDecode(
       return await decodeOpened(file.value.bytes, sender, services, context);
     } catch (error) {
       const end = endOfThrown(error, context.signal);
-      if (end === undefined) throw error;
+      if (end === undefined) {
+        await failedWith(sender, JOB_FAULT, { kind: 'failed', failure: JOB_FAULT });
+        throw error;
+      }
       return await failedWith(sender, end.kind === 'failed' ? end.failure : WORK_CANCELLED, end);
     } finally {
       file.value.close();

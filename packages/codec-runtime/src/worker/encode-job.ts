@@ -35,7 +35,7 @@ import { CreditedSender } from '../streams/credited-sender.js';
 import type { MessagePortLike } from '../streams/stream-port.js';
 import { WORK_CANCELLED } from '../work-cancelled.js';
 import type { ExportEncodeRequest, EncoderModuleName } from './codec-worker-messages.js';
-import { endOfThrown, type JobContext, type JobEnd } from './job-end.js';
+import { JOB_FAULT, endOfThrown, type JobContext, type JobEnd } from './job-end.js';
 
 /** What an export's encoder may use, each loaded on first use. */
 export interface ExportEncoderServices {
@@ -120,7 +120,10 @@ export async function runEncode(
     return await encodeThrough(opened.value, streams, context);
   } catch (error) {
     const end = endOfThrown(error, context.signal);
-    if (end === undefined) throw error;
+    if (end === undefined) {
+      await streams.fail(JOB_FAULT, { kind: 'failed', failure: JOB_FAULT });
+      throw error;
+    }
     return await streams.fail(end.kind === 'failed' ? end.failure : WORK_CANCELLED, end);
   } finally {
     streams.close();

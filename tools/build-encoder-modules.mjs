@@ -338,17 +338,17 @@ async function buildModule(zig, flags, module) {
   writeFileSync(stamp, `${hash}\n`);
 }
 
+/** @typedef {{ readonly mp3: string, readonly vorbis: string }} EncoderModulePaths */
+
 /**
  * Builds whichever encoder modules changed, answering their paths. The
  * compiler is obtained, and downloaded where it is not cached, only when one
  * has to be built.
  *
- * @param {readonly string[]} features the WebAssembly features the modules
- *   may use
- * @returns {Promise<{ readonly mp3: string, readonly vorbis: string }>}
+ * @param {readonly string[]} flags
+ * @returns {Promise<EncoderModulePaths>}
  */
-export async function buildEncoderModules(features) {
-  const flags = commonFlags(features);
+async function buildChanged(flags) {
   /** @type {Promise<string> | undefined} */
   let found;
   const zig = () => {
@@ -357,4 +357,36 @@ export async function buildEncoderModules(features) {
   };
   for (const module of ENCODER_MODULES) await buildModule(zig, flags, module);
   return { mp3: MP3_MODULE, vorbis: VORBIS_MODULE };
+}
+
+/**
+ * The build running now for each set of flags, which a caller asking while it
+ * runs joins. Vite loads the two encoder modules at once, each asking for the
+ * build; two runs side by side would each download the compiler into the one
+ * cache and empty the one working folder under the other's compiler, so the
+ * second fails or links half a module. Forgotten once settled, so a watch
+ * rebuild after an edit runs again.
+ *
+ * @type {Map<string, Promise<EncoderModulePaths>>}
+ */
+const RUNNING = new Map();
+
+/**
+ * Builds whichever encoder modules changed, answering their paths, or joins
+ * the build already running with the same features.
+ *
+ * @param {readonly string[]} features the WebAssembly features the modules
+ *   may use
+ * @returns {Promise<EncoderModulePaths>}
+ */
+export function buildEncoderModules(features) {
+  const flags = commonFlags(features);
+  const key = flags.join(' ');
+  const running = RUNNING.get(key);
+  if (running !== undefined) return running;
+  const started = buildChanged(flags).finally(() => {
+    RUNNING.delete(key);
+  });
+  RUNNING.set(key, started);
+  return started;
 }
