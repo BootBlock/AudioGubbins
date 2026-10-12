@@ -241,11 +241,25 @@ describe('the Export dialog’s plan as the codecs are found', () => {
     ]);
   });
 
-  it('stops following the codecs once it closes', () => {
-    const { store, environment } = overAac();
+  it('follows the codecs of the dialog open alone, letting go as it closes or opens again', () => {
+    let following = 0;
+    const codecChanges = {
+      subscribe: () => {
+        following += 1;
+        return () => {
+          following -= 1;
+        };
+      },
+    };
+    const { store, project } = opened({ codecChanges });
+    expect(following).toBe(1);
+    store.open(request({ codecChanges }));
+    expect(following).toBe(1);
     store.close();
-    environment.adopt(WINDOWS);
-    expect(store.get()).toEqual({ kind: 'closed' });
+    expect(following).toBe(0);
+    store.open(request({ codecChanges }));
+    project.set({ kind: 'none' });
+    expect(following).toBe(0);
   });
 });
 
