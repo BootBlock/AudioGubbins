@@ -14,7 +14,7 @@ import type { ExportSettings } from '@audiogubbins/import-export';
 import { countingTokens } from '@audiogubbins/media-store/testing';
 
 import { regionEntryId } from '../assets/project-entry.js';
-import type { ExportDestinationChoice } from '../export/export-types.js';
+import type { ExportDestinationChoice, ExportRunState } from '../export/export-types.js';
 import { browserExportDestinations } from '../io/export-destinations.js';
 import {
   FAKE_ENCODER,
@@ -275,6 +275,60 @@ describe('the page export (ADR-0092)', () => {
     expect(await bytesIn(folder, 'Waves (2).wav')).toBe(
       FAKE_HEAD.length + SECOND + FAKE_TAIL.length,
     );
+  });
+
+  it('shows the settings and each file’s destination while it runs, and the name a renamed file took', async () => {
+    const audio = await windowWithAudio();
+    const { start, control } = exportOver(audio);
+    const folder = new FakeDirectoryHandle('Game sounds', [
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
+    ]);
+    const destination: ExportDestinationChoice = {
+      kind: 'folder',
+      handle: folder,
+      policy: 'rename',
+    };
+    const running: ExportRunState[] = [];
+    const stop = control.subscribe(() => {
+      const state = control.get();
+      if (state.kind === 'running') running.push(state);
+    });
+    expectSuccess(await start({ kind: 'project' }, destination));
+    stop();
+
+    const ended = control.get();
+    if (ended.kind !== 'ended') throw new Error(`The export is ${ended.kind}, not ended.`);
+    const [job] = ended.batch.jobs;
+    expect(running.length).toBeGreaterThan(0);
+    for (const state of [...running, ended]) {
+      expect(state).toMatchObject({ settings: settings({ kind: 'project' }) });
+      expect(state.kind === 'idle' ? undefined : state.destinations.get(job?.id ?? '')).toBe(
+        destination,
+      );
+    }
+    expect(ended.names.get(job?.id ?? '')).toBe('Harbour (2).wav');
+  });
+
+  it('shows the destination a held file was delivered to instead', async () => {
+    const audio = await windowWithAudio();
+    const { start, control } = exportOver(audio);
+    const taken = new FakeDirectoryHandle('Game sounds', [
+      new FakeFileHandle(new File(['old'], 'Harbour.wav')),
+    ]);
+    expectSuccess(
+      await start({ kind: 'project' }, { kind: 'folder', handle: taken, policy: 'skip' }),
+    );
+    const job = waitingJob(control);
+    const elsewhere: ExportDestinationChoice = {
+      kind: 'folder',
+      handle: new FakeDirectoryHandle('Elsewhere', []),
+      policy: 'prompt',
+    };
+
+    expectSuccess(await control.deliverElsewhere(audio.session, job, elsewhere));
+
+    const ended = control.get();
+    expect(ended.kind === 'idle' ? undefined : ended.destinations.get(job)).toBe(elsewhere);
   });
 
   it('renders a region from its own plan, from its first frame', async () => {

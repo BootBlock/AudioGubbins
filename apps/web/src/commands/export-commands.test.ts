@@ -8,6 +8,7 @@ import {
 import { sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { ExportSettings } from '@audiogubbins/import-export';
+import { activePanelOf, PanelKinds } from '@audiogubbins/workspace';
 
 import type { ExportControl, ExportDestinationChoice } from '../export/export-types.js';
 import { FAKE_HEAD, FAKE_TAIL } from '../testing/export-fakes.js';
@@ -196,5 +197,46 @@ describe('the export commands (ADR-0092, REQ-EDIT-073)', () => {
     expect(
       await audio.window.runAndHear(ExportCommand.ForgetFolder, { key: kept?.key ?? '' }),
     ).toBe('No such folder is trusted.');
+  });
+
+  it('describes the page’s export in the Inspector only once one has run, bringing the Inspector into view', async () => {
+    const audio = await windowWithAudio();
+    const { context } = audio.window;
+    expect(audio.window.run(ExportCommand.Inspect)).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'No export has run since the page opened.' }],
+    });
+    expect(context.exportFocus.subject.get()).toBeUndefined();
+
+    await exported(audio, { kind: 'download' });
+    expect(audio.window.run(ExportCommand.Inspect).kind).not.toBe('refused');
+
+    expect(context.exportFocus.subject.get()).toEqual({ kind: 'batch' });
+    expect(activePanelOf(context.workspace.get().layout)?.kind).toBe(PanelKinds.Inspector);
+  });
+
+  it('describes an export the open project’s history records, and refuses one it does not', async () => {
+    const audio = await windowWithAudio();
+    const { context } = audio.window;
+    await exported(audio, {
+      kind: 'folder',
+      handle: new FakeDirectoryHandle('Game sounds', []),
+      policy: 'prompt',
+    });
+    const [record] = audio.session.getSnapshot().model.exports;
+
+    expect(
+      audio.window.run(ExportCommand.InspectRecord, { record: '0000-0000-0000-dead' }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'That export is not in the history of the project open now.' }],
+    });
+    expect(context.exportFocus.subject.get()).toBeUndefined();
+
+    expect(
+      audio.window.run(ExportCommand.InspectRecord, { record: record?.id ?? '' }).kind,
+    ).not.toBe('refused');
+    expect(context.exportFocus.subject.get()).toEqual({ kind: 'record', record: record?.id });
+    expect(activePanelOf(context.workspace.get().layout)?.kind).toBe(PanelKinds.Inspector);
   });
 });
