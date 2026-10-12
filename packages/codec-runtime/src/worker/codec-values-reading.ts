@@ -1,10 +1,9 @@
 /**
  * Reading the codec values a codec worker's message carries, field by field
- * (REQ-EXEC-136.12): a codec's and a container's identity, the environment
- * the worker reports, each module's load with why one failed, and a
- * decoder's identity. A value is read against the
- * registry's own names, so a forged one cannot name a codec no descriptor
- * describes.
+ * (REQ-EXEC-136.12): a codec's and a container's identity, the environment the
+ * worker reports, each module's load with why one failed, and a decoder's
+ * identity. A value is read against the registry's own names, so a forged one
+ * cannot name a codec no descriptor describes.
  */
 
 import {

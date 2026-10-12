@@ -8,10 +8,10 @@
  * copied for each thread that reads it. So it is weighed before a block of it
  * is decoded, at the rate and channels the codec worker's analysis read from
  * the file's headers, and the length its stream states, or where it states
- * none, the length the picture plays for; past the bound it is refused with
- * the reason, since an hour-long reel would otherwise take the tab, and the
- * editor with it, down. A stream that runs past what was weighed is stopped
- * at the bound ({@link soundFrameLimit}), so no stream holds more than it.
+ * none, the length the picture plays for; past the bound it is refused with the
+ * reason, since an hour-long reel would otherwise take the tab, and the editor
+ * with it, down. A stream that runs past what was weighed is stopped at the
+ * bound ({@link soundFrameLimit}), so no stream holds more than it.
  */
 
 import type { ResourceFigures } from '@audiogubbins/capabilities';

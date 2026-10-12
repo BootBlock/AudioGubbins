@@ -135,7 +135,8 @@ export function codecSoundDecoder(codecs: Pick<CodecServices, 'decode'>): Decode
         received = await receive(receiver, expected, limit, reading.signal);
       } catch (error) {
         // Only an abort ends the reading by throwing: its reason is the
-        // decode's failure, or the person's abandoning, whose result is dropped.
+        // decode's failure, or the person's abandoning, whose result is
+        // dropped.
         if (!reading.signal.aborted) throw error;
         const decoded = await decoding;
         return signal.aborted || decoded.ok

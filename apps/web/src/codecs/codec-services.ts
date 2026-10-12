@@ -4,13 +4,13 @@
  * anything is stored, and a rendered stream encoded into a file's bytes.
  *
  * One instance for the page's life, made by the composition root, whether or
- * not projects can be kept here. The codec worker is started on the first
- * call that needs it and never before, so a page that imports and exports
- * nothing compiles no codec module. The streams travel over the ports a
- * request is given, and a file analysed or decoded is read by the worker in
- * place, block by block, never whole. No sample of a project's passes through
- * the page; the one stream the page reads itself is a reference picture's
- * sound, which is the session's and no project's (`picture/picture-sound.ts`).
+ * not projects can be kept here. The codec worker is started on the first call
+ * that needs it and never before, so a page that imports and exports nothing
+ * compiles no codec module. The streams travel over the ports a request is
+ * given, and a file analysed or decoded is read by the worker in place, block
+ * by block, never whole. No sample of a project's passes through the page; the
+ * one stream the page reads itself is a reference picture's sound, which is the
+ * session's and no project's (`picture/picture-sound.ts`).
  */
 
 import type {
@@ -86,14 +86,14 @@ export interface CodecServices {
   /**
    * Decodes `file` in the codec worker into the decoded stream it sends over
    * `stream` (`DecodedStreamMessage`), transferring the port to the worker,
-   * whose receiver grants it credit, so neither side holds more than the
-   * credit of blocks; `progress` is told the frames decoded so far. The
-   * worker reads the file where it lies, block by block. Waits for `ready`
-   * and answers its failure where it failed. Answers the decoded file once
-   * its stream's end was sent and taken. Fails where the file is refused, as
-   * its analysis refuses it, or read in place, where the decoder or the
-   * stream fails, and with `codec-runtime.cancelled` once `signal` aborts, the
-   * request cancelled in the worker and the stream ended with the reason.
+   * whose receiver grants it credit, so neither side holds more than the credit
+   * of blocks; `progress` is told the frames decoded so far. The worker reads
+   * the file where it lies, block by block. Waits for `ready` and answers its
+   * failure where it failed. Answers the decoded file once its stream's end was
+   * sent and taken. Fails where the file is refused, as its analysis refuses
+   * it, or read in place, where the decoder or the stream fails, and with
+   * `codec-runtime.cancelled` once `signal` aborts, the request cancelled in
+   * the worker and the stream ended with the reason.
    */
   decode(
     file: Blob,

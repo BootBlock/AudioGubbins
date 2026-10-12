@@ -4,13 +4,12 @@
  *
  * The application's own codecs are TypeScript and need nothing, so they serve
  * everywhere. The codec module and the encoder modules need WebAssembly, and
- * serve until their load fails, when the reason says why it failed; a
- * browser's codec serves only where the probes
- * (`packages/capabilities`) found it. An unavailable codec says why in a
- * sentence for the person and names the codecs that serve the same use here,
- * those that keep as much of the sound first: the other lossless codecs before
- * the lossy ones for a lossless codec, the other lossy ones first for a lossy
- * one, each group in the registry's order.
+ * serve until their load fails, when the reason says why it failed; a browser's
+ * codec serves only where the probes (`packages/capabilities`) found it. An
+ * unavailable codec says why in a sentence for the person and names the codecs
+ * that serve the same use here, those that keep as much of the sound first: the
+ * other lossless codecs before the lossy ones for a lossless codec, the other
+ * lossy ones first for a lossy one, each group in the registry's order.
  */
 
 import type {
