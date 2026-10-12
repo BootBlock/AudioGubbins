@@ -53,22 +53,6 @@ import {
 export const PREFERENCES_KEY = 'audiogubbins.preferences';
 
 /**
- * The first version of the record to keep the pressure choice (ADR-0082). A
- * record from before it is read with its appearance and the default choice.
- */
-const PRESSURE_SINCE = 2;
-
-/**
- * The first version of the record to keep export presets (ADR-0092). A record
- * from before it is read with every choice it holds and no presets, so raising
- * the version to keep presets never costs the person a choice they made.
- */
-const EXPORT_PRESETS_SINCE = 3;
-
-/** The first version of the record, the oldest one read. */
-const FIRST_VERSION = 1;
-
-/**
  * The bounds stored preferences are read within: room for every preset kept
  * and the nesting of a preset's settings, so a damaged record is refused
  * rather than read without end.
@@ -143,9 +127,8 @@ function readPresets(candidate: JsonObject, logger: Logger): readonly OwnExportP
 }
 
 /**
- * Reads stored preferences: a record of this version as it is, one of an
- * earlier version with every choice it holds and the defaults of those it
- * predates, and anything else as the defaults, said in the log.
+ * Reads stored preferences: a record of this version field by field, and
+ * anything else as the defaults, said in the log.
  */
 function readPreferences(stored: string | null, logger: Logger): UserPreferences {
   if (stored === null) return DEFAULT_USER_PREFERENCES;
@@ -162,28 +145,21 @@ function readPreferences(stored: string | null, logger: Logger): UserPreferences
     return DEFAULT_USER_PREFERENCES;
   }
 
-  const version = versionFound(candidate['schemaVersion']);
-  if (version < FIRST_VERSION || version > SCHEMA_VERSIONS.userPreferences) {
+  // Another version's preferences are refused, never migrated, before 1.0
+  // (REQ-STOR-052): a person whose stored version is older starts from the
+  // defaults, and the next change they make writes this version's.
+  if (candidate['schemaVersion'] !== SCHEMA_VERSIONS.userPreferences) {
     logger.info('Stored preferences were written for another version and were not used.', {
-      found: version,
+      found: versionFound(candidate['schemaVersion']),
       expected: SCHEMA_VERSIONS.userPreferences,
     });
     return DEFAULT_USER_PREFERENCES;
   }
-  if (version < SCHEMA_VERSIONS.userPreferences) {
-    logger.info('Stored preferences were brought up to this version, keeping their choices.', {
-      found: version,
-      expected: SCHEMA_VERSIONS.userPreferences,
-    });
-  }
 
   return {
     ...readTheme(candidate),
-    pressure:
-      version < PRESSURE_SINCE
-        ? DEFAULT_PRESSURE_PREFERENCE
-        : pressurePreferenceOf(candidate['pressure']),
-    exportPresets: version < EXPORT_PRESETS_SINCE ? [] : readPresets(candidate, logger),
+    pressure: pressurePreferenceOf(candidate['pressure']),
+    exportPresets: readPresets(candidate, logger),
   };
 }
 

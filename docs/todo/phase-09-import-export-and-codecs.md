@@ -22,7 +22,8 @@ Phase 08 landed on `main` at `063c0494`, raising `projectDocument` 7 to 8,
 `userPreferences` 1 to 2 and `editorViews` 1 to 2, and `main` is merged into this
 branch. Phase 09 takes the next versions: `projectDocument` 8 to 9 (a document of
 7 or 8 is refused as older, since nothing migrates before 1.0) and
-`userPreferences` 2 to 3 (decision 12). `packages/domain/src/index.ts` is over its
+`userPreferences` 2 to 3, where a record of any other version is refused
+and starts from the defaults (decision 12). `packages/domain/src/index.ts` is over its
 cohesion threshold: add nothing to it that a consumer does not need.
 
 ## Gates
@@ -238,10 +239,13 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
     the project's name; the room for the whole batch is checked before
     rendering; a refused delivery holds the file for retry or another
     destination without a new render; a download's staging is kept until the
-    next export. `userPreferences` 2 → 3 (1 → 2 before Phase 08 took 2) reads
-    a version-1 record with its appearance and the default pressure choice, and
-    a version-2 one with its appearance and pressure choice, each with no
-    presets, and adds the person's presets (`own:<name>`, at most 256). The Export dialog resolves
+    next export. `userPreferences` 2 → 3 (1 → 2 before Phase 08 took 2) adds
+    the person's presets (`own:<name>`, at most 256). S8 first read a
+    version-1 record into the new version, keeping its appearance; that
+    departed from the spec (ADR-0082, ADR-0092 and both phase packets: no
+    migration before 1.0, `REQ-STOR-052`) and was corrected at the merge with
+    `main`: a record of any other version is refused and starts from the
+    defaults, as Phase 08 refuses it. The Export dialog resolves
     every path through the package's presets and defaults and keeps edits as
     "Your edited settings". The reference picture's sound is weighed at the
     channels the codec worker reads. There is no multitrack mixdown in this

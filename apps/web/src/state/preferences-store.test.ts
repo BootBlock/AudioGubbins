@@ -1,8 +1,7 @@
 /**
  * The person's preferences across a reload: the theme's choices, the pressure
- * choice and their own export presets, each field read on its own, a record of
- * an earlier version brought up with every choice it holds, and a later
- * version's refused.
+ * choice and their own export presets, each field read on its own, and another
+ * version's preferences refused rather than migrated (REQ-STOR-052).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -74,89 +73,18 @@ function versionNotes(logs: ReturnType<typeof createLogStore>) {
     .map((record) => [record.message, record.fields]);
 }
 
-/** A record of the first version, which kept no pressure choice or presets, its appearance set. */
-const VERSION_ONE = {
-  schemaVersion: 1,
+/** A record of the second version, Phase 08's: the theme's choices and the pressure choice. */
+const VERSION_TWO = {
+  schemaVersion: 2,
   mode: ThemeMode.Light,
   accent: 'green',
   brightness: 0.25,
   density: Density.Compact,
   contrast: ContrastLevel.High,
-};
-
-/** A record of the second version, which kept the pressure choice and no presets. */
-const VERSION_TWO = {
-  ...VERSION_ONE,
-  schemaVersion: 2,
   pressure: { usePenPressure: false, fixedStrength: 0.4 },
 };
 
 describe('the preferences record', () => {
-  it('reads a first-version record with its appearance, default pressure and no presets', () => {
-    const { store, logs } = reading(VERSION_ONE);
-
-    expect(store.get()).toEqual({
-      ...VERSION_ONE,
-      schemaVersion: SCHEMA_VERSIONS.userPreferences,
-      pressure: DEFAULT_PRESSURE_PREFERENCE,
-      exportPresets: [],
-    });
-    expect(versionNotes(logs)).toEqual([
-      [
-        'Stored preferences were brought up to this version, keeping their choices.',
-        { found: 1, expected: SCHEMA_VERSIONS.userPreferences },
-      ],
-    ]);
-  });
-
-  it('reads a second-version record with its appearance and pressure choice and no presets', () => {
-    // A second-version record kept no presets, so a list in one is not read,
-    // even one this version would read.
-    const written = over();
-    written.store.keepExportPreset('Master', EDITED);
-    const { exportPresets } = JSON.parse(written.raw.read(PREFERENCES_KEY) ?? '{}') as {
-      exportPresets: unknown;
-    };
-    const { store, logs } = reading({ ...VERSION_TWO, exportPresets });
-
-    expect(store.get()).toEqual({
-      ...VERSION_TWO,
-      schemaVersion: SCHEMA_VERSIONS.userPreferences,
-      exportPresets: [],
-    });
-    expect(versionNotes(logs)).toEqual([
-      [
-        'Stored preferences were brought up to this version, keeping their choices.',
-        { found: 2, expected: SCHEMA_VERSIONS.userPreferences },
-      ],
-    ]);
-  });
-
-  it('reads a record of this version as it is, saying nothing of its version', () => {
-    const { store, raw } = over();
-    store.change({ pressure: VERSION_TWO.pressure });
-    store.keepExportPreset('Master', EDITED);
-
-    const { store: again, logs } = over(raw);
-    expect(again.get().pressure).toEqual(VERSION_TWO.pressure);
-    expect(again.get().exportPresets.map((preset) => preset.name)).toEqual(['Master']);
-    expect(versionNotes(logs)).toEqual([]);
-  });
-
-  it('writes the brought-up record back as this version, keeping its choices', () => {
-    const { store, raw } = reading(VERSION_TWO);
-    store.keepExportPreset('Master', EDITED);
-
-    expect(JSON.parse(raw.read(PREFERENCES_KEY) ?? '{}')).toMatchObject({
-      schemaVersion: SCHEMA_VERSIONS.userPreferences,
-    });
-    const again = over(raw).store.get();
-    expect(again.accent).toBe('green');
-    expect(again.density).toBe(Density.Compact);
-    expect(again.pressure).toEqual(VERSION_TWO.pressure);
-    expect(again.exportPresets.map((preset) => preset.name)).toEqual(['Master']);
-  });
-
   it('keeps a preset of the person’s through a reload, every value but the range', () => {
     const { store, raw } = over();
     expect(store.keepExportPreset('Master', EDITED)).toBeUndefined();
@@ -286,5 +214,33 @@ describe('the pressure choice in the preferences', () => {
     store.change({ pressure: { usePenPressure: false, fixedStrength: 0.4 } });
     store.reset();
     expect(store.get()).toEqual(DEFAULT_USER_PREFERENCES);
+  });
+});
+
+describe('preferences written by another version', () => {
+  it('are refused, not migrated, and say so: the first version’s start from the defaults', () => {
+    const { store, logs } = reading({
+      schemaVersion: 1,
+      mode: 'light',
+      accent: 'teal',
+      brightness: 0.5,
+      density: 'compact',
+    });
+    expect(store.get()).toEqual(DEFAULT_USER_PREFERENCES);
+    expect(logs.snapshot().map((record) => [record.message, record.fields])).toContainEqual([
+      'Stored preferences were written for another version and were not used.',
+      { found: 1, expected: SCHEMA_VERSIONS.userPreferences },
+    ]);
+  });
+
+  it('are refused, not migrated, and say so: the second version’s start from the defaults', () => {
+    const { store, logs } = reading(VERSION_TWO);
+    expect(store.get()).toEqual(DEFAULT_USER_PREFERENCES);
+    expect(versionNotes(logs)).toEqual([
+      [
+        'Stored preferences were written for another version and were not used.',
+        { found: 2, expected: SCHEMA_VERSIONS.userPreferences },
+      ],
+    ]);
   });
 });
