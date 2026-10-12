@@ -75,7 +75,8 @@ export class CreditedStream<TMessage> {
   #waiting: ((message: TMessage | undefined) => void) | undefined;
   #open = true;
   #granted = 0;
-  #received = 0;
+  /** The messages handed to the storage: credit is given back as they are read, not as they arrive. */
+  #read = 0;
   #begun = false;
 
   constructor(port: StreamPort) {
@@ -86,7 +87,6 @@ export class CreditedStream<TMessage> {
   /** Takes a message that arrived, to a read waiting or the queue. */
   arrived(message: TMessage): void {
     if (!this.#open) return;
-    this.#received += 1;
     const waiting = this.#waiting;
     this.#waiting = undefined;
     if (waiting === undefined) this.#queued.push(message);
@@ -99,13 +99,18 @@ export class CreditedStream<TMessage> {
   }
 
   readonly next = (): Promise<TMessage | undefined> => {
-    const asked = this.#granted - this.#received;
+    // Asked for and not yet read, whether still to come or already queued:
+    // counting only those still to come would let a slow reader's queue grow
+    // by a window at every read.
+    const asked = this.#granted - this.#read;
     if (this.#begun && asked < CREDIT_WINDOW / 2) this.#grant(CREDIT_WINDOW - asked);
     this.#begun = true;
     const message = this.#queued.shift();
-    if (message !== undefined || !this.#open) return Promise.resolve(message);
+    if (message !== undefined || !this.#open) return Promise.resolve(this.#taken(message));
     return new Promise((resolve) => {
-      this.#waiting = resolve;
+      this.#waiting = (arrived) => {
+        resolve(this.#taken(arrived));
+      };
     });
   };
 
@@ -121,6 +126,12 @@ export class CreditedStream<TMessage> {
     this.#waiting?.(undefined);
     this.#waiting = undefined;
   };
+
+  /** Counts a message handed to the storage as read. */
+  #taken(message: TMessage | undefined): TMessage | undefined {
+    if (message !== undefined) this.#read += 1;
+    return message;
+  }
 
   #grant(credit: number): void {
     this.#granted += credit;
