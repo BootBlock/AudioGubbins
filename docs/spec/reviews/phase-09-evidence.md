@@ -313,7 +313,7 @@ pnpm run spec:verify                 # python docs/spec/tools/verify_hardening.p
 
 | Check | Result |
 | --- | --- |
-| VERIFY_FINAL |
+| `pnpm run verify:commit`, at `5d4f274d` | Passed, exit 0: lint (the version, graph and notices checks, ESLint and Prettier), both type checks, 838 test files and 12,723 tests, the record check (every one of 2,134 cited titles a test's title), and no dependency violations (2,900 modules, 17,367 dependencies). |
 | `pnpm run verify:commit`, at `ec6945cf` | Failed in the test step alone, under the whole suite's load: 12,720 of 12,723 tests passed, and three timing tests outside this phase timed out (`processor-cost`, `project-session.quota`, `history-segments`); each passed when run again alone. |
 | `pnpm run test:codecs`, at `35f924f9` | 62 files, 997 tests passed. |
 | `cargo test --workspace`, at `35f924f9` | 203 tests passed in 14 test binaries. |
