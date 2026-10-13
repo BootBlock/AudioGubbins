@@ -297,7 +297,7 @@ describe('an interrupted recording', () => {
     const storage = storageOf(harness(38), tree);
     const plan = expectSuccess(await planCleanup('everything', storage.cleaning, 0));
     expectSuccess(await runCleanup(plan, { bytes: plan.confirmationBytes }, storage.cleaning));
-    expectSuccess(await relieveStoragePressure(storage.caches));
+    expectSuccess(await relieveStoragePressure(storage.caches, storage.cleaning.coordinator));
     const after = tree.snapshot();
     for (const [path, bytes] of kept) expect(after.get(path)).toEqual(bytes);
 

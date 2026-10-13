@@ -61,8 +61,10 @@ export const CacheCategory = {
 
   /**
    * Work in progress that is made again by doing it again: a rendition being
-   * decoded, and an export staged for delivery (ADR-0090, ADR-0092). Never a
-   * root, removed once delivered and whenever the storage worker starts.
+   * decoded, an export staged for delivery, and a sound the session holds
+   * (ADR-0090, ADR-0092). Never a root, removed once let go and whenever the
+   * storage worker starts alone, and given up under pressure only while no one
+   * uses it (`cache-eviction.ts`).
    */
   Staging: 'staging',
   Render: 'render',
@@ -307,7 +309,11 @@ export class CacheStore {
     });
   }
 
-  /** Gives up every cache of a category, and says how many bytes that freed. */
+  /**
+   * Gives up every cache of a category, and says how many bytes that freed,
+   * whatever uses it: storage pressure and the person's cleanup give a category
+   * up through `evictUnused`, which keeps one still in use.
+   */
   async evictCategory(
     category: CacheCategory,
     signal?: AbortSignal,
