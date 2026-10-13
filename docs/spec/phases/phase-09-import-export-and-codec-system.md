@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — its hard dependencies, Phases 02, 03, 05 and 06, are `PASS`, and its readiness review on 2026-10-10 settled its open placements in `ADR-0090`, `ADR-0091`, `ADR-0092` and `ADR-0093`.
+`PASS` — completed on 2026-10-13; see `reviews/phase-09-evidence.md`, `reviews/phase-09-review.md` and `traceability/handoffs/phase-09.md`.
 
 ## Objective
 

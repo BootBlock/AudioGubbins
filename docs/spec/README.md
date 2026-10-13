@@ -51,9 +51,8 @@ That file is generated from canonical modules and MUST NOT be edited directly.
 
 ## Current Readiness
 
-- Phases 00–08 — **PASS**
-- Phase 09 — **READY**, settled by its readiness review (`ADR-0090`, `ADR-0091`, `ADR-0092`, `ADR-0093`)
-- Phases 10–15 — **NOT_READY** until hard dependencies pass
+- Phases 00–09 — **PASS**
+- Phases 10–15 — **NOT_READY** until hard dependencies pass and, for Phases 10 and 12, whose dependencies have passed, their readiness reviews
 
 See `traceability/implementation-ledger.md`.
 
