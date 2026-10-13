@@ -234,6 +234,7 @@ export {
   type ImportedAudio,
 } from './import-contracts.js';
 export { type DecodedStream, type FileDecoding, type StreamAnalysis } from './decoded-stream.js';
+export { type SessionSound, type SessionSoundServices, SessionSounds } from './session-sounds.js';
 export { type FileMetadata } from './import-analysis.js';
 export {
   type BatchFile,

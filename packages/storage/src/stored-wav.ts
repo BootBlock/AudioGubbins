@@ -1,7 +1,8 @@
 /**
  * Keeping audio the storage made itself as a 32-bit float WAV file in the media
  * store (ADR-0071, ADR-0090): a recording when it ends, and a decoded rendition
- * of a compressed file.
+ * of a compressed file; and heading such audio that is kept beside the store,
+ * as a session's sound in the staging is.
  *
  * The file is the recorded-media header followed by the frames as they stand,
  * already 32-bit floats, little-endian and interleaved in the asset's channel
@@ -80,7 +81,12 @@ export async function storeFloatWav(
   const release = (): void => {
     services.store.release(contentId);
   };
-  const read = await readBack(contentId, format, frames, services.store, signal);
+  const opened = await services.store.open(contentId);
+  if (!opened.ok) {
+    release();
+    return opened;
+  }
+  const read = await readBack(opened.value, format, frames, signal);
   if (!read.ok) {
     release();
     return read;
@@ -97,17 +103,14 @@ type ReadBack =
   | { readonly kind: 'read'; readonly format: AudioFormatDescriptor }
   | { readonly kind: 'differs'; readonly difference: WavReadBackDifference };
 
-/** The stored file's format, where the read contract reads it as the audio it was written as. */
+/** The written file's format, where the read contract reads it as the audio it was written as. */
 async function readBack(
-  contentId: ContentIdentity['contentId'],
+  file: ByteSource,
   written: RecordedWavFormat,
   frames: SampleCount,
-  store: MediaObjectStore,
   signal?: AbortSignal,
 ): Promise<DomainResult<ReadBack>> {
-  const opened = await store.open(contentId);
-  if (!opened.ok) return opened;
-  const reader = await openAudio(opened.value, signal);
+  const reader = await openAudio(file, signal);
   if (!reader.ok) return succeed({ kind: 'differs', difference: 'unreadable' });
   const { format } = reader.value;
   const difference: WavReadBackDifference | undefined =
@@ -121,6 +124,28 @@ async function readBack(
   return succeed(
     difference === undefined ? { kind: 'read', format } : { kind: 'differs', difference },
   );
+}
+
+/**
+ * The header that makes `data`, `frames` frames of `format`, a 32-bit float
+ * WAV file where it is kept beside the data rather than in the store: read
+ * back through the read contract over the two together, as a stored file is,
+ * and failing with `differs`' failure where they do not read as written.
+ */
+export async function headFloatWav(
+  data: ByteSource,
+  format: RecordedWavFormat,
+  frames: SampleCount,
+  differs: (difference: WavReadBackDifference) => DomainFailure,
+  signal?: AbortSignal,
+): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
+  const header = recordedWavHeader(format, frames);
+  if (!header.ok) return header;
+  const read = await readBack(headed(header.value.bytes, data), format, frames, signal);
+  if (!read.ok) return read;
+  return read.value.kind === 'differs'
+    ? fail(differs(read.value.difference))
+    : succeed(new Uint8Array(header.value.bytes));
 }
 
 /** Where an asset whose media is a stored WAV file finds its bytes. */

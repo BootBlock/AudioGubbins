@@ -4,11 +4,11 @@
  * the worker, each reported as it goes.
  */
 
-import type { AssetId } from '@audiogubbins/domain';
+import type { AssetId, DomainResult } from '@audiogubbins/domain';
 import type { ImportChoice } from '@audiogubbins/media-store';
 import type { ImportedBatch } from '@audiogubbins/storage';
 
-import { importStream, type ImportReport } from '../protocol/import-operations.js';
+import { importStream, type HeldSound, type ImportReport } from '../protocol/import-operations.js';
 import type { ClientChannel } from '../protocol/storage-operations.js';
 import type { LendingCall, PageFile } from './page-ports.js';
 import type { RemoteProjectSession } from './remote-project.js';
@@ -46,6 +46,16 @@ export interface ImportsClient {
     report: (report: ImportReport) => void,
     signal?: AbortSignal,
   ): Promise<ImportedBatch>;
+
+  /**
+   * Decodes the sound of `file` in the codec worker into the storage's
+   * staging, and holds it for the session until `letGoSound`, or answers why
+   * it cannot be, as an import is refused. Called off, nothing is kept.
+   */
+  holdSound(file: PageFile, signal?: AbortSignal): Promise<DomainResult<HeldSound>>;
+
+  /** Lets go of a sound `holdSound` held, removing it. */
+  letGoSound(token: string): Promise<void>;
 }
 
 /** Importing many files, over calls that lend the page's files and decoder. */
@@ -74,6 +84,11 @@ export function importsClient(channel: ClientChannel, call: LendingCall): Import
       } finally {
         stop();
       }
+    },
+    holdSound: (file, signal) =>
+      call('imports.holdSound', (lend) => ({ file: lend.file(file) }), signal),
+    letGoSound: async (token) => {
+      await channel.call('imports.letGoSound', { token });
     },
   };
 }

@@ -111,7 +111,7 @@ export async function prepareDecoded(
  * Reads the stream's description, first, and checks it is the stream the
  * analysis sized: at its rate, in its channels. Refuses the stream where not.
  */
-async function describedAs(
+export async function describedAs(
   stream: DecodedStream,
   analysis: StreamAnalysis,
 ): Promise<DomainResult<void>> {

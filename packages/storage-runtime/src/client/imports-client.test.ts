@@ -1,6 +1,7 @@
 import { Blob as PlatformBlob, File as PlatformFile } from 'node:buffer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { openAudio } from '@audiogubbins/codecs';
 import { writeWav } from '@audiogubbins/codecs/testing';
 import {
   StandardLayouts,
@@ -8,8 +9,10 @@ import {
   unsafeBrandId,
   type DomainFailure,
 } from '@audiogubbins/domain';
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import type { DecodedStreamMessage, StreamReceiverMessage } from '@audiogubbins/import-export';
 import { SourceHandling } from '@audiogubbins/media-store';
+import { memorySource } from '@audiogubbins/media-store/testing';
 
 import type { ImportReport } from '../protocol/import-operations.js';
 import { projectScene, storedModel } from '../testing/project-scene.js';
@@ -277,5 +280,62 @@ describe('importing many files through the storage worker (ADR-0090)', () => {
       'codec-runtime.unreadable',
     );
     expect(session.getSnapshot().model.state.project.assets.size).toBe(0);
+  });
+});
+
+describe('a sound the session holds, through the storage worker (ADR-0090)', () => {
+  it('decodes the file through the codec worker into the staging, answered as a WAV file of its own', async () => {
+    const { storage } = await projectScene();
+    const joined = new MessageChannel();
+    const codecWorker = new FakeCodecWorker(joined.port2);
+    await storage.client.imports.connectCodecWorker(joined.port1);
+
+    const held = expectSuccess(
+      await storage.client.imports.holdSound(pageFileOf(flac(), 'Reel.webm')),
+    );
+
+    expect(held).toMatchObject({
+      sampleRate: 44_100,
+      layout: StandardLayouts.stereo,
+      frames: 1_200,
+      decoder: { name: 'Symphonia' },
+    });
+    expect(codecWorker.requests).toEqual(['analyse storage-1', 'decode storage-2']);
+    const reader = expectSuccess(
+      await openAudio(memorySource(new Uint8Array(await held.file.arrayBuffer()))),
+    );
+    expect(reader.format).toMatchObject({ sampleRate: 44_100, frames: 1_200 });
+    const into = [new Float32Array(1_200), new Float32Array(1_200)];
+    expectSuccess(await reader.read(derivedSampleCount(0), 1_200, into));
+    expect([into[0]?.[0], into[0]?.[1_199], into[1]?.[1_199]]).toEqual([
+      0,
+      Math.fround(11 / 20),
+      Math.fround(-11 / 20),
+    ]);
+    expect(storage.lentPorts()).toBe(0);
+  });
+
+  it('removes the sound once let go', async () => {
+    const { storage } = await projectScene();
+    const joined = new MessageChannel();
+    new FakeCodecWorker(joined.port2);
+    await storage.client.imports.connectCodecWorker(joined.port1);
+    const held = expectSuccess(
+      await storage.client.imports.holdSound(pageFileOf(flac(), 'Reel.webm')),
+    );
+    const staged = async () => (await storage.another.tree.list('cache/staging/session')).length;
+    expect(await staged()).toBe(1);
+
+    await storage.client.imports.letGoSound(held.token);
+
+    expect(await staged()).toBe(0);
+  });
+
+  it('refuses a file that needs decoding where the page joined no codec worker, as an import is refused', async () => {
+    const { storage } = await projectScene();
+
+    const refused = await storage.client.imports.holdSound(pageFileOf(flac(), 'Reel.webm'));
+
+    expect(expectFailureCode(refused)).toBe('import.decoding-unavailable');
   });
 });
