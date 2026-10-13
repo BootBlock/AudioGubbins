@@ -55,7 +55,7 @@ export {
 
 export { type ExportTarget, exportTarget, formatName } from './export-formats.js';
 export { validateExportSettings } from './settings-validation.js';
-export { defaultExportSettings } from './default-settings.js';
+export { defaultDither, defaultExportSettings } from './default-settings.js';
 export {
   BUILT_IN_PRESETS,
   type ExportPreset,

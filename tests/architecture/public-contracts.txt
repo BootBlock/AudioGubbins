@@ -4301,6 +4301,7 @@ Published paths
   function cancelExportBatch(batch: ExportBatch): ExportBatch
   function cancelImport(job: ImportJob): ImportJob
   function decideCollision(query: CollisionQuery): CollisionDecision
+  function defaultDither(depth: number | undefined): DitherSettings
   function defaultExportSettings<F extends ExportFormat>(format: F, context: ExportContext): SettingsByFormat[F]
   function encodingProblems(encoding: FormatEncoding, facts: EncodingFacts): readonly DomainFailure[]
   function exportBatch(jobs: readonly ExportJob[]): ExportBatch
