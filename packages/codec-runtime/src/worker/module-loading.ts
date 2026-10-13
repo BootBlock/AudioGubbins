@@ -11,32 +11,52 @@
  * from the start, so its formats are unavailable before any request finds it
  * so. Each load's progress is reported as the registry's `ModuleLoad`, so the
  * worker tells the page whenever one changes.
+ *
+ * Why a load failed is the error that failed it, as the browser or the module
+ * says it: the page's, where it could not load or compile the module's bytes,
+ * or the worker's, where it could not instantiate the module. The person reads
+ * it wherever the formats are said to be unavailable, an import's refusal and
+ * the Export dialog among them, so it is redacted here, where it becomes the
+ * load's reason, by the rules that redact the person's diagnostics: a URL or a
+ * path in a browser's message never reaches them.
  */
 
 import type { ModuleLoad } from '@audiogubbins/codecs';
+import { previewRedaction } from '@audiogubbins/diagnostics';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import { instantiateCodecModule, type CodecModule } from '../codec-module.js';
 import type { ModuleSource } from './codec-worker-messages.js';
 
-/** The module `source` names, or why the page had none, saying what it is. */
-function compiledModule(what: string, source: ModuleSource): DomainResult<WebAssembly.Module> {
-  if (source.kind === 'compiled') return succeed(source.module);
+const NOT_LOADED: ModuleLoad = { kind: 'not-loaded' };
+const LOADED: ModuleLoad = { kind: 'loaded' };
+
+/** A load that failed, with why. */
+type FailedLoad = Extract<ModuleLoad, { readonly kind: 'failed' }>;
+
+/** A load that failed for `reason`, redacted for the person to read. */
+function failedFor(reason: string): FailedLoad {
+  return { kind: 'failed', reason: previewRedaction(reason).text };
+}
+
+/** The failure of a request that needs a module whose load failed for `load.reason`. */
+function loadFailure(what: string, load: FailedLoad): DomainResult<never> {
   return fail(
     failure(
       'codec-runtime.module-load-failed',
       FailureKind.Unrecoverable,
-      `The ${what} could not be loaded: ${source.reason}`,
+      `The ${what} could not be loaded: ${load.reason}`,
       { details: { module: what } },
     ),
   );
 }
+
 /** A module loaded at most once, on first use, and how far its load has gone. */
 export class OnceLoaded<TModule> {
   readonly #load: () => Promise<DomainResult<TModule>>;
   readonly #changed: () => void;
   #loading: Promise<DomainResult<TModule>> | undefined;
-  #state: ModuleLoad = 'not-loaded';
+  #state: ModuleLoad = NOT_LOADED;
 
   /** `changed` hears each change of the load's state. */
   constructor(load: () => Promise<DomainResult<TModule>>, changed: () => void) {
@@ -44,13 +64,17 @@ export class OnceLoaded<TModule> {
     this.#changed = changed;
   }
 
-  /** A load that failed before it began, answering `failed` whenever it is asked. */
-  static failed<TModule>(failed: DomainResult<never>): OnceLoaded<TModule> {
+  /**
+   * A load of `what` that failed before it began, as `state` says, answering
+   * its failure whenever it is asked.
+   */
+  static failed<TModule>(what: string, state: FailedLoad): OnceLoaded<TModule> {
+    const failed = loadFailure(what, state);
     const load = new OnceLoaded<TModule>(
       () => Promise.resolve(failed),
       () => undefined,
     );
-    load.#state = 'failed';
+    load.#state = state;
     load.#loading = Promise.resolve(failed);
     return load;
   }
@@ -62,7 +86,7 @@ export class OnceLoaded<TModule> {
   /** The module, loading it on the first call; every later call answers the same. */
   get(): Promise<DomainResult<TModule>> {
     this.#loading ??= this.#load().then((loaded) => {
-      this.#state = loaded.ok ? 'loaded' : 'failed';
+      this.#state = loaded.ok ? LOADED : failedFor(loaded.failures[0].summary);
       this.#changed();
       return loaded;
     });
@@ -75,9 +99,11 @@ export function codecModuleLoad(
   source: ModuleSource,
   changed: () => void,
 ): OnceLoaded<CodecModule> {
-  const compiled = compiledModule('codec module', source);
-  if (!compiled.ok) return OnceLoaded.failed(compiled);
-  return new OnceLoaded(() => instantiateCodecModule(compiled.value), changed);
+  if (source.kind === 'unavailable') {
+    return OnceLoaded.failed('codec module', failedFor(source.reason));
+  }
+  const { module } = source;
+  return new OnceLoaded(() => instantiateCodecModule(module), changed);
 }
 
 /** An encoder module `source` names, compiled, loaded once. */
@@ -86,7 +112,9 @@ export function encoderModuleLoad(
   source: ModuleSource,
   changed: () => void,
 ): OnceLoaded<WebAssembly.Module> {
-  const compiled = compiledModule(`${name} encoder`, source);
-  if (!compiled.ok) return OnceLoaded.failed(compiled);
+  if (source.kind === 'unavailable') {
+    return OnceLoaded.failed(`${name} encoder`, failedFor(source.reason));
+  }
+  const compiled = succeed(source.module);
   return new OnceLoaded(() => Promise.resolve(compiled), changed);
 }

@@ -35,7 +35,7 @@ export { type RootClient } from './client/root-client.js';
 export { type SourcesClient } from './client/sources-client.js';
 export { type MediaClient } from './client/media-client.js';
 export { type FilesImport, type ImportsClient } from './client/imports-client.js';
-export { type ImportReport } from './protocol/import-operations.js';
+export { type HeldSound, type ImportReport } from './protocol/import-operations.js';
 export {
   type ExportStage,
   type ExportsClient,

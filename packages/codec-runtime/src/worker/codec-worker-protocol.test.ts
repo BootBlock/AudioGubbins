@@ -140,8 +140,8 @@ describe('the codec worker’s messages', () => {
         kind: 'environment',
         environment: {
           webAssembly: true,
-          codecModule: 'failed',
-          encoderModules: new Map([['mp3', 'loaded']]),
+          codecModule: { kind: 'failed', reason: 'CompileError: not WebAssembly' },
+          encoderModules: new Map([['mp3', { kind: 'loaded' }]]),
           browserDecoders: new Set(['he-aac']),
           browserEncoders: new Set(['aac-lc']),
           browserBitRates: WINDOWS_BROWSER_BIT_RATES,
@@ -202,7 +202,7 @@ describe('the codec worker’s messages', () => {
           environment: {
             ...answers[0],
             webAssembly: true,
-            codecModule: 'loaded',
+            codecModule: { kind: 'loaded' },
             encoderModules: new Map(),
             browserDecoders: new Set(['speex']),
             browserEncoders: new Set(),
@@ -224,6 +224,23 @@ describe('the codec worker’s messages', () => {
         }),
       ),
     ).toBe('environment.browserBitRates[0][1][0].constant[0]');
+    // A failed load says why, since the person reads its formats' unavailability by it.
+    expect(
+      refusedField(
+        readFromCodecWorker({
+          kind: 'environment',
+          environment: { ...environment, codecModule: { kind: 'failed' } },
+        }),
+      ),
+    ).toBe('environment.codecModule.reason');
+    expect(
+      refusedField(
+        readFromCodecWorker({
+          kind: 'environment',
+          environment: { ...environment, encoderModules: new Map([['mp3', 'failed']]) },
+        }),
+      ),
+    ).toBe('environment.encoderModules[0][1]');
   });
 });
 

@@ -7,6 +7,9 @@
  * - `cache/staging/<project>/export-<token>.head`, `.body` and `.tail`: an
  *   export staged for delivery, its body written as it is encoded and its head
  *   and tail once the encoder finishes, removed once it is delivered.
+ * - `cache/staging/session/sound-<token>`: the data of a sound the session
+ *   holds and no project does, such as a reference picture's, removed once it
+ *   is let go.
  *
  * Nothing here is a root: storage pressure gives it up after temporary data,
  * and the whole staging is removed whenever the storage worker starts alone,
@@ -25,6 +28,14 @@ const STAGING_DIRECTORY = `${CACHE_DIRECTORY}/${CacheCategory.Staging}`;
 /** The scratch file a rendition of `project` is decoded into, named by `token`. */
 export function renditionScratchPath(project: ProjectId, token: string): string {
   return `${STAGING_DIRECTORY}/${project}/rendition-${token}`;
+}
+
+/**
+ * The data of a sound the session holds, which no project does, named by
+ * `token`: a file decoded into the staging, kept while the session holds it.
+ */
+export function sessionSoundPath(token: string): string {
+  return `${STAGING_DIRECTORY}/session/sound-${token}`;
 }
 
 /** The files an export of `project` is staged in, named by `token`. */

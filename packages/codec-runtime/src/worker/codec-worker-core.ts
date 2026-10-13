@@ -53,6 +53,9 @@ import { JOB_FAULT, endOfThrown, type JobContext, type JobEnd } from './job-end.
 import { JobQueue, abandonStreams, answerJob, type Client, type Job } from './job-queue.js';
 import { codecModuleLoad, encoderModuleLoad, type OnceLoaded } from './module-loading.js';
 
+/** A module's load before the page has said where any module is. */
+const NOT_LOADED: ModuleLoad = { kind: 'not-loaded' };
+
 /** What the worker's scope gives the core. */
 export interface CodecWorkerHost {
   /** Posts to the page that started the worker, moving `transfer`. */
@@ -136,12 +139,14 @@ export class CodecWorkerCore {
   environment(): CodecEnvironment {
     const encoders = new Map<CodecId, ModuleLoad>();
     for (const encoder of ENCODER_MODULES) {
-      const state = this.#modules?.encoders[encoder].state ?? 'not-loaded';
-      if (state !== 'not-loaded') encoders.set(ENCODER_MODULE_CODECS[encoder], state);
+      const state = this.#modules?.encoders[encoder].state;
+      if (state !== undefined && state.kind !== 'not-loaded') {
+        encoders.set(ENCODER_MODULE_CODECS[encoder], state);
+      }
     }
     return {
       ...this.#probes,
-      codecModule: this.#modules?.codec.state ?? 'not-loaded',
+      codecModule: this.#modules?.codec.state ?? NOT_LOADED,
       encoderModules: encoders,
     };
   }

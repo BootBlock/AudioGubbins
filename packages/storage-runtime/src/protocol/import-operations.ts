@@ -10,7 +10,14 @@
  * as it is, having no machine of its own to keep in step.
  */
 
-import type { AssetId } from '@audiogubbins/domain';
+import type { DecoderIdentity } from '@audiogubbins/codecs';
+import type {
+  AssetId,
+  ChannelLayout,
+  DomainResult,
+  SampleCount,
+  SampleRate,
+} from '@audiogubbins/domain';
 import type { ImportFileEvent, ImportJob } from '@audiogubbins/import-export';
 import type { ImportChoice } from '@audiogubbins/media-store';
 import type { ImportedBatch } from '@audiogubbins/storage';
@@ -40,6 +47,21 @@ export function importStream(report: string): ImportStream {
   return `import:${report}`;
 }
 
+/**
+ * A sound the session holds and no project does, decoded into the storage's
+ * staging (`session-sounds.ts` in the storage): what the session lets it go
+ * by, and the file every thread reads it from, a WAV file the storage worker
+ * made of its header and the data in the staging, read where it lies.
+ */
+export interface HeldSound {
+  readonly token: string;
+  readonly file: Blob;
+  readonly sampleRate: SampleRate;
+  readonly layout: ChannelLayout;
+  readonly frames: SampleCount;
+  readonly decoder: DecoderIdentity;
+}
+
 /** The operations of importing many files. */
 export type ImportOperations = {
   /**
@@ -67,4 +89,15 @@ export type ImportOperations = {
     },
     ImportedBatch
   >;
+
+  /**
+   * Decodes the sound of `file` in the codec worker, as an import decodes it,
+   * into the staging rather than into a project, and holds it for the session
+   * until it is let go; or why it cannot be, as an import is refused. Called
+   * off, nothing of it is kept.
+   */
+  'imports.holdSound': Operation<{ readonly file: CrossingFile }, DomainResult<HeldSound>>;
+
+  /** Lets go of the sound `token` names, removing it; nothing where none is held. */
+  'imports.letGoSound': Operation<{ readonly token: string }, undefined>;
 };

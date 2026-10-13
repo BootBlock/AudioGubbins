@@ -80,19 +80,17 @@ function needsPicture(context: ShellContext): CommandAvailability {
 /**
  * The file whose sound can be extracted now, and how long it lasts, or why
  * none can: a picture opened, whose sound is neither on its way nor open
- * already. Whether it fits in the memory the page can spare is known only once
- * its channels are read, so extracting weighs it first and says why where it
- * does not.
+ * already. Whether the codecs decode it, and whether the storage has room for
+ * it, are known only once its file is analysed, so opening it says why where
+ * it cannot be.
  */
-function soundSource(
-  context: ShellContext,
-): { readonly file: File; readonly duration: number } | string {
+function soundSource(context: ShellContext): { readonly file: File } | string {
   const { media, sound } = context.picture.get();
   const { file } = context.picture;
   if (media.kind !== 'ready' || file === undefined) return 'No reference picture is open.';
   if (sound.kind === 'decoding') return 'The picture’s sound is being extracted.';
   if (sound.kind === 'decoded') return 'The picture’s sound is open as an asset already.';
-  return { file, duration: media.duration };
+  return { file };
 }
 
 function openCommand(): Command<ShellContext> {
@@ -218,10 +216,10 @@ function calibrationCommands(): readonly Command<ShellContext>[] {
 }
 
 /**
- * Extracts the picture's sound as an asset. Asked for rather than done on
- * opening, because the file is read whole and its sound held whole: it is
- * weighed against the memory the page can spare first, and the picture says
- * the reason where it is refused.
+ * Opens the picture's sound as an asset. Asked for rather than done on
+ * opening, because it is decoded into the storage, which costs the time and
+ * the room a long reel's sound takes; the picture says the reason where the
+ * file is refused.
  */
 function extractSoundCommand(): Command<ShellContext> {
   return shellCommand(
@@ -231,7 +229,7 @@ function extractSoundCommand(): Command<ShellContext> {
     (context) => {
       const source = soundSource(context);
       if (typeof source === 'string') return source;
-      context.pictureSound.decode(source.file, source.duration);
+      context.pictureSound.decode(source.file);
       context.interaction.announce(`Extracting the sound of ${source.file.name}.`);
       return undefined;
     },

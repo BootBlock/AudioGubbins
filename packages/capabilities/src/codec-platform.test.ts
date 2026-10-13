@@ -104,7 +104,7 @@ describe('probeCodecs', () => {
 
     const environment: CodecEnvironment = {
       ...probes,
-      codecModule: 'loaded',
+      codecModule: { kind: 'loaded' },
       encoderModules: new Map(),
     };
     expect(codecCapability(environment, 'he-aac', 'read')).toMatchObject({
@@ -123,7 +123,7 @@ describe('probeCodecs', () => {
     expect(probes.browserDecoders.has('he-aac')).toBe(false);
     const environment: CodecEnvironment = {
       ...probes,
-      codecModule: 'loaded',
+      codecModule: { kind: 'loaded' },
       encoderModules: new Map(),
     };
     const capability = codecCapability(environment, 'he-aac', 'read');

@@ -251,6 +251,10 @@ const PACKAGES = [
       '@audiogubbins/capabilities',
       // The product's release, which names AudioGubbins' own encoders in an export's record.
       '@audiogubbins/version',
+      // The redaction of the person's diagnostics, which a module's load
+      // failure passes through before the person reads it as why its formats
+      // are unavailable.
+      '@audiogubbins/diagnostics',
     ],
     devDeps: [],
     external: {},

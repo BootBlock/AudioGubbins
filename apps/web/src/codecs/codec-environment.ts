@@ -33,7 +33,7 @@ export interface CodecEnvironmentStore extends Observable<CodecEnvironment> {
 function unstartedEnvironment(webAssembly: boolean): CodecEnvironment {
   return {
     webAssembly,
-    codecModule: 'not-loaded',
+    codecModule: { kind: 'not-loaded' },
     encoderModules: new Map(),
     browserDecoders: new Set(),
     browserEncoders: new Set(),

@@ -906,7 +906,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37418: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37435: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1198,7 +1198,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37418: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37435: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2051,7 +2051,7 @@ Published paths
   type MetadataPart = { readonly kind: "broadcast"; } | { readonly kind: "coverArt"; } | { readonly kind: "cues"; } | { readonly kind: "foreign"; readonly scheme: string; readonly key: string; } | { readonly kind: "loops"; } | { readonly kind: "text"; readonly key: MetadataTextKey; } | { readonly kind: "tuning"; }
   type MetadataReader = (bytes: AudioBytes, signal?: CancellationSignal) => Promise<DomainResult<MetadataMap>>
   type MetadataTextKey = "album" | "albumArtist" | "artist" | "comment" | "copyright" | "date" | "discNumber" | "discTotal" | "encoder" | "genre" | "isrc" | "title" | "trackNumber" | "trackTotal"
-  type ModuleLoad = "failed" | "loaded" | "not-loaded"
+  type ModuleLoad = { readonly kind: "failed"; readonly reason: string; } | { readonly kind: "loaded"; } | { readonly kind: "not-loaded"; }
   interface Mp3StreamSettings
   readonly Mp3StreamSettings.metadata: MetadataMap
   readonly Mp3StreamSettings.encoderDelay: number
@@ -6888,6 +6888,30 @@ Published paths
   interface SessionCadence extends WritingCadence
   readonly SessionCadence.keepStateEvery: number
   readonly SessionCadence.checkpointAfter: number
+  interface SessionSound
+  readonly SessionSound.token: string
+  readonly SessionSound.dataPath: string
+  readonly SessionSound.header: Uint8Array<ArrayBuffer>
+  readonly SessionSound.sampleRate: SampleRate
+  readonly SessionSound.layout: ChannelLayout
+  readonly SessionSound.frames: SampleCount
+  readonly SessionSound.decoder: DecoderIdentity
+  interface SessionSoundServices
+  readonly SessionSoundServices.tree: StorageTree
+  readonly SessionSoundServices.nextToken: () => string
+  readonly SessionSoundServices.room: StorageRoom
+  readonly SessionSoundServices.sharing: MediaSharing
+  class SessionSounds
+  new SessionSounds(services: SessionSoundServices): SessionSounds
+  readonly SessionSounds.#services: SessionSoundServices
+  readonly SessionSounds.#held: Map<string, string>
+  SessionSounds.#holding: number
+  SessionSounds.#release: (() => void) | undefined
+  SessionSounds.decode: (file: ExternalFile, decoding: FileDecoding, signal?: AbortSignal) => Promise<DomainResult<SessionSound>>
+  SessionSounds.discard: (token: string) => Promise<void>
+  SessionSounds.#decoded: (decoding: FileDecoding, analysis: StreamAnalysis, format: { readonly sampleRate: SampleRate; readonly layout: ChannelLayout; }, signal?: AbortSignal) => Promise<DomainResult<SessionSound>>
+  SessionSounds.#hold: (signal?: AbortSignal) => Promise<void>
+  SessionSounds.#let: () => void
   interface SnapshotRequest
   readonly SnapshotRequest.name: string
   readonly SnapshotRequest.notes?: string
@@ -7061,6 +7085,13 @@ Published paths
   readonly HeldFile.kind: "file"
   readonly HeldFile.file: File
   readonly HeldFile.handle?: FileSystemFileHandle
+  interface HeldSound
+  readonly HeldSound.token: string
+  readonly HeldSound.file: Blob
+  readonly HeldSound.sampleRate: SampleRate
+  readonly HeldSound.layout: ChannelLayout
+  readonly HeldSound.frames: SampleCount
+  readonly HeldSound.decoder: DecoderIdentity
   interface ImportReport
   readonly ImportReport.job: ImportJob
   readonly ImportReport.index: number
@@ -7068,6 +7099,8 @@ Published paths
   interface ImportsClient
   ImportsClient.connectCodecWorker: (port: MessagePort) => Promise<void>
   ImportsClient.importFiles: (session: RemoteProjectSession, request: FilesImport, report: (report: ImportReport) => void, signal?: AbortSignal) => Promise<ImportedBatch>
+  ImportsClient.holdSound: (file: PageFile, signal?: AbortSignal) => Promise<DomainResult<HeldSound>>
+  ImportsClient.letGoSound: (token: string) => Promise<void>
   interface LibraryClient
   LibraryClient.list: (signal?: AbortSignal) => Promise<readonly CatalogueEntry[]>
   LibraryClient.create: (project: NewProject, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
@@ -9211,7 +9244,7 @@ packages/storage-runtime/src/protocol/import-operations.ts
   interface BatchFileImport
   readonly BatchFileImport.file: CrossingFile
   readonly BatchFileImport.assetId: AssetId
-  type ImportOperations = { 'imports.connectCodecWorker': Operation<{ readonly port: MessagePort; }, undefined>; 'imports.run': Operation<{ readonly handle: ProjectHandle; readonly files: readonly BatchFileImport[]; readonly choice: ImportChoice; readonly importedAt: number; readonly report: string; }, ImportedBatch>; }
+  type ImportOperations = { 'imports.connectCodecWorker': Operation<{ readonly port: MessagePort; }, undefined>; 'imports.run': Operation<{ readonly handle: ProjectHandle; readonly files: readonly BatchFileImport[]; readonly choice: ImportChoice; readonly importedAt: number; readonly report: string; }, ImportedBatch>; 'imports.holdSound': Operation<{ readonly file: CrossingFile; }, DomainResult<HeldSound>>; 'imports.letGoSound': Operation<{ readonly token: string; }, undefined>; }
   type ImportStream = `import:${string}`
 
 packages/storage-runtime/src/protocol/media-operations.ts

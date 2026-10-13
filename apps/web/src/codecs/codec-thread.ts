@@ -6,9 +6,11 @@
  * The modules are a chunk of the bundle that is loaded only when the worker is
  * first needed, and the three are compiled together while the worker starts. A
  * module that cannot be had, its chunk not loaded or its bytes not compiled by
- * this browser, is handed to the worker as unavailable, with why: its formats
- * are then unavailable here and say so, and every other format works. The
- * reason is logged where the person's diagnostics can show it.
+ * this browser, is handed to the worker as unavailable, with the browser's
+ * message of why: its formats are then unavailable here and say so with that
+ * message, which the worker redacts before the person reads it, and every
+ * other format works. The message is logged too, where the person's
+ * diagnostics can show it.
  *
  * The worker is configured before it is joined to storage, since it refuses
  * every request before it is configured, and the storage worker sends its

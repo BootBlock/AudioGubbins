@@ -14,6 +14,7 @@
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
+import { thrownName, thrownSaid } from '../thrown-name.js';
 import type { EncoderModuleName } from '../worker/codec-worker-messages.js';
 import { EncoderExit, encoderModuleImports } from './encoder-host.js';
 import { encoderModuleFailed, encoderModuleRefused } from './encoding-failures.js';
@@ -79,11 +80,13 @@ export async function instantiateEncoderModule<const F extends string>(
         ? await WebAssembly.instantiate(code, imports)
         : (await WebAssembly.instantiate(code, imports)).instance;
   } catch (error) {
-    // Bytes that are not WebAssembly, or a module whose imports are not the host's.
+    // Bytes that are not WebAssembly, or a module whose imports are not the
+    // host's; the browser's message says which.
     return fail(
-      encoderModuleRefused(`The ${name} encoder module could not be instantiated.`, {
-        reason: error instanceof Error ? error.name : String(error),
-      }),
+      encoderModuleRefused(
+        `The ${name} encoder module could not be instantiated: ${thrownSaid(error)}`,
+        { reason: thrownName(error) },
+      ),
     );
   }
   const { prefix, version } = INTERFACES[name];

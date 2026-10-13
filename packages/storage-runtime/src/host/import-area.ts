@@ -1,9 +1,10 @@
 /**
  * Importing audio files, served to the page (ADR-0052, ADR-0090): the
  * services every import works with, made once from the worker's own, the
- * link to the codec worker the page joins to this one, and a batch of files
- * run one at a time, each decoded there where it needs it, with each report
- * sent as it is made.
+ * link to the codec worker the page joins to this one, a batch of files run
+ * one at a time, each decoded there where it needs it, with each report sent
+ * as it is made, and the sounds the session holds and no project does
+ * (`session-sound-area.ts`).
  */
 
 import {
@@ -19,6 +20,7 @@ import type { HostServices } from './host-services.js';
 import type { OpenProjects } from './open-projects.js';
 import type { CodecWorkerLink } from './codec-worker-link.js';
 import { pageFile } from './remote-page-ports.js';
+import { sessionSoundHandlers } from './session-sound-area.js';
 
 /**
  * What an import works with, from the worker's services: the room left is
@@ -77,5 +79,6 @@ export function importHandlers(
         },
         signal,
       ),
+    ...sessionSoundHandlers(services, importing, channel, codecs),
   };
 }

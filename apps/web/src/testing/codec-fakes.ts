@@ -10,40 +10,11 @@ import {
   type ExportEncodeRequest,
   type ImportAnalysis,
 } from '@audiogubbins/codec-runtime';
-import {
-  FailureKind,
-  fail,
-  failure,
-  sampleCount,
-  sampleRate,
-  succeed,
-  type ChannelLayout,
-  type DomainResult,
-} from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import { createCodecEnvironmentStore } from '../codecs/codec-environment.js';
 import type { CodecServices, EncodedFile } from '../codecs/codec-services.js';
 import type { Observable } from '../state/observable.js';
-
-/** The analysis of an AAC stream in MP4 of `layout`, decoded by the codec module. */
-export function decodedAnalysis(layout: ChannelLayout): ImportAnalysis {
-  return {
-    kind: 'decode',
-    stream: {
-      codec: 'aac-lc',
-      container: 'mp4',
-      sampleRate: expectSuccess(sampleRate(48_000)),
-      layout,
-      statedFrames: undefined,
-      leadingFrames: expectSuccess(sampleCount(0)),
-      bitRate: undefined,
-      bitsPerSample: undefined,
-    },
-    decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
-    metadata: { kind: 'none' },
-  };
-}
 
 /** What a test's codecs answer of a file analysed. */
 export type ScriptedAnalysis = (file: Blob) => DomainResult<ImportAnalysis>;

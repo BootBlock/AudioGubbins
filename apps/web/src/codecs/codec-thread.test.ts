@@ -39,8 +39,9 @@ const TONE = Int32Array.from({ length: 4_800 }, (_, frame) =>
   Math.round(Math.sin(frame / 10) * 10_000),
 );
 
-/** Why the MP3 encoder's chunk could not be had, as a browser says so. */
-const UNLOADED = 'Failed to fetch dynamically imported module';
+/** Why the MP3 encoder's chunk could not be had, as a browser says so, naming where it was. */
+const UNLOADED =
+  'Failed to fetch dynamically imported module: https://audiogubbins.example.com/assets/mp3-encoder.js';
 
 interface Scene {
   readonly codecs: CodecThread;
@@ -98,7 +99,7 @@ describe('the page’s codecs', () => {
     expect(workers).toEqual([]);
     expect(codecs.environment.get()).toMatchObject({
       webAssembly: true,
-      codecModule: 'not-loaded',
+      codecModule: { kind: 'not-loaded' },
     });
     expect(codecs.capability('flac', 'write')).toMatchObject({ kind: 'available' });
   });
@@ -127,11 +128,20 @@ describe('the page’s codecs', () => {
       mp3: { kind: 'unavailable', reason: UNLOADED },
       vorbis: { kind: 'unavailable', reason: expect.any(String) as unknown },
     });
-    expect(codecs.capability('mp3', 'write')).toMatchObject({
+    // Each says why its module failed, as the browser said it, with no address in it.
+    await vi.waitFor(() => {
+      expect(codecs.capability('mp3', 'write')).toMatchObject({
+        kind: 'unavailable',
+        reason:
+          'The MP3 encoder could not be loaded, so MP3 cannot be exported here: Failed to fetch dynamically imported module: <url>.',
+      });
+    }, PROMPTLY);
+    expect(codecs.capability('vorbis', 'write')).toMatchObject({
       kind: 'unavailable',
-      reason: 'The MP3 encoder could not be loaded, so MP3 cannot be exported here.',
+      reason: expect.stringMatching(
+        /^The Vorbis encoder could not be loaded, so Vorbis cannot be exported here: .*magic word/u,
+      ) as unknown,
     });
-    expect(codecs.capability('vorbis', 'write')).toMatchObject({ kind: 'unavailable' });
     expect(codecs.capability('flac', 'write')).toMatchObject({ kind: 'available' });
     // Why each module could not be had is kept where the person's diagnostics show it.
     const warned = logs.snapshot().filter((record) => record.severity === 'warning');

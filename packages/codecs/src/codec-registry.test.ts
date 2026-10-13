@@ -126,10 +126,10 @@ describe('the registry', () => {
 /** A runtime with everything: WebAssembly, the codec module and each encoder loaded, and AAC probed. */
 const EVERYTHING: CodecEnvironment = {
   webAssembly: true,
-  codecModule: 'loaded',
+  codecModule: { kind: 'loaded' },
   encoderModules: new Map([
-    ['mp3', 'loaded'],
-    ['vorbis', 'loaded'],
+    ['mp3', { kind: 'loaded' }],
+    ['vorbis', { kind: 'loaded' }],
   ]),
   browserDecoders: new Set(['aac-lc', 'he-aac']),
   browserEncoders: new Set(['aac-lc', 'opus']),
@@ -139,7 +139,7 @@ const EVERYTHING: CodecEnvironment = {
 /** A runtime with nothing but the application's own codecs. */
 const BARE: CodecEnvironment = {
   webAssembly: false,
-  codecModule: 'not-loaded',
+  codecModule: { kind: 'not-loaded' },
   encoderModules: new Map(),
   browserDecoders: new Set(),
   browserEncoders: new Set(),
@@ -184,10 +184,14 @@ describe('a codec’s capability', () => {
   });
 
   it('refuses every format of a codec module that failed to load, and only those', () => {
-    const failed: CodecEnvironment = { ...EVERYTHING, codecModule: 'failed' };
+    const failed: CodecEnvironment = {
+      ...EVERYTHING,
+      codecModule: { kind: 'failed', reason: 'CompileError: expected magic word 00 61 73 6d' },
+    };
     expect(codecCapability(failed, 'vorbis', 'read')).toMatchObject({
       kind: 'unavailable',
-      reason: 'The codec module could not be loaded, so Vorbis cannot be imported here.',
+      reason:
+        'The codec module could not be loaded, so Vorbis cannot be imported here: CompileError: expected magic word 00 61 73 6d.',
     });
     expect(codecCapability(failed, 'mp3', 'write').kind).toBe('available');
     expect(codecCapability(failed, 'he-aac', 'read').kind).toBe('available');
@@ -197,15 +201,16 @@ describe('a codec’s capability', () => {
     const failed: CodecEnvironment = {
       ...EVERYTHING,
       encoderModules: new Map([
-        ['mp3', 'failed'],
-        ['vorbis', 'loaded'],
+        ['mp3', { kind: 'failed', reason: 'The bytes are not WebAssembly.' }],
+        ['vorbis', { kind: 'loaded' }],
       ]),
     };
     expect(codecCapability(failed, 'mp3', 'write')).toEqual({
       kind: 'unavailable',
       codec: 'mp3',
       use: 'write',
-      reason: 'The MP3 encoder could not be loaded, so MP3 cannot be exported here.',
+      reason:
+        'The MP3 encoder could not be loaded, so MP3 cannot be exported here: The bytes are not WebAssembly.',
       alternatives: [
         'opus',
         'vorbis',

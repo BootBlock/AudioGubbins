@@ -14,6 +14,7 @@ import type { CodecModule } from '../codec-module.js';
 import type { DecoderSession } from '../decoder-session.js';
 import type { StreamDescription } from '../stream-description.js';
 import { codecModule } from '../testing/codec-module.js';
+import { encoderModuleBytes } from '../testing/encoder-modules.js';
 import { flacFile } from '../testing/encoded-fixtures.js';
 import { MEMORY_READER, memoryFile, pageWorker, workerHarness } from '../testing/worker-harness.js';
 import { runAnalysis } from './analyse-job.js';
@@ -124,7 +125,8 @@ describe('the codec worker analysing a file', () => {
         kind: 'refused',
         failure: {
           code: 'codec-runtime.codec-unavailable',
-          summary: 'The codec module could not be loaded, so FLAC cannot be imported here.',
+          summary:
+            'The codec module could not be loaded, so FLAC cannot be imported here: The download was refused.',
         },
       },
     });
@@ -138,7 +140,86 @@ describe('the codec worker analysing a file', () => {
     const environments = harness.posted.flatMap((one) =>
       one.kind === 'environment' ? [one.environment] : [],
     );
-    expect(environments.at(-1)?.codecModule).toBe('failed');
+    expect(environments.at(-1)?.codecModule).toEqual({
+      kind: 'failed',
+      reason: 'The download was refused.',
+    });
+  });
+
+  it('says why the module failed, redacted, where the page could not load it', async () => {
+    const module = await codecModule();
+    const flac = flacFile(module, [TONE], {
+      sampleRate: 48_000,
+      bitsPerSample: 16,
+      blockSize: 4_096,
+    });
+    const harness = await workerHarness({
+      codecModule: {
+        kind: 'unavailable',
+        reason:
+          'Failed to fetch dynamically imported module: https://audiogubbins.example.com/assets/codec.js',
+      },
+    });
+    harness.core.receive({
+      kind: 'analyse',
+      request: 'f',
+      file: { kind: 'file', file: memoryFile(flac) },
+    });
+
+    expect(await harness.answer('f')).toMatchObject({
+      analysis: {
+        kind: 'refused',
+        failure: {
+          summary:
+            'The codec module could not be loaded, so FLAC cannot be imported here: Failed to fetch dynamically imported module: <url>.',
+        },
+      },
+    });
+  });
+
+  it('says why the module failed where it would not instantiate, refusing its formats with it', async () => {
+    const module = await codecModule();
+    const flac = flacFile(module, [TONE], {
+      sampleRate: 48_000,
+      bitsPerSample: 16,
+      blockSize: 4_096,
+    });
+    // The MP3 encoder's module, which asks for imports the codec module's host does not give.
+    const harness = await workerHarness({
+      codecModule: {
+        kind: 'compiled',
+        module: await WebAssembly.compile(encoderModuleBytes('mp3')),
+      },
+    });
+    const analyse = (request: string): void => {
+      harness.core.receive({
+        kind: 'analyse',
+        request,
+        file: { kind: 'file', file: memoryFile(flac) },
+      });
+    };
+
+    analyse('first');
+    analyse('again');
+
+    const summaries = [await harness.answer('first'), await harness.answer('again')].map(
+      (answer) =>
+        answer.kind === 'analysed' && answer.analysis.kind === 'refused'
+          ? answer.analysis.failure.summary
+          : answer.kind,
+    );
+    const environments = harness.posted.flatMap((one) =>
+      one.kind === 'environment' ? [one.environment] : [],
+    );
+    const load = environments.at(-1)?.codecModule;
+    const reason = load?.kind === 'failed' ? load.reason : '';
+    expect(reason).toMatch(
+      /^The codec module could not be instantiated: \w+Error: .*"wasi_snapshot_preview1"/u,
+    );
+    expect(summaries).toEqual([
+      `The codec module could not be loaded, so FLAC cannot be imported here: ${reason}.`,
+      `The codec module could not be loaded, so FLAC cannot be imported here: ${reason}.`,
+    ]);
   });
 
   it('says nothing of the codecs until it is configured, so the page’s first word is whole', async () => {
@@ -171,10 +252,10 @@ describe('the codec worker analysing a file', () => {
           browserDecoders: new Set(),
           browserEncoders: new Set(),
           browserBitRates: new Map(),
-          codecModule: 'failed',
+          codecModule: { kind: 'failed', reason: 'None.' },
           encoderModules: new Map([
-            ['mp3', 'failed'],
-            ['vorbis', 'failed'],
+            ['mp3', { kind: 'failed', reason: 'None.' }],
+            ['vorbis', { kind: 'failed', reason: 'None.' }],
           ]),
         },
       },
@@ -190,10 +271,10 @@ describe('the codec worker analysing a file', () => {
       one.kind === 'environment' ? [one.environment] : [],
     );
     expect(environments.at(-1)).toMatchObject({
-      codecModule: 'not-loaded',
+      codecModule: { kind: 'not-loaded' },
       encoderModules: new Map([
-        ['mp3', 'failed'],
-        ['vorbis', 'failed'],
+        ['mp3', { kind: 'failed', reason: 'No MP3 encoder in this test.' }],
+        ['vorbis', { kind: 'failed', reason: 'No Vorbis encoder in this test.' }],
       ]),
     });
   });
@@ -310,7 +391,7 @@ function heAacServices(probed: boolean, released: { count: number }): ImportServ
     codecModule: () => Promise.resolve(succeed(describingModule(HE_AAC, released))),
     environment: () => ({
       webAssembly: true,
-      codecModule: 'loaded',
+      codecModule: { kind: 'loaded' },
       encoderModules: new Map(),
       browserDecoders: new Set(probed ? (['he-aac'] as const) : []),
       browserEncoders: new Set(),

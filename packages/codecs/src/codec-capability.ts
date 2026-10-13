@@ -4,12 +4,12 @@
  *
  * The application's own codecs are TypeScript and need nothing, so they serve
  * everywhere. The codec module and the encoder modules need WebAssembly, and
- * serve until their load fails; a browser's codec serves only where the probes
- * (`packages/capabilities`) found it. An unavailable codec says why in a
- * sentence for the person and names the codecs that serve the same use here,
- * those that keep as much of the sound first: the other lossless codecs before
- * the lossy ones for a lossless codec, the other lossy ones first for a lossy
- * one, each group in the registry's order.
+ * serve until their load fails, when the reason says why it failed; a browser's
+ * codec serves only where the probes (`packages/capabilities`) found it. An
+ * unavailable codec says why in a sentence for the person and names the codecs
+ * that serve the same use here, those that keep as much of the sound first: the
+ * other lossless codecs before the lossy ones for a lossless codec, the other
+ * lossy ones first for a lossy one, each group in the registry's order.
  */
 
 import type {
@@ -22,8 +22,15 @@ import type {
 } from './codec-descriptor.js';
 import { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';
 
-/** How far a module's load has gone: not yet asked for, done, or failed. */
-export type ModuleLoad = 'not-loaded' | 'loaded' | 'failed';
+/**
+ * How far a module's load has gone: not yet asked for, done, or failed, with
+ * why, as the error that failed it says, redacted for the person to read: its
+ * formats' unavailability says it.
+ */
+export type ModuleLoad =
+  | { readonly kind: 'not-loaded' }
+  | { readonly kind: 'loaded' }
+  | { readonly kind: 'failed'; readonly reason: string };
 
 /** What a runtime offers the codecs, as its probes and loads found it (REQ-EXEC-216). */
 export interface CodecEnvironment {
@@ -56,6 +63,30 @@ const USE_WORDS: Readonly<Record<CodecUse, { readonly doing: string; readonly do
   write: { doing: 'Exporting', done: 'exported' },
 };
 
+/** The stop that closes a sentence. */
+const SENTENCE_END = /[.!?]$/u;
+
+/** A reason as the end of a sentence: closed with a full stop where it has no stop of its own. */
+function closed(reason: string): string {
+  const trimmed = reason.trim();
+  return SENTENCE_END.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+/**
+ * Why `module`'s formats cannot serve, as `load` failed, or `undefined` where
+ * it did not fail.
+ */
+function failedLoad(
+  load: ModuleLoad | undefined,
+  module: string,
+  name: string,
+  done: string,
+): string | undefined {
+  return load?.kind === 'failed'
+    ? `${module} could not be loaded, so ${name} cannot be ${done} here: ${closed(load.reason)}`
+    : undefined;
+}
+
 /** Why a direction cannot serve in this environment, or `undefined` where it can. */
 function obstacle(
   descriptor: CodecDescriptor,
@@ -72,16 +103,17 @@ function obstacle(
       if (!environment.webAssembly) {
         return `${words.doing} ${name} needs WebAssembly, which this browser does not run.`;
       }
-      return environment.codecModule === 'failed'
-        ? `The codec module could not be loaded, so ${name} cannot be ${words.done} here.`
-        : undefined;
+      return failedLoad(environment.codecModule, 'The codec module', name, words.done);
     case 'encoder-module':
       if (!environment.webAssembly) {
         return `${words.doing} ${name} needs WebAssembly, which this browser does not run.`;
       }
-      return environment.encoderModules.get(descriptor.id) === 'failed'
-        ? `The ${name} encoder could not be loaded, so ${name} cannot be ${words.done} here.`
-        : undefined;
+      return failedLoad(
+        environment.encoderModules.get(descriptor.id),
+        `The ${name} encoder`,
+        name,
+        words.done,
+      );
     case 'browser': {
       const probed = use === 'read' ? environment.browserDecoders : environment.browserEncoders;
       const part = use === 'read' ? 'decoder' : 'encoder';

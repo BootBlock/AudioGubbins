@@ -340,8 +340,8 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
-  // Made whether or not projects can be kept here, since a picture's sound is
-  // weighed through them; joined to the storage worker where there is one.
+  // Made whether or not projects can be kept here; joined to the storage worker
+  // where there is one.
   const { storage: projectStorage } = projectSystem;
   const codecs = browserCodecs({
     webAssembly: capabilities.has(CapabilityKey.WebAssembly),

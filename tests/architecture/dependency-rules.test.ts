@@ -218,6 +218,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/import-export',
     '@audiogubbins/capabilities',
     '@audiogubbins/version',
+    '@audiogubbins/diagnostics',
   ],
   '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
   '@audiogubbins/clipboard': [
@@ -1153,6 +1154,103 @@ describe('third-party libraries stay behind their adapters', () => {
     // detection has one home.
     const offenders = ALL_SOURCES.filter(
       (path) => PROBE.test(readCode(path)) && !path.startsWith('packages/capabilities/src/'),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("the browser's codecs are probed in one package and called in one other (ADR-0090)", () => {
+  /**
+   * The browser's audio codecs: WebCodecs' audio classes, and the offline
+   * context Web Audio decodes a whole file through.
+   */
+  const BROWSER_CODEC = String.raw`(?:AudioDecoder|AudioEncoder|AudioData|EncodedAudioChunk|(?:webkit)?OfflineAudioContext)`;
+
+  /**
+   * Asking the browser whether it has a codec, or what one accepts: a type test
+   * of a codec's class, a codec named to look it up on a scope, as a membership
+   * test or a reflected read does, and the configuration probe WebCodecs gives.
+   */
+  const CODEC_PROBE = new RegExp(
+    [
+      String.raw`\bisConfigSupported\b`,
+      String.raw`\btypeof\s+${BROWSER_CODEC}\b`,
+      String.raw`['"\`]${BROWSER_CODEC}['"\`]`,
+    ].join('|'),
+  );
+
+  /**
+   * Using one: a codec, a chunk or a frame of audio made, whether its class is
+   * the global or one a platform object hands over, and any decode through Web
+   * Audio, whose `decodeAudioData` an `AudioContext` has as well.
+   */
+  const CODEC_CALL = new RegExp(
+    [
+      String.raw`\bnew\s+(?:[\w$#]+\s*\??\.\s*)*${BROWSER_CODEC}\s*\(`,
+      String.raw`\bdecodeAudioData\b`,
+    ].join('|'),
+  );
+
+  it.each([
+    ['a type test of a codec', "if (typeof AudioDecoder !== 'function') return;"],
+    ['a type test of the offline context', "typeof OfflineAudioContext !== 'function'"],
+    ['a membership test', "const hasEncoder = 'AudioEncoder' in self;"],
+    ['a reflected read', "const chunk = memberOf(scope, 'EncodedAudioChunk');"],
+    ['a configuration probe', 'await AudioDecoder.isConfigSupported(config);'],
+  ])('recognises %s as a probe of a codec', (_form, code) => {
+    expect(CODEC_PROBE.test(code)).toBe(true);
+  });
+
+  it.each([
+    ['a decoder made from the global', 'const decoder = new AudioDecoder({ output, error });'],
+    ['a decoder made from a platform', 'this.#decoder = new decoding.AudioDecoder({'],
+    ['a chunk made from a private field', 'new this.#decoding.EncodedAudioChunk({'],
+    ['a frame of audio made', 'const audio = new this.#webCodecs.AudioData({'],
+    ['an offline context made', 'const context = new OfflineAudioContext(1, 1, 48_000);'],
+    ['a decode through any context', 'const buffer = await context.decodeAudioData(bytes);'],
+  ])('recognises %s as a call of a codec', (_form, code) => {
+    expect(CODEC_CALL.test(code)).toBe(true);
+  });
+
+  it.each([
+    ['a playback context made', 'const context = new AudioContext({ latencyHint });'],
+    ['a type named after a codec', 'readonly #decoder: AudioDecoderLike;'],
+    ['a frame of video made', 'const picture = new VideoFrame(canvas, { timestamp });'],
+    ['a class that reads decoded data', 'const data = new AudioDataReader(port);'],
+  ])('does not mistake %s for a probe or a call of a codec', (_form, code) => {
+    expect(CODEC_PROBE.test(code)).toBe(false);
+    expect(CODEC_CALL.test(code)).toBe(false);
+  });
+
+  it('reads the packages it guards, so each expression is proved against real code', () => {
+    const probing = productionSources('packages/capabilities/src/**/*.ts').filter((path) =>
+      CODEC_PROBE.test(readCode(path)),
+    );
+    const calling = productionSources('packages/codec-runtime/src/**/*.ts').filter((path) =>
+      CODEC_CALL.test(readCode(path)),
+    );
+
+    expect(probing).toContain('packages/capabilities/src/codec-platform.ts');
+    expect(calling).toContain('packages/codec-runtime/src/decoding/browser-aac-blocks.ts');
+    expect(calling).toContain('packages/codec-runtime/src/encoding/aac-file-encoder.ts');
+  });
+
+  it('probes the browser’s codecs only from the capabilities package', () => {
+    // The packet's dependency rule: each codec's availability has one home,
+    // so what is offered is what was probed (REQ-EXEC-216).
+    const offenders = ALL_SOURCES.filter(
+      (path) => CODEC_PROBE.test(readCode(path)) && !path.startsWith('packages/capabilities/src/'),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('calls the browser’s codecs only from the codec runtime', () => {
+    // Decoding runs in the codec worker alone, through the codecs that serve
+    // each format there, never on the page or in the storage worker.
+    const offenders = ALL_SOURCES.filter(
+      (path) => CODEC_CALL.test(readCode(path)) && !path.startsWith('packages/codec-runtime/src/'),
     );
 
     expect(offenders).toEqual([]);
