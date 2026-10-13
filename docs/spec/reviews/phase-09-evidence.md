@@ -216,7 +216,7 @@ records state.
 
 ## Decisions taken beyond the ADRs
 
-The build plan (`docs/todo/phase-09-import-export-and-codecs.md`, "Decisions
+The build plan (`docs/todo/done/phase-09-import-export-and-codecs.md`, "Decisions
 taken in the build", decisions 1 to 15) records what the ADRs left to the
 implementation; the amendments above carry each into its record. Beyond
 them:

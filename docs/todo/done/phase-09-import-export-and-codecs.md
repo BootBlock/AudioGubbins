@@ -1,6 +1,8 @@
-> **Status:** In progress. 2026-10-13: the phase is `READY` (`ADR-0090`
-> to `ADR-0093`); every slice is merged on `phase-09-codecs` with `main`,
-> and the close is left.
+> **Status:** Done. 2026-10-13: every slice is built and merged, the scope
+> checks' and the build's findings are fixed and written into
+> `docs/spec/reviews/phase-09-review.md`, with the review lenses deferred by
+> the owner's decision of 2026-10-07. Phase 09 is closed at `PASS` in the
+> implementation ledger.
 
 # Phase 09 — Import, Export, and Codec System
 
@@ -11,11 +13,11 @@ decisions that shape the work are `ADR-0090`, `ADR-0091`, `ADR-0092` and
 
 ## Where the work is
 
-|        |                                                         |
-| ------ | ------------------------------------------------------- |
-| Branch | `phase-09-codecs`, in `../AudioGubbins-phase-09-codecs` |
-| Base   | `main` at `1c357d0e`                                    |
-| Head   | see `git log`, not pushed                               |
+|        |                           |
+| ------ | ------------------------- |
+| Branch | `phase-09-codecs`         |
+| Base   | `main` at `1c357d0e`      |
+| Head   | see `git log`, not pushed |
 
 Phase 08 landed on `main` at `063c0494`, raising `projectDocument` 7 to 8,
 `userPreferences` 1 to 2 and `editorViews` 1 to 2, and `main` is merged into this
@@ -36,7 +38,7 @@ full `verify:commit` holds the Gambit resource `build:audiogubbins-verify`.
 
 ## Slices
 
-Each slice works in its own worktree branched from `phase-09-codecs`. The shared
+Each slice is a branch from `phase-09-codecs`. The shared
 lists (`version.json`, `tests/architecture/*`, `.dependency-cruiser.cjs`,
 `eslint.config.js`, `tools/sync-workspace-graph.mjs`, the third-party notices)
 are edited line by line by whichever slice needs a line, and
@@ -316,10 +318,8 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
 
 ## Left to do
 
-Every slice is merged into `phase-09-codecs`, with `main` (Phase 08), and
-the ADRs and the packet are amended. Left, in order: one `verify:commit`; the
-packet's commands; the evidence, the review record (lenses deferred), the
-handoff, the ledger `PASS` and the README's readiness line; move this note to
-`docs/todo/done/`; merge `main` again if it moved; merge into `main` with
-`--no-ff` and push; remove the worktree and delete the merged branches with
-`git branch -d`.
+Nothing. The packet's commands passed on the merged tree, the scope checks'
+findings are fixed, and Phase 09 closed at `PASS` on 2026-10-13: the evidence
+is `docs/spec/reviews/phase-09-evidence.md`, the review record
+`docs/spec/reviews/phase-09-review.md` and the handoff
+`docs/spec/traceability/handoffs/phase-09.md`.
