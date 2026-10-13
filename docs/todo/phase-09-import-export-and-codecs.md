@@ -1,6 +1,6 @@
-> **Status:** In progress. 2026-10-12: the phase is `READY` (`ADR-0090`
-> to `ADR-0093`); every slice is merged on `phase-09-codecs` with `main`;
-> three slices close the gaps a scope check found, and the close is left.
+> **Status:** In progress. 2026-10-13: the phase is `READY` (`ADR-0090`
+> to `ADR-0093`); every slice is merged on `phase-09-codecs` with `main`,
+> and the close is left.
 
 # Phase 09 — Import, Export, and Codec System
 
@@ -286,25 +286,40 @@ codec}` or `{kind:'unknown'}`; `importRoute` answers read in place, decode or
     ceiling. The built-in preset "Distribution, AAC 256 kbit/s" is kept and
     reported as not exportable where the browser refuses it. ADR-0092 amended.
 
+15. **The scope-check gaps (S9d, S9e, S9f, merged).** WAV, AIFF and AIFF-C
+    write every integer depth from 8 to 32 bits and FLAC every depth from 4
+    to 32 (`PCM_INTEGER_DEPTHS`, `FLAC_DEPTHS` in the codecs): a depth is a
+    number, typed in the Export dialog's "Bit depth" field and refused with
+    its run named, never rounded; a sample is stored in the next whole byte,
+    left-justified; WAV is extensible for an integer depth above 16 bits or
+    short of its container; AIFF's and FLAC's default is the source's own
+    depth, raised to the format's shallowest. A dither the person never set
+    follows the depth; one they set is kept. Nine more byte pins hold
+    Microsoft ADPCM, AIFF-C `ima4`, 32-bit FLAC and the new depths. The
+    reference picture's sound is a session sound: the storage worker has the
+    codec worker analyse and decode it into the staging
+    (`cache/staging/session/sound-<token>`, a 32-bit float WAV) after the
+    import's room check, and the editor reads it through a plan over that
+    file, so no sample passes through the page; a browser that keeps no
+    storage cannot open it and says why. Only `packages/capabilities` probes
+    the browser's codecs and only `packages/codec-runtime` calls them,
+    enforced in `dependency-rules.test.ts`. A codec module's load failure
+    reaches the person with its redacted reason (`codec-runtime` depends on
+    the diagnostics). Whoever uses a staged file shares the storage lock, and
+    the staging is given up, by pressure, cleanup or start, only with that
+    lock held alone (`evictUnused`, `cleanAtStart`, which runs media recovery
+    then removes staging under one hold). The storage's stream credit counts
+    messages asked for and not yet read. `file.import-audio` defaults to
+    Ctrl/Cmd+K, Ctrl/Cmd+I. Long files are held to the block caps at the
+    injected ports. The AAC browser test takes its branch from the browser
+    encoder's own answer; bundled Chromium here encodes AAC at 128 kbit/s.
+
 ## Left to do
 
-Every slice so far is merged into `phase-09-codecs`, and `main` (with Phase 08) is merged in. The packet's commands all pass on `bfb35b65`. A scope check
-then found gaps, closed by three slices built from `5ee025a2`:
-
-- `p09-s9d`: every integer depth from 8 to 32 written by WAV, AIFF and
-  AIFF-C (the packet's In Scope and ADR-0091), FLAC's offered depths, and
-  byte pins for Microsoft ADPCM, AIFF-C `ima4`, 32-bit FLAC and the new
-  depths.
-- `p09-s9e`: the reference picture's sound decoded through the codec worker,
-  never on the page; a rule that only `packages/codec-runtime` calls the
-  browser's codecs; the reason a codec module failed to load shown.
-- `p09-s9f`: long files through import and export held to the block caps;
-  the staging clear at start; import and export from the keyboard; the AAC
-  browser test asserting the branch the probe implies.
-
-Then, in order: merge the three and apply their ADR amendments; one
-`verify:commit` and `spec:verify`; the packet's commands again; the evidence,
-the review record (lenses deferred), the handoff, the ledger `PASS` and the
-README's readiness line; move this note to `docs/todo/done/`; merge `main`
-again if it moved; merge into `main` with `--no-ff` and push; remove the
-worktrees and delete the merged branches with `git branch -d`.
+Every slice is merged into `phase-09-codecs`, with `main` (Phase 08), and
+the ADRs and the packet are amended. Left, in order: one `verify:commit`; the
+packet's commands; the evidence, the review record (lenses deferred), the
+handoff, the ledger `PASS` and the README's readiness line; move this note to
+`docs/todo/done/`; merge `main` again if it moved; merge into `main` with
+`--no-ff` and push; remove the worktree and delete the merged branches with
+`git branch -d`.
