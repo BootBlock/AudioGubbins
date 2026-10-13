@@ -906,7 +906,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37398: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37399: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1198,7 +1198,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37398: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37399: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1745,16 +1745,6 @@ Published paths
   CodecModule.createOpusEncoder: (settings: OpusEncoderSettings) => DomainResult<OpusEncoder>
   CodecModule.createOpusPacketDecoder: (channels: 1 | 2) => DomainResult<OpusPacketDecoder>
   type CodecRequest = { readonly kind: typeof ToCodecWorkerKind.Analyse; readonly request: string; readonly file: FileSource; } | { readonly kind: typeof ToCodecWorkerKind.Cancel; readonly request: string; } | { readonly kind: typeof ToCodecWorkerKind.Decode; readonly request: string; readonly file: FileSource; readonly stream: MessagePortLike; } | { readonly kind: typeof ToCodecWorkerKind.Encode; readonly request: string; readonly encode: ExportEncodeRequest; readonly rendered: MessagePortLike; readonly stream: MessagePortLike; }
-  class CreditedReceiver<TMessage>
-  new CreditedReceiver<TMessage>(port: MessagePortLike, read: (value: unknown) => DomainResult<TMessage>, window: number): CreditedReceiver<TMessage>
-  readonly CreditedReceiver.#port: MessagePortLike
-  readonly CreditedReceiver.#arrived: DomainResult<TMessage>[]
-  CreditedReceiver.#waiting: (() => void) | undefined
-  CreditedReceiver.#arrive: (message: DomainResult<TMessage>) => void
-  CreditedReceiver.#tell: (message: StreamReceiverMessage) => void
-  CreditedReceiver.next: (signal: CancellationSignal) => Promise<DomainResult<TMessage>>
-  CreditedReceiver.refuse: (reason: DomainFailure) => void
-  CreditedReceiver.close: () => void
   interface DecoderSession
   readonly DecoderSession.description: StreamDescription
   DecoderSession.decode: (into: readonly Float32Array[]) => DomainResult<number>
@@ -6890,6 +6880,30 @@ Published paths
   interface SessionCadence extends WritingCadence
   readonly SessionCadence.keepStateEvery: number
   readonly SessionCadence.checkpointAfter: number
+  interface SessionSound
+  readonly SessionSound.token: string
+  readonly SessionSound.dataPath: string
+  readonly SessionSound.header: Uint8Array<ArrayBuffer>
+  readonly SessionSound.sampleRate: SampleRate
+  readonly SessionSound.layout: ChannelLayout
+  readonly SessionSound.frames: SampleCount
+  readonly SessionSound.decoder: DecoderIdentity
+  interface SessionSoundServices
+  readonly SessionSoundServices.tree: StorageTree
+  readonly SessionSoundServices.nextToken: () => string
+  readonly SessionSoundServices.room: StorageRoom
+  readonly SessionSoundServices.sharing: MediaSharing
+  class SessionSounds
+  new SessionSounds(services: SessionSoundServices): SessionSounds
+  readonly SessionSounds.#services: SessionSoundServices
+  readonly SessionSounds.#held: Map<string, string>
+  SessionSounds.#holding: number
+  SessionSounds.#release: (() => void) | undefined
+  SessionSounds.decode: (file: ExternalFile, decoding: FileDecoding, signal?: AbortSignal) => Promise<DomainResult<SessionSound>>
+  SessionSounds.discard: (token: string) => Promise<void>
+  SessionSounds.#decoded: (decoding: FileDecoding, analysis: StreamAnalysis, format: { readonly sampleRate: SampleRate; readonly layout: ChannelLayout; }, signal?: AbortSignal) => Promise<DomainResult<SessionSound>>
+  SessionSounds.#hold: (signal?: AbortSignal) => Promise<void>
+  SessionSounds.#let: () => void
   interface SnapshotRequest
   readonly SnapshotRequest.name: string
   readonly SnapshotRequest.notes?: string
@@ -7061,6 +7075,13 @@ Published paths
   readonly HeldFile.kind: "file"
   readonly HeldFile.file: File
   readonly HeldFile.handle?: FileSystemFileHandle
+  interface HeldSound
+  readonly HeldSound.token: string
+  readonly HeldSound.file: Blob
+  readonly HeldSound.sampleRate: SampleRate
+  readonly HeldSound.layout: ChannelLayout
+  readonly HeldSound.frames: SampleCount
+  readonly HeldSound.decoder: DecoderIdentity
   interface ImportReport
   readonly ImportReport.job: ImportJob
   readonly ImportReport.index: number
@@ -7068,6 +7089,8 @@ Published paths
   interface ImportsClient
   ImportsClient.connectCodecWorker: (port: MessagePort) => Promise<void>
   ImportsClient.importFiles: (session: RemoteProjectSession, request: FilesImport, report: (report: ImportReport) => void, signal?: AbortSignal) => Promise<ImportedBatch>
+  ImportsClient.holdSound: (file: PageFile, signal?: AbortSignal) => Promise<DomainResult<HeldSound>>
+  ImportsClient.letGoSound: (token: string) => Promise<void>
   interface LibraryClient
   LibraryClient.list: (signal?: AbortSignal) => Promise<readonly CatalogueEntry[]>
   LibraryClient.create: (project: NewProject, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
@@ -9208,7 +9231,7 @@ packages/storage-runtime/src/protocol/import-operations.ts
   interface BatchFileImport
   readonly BatchFileImport.file: CrossingFile
   readonly BatchFileImport.assetId: AssetId
-  type ImportOperations = { 'imports.connectCodecWorker': Operation<{ readonly port: MessagePort; }, undefined>; 'imports.run': Operation<{ readonly handle: ProjectHandle; readonly files: readonly BatchFileImport[]; readonly choice: ImportChoice; readonly importedAt: number; readonly report: string; }, ImportedBatch>; }
+  type ImportOperations = { 'imports.connectCodecWorker': Operation<{ readonly port: MessagePort; }, undefined>; 'imports.run': Operation<{ readonly handle: ProjectHandle; readonly files: readonly BatchFileImport[]; readonly choice: ImportChoice; readonly importedAt: number; readonly report: string; }, ImportedBatch>; 'imports.holdSound': Operation<{ readonly file: CrossingFile; }, DomainResult<HeldSound>>; 'imports.letGoSound': Operation<{ readonly token: string; }, undefined>; }
   type ImportStream = `import:${string}`
 
 packages/storage-runtime/src/protocol/media-operations.ts

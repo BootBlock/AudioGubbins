@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
-import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
+import {
+  StandardLayouts,
+  createDeterministicIdGenerator,
+  sampleCount,
+  sampleRate,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { StandardFrameRates } from '@audiogubbins/timeline';
 
@@ -9,7 +14,7 @@ import { testAssets } from '../assets/test-assets.js';
 import { fakeEditor, fakePicturePlatform } from '../testing/editor-fakes.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
-import { pictureSoundAsset, type DecodedSound } from './picture-sound.js';
+import { pictureSoundAsset } from './picture-sound.js';
 import { ReferencePicture } from './reference-picture.js';
 
 const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor');
@@ -164,24 +169,19 @@ describe('the reference picture (ADR-0046)', () => {
 });
 
 describe("a picture's sound", () => {
-  /** A sound decoded in `blocks`, at 44.1 kHz in stereo, as the codec module decodes it. */
-  function decoded(blocks: readonly (readonly Float32Array[])[]): DecodedSound {
-    return {
-      sampleRate: expectSuccess(sampleRate(44_100)),
-      layout: StandardLayouts.stereo,
-      blocks,
-      frames: blocks.reduce((frames, block) => frames + (block[0]?.length ?? 0), 0),
-      decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
-    };
-  }
-
-  it('becomes an asset of the channels decoded, at the rate the file holds it at', () => {
+  it('becomes an asset at the rate the file holds it, read from the file the storage holds', () => {
+    const file = new Blob([new Uint8Array(64)]);
     const asset = pictureSoundAsset(
       new File([new Uint8Array(4)], 'shot.webm'),
-      decoded([
-        [new Float32Array([0, 0.5]), new Float32Array([0, -0.5])],
-        [new Float32Array([0.25]), new Float32Array([-0.25])],
-      ]),
+      {
+        token: 't1',
+        file,
+        sampleRate: expectSuccess(sampleRate(44_100)),
+        layout: StandardLayouts.stereo,
+        frames: expectSuccess(sampleCount(3)),
+        decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
+      },
+      createDeterministicIdGenerator(1).next<'AssetId'>(),
     );
     if (typeof asset === 'string') throw new Error(asset);
 
@@ -190,20 +190,11 @@ describe("a picture's sound", () => {
     expect(asset.description).toBe(
       'The sound of the reference picture, decoded by Symphonia 0.6.1 at its own rate of 44.1 kHz.',
     );
-    // Each description joins the blocks afresh, since its arrays are transferred away.
-    const one = asset.describe();
-    const other = asset.describe();
-    if (one.kind !== 'pcm' || other.kind !== 'pcm') throw new Error('Not described as samples.');
-    expect(one.channels.map((channel) => [...channel])).toEqual([
-      [0, 0.5, 0.25],
-      [0, -0.5, -0.25],
-    ]);
-    expect(one.channels[0]).not.toBe(other.channels[0]);
-  });
-
-  it('is none for a picture without sound', () => {
-    expect(pictureSoundAsset(new File([], 'silent.webm'), decoded([]))).toBe(
-      'The picture has no sound.',
-    );
+    // Described as a plan over the held file, so no sample of it is on the page.
+    const described = asset.describe();
+    if (described.kind !== 'edited') throw new Error('Not described as a plan over its file.');
+    expect(described.sampleRate).toBe(44_100);
+    expect(described.media).toMatchObject([{ file, channels: 2, length: 3, sampleRate: 44_100 }]);
+    expect(described.plan.streams[0].layout).toEqual(StandardLayouts.stereo);
   });
 });

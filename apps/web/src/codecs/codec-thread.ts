@@ -36,7 +36,7 @@ import {
 import type { Observable } from '../state/observable.js';
 import { CodecClient, type CodecWorkerPort } from './codec-client.js';
 import { createCodecEnvironmentStore, type CodecEnvironmentStore } from './codec-environment.js';
-import type { CodecServices, DecodedFile, EncodedFile } from './codec-services.js';
+import type { CodecServices, EncodedFile } from './codec-services.js';
 
 /** The bytes of a module the page bundles, loaded when asked for. */
 type LoadModule = () => Promise<Uint8Array<ArrayBuffer>>;
@@ -120,16 +120,6 @@ export class CodecThread implements CodecServices {
   async analyse(file: Blob, signal: AbortSignal): Promise<DomainResult<ImportAnalysis>> {
     const started = await this.#client();
     return started.ok ? await started.value.analyse(file, signal) : started;
-  }
-
-  async decode(
-    file: Blob,
-    stream: MessagePort,
-    progress: (frames: number) => void,
-    signal: AbortSignal,
-  ): Promise<DomainResult<DecodedFile>> {
-    const started = await this.#client();
-    return started.ok ? await started.value.decode(file, stream, progress, signal) : started;
   }
 
   async encode(

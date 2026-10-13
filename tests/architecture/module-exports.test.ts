@@ -250,7 +250,7 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/state/project-system.ts: projectSystemOver'],
   "The editor panels' parts, made over a context with the services given, which the panel tests make with a peak worker that answers nothing; the application makes them through `startEditor`.":
     ['apps/web/src/editor-part.ts: panelPartsOf'],
-  "The asset a picture's decoded sound makes, which its tests build from blocks they name; the application reaches it through `decodePictureSound`, after the codec worker's analysis and decoding.":
+  "The asset a picture's sound makes of the file the storage holds it in, which its tests build from a held sound they name; the application reaches it through `PictureSoundDecoder`, once the storage worker holds the sound.":
     ['apps/web/src/picture/picture-sound.ts: pictureSoundAsset'],
   'The key the editor views are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
     ['apps/web/src/state/editor-view-store.ts: EDITOR_VIEWS_KEY'],
