@@ -59,14 +59,19 @@ describe('the menu bar', () => {
     expect(entries).toHaveLength(193);
   });
 
-  it('offers export in the File menu, the dialog opening on a chord', () => {
+  it('offers import and export in the File menu, each of the pair opening on a chord', () => {
     const [file] = shellMenus(sources());
     const entries = file?.groups.flatMap((group) => group.items) ?? [];
-    const exportAudio = entries.find((entry) => entry.label === IMPORT_EXPORT_MENU.exportAudio);
+    const labelled = (label: string) => entries.find((entry) => entry.label === label);
 
-    expect(exportAudio?.shortcut).toBe('Ctrl+K, Ctrl+E');
+    expect(labelled(IMPORT_EXPORT_MENU.importFiles)?.shortcut).toBe('Ctrl+K, Ctrl+I');
+    expect(labelled(IMPORT_EXPORT_MENU.exportAudio)?.shortcut).toBe('Ctrl+K, Ctrl+E');
     expect(entries.map((entry) => entry.label)).toEqual(
-      expect.arrayContaining(['Export every region…', 'Export the selection…']),
+      expect.arrayContaining([
+        IMPORT_EXPORT_MENU.importFolder,
+        'Export every region…',
+        'Export the selection…',
+      ]),
     );
   });
 

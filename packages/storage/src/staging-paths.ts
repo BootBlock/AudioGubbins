@@ -18,8 +18,6 @@ import type { StorageTree } from '@audiogubbins/project-format';
 
 import { CacheCategory } from './cache-store.js';
 import { CACHE_DIRECTORY } from './storage-layout.js';
-import { whileAlone, type Alone } from './storage-sharing.js';
-import type { LeaseCoordinator } from './write-lease.js';
 
 /** The directory the storage stages its work in. */
 const STAGING_DIRECTORY = `${CACHE_DIRECTORY}/${CacheCategory.Staging}`;
@@ -43,16 +41,10 @@ export function stagedExportPaths(project: ProjectId, token: string): StagedExpo
 }
 
 /**
- * Removes everything staged, as the storage worker does when it starts, with
- * the storage-wide lock held alone, so no window's work in progress is taken:
- * where another window shares the lock, or windows cannot be told apart,
- * nothing is removed this time.
+ * Removes everything staged. Only the worker's start does this, with the
+ * storage-wide lock held alone (`start-up-cleaning.ts`), so no window's work in
+ * progress is taken.
  */
-export async function clearStaging(
-  tree: StorageTree,
-  coordinator: LeaseCoordinator | undefined,
-): Promise<Alone<void>> {
-  return await whileAlone(coordinator, async () => {
-    await tree.remove(STAGING_DIRECTORY);
-  });
+export async function removeStaging(tree: StorageTree): Promise<void> {
+  await tree.remove(STAGING_DIRECTORY);
 }

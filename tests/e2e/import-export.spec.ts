@@ -67,8 +67,16 @@ import { test } from './test.js';
 
 const RATE = 48_000;
 
-/** The bit rate AAC is exported at where the browser encodes it, in bits a second. */
-const AAC_BIT_RATE = 128_000;
+/**
+ * The constant bit rates, in bits a second, the browser's AAC encoder is asked
+ * for a stereo stream, the first it takes being the one AAC is exported at: an
+ * encoder takes only the rates it was built for, Chromium's on Windows 96 to
+ * 192 kbit/s for stereo.
+ */
+const AAC_BIT_RATES: readonly number[] = [128_000, 96_000, 160_000, 192_000, 256_000, 320_000];
+
+/** The Format list's AAC option, as it is named whether or not this browser writes it. */
+const AAC_OPTION = /^AAC(?:$|,)/u;
 
 /** The project's name, which the export's file is named by (`{project}`). */
 const PROJECT = 'Shoreline';
@@ -411,27 +419,50 @@ test.describe('import and export', () => {
     await reloadWithAFolderPicker(page);
     await openFromAssets(page, 'Shore');
 
-    const encodes = await page.evaluate(
-      async ({ sampleRate, bitrate }) => {
-        if (typeof AudioEncoder === 'undefined') return false;
-        const support = await AudioEncoder.isConfigSupported({
-          codec: 'mp4a.40.2',
-          sampleRate,
-          numberOfChannels: 2,
-          bitrate,
-        });
-        return support.supported === true;
+    // Asked of the browser's encoder directly, apart from the page's own
+    // probe, so the branch this run proves is the browser's: where the
+    // encoder takes AAC, a page that offers it as unavailable fails here
+    // rather than passing down the other branch.
+    const bitRate = await page.evaluate(
+      async ({ sampleRate, bitRates }) => {
+        if (typeof AudioEncoder === 'undefined') return undefined;
+        for (const bitrate of bitRates) {
+          const support = await AudioEncoder.isConfigSupported({
+            codec: 'mp4a.40.2',
+            sampleRate,
+            numberOfChannels: 2,
+            bitrate,
+          });
+          if (support.supported === true) return bitrate;
+        }
+        return undefined;
       },
-      { sampleRate: RATE, bitrate: AAC_BIT_RATE },
+      { sampleRate: RATE, bitRates: AAC_BIT_RATES },
     );
+    const encodes = bitRate !== undefined;
+    test.info().annotations.push({
+      type: 'AAC',
+      description: encodes
+        ? `encoded by this browser at ${String(bitRate / 1_000)} kbit/s`
+        : 'offered as a format this browser cannot write',
+    });
 
     await chooseFromMenu(page, 'File', IMPORT_EXPORT_MENU.exportAudio);
     const dialog = page.getByRole('dialog', { name: EXPORT_DIALOG_WORDS.title });
     const aac = codecDescriptor('aac-lc').name;
+    const unwritable = 'AAC, which this browser cannot write';
+
+    await test.step(`AAC is offered as ${encodes ? 'a format this browser writes' : 'one it cannot write'}, as the browser's encoder answered`, async () => {
+      await dialog.getByRole('combobox', { name: 'Format' }).click();
+      const offered = page.getByRole('option', { name: AAC_OPTION });
+      await expect(offered).toHaveCount(1);
+      await expect(offered).toHaveAccessibleName(encodes ? 'AAC' : unwritable);
+      await page.keyboard.press('Escape');
+    });
 
     if (!encodes) {
       await test.step('AAC is offered as a format this browser cannot write, naming what can be', async () => {
-        await choose(page, dialog, 'Format', 'AAC, which this browser cannot write');
+        await choose(page, dialog, 'Format', unwritable);
         const why = dialog.locator('.ag-panel-note[data-ag-status="unavailable"]');
         await expect(why).toContainText(
           `Writing ${aac} needs the browser's own encoder, which this browser does not have.`,
@@ -451,10 +482,9 @@ test.describe('import and export', () => {
 
     await test.step('AAC is exported, imported again, and its frames are the source’s', async () => {
       await choose(page, dialog, 'Format', 'AAC');
-      // The rate the probe above asked for: an encoder takes only the rates it
-      // was built for, Chromium's on Windows 96 to 192 kbit/s for stereo.
+      // The rate the browser's encoder took above.
       await dialog.getByText(EXPORT_DIALOG_WORDS.everySetting, { exact: true }).click();
-      await dialog.getByRole('textbox', { name: 'Bit rate' }).fill(String(AAC_BIT_RATE / 1_000));
+      await dialog.getByRole('textbox', { name: 'Bit rate' }).fill(String(bitRate / 1_000));
       await choose(page, dialog, 'Deliver to', 'A folder you choose');
       await dialog.getByRole('button', { name: EXPORT_DIALOG_WORDS.start, exact: true }).click();
       await exported(page, `${PROJECT}.m4a`);

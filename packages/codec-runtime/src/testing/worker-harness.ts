@@ -79,6 +79,8 @@ export interface HarnessOptions {
   readonly probes?: Partial<CodecProbes>;
   readonly codecModule?: ModuleSource;
   readonly openExportEncoder?: OpenExportEncoder;
+  /** How chosen files are read: as files in memory where not given. */
+  readonly fileReader?: FileReaderSyncLike;
 }
 
 /** A configured core and everything it posted to the page. */
@@ -123,7 +125,7 @@ export async function workerHarness(options: HarnessOptions = {}): Promise<Harne
       }),
     platform,
     probe: () => Promise.resolve(probes),
-    fileReader: MEMORY_READER,
+    fileReader: options.fileReader ?? MEMORY_READER,
     openExportEncoder: options.openExportEncoder ?? NO_ENCODER,
     reportFault: (error) => {
       faults.push(error);

@@ -5,8 +5,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { KeyboardConvention } from '@audiogubbins/commands';
 import { NoticeProvider } from '@audiogubbins/design-system';
 
+import { ExportCommand, ImportCommand } from '../commands/import-export-ids.js';
 import { shellCommands } from '../commands/shell-commands.js';
+import { IMPORT_EXPORT_MENU } from '../import-export-words.js';
 import { buildLayoutStore } from '../testing/layout-store.js';
+import { projectWorld } from '../testing/project-context.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { CommandPalette } from './command-palette.js';
 
@@ -146,5 +149,50 @@ describe('the command palette', () => {
     fireEvent.click(entry);
     expect(onRun).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('reaches importing and exporting from the keyboard, each of the pair on its own chord', async () => {
+    // REQ-UX-005 by way of the packet: every import and export action has a
+    // keyboard form. Those that need an argument only a row can give, such as
+    // a region's export, are buttons on that row; these are the rest.
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const { context } = window;
+    const onRun = vi.fn();
+    renderInTheShell(
+      <CommandPalette
+        open
+        onClose={() => undefined}
+        commands={shellCommands(DESCRIPTORS)}
+        context={context}
+        profile={context.shortcuts.get().profile}
+        convention={context.convention}
+        layout={context.keyboardLayout.get()}
+        onRun={onRun}
+      />,
+    );
+    const field = screen.getByRole('combobox', { name: 'Search commands' });
+    const offered = (query: string, label: string): HTMLElement => {
+      fireEvent.change(field, { target: { value: query } });
+      return screen.getByRole('option', { name: new RegExp(`^${label}`, 'u') });
+    };
+
+    for (const [query, label] of [
+      ['import a folder', IMPORT_EXPORT_MENU.importFolder],
+      ['export every region', 'Export every region…'],
+      ['export the selection', 'Export the selection…'],
+    ] as const) {
+      expect(offered(query, label)).toBeInTheDocument();
+    }
+    const exporting = offered('export audio', IMPORT_EXPORT_MENU.exportAudio);
+    expect(exporting.id).toBe(`ag-palette-${ExportCommand.Audio}`);
+    expect(within(exporting).getByText('Ctrl+K, Ctrl+E')).toBeInTheDocument();
+
+    const importing = offered('import audio', IMPORT_EXPORT_MENU.importFiles);
+    expect(importing.id).toBe(`ag-palette-${ImportCommand.Files}`);
+    expect(within(importing).getByText('Ctrl+K, Ctrl+I')).toBeInTheDocument();
+    expect(field).toHaveAttribute('aria-activedescendant', importing.id);
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onRun).toHaveBeenCalledWith(ImportCommand.Files);
   });
 });

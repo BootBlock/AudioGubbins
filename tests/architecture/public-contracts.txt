@@ -6916,6 +6916,9 @@ Published paths
   readonly StagingServices.sha256: Sha256
   readonly StagingServices.nextToken: () => string
   readonly StagingServices.sharing: MediaSharing
+  interface StartUpCleaning
+  readonly StartUpCleaning.recovered: DomainResult<RecoveryReport>
+  readonly StartUpCleaning.staging: StagingCleared
   interface StepOutcome
   readonly StepOutcome.step: "cache" | "expired-backups" | "expired-history" | "model-packs" | "pack-downloads" | "set-aside-records" | "unfinished-projects" | "unreferenced-media"
   readonly StepOutcome.freed: number
@@ -6982,7 +6985,7 @@ Published paths
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
   function captureInto(started: RecordingFiles, stream: CaptureStream, observe: (progress: RecordingProgress) => void): Promise<CaptureEnded>
-  function clearStaging(tree: StorageTree, coordinator: LeaseCoordinator | undefined): Promise<Alone<void>>
+  function cleanAtStart(parts: StartUpParts): Promise<Alone<StartUpCleaning>>
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
   function decodingUnavailable(): DomainFailure
   function deliverStaged(session: ProjectSession, staging: ExportStaging, token: string, encoder: ExportCodec, destination: DeliveryDestination, services: DeliveryServices, signal?: AbortSignal | undefined): Promise<DomainResult<Delivery>>
@@ -7009,7 +7012,6 @@ Published paths
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
   function projectPackPins(tree: StorageTree, digest: Digest): PackPins
   function recordingInProgress(session: RecordingSessionId): DomainFailure
-  function recoverMediaStore(store: MediaObjectStore, coordinator: LeaseCoordinator | undefined): Promise<Alone<DomainResult<RecoveryReport>>>
   function recoverRecording(session: ProjectSession, id: RecordingSessionId, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
@@ -8346,6 +8348,8 @@ packages/browser-storage/src/testing/memory-indexed-db.ts
   MemoryTransaction.#request: (refusal: DOMException | undefined, work: () => unknown) => MemoryRequest<unknown>
 
 packages/codec-runtime/src/files/sync-file-bytes.ts
+  interface FileReaderSyncLike
+  FileReaderSyncLike.readAsArrayBuffer: (blob: BlobLike) => ArrayBuffer
   interface SyncAccessHandleLike
   SyncAccessHandleLike.getSize: () => number
   SyncAccessHandleLike.read: (buffer: Uint8Array, options: { readonly at: number; }) => number
@@ -8361,6 +8365,7 @@ packages/codec-runtime/src/testing/worker-harness.ts
   readonly HarnessOptions.probes?: Partial<CodecProbes>
   readonly HarnessOptions.codecModule?: ModuleSource
   readonly HarnessOptions.openExportEncoder?: OpenExportEncoder
+  readonly HarnessOptions.fileReader?: FileReaderSyncLike
 
 packages/codecs/src/aac-config.ts
   interface AacConfig
@@ -9677,6 +9682,13 @@ packages/storage/src/staging-paths.ts
   readonly StagedExportPaths.head: string
   readonly StagedExportPaths.body: string
   readonly StagedExportPaths.tail: string
+
+packages/storage/src/start-up-cleaning.ts
+  type StagingCleared = { readonly kind: "cleared"; } | { readonly kind: "failed"; readonly reason: TreeFailureKind; }
+  interface StartUpParts
+  readonly StartUpParts.store: MediaObjectStore
+  readonly StartUpParts.tree: StorageTree
+  readonly StartUpParts.coordinator?: LeaseCoordinator
 
 packages/storage/src/storage-layout.ts
   class BackupPaths

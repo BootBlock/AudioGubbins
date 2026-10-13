@@ -88,7 +88,7 @@ describe('the keyboard layout, as the application is wired', { timeout: 30_000 }
     // looked removed, and came back only once the user happened to type K.
     const waiting = screen.getByRole('group', { name: 'Waiting for your keyboard' });
     expect(waiting).toHaveTextContent(
-      '10 default shortcuts have no key yet: AudioGubbins has not seen where your keyboard types their character.',
+      '11 default shortcuts have no key yet: AudioGubbins has not seen where your keyboard types their character.',
     );
     const [row, ...rest] = within(waiting).getAllByRole('listitem');
     expect(rest).toEqual([]);
@@ -250,7 +250,7 @@ describe('the keyboard layout, as the application is wired', { timeout: 30_000 }
     // registry says while it asks.
     const waiting = screen.getByRole('group', { name: 'Waiting for your keyboard' });
     expect(within(waiting).getByText(/no key yet/).textContent).toBe(
-      '10 default shortcuts have no key yet: AudioGubbins has not seen where your keyboard types their character. Press the key named below once on its own, with Caps Lock off, anywhere in AudioGubbins, and they are placed.',
+      '11 default shortcuts have no key yet: AudioGubbins has not seen where your keyboard types their character. Press the key named below once on its own, with Caps Lock off, anywhere in AudioGubbins, and they are placed.',
     );
   });
 
