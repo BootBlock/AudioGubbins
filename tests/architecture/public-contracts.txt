@@ -906,7 +906,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37382: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37418: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1198,7 +1198,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37382: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37418: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1867,7 +1867,7 @@ Published paths
 
 @audiogubbins/codecs
   const AAC_LOWEST_BIT_RATE: 8
-  type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; readonly byteOrder: "big" | "little"; }
+  type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: number; readonly byteOrder: "big" | "little"; }
   interface AiffWriterSettings
   readonly AiffWriterSettings.container: "aifc" | "aiff"
   readonly AiffWriterSettings.sampleRate: SampleRate
@@ -1958,6 +1958,7 @@ Published paths
   interface EncodedStreamWriter<TEnd>
   EncodedStreamWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
   EncodedStreamWriter.finish: (end: TEnd) => DomainResult<FinishedEncodedStream>
+  const FLAC_DEPTHS: IntegerDepths
   interface FinishedAudioFile
   readonly FinishedAudioFile.head: Uint8Array<ArrayBufferLike>
   readonly FinishedAudioFile.tail: Uint8Array<ArrayBufferLike>
@@ -2022,6 +2023,9 @@ Published paths
   readonly ImaAdpcmEncoding.packing: "ima4" | "wav"
   readonly ImaAdpcmEncoding.framesPerBlock: number
   type ImportRoute = { readonly kind: "decode"; readonly container: ContainerId; readonly codec: CodecId | undefined; } | { readonly kind: "read-in-place"; readonly container: ReadableContainer; readonly codec: CodecId; } | { readonly kind: "refuse"; readonly failure: DomainFailure; }
+  interface IntegerDepths
+  readonly IntegerDepths.lowest: number
+  readonly IntegerDepths.highest: number
   interface IntegerSampleEncoding
   readonly IntegerSampleEncoding.kind: "integer"
   readonly IntegerSampleEncoding.bits: number
@@ -2135,6 +2139,7 @@ Published paths
   readonly OpusHeadSettings.inputRate: number
   readonly OpusHeadSettings.outputGain: number
   readonly OpusHeadSettings.mapping: OpusChannelMapping
+  const PCM_INTEGER_DEPTHS: IntegerDepths
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
   type RecognisedFormat = { readonly kind: "audio"; readonly container: ContainerId; readonly codec: StatedCodec; } | { readonly kind: "unknown"; }
   interface RecordedWavFormat
@@ -2156,7 +2161,7 @@ Published paths
   interface SyncAudioBytes
   readonly SyncAudioBytes.size: number
   SyncAudioBytes.readInto: (offset: number, into: Uint8Array) => number
-  type WavSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm" | "ms-adpcm"; } | { readonly kind: "integer"; readonly bits: 16 | 24 | 32 | 8; }
+  type WavSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm" | "ms-adpcm"; } | { readonly kind: "integer"; readonly bits: number; }
   interface WavWriterSettings
   readonly WavWriterSettings.form: "bw64" | "riff"
   readonly WavWriterSettings.sampleRate: SampleRate
@@ -2171,10 +2176,12 @@ Published paths
   function codecDescriptor(id: CodecId): CodecDescriptor
   function codecDescriptorIn(environment: Pick<CodecEnvironment, "browserBitRates">, codec: CodecId): CodecDescriptor
   function constantBitRates(direction: CodecDirection, stream: BitRateStream): readonly number[] | undefined
+  function containerBytes(bits: number): number
   function containerName(container: ContainerId): string
   function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
   function createWavWriter(settings: WavWriterSettings): DomainResult<OpenedFileWriter>
   function formatName(format: RecognisedFormat): string
+  function holdsDepth(depths: IntegerDepths, bits: number): boolean
   function importRoute(format: RecognisedFormat): ImportRoute
   function layoutRead(stated: ChannelLayout | undefined, channelCount: number): DomainResult<ChannelLayout>
   function metadataMapOf(value: unknown, field: string): MetadataMap
@@ -4194,7 +4201,7 @@ Published paths
   readonly ExportedFileRecord.size: number
   readonly ExportedFileRecord.hash: string
   interface FlacEncoding
-  readonly FlacEncoding.bits: 16 | 24 | 32
+  readonly FlacEncoding.bits: number
   readonly FlacEncoding.compressionLevel: number
   readonly FlacEncoding.keepRiffChunks: boolean
   interface FloatPcm
@@ -4232,7 +4239,7 @@ Published paths
   type ImportStage = "adding" | "analysing" | "copying" | "decoding" | "queued"
   interface IntegerPcm
   readonly IntegerPcm.kind: "integer"
-  readonly IntegerPcm.bits: 16 | 24 | 32 | 8
+  readonly IntegerPcm.bits: number
   interface ListedFileContent
   readonly ListedFileContent.size: number
   readonly ListedFileContent.hash: string

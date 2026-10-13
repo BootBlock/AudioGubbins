@@ -29,7 +29,7 @@ const DEEPEST_IN_FLOAT32 = 24;
 
 /** What a quantiser is made with. */
 export interface QuantiserSettings {
-  /** The integer depth, 8 to 32. */
+  /** The integer depth, 4 to 32. */
   readonly bits: number;
   readonly dither: DitherSettings;
 

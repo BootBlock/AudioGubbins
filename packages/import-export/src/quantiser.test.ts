@@ -74,7 +74,8 @@ function powerAt(error: Float64Array, hertz: number): number {
 
 describe('quantisation', () => {
   it('gives values each exactly k / 2^(bits-1), the integer quantiseSample gives back', () => {
-    for (const bits of [8, 16, 24, 32]) {
+    // FLAC's 4 bits to 32: every depth an export quantises to.
+    for (let bits = 4; bits <= 32; bits += 1) {
       const scale = 2 ** (bits - 1);
       for (const dither of [{ kind: 'none' } as const, triangular(), triangular('first-order')]) {
         for (const value of quantised(dither, signal(512), { bits })[0] ?? []) {

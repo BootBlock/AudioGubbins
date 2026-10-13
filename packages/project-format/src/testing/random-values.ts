@@ -534,13 +534,13 @@ export function randomExportSettings(random: Random): ExportSettings {
     fileName: '{project} {index}',
   };
   return random.pick<ExportSettings>([
-    { ...common, format: 'wav', encoding: { kind: 'integer', bits: 24 } },
+    { ...common, format: 'wav', encoding: { kind: 'integer', bits: 8 + random.below(25) } },
     { ...common, format: 'aifc', encoding: { kind: 'float', bits: 32 } },
     {
       ...common,
       format: 'flac',
       encoding: {
-        bits: 16,
+        bits: 4 + random.below(29),
         compressionLevel: random.below(9),
         keepRiffChunks: random.chance(0.5),
       },

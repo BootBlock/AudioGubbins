@@ -121,7 +121,12 @@ describe('export settings as JSON (ADR-0092)', () => {
 
   it('refuse a depth, a duration or a member no type allows', () => {
     const wav = writeExportSettings(COMMON_WAV);
-    expect(read(withValue(wav, ['encoding', 'bits'], 20))).toEqual(['schema.unknown-value']);
+    const float = writeExportSettings({
+      ...COMMON,
+      format: 'wav',
+      encoding: { kind: 'float', bits: 32 },
+    });
+    expect(read(withValue(float, ['encoding', 'bits'], 48))).toEqual(['schema.unknown-value']);
     const opus = writeExportSettings(EVERY_FORMAT[10] ?? COMMON_WAV);
     expect(read(withValue(opus, ['encoding', 'frameDuration'], 30))).toEqual([
       'schema.unknown-value',
@@ -136,6 +141,22 @@ describe('export settings as JSON (ADR-0092)', () => {
       'schema.unknown-value',
     ]);
     expect(read(withValue(wav, ['extra'], true))).toEqual(['schema.unknown-member']);
+  });
+
+  it('read every integer depth as typed, and leave whether a format holds it to validation', () => {
+    const wav = writeExportSettings(COMMON_WAV);
+    const flac = writeExportSettings(EVERY_FORMAT[5] ?? COMMON_WAV);
+    for (const bits of [12, 20, 31, 40]) {
+      expect(read(withValue(wav, ['encoding', 'bits'], bits))).toEqual({
+        ...COMMON_WAV,
+        encoding: { kind: 'integer', bits },
+      });
+      expect(read(withValue(flac, ['encoding', 'bits'], bits))).toMatchObject({
+        format: 'flac',
+        encoding: { bits },
+      });
+    }
+    expect(read(withValue(wav, ['encoding', 'bits'], '20'))).toEqual(['schema.not-a-number']);
   });
 
   it('refuse a FLAC encoding that does not say, as a boolean, whether it keeps the WAV chunks', () => {

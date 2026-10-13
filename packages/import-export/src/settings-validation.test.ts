@@ -182,6 +182,21 @@ describe("validating each format's encoding", () => {
       { format: 'aac', encoding: { bitRate: 577 } },
     ],
     ['an AAC bit rate below 8', { format: 'aac', encoding: { bitRate: 7 } }],
+    ['a WAV depth short of 8 bits', { format: 'wav', encoding: { kind: 'integer', bits: 7 } }],
+    ['a WAV depth past 32 bits', { format: 'wav', encoding: { kind: 'integer', bits: 33 } }],
+    [
+      'an AIFF depth of part of a bit',
+      { format: 'aiff', encoding: { kind: 'integer', bits: 20.5 } },
+    ],
+    ['an AIFF-C depth short of 8 bits', { format: 'aifc', encoding: { kind: 'integer', bits: 4 } }],
+    [
+      'a FLAC depth short of 4 bits',
+      { format: 'flac', encoding: { bits: 3, compressionLevel: 5, keepRiffChunks: false } },
+    ],
+    [
+      'a FLAC depth past 32 bits',
+      { format: 'flac', encoding: { bits: 33, compressionLevel: 5, keepRiffChunks: false } },
+    ],
   ] as const)('refuses %s', (_name, choice) => {
     const settings = { ...defaultExportSettings(choice.format, CONTEXT), ...choice } as const;
     expect(checked(settings as ExportSettings)).toEqual(['import-export.encoding-invalid']);
@@ -218,6 +233,25 @@ describe("validating each format's encoding", () => {
   ] as const)('takes %s', (_name, choice) => {
     const settings = { ...defaultExportSettings(choice.format, CONTEXT), ...choice } as const;
     expect(checked(settings as ExportSettings)).toEqual([]);
+  });
+
+  it('takes every whole integer depth WAV, AIFF and AIFF-C hold, 8 to 32 bits, and FLAC, 4 to 32', () => {
+    for (let bits = 8; bits <= 32; bits += 1) {
+      for (const format of ['wav', 'aiff', 'aifc'] as const) {
+        const settings = {
+          ...defaultExportSettings(format, CONTEXT),
+          encoding: { kind: 'integer', bits },
+        } as const;
+        expect(checked(settings)).toEqual([]);
+      }
+    }
+    for (let bits = 4; bits <= 32; bits += 1) {
+      const settings = {
+        ...defaultExportSettings('flac', CONTEXT),
+        encoding: { bits, compressionLevel: 5, keepRiffChunks: false },
+      } as const;
+      expect(checked(settings)).toEqual([]);
+    }
   });
 
   it("holds MP3's bit rate to the encoder's table at the rate, before rendering", () => {

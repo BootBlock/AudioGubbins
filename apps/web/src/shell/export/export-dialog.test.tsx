@@ -161,6 +161,36 @@ describe('the Export dialog', () => {
     expect(settingsOf(dialog).settings.encoding).toEqual({ mode: 'variable', quality: 0 });
   });
 
+  it('takes any integer depth typed, and says why one no format holds cannot be exported', async () => {
+    const { dialog } = shown();
+    await userEvent.click(screen.getByText('Every setting'));
+    await choose('Samples', 'Integer');
+
+    const depth = screen.getByRole('textbox', { name: 'Bit depth' });
+    expect(depth).toHaveAccessibleDescription('In bits. Any whole number from 8 to 32.');
+    await userEvent.clear(depth);
+    await userEvent.type(depth, '20');
+    expect(settingsOf(dialog).settings.encoding).toEqual({ kind: 'integer', bits: 20 });
+    expect(screen.getByText(/WAV, 20-bit integer at 48 kHz/u)).toBeVisible();
+
+    await userEvent.clear(depth);
+    await userEvent.type(depth, '40');
+    expect(settingsOf(dialog).settings.encoding).toEqual({ kind: 'integer', bits: 40 });
+    const reasons = screen.getByRole('list', { name: 'Why this cannot be exported yet' });
+    expect(
+      within(reasons).getByText(
+        'WAV takes integer samples of a whole number of bits from 8 to 32.',
+      ),
+    ).toBeVisible();
+
+    await choose('Format', 'FLAC');
+    const flacDepth = screen.getByRole('textbox', { name: 'Bit depth' });
+    expect(flacDepth).toHaveAccessibleDescription('In bits. Any whole number from 4 to 32.');
+    await userEvent.clear(flacDepth);
+    await userEvent.type(flacDepth, '12');
+    expect(settingsOf(dialog).settings.encoding).toMatchObject({ bits: 12 });
+  });
+
   it('says what the export will do, and every reason it cannot as the settings change', async () => {
     const { dialog } = shown();
     expect(

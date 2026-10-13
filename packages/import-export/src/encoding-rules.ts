@@ -12,23 +12,30 @@
  * (ISO/IEC 14496-3, `aac-bit-rates.ts` in the codecs); Opus codes 6 kbit/s and
  * up, to 255 kbit/s a channel, 510 for a stereo pair (RFC 6716); libvorbis's
  * quality runs from -1 to 10, LAME's variable quality from 0 to 9 and FLAC's
- * compression levels from 0 to 8. A value outside is refused, never replaced by
- * the nearest the encoder would choose.
+ * compression levels from 0 to 8; integer PCM in WAV, AIFF and AIFF-C is of
+ * every whole depth from 8 to 32 bits, and FLAC of every one from 4 to 32
+ * (`integer-depths.ts` in the codecs). A value outside is refused, never
+ * replaced by the nearest the encoder would choose.
  */
 
 import {
   AAC_LOWEST_BIT_RATE,
+  FLAC_DEPTHS,
+  PCM_INTEGER_DEPTHS,
   aacHighestBitRate,
   averageBitRateRanges,
   constantBitRates,
+  holdsDepth,
   takesAverageBitRate,
   type BitRateBand,
   type CodecDirection,
+  type IntegerDepths,
 } from '@audiogubbins/codecs';
 import type { DomainFailure, SampleRate } from '@audiogubbins/domain';
 
 import type {
   AacEncoding,
+  AifcEncoding,
   ExportFormat,
   FlacEncoding,
   FormatEncoding,
@@ -37,6 +44,7 @@ import type {
   Mp3Encoding,
   OpusEncoding,
   VorbisEncoding,
+  WavEncoding,
 } from './export-settings.js';
 import { bitRatesWords, either } from './bit-rate-words.js';
 import { refusal } from './refusal.js';
@@ -117,10 +125,37 @@ function mp3Rule(encoding: Mp3Encoding, facts: EncodingFacts): readonly DomainFa
     : [invalid('bitRate', `${what} codes at one of ${rates.join(', ')} kbit/s.`)];
 }
 
-function flacRule(encoding: FlacEncoding): readonly DomainFailure[] {
-  return wholeWithin(encoding.compressionLevel, 0, 8)
+/** Why `bits` is refused as the depth of `format`'s integer samples, or nothing. */
+function depthProblems(
+  format: string,
+  depths: IntegerDepths,
+  bits: number,
+): readonly DomainFailure[] {
+  return holdsDepth(depths, bits)
     ? []
-    : [invalid('compressionLevel', 'FLAC takes a compression level from 0 to 8.')];
+    : [
+        invalid(
+          'bits',
+          `${format} takes integer samples of a whole number of bits from ${String(depths.lowest)} to ${String(depths.highest)}.`,
+        ),
+      ];
+}
+
+/** The rule of a WAV, AIFF or AIFF-C encoding: an integer depth it holds; its other kinds are whole by their type. */
+function pcmRule(
+  format: string,
+): (encoding: WavEncoding | AifcEncoding) => readonly DomainFailure[] {
+  return (encoding) =>
+    encoding.kind === 'integer' ? depthProblems(format, PCM_INTEGER_DEPTHS, encoding.bits) : [];
+}
+
+function flacRule(encoding: FlacEncoding): readonly DomainFailure[] {
+  return [
+    ...depthProblems('FLAC', FLAC_DEPTHS, encoding.bits),
+    ...(wholeWithin(encoding.compressionLevel, 0, 8)
+      ? []
+      : [invalid('compressionLevel', 'FLAC takes a compression level from 0 to 8.')]),
+  ];
 }
 
 function vorbisRule(encoding: VorbisEncoding, facts: EncodingFacts): readonly DomainFailure[] {
@@ -219,13 +254,10 @@ function aacRule(encoding: AacEncoding, facts: EncodingFacts): readonly DomainFa
   ];
 }
 
-/** PCM's encodings are whole by their type; the descriptor decides their rates and channels. */
-const NO_RULE = (): readonly DomainFailure[] => [];
-
 const RULES: { readonly [F in ExportFormat]: EncodingRule<F> } = {
-  wav: NO_RULE,
-  aiff: NO_RULE,
-  aifc: NO_RULE,
+  wav: pcmRule('WAV'),
+  aiff: pcmRule('AIFF'),
+  aifc: pcmRule('AIFF-C'),
   flac: flacRule,
   mp3: mp3Rule,
   'ogg-vorbis': vorbisRule,

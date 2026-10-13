@@ -16,7 +16,7 @@
  * UTF-8 takes for one UTF-16 unit.
  */
 
-import type { MetadataMap } from '@audiogubbins/codecs';
+import { containerBytes, type MetadataMap } from '@audiogubbins/codecs';
 import { channelCount, type ChannelLayout } from '@audiogubbins/domain';
 import type { ExportSettings } from '@audiogubbins/import-export';
 
@@ -94,11 +94,13 @@ function metadataBytes(map: MetadataMap): number {
   );
 }
 
-/** The bits each sample of an uncompressed or companded encoding takes. */
+/** The bits each sample of an uncompressed or companded encoding takes in the file. */
 function pcmBits(settings: Extract<ExportSettings, { format: 'wav' | 'aiff' | 'aifc' }>): number {
   const { encoding } = settings;
   switch (encoding.kind) {
+    // An integer sample fills the whole bytes its depth needs, a 20-bit one three.
     case 'integer':
+      return containerBytes(encoding.bits) * 8;
     case 'float':
       return encoding.bits;
     // Companded and ADPCM samples take a byte or less, with their block headers.

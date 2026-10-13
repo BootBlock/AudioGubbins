@@ -3,20 +3,21 @@
  * WAV's and AIFF-C's kinds of sample and depths, AIFF's depths, and FLAC's
  * depth, compression level and whether it keeps the WAV chunks of loops, cues
  * and tuning, each a row of the table of formats.
+ *
+ * An integer depth is typed, not chosen: WAV, AIFF and AIFF-C hold every whole
+ * depth from 8 to 32 bits and FLAC every one from 4, too many for a list to be
+ * read through, and a typed depth no format holds is refused with its reason
+ * beside the export, as a typed bit rate is.
  */
 
 import type { ReactNode } from 'react';
 
-import type {
-  AifcEncoding,
-  FlacEncoding,
-  FloatPcm,
-  IntegerPcm,
-  WavEncoding,
-} from '@audiogubbins/import-export';
+import { FLAC_DEPTHS, PCM_INTEGER_DEPTHS, type IntegerDepths } from '@audiogubbins/codecs';
+import type { AifcEncoding, FloatPcm, WavEncoding } from '@audiogubbins/import-export';
 
 import {
   ChoiceField,
+  NumberField,
   numberChoices,
   wholeNumbers,
   type Choice,
@@ -35,8 +36,6 @@ const PCM_KIND_NAMES: Readonly<Record<PcmKind, string>> = {
   'ms-adpcm': 'Microsoft ADPCM',
 };
 
-const INTEGER_BITS: readonly IntegerPcm['bits'][] = [8, 16, 24, 32];
-
 /**
  * Where a FLAC file keeps its loops, cues and tuning: the Vorbis comments hold
  * the first loop alone, and the WAV chunks in `riff` blocks hold them all.
@@ -46,6 +45,27 @@ const RIFF_CHUNK_CHOICES: readonly Choice<boolean>[] = [
   { value: true, label: 'Every one, also as WAV chunks' },
 ];
 const FLOAT_BITS: readonly FloatPcm['bits'][] = [32, 64];
+
+/** An integer depth, typed: any whole number of bits in `depths`. */
+function DepthField({
+  bits,
+  depths,
+  onBits,
+}: {
+  readonly bits: number;
+  readonly depths: IntegerDepths;
+  readonly onBits: (bits: number) => void;
+}): ReactNode {
+  return (
+    <NumberField
+      label="Bit depth"
+      unit="bits"
+      description={`Any whole number from ${String(depths.lowest)} to ${String(depths.highest)}.`}
+      value={bits}
+      onNumber={onBits}
+    />
+  );
+}
 
 /** The encoding of `kind` a choice of it gives, at the depth held where the kind has that depth. */
 function pcmOf(kind: PcmKind, held: WavEncoding): WavEncoding {
@@ -80,11 +100,10 @@ function PcmControls({
         }}
       />
       {encoding.kind === 'integer' && (
-        <ChoiceField
-          label="Bit depth"
-          value={encoding.bits}
-          choices={numberChoices(INTEGER_BITS, bitsName)}
-          onChoose={(bits) => {
+        <DepthField
+          bits={encoding.bits}
+          depths={PCM_INTEGER_DEPTHS}
+          onBits={(bits) => {
             onEncoding({ kind: 'integer', bits });
           }}
         />
@@ -122,7 +141,6 @@ const WAV_KINDS: readonly WavEncoding['kind'][] = [
   'ms-adpcm',
 ];
 const AIFC_KINDS: readonly PcmKind[] = ['integer', 'float', 'a-law', 'mu-law', 'ima-adpcm'];
-const FLAC_BITS: readonly FlacEncoding['bits'][] = [16, 24, 32];
 
 /** The rows of the uncompressed and lossless formats. */
 export const PCM_ROWS: Pick<EncodingRows, 'wav' | 'aiff' | 'aifc' | 'flac'> = {
@@ -130,11 +148,10 @@ export const PCM_ROWS: Pick<EncodingRows, 'wav' | 'aiff' | 'aifc' | 'flac'> = {
     <PcmControls encoding={settings.encoding} kinds={WAV_KINDS} onEncoding={onEncoding} />
   ),
   aiff: ({ settings, onEncoding }) => (
-    <ChoiceField
-      label="Bit depth"
-      value={settings.encoding.bits}
-      choices={numberChoices(INTEGER_BITS, bitsName)}
-      onChoose={(bits) => {
+    <DepthField
+      bits={settings.encoding.bits}
+      depths={PCM_INTEGER_DEPTHS}
+      onBits={(bits) => {
         onEncoding({ kind: 'integer', bits });
       }}
     />
@@ -150,11 +167,10 @@ export const PCM_ROWS: Pick<EncodingRows, 'wav' | 'aiff' | 'aifc' | 'flac'> = {
   ),
   flac: ({ settings, onEncoding }) => (
     <>
-      <ChoiceField
-        label="Bit depth"
-        value={settings.encoding.bits}
-        choices={numberChoices(FLAC_BITS, bitsName)}
-        onChoose={(bits) => {
+      <DepthField
+        bits={settings.encoding.bits}
+        depths={FLAC_DEPTHS}
+        onBits={(bits) => {
           onEncoding({ ...settings.encoding, bits });
         }}
       />

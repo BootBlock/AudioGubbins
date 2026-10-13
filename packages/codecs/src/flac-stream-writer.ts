@@ -24,6 +24,7 @@ import {
 } from './flac-metadata-blocks.js';
 import type { FlacSampleDigest } from './flac-sample-digest.js';
 import { invalidEncodedStream, unwritableStream, writerEnded } from './framing-failures.js';
+import { FLAC_DEPTHS, holdsDepth } from './integer-depths.js';
 
 /** What a FLAC file states beyond its frames. */
 export interface FlacStreamSettings extends FlacStreamFormat, FlacMetadataSettings {
@@ -44,7 +45,8 @@ function settingsProblem(settings: FlacStreamSettings): string | undefined {
   if (!inRange(settings.sampleRate, 1, 0xfffff))
     return 'A FLAC sample rate must be 1 to 1,048,575 Hz.';
   if (!inRange(settings.channels, 1, 8)) return 'A FLAC stream holds one to eight channels.';
-  if (!inRange(settings.bitsPerSample, 4, 32)) return 'A FLAC sample is 4 to 32 bits.';
+  if (!holdsDepth(FLAC_DEPTHS, settings.bitsPerSample))
+    return `A FLAC sample is ${String(FLAC_DEPTHS.lowest)} to ${String(FLAC_DEPTHS.highest)} bits.`;
   if (!inRange(settings.blockSize, 16, 0xffff)) return 'A FLAC block is 16 to 65,535 samples.';
   return undefined;
 }

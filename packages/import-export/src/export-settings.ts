@@ -19,10 +19,14 @@ import type { MetadataTextKey } from '@audiogubbins/codecs';
 /** The formats AudioGubbins exports. */
 export type ExportFormat = 'wav' | 'aiff' | 'aifc' | 'flac' | 'mp3' | 'ogg-vorbis' | 'opus' | 'aac';
 
-/** Integer PCM of a whole number of bytes. */
+/**
+ * Integer PCM of `bits` bits, any whole depth from 8 to 32, each sample in the
+ * next whole byte (`PCM_INTEGER_DEPTHS` in the codecs). A depth outside is
+ * kept as asked and refused by validation, never rounded to one.
+ */
 export interface IntegerPcm {
   readonly kind: 'integer';
-  readonly bits: 8 | 16 | 24 | 32;
+  readonly bits: number;
 }
 
 /** IEEE-754 floating-point PCM. */
@@ -47,13 +51,14 @@ export type AifcEncoding =
   IntegerPcm | FloatPcm | { readonly kind: 'a-law' | 'mu-law' | 'ima-adpcm' };
 
 /**
- * FLAC: the depth of its integer samples, how hard the encoder works, 0 to 8,
- * and whether the WAV chunks of the file's loops, cues and tuning (`smpl` and
+ * FLAC: the depth of its integer samples, any whole depth from 4 to 32
+ * (`FLAC_DEPTHS` in the codecs), how hard the encoder works, 0 to 8, and
+ * whether the WAV chunks of the file's loops, cues and tuning (`smpl` and
  * `cue `) are kept in `APPLICATION` `riff` blocks beside the Vorbis comments,
  * which hold the first loop alone and no cue or tuning (ADR-0093).
  */
 export interface FlacEncoding {
-  readonly bits: 16 | 24 | 32;
+  readonly bits: number;
   readonly compressionLevel: number;
   readonly keepRiffChunks: boolean;
 }

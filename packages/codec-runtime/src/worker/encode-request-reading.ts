@@ -58,17 +58,15 @@ const FORMATS: readonly ExportFormat[] = [
   'opus',
   'aac',
 ];
-const INTEGER_BITS = [8, 16, 24, 32] as const;
 const FLOAT_BITS = [32, 64] as const;
 const WAV_CODES = ['a-law', 'mu-law', 'ima-adpcm', 'ms-adpcm'] as const;
 const AIFC_CODES = ['a-law', 'mu-law', 'ima-adpcm'] as const;
-const FLAC_BITS = [16, 24, 32] as const;
 const OPUS_APPLICATIONS = ['audio', 'voip', 'restricted-low-delay'] as const;
 const OPUS_DURATIONS = [2.5, 5, 10, 20, 40, 60] as const;
 const SHAPINGS = ['none', 'first-order', 'lipshitz-e-weighted'] as const;
 
 function integerPcmOf(fields: MessageFields, field: string): IntegerPcm {
-  return { kind: 'integer', bits: oneOfList(fields['bits'], `${field}.bits`, INTEGER_BITS) };
+  return { kind: 'integer', bits: numberOf(fields['bits'], `${field}.bits`) };
 }
 
 /** A PCM encoding of WAV or AIFF-C: integer, float, or one of `codes`. */
@@ -96,7 +94,7 @@ function aifcOf(value: unknown, field: string): AifcEncoding {
 function flacOf(value: unknown, field: string): FlacEncoding {
   const fields = fieldsOf(value, field);
   return {
-    bits: oneOfList(fields['bits'], `${field}.bits`, FLAC_BITS),
+    bits: numberOf(fields['bits'], `${field}.bits`),
     compressionLevel: numberOf(fields['compressionLevel'], `${field}.compressionLevel`),
     keepRiffChunks: flagOf(fields['keepRiffChunks'], `${field}.keepRiffChunks`),
   };
@@ -173,7 +171,7 @@ function targetOf(value: unknown, field: string): ExportTarget {
     codec: codecOf(fields['codec'], `${field}.codec`),
     container: containerOf(fields['container'], `${field}.container`),
     extension: textOf(fields['extension'], `${field}.extension`),
-    depth: depth === undefined ? undefined : oneOfList(depth, `${field}.depth`, INTEGER_BITS),
+    depth: depth === undefined ? undefined : numberOf(depth, `${field}.depth`),
   };
 }
 

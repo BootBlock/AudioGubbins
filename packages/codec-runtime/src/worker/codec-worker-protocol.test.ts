@@ -108,7 +108,7 @@ describe('the codec worker’s messages', () => {
             ...ENCODE,
             encoding: {
               format: 'flac',
-              encoding: { bits: 20, compressionLevel: 5, keepRiffChunks: false },
+              encoding: { bits: '20', compressionLevel: 5, keepRiffChunks: false },
             },
           },
           rendered: port1,

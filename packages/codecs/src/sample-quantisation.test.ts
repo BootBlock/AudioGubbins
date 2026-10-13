@@ -4,7 +4,7 @@ import { quantiseSample } from './sample-quantisation.js';
 
 describe('quantiseSample', () => {
   it('gives back every integer of a depth from the value it reads as', () => {
-    for (const bits of [8, 16, 24, 32]) {
+    for (let bits = 4; bits <= 32; bits += 1) {
       const scale = 2 ** (bits - 1);
       for (const integer of [-scale, -scale + 1, -1, 0, 1, scale - 2, scale - 1]) {
         expect(quantiseSample(integer / scale, bits)).toBe(integer);
