@@ -33,6 +33,9 @@
       "path": "../../packages/history"
     },
     {
+      "path": "../../packages/import-export"
+    },
+    {
       "path": "../../packages/media-store"
     },
     {

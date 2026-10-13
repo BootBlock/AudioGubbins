@@ -6,6 +6,8 @@ import type { PageFile } from '@audiogubbins/storage-runtime';
 import { sine, wavFile } from '@audiogubbins/test-fixtures';
 
 import { regionEntryId } from '../assets/project-entry.js';
+import { EXPORT_BUTTON } from '../import-export-words.js';
+import { ScriptedExportControl } from '../testing/scripted-export-control.js';
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { AssetBrowserPanel } from './asset-browser.js';
@@ -15,7 +17,9 @@ holdPlatformFiles();
 /** The labels of the import commands, as the shell's registry gives them. */
 const LABELS: Readonly<Record<string, string>> = {
   'file.import-audio': 'Import audio…',
+  'file.import-audio-folder': 'Import a folder of audio…',
   'file.cancel-import': 'Cancel the import',
+  'file.clear-imports': 'Clear the list of files imported',
 };
 
 /**
@@ -75,7 +79,25 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
       within(regions)
         .getAllByRole('button')
         .map((one) => one.textContent),
-    ).toEqual(['Intro', 'Chorus']);
+    ).toEqual(['Intro', EXPORT_BUTTON, 'Chorus', EXPORT_BUTTON]);
+  });
+
+  it('opens the Export dialog over a region from its row', async () => {
+    const audio = await windowWithAudio({
+      exports: new ScriptedExportControl(),
+      regions: [{ name: 'Intro', start: 0, end: 48_000 }],
+    });
+    const { list } = browserOver(audio.window);
+    const regions = await within(list()).findByRole('list', { name: 'Regions of Loop' });
+    const [intro] = audio.session.getSnapshot().model.state.project.regions.values();
+
+    await userEvent.click(within(regions).getByRole('button', { name: EXPORT_BUTTON }));
+
+    const dialog = audio.window.projects.exportDialog.get();
+    expect(dialog.kind === 'open' ? dialog.settings.range : undefined).toEqual({
+      kind: 'region',
+      region: intro?.id,
+    });
   });
 
   it('opens the region pressed in the editor in use, and marks it as the one shown', async () => {
@@ -137,14 +159,14 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     await window.runAndHear('file.create-project', { name: 'Harbour' });
     const { ran } = browserOver(window);
     expect(
-      screen.getByText('This project has no audio yet. Import a WAV or AIFF file to add some.'),
+      screen.getByText('This project has no audio yet. Import audio files to add some.'),
     ).toBeInTheDocument();
-    window.files.mediaFiles.push(chosenWav());
+    window.files.mediaBatches.push([chosenWav()]);
     const control = screen.getByRole('button', { name: 'Import audio…' });
     control.focus();
 
     const heard = window.runAndHear('file.import-audio');
-    expect(await screen.findByText('Importing “Harbour.wav”…')).toHaveAttribute('role', 'status');
+    expect(await screen.findByText('Importing 1 file.')).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: 'Cancel the import' })).toBe(control);
     expect(control).toHaveFocus();
     // The command it runs is held to keeping nothing by its own tests; whether
@@ -155,7 +177,15 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     await heard;
     expect(await screen.findByRole('button', { name: 'Import audio…' })).toBe(control);
     expect(control).toHaveFocus();
+    // The import stays listed, with what it came to, until the list is cleared.
+    expect(screen.getByRole('status').textContent).toMatch(/^The import ended: /u);
+    // Pressed, the button leaves the page, and its focus goes to the import button.
+    const clear = screen.getByRole('button', { name: 'Clear the list of files imported' });
+    clear.focus();
+    fireEvent.click(clear);
+    expect(ran).toContain('file.clear-imports');
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(control).toHaveFocus();
   });
 
   it('offers the import once a project opens, following the project as its command does', async () => {

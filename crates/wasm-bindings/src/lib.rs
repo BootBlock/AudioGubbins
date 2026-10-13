@@ -21,7 +21,6 @@
 #![allow(unsafe_code)]
 
 mod analysis;
-mod table;
 
 use std::cell::RefCell;
 
@@ -31,7 +30,7 @@ use audiogubbins_dsp_core::{
 };
 use audiogubbins_resampling::{ResamplingQuality, StreamingResampler};
 
-use table::{Pair, Table};
+use audiogubbins_handle_table::{Pair, Table};
 
 /// The ABI's version. The TypeScript side refuses a module of another.
 ///

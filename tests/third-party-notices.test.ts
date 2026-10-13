@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { lockedPackagesOf, readLockfileDocuments } from '../tools/read-pnpm-lockfile.mjs';
@@ -7,6 +7,7 @@ import {
   ALLOWED_LICENCES,
   LICENCE_TEXTS,
   PORTED_CODE,
+  VENDORED_LIBRARIES,
   type CargoMetadata,
   decideLicence,
   linkedCratesOf,
@@ -14,7 +15,11 @@ import {
   portedNoticesOf,
   renderNotices,
   type PackageSource,
+  vendoredCrateFolder,
+  vendoredNoticesOf,
 } from '../tools/sync-third-party-notices.mjs';
+import { MP3_MODULE, VORBIS_MODULE } from '../tools/build-wasm.mjs';
+import { ZIG_SOURCE, ZIG_VERSION } from '../tools/zig-toolchain.mjs';
 import { inRepository } from './repository.js';
 
 /**
@@ -261,6 +266,22 @@ describe('which packages ship', () => {
       'linked',
       'transitive',
     ]);
+    // A third party's crate vendored and patched in has no source, and is still listed.
+    const patched = (one: { readonly name: string }) => one.name === 'core';
+    expect(linkedCratesOf(metadata, 'bindings', patched).map(({ name }) => name)).toEqual([
+      'core',
+      'linked',
+      'transitive',
+    ]);
+  });
+
+  it('knows a crate vendored under third_party/ by its folder, and no other', () => {
+    expect(vendoredCrateFolder('third_party/decoder/crate/Cargo.toml')).toBe('third_party/decoder');
+    expect(vendoredCrateFolder('third_party\\decoder\\crate\\Cargo.toml')).toBe(
+      'third_party/decoder',
+    );
+    expect(vendoredCrateFolder('crates/codecs/Cargo.toml')).toBeUndefined();
+    expect(vendoredCrateFolder('third_party/decoder/Cargo.toml')).toBeUndefined();
   });
 });
 
@@ -309,6 +330,19 @@ describe('what the licence of a shipped package permits', () => {
     });
   });
 
+  it('refuses a package under a licence that asks its source be offered, unless its source is known', () => {
+    const mpl = { name: 'decoder', version: '0.6.1', licence: 'MPL-2.0', files: [] };
+    expect(noticeOf(mpl, standardText)).toEqual({
+      refused:
+        'decoder 0.6.1 is licensed MPL-2.0, which asks that its source be offered, and states none',
+    });
+    const source = 'https://crates.io/crates/decoder/0.6.1';
+    expect(noticeOf({ ...mpl, source }, standardText)).toMatchObject({ notice: { source } });
+    // A licence that asks nothing of the kind keeps no source.
+    const notice = noticeOf({ ...mpl, licence: 'MIT', source }, standardText);
+    expect('notice' in notice && 'source' in notice.notice).toBe(false);
+  });
+
   it('holds the standard text of every allowed licence, and of no other', () => {
     expect(
       readdirSync(LICENCE_TEXTS)
@@ -321,6 +355,37 @@ describe('what the licence of a shipped package permits', () => {
 describe('the notices file', () => {
   /** The notices of the fixture's packages a licence allows. */
   const allowed = () => decide(LOCKFILE).flatMap((one) => ('notice' in one ? [one.notice] : []));
+
+  it('says where the source of each package under the Mozilla Public License is, and of no other', () => {
+    const source = 'https://crates.io/crates/decoder/0.6.1';
+    const decided = noticeOf(
+      { name: 'decoder', version: '0.6.1', licence: 'MPL-2.0', files: [], source },
+      standardText,
+    );
+    const mpl = 'notice' in decided ? [decided.notice] : [];
+    expect(renderNotices([...allowed(), ...mpl])).toContain(`- decoder 0.6.1: <${source}>`);
+    expect(renderNotices(allowed())).not.toContain('Mozilla Public License');
+  });
+
+  it('says a package is modified, where the copy shipped is, and where its unmodified source is', () => {
+    const source = 'https://crates.io/crates/decoder/0.6.1';
+    const decided = noticeOf(
+      {
+        name: 'decoder',
+        version: '0.6.1',
+        licence: 'MPL-2.0',
+        files: [],
+        source,
+        modified: 'third_party/decoder',
+      },
+      standardText,
+    );
+    expect(decided).toMatchObject({ notice: { modified: 'third_party/decoder' } });
+    const rendered = renderNotices('notice' in decided ? [decided.notice] : []);
+    expect(rendered).toContain(
+      `- decoder 0.6.1, modified: the files as shipped are in this repository at \`third_party/decoder\`, whose README.md states each change and why; the unmodified source is <${source}>`,
+    );
+  });
 
   it('writes a text two packages share once, naming both', () => {
     const rendered = renderNotices(allowed());
@@ -430,6 +495,135 @@ describe('the notices of ported code', () => {
       (path) => existsSync(inRepository(path)),
       (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
     );
+
+    expect('refused' in decided ? decided.refused : []).toEqual([]);
+  });
+});
+
+describe('the notices of the libraries built into the encoder modules', () => {
+  /** A vendored library as the list writes one, which every case changes one field of. */
+  const LIBRARY = {
+    project: 'Encoder',
+    version: '3.1',
+    licence: 'LGPL-2.0-or-later',
+    copyright: ['Copyright (c) 2000 Example Authors'],
+    directory: 'third_party/encoder',
+    licenceFiles: ['COPYING'],
+    origin: 'https://example.com/encoder-3.1.tar.gz',
+    sha256: 'a'.repeat(64),
+    modules: ['audiogubbins-encoder.wasm'],
+  };
+  /** A runtime library the compiler links, as the list writes one. */
+  const RUNTIME = {
+    project: 'Runtime',
+    version: '1.0',
+    licence: 'MIT',
+    copyright: ['Copyright (c) Compiler contributors'],
+    bundledBy: 'Compiler 1.0',
+    origin: 'https://example.com/compiler-1.0.tar.xz',
+    sha256: 'b'.repeat(64),
+    modules: ['audiogubbins-encoder.wasm'],
+  };
+  /** The vendored folder's files: its licence and the README that records its archive. */
+  const FILES: Readonly<Record<string, string>> = {
+    'third_party/encoder': '',
+    'third_party/encoder/COPYING': 'The encoder licence, as it ships it.',
+    'third_party/encoder/README.md': `Encoder 3.1, from ${LIBRARY.origin}, SHA-256 ${LIBRARY.sha256}.`,
+  };
+  const tree = {
+    exists: (path: string) => path in FILES,
+    read: (path: string) => FILES[path] ?? '',
+    directories: ['third_party/encoder'],
+    modules: ['audiogubbins-encoder.wasm'],
+    toolchain: { name: 'Compiler 1.0', url: RUNTIME.origin, sha256: RUNTIME.sha256 },
+    standardText,
+  };
+
+  it('gives a vendored library its notice with the licence text it ships, under a licence decided on for one alone', () => {
+    expect(vendoredNoticesOf({ libraries: [LIBRARY] }, tree)).toEqual({
+      notices: [
+        {
+          project: 'Encoder',
+          version: '3.1',
+          licence: 'LGPL-2.0-or-later',
+          copyright: LIBRARY.copyright,
+          source: { directory: 'third_party/encoder' },
+          modules: LIBRARY.modules,
+          origin: LIBRARY.origin,
+          sha256: LIBRARY.sha256,
+          texts: ['The encoder licence, as it ships it.'],
+        },
+      ],
+    });
+    // A package or a port is never allowed the licence a vendored library is.
+    expect(decideLicence('LGPL-2.0-or-later').allowed).toBe(false);
+  });
+
+  it('gives a runtime library of the compiler the standard text of its licence, from the pinned release alone', () => {
+    expect(vendoredNoticesOf({ libraries: [LIBRARY, RUNTIME] }, tree)).toMatchObject({
+      notices: [
+        { project: 'Encoder' },
+        { source: { bundledBy: 'Compiler 1.0' }, texts: ['The MIT text.'] },
+      ],
+    });
+    expect(
+      vendoredNoticesOf({ libraries: [LIBRARY, { ...RUNTIME, sha256: 'c'.repeat(64) }] }, tree),
+    ).toEqual({
+      refused: [
+        `the library Runtime is bundled by no compiler but Compiler 1.0, from ${RUNTIME.origin} with its SHA-256`,
+      ],
+    });
+  });
+
+  it('refuses a library whose source, licence, record or module is not what the list says, and a folder it does not name', () => {
+    const refused = vendoredNoticesOf(
+      {
+        libraries: [
+          { ...LIBRARY, licence: 'GPL-3.0-only', licenceFiles: ['LICENSE'] },
+          { ...LIBRARY, project: 'Moved', directory: 'third_party/moved' },
+          { ...LIBRARY, project: 'Unrecorded', sha256: 'd'.repeat(64) },
+          { ...LIBRARY, project: 'Unbuilt', modules: ['audiogubbins-other.wasm'] },
+        ],
+      },
+      { ...tree, directories: ['third_party/encoder', 'third_party/unlisted'] },
+    );
+    expect(refused).toEqual({
+      refused: [
+        'the library Encoder is licensed GPL-3.0-only: GPL-3.0-only is not allowed',
+        'the library Encoder names third_party/encoder/LICENSE, which does not exist',
+        'the library Moved names no folder of third_party/ that exists',
+        'the library Unrecorded is not recorded in third_party/encoder/README.md with its version, release archive and SHA-256',
+        'the library Unbuilt names audiogubbins-other.wasm, which the build does not write',
+        'third_party/unlisted is vendored but the list does not name it',
+      ],
+    });
+  });
+
+  it('writes the libraries after the packages, with their modules, folder and release archive', () => {
+    const decided = vendoredNoticesOf({ libraries: [LIBRARY, RUNTIME] }, tree);
+    const rendered = renderNotices([], [], 'notices' in decided ? decided.notices : []);
+    expect(rendered).toContain('## Libraries built from vendored source');
+    expect(rendered).toContain(
+      `| Encoder | 3.1 | LGPL-2.0-or-later | Copyright (c) 2000 Example Authors | \`audiogubbins-encoder.wasm\` | \`third_party/encoder\` | <${LIBRARY.origin}><br>SHA-256 \`${LIBRARY.sha256}\` | [1](#text-1) |`,
+    );
+    expect(rendered).toContain('| bundled by Compiler 1.0 |');
+    expect(renderNotices([], [])).not.toContain('vendored source');
+  });
+
+  it('gives every library the committed list names its notice, from the source vendored here', () => {
+    const list: unknown = JSON.parse(readFileSync(VENDORED_LIBRARIES, 'utf8'));
+    const decided = vendoredNoticesOf(list, {
+      exists: (path) => existsSync(inRepository(path)),
+      read: (path) => readFileSync(inRepository(path), 'utf8'),
+      // A crate vendored and patched in has its notice among the packages, from Cargo.
+      directories: readdirSync(inRepository('third_party'), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => `third_party/${entry.name}`)
+        .filter((folder) => !existsSync(inRepository(`${folder}/crate/Cargo.toml`))),
+      modules: [basename(MP3_MODULE), basename(VORBIS_MODULE)],
+      toolchain: { name: `Zig ${ZIG_VERSION}`, ...ZIG_SOURCE },
+      standardText: (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+    });
 
     expect('refused' in decided ? decided.refused : []).toEqual([]);
   });

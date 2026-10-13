@@ -137,6 +137,7 @@ const PROJECT_WORDS: Readonly<Record<StateDifference['project'][number], string>
   sampleRate: 'sample rate',
   channelLayout: 'channels',
   trackOrder: 'order of its tracks',
+  exportSettings: 'export settings',
 };
 
 /** A list in words: "a", "a and b", "a, b and c". */

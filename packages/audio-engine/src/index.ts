@@ -173,6 +173,7 @@ export {
 } from './nodes/accelerated-paths.js';
 
 export { BuiltInNodeType } from './nodes/built-in-node-type.js';
+export { type FixedNamedMatrix, fixedMatrixLayouts } from './nodes/named-matrices.js';
 export { BUILT_IN_NODES } from './nodes/built-in-nodes.js';
 
 // What a node type built on the engine, a processor's among them, reads a

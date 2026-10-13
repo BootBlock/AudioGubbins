@@ -2,7 +2,7 @@
   "name": "@audiogubbins/codecs",
   "version": "0.1.0",
   "private": true,
-  "description": "The read contract for audio files: recognising a format by its contents, describing it, and reading its frames on demand at the rate it was recorded at.",
+  "description": "The codecs: recognising a format by its contents, the registry of codecs and what a runtime can do with each, reading audio in place at the rate it was recorded at, and writing WAV, AIFF and AIFF-C with their metadata and channel layouts.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

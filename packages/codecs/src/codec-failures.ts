@@ -11,22 +11,28 @@
 
 import { FailureKind, failure, type DomainFailure } from '@audiogubbins/domain';
 
-import {
-  READABLE_FORMATS_SENTENCE,
-  formatSentence,
-  type ReadableFormat,
-  type RecognisedFormat,
-} from './recognised-format.js';
+import { READABLE_FORMATS_SENTENCE } from './readable-formats.js';
+import { formatSentence, type RecognisedFormat } from './recognised-format.js';
 
-/** The failure of a file in a format this package does not read. */
-export function unsupportedFormat(
-  format: Exclude<RecognisedFormat, ReadableFormat>,
-): DomainFailure {
+/** What a refusal's details say of a format: its container and codec, where it has them. */
+function formatDetails(format: RecognisedFormat): Readonly<Record<string, string>> {
+  if (format.kind === 'unknown') return { container: 'unknown' };
+  const { container, codec } = format;
+  if (codec.kind === 'named') return { container, codec: codec.codec };
+  return { container };
+}
+
+/**
+ * The failure of a file in a format that is not read the way it was asked to
+ * be: by `openAudio`, any format it does not read in place, and by the import
+ * route, a format nothing serves.
+ */
+export function unsupportedFormat(format: RecognisedFormat): DomainFailure {
   return failure(
     'codecs.unsupported-format',
     FailureKind.Rejected,
     `${formatSentence(format)} ${READABLE_FORMATS_SENTENCE}`,
-    { details: { format: format.kind } },
+    { details: formatDetails(format) },
   );
 }
 
@@ -78,9 +84,9 @@ export function readInvalid(problem: string): DomainFailure {
 }
 
 /**
- * The failure of a channel layout no WAV header can state so that reading the
- * file back gives the same layout: a recording written with another would
- * come back as audio whose channels mean something else.
+ * The failure of a channel layout a file's header cannot state so that reading
+ * the file back gives the same layout: a file written with another would come
+ * back as audio whose channels mean something else.
  */
 export function unwritableLayout(problem: string): DomainFailure {
   return failure('codecs.layout-unwritable', FailureKind.Rejected, problem);
@@ -94,4 +100,14 @@ export function unwritableLength(frames: number, blockAlign: number): DomainFail
     'The recording is too long for its file to be written with exact byte offsets.',
     { details: { frames, blockAlign } },
   );
+}
+
+/** The failure of a file a format cannot hold: too long, or past a size its header can state. */
+export function unwritableFile(problem: string): DomainFailure {
+  return failure('codecs.file-unwritable', FailureKind.Rejected, problem);
+}
+
+/** The failure of a writer asked for what its format or its state cannot take. */
+export function writeInvalid(problem: string): DomainFailure {
+  return failure('codecs.write-invalid', FailureKind.Rejected, problem);
 }

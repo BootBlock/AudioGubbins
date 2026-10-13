@@ -1,6 +1,7 @@
 /**
- * The download of a pack's source, and the one module of the pack build that
- * reaches the network.
+ * The download of a pack's source, and the one module of the tools that
+ * reaches the network: the pack build's sources, and the pinned C compiler
+ * the encoder modules are built with (`zig-toolchain.mjs`).
  *
  * It asks for one URL, a pinned release or commit that a definition names,
  * with no credential and no header but `Range`, and writes the body to a file

@@ -1,0 +1,33 @@
+{
+  "name": "@audiogubbins/import-export",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Import and export as values: export settings, presets, dither, file naming, collision rules and the job state machines.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project import-export"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/audio-graph": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*",
+    "@audiogubbins/codecs": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

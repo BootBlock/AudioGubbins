@@ -3,7 +3,7 @@
  * (REQ-STOR-026), read back only through full runtime validation
  * (REQ-EXEC-136.12) and only at this build's schema version (REQ-STOR-052).
  *
- * The document is an object of four members:
+ * The document is an object of four members, and a fifth where it has one:
  *
  * - `format`: always `audiogubbins.project`.
  * - `schemaVersion`: the `projectDocument` schema version that wrote it.
@@ -11,6 +11,8 @@
  *   identifier.
  * - `sources`: one entry per asset, sorted by asset: its media and, where
  *   kept, its provenance.
+ * - `exportSettings`: the settings the project was last exported with, where
+ *   it has been exported (ADR-0092).
  *
  * Reading refuses a document whose version this build does not write before
  * reading anything else, then reads every member with the domain's own
@@ -32,7 +34,9 @@ import {
 import { readCompatibleHeader } from './compatibility.js';
 import { fingerprintOf } from './content-hashing.js';
 import type { StateFingerprint } from './content-identity.js';
-import { objectOf, required, startReading } from './document-reading.js';
+import { objectOf, optional, required, startReading } from './document-reading.js';
+import { presentMembers } from './document-writing.js';
+import { readExportSettings, writeExportSettings } from './export-settings-json.js';
 import { parseJson } from './json-parsing.js';
 import { asProject } from './project-reading.js';
 import type { ProjectState } from './project-state.js';
@@ -64,16 +68,19 @@ const DOCUMENT_MEMBERS: ReadonlySet<string> = new Set([
   'schemaVersion',
   'project',
   'sources',
+  'exportSettings',
 ]);
 
 /** The document of a state, as a JSON value. */
 export function writeProjectDocument(state: ProjectState): JsonObject {
-  return {
+  return presentMembers({
     format: PROJECT_DOCUMENT_FORMAT,
     schemaVersion: SCHEMA_VERSIONS.projectDocument,
     project: writeProject(state.project),
     sources: writeSources(state.sources),
-  };
+    exportSettings:
+      state.exportSettings === undefined ? undefined : writeExportSettings(state.exportSettings),
+  });
 }
 
 /**
@@ -92,8 +99,11 @@ export function readProjectDocument(value: JsonValue): DomainResult<ProjectState
 
   const project = required(reading, object, '', 'project', asProject);
   const sources = required(reading, object, '', 'sources', sourcesConverter(project?.assets));
+  const exportSettings = optional(reading, object, '', 'exportSettings', readExportSettings);
   return reading.outcome(
-    project === undefined || sources === undefined ? undefined : { project, sources },
+    project === undefined || sources === undefined
+      ? undefined
+      : { project, sources, ...(exportSettings === undefined ? {} : { exportSettings }) },
   );
 }
 

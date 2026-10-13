@@ -182,8 +182,15 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
-  "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
-    ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  "The codecs each container's reader reads in place, which the registry's test holds equal to the codecs whose descriptors name the application as their reader there; a reader reaches them through `openAudio`.":
+    [
+      'packages/codecs/src/aiff-common.ts: AIFC_IN_PLACE_CODECS',
+      'packages/codecs/src/wave-format.ts: WAVE_IN_PLACE_CODECS',
+    ],
+  "The WASI functions the host gives an encoder module, which the encoder modules' test holds each module's imports within, so a new import is seen; the host instantiates a module through `encoderModuleImports`.":
+    ['packages/codec-runtime/src/encoding/encoder-host.ts: ENCODER_MODULE_IMPORTS'],
+  'The Ogg page checksum on its own, which its test holds to the published check value of the CRC it is; pages are checksummed through `encodeOggPage` and checked through `readOggPage`.':
+    ['packages/codecs/src/ogg-page.ts: oggCrc'],
   'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':
     ['packages/audio-engine/src/pcm/stretched-content.ts: stretchCentre'],
   'The most unflagged frames inside one click, which the click tests place flags either side of; the de-click and the click detector read it through `joinsClick`.':
@@ -243,7 +250,7 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/state/project-system.ts: projectSystemOver'],
   "The editor panels' parts, made over a context with the services given, which the panel tests make with a peak worker that answers nothing; the application makes them through `startEditor`.":
     ['apps/web/src/editor-part.ts: panelPartsOf'],
-  "The asset a picture's decoded sound makes, which its tests build from arrays they name; the application reaches it through `decodePictureSound`, which a test cannot hand a browser's decoder.":
+  "The asset a picture's sound makes of the file the storage holds it in, which its tests build from a held sound they name; the application reaches it through `PictureSoundDecoder`, once the storage worker holds the sound.":
     ['apps/web/src/picture/picture-sound.ts: pictureSoundAsset'],
   'The key the editor views are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
     ['apps/web/src/state/editor-view-store.ts: EDITOR_VIEWS_KEY'],
@@ -343,6 +350,15 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
+ * Each export of an application contract written ahead of the modules that
+ * take it, under the reason it is: the types and names that work on several
+ * modules at once is written against, so each is built to the same shape.
+ * An entry leaves the list once a module takes it, as the rule that lists
+ * only what no module takes holds.
+ */
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {};
+
+/**
  * Each export of a test-support module that no test takes by name, under the
  * reason it is offered anyway.
  *
@@ -354,8 +370,8 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * configuration rather than by an import, which the rule cannot follow.
  */
 const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {
-  'The global setup that builds the canonical DSP module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
-    ['tests/setup/dsp-module.ts: setup'],
+  'The global setup that builds the canonical DSP module and the codec module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
+    ['tests/setup/wasm-modules.ts: setup'],
 };
 
 describe('module exports (REQ-EXEC-184)', () => {
@@ -381,7 +397,13 @@ describe('module exports (REQ-EXEC-184)', () => {
   });
 
   const files = new Map(PRODUCTION_FILES.map((path) => [path, parse(path)] as const));
-  const listed = new Set([...Object.values(FOR_TESTS), ...Object.values(FOR_THE_BUILD)].flat());
+  const listed = new Set(
+    [
+      ...Object.values(FOR_TESTS),
+      ...Object.values(FOR_THE_BUILD),
+      ...Object.values(AHEAD_OF_USE),
+    ].flat(),
+  );
 
   it('takes every export of a production module in another, or lists it with its reason', () => {
     expect(untakenExports(files, resolveOnDisk, listed)).toEqual([]);

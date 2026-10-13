@@ -19,7 +19,8 @@ import { NO_PEAK_CACHE } from '../io/stored-peak-cache.js';
 import { NO_SPECTROGRAM_CACHE } from '../io/stored-spectrogram-cache.js';
 import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
+import { PictureSoundDecoder } from '../picture/picture-sound.js';
+import { ScriptedCodecs } from './codec-fakes.js';
 import { ReferencePicture, type PicturePlatform } from '../picture/reference-picture.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import { createAssetCatalogue } from '../state/asset-catalogue.js';
@@ -148,12 +149,12 @@ export function fakePicturePlatform(framesAnnounced = false): PicturePlatform & 
 
 /**
  * The editor part of a shell context, over the real stores and a fake picture,
- * whose sound is weighed as where the browser says nothing of its memory.
+ * whose sound is opened as where this browser keeps nothing, and the codecs.
  */
 export function fakeEditor(
   storage: StateStorage,
   logger: Logger,
-  decode: DecodeSound = () => Promise.resolve('This test decodes no sound.'),
+  codecs: ScriptedCodecs = new ScriptedCodecs(),
 ): Pick<
   ShellContext,
   | 'assets'
@@ -166,9 +167,11 @@ export function fakeEditor(
   | 'chosenFiles'
   | 'clipboard'
   | 'modelGate'
+  | 'codecs'
 > {
   const assets = createAssetCatalogue(testAssets(), logger);
   const picture = new ReferencePicture({ platform: fakePicturePlatform(), logger });
+  const ids = createDeterministicIdGenerator(4);
   const selections = createSelectionStore();
   reconcileSelections(selections, assets);
   return {
@@ -179,19 +182,21 @@ export function fakeEditor(
     editorViews: createEditorViewStore(storage, logger, (write) => {
       write();
     }),
-    ids: createDeterministicIdGenerator(4),
+    ids,
     picture,
     pictureSound: new PictureSoundDecoder({
-      decode,
+      codecs,
+      sounds: undefined,
+      ids,
       picture,
       catalogue: assets,
       logger,
-      resources: () => ({ availableMemoryBytes: undefined }),
     }),
     chosenFiles: createChosenFiles(),
     clipboard: createClipboardStore(),
     // The editor's fakes hold no project, whose entries alone a gate refuses.
     modelGate: observable(OPEN_MODEL_GATE),
+    codecs,
   };
 }
 

@@ -36,6 +36,12 @@
       "path": "./packages/codecs/scopes/any"
     },
     {
+      "path": "./packages/codec-runtime"
+    },
+    {
+      "path": "./packages/codec-runtime/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/audio-engine"
     },
     {
@@ -82,6 +88,12 @@
     },
     {
       "path": "./packages/recording/scopes/any"
+    },
+    {
+      "path": "./packages/import-export"
+    },
+    {
+      "path": "./packages/import-export/scopes/any"
     },
     {
       "path": "./packages/waveform"

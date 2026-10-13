@@ -40,6 +40,8 @@ import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { Hearing } from '../state/hearing-store.js';
 import type { UserPreferences } from '../state/preferences-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
+import type { ExportSubject } from '../export/export-focus.js';
+import type { ExportRunState } from '../export/export-types.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
@@ -206,6 +208,12 @@ export interface PanelContext extends ProjectPanelContext {
   /** The input, monitoring and latency calibration, which the Recording panel shows. */
   readonly recording: RecordingParts;
 
+  /** The page's export, absent where this browser keeps no projects, which the Inspector describes. */
+  readonly exports: Observable<ExportRunState> | undefined;
+
+  /** The export the Inspector describes, while one is its subject. */
+  readonly exportSubject: Observable<ExportSubject | undefined>;
+
   /** The person's preferences, whose pressure choice the Spectral panel shows. */
   readonly preferences: Observable<UserPreferences>;
 }
@@ -243,6 +251,8 @@ export function panelContextOf(
     modelGate: context.modelGate,
     hearing: context.hearing,
     recording: context.recording,
+    exports: context.exports,
+    exportSubject: context.exportFocus.subject,
     preferences: context.preferences,
     run,
     unavailableReason,
@@ -324,6 +334,8 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             labelFor: context.editor.labelFor,
             recording: context.recording,
             audioSettings: context.audioSettings,
+            exports: context.exports,
+            exportSubject: context.exportSubject,
             modelGate: context.modelGate,
           }}
           commands={context}

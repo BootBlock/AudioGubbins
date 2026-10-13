@@ -7,8 +7,12 @@ Published paths
   @audiogubbins/audio-runtime/testing
   @audiogubbins/audio-runtime/threads/*
   @audiogubbins/browser-storage
+  @audiogubbins/browser-storage/testing
   @audiogubbins/capabilities
   @audiogubbins/clipboard
+  @audiogubbins/codec-runtime
+  @audiogubbins/codec-runtime/testing
+  @audiogubbins/codec-runtime/threads/*
   @audiogubbins/codecs
   @audiogubbins/codecs/testing
   @audiogubbins/commands
@@ -23,6 +27,7 @@ Published paths
   @audiogubbins/editor-view
   @audiogubbins/effect-rack
   @audiogubbins/history
+  @audiogubbins/import-export
   @audiogubbins/input
   @audiogubbins/input/testing
   @audiogubbins/media-store
@@ -215,6 +220,7 @@ Published paths
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   const ENGINE_VERSIONS: EngineVersions
+  type FixedNamedMatrix = "itu-bs775-5.1-to-stereo" | "mid-side-decode" | "mid-side-encode"
   type FromPreview = { readonly kind: typeof FromPreviewKind.ReadFailed; readonly read: number; readonly failure: FailureSummary; } | { readonly kind: typeof FromPreviewKind.Ready; readonly stream: number; readonly declined: FailureSummary | undefined; } | { readonly kind: typeof FromPreviewKind.Samples; readonly read: number; readonly channels: readonly Float32Array[]; }
   interface GraphExecutor
   readonly GraphExecutor.plan: ExecutionPlan
@@ -642,6 +648,7 @@ Published paths
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function exp(x: number): number
   function findPeaks(magnitude: Float64Array<ArrayBufferLike>, bins: number, peaks: Int32Array<ArrayBufferLike>): number
+  function fixedMatrixLayouts(name: FixedNamedMatrix): { readonly input: ChannelLayout; readonly output: ChannelLayout; }
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
   function gainToDecibels(gain: number): number
@@ -899,7 +906,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29126: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37435: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1144,6 +1151,7 @@ Published paths
   readonly RenderRunOptions.signal?: CancellationSignal
   readonly RenderRunOptions.onProgress?: (progress: RenderProgress) => void
   readonly RenderRunOptions.sinks: ReadonlyMap<NodeId, RenderSink>
+  readonly RenderRunOptions.channels?: ReadonlyMap<NodeId, MessagePort>
   interface RenderWorkerPort
   RenderWorkerPort.postMessage: (message: ToRenderWorker, transfer: Transferable[]) => void
   RenderWorkerPort.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
@@ -1190,7 +1198,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@29126: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37435: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1228,17 +1236,14 @@ Published paths
   type ChosenFile = Omit<ExternalFile, "source"> & { readonly file: File; readonly handle?: FileSystemFileHandle; }
   class FileHandleKeeper
   new FileHandleKeeper(factory: HandleDatabaseFactory, nextToken: TokenSource): FileHandleKeeper
-  readonly FileHandleKeeper.#factory: HandleDatabaseFactory
+  readonly FileHandleKeeper.#database: HandleStore
   readonly FileHandleKeeper.#nextToken: TokenSource
-  FileHandleKeeper.#database: Promise<HandleDatabase> | undefined
   FileHandleKeeper.keep: (handle: FileSystemFileHandle) => Promise<string>
   FileHandleKeeper.find: (key: string) => Promise<FileSystemFileHandle | undefined>
   FileHandleKeeper.keepFolder: (use: FolderUse, folder: FileSystemDirectoryHandle) => Promise<void>
   FileHandleKeeper.findFolder: (use: FolderUse) => Promise<FileSystemDirectoryHandle | undefined>
   FileHandleKeeper.forget: (key: string) => Promise<void>
   FileHandleKeeper.#found: (key: string) => Promise<unknown>
-  FileHandleKeeper.#open: () => Promise<HandleDatabase>
-  FileHandleKeeper.#connect: () => Promise<HandleDatabase>
   interface FileWriteStream
   FileWriteStream.write: (data: Uint8Array<ArrayBuffer>) => Promise<void>
   FileWriteStream.close: () => Promise<void>
@@ -1289,6 +1294,22 @@ Published paths
   interface PickerFileType
   readonly PickerFileType.description: string
   readonly PickerFileType.accept: Readonly<Record<string, readonly string[]>>
+  interface TrustedFolder
+  readonly TrustedFolder.key: string
+  readonly TrustedFolder.folder: FileSystemDirectoryHandle
+  readonly TrustedFolder.records: readonly ExportedFileRecord[]
+  class TrustedFolders
+  new TrustedFolders(factory: HandleDatabaseFactory, nextToken: TokenSource): TrustedFolders
+  readonly TrustedFolders.#database: HandleStore
+  readonly TrustedFolders.#nextToken: TokenSource
+  TrustedFolders.list: () => Promise<readonly TrustedFolder[]>
+  TrustedFolders.find: (key: string) => Promise<TrustedFolder | undefined>
+  TrustedFolders.trust: (folder: FileSystemDirectoryHandle) => Promise<string>
+  TrustedFolders.record: (key: string, records: readonly ExportedFileRecord[]) => Promise<void>
+  TrustedFolders.forget: (key: string) => Promise<void>
+  TrustedFolders.#keys: () => Promise<readonly string[]>
+  TrustedFolders.#get: (key: string) => Promise<unknown>
+  TrustedFolders.#put: (key: string, value: unknown) => Promise<void>
   interface WebLeaseServices
   readonly WebLeaseServices.locks: LeaseLocks | undefined
   readonly WebLeaseServices.openChannel: OpenLeaseChannel | undefined
@@ -1300,9 +1321,11 @@ Published paths
   interface WritableFile
   WritableFile.createWritable: (options: { readonly keepExistingData: boolean; }) => Promise<FileWriteStream>
   function createLeaseCoordinator(services: WebLeaseServices): LeaseCoordinator | undefined
+  function fileDestination(handle: FileSystemFileHandle): DeliveryFile
   function fileSource(file: File, current?: (() => Promise<File>) | undefined): ByteSource
   function filesFromInput(files: Iterable<File>): readonly ChosenFile[]
   function filesInDirectory(directory: FileSystemDirectoryHandle, keeper: FileHandleKeeper | undefined, signal?: AbortSignal | undefined): AsyncGenerator<ChosenFile, void, undefined>
+  function folderDestination(folder: FileSystemDirectoryHandle): DeliveryFolder
   function listedFolder(files: readonly Pick<ChosenFile, "file" | "handle" | "relativePath">[]): DirectoryReader
   function openFileSink(file: WritableFile): Promise<ByteSink>
   function openFileSinkIn(directory: WritableDirectory, name: string): Promise<ByteSink>
@@ -1311,14 +1334,56 @@ Published paths
   function pickDirectory(openDirectory: Picker, mode: "read" | "readwrite"): Promise<Picked<FileSystemDirectoryHandle>>
   function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ChosenFile[]>>
   function pickSaveFile(saveFile: Picker, suggestedName: string): Promise<Picked<FileSystemFileHandle>>
+  function queryWritePermission(handle: FileSystemHandle): Promise<HandlePermission>
   function randomTokens(randomBytes: (length: number) => Uint8Array): TokenSource
   function reopenKeptFile(keeper: FileHandleKeeper, handleKey: string): Promise<KeptFileAccess>
   function reopenKeptFolder(keeper: FileHandleKeeper, use: "folder:backups"): Promise<KeptFolderAccess>
   function requestKeptFileAccess(keeper: FileHandleKeeper, handleKey: string): Promise<KeptFileAccess>
   function requestKeptFolderAccess(keeper: FileHandleKeeper, use: "folder:backups"): Promise<KeptFolderAccess>
+  function requestWritePermission(handle: FileSystemHandle): Promise<HandlePermission>
   function webDigest(subtle: SubtleCrypto): Digest
   function writableFolder(root: FileSystemDirectoryHandle): DirectoryWriter
   function yieldToHost(method: HostYieldingMethod): YieldToHost
+
+@audiogubbins/browser-storage/testing
+  class FakeDirectoryHandle extends FakeHandle
+  new FakeDirectoryHandle(name: string, children: readonly (FakeDirectoryHandle | FakeFileHandle)[]): FakeDirectoryHandle
+  readonly FakeDirectoryHandle.kind: "directory"
+  readonly FakeDirectoryHandle.#children: (FakeDirectoryHandle | FakeFileHandle)[]
+  FakeDirectoryHandle.values: () => AsyncGenerator<FakeDirectoryHandle | FakeFileHandle>
+  FakeDirectoryHandle.getDirectoryHandle: (name: string, options?: { readonly create?: boolean; }) => Promise<FileSystemDirectoryHandle>
+  FakeDirectoryHandle.getFileHandle: (name: string, options?: { readonly create?: boolean; }) => Promise<FileSystemFileHandle>
+  FakeDirectoryHandle.removeEntry: (name: string) => Promise<void>
+  FakeDirectoryHandle.resolve: () => Promise<null | string[]>
+  readonly FakeDirectoryHandle.name: string
+  readonly FakeDirectoryHandle.permission: { state: "denied" | "granted" | "prompt"; answer: "denied" | "granted"; activated: boolean; }
+  readonly FakeDirectoryHandle.modesAsked: string[]
+  FakeDirectoryHandle.isSameEntry: (other: FileSystemHandle) => Promise<boolean>
+  FakeDirectoryHandle.queryPermission: (descriptor: { readonly mode: string; }) => Promise<string>
+  FakeDirectoryHandle.requestPermission: (descriptor: { readonly mode: string; }) => Promise<string>
+  class FakeFileHandle extends FakeHandle
+  new FakeFileHandle(file: File): FakeFileHandle
+  readonly FakeFileHandle.kind: "file"
+  FakeFileHandle.#file: File | undefined
+  FakeFileHandle.replace: (file: File) => void
+  FakeFileHandle.delete: () => void
+  FakeFileHandle.getFile: () => Promise<File>
+  FakeFileHandle.createWritable: () => Promise<FileSystemWritableFileStream>
+  readonly FakeFileHandle.name: string
+  readonly FakeFileHandle.permission: { state: "denied" | "granted" | "prompt"; answer: "denied" | "granted"; activated: boolean; }
+  readonly FakeFileHandle.modesAsked: string[]
+  FakeFileHandle.isSameEntry: (other: FileSystemHandle) => Promise<boolean>
+  FakeFileHandle.queryPermission: (descriptor: { readonly mode: string; }) => Promise<string>
+  FakeFileHandle.requestPermission: (descriptor: { readonly mode: string; }) => Promise<string>
+  class MemoryDatabases
+  new MemoryDatabases(options?: MemoryDatabaseOptions): MemoryDatabases
+  readonly MemoryDatabases.#databases: Map<string, { version: number; database: MemoryDatabase; }>
+  readonly MemoryDatabases.#options: MemoryDatabaseOptions
+  MemoryDatabases.opened: number
+  MemoryDatabases.open: (name: string, version: number) => MemoryRequest<MemoryDatabase>
+  MemoryDatabases.contents: (name: string, store: string) => ReadonlyMap<string, unknown>
+  MemoryDatabases.announceNewerVersion: (name: string) => void
+  function installFakeHandles(): void
 
 @audiogubbins/capabilities
   const ACCELERATED_RENDERING: FeatureRequirement
@@ -1331,6 +1396,48 @@ Published paths
   interface AppearanceSettingsWatch
   readonly AppearanceSettingsWatch.read: () => AppearanceSettings
   readonly AppearanceSettingsWatch.subscribe: (listener: () => void) => () => void
+  type AudioDataClass = new (init: AudioDataInit) => AudioDataLike
+  interface AudioDataInit
+  readonly AudioDataInit.format: "f32-planar"
+  readonly AudioDataInit.sampleRate: number
+  readonly AudioDataInit.numberOfFrames: number
+  readonly AudioDataInit.numberOfChannels: number
+  readonly AudioDataInit.timestamp: number
+  readonly AudioDataInit.data: Float32Array<ArrayBufferLike>
+  interface AudioDataLike
+  readonly AudioDataLike.sampleRate: number
+  readonly AudioDataLike.numberOfFrames: number
+  readonly AudioDataLike.numberOfChannels: number
+  AudioDataLike.copyTo: (destination: Float32Array, options: PlaneCopy) => void
+  AudioDataLike.close: () => void
+  interface AudioDecoderCallbacks
+  readonly AudioDecoderCallbacks.output: (data: AudioDataLike) => void
+  readonly AudioDecoderCallbacks.error: (error: Error) => void
+  interface AudioDecoderClass
+  AudioDecoderClass.isConfigSupported: (config: WebCodecsAudioConfig) => Promise<ConfigSupport>
+  interface AudioDecoderLike
+  readonly AudioDecoderLike.state: CodecState
+  readonly AudioDecoderLike.decodeQueueSize: number
+  AudioDecoderLike.configure: (config: WebCodecsAudioConfig) => void
+  AudioDecoderLike.decode: (chunk: EncodedAudioChunkLike) => void
+  AudioDecoderLike.flush: () => Promise<void>
+  AudioDecoderLike.close: () => void
+  AudioDecoderLike.addEventListener: (type: "dequeue", listener: () => void) => void
+  AudioDecoderLike.removeEventListener: (type: "dequeue", listener: () => void) => void
+  interface AudioEncoderCallbacks
+  readonly AudioEncoderCallbacks.output: (chunk: EncodedAudioChunkLike, metadata?: EncodedAudioChunkMetadata) => void
+  readonly AudioEncoderCallbacks.error: (error: Error) => void
+  interface AudioEncoderClass
+  AudioEncoderClass.isConfigSupported: (config: WebCodecsAudioConfig) => Promise<ConfigSupport>
+  interface AudioEncoderLike
+  readonly AudioEncoderLike.state: CodecState
+  readonly AudioEncoderLike.encodeQueueSize: number
+  AudioEncoderLike.configure: (config: WebCodecsAudioConfig) => void
+  AudioEncoderLike.encode: (data: AudioDataLike) => void
+  AudioEncoderLike.flush: () => Promise<void>
+  AudioEncoderLike.close: () => void
+  AudioEncoderLike.addEventListener: (type: "dequeue", listener: () => void) => void
+  AudioEncoderLike.removeEventListener: (type: "dequeue", listener: () => void) => void
   interface AudioRuntimeCapabilities
   readonly AudioRuntimeCapabilities.playback: boolean
   readonly AudioRuntimeCapabilities.offlineRendering: boolean
@@ -1338,6 +1445,15 @@ Published paths
   readonly AudioRuntimeCapabilities.sharedMemory: boolean
   readonly AudioRuntimeCapabilities.outputSelection: boolean
   readonly AudioRuntimeCapabilities.gpu: boolean
+  interface BrowserAudioDecoding
+  readonly BrowserAudioDecoding.AudioDecoder: AudioDecoderClass
+  readonly BrowserAudioDecoding.EncodedAudioChunk: EncodedAudioChunkClass
+  interface BrowserAudioEncoding
+  readonly BrowserAudioEncoding.AudioEncoder: AudioEncoderClass
+  readonly BrowserAudioEncoding.AudioData: AudioDataClass
+  interface BrowserFamily
+  readonly BrowserFamily.name: string
+  readonly BrowserFamily.majorVersion: string
   const CANONICAL_DSP: FeatureRequirement
   interface CapabilityAbsent
   readonly CapabilityAbsent.key: CapabilityKey
@@ -1396,7 +1512,28 @@ Published paths
   readonly CaptureRequest.sampleRate?: number
   readonly CaptureRequest.sampleSize?: number
   readonly CaptureRequest.latency?: number
+  interface CodecPlatform
+  readonly CodecPlatform.webAssembly: boolean
+  readonly CodecPlatform.decoding: BrowserAudioDecoding | undefined
+  readonly CodecPlatform.encoding: BrowserAudioEncoding | undefined
+  readonly CodecPlatform.browser: BrowserFamily | undefined
+  type CodecProbes = { readonly browserBitRates: ReadonlyMap<CodecId, readonly BitRateBand[]>; readonly webAssembly: boolean; readonly browserDecoders: ReadonlySet<CodecId>; readonly browserEncoders: ReadonlySet<CodecId>; }
+  type CodecState = "closed" | "configured" | "unconfigured"
+  interface ConfigSupport
+  readonly ConfigSupport.supported?: boolean
   const DIRECT_FILE_ACCESS: FeatureRequirement
+  type EncodedAudioChunkClass = new (init: EncodedAudioChunkInit) => EncodedAudioChunkLike
+  interface EncodedAudioChunkInit
+  readonly EncodedAudioChunkInit.type: "delta" | "key"
+  readonly EncodedAudioChunkInit.timestamp: number
+  readonly EncodedAudioChunkInit.duration?: number
+  readonly EncodedAudioChunkInit.data: Uint8Array<ArrayBufferLike>
+  interface EncodedAudioChunkLike
+  readonly EncodedAudioChunkLike.byteLength: number
+  readonly EncodedAudioChunkLike.timestamp: number
+  EncodedAudioChunkLike.copyTo: (destination: Uint8Array) => void
+  interface EncodedAudioChunkMetadata
+  readonly EncodedAudioChunkMetadata.decoderConfig?: { readonly description?: unknown; }
   const FULL_SCREEN_PICTURE: FeatureRequirement
   interface FeatureAvailability
   readonly FeatureAvailability.featureKey: string
@@ -1482,6 +1619,11 @@ Published paths
   const PRESSURE_SENSITIVE_TOOLS: FeatureRequirement
   const PROJECT_STORAGE: FeatureRequirement
   type PageVisibility = "hidden" | "visible"
+  interface PlaneCopy
+  readonly PlaneCopy.planeIndex: number
+  readonly PlaneCopy.format: "f32-planar"
+  readonly PlaneCopy.frameOffset?: number
+  readonly PlaneCopy.frameCount?: number
   interface PlatformSignals
   readonly PlatformSignals.userAgent: string
   readonly PlatformSignals.platformHint?: string
@@ -1527,6 +1669,12 @@ Published paths
   readonly ValueRange.max: number
   interface VisibilityDocument extends EventTarget
   readonly VisibilityDocument.visibilityState?: string | undefined
+  interface WebCodecsAudioConfig
+  readonly WebCodecsAudioConfig.codec: string
+  readonly WebCodecsAudioConfig.sampleRate: number
+  readonly WebCodecsAudioConfig.numberOfChannels: number
+  readonly WebCodecsAudioConfig.description?: Uint8Array<ArrayBufferLike>
+  readonly WebCodecsAudioConfig.bitrate?: number
   function absent(key: CapabilityKey, reason: string, remedy?: string | undefined): CapabilityAbsent
   function askLateQuestions(layoutMap: Promise<LayoutMapPairs>): Readonly<Partial<Record<CapabilityKey, Promise<boolean>>>>
   function audioRuntimeCapabilities(registry: CapabilityRegistry): AudioRuntimeCapabilities
@@ -1537,6 +1685,8 @@ Published paths
   function missingStorageCapabilities(platform: StoragePlatform): readonly StorageCapabilityAbsence[]
   function operatingSystemOf(signals: PlatformSignals): OperatingSystem
   function present(key: CapabilityKey): CapabilityPresent
+  function probeCodecs(platform: CodecPlatform, signal?: CancellationSignal | undefined): Promise<CodecProbes>
+  function readCodecPlatform(scope: object): CodecPlatform
   function readGraphicsPlatform(): GraphicsPlatform
   function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
   function readMediaInput(navigatorLike: MediaInputNavigator, globalLike: MediaInputGlobals): MediaInput
@@ -1576,10 +1726,160 @@ Published paths
   function pastedSlots(payload: ProcessingPayload, ids: IdGenerator): readonly [ChainSlot, ...ChainSlot[]]
   function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
 
+@audiogubbins/codec-runtime
+  interface AnalysedStream
+  readonly AnalysedStream.codec: CodecId
+  readonly AnalysedStream.container: ContainerId
+  readonly AnalysedStream.sampleRate: SampleRate
+  readonly AnalysedStream.layout: ChannelLayout
+  readonly AnalysedStream.statedFrames: SampleCount | undefined
+  readonly AnalysedStream.leadingFrames: SampleCount
+  readonly AnalysedStream.bitRate: number | undefined
+  readonly AnalysedStream.bitsPerSample: number | undefined
+  interface BlobLike
+  readonly BlobLike.size: number
+  BlobLike.slice: (start: number, end: number) => BlobLike
+  interface CodecModule
+  CodecModule.openDecoder: (source: SyncAudioBytes) => DomainResult<DecoderSession>
+  CodecModule.createFlacFrameEncoder: (settings: FlacFrameSettings) => DomainResult<FlacFrameEncoder>
+  CodecModule.createOpusEncoder: (settings: OpusEncoderSettings) => DomainResult<OpusEncoder>
+  CodecModule.createOpusPacketDecoder: (channels: 1 | 2) => DomainResult<OpusPacketDecoder>
+  type CodecRequest = { readonly kind: typeof ToCodecWorkerKind.Analyse; readonly request: string; readonly file: FileSource; } | { readonly kind: typeof ToCodecWorkerKind.Cancel; readonly request: string; } | { readonly kind: typeof ToCodecWorkerKind.Decode; readonly request: string; readonly file: FileSource; readonly stream: MessagePortLike; } | { readonly kind: typeof ToCodecWorkerKind.Encode; readonly request: string; readonly encode: ExportEncodeRequest; readonly rendered: MessagePortLike; readonly stream: MessagePortLike; }
+  interface DecoderSession
+  readonly DecoderSession.description: StreamDescription
+  DecoderSession.decode: (into: readonly Float32Array[]) => DomainResult<number>
+  DecoderSession.readPacket: () => DomainResult<EncodedPacket | undefined>
+  DecoderSession.release: () => void
+  interface EncodedPacket
+  readonly EncodedPacket.data: Uint8Array<ArrayBufferLike>
+  readonly EncodedPacket.frames: number
+  interface EncoderIdentity
+  readonly EncoderIdentity.implementation: CodecImplementation
+  readonly EncoderIdentity.version: string
+  type EncoderModuleName = "mp3" | "vorbis"
+  interface ExportEncodeRequest
+  readonly ExportEncodeRequest.target: ExportTarget
+  readonly ExportEncodeRequest.encoding: FormatEncoding
+  readonly ExportEncodeRequest.sampleRate: SampleRate
+  readonly ExportEncodeRequest.layout: ChannelLayout
+  readonly ExportEncodeRequest.metadata: MetadataMap
+  readonly ExportEncodeRequest.dither: { readonly settings: DitherSettings; readonly key: number; }
+  interface ExportEncoderServices
+  readonly ExportEncoderServices.codecModule: () => Promise<DomainResult<CodecModule>>
+  readonly ExportEncoderServices.encoderModule: (encoder: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>
+  readonly ExportEncoderServices.encoding: BrowserAudioEncoding | undefined
+  readonly ExportEncoderServices.browserBitRates: ReadonlyMap<import("packages/codecs/src/codec-descriptor").CodecId, readonly import("packages/codecs/src/codec-descriptor").BitRateBand[]>
+  readonly ExportEncoderServices.browser: BrowserFamily | undefined
+  readonly ExportEncoderServices.signal: CancellationSignal
+  interface FileHandleLike
+  FileHandleLike.createSyncAccessHandle: (options: { readonly mode: "read-only"; }) => Promise<SyncAccessHandleLike>
+  type FileSource = { readonly kind: "file"; readonly file: BlobLike; } | { readonly kind: "origin-private"; readonly handle: FileHandleLike; }
+  interface FlacFrameEncoder
+  FlacFrameEncoder.encodeFrame: (planes: readonly Int32Array[], frameNumber: number) => DomainResult<Uint8Array>
+  FlacFrameEncoder.release: () => void
+  interface FlacFrameSettings
+  readonly FlacFrameSettings.channels: number
+  readonly FlacFrameSettings.bitsPerSample: number
+  readonly FlacFrameSettings.sampleRate: number
+  readonly FlacFrameSettings.blockSize: number
+  readonly FlacFrameSettings.level: number
+  type FromCodecWorker = { readonly kind: typeof FromCodecWorkerKind.Analysed; readonly request: string; readonly analysis: ImportAnalysis; } | { readonly kind: typeof FromCodecWorkerKind.Cancelled; readonly request: string; } | { readonly kind: typeof FromCodecWorkerKind.Decoded; readonly request: string; readonly frames: SampleCount; readonly decoder: DecoderIdentity; } | { readonly kind: typeof FromCodecWorkerKind.Encoded; readonly request: string; readonly frames: SampleCount; readonly encoder: EncoderIdentity; } | { readonly kind: typeof FromCodecWorkerKind.Environment; readonly environment: CodecEnvironment; } | { readonly kind: typeof FromCodecWorkerKind.Failed; readonly request: string; readonly failure: DomainFailure; } | { readonly kind: typeof FromCodecWorkerKind.Progress; readonly request: string; readonly frames: number; } | { readonly kind: typeof FromCodecWorkerKind.Refused; readonly failure: DomainFailure; }
+  const FromCodecWorkerKind: { readonly Environment: "environment"; readonly Analysed: "analysed"; readonly Progress: "progress"; readonly Decoded: "decoded"; readonly Encoded: "encoded"; readonly Failed: "failed"; readonly Cancelled: "cancelled"; readonly Refused: "refused"; }
+  type ImportAnalysis = { readonly kind: "decode"; readonly stream: AnalysedStream; readonly decoder: DecoderIdentity; readonly metadata: MetadataOutcome; } | { readonly kind: "read-in-place"; readonly container: ReadableContainer; readonly codec: CodecId; readonly metadata: MetadataOutcome; } | { readonly kind: "refused"; readonly failure: DomainFailure; readonly alternatives: readonly CodecId[]; }
+  const MAX_OPUS_PACKET_FRAMES: 5760
+  interface MessagePortLike
+  MessagePortLike.postMessage: (message: unknown, transfer: ArrayBuffer[]) => void
+  MessagePortLike.addEventListener: (type: "message" | "messageerror", listener: (event: PortMessage) => void) => void
+  MessagePortLike.start: () => void
+  MessagePortLike.close: () => void
+  type MetadataOutcome = { readonly kind: "none"; } | { readonly kind: "read"; readonly metadata: MetadataMap; } | { readonly kind: "unread"; readonly failure: DomainFailure; }
+  type ModuleSource = { readonly kind: "compiled"; readonly module: WebAssembly.Module; } | { readonly kind: "unavailable"; readonly reason: string; }
+  type OpenExportEncoder = (request: ExportEncodeRequest, services: ExportEncoderServices) => Promise<DomainResult<OpenedExportEncoder>>
+  interface OpenedExportEncoder
+  readonly OpenedExportEncoder.writer: AudioFileWriter
+  readonly OpenedExportEncoder.encoder: EncoderIdentity
+  type OpusApplication = "audio" | "restricted-low-delay" | "voip"
+  interface OpusEncoder
+  readonly OpusEncoder.head: Uint8Array<ArrayBufferLike>
+  readonly OpusEncoder.preSkip: number
+  OpusEncoder.push: (planes: readonly Float32Array[]) => DomainResult<readonly OpusPacket[]>
+  OpusEncoder.finish: () => DomainResult<{ readonly packets: readonly OpusPacket[]; readonly endGranule: number; }>
+  OpusEncoder.release: () => void
+  interface OpusEncoderSettings
+  readonly OpusEncoderSettings.sampleRate: 12000 | 16000 | 24000 | 48000 | 8000
+  readonly OpusEncoderSettings.channels: number
+  readonly OpusEncoderSettings.bitRate: number
+  readonly OpusEncoderSettings.application: OpusApplication
+  readonly OpusEncoderSettings.frameDuration: OpusFrameDuration
+  readonly OpusEncoderSettings.complexity: number
+  readonly OpusEncoderSettings.rateControl: OpusRateControl
+  readonly OpusEncoderSettings.inputSampleRate?: number
+  type OpusFrameDuration = 10 | 100 | 120 | 2.5 | 20 | 40 | 5 | 60 | 80
+  interface OpusPacket
+  readonly OpusPacket.bytes: Uint8Array<ArrayBufferLike>
+  readonly OpusPacket.frames: number
+  interface OpusPacketDecoder
+  OpusPacketDecoder.decode: (packet: Uint8Array, into: readonly Float32Array[]) => DomainResult<number>
+  OpusPacketDecoder.finalRange: () => number
+  OpusPacketDecoder.release: () => void
+  type OpusRateControl = "constant" | "constrained-variable" | "variable"
+  type StatedLayout = { readonly kind: "ambisonic"; readonly order: number; } | { readonly kind: "speakers"; readonly mask: number; } | { readonly kind: "unstated"; }
+  interface StreamDescription
+  readonly StreamDescription.codec: CodecId
+  readonly StreamDescription.container: ContainerId
+  readonly StreamDescription.sampleRate: number
+  readonly StreamDescription.channelCount: number
+  readonly StreamDescription.layout: StatedLayout
+  readonly StreamDescription.totalFrames: number | undefined
+  readonly StreamDescription.priming: number | undefined
+  readonly StreamDescription.padding: number | undefined
+  readonly StreamDescription.bitRate: number | undefined
+  readonly StreamDescription.bitsPerSample: number | undefined
+  readonly StreamDescription.decodable: boolean
+  readonly StreamDescription.codecConfig: Uint8Array<ArrayBufferLike>
+  type ToCodecWorker = CodecRequest | { readonly kind: typeof ToCodecWorkerKind.Configure; readonly codecModule: ModuleSource; readonly encoderModules: Readonly<Record<EncoderModuleName, ModuleSource>>; } | { readonly kind: typeof ToCodecWorkerKind.Connect; readonly port: MessagePortLike; }
+  const ToCodecWorkerKind: { readonly Configure: "configure"; readonly Connect: "connect"; readonly Analyse: "analyse"; readonly Decode: "decode"; readonly Encode: "encode"; readonly Cancel: "cancel"; }
+  const WORK_CANCELLED: DomainFailure
+  function instantiateCodecModule(code: BufferSource | WebAssembly.Module): Promise<DomainResult<CodecModule>>
+  function readFromCodecWorker(value: unknown): DomainResult<FromCodecWorker>
+
+@audiogubbins/codec-runtime/testing
+  interface FlacFixture
+  readonly FlacFixture.sampleRate: number
+  readonly FlacFixture.bitsPerSample: 12 | 16 | 20 | 24 | 8
+  readonly FlacFixture.blockSize: number
+  readonly FlacFixture.metadata?: MetadataMap
+  interface PageWorker
+  PageWorker.post: (message: ToCodecWorker, transfer: readonly unknown[]) => void
+  PageWorker.listen: (onMessage: (data: unknown) => void, onFault: (reason: string) => void) => void
+  PageWorker.terminate: () => void
+  readonly PageWorker.sent: readonly ToCodecWorker[]
+  readonly PageWorker.terminated: () => boolean
+  PageWorker.fault: (reason: string) => void
+  function codecModule(): Promise<CodecModule>
+  function codecModuleBytes(): Uint8Array<ArrayBuffer>
+  function encoderModuleBytes(name: EncoderModuleName): Uint8Array<ArrayBuffer>
+  function encoderModuleLoader(): (name: EncoderModuleName) => Promise<DomainResult<WebAssembly.Module>>
+  function flacFile(module: CodecModule, planes: readonly Int32Array<ArrayBufferLike>[], fixture: FlacFixture): Uint8Array<ArrayBufferLike>
+  function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, reads?: number[] | undefined): SyncAudioBytes
+  function oggOpusFile(module: CodecModule, planes: readonly Float32Array<ArrayBufferLike>[], settings: Omit<OpusEncoderSettings, "channels" | "sampleRate">): Uint8Array<ArrayBufferLike>
+  function pageWorker(options?: Omit<HarnessOptions, "codecModule">): PageWorker
+
 @audiogubbins/codecs
+  const AAC_LOWEST_BIT_RATE: 8
+  type AiffSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm"; } | { readonly kind: "integer"; readonly bits: number; readonly byteOrder: "big" | "little"; }
+  interface AiffWriterSettings
+  readonly AiffWriterSettings.container: "aifc" | "aiff"
+  readonly AiffWriterSettings.sampleRate: SampleRate
+  readonly AiffWriterSettings.layout: ChannelLayout
+  readonly AiffWriterSettings.sampleFormat: AiffSampleFormat
+  readonly AiffWriterSettings.metadata: MetadataMap
   interface AudioBytes
   readonly AudioBytes.size: number
   AudioBytes.read: (offset: number, length: number, signal?: CancellationSignal) => Promise<Uint8Array>
+  interface AudioFileWriter
+  AudioFileWriter.write: (channels: readonly SamplePlane[], frames: number, signal?: CancellationSignal) => Promise<DomainResult<readonly Uint8Array[]>>
+  AudioFileWriter.finish: (signal?: CancellationSignal) => Promise<DomainResult<FinishedAudioFile>>
   interface AudioFormatDescriptor
   readonly AudioFormatDescriptor.container: ReadableContainer
   readonly AudioFormatDescriptor.sampleRate: SampleRate
@@ -1594,7 +1894,254 @@ Published paths
   interface AudioReader
   readonly AudioReader.format: AudioFormatDescriptor
   AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<DomainResult<number>>
+  interface BitRateBand
+  readonly BitRateBand.channels?: number
+  readonly BitRateBand.sampleRates: NumberRange
+  readonly BitRateBand.constant?: readonly number[]
+  readonly BitRateBand.average?: NumberRange & { readonly per: "channel" | "stream"; }
+  interface BitRateStream
+  readonly BitRateStream.sampleRate: number
+  readonly BitRateStream.channels: number
+  interface BroadcastDescription
+  readonly BroadcastDescription.description: string
+  readonly BroadcastDescription.originator: string
+  readonly BroadcastDescription.originatorReference: string
+  readonly BroadcastDescription.originationDate: string
+  readonly BroadcastDescription.originationTime: string
+  readonly BroadcastDescription.timeReference: SampleCount
+  readonly BroadcastDescription.codingHistory: string
+  type ByteOrder = "big" | "little"
+  const CODEC_REGISTRY: ReadonlyMap<CodecId, CodecDescriptor>
+  type CodecCapability = { readonly kind: "available"; readonly codec: CodecId; readonly use: CodecUse; readonly implementation: CodecImplementation; } | { readonly kind: "unavailable"; readonly codec: CodecId; readonly use: CodecUse; readonly reason: string; readonly alternatives: readonly CodecId[]; }
+  interface CodecCodes
+  readonly CodecCodes.waveFormatTags: readonly number[]
+  readonly CodecCodes.aifcCompressionTypes: readonly string[]
+  interface CodecDescriptor
+  readonly CodecDescriptor.id: CodecId
+  readonly CodecDescriptor.name: string
+  readonly CodecDescriptor.lossless: boolean
+  readonly CodecDescriptor.codes: CodecCodes
+  readonly CodecDescriptor.read: CodecDirection | undefined
+  readonly CodecDescriptor.write: CodecDirection | undefined
+  interface CodecDirection
+  readonly CodecDirection.implementation: CodecImplementation
+  readonly CodecDirection.containers: readonly ContainerId[]
+  readonly CodecDirection.reproducible: boolean
+  readonly CodecDirection.licence: string
+  readonly CodecDirection.sampleRates: SampleRateSupport
+  readonly CodecDirection.maximumChannels: number
+  readonly CodecDirection.bitRates?: readonly BitRateBand[]
+  interface CodecEnvironment
+  readonly CodecEnvironment.webAssembly: boolean
+  readonly CodecEnvironment.codecModule: ModuleLoad
+  readonly CodecEnvironment.encoderModules: ReadonlyMap<CodecId, ModuleLoad>
+  readonly CodecEnvironment.browserDecoders: ReadonlySet<CodecId>
+  readonly CodecEnvironment.browserEncoders: ReadonlySet<CodecId>
+  readonly CodecEnvironment.browserBitRates: ReadonlyMap<CodecId, readonly BitRateBand[]>
+  type CodecId = "aac-lc" | "alac" | "flac" | "g711-alaw" | "g711-ulaw" | "he-aac" | "ima-adpcm" | "mp3" | "ms-adpcm" | "opus" | "pcm" | "vorbis"
+  type CodecImplementation = "application" | "browser" | "codec-module" | "encoder-module"
+  type CodecUse = "read" | "write"
+  type ContainerId = "adts" | "aifc" | "aiff" | "bw64" | "flac" | "matroska" | "mp3" | "mp4" | "ogg" | "rf64" | "wav" | "webm"
+  interface CoverArt
+  readonly CoverArt.mediaType: string
+  readonly CoverArt.description: string
+  readonly CoverArt.bytes: Uint8Array<ArrayBufferLike>
+  interface CuePoint
+  readonly CuePoint.position: SampleCount
+  readonly CuePoint.name: string
+  interface DecoderIdentity
+  readonly DecoderIdentity.implementation: CodecImplementation
+  readonly DecoderIdentity.name: string
+  readonly DecoderIdentity.version: string
+  interface EncodedStreamLength
+  readonly EncodedStreamLength.inputFrames: number
+  interface EncodedStreamWriter<TEnd>
+  EncodedStreamWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  EncodedStreamWriter.finish: (end: TEnd) => DomainResult<FinishedEncodedStream>
+  const FLAC_DEPTHS: IntegerDepths
+  interface FinishedAudioFile
+  readonly FinishedAudioFile.head: Uint8Array<ArrayBufferLike>
+  readonly FinishedAudioFile.tail: Uint8Array<ArrayBufferLike>
+  readonly FinishedAudioFile.dropped: readonly MetadataPart[]
+  interface FinishedEncodedStream extends FinishedAudioFile
+  readonly FinishedEncodedStream.body: readonly Uint8Array<ArrayBufferLike>[]
+  readonly FinishedEncodedStream.head: Uint8Array<ArrayBufferLike>
+  readonly FinishedEncodedStream.tail: Uint8Array<ArrayBufferLike>
+  readonly FinishedEncodedStream.dropped: readonly import("packages/codecs/src/metadata-map").MetadataPart[]
+  interface FlacMetadataSettings
+  readonly FlacMetadataSettings.metadata: MetadataMap
+  readonly FlacMetadataSettings.vendor: string
+  readonly FlacMetadataSettings.keepRiffChunks: boolean
+  class FlacSampleDigest
+  new FlacSampleDigest(bitsPerSample: number): FlacSampleDigest
+  readonly FlacSampleDigest.md5: Md5
+  readonly FlacSampleDigest.bytesPerSample: number
+  FlacSampleDigest.counted: number
+  FlacSampleDigest.frames: number
+  FlacSampleDigest.add: (channels: readonly Int32Array[], frames: number) => void
+  FlacSampleDigest.digest: () => Uint8Array
+  interface FlacStreamEnd
+  readonly FlacStreamEnd.samples: FlacSampleDigest
+  interface FlacStreamFormat
+  readonly FlacStreamFormat.sampleRate: number
+  readonly FlacStreamFormat.channels: number
+  readonly FlacStreamFormat.bitsPerSample: number
+  interface FlacStreamSettings extends FlacStreamFormat, FlacMetadataSettings
+  readonly FlacStreamSettings.blockSize: number
+  readonly FlacStreamSettings.sampleRate: number
+  readonly FlacStreamSettings.channels: number
+  readonly FlacStreamSettings.bitsPerSample: number
+  readonly FlacStreamSettings.metadata: import("packages/codecs/src/metadata-map").MetadataMap
+  readonly FlacStreamSettings.vendor: string
+  readonly FlacStreamSettings.keepRiffChunks: boolean
+  class FlacStreamWriter
+  new FlacStreamWriter(settings: FlacStreamSettings): FlacStreamWriter
+  readonly FlacStreamWriter.settings: FlacStreamSettings
+  FlacStreamWriter.ended: boolean
+  FlacStreamWriter.frames: number
+  FlacStreamWriter.samples: number
+  FlacStreamWriter.shortFrameSeen: boolean
+  FlacStreamWriter.minimumFrameBytes: number
+  FlacStreamWriter.maximumFrameBytes: number
+  FlacStreamWriter.add: (frame: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  FlacStreamWriter.finish: (end: FlacStreamEnd) => DomainResult<FinishedEncodedStream>
+  FlacStreamWriter.streamInfo: (signature: Uint8Array) => FlacBlock
+  FlacStreamWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  interface FloatSampleEncoding
+  readonly FloatSampleEncoding.kind: "float"
+  readonly FloatSampleEncoding.bits: 32 | 64
+  readonly FloatSampleEncoding.bytes: 4 | 8
+  readonly FloatSampleEncoding.byteOrder: ByteOrder
+  interface ForeignMetadataField
+  readonly ForeignMetadataField.scheme: string
+  readonly ForeignMetadataField.key: string
+  readonly ForeignMetadataField.value: string
+  interface G711SampleEncoding
+  readonly G711SampleEncoding.kind: "g711-alaw" | "g711-ulaw"
+  interface ImaAdpcmEncoding
+  readonly ImaAdpcmEncoding.kind: "ima-adpcm"
+  readonly ImaAdpcmEncoding.packing: "ima4" | "wav"
+  readonly ImaAdpcmEncoding.framesPerBlock: number
+  type ImportRoute = { readonly kind: "decode"; readonly container: ContainerId; readonly codec: CodecId | undefined; } | { readonly kind: "read-in-place"; readonly container: ReadableContainer; readonly codec: CodecId; } | { readonly kind: "refuse"; readonly failure: DomainFailure; }
+  interface IntegerDepths
+  readonly IntegerDepths.lowest: number
+  readonly IntegerDepths.highest: number
+  interface IntegerSampleEncoding
+  readonly IntegerSampleEncoding.kind: "integer"
+  readonly IntegerSampleEncoding.bits: number
+  readonly IntegerSampleEncoding.bytes: number
+  readonly IntegerSampleEncoding.byteOrder: ByteOrder
+  readonly IntegerSampleEncoding.signed: boolean
+  type LoopDirection = "alternating" | "backward" | "forward"
+  const METADATA_READERS: ReadonlyMap<ContainerId, MetadataReader>
+  interface MetadataLoop
+  readonly MetadataLoop.start: SampleCount
+  readonly MetadataLoop.length: SampleCount
+  readonly MetadataLoop.playCount: "endless" | number
+  readonly MetadataLoop.direction: LoopDirection
+  readonly MetadataLoop.name?: string
+  interface MetadataMap
+  readonly MetadataMap.text?: Readonly<Partial<Record<MetadataTextKey, string>>>
+  readonly MetadataMap.foreign?: readonly ForeignMetadataField[]
+  readonly MetadataMap.broadcast?: BroadcastDescription
+  readonly MetadataMap.cues?: readonly CuePoint[]
+  readonly MetadataMap.loops?: readonly MetadataLoop[]
+  readonly MetadataMap.tuning?: SamplerTuning
+  readonly MetadataMap.coverArt?: CoverArt
+  type MetadataPart = { readonly kind: "broadcast"; } | { readonly kind: "coverArt"; } | { readonly kind: "cues"; } | { readonly kind: "foreign"; readonly scheme: string; readonly key: string; } | { readonly kind: "loops"; } | { readonly kind: "text"; readonly key: MetadataTextKey; } | { readonly kind: "tuning"; }
+  type MetadataReader = (bytes: AudioBytes, signal?: CancellationSignal) => Promise<DomainResult<MetadataMap>>
+  type MetadataTextKey = "album" | "albumArtist" | "artist" | "comment" | "copyright" | "date" | "discNumber" | "discTotal" | "encoder" | "genre" | "isrc" | "title" | "trackNumber" | "trackTotal"
+  type ModuleLoad = { readonly kind: "failed"; readonly reason: string; } | { readonly kind: "loaded"; } | { readonly kind: "not-loaded"; }
+  interface Mp3StreamSettings
+  readonly Mp3StreamSettings.metadata: MetadataMap
+  readonly Mp3StreamSettings.encoderDelay: number
+  readonly Mp3StreamSettings.encoder: string
+  class Mp3StreamWriter
+  new Mp3StreamWriter(settings: Mp3StreamSettings): Mp3StreamWriter
+  readonly Mp3StreamWriter.settings: Mp3StreamSettings
+  readonly Mp3StreamWriter.sizes: SizeList
+  Mp3StreamWriter.pending: Uint8Array<ArrayBufferLike>
+  Mp3StreamWriter.model: MpegAudioHeader | undefined
+  Mp3StreamWriter.constantBitrate: boolean
+  Mp3StreamWriter.audioBytes: number
+  Mp3StreamWriter.musicCrc: number
+  Mp3StreamWriter.atStart: boolean
+  Mp3StreamWriter.ended: boolean
+  Mp3StreamWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  Mp3StreamWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  Mp3StreamWriter.informationFrame: (inputFrames: number) => DomainResult<Uint8Array>
+  Mp3StreamWriter.accept: (frame: Uint8Array, header: MpegAudioHeader) => DomainResult<undefined>
+  Mp3StreamWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  interface Mp4AacSettings
+  readonly Mp4AacSettings.audioSpecificConfig: Uint8Array<ArrayBufferLike>
+  readonly Mp4AacSettings.primingFrames: number
+  readonly Mp4AacSettings.metadata: MetadataMap
+  readonly Mp4AacSettings.time?: number
+  class Mp4AacWriter
+  new Mp4AacWriter(settings: Mp4AacSettings, config: AacConfig): Mp4AacWriter
+  readonly Mp4AacWriter.settings: Mp4AacSettings
+  readonly Mp4AacWriter.config: AacConfig
+  readonly Mp4AacWriter.sizes: SizeList
+  Mp4AacWriter.dataBytes: number
+  Mp4AacWriter.ended: boolean
+  Mp4AacWriter.add: (unit: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  Mp4AacWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  Mp4AacWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  interface MsAdpcmEncoding
+  readonly MsAdpcmEncoding.kind: "ms-adpcm"
+  readonly MsAdpcmEncoding.framesPerBlock: number
+  readonly MsAdpcmEncoding.coefficients: readonly (readonly [number, number])[]
+  interface NumberRange
+  readonly NumberRange.minimum: number
+  readonly NumberRange.maximum: number
+  interface OggOpusSettings extends OpusHeadSettings
+  readonly OggOpusSettings.vendor: string
+  readonly OggOpusSettings.metadata: MetadataMap
+  readonly OggOpusSettings.channels: number
+  readonly OggOpusSettings.preSkip: number
+  readonly OggOpusSettings.inputRate: number
+  readonly OggOpusSettings.outputGain: number
+  readonly OggOpusSettings.mapping: import("packages/codecs/src/opus-header").OpusChannelMapping
+  class OggOpusWriter
+  new OggOpusWriter(settings: OggOpusSettings, pages: OggPageWriter, head: Uint8Array<ArrayBufferLike>, dropped: readonly import("packages/codecs/src/metadata-map").MetadataPart[]): OggOpusWriter
+  readonly OggOpusWriter.pages: OggPageWriter
+  readonly OggOpusWriter.head: Uint8Array<ArrayBufferLike>
+  readonly OggOpusWriter.settings: OggOpusSettings
+  readonly OggOpusWriter.dropped: readonly import("packages/codecs/src/metadata-map").MetadataPart[]
+  OggOpusWriter.held: HeldPacket | undefined
+  OggOpusWriter.decoded: number
+  OggOpusWriter.ended: boolean
+  OggOpusWriter.add: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggOpusWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  OggOpusWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  class OggVorbisWriter
+  new OggVorbisWriter(metadata: MetadataMap): OggVorbisWriter
+  readonly OggVorbisWriter.metadata: MetadataMap
+  readonly OggVorbisWriter.pages: OggPageWriter
+  readonly OggVorbisWriter.headers: Uint8Array<ArrayBufferLike>[]
+  OggVorbisWriter.sizes: VorbisBlockSizes | undefined
+  OggVorbisWriter.previousBlock: number | undefined
+  OggVorbisWriter.held: HeldPacket | undefined
+  OggVorbisWriter.decoded: number
+  OggVorbisWriter.dropped: readonly MetadataPart[]
+  OggVorbisWriter.ended: boolean
+  OggVorbisWriter.add: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggVorbisWriter.finish: (end: EncodedStreamLength) => DomainResult<FinishedEncodedStream>
+  OggVorbisWriter.header: (packet: Uint8Array) => DomainResult<readonly Uint8Array[]>
+  OggVorbisWriter.failed: (result: DomainFailureResult) => DomainFailureResult
+  interface OpenedFileWriter
+  readonly OpenedFileWriter.writer: AudioFileWriter
+  readonly OpenedFileWriter.layout: ChannelLayout
+  type OpusChannelMapping = { readonly family: 0; } | { readonly family: 1; readonly streams: number; readonly coupledStreams: number; readonly table: readonly number[]; }
+  interface OpusHeadSettings
+  readonly OpusHeadSettings.channels: number
+  readonly OpusHeadSettings.preSkip: number
+  readonly OpusHeadSettings.inputRate: number
+  readonly OpusHeadSettings.outputGain: number
+  readonly OpusHeadSettings.mapping: OpusChannelMapping
+  const PCM_INTEGER_DEPTHS: IntegerDepths
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
+  type RecognisedFormat = { readonly kind: "audio"; readonly container: ContainerId; readonly codec: StatedCodec; } | { readonly kind: "unknown"; }
   interface RecordedWavFormat
   readonly RecordedWavFormat.sampleRate: SampleRate
   readonly RecordedWavFormat.layout: ChannelLayout
@@ -1604,10 +2151,51 @@ Published paths
   readonly RecordedWavHeader.dataOffset: number
   readonly RecordedWavHeader.dataLength: number
   readonly RecordedWavHeader.fileLength: number
-  type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
+  type SampleEncoding = FloatSampleEncoding | G711SampleEncoding | ImaAdpcmEncoding | IntegerSampleEncoding | MsAdpcmEncoding
+  type SamplePlane = Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>
+  type SampleRateSupport = { readonly kind: "any"; readonly minimum: number; readonly maximum: number; } | { readonly kind: "listed"; readonly rates: readonly number[]; }
+  interface SamplerTuning
+  readonly SamplerTuning.unityNote: number
+  readonly SamplerTuning.fineTuneCents: number
+  type StatedCodec = { readonly kind: "named"; readonly codec: CodecId; } | { readonly kind: "unnamed"; readonly description: string; } | { readonly kind: "unstated"; }
+  interface SyncAudioBytes
+  readonly SyncAudioBytes.size: number
+  SyncAudioBytes.readInto: (offset: number, into: Uint8Array) => number
+  type WavSampleFormat = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "g711-alaw" | "g711-ulaw" | "ima-adpcm" | "ms-adpcm"; } | { readonly kind: "integer"; readonly bits: number; }
+  interface WavWriterSettings
+  readonly WavWriterSettings.form: "bw64" | "riff"
+  readonly WavWriterSettings.sampleRate: SampleRate
+  readonly WavWriterSettings.layout: ChannelLayout
+  readonly WavWriterSettings.sampleFormat: WavSampleFormat
+  readonly WavWriterSettings.metadata: MetadataMap
+  type WrittenChannelOrder = readonly number[]
+  function aacHighestBitRate(channels: number, sampleRate: number): number
+  function adtsAudioConfig(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<Uint8Array<ArrayBufferLike>>>
+  function averageBitRateRanges(direction: CodecDirection, stream: BitRateStream): readonly NumberRange[]
+  function codecCapability(environment: CodecEnvironment, codec: CodecId, use: CodecUse): CodecCapability
+  function codecDescriptor(id: CodecId): CodecDescriptor
+  function codecDescriptorIn(environment: Pick<CodecEnvironment, "browserBitRates">, codec: CodecId): CodecDescriptor
+  function constantBitRates(direction: CodecDirection, stream: BitRateStream): readonly number[] | undefined
+  function containerBytes(bits: number): number
+  function containerName(container: ContainerId): string
+  function createAiffWriter(settings: AiffWriterSettings): DomainResult<OpenedFileWriter>
+  function createWavWriter(settings: WavWriterSettings): DomainResult<OpenedFileWriter>
+  function formatName(format: RecognisedFormat): string
+  function holdsDepth(depths: IntegerDepths, bits: number): boolean
+  function importRoute(format: RecognisedFormat): ImportRoute
+  function layoutRead(stated: ChannelLayout | undefined, channelCount: number): DomainResult<ChannelLayout>
+  function metadataMapOf(value: unknown, field: string): MetadataMap
+  function metadataPartOf(value: unknown, field: string): MetadataPart
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
+  function quantiseSample(value: number, bits: number): number
+  function readOpusHead(bytes: Uint8Array<ArrayBufferLike>): DomainResult<OpusHeadSettings>
+  function recogniseAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<RecognisedFormat>>
   function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
   function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
+  function speakerMaskLayout(mask: number, channelCount: number): ChannelLayout | undefined
+  function statedChannelCounts(codec: CodecId): readonly number[] | undefined
+  function takesAverageBitRate(direction: CodecDirection, stream: BitRateStream, kbps: number): boolean | undefined
+  function writtenChannelOrder(codec: CodecId, container: ContainerId, layout: ChannelLayout): DomainResult<WrittenChannelOrder>
 
 @audiogubbins/codecs/testing
   interface AiffOptions
@@ -1617,12 +2205,27 @@ Published paths
   readonly AiffOptions.sampleRate: number
   readonly AiffOptions.channels: readonly FixtureChannel[]
   readonly AiffOptions.commonOverrides?: { readonly declaredFrames?: number; readonly channelCount?: number; }
+  readonly AiffOptions.encodedSamples?: Uint8Array<ArrayBufferLike>
   readonly AiffOptions.channelLayout?: Uint8Array<ArrayBufferLike>
   readonly AiffOptions.soundOffset?: number
   readonly AiffOptions.commonAfterSound?: boolean
   readonly AiffOptions.beforeSound?: readonly FixtureChunk[]
   readonly AiffOptions.afterSound?: readonly FixtureChunk[]
   readonly AiffOptions.truncate?: number
+  const COVER_BYTES: Uint8Array<ArrayBuffer>
+  interface CompressedWavOptions extends RiffFraming
+  readonly CompressedWavOptions.sampleRate: number
+  readonly CompressedWavOptions.channelCount: number
+  readonly CompressedWavOptions.coding: WavCoding
+  readonly CompressedWavOptions.data: Uint8Array<ArrayBufferLike>
+  readonly CompressedWavOptions.formatOverrides?: { readonly bitsPerSample?: number; readonly extraBytes?: number; readonly coefficientCount?: number; }
+  readonly CompressedWavOptions.form?: "bw64" | "rf64" | "wav"
+  readonly CompressedWavOptions.beforeFormat?: readonly FixtureChunk[]
+  readonly CompressedWavOptions.beforeData?: readonly FixtureChunk[]
+  readonly CompressedWavOptions.afterData?: readonly FixtureChunk[]
+  readonly CompressedWavOptions.factFrames?: number
+  readonly CompressedWavOptions.sizesInDs64?: readonly string[]
+  readonly CompressedWavOptions.truncate?: number
   type FixtureChannel = Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>
   interface FixtureChunk
   readonly FixtureChunk.id: string
@@ -1635,9 +2238,15 @@ Published paths
   MemoryBytes.read: (offset: number, length: number, signal?: import("packages/domain/src/cancellation").CancellationSignal) => Promise<Uint8Array>
   interface MemoryBytesOptions
   readonly MemoryBytesOptions.answer?: (request: ReadRequest, honest: Uint8Array) => Uint8Array
+  interface OggFlacFrame
+  readonly OggFlacFrame.bytes: Uint8Array<ArrayBufferLike>
+  readonly OggFlacFrame.samples: number
   interface ReadRequest
   readonly ReadRequest.offset: number
   readonly ReadRequest.length: number
+  const WINDOWS_AAC_BIT_RATES: readonly BitRateBand[]
+  const WINDOWS_BROWSER_BIT_RATES: ReadonlyMap<CodecId, readonly BitRateBand[]>
+  type WavCoding = { readonly kind: "g711-alaw" | "g711-ulaw"; } | { readonly kind: "ima-adpcm"; readonly blockAlign: number; readonly framesPerBlock: number; } | { readonly kind: "ms-adpcm"; readonly blockAlign: number; readonly framesPerBlock: number; readonly coefficients: readonly (readonly [number, number])[]; }
   type WavEncoding = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "integer"; readonly bits: number; readonly bytes?: number; }
   interface WavOptions
   readonly WavOptions.form?: "bw64" | "rf64" | "wav"
@@ -1653,10 +2262,25 @@ Published paths
   readonly WavOptions.factFrames?: number
   readonly WavOptions.sizesInDs64?: readonly string[]
   readonly WavOptions.truncate?: number
+  interface WrittenFile
+  readonly WrittenFile.file: Uint8Array<ArrayBufferLike>
+  readonly WrittenFile.finished: FinishedAudioFile
   function channelLayoutBody(layout: { readonly tag: number; readonly bitmap?: number; readonly labels?: readonly number[]; }): Uint8Array<ArrayBufferLike>
+  const frames: (count: number) => SampleCount
+  function fullMetadata(): MetadataMap
   function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, options?: MemoryBytesOptions): MemoryBytes
+  function mutations(file: Uint8Array<ArrayBufferLike>, span: number, count: number, seed: number): Uint8Array<ArrayBufferLike>[]
+  function oggFlacFile(head: Uint8Array<ArrayBufferLike>, frames: readonly OggFlacFrame[], statedHeaders?: number | undefined): Uint8Array<ArrayBufferLike>
+  function oggPages(file: Uint8Array<ArrayBufferLike>): OggPage[]
+  function random(seed: number): () => number
+  function vorbisAudioPacket(mode: number, modes: number, length: number, seed?: number): Uint8Array<ArrayBufferLike>
+  function vorbisComment(vendor: string): Uint8Array<ArrayBufferLike>
+  function vorbisIdentification(channels: number, short?: number, long?: number): Uint8Array<ArrayBufferLike>
+  function vorbisSetup(modes: readonly boolean[]): Uint8Array<ArrayBufferLike>
   function writeAiff(options: AiffOptions): Uint8Array<ArrayBufferLike>
+  function writeCompressedWav(options: CompressedWavOptions): Uint8Array<ArrayBufferLike>
   function writeWav(options: WavOptions): Uint8Array<ArrayBufferLike>
+  function writeWhole(writer: AudioFileWriter, channels: readonly SamplePlane[], block?: number): Promise<WrittenFile>
 
 @audiogubbins/commands
   const AVAILABLE: CommandAvailability
@@ -2836,6 +3460,7 @@ Published paths
   function defaultPunchCrossfade(rate: SampleRate, length: number): PunchCrossfade
   function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
+  function domainFailureAt(fields: Readonly<Record<string, unknown>>, field: string): DomainFailure
   function domainFailuresAt(fields: Readonly<Record<string, unknown>>, field: string): readonly [DomainFailure, ...DomainFailure[]]
   function editChain(edit: RangeEdit): EffectChainId | undefined
   function editPlanOf(value: unknown, field: string): EditPlan
@@ -3384,7 +4009,7 @@ Published paths
   PersistentMap.entries: () => IterableIterator<readonly [TKey, TValue]>
   PersistentMap.changesSince: (earlier: PersistentMap<TKey, TValue>) => MapChanges<TKey, TValue>
   PersistentMap.withChanges: (changes: MapChanges<TKey, TValue>) => PersistentMap<TKey, TValue>
-  type ProjectField = "channelLayout" | "displayName" | "sampleRate" | "trackOrder"
+  type ProjectField = "channelLayout" | "displayName" | "exportSettings" | "sampleRate" | "trackOrder"
   interface Restoration
   readonly Restoration.base: HistoryNode
   readonly Restoration.baseState: StateFingerprint
@@ -3462,6 +4087,244 @@ Published paths
   function undo(history: History): Navigation | undefined
   function undoTarget(history: History): ChangeNode | undefined
   function withStateFingerprint(history: History, id: HistoryNodeId, stateFingerprint: StateFingerprint): DomainResult<History>
+
+@audiogubbins/import-export
+  interface AacEncoding
+  readonly AacEncoding.bitRate: number
+  type AifcEncoding = FloatPcm | IntegerPcm | { readonly kind: "a-law" | "ima-adpcm" | "mu-law"; }
+  type AiffEncoding = IntegerPcm
+  type AnsweredDecision = { readonly kind: "overwrite"; readonly name: string; readonly trusted: boolean; } | { readonly kind: "rename"; readonly name: string; } | { readonly kind: "skip"; readonly name: string; } | { readonly kind: "write"; readonly name: string; }
+  const BUILT_IN_PRESETS: readonly ExportPreset[]
+  interface BatchProgress
+  readonly BatchProgress.jobsSettled: number
+  readonly BatchProgress.jobsTotal: number
+  readonly BatchProgress.framesRendered: number
+  readonly BatchProgress.framesTotal: number
+  type ChannelConversion = { readonly kind: "fold"; readonly to: ChannelLayout; } | { readonly kind: "keep"; } | { readonly kind: "map"; readonly channels: readonly number[]; readonly to: ChannelLayout; } | { readonly kind: "matrix"; readonly matrix: FixedNamedMatrix; }
+  type CodecLookup = (codec: CodecId) => CodecDescriptor | undefined
+  interface CodedPcm
+  readonly CodedPcm.kind: "a-law" | "ima-adpcm" | "ms-adpcm" | "mu-law"
+  type CollisionAnswer = "overwrite" | "rename" | "skip"
+  type CollisionDecision = { readonly kind: "ask"; readonly name: string; } | { readonly kind: "overwrite"; readonly name: string; readonly trusted: boolean; } | { readonly kind: "rename"; readonly name: string; } | { readonly kind: "skip"; readonly name: string; } | { readonly kind: "write"; readonly name: string; }
+  type CollisionPolicy = "overwrite" | "prompt" | "rename" | "skip"
+  interface CollisionQuery
+  readonly CollisionQuery.wanted: ExportFileName
+  readonly CollisionQuery.listing: readonly string[]
+  readonly CollisionQuery.policy: CollisionPolicy
+  readonly CollisionQuery.remembered: CollisionAnswer | undefined
+  readonly CollisionQuery.trusted: TrustedFolder | undefined
+  interface CommonExportSettings
+  readonly CommonExportSettings.sampleRate: SampleRate
+  readonly CommonExportSettings.channels: ChannelConversion
+  readonly CommonExportSettings.dither: DitherSettings
+  readonly CommonExportSettings.range: ExportRange
+  readonly CommonExportSettings.metadata: MetadataSettings
+  readonly CommonExportSettings.fileName: string
+  interface DecodedStreamDescription
+  readonly DecodedStreamDescription.sampleRate: number
+  readonly DecodedStreamDescription.layout: ChannelLayout
+  readonly DecodedStreamDescription.statedFrames: SampleCount | undefined
+  readonly DecodedStreamDescription.metadata: MetadataMap
+  type DecodedStreamMessage = { readonly kind: "block"; readonly channels: readonly Float32Array[]; readonly frames: number; } | { readonly kind: "description"; readonly description: DecodedStreamDescription; } | { readonly kind: "end"; readonly frames: SampleCount; } | { readonly kind: "failed"; readonly failure: DomainFailure; }
+  interface DeliveryTarget
+  readonly DeliveryTarget.kind: "download" | "file" | "folder" | "trusted-folder"
+  readonly DeliveryTarget.name: string
+  type DitherSettings = { readonly kind: "none"; } | { readonly kind: "rectangular" | "triangular"; readonly amplitude: number; readonly shaping: NoiseShaping; readonly seed: number; }
+  type EncodedStreamMessage = { readonly kind: "body"; readonly bytes: Uint8Array; } | { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "finished"; readonly file: FinishedAudioFile; }
+  interface EncodingFacts
+  readonly EncodingFacts.sampleRate: SampleRate
+  readonly EncodingFacts.channels: number
+  readonly EncodingFacts.write: CodecDirection | undefined
+  interface ExportBatch
+  readonly ExportBatch.jobs: readonly ExportJob[]
+  readonly ExportBatch.remembered: CollisionAnswer | undefined
+  interface ExportClock
+  readonly ExportClock.epochMilliseconds: number
+  readonly ExportClock.utcOffsetMinutes: number
+  interface ExportContext
+  readonly ExportContext.source: ExportSource
+  readonly ExportContext.codecs: CodecLookup
+  interface ExportFileName
+  readonly ExportFileName.stem: string
+  readonly ExportFileName.extension: string
+  type ExportFormat = "aac" | "aifc" | "aiff" | "flac" | "mp3" | "ogg-vorbis" | "opus" | "wav"
+  interface ExportJob
+  readonly ExportJob.id: string
+  readonly ExportJob.framesTotal: number
+  readonly ExportJob.state: ExportJobState
+  type ExportJobEvent = { readonly kind: "cancel"; } | { readonly kind: "delivered"; } | { readonly kind: "delivery-progress"; readonly bytesDelivered: number; } | { readonly kind: "delivery-refused"; readonly failure: DomainFailure; } | { readonly kind: "delivery-started"; readonly target: DeliveryTarget; } | { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "progress"; readonly framesRendered: number; readonly bytesStaged: number; } | { readonly kind: "render-finished"; } | { readonly kind: "render-started"; } | { readonly kind: "staged"; readonly staged: StagedFile; }
+  type ExportJobState = { readonly kind: "cancelled"; readonly stage: ExportStage; } | { readonly kind: "delivered"; readonly staged: StagedFile; readonly target: DeliveryTarget; } | { readonly kind: "delivering"; readonly staged: StagedFile; readonly target: DeliveryTarget; readonly bytesDelivered: number; } | { readonly kind: "encoding"; readonly bytesStaged: number; } | { readonly kind: "failed"; readonly stage: ExportStage; readonly failure: DomainFailure; } | { readonly kind: "planned"; } | { readonly kind: "rendering"; readonly framesRendered: number; readonly bytesStaged: number; } | { readonly kind: "staged"; readonly staged: StagedFile; readonly refused: DomainFailure | undefined; }
+  type ExportPreset = { readonly id: string; readonly name: string; readonly format: "aac"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "aifc"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "aiff"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "flac"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "mp3"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "ogg-vorbis"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "opus"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }, "format">>; } | { readonly id: string; readonly name: string; readonly format: "wav"; readonly settings: Partial<Omit<import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; }, "format">>; }
+  type ExportRange = { readonly kind: "every-region"; } | { readonly kind: "project"; } | { readonly kind: "region"; readonly region: RegionId; } | { readonly kind: "selection"; readonly start: SampleCount; readonly length: SampleCount; }
+  interface ExportRenderPlan
+  readonly ExportRenderPlan.graph: GraphDescriptor
+  readonly ExportRenderPlan.input: NodeId
+  readonly ExportRenderPlan.output: NodeId
+  readonly ExportRenderPlan.sampleRate: SampleRate
+  readonly ExportRenderPlan.range: RenderRange
+  readonly ExportRenderPlan.layout: ChannelLayout
+  type ExportSettings = (CommonExportSettings & { readonly format: "aac"; readonly encoding: AacEncoding; }) | (CommonExportSettings & { readonly format: "aifc"; readonly encoding: AifcEncoding; }) | (CommonExportSettings & { readonly format: "aiff"; readonly encoding: IntegerPcm; }) | (CommonExportSettings & { readonly format: "flac"; readonly encoding: FlacEncoding; }) | (CommonExportSettings & { readonly format: "mp3"; readonly encoding: Mp3Encoding; }) | (CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }) | (CommonExportSettings & { readonly format: "opus"; readonly encoding: OpusEncoding; }) | (CommonExportSettings & { readonly format: "wav"; readonly encoding: WavEncoding; })
+  type ExportSettingsOf<F extends ExportFormat> = SettingsByFormat[F]
+  interface ExportSource extends ExportableAudio
+  readonly ExportSource.name: string
+  readonly ExportSource.length: SampleCount
+  readonly ExportSource.regions: readonly ExportableRegion[]
+  readonly ExportSource.sampleRate: SampleRate
+  readonly ExportSource.layout: ChannelLayout
+  readonly ExportSource.precision: SourcePrecision
+  interface ExportSpan
+  readonly ExportSpan.audio: ExportableAudio
+  readonly ExportSpan.start: SampleCount
+  readonly ExportSpan.length: SampleCount
+  readonly ExportSpan.region: ExportableRegion | undefined
+  type ExportStage = "delivering" | "encoding" | "planned" | "rendering" | "staged"
+  interface ExportTarget
+  readonly ExportTarget.formatName: string
+  readonly ExportTarget.codec: CodecId
+  readonly ExportTarget.container: ContainerId
+  readonly ExportTarget.extension: string
+  readonly ExportTarget.depth: number | undefined
+  interface ExportableAudio
+  readonly ExportableAudio.sampleRate: SampleRate
+  readonly ExportableAudio.layout: ChannelLayout
+  readonly ExportableAudio.precision: SourcePrecision
+  interface ExportableRegion extends ExportableAudio
+  readonly ExportableRegion.id: RegionId
+  readonly ExportableRegion.name: string
+  readonly ExportableRegion.start: SampleCount
+  readonly ExportableRegion.length: SampleCount
+  readonly ExportableRegion.sampleRate: SampleRate
+  readonly ExportableRegion.layout: ChannelLayout
+  readonly ExportableRegion.precision: SourcePrecision
+  interface ExportedFileRecord
+  readonly ExportedFileRecord.name: string
+  readonly ExportedFileRecord.size: number
+  readonly ExportedFileRecord.hash: string
+  interface FlacEncoding
+  readonly FlacEncoding.bits: number
+  readonly FlacEncoding.compressionLevel: number
+  readonly FlacEncoding.keepRiffChunks: boolean
+  interface FloatPcm
+  readonly FloatPcm.kind: "float"
+  readonly FloatPcm.bits: 32 | 64
+  type FormatEncoding = { readonly format: "aac"; readonly encoding: AacEncoding; } | { readonly format: "aifc"; readonly encoding: AifcEncoding; } | { readonly format: "aiff"; readonly encoding: IntegerPcm; } | { readonly format: "flac"; readonly encoding: FlacEncoding; } | { readonly format: "mp3"; readonly encoding: Mp3Encoding; } | { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; } | { readonly format: "opus"; readonly encoding: OpusEncoding; } | { readonly format: "wav"; readonly encoding: WavEncoding; }
+  type FormatEncodingOf<F extends ExportFormat> = FormatEncodingByFormat[F]
+  interface FormatEncodings
+  readonly FormatEncodings.wav: WavEncoding
+  readonly FormatEncodings.aiff: IntegerPcm
+  readonly FormatEncodings.aifc: AifcEncoding
+  readonly FormatEncodings.flac: FlacEncoding
+  readonly FormatEncodings.mp3: Mp3Encoding
+  readonly FormatEncodings.ogg-vorbis: VorbisEncoding
+  readonly FormatEncodings.opus: OpusEncoding
+  readonly FormatEncodings.aac: AacEncoding
+  interface ImportEntry
+  readonly ImportEntry.file: ImportFile
+  readonly ImportEntry.state: ImportFileState
+  readonly ImportEntry.format?: RecognisedFormat
+  readonly ImportEntry.room?: ImportRoomNeeded
+  interface ImportFile
+  readonly ImportFile.name: string
+  readonly ImportFile.bytes: number
+  type ImportFileEvent = { readonly kind: "add"; } | { readonly kind: "analyse"; } | { readonly kind: "copy"; readonly bytesTotal: number; } | { readonly kind: "copy-progress"; readonly bytesCopied: number; } | { readonly kind: "decode"; readonly framesTotal: number | undefined; } | { readonly kind: "decode-progress"; readonly framesDecoded: number; } | { readonly kind: "imported"; } | { readonly kind: "recognised"; readonly format: RecognisedFormat; } | { readonly kind: "refused"; readonly failure: DomainFailure; } | { readonly kind: "room"; readonly needed: ImportRoomNeeded; }
+  type ImportFileState = { readonly kind: "adding" | "analysing" | "queued"; } | { readonly kind: "cancelled"; readonly stage: ImportStage; } | { readonly kind: "copying"; readonly bytesCopied: number; readonly bytesTotal: number; } | { readonly kind: "decoding"; readonly framesDecoded: number; readonly framesTotal: number | undefined; } | { readonly kind: "imported"; } | { readonly kind: "refused"; readonly stage: ImportStage; readonly failure: DomainFailure; }
+  interface ImportJob
+  readonly ImportJob.entries: readonly ImportEntry[]
+  interface ImportProgress
+  readonly ImportProgress.ended: number
+  readonly ImportProgress.imported: number
+  readonly ImportProgress.refused: number
+  readonly ImportProgress.total: number
+  type ImportRoomNeeded = { readonly kind: "known"; readonly bytes: number; } | { readonly kind: "unknown"; readonly atLeast: number; }
+  type ImportStage = "adding" | "analysing" | "copying" | "decoding" | "queued"
+  interface IntegerPcm
+  readonly IntegerPcm.kind: "integer"
+  readonly IntegerPcm.bits: number
+  interface ListedFileContent
+  readonly ListedFileContent.size: number
+  readonly ListedFileContent.hash: string
+  type MetadataEdit = { readonly kind: "remove"; readonly key: MetadataTextKey; } | { readonly kind: "set"; readonly key: MetadataTextKey; readonly value: string; }
+  type MetadataPolicy = "full" | "minimal" | "none"
+  interface MetadataRates
+  readonly MetadataRates.from: SampleRate
+  readonly MetadataRates.to: SampleRate
+  interface MetadataSettings
+  readonly MetadataSettings.policy: MetadataPolicy
+  readonly MetadataSettings.edits: readonly MetadataEdit[]
+  type Mp3Encoding = { readonly mode: "average" | "constant"; readonly bitRate: number; } | { readonly mode: "variable"; readonly quality: number; }
+  type NoiseShaping = "first-order" | "lipshitz-e-weighted" | "none"
+  type OpusApplication = "audio" | "restricted-low-delay" | "voip"
+  interface OpusEncoding
+  readonly OpusEncoding.bitRate: number
+  readonly OpusEncoding.application: OpusApplication
+  readonly OpusEncoding.frameDuration: OpusFrameDuration
+  readonly OpusEncoding.complexity: number
+  type OpusFrameDuration = 10 | 2.5 | 20 | 40 | 5 | 60
+  interface PlannedFile
+  readonly PlannedFile.span: ExportSpan
+  readonly PlannedFile.render: ExportRenderPlan
+  readonly PlannedFile.name: ExportFileName
+  readonly PlannedFile.target: ExportTarget
+  readonly PlannedFile.ditherKey: number
+  type PresetChoices<F extends ExportFormat> = { [P in keyof Omit<SettingsByFormat[F], "format">]?: Omit<SettingsByFormat[F], "format">[P]; }
+  class Quantiser
+  new Quantiser(settings: QuantiserSettings): Quantiser
+  readonly Quantiser.#bits: number
+  readonly Quantiser.#scale: number
+  readonly Quantiser.#noise: NoiseOf
+  readonly Quantiser.#largestError: number
+  readonly Quantiser.#coefficients: Float64Array<ArrayBufferLike>
+  readonly Quantiser.#errors: readonly Float64Array<ArrayBufferLike>[]
+  Quantiser.#frame: number
+  Quantiser.quantise: (input: readonly SamplePlane[], frames: number, output: readonly SamplePlane[]) => void
+  Quantiser.#channel: (channel: number, from: SamplePlane, to: SamplePlane, errors: Float64Array, frames: number) => void
+  interface QuantiserSettings
+  readonly QuantiserSettings.bits: number
+  readonly QuantiserSettings.dither: DitherSettings
+  readonly QuantiserSettings.key: number
+  readonly QuantiserSettings.channels: number
+  type RenderedStreamMessage = { readonly kind: "block"; readonly channels: readonly Float32Array[]; readonly frames: number; } | { readonly kind: "end"; readonly frames: SampleCount; } | { readonly kind: "failed"; readonly failure: DomainFailure; }
+  type SourcePrecision = { readonly kind: "float"; } | { readonly kind: "integer"; readonly bits: number; }
+  interface StagedFile
+  readonly StagedFile.bytes: number
+  readonly StagedFile.hash: string
+  readonly StagedFile.reproducible: boolean
+  type StreamReceiverMessage = { readonly kind: "ready"; readonly credit: number; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
+  interface TrustedFolder
+  readonly TrustedFolder.records: readonly ExportedFileRecord[]
+  readonly TrustedFolder.existing: ListedFileContent | undefined
+  type VorbisEncoding = { readonly mode: "bit-rate"; readonly nominalBitRate: number; } | { readonly mode: "quality"; readonly quality: number; }
+  type WavEncoding = CodedPcm | FloatPcm | IntegerPcm
+  function answerCollision(query: CollisionQuery, answer: CollisionAnswer): AnsweredDecision
+  function batchProgress(batch: ExportBatch): BatchProgress
+  function bitRatesWords(rates: readonly number[]): string
+  function cancelExportBatch(batch: ExportBatch): ExportBatch
+  function cancelImport(job: ImportJob): ImportJob
+  function decideCollision(query: CollisionQuery): CollisionDecision
+  function defaultDither(depth: number | undefined): DitherSettings
+  function defaultExportSettings<F extends ExportFormat>(format: F, context: ExportContext): SettingsByFormat[F]
+  function encodingProblems(encoding: FormatEncoding, facts: EncodingFacts): readonly DomainFailure[]
+  function exportBatch(jobs: readonly ExportJob[]): ExportBatch
+  function exportMetadata(project: MetadataMap, region: MetadataMap | undefined, settings: MetadataSettings, rates: MetadataRates): DomainResult<MetadataMap>
+  function exportTarget(settings: FormatEncoding): ExportTarget
+  function formatName(format: ExportFormat): string
+  function importJob(files: readonly ImportFile[]): ImportJob
+  function importProgress(job: ImportJob): ImportProgress
+  function nextExportBatch(batch: ExportBatch, jobId: string, event: ExportJobEvent): DomainResult<ExportBatch>
+  function nextExportJob(job: ExportJob, event: ExportJobEvent): DomainResult<ExportJob>
+  function nextImportJob(job: ImportJob, index: number, event: ImportFileEvent): DomainResult<ImportJob>
+  function nextJobToStart(batch: ExportBatch): ExportJob | undefined
+  function offeredBitRates(settings: ExportSettings, context: ExportContext): readonly number[] | undefined
+  function planExport(settings: ExportSettings, context: ExportContext, clock: ExportClock): DomainResult<readonly PlannedFile[]>
+  function plannedExport(id: string, framesTotal: number): ExportJob
+  function readDecodedStreamMessage(value: unknown): DomainResult<DecodedStreamMessage>
+  function readEncodedStreamMessage(value: unknown): DomainResult<EncodedStreamMessage>
+  function readRenderedStreamMessage(value: unknown): DomainResult<RenderedStreamMessage>
+  function readStreamReceiverMessage(value: unknown): DomainResult<StreamReceiverMessage>
+  function rememberCollisionAnswer(batch: ExportBatch, answer: CollisionAnswer, applyToAll: boolean): ExportBatch
+  function resolvePreset(preset: ExportPreset, context: ExportContext): (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; })
+  function safeFileName(name: ExportFileName, copy?: number | undefined): string
+  function validateExportSettings(settings: ExportSettings, context: ExportContext): DomainResult<ExportSettings>
 
 @audiogubbins/input
   const DEFAULT_GESTURE_SETTINGS: GestureSettings
@@ -4255,7 +5118,7 @@ Published paths
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
-  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; readonly CreateTakeStack: CommandId; readonly RemoveTakeStack: CommandId; readonly RenameTakeStack: CommandId; readonly SetTakeStack: CommandId; readonly BranchTakeStack: CommandId; readonly ConsolidateTakeStack: CommandId; readonly AddTake: CommandId; readonly WithdrawTake: CommandId; readonly DuplicateTake: CommandId; readonly RenameTake: CommandId; readonly SetTakeNote: CommandId; readonly ChooseTake: CommandId; readonly RejectTake: CommandId; readonly KeepTake: CommandId; readonly RemoveTake: CommandId; readonly RestoreTake: CommandId; readonly SetTakeCompensation: CommandId; readonly AddPunch: CommandId; readonly RemovePunch: CommandId; }
+  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly SetExportSettings: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; readonly CreateTakeStack: CommandId; readonly RemoveTakeStack: CommandId; readonly RenameTakeStack: CommandId; readonly SetTakeStack: CommandId; readonly BranchTakeStack: CommandId; readonly ConsolidateTakeStack: CommandId; readonly AddTake: CommandId; readonly WithdrawTake: CommandId; readonly DuplicateTake: CommandId; readonly RenameTake: CommandId; readonly SetTakeNote: CommandId; readonly ChooseTake: CommandId; readonly RejectTake: CommandId; readonly KeepTake: CommandId; readonly RemoveTake: CommandId; readonly RestoreTake: CommandId; readonly SetTakeCompensation: CommandId; readonly AddPunch: CommandId; readonly RemovePunch: CommandId; }
   type RackTarget = { readonly kind: "asset"; readonly asset: Asset; } | { readonly kind: "region"; readonly region: Region; readonly asset: Asset; }
   type SlotControl = { readonly control: "enabled" | "soloed"; readonly value: boolean; } | { readonly control: "mix"; readonly value: number; } | { readonly control: "summing"; readonly value: SummingLaw; }
   function addAssetInvocation(asset: Asset, source: AssetSource, chain?: EffectChain | undefined): CommandInvocation
@@ -4294,6 +5157,7 @@ Published paths
   function renameTakeStackInvocation(stack: Named, name: string): CommandInvocation
   function restoreTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
+  function setExportSettingsInvocation(settings: ExportSettings | undefined): CommandInvocation
   function setMarkerInvocation(marker: Marker): CommandInvocation
   function setProcessorInvocation(processor: ProcessorInstance): CommandInvocation
   function setRackInvocation(target: RackTarget, chain: EffectChain | EffectChainId | undefined): CommandInvocation
@@ -4325,6 +5189,8 @@ Published paths
   readonly AssetProvenance.mediaType: string
   readonly AssetProvenance.originProjectId: ProjectId
   readonly AssetProvenance.audio?: SourceAudioShape
+  readonly AssetProvenance.rendition?: DecodedRendition
+  readonly AssetProvenance.metadata?: KeptMetadata
   readonly AssetProvenance.recording?: RecordedProvenance
   interface AssetRecord
   readonly AssetRecord.asset: Asset
@@ -4392,12 +5258,27 @@ Published paths
   const DEFAULT_RETENTION_POLICY: RetentionPolicy
   const DEFAULT_SOURCE_CHANGE_POLICY: SourceChangePolicy
   const DIGEST_HEX: RegExp
+  interface DecodedRendition
+  readonly DecodedRendition.container: ContainerId
+  readonly DecodedRendition.codec: CodecId
+  readonly DecodedRendition.sampleRate: SampleRate
+  readonly DecodedRendition.layout: ChannelLayout
+  readonly DecodedRendition.frames: SampleCount
+  readonly DecodedRendition.statedFrames?: SampleCount
+  readonly DecodedRendition.bitRate?: number
+  readonly DecodedRendition.leadingFrames: SampleCount
+  readonly DecodedRendition.decoder: DecoderIdentity
+  readonly DecodedRendition.kept: KeptCompressedSource
   type Digest = (bytes: Uint8Array<ArrayBuffer>) => Promise<Uint8Array>
+  interface ExportCodec
+  readonly ExportCodec.id: CodecId
+  readonly ExportCodec.implementation: CodecImplementation
+  readonly ExportCodec.version: string
   interface ExportDestination
   readonly ExportDestination.kind: ExportDestinationKind
   readonly ExportDestination.label?: string
-  const ExportDestinationKind: { readonly Download: "download"; readonly Directory: "directory"; readonly GodotProject: "godot-project"; readonly Bundle: "bundle"; }
-  type ExportDestinationKind = "bundle" | "directory" | "download" | "godot-project"
+  const ExportDestinationKind: { readonly Download: "download"; readonly File: "file"; readonly Directory: "directory"; readonly TrustedDirectory: "trusted-directory"; readonly GodotProject: "godot-project"; readonly Bundle: "bundle"; }
+  type ExportDestinationKind = "bundle" | "directory" | "download" | "file" | "godot-project" | "trusted-directory"
   interface ExportOutput
   readonly ExportOutput.container: string
   readonly ExportOutput.settings: ReadonlyMap<string, boolean | number | string>
@@ -4414,12 +5295,20 @@ Published paths
   readonly ExportRecord.output: ExportOutput
   readonly ExportRecord.destination: ExportDestination
   readonly ExportRecord.outputContentId?: ContentId
+  readonly ExportRecord.file?: ExportedAudioFile
   readonly ExportRecord.godot?: GodotLinkage
   readonly ExportRecord.status: ExportStatus
   readonly ExportRecord.problems: readonly string[]
   type ExportRecordId = string & { readonly [BrandTag]: "ExportRecordId"; }
   const ExportStatus: { readonly Succeeded: "succeeded"; readonly Failed: "failed"; readonly Partial: "partial"; }
   type ExportStatus = "failed" | "partial" | "succeeded"
+  interface ExportedAudioFile
+  readonly ExportedAudioFile.settings: ExportSettings
+  readonly ExportedAudioFile.fileName?: string
+  readonly ExportedAudioFile.byteLength: number
+  readonly ExportedAudioFile.sha256: string
+  readonly ExportedAudioFile.codec: ExportCodec
+  readonly ExportedAudioFile.reproducible: boolean
   interface ExternalMedia
   readonly ExternalMedia.kind: "external"
   readonly ExternalMedia.identity: ExternalSourceIdentity
@@ -4480,6 +5369,12 @@ Published paths
   readonly JsonLimits.maximumDepth: number
   type JsonObject = { readonly [member: string]: JsonValue; }
   type JsonValue = JsonArray | JsonObject | boolean | null | number | string
+  type KeptCompressedSource = { readonly kind: "copied"; readonly contentId: ContentId; } | { readonly kind: "linked"; readonly identity: ExternalSourceIdentity; readonly retainedCopy?: ContentId; }
+  interface KeptCoverArt
+  readonly KeptCoverArt.mediaType: string
+  readonly KeptCoverArt.description: string
+  readonly KeptCoverArt.byteLength: number
+  type KeptMetadata = Omit<MetadataMap, "coverArt"> & { readonly coverArt?: KeptCoverArt; }
   const LIBRARY_ENTRY_DEPTH: number
   const LONGEST_CHANGE_DESCRIPTION: 4096
   const LONGEST_HISTORY_LABEL: 1024
@@ -4521,6 +5416,7 @@ Published paths
   interface ProjectState
   readonly ProjectState.project: Project
   readonly ProjectState.sources: ReadonlyMap<AssetId, AssetSource>
+  readonly ProjectState.exportSettings?: ExportSettings
   interface ProjectTreeContent
   readonly ProjectTreeContent.state: ProjectState
   readonly ProjectTreeContent.scope: ProjectTreeScope
@@ -4610,15 +5506,14 @@ Published paths
   interface SourceAudioShape
   readonly SourceAudioShape.container: "aifc" | "aiff" | "bw64" | "rf64" | "wav"
   readonly SourceAudioShape.sampleRate: SampleRate
-  readonly SourceAudioShape.encoding: "float" | "integer"
-  readonly SourceAudioShape.bitDepth: number
-  readonly SourceAudioShape.byteOrder: "big" | "little"
+  readonly SourceAudioShape.encoding: SourceEncoding
   readonly SourceAudioShape.statedLayout?: ChannelLayout
   readonly SourceAudioShape.frames: SampleCount
   readonly SourceAudioShape.declaredFrames: SampleCount
   const SourceChangePolicy: { readonly Prompt: "prompt"; readonly Adopt: "adopt"; readonly Freeze: "freeze"; }
   type SourceChangePolicy = "adopt" | "freeze" | "prompt"
   type SourceContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
+  type SourceEncoding = { readonly kind: "float" | "integer"; readonly bits: number; readonly byteOrder: "big" | "little"; } | { readonly kind: "g711-alaw" | "g711-ulaw"; } | { readonly kind: "ima-adpcm" | "ms-adpcm"; readonly framesPerBlock: number; }
   interface SourceRewrite
   readonly SourceRewrite.source: (source: AssetSource) => AssetSource
   readonly SourceRewrite.media: (media: MediaSource) => MediaSource
@@ -4747,6 +5642,7 @@ Published paths
   function isTreeSegment(segment: string): boolean
   function isWholeQuantity(value: number): boolean
   function isWithinProjectTree(path: string): boolean
+  function keptMetadata(map: MetadataMap): KeptMetadata
   function listConverter<TValue>(maximum: number, item: Converter<TValue>): Converter<readonly TValue[]>
   function listOf(reading: Reading, value: JsonValue, parent: string, key: number | string, maximum: number): JsonArray | undefined
   function memberOf(object: JsonObject, key: string): JsonValue | undefined
@@ -4771,6 +5667,7 @@ Published paths
   const readEditPlan: Converter<EditPlan>
   const readEffectChain: Converter<EffectChain>
   const readExportRecord: Converter<ExportRecord>
+  const readExportSettings: Converter<ExportSettings>
   const readExternalIdentity: Converter<ExternalSourceIdentity>
   const readHistoryLabel: Converter<HistoryLabel>
   const readHistoryNodeRecord: Converter<HistoryNodeRecord>
@@ -4808,14 +5705,17 @@ Published paths
   function writeBackupPolicy(policy: BackupPolicy): JsonObject
   function writeBundleManifest(entries: readonly ManifestEntry[]): DomainResult<Uint8Array<ArrayBuffer>>
   function writeComparisonChoice(choice: ComparisonChoiceRecord): JsonObject
+  function writeDecodedRendition(rendition: DecodedRendition): JsonObject
   function writeEditOperation(operation: EditOperation): JsonObject
   function writeEditPlan(plan: EditPlan): JsonObject
   function writeEffectChain(chain: EffectChain): JsonObject
   function writeExportRecord(record: ExportRecord): JsonObject
+  function writeExportSettings(settings: ExportSettings): JsonObject
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
   function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject
   function writeHistoryRecord(history: HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>): JsonObject
   function writeHistorySegment(segment: HistorySegmentRecord): JsonObject
+  function writeKeptMetadata(metadata: KeptMetadata): JsonObject
   function writeLibraryEntry(entry: LibraryEntry): JsonObject
   function writeMarker(marker: Marker): JsonObject
   function writeMediaSource(media: MediaSource): JsonObject
@@ -4861,6 +5761,7 @@ Published paths
   function randomAssetRecord(random: Random, ids: IdGenerator, projectId: ProjectId): AssetRecord
   function randomChain(random: Random, ids: IdGenerator): EffectChain
   function randomContentId(random: Random): ContentId
+  function randomExportSettings(random: Random): ExportSettings
   function randomIdentity(random: Random): ExternalSourceIdentity
   function randomMarker(random: Random, ids: IdGenerator, asset: Asset): Marker
   function randomMedia(random: Random): MediaSource
@@ -5337,11 +6238,16 @@ Published paths
   interface AnotherProject
   readonly AnotherProject.name: string | undefined
   type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
-  interface AudioImport
-  readonly AudioImport.file: ExternalFile
-  readonly AudioImport.choice: ImportChoice
-  readonly AudioImport.assetId: AssetId
-  readonly AudioImport.importedAt: number
+  interface AudioImportServices extends ImportServices
+  readonly AudioImportServices.commands: ImportCommands
+  readonly AudioImportServices.tree: StorageTree
+  readonly AudioImportServices.ids: IdGenerator
+  readonly AudioImportServices.nextToken: () => string
+  readonly AudioImportServices.room: StorageRoom
+  readonly AudioImportServices.coordinator?: LeaseCoordinator | undefined
+  readonly AudioImportServices.store: import("packages/media-store/src/object-store").MediaObjectStore
+  readonly AudioImportServices.digest: import("packages/project-format/src/byte-ports").Digest
+  readonly AudioImportServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   interface AudioPaste
   readonly AudioPaste.description: string
   readonly AudioPaste.records: readonly AssetRecord[]
@@ -5400,13 +6306,19 @@ Published paths
   readonly BackupServices.caches: import("packages/storage/src/cache-store").CacheStore
   readonly BackupServices.invocationProvenance: import("packages/project-format/src/invocation-provenance").InvocationProvenance
   type BackupTick = { readonly kind: "busy"; } | { readonly kind: "made"; readonly generation: BackupGeneration; readonly pruned: readonly BackupGeneration[]; readonly external: ExternalCopy; } | { readonly kind: "not-due"; }
+  interface BatchFile
+  readonly BatchFile.file: ExternalFile
+  readonly BatchFile.assetId: AssetId
+  readonly BatchFile.decoding: FileDecoding
+  type BatchObserver = (job: ImportJob, index: number, event: ImportFileEvent) => void
+  type BatchOutcome = { readonly kind: "cancelled"; } | { readonly kind: "imported"; readonly imported: ImportedAudio; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
   type BreakReason = { readonly kind: "invalid"; readonly fault: RecordFault; } | { readonly kind: "missing"; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
   interface BundleScope
   readonly BundleScope.kind: "current-state" | "whole-history"
   readonly BundleScope.provenance: ProvenanceLevel
   const CACHE_CLEANUP_ORDER: readonly CacheCategory[]
-  const CacheCategory: { readonly Temporary: "temporary"; readonly Render: "render"; readonly Analysis: "analysis"; readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Intermediate: "intermediate"; }
-  type CacheCategory = "analysis" | "intermediate" | "render" | "spectrogram" | "temporary" | "waveform"
+  const CacheCategory: { readonly Temporary: "temporary"; readonly Staging: "staging"; readonly Render: "render"; readonly Analysis: "analysis"; readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Intermediate: "intermediate"; }
+  type CacheCategory = "analysis" | "intermediate" | "render" | "spectrogram" | "staging" | "temporary" | "waveform"
   interface CacheEntry
   readonly CacheEntry.key: CacheKey
   readonly CacheEntry.byteLength: number
@@ -5492,6 +6404,10 @@ Published paths
   readonly CleanupServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; readonly at: number; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "model-packs"; readonly packs: readonly PlannedPack[]; } | { readonly kind: "pack-downloads"; readonly packs: readonly PlannedPack[]; } | { readonly kind: "set-aside-records"; readonly records: ReadonlyMap<ProjectId, readonly string[]>; } | { readonly kind: "unfinished-projects"; readonly projects: ReadonlyMap<ProjectId, LeftOver>; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
+  type CollisionPrompt = (name: string, signal?: AbortSignal) => Promise<CollisionReply | undefined>
+  interface CollisionReply
+  readonly CollisionReply.answer: CollisionAnswer
+  readonly CollisionReply.applyToAll: boolean
   class CommandJournal
   new CommandJournal(records: CheckedRecords, project: ProjectId): CommandJournal
   readonly CommandJournal.records: CheckedRecords
@@ -5523,6 +6439,27 @@ Published paths
   readonly CopyOptions.scope: BundleScope
   readonly CopyOptions.includeCaches: boolean
   const DEFAULT_CADENCE: SessionCadence
+  interface DecodedStream
+  DecodedStream.next: () => Promise<DecodedStreamMessage | undefined>
+  DecodedStream.refuse: (failure: DomainFailure) => void
+  DecodedStream.close: () => void
+  type Delivery = { readonly kind: "delivered"; readonly name: string; readonly replaced: "chosen" | "none" | "trusted"; readonly record: ExportRecord; readonly unrecorded?: DomainFailure; readonly remembered: CollisionAnswer | undefined; } | { readonly kind: "refused"; readonly failure: DomainFailure; readonly remembered: CollisionAnswer | undefined; }
+  type DeliveryDestination = { readonly kind: "file"; readonly file: DeliveryFile; } | { readonly kind: "folder"; readonly folder: DeliveryFolder; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; readonly prompt: CollisionPrompt; }
+  interface DeliveryFile
+  readonly DeliveryFile.name: string
+  DeliveryFile.access: () => Promise<DestinationAccess>
+  DeliveryFile.open: () => Promise<ByteSink>
+  interface DeliveryFolder
+  readonly DeliveryFolder.name: string
+  DeliveryFolder.access: () => Promise<DestinationAccess>
+  DeliveryFolder.list: (signal?: AbortSignal) => Promise<readonly string[]>
+  DeliveryFolder.open: (name: string) => Promise<ByteSource | undefined>
+  DeliveryFolder.create: (name: string) => Promise<ByteSink>
+  interface DeliveryServices
+  readonly DeliveryServices.sha256: Sha256
+  readonly DeliveryServices.ids: IdGenerator
+  readonly DeliveryServices.clock: Clock
+  type DestinationAccess = "granted" | "needs-permission"
   interface DirectoryClaim
   readonly DirectoryClaim.replaceAnother?: boolean
   interface DirectoryFile
@@ -5536,12 +6473,22 @@ Published paths
   DirectoryWriter.remove: (path: string) => Promise<void>
   DirectoryWriter.list: (signal?: AbortSignal) => Promise<readonly DirectoryFile[]>
   DirectoryWriter.open: (path: string) => Promise<ByteSource | undefined>
+  interface EncodedStream
+  EncodedStream.next: () => Promise<EncodedStreamMessage | undefined>
+  EncodedStream.refuse: (failure: DomainFailure) => void
+  EncodedStream.close: () => void
   interface ExportAttempt<TWritten>
   readonly ExportAttempt.source: ExportSource
   readonly ExportAttempt.written: DomainResult<TWritten>
   readonly ExportAttempt.partial?: true
   interface ExportFrom
   readonly ExportFrom.held?: ProjectSession
+  interface ExportOrigin
+  readonly ExportOrigin.settings: ExportSettings
+  readonly ExportOrigin.reproducible: boolean
+  readonly ExportOrigin.stateFingerprint: StateFingerprint
+  readonly ExportOrigin.historyNodeId?: string
+  readonly ExportOrigin.engineVersions: ReadonlyMap<string, string>
   interface ExportServices extends RecoveryServices, TreeCopying
   readonly ExportServices.tree: StorageTree
   readonly ExportServices.digest: Digest
@@ -5554,6 +6501,21 @@ Published paths
   interface ExportSource
   readonly ExportSource.state: StateFingerprint
   readonly ExportSource.node: HistoryNodeId
+  class ExportStaging
+  new ExportStaging(services: StagingServices): ExportStaging
+  readonly ExportStaging.#services: StagingServices
+  readonly ExportStaging.#staged: Map<string, StagedExport>
+  ExportStaging.#holding: number
+  ExportStaging.#release: (() => void) | undefined
+  ExportStaging.stage: (project: ProjectId, origin: ExportOrigin, stream: EncodedStream, progress: (bytesStaged: number) => void, signal?: AbortSignal) => Promise<DomainResult<StagedExport>>
+  ExportStaging.staged: (token: string) => StagedExport | undefined
+  ExportStaging.parts: (staged: StagedExport) => Promise<readonly ByteSource[] | undefined>
+  ExportStaging.discard: (token: string) => Promise<void>
+  ExportStaging.#written: (paths: StagedExportPaths, stream: EncodedStream, progress: (bytesStaged: number) => void, signal?: AbortSignal) => Promise<DomainResult<{ readonly head: Uint8Array; readonly tail: Uint8Array; readonly dropped: readonly MetadataPart[]; }>>
+  ExportStaging.#sha256: (head: Uint8Array, body: ByteSource, tail: Uint8Array, signal?: AbortSignal) => Promise<string>
+  ExportStaging.#removeFiles: (paths: StagedExportPaths) => Promise<void>
+  ExportStaging.#hold: (signal?: AbortSignal) => Promise<void>
+  ExportStaging.#let: () => void
   interface ExportedBundle
   readonly ExportedBundle.written: ZipWritten
   readonly ExportedBundle.linked: readonly AssetId[]
@@ -5561,6 +6523,10 @@ Published paths
   interface ExternalBackupTarget
   ExternalBackupTarget.create: (generation: { readonly project: ProjectId; readonly name: string; readonly number: number; readonly at: number; }) => Promise<ByteSink>
   type ExternalCopy = { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "not-asked"; } | { readonly kind: "written"; }
+  interface FileDecoding
+  FileDecoding.analyse: (signal?: AbortSignal) => Promise<DomainResult<StreamAnalysis>>
+  FileDecoding.decode: (signal?: AbortSignal) => Promise<DomainResult<DecodedStream>>
+  type FileMetadata = { readonly kind: "read"; readonly metadata: MetadataMap; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
   interface FinishedRecording
   readonly FinishedRecording.outcome: ChangeOutcome
   readonly FinishedRecording.asset: Asset
@@ -5595,6 +6561,14 @@ Published paths
   readonly HeadFallback.path: string
   readonly HeadFallback.reason: HeadFallbackReason
   type HeadFallbackReason = { readonly kind: "checkpoint-invalid"; readonly fault: RecordFault; } | { readonly kind: "checkpoint-missing"; } | { readonly kind: "cursor-state-unusable"; readonly failure: DomainFailure; } | { readonly kind: "head-fenced"; } | { readonly kind: "head-invalid"; readonly fault: RecordFault; }
+  interface ImportBatch
+  readonly ImportBatch.files: readonly BatchFile[]
+  readonly ImportBatch.choice: ImportChoice
+  readonly ImportBatch.importedAt: number
+  interface ImportCommands
+  readonly ImportCommands.addAsset: (asset: Asset, source: AssetSource) => CommandInvocation
+  readonly ImportCommands.addRegion: (region: Region) => CommandInvocation
+  readonly ImportCommands.addMarker: (marker: Marker) => CommandInvocation
   type ImportIdentity = "copy" | "original" | "original-or-copy"
   interface ImportOrigin
   readonly ImportOrigin.from: ProjectId
@@ -5614,9 +6588,16 @@ Published paths
   readonly ImportedAudio.outcome: ChangeOutcome
   readonly ImportedAudio.asset: Asset
   readonly ImportedAudio.shortfall: number
+  readonly ImportedAudio.placed: { readonly regions: number; readonly markers: number; }
+  readonly ImportedAudio.skipped: { readonly loops: number; readonly cues: number; }
+  readonly ImportedAudio.metadataRefused?: DomainFailure
+  interface ImportedBatch
+  readonly ImportedBatch.job: ImportJob
+  readonly ImportedBatch.outcomes: readonly BatchOutcome[]
   interface ImportedProject
   readonly ImportedProject.header: ProjectHeader
   readonly ImportedProject.asCopy: boolean
+  readonly ImportedProject.skippedCaches: readonly string[]
   interface InstalledPack
   readonly InstalledPack.ref: PackRef
   readonly InstalledPack.name: string
@@ -5727,6 +6708,7 @@ Published paths
   interface PressureRelief
   readonly PressureRelief.freed: ReadonlyMap<CacheCategory, number>
   readonly PressureRelief.total: number
+  readonly PressureRelief.kept: readonly CacheCategory[]
   class ProcessingLibraryStore
   new ProcessingLibraryStore(services: LibraryServices): ProcessingLibraryStore
   readonly ProcessingLibraryStore.files: LibraryEntryFiles
@@ -5907,6 +6889,30 @@ Published paths
   interface SessionCadence extends WritingCadence
   readonly SessionCadence.keepStateEvery: number
   readonly SessionCadence.checkpointAfter: number
+  interface SessionSound
+  readonly SessionSound.token: string
+  readonly SessionSound.dataPath: string
+  readonly SessionSound.header: Uint8Array<ArrayBuffer>
+  readonly SessionSound.sampleRate: SampleRate
+  readonly SessionSound.layout: ChannelLayout
+  readonly SessionSound.frames: SampleCount
+  readonly SessionSound.decoder: DecoderIdentity
+  interface SessionSoundServices
+  readonly SessionSoundServices.tree: StorageTree
+  readonly SessionSoundServices.nextToken: () => string
+  readonly SessionSoundServices.room: StorageRoom
+  readonly SessionSoundServices.sharing: MediaSharing
+  class SessionSounds
+  new SessionSounds(services: SessionSoundServices): SessionSounds
+  readonly SessionSounds.#services: SessionSoundServices
+  readonly SessionSounds.#held: Map<string, string>
+  SessionSounds.#holding: number
+  SessionSounds.#release: (() => void) | undefined
+  SessionSounds.decode: (file: ExternalFile, decoding: FileDecoding, signal?: AbortSignal) => Promise<DomainResult<SessionSound>>
+  SessionSounds.discard: (token: string) => Promise<void>
+  SessionSounds.#decoded: (decoding: FileDecoding, analysis: StreamAnalysis, format: { readonly sampleRate: SampleRate; readonly layout: ChannelLayout; }, signal?: AbortSignal) => Promise<DomainResult<SessionSound>>
+  SessionSounds.#hold: (signal?: AbortSignal) => Promise<void>
+  SessionSounds.#let: () => void
   interface SnapshotRequest
   readonly SnapshotRequest.name: string
   readonly SnapshotRequest.notes?: string
@@ -5923,6 +6929,22 @@ Published paths
   SnapshotStore.list: () => Promise<ReadonlySet<StateFingerprint>>
   SnapshotStore.remove: (fingerprint: StateFingerprint) => Promise<void>
   SnapshotStore.path: (fingerprint: StateFingerprint) => string
+  interface StagedExport
+  readonly StagedExport.token: string
+  readonly StagedExport.project: ProjectId
+  readonly StagedExport.paths: StagedExportPaths
+  readonly StagedExport.bytes: number
+  readonly StagedExport.sha256: string
+  readonly StagedExport.dropped: readonly MetadataPart[]
+  readonly StagedExport.origin: ExportOrigin
+  interface StagingServices
+  readonly StagingServices.tree: StorageTree
+  readonly StagingServices.sha256: Sha256
+  readonly StagingServices.nextToken: () => string
+  readonly StagingServices.sharing: MediaSharing
+  interface StartUpCleaning
+  readonly StartUpCleaning.recovered: DomainResult<RecoveryReport>
+  readonly StartUpCleaning.staging: StagingCleared
   interface StepOutcome
   readonly StepOutcome.step: "cache" | "expired-backups" | "expired-history" | "model-packs" | "pack-downloads" | "set-aside-records" | "unfinished-projects" | "unreferenced-media"
   readonly StepOutcome.freed: number
@@ -5933,6 +6955,7 @@ Published paths
   type StorageLockMode = "exclusive" | "shared"
   type StorageLocking = { readonly kind: "busy"; } | { readonly kind: "held"; readonly release: () => Promise<void>; } | { readonly kind: "unavailable"; }
   type StorageRefusal = "failed" | "full" | "unavailable"
+  type StorageRoom = () => Promise<number | undefined>
   type StorageRootOpening = { readonly kind: "current"; } | { readonly kind: "fresh"; } | { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; readonly current: number; } | { readonly kind: "unreadable"; readonly fault: RecordFault | { readonly kind: "missing"; }; }
   interface StorageUsage
   readonly StorageUsage.journal: number
@@ -5948,6 +6971,16 @@ Published paths
   readonly StorageUsage.packs: PackUsage
   readonly StorageUsage.unreadable: readonly UnreadableRoot[]
   type StoredSchema = "projectDocument" | "projectStorage"
+  interface StreamAnalysis
+  readonly StreamAnalysis.container: ContainerId
+  readonly StreamAnalysis.codec: CodecId
+  readonly StreamAnalysis.sampleRate: SampleRate
+  readonly StreamAnalysis.layout: ChannelLayout
+  readonly StreamAnalysis.statedFrames: SampleCount | undefined
+  readonly StreamAnalysis.leadingFrames: SampleCount
+  readonly StreamAnalysis.bitRate: number | undefined
+  readonly StreamAnalysis.decoder: DecoderIdentity
+  readonly StreamAnalysis.metadata: FileMetadata
   type TransferAnswer = "declined" | "granted"
   type TransferOutcome = "unreachable" | TransferAnswer
   interface TransferRequest
@@ -5978,15 +7011,19 @@ Published paths
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
   function captureInto(started: RecordingFiles, stream: CaptureStream, observe: (progress: RecordingProgress) => void): Promise<CaptureEnded>
+  function cleanAtStart(parts: StartUpParts): Promise<Alone<StartUpCleaning>>
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
+  function decodingUnavailable(): DomainFailure
+  function deliverStaged(session: ProjectSession, staging: ExportStaging, token: string, encoder: ExportCodec, destination: DeliveryDestination, services: DeliveryServices, signal?: AbortSignal | undefined): Promise<DomainResult<Delivery>>
   function discardRecording(session: ProjectSession, id: RecordingSessionId, services: RecordingServices): Promise<DomainResult<void>>
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
+  function exportRecordOf(staged: StagedExport, encoder: ExportCodec, destination: { readonly kind: ExportDestinationKind; readonly label?: string; }, fileName: string, services: Pick<DeliveryServices, "clock" | "ids">): ExportRecord
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
-  function importAudio(session: ProjectSession, request: AudioImport, services: AudioImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedAudio>>
+  function importBatch(session: ProjectSession, batch: ImportBatch, services: AudioImportServices, observe: BatchObserver, signal?: AbortSignal | undefined): Promise<ImportedBatch>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function interruptedRecordings(session: ProjectSession, services: RecordingServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly InterruptedRecording[]>>
@@ -6001,12 +7038,12 @@ Published paths
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
   function projectPackPins(tree: StorageTree, digest: Digest): PackPins
   function recordingInProgress(session: RecordingSessionId): DomainFailure
-  function recoverMediaStore(store: MediaObjectStore, coordinator: LeaseCoordinator | undefined): Promise<Alone<DomainResult<RecoveryReport>>>
   function recoverRecording(session: ProjectSession, id: RecordingSessionId, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
-  function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
+  function relieveStoragePressure(caches: CacheStore, coordinator: LeaseCoordinator | undefined, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
+  function stagedExportMissing(token: string): DomainFailure
   function startRecording(session: ProjectSession, id: RecordingSessionId, setUp: RecordingSetUp, services: RecordingServices, signal?: AbortSignal | undefined): Promise<DomainResult<RecordingFiles>>
   function storageRefusalOf(cause: DomainFailure): StorageRefusal | undefined
   function takeSourceVersion(session: ProjectSession, version: SourceVersion, services: SourceVersionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
@@ -6016,11 +7053,6 @@ Published paths
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
 @audiogubbins/storage-runtime
-  interface AudioFileImport
-  readonly AudioFileImport.file: PageFile
-  readonly AudioFileImport.choice: ImportChoice
-  readonly AudioFileImport.assetId: AssetId
-  readonly AudioFileImport.importedAt: number
   interface BackupsClient
   BackupsClient.tick: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
   BackupsClient.backUpNow: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
@@ -6032,7 +7064,19 @@ Published paths
   CacheClient.read: (key: CacheKey, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer> | undefined>>
   CacheClient.put: (key: CacheKey, bytes: Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
   CacheClient.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
-  type ExportDraft = { readonly recipe?: import("packages/project-format/src/export-provenance").ExportRecipeReference; readonly output: import("packages/project-format/src/export-provenance").ExportOutput; readonly problems: readonly string[]; readonly status: import("packages/project-format/src/export-provenance").ExportStatus; readonly godot?: import("packages/project-format/src/export-provenance").GodotLinkage; readonly destination: import("packages/project-format/src/export-provenance").ExportDestination; readonly stateFingerprint: import("packages/project-format/src/content-identity").StateFingerprint; readonly historyNodeId?: string; readonly engineVersions: ReadonlyMap<string, string>; readonly outputContentId?: import("packages/project-format/src/content-identity").ContentId; }
+  type DeliveryAnswer = Delivery | { readonly kind: "download"; readonly file: Blob; readonly record: ExportRecord; readonly unrecorded?: DomainFailure; }
+  type ExportDraft = { readonly recipe?: import("packages/project-format/src/export-provenance").ExportRecipeReference; readonly file?: import("packages/project-format/src/export-provenance").ExportedAudioFile; readonly output: import("packages/project-format/src/export-provenance").ExportOutput; readonly problems: readonly string[]; readonly status: import("packages/project-format/src/export-provenance").ExportStatus; readonly godot?: import("packages/project-format/src/export-provenance").GodotLinkage; readonly destination: import("packages/project-format/src/export-provenance").ExportDestination; readonly stateFingerprint: import("packages/project-format/src/content-identity").StateFingerprint; readonly historyNodeId?: string; readonly engineVersions: ReadonlyMap<string, string>; readonly outputContentId?: import("packages/project-format/src/content-identity").ContentId; }
+  interface ExportStage
+  readonly ExportStage.stream: MessagePort
+  readonly ExportStage.origin: ExportOrigin
+  interface ExportsClient
+  ExportsClient.stage: (session: RemoteProjectSession, request: ExportStage, staged: (bytesStaged: number) => void, signal?: AbortSignal) => Promise<DomainResult<StagedFile>>
+  ExportsClient.deliver: (session: RemoteProjectSession, token: string, encoder: ExportCodec, destination: PageDestination, signal?: AbortSignal) => Promise<DomainResult<DeliveryAnswer>>
+  ExportsClient.discard: (token: string) => Promise<void>
+  interface FilesImport
+  readonly FilesImport.files: readonly { readonly file: PageFile; readonly assetId: AssetId; }[]
+  readonly FilesImport.choice: ImportChoice
+  readonly FilesImport.importedAt: number
   interface FolderFile
   readonly FolderFile.path: string
   readonly FolderFile.file: File
@@ -6042,6 +7086,22 @@ Published paths
   readonly HeldFile.kind: "file"
   readonly HeldFile.file: File
   readonly HeldFile.handle?: FileSystemFileHandle
+  interface HeldSound
+  readonly HeldSound.token: string
+  readonly HeldSound.file: Blob
+  readonly HeldSound.sampleRate: SampleRate
+  readonly HeldSound.layout: ChannelLayout
+  readonly HeldSound.frames: SampleCount
+  readonly HeldSound.decoder: DecoderIdentity
+  interface ImportReport
+  readonly ImportReport.job: ImportJob
+  readonly ImportReport.index: number
+  readonly ImportReport.event: ImportFileEvent
+  interface ImportsClient
+  ImportsClient.connectCodecWorker: (port: MessagePort) => Promise<void>
+  ImportsClient.importFiles: (session: RemoteProjectSession, request: FilesImport, report: (report: ImportReport) => void, signal?: AbortSignal) => Promise<ImportedBatch>
+  ImportsClient.holdSound: (file: PageFile, signal?: AbortSignal) => Promise<DomainResult<HeldSound>>
+  ImportsClient.letGoSound: (token: string) => Promise<void>
   interface LibraryClient
   LibraryClient.list: (signal?: AbortSignal) => Promise<readonly CatalogueEntry[]>
   LibraryClient.create: (project: NewProject, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
@@ -6050,7 +7110,6 @@ Published paths
   LibraryClient.purge: (project: ProjectId, confirmation: PurgeProjectConfirmation) => Promise<DomainResult<void>>
   LibraryClient.fork: (request: ForkRequest, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
   interface MediaClient
-  MediaClient.importFile: (session: RemoteProjectSession, request: AudioFileImport, signal?: AbortSignal) => Promise<DomainResult<ImportedAudio>>
   MediaClient.file: (contentId: ContentId, signal?: AbortSignal) => Promise<DomainResult<Blob>>
   MediaClient.paste: (session: RemoteProjectSession, paste: AudioPaste, locate: PageLocate, signal?: AbortSignal) => Promise<DomainResult<ChangeOutcome>>
   interface OwnershipClient
@@ -6075,6 +7134,7 @@ Published paths
   PacksClient.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<KeptFile>>
   PacksClient.listen: (listener: (change: PackChange) => void) => () => void
   type PageBytes = HeldFile | { readonly kind: "source"; readonly source: ByteSource; }
+  type PageDestination = ({ readonly kind: "folder"; readonly handle: FileSystemDirectoryHandle; } & FolderRules) | ({ readonly kind: "trusted-folder"; readonly folders: TrustedFolders; readonly key: string; } & FolderRules) | { readonly kind: "download"; readonly name: string; readonly mediaType: string; } | { readonly kind: "file"; readonly handle: FileSystemFileHandle; }
   type PageFile = Omit<ExternalFile, "source"> & { readonly bytes: PageBytes; }
   type PageFolder = { readonly kind: "files"; readonly files: readonly FolderFile[]; } | { readonly kind: "reader"; readonly reader: DirectoryReader; }
   type PageLocate = (asset: AssetId, identity: ExternalSourceIdentity, signal?: AbortSignal) => Promise<PageLocated>
@@ -6155,6 +7215,11 @@ Published paths
   interface SourcesClient
   SourcesClient.examine: (recorded: ExternalSourceIdentity, file: PageFile, signal?: AbortSignal) => Promise<DomainResult<ExternalSourceIdentity>>
   SourcesClient.takeVersion: (session: RemoteProjectSession, taken: FileTaken, signal?: AbortSignal) => Promise<DomainResult<ChangeOutcome>>
+  interface StagedFile
+  readonly StagedFile.token: string
+  readonly StagedFile.bytes: number
+  readonly StagedFile.sha256: string
+  readonly StagedFile.dropped: readonly MetadataPart[]
   interface StorageClient
   readonly StorageClient.library: LibraryClient
   readonly StorageClient.processingLibrary: ProcessingLibraryClient
@@ -6164,6 +7229,8 @@ Published paths
   readonly StorageClient.root: RootClient
   readonly StorageClient.sources: SourcesClient
   readonly StorageClient.media: MediaClient
+  readonly StorageClient.imports: ImportsClient
+  readonly StorageClient.exports: ExportsClient
   readonly StorageClient.recording: RecordingClient
   readonly StorageClient.caches: CacheClient
   readonly StorageClient.packs: PacksClient
@@ -6191,6 +7258,7 @@ Published paths
   readonly HostServices.fileAt: (path: string) => Promise<Blob | undefined>
   readonly HostServices.processingLibrary: ProcessingLibraryStore
   readonly HostServices.estimate: () => Promise<StorageEstimate | undefined>
+  readonly HostServices.nextToken: () => string
   readonly HostServices.tree: StorageTree
   readonly HostServices.digest: Digest
   readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
@@ -6492,7 +7560,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 2; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 8; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 9; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -7249,7 +8317,7 @@ packages/audio-runtime/src/protocol/processor-messages.ts
   type ToProcessor = { readonly kind: typeof ToProcessorKind.Halt; } | { readonly kind: typeof ToProcessorKind.Load; readonly graph: GraphDescriptor; readonly dsp: DspDelivery<Uint8Array<ArrayBuffer>>; readonly feeds: readonly FeedBinding[]; readonly reportEveryBlocks: number; readonly feeder: MessagePort | undefined; } | { readonly kind: typeof ToProcessorKind.SetParameter; readonly node: NodeId; readonly name: string; readonly value: number; } | { readonly kind: typeof ToProcessorKind.Start; readonly run: number; readonly epoch: number; readonly from: number; }
 
 packages/audio-runtime/src/protocol/render-messages.ts
-  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly quality: QualityMode; readonly sources: readonly SourceDescription[]; readonly coefficientBudgetBytes: number | undefined; readonly dsp: DspDelivery<WebAssembly.Module>; }
+  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly quality: QualityMode; readonly sources: readonly SourceDescription[]; readonly coefficientBudgetBytes: number | undefined; readonly dsp: DspDelivery<WebAssembly.Module>; readonly channels: readonly (readonly [NodeId, MessagePortLike])[]; }
 
 packages/audio-runtime/src/render/worker-render.ts
   interface RenderWorkerEvents
@@ -7265,19 +8333,166 @@ packages/audio-runtime/src/testing/local-chain-workers.ts
   Core.receive: (data: unknown) => void
   type PostToPage = (message: unknown, transfer: readonly unknown[]) => void
 
-packages/codecs/src/format-descriptor.ts
-  type ByteOrder = "big" | "little"
-  interface FloatSampleEncoding
-  readonly FloatSampleEncoding.kind: "float"
-  readonly FloatSampleEncoding.bits: 32 | 64
-  readonly FloatSampleEncoding.bytes: 4 | 8
-  readonly FloatSampleEncoding.byteOrder: ByteOrder
-  interface IntegerSampleEncoding
-  readonly IntegerSampleEncoding.kind: "integer"
-  readonly IntegerSampleEncoding.bits: number
-  readonly IntegerSampleEncoding.bytes: number
-  readonly IntegerSampleEncoding.byteOrder: ByteOrder
-  readonly IntegerSampleEncoding.signed: boolean
+packages/browser-storage/src/handle-database.ts
+  class HandleStore
+  new HandleStore(factory: HandleDatabaseFactory): HandleStore
+  readonly HandleStore.#factory: HandleDatabaseFactory
+  HandleStore.#database: Promise<HandleDatabase> | undefined
+  HandleStore.open: () => Promise<HandleDatabase>
+  HandleStore.#connect: () => Promise<HandleDatabase>
+
+packages/browser-storage/src/handle-permissions.ts
+  type HandlePermission = "denied" | "granted" | "prompt"
+
+packages/browser-storage/src/testing/file-handles.ts
+  class FakeHandle
+  new FakeHandle(name: string): FakeHandle
+  readonly FakeHandle.name: string
+  readonly FakeHandle.permission: { state: "denied" | "granted" | "prompt"; answer: "denied" | "granted"; activated: boolean; }
+  readonly FakeHandle.modesAsked: string[]
+  FakeHandle.isSameEntry: (other: FileSystemHandle) => Promise<boolean>
+  FakeHandle.queryPermission: (descriptor: { readonly mode: string; }) => Promise<string>
+  FakeHandle.requestPermission: (descriptor: { readonly mode: string; }) => Promise<string>
+
+packages/browser-storage/src/testing/memory-indexed-db.ts
+  class MemoryDatabase extends EventTarget
+  new MemoryDatabase(options: MemoryDatabaseOptions): MemoryDatabase
+  readonly MemoryDatabase.stores: Map<string, Map<string, unknown>>
+  readonly MemoryDatabase.#options: MemoryDatabaseOptions
+  MemoryDatabase.closed: boolean
+  MemoryDatabase.createObjectStore: (name: string) => void
+  MemoryDatabase.transaction: (store: string) => MemoryTransaction
+  MemoryDatabase.close: () => void
+  interface MemoryDatabaseOptions
+  readonly MemoryDatabaseOptions.refuseOpen?: DOMException
+  readonly MemoryDatabaseOptions.refuseWrite?: DOMException
+  class MemoryRequest<Result> extends EventTarget
+  new MemoryRequest<Result>(initial: Result): MemoryRequest<Result>
+  MemoryRequest.result: Result
+  MemoryRequest.error: DOMException | null
+  MemoryRequest.succeed: (result: Result) => void
+  MemoryRequest.fail: (error: DOMException) => void
+  class MemoryTransaction extends EventTarget
+  new MemoryTransaction(stores: Map<string, Map<string, unknown>>, options: MemoryDatabaseOptions): MemoryTransaction
+  MemoryTransaction.error: DOMException | null
+  readonly MemoryTransaction.#stores: Map<string, Map<string, unknown>>
+  readonly MemoryTransaction.#options: MemoryDatabaseOptions
+  MemoryTransaction.#outstanding: number
+  MemoryTransaction.#failed: boolean
+  MemoryTransaction.objectStore: (name: string) => { put(value: unknown, key: string): MemoryRequest<unknown>; get(key: string): MemoryRequest<unknown>; delete(key: string): MemoryRequest<unknown>; }
+  MemoryTransaction.#request: (refusal: DOMException | undefined, work: () => unknown) => MemoryRequest<unknown>
+
+packages/codec-runtime/src/files/sync-file-bytes.ts
+  interface FileReaderSyncLike
+  FileReaderSyncLike.readAsArrayBuffer: (blob: BlobLike) => ArrayBuffer
+  interface SyncAccessHandleLike
+  SyncAccessHandleLike.getSize: () => number
+  SyncAccessHandleLike.read: (buffer: Uint8Array, options: { readonly at: number; }) => number
+  SyncAccessHandleLike.close: () => void
+
+packages/codec-runtime/src/streams/stream-port.ts
+  interface PortMessage
+  readonly PortMessage.data: unknown
+
+packages/codec-runtime/src/testing/worker-harness.ts
+  interface HarnessOptions
+  readonly HarnessOptions.platform?: Partial<CodecPlatform>
+  readonly HarnessOptions.probes?: Partial<CodecProbes>
+  readonly HarnessOptions.codecModule?: ModuleSource
+  readonly HarnessOptions.openExportEncoder?: OpenExportEncoder
+  readonly HarnessOptions.fileReader?: FileReaderSyncLike
+
+packages/codecs/src/aac-config.ts
+  interface AacConfig
+  readonly AacConfig.objectType: number
+  readonly AacConfig.sampleRate: number
+  readonly AacConfig.channels: number
+  readonly AacConfig.frameLength: number
+
+packages/codecs/src/flac-metadata-blocks.ts
+  type FlacBlock = readonly [type: number, body: Uint8Array<ArrayBufferLike>]
+
+packages/codecs/src/md5.ts
+  class Md5
+  new Md5(): Md5
+  readonly Md5.state: Int32Array<ArrayBuffer>
+  readonly Md5.block: Uint8Array<ArrayBuffer>
+  readonly Md5.words: Int32Array<ArrayBuffer>
+  Md5.buffered: number
+  Md5.total: number
+  Md5.update: (bytes: Uint8Array) => void
+  Md5.digest: () => Uint8Array
+  Md5.compress: (bytes: Uint8Array, offset: number) => void
+
+packages/codecs/src/mpeg-audio-header.ts
+  interface MpegAudioHeader
+  readonly MpegAudioHeader.version: MpegVersion
+  readonly MpegAudioHeader.bitrateIndex: number
+  readonly MpegAudioHeader.bitrate: number
+  readonly MpegAudioHeader.sampleRate: number
+  readonly MpegAudioHeader.padding: boolean
+  readonly MpegAudioHeader.protectedByCrc: boolean
+  readonly MpegAudioHeader.channelMode: number
+  readonly MpegAudioHeader.bytes: Uint8Array<ArrayBufferLike>
+  readonly MpegAudioHeader.frameBytes: number
+  readonly MpegAudioHeader.samples: number
+  readonly MpegAudioHeader.sideInfoEnd: number
+  type MpegVersion = 1 | 2 | 25
+
+packages/codecs/src/ogg-opus-writer.ts
+  interface HeldPacket
+  readonly HeldPacket.packet: Uint8Array<ArrayBufferLike>
+  readonly HeldPacket.start: number
+  readonly HeldPacket.end: number
+
+packages/codecs/src/ogg-page-writer.ts
+  class OggPageWriter
+  new OggPageWriter(serial: number): OggPageWriter
+  readonly OggPageWriter.serial: number
+  OggPageWriter.sequence: number
+  OggPageWriter.lacing: number[]
+  OggPageWriter.parts: Uint8Array<ArrayBufferLike>[]
+  OggPageWriter.bodyBytes: number
+  OggPageWriter.granule: GranulePosition
+  OggPageWriter.continued: boolean
+  OggPageWriter.nextSequence: number
+  OggPageWriter.addPacket: (packet: Uint8Array, granule: number) => Uint8Array[]
+  OggPageWriter.flush: (endOfStream?: boolean) => Uint8Array[]
+  OggPageWriter.page: (flags: number) => Uint8Array
+
+packages/codecs/src/ogg-page.ts
+  type GranulePosition = "none" | number
+  interface OggPage
+  readonly OggPage.headerType: number
+  readonly OggPage.granule: GranulePosition
+  readonly OggPage.serial: number
+  readonly OggPage.sequence: number
+  readonly OggPage.lacing: Uint8Array<ArrayBufferLike>
+  readonly OggPage.body: Uint8Array<ArrayBufferLike>
+
+packages/codecs/src/ogg-vorbis-writer.ts
+  interface HeldPacket
+  readonly HeldPacket.packet: Uint8Array<ArrayBufferLike>
+  readonly HeldPacket.start: number
+  readonly HeldPacket.end: number
+
+packages/codecs/src/size-list.ts
+  class SizeList
+  new SizeList(): SizeList
+  SizeList.sizes: Uint32Array<ArrayBuffer>
+  SizeList.count: number
+  SizeList.length: number
+  SizeList.push: (size: number) => void
+  SizeList.at: (index: number) => number
+
+packages/codecs/src/testing/wav-writer.ts
+  type RiffFraming = { readonly form?: "bw64" | "rf64" | "wav"; readonly beforeFormat?: readonly FixtureChunk[]; readonly beforeData?: readonly FixtureChunk[]; readonly afterData?: readonly FixtureChunk[]; readonly factFrames?: number; readonly sizesInDs64?: readonly string[]; readonly truncate?: number; }
+
+packages/codecs/src/vorbis-headers.ts
+  interface VorbisBlockSizes
+  readonly VorbisBlockSizes.short: number
+  readonly VorbisBlockSizes.long: number
+  readonly VorbisBlockSizes.modeIsLong: readonly boolean[]
 
 packages/design-system/src/primitives/button.tsx
   type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }
@@ -7553,6 +8768,13 @@ packages/effect-rack/src/chain-graph.ts
   readonly MeasureTap.type: string
   readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
 
+packages/import-export/src/export-settings.ts
+  type FormatEncodingByFormat = { readonly flac: { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
+  type SettingsByFormat = { readonly flac: CommonExportSettings & { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: CommonExportSettings & { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: CommonExportSettings & { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: CommonExportSettings & { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: CommonExportSettings & { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: CommonExportSettings & { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: CommonExportSettings & { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
+
+packages/import-export/src/quantiser.ts
+  type NoiseOf = (channel: number, frame: number) => number
+
 packages/media-store/src/exclusion-gate.ts
   class ExclusionGate
   new ExclusionGate(): ExclusionGate
@@ -7817,6 +9039,9 @@ packages/processors/src/testing/repair-signals.ts
 packages/project-commands/src/editing/region-invocations.ts
   type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>
 
+packages/project-commands/src/export-settings-commands.ts
+  type ExportSettings = (import("packages/import-export/src/export-settings").ExportSettings | undefined) & {}
+
 packages/project-commands/src/takes/take-invocations.ts
   type Named = { readonly id: TakeStackId; }
   type NamedTake = { readonly id: TakeId; }
@@ -7952,6 +9177,13 @@ packages/spectral-analysis/src/tile-wants.ts
   readonly Waiting.refusedCache: string | undefined
   type Want = { readonly kind: typeof ToSpectrogramWorkerKind.Want; readonly job: string; readonly request: number; readonly config: import("packages/spectral-analysis/src/spectrogram-config").SpectrogramConfig; readonly channel: number; readonly level: number; readonly index: number; readonly cached: Uint8Array<ArrayBuffer> | undefined; }
 
+packages/storage-runtime/src/client/exports-client.ts
+  interface FolderRules
+  readonly FolderRules.wanted: ExportFileName
+  readonly FolderRules.policy: CollisionPolicy
+  readonly FolderRules.remembered: CollisionAnswer | undefined
+  readonly FolderRules.prompt: CollisionPrompt
+
 packages/storage-runtime/src/client/project-mirror.ts
   class ProjectMirror
   new ProjectMirror(project: ProjectId, first: FirstUpdate, sliced?: History | undefined): ProjectMirror
@@ -8002,8 +9234,22 @@ packages/storage-runtime/src/protocol/backup-operations.ts
   readonly RestoredInPlace.slices: number
   type Tick = Operation<{ readonly handle: ProjectHandle; readonly folder?: PagePort; }, DomainResult<BackupTick>>
 
+packages/storage-runtime/src/protocol/export-operations.ts
+  type CrossingDestination = { readonly kind: "download"; readonly name: string; readonly mediaType: string; } | { readonly kind: "file"; readonly handle: FileSystemFileHandle; } | { readonly kind: "folder"; readonly handle: FileSystemDirectoryHandle; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; }
+  type ExportOperations = { 'exports.stage': Operation<{ readonly handle: ProjectHandle; readonly stream: MessagePort; readonly origin: ExportOrigin; readonly report: string; }, DomainResult<StagedFile>>; 'exports.deliver': Operation<{ readonly handle: ProjectHandle; readonly token: string; readonly encoder: ExportCodec; readonly destination: CrossingDestination; readonly prompt?: PagePort; }, DomainResult<DeliveryAnswer>>; 'exports.discard': Operation<{ readonly token: string; }, undefined>; }
+  interface StagingReport
+  readonly StagingReport.bytesStaged: number
+  type StagingStream = `staging:${string}`
+
+packages/storage-runtime/src/protocol/import-operations.ts
+  interface BatchFileImport
+  readonly BatchFileImport.file: CrossingFile
+  readonly BatchFileImport.assetId: AssetId
+  type ImportOperations = { 'imports.connectCodecWorker': Operation<{ readonly port: MessagePort; }, undefined>; 'imports.run': Operation<{ readonly handle: ProjectHandle; readonly files: readonly BatchFileImport[]; readonly choice: ImportChoice; readonly importedAt: number; readonly report: string; }, ImportedBatch>; 'imports.holdSound': Operation<{ readonly file: CrossingFile; }, DomainResult<HeldSound>>; 'imports.letGoSound': Operation<{ readonly token: string; }, undefined>; }
+  type ImportStream = `import:${string}`
+
 packages/storage-runtime/src/protocol/media-operations.ts
-  type MediaOperations = { 'media.import': Operation<{ readonly handle: ProjectHandle; readonly file: CrossingFile; readonly choice: ImportChoice; readonly assetId: AssetId; readonly importedAt: number; }, DomainResult<ImportedAudio>>; 'media.file': Operation<ContentId, DomainResult<Blob>>; 'media.paste': Operation<{ readonly handle: ProjectHandle; readonly paste: AudioPaste; readonly locate: PagePort; }, DomainResult<ChangeOutcome>>; }
+  type MediaOperations = { 'media.file': Operation<ContentId, DomainResult<Blob>>; 'media.paste': Operation<{ readonly handle: ProjectHandle; readonly paste: AudioPaste; readonly locate: PagePort; }, DomainResult<ChangeOutcome>>; }
 
 packages/storage-runtime/src/protocol/operations.ts
   type Answered<TValue> = TValue | Transferring<TValue>
@@ -8035,7 +9281,7 @@ packages/storage-runtime/src/protocol/page-operations.ts
   type CrossingFolder = { readonly kind: "files"; readonly files: readonly FolderFile[]; } | { readonly kind: "port"; readonly port: PagePort; }
   type CrossingLocated = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: CrossingFile; }
   type Lent<TArgument, TAnswer> = Operation<{ readonly port: PagePort; } & TArgument, TAnswer>
-  type PageOperations = { 'sink.write': Lent<{ readonly chunk: Uint8Array<ArrayBuffer>; }, undefined>; 'sink.close': Lent<unknown, undefined>; 'sink.abort': Lent<{ readonly reason: string | undefined; }, undefined>; 'source.read': Lent<{ readonly offset: number; readonly length: number; }, Uint8Array<ArrayBuffer>>; 'folder.list': Lent<unknown, readonly DirectoryFile[]>; 'folder.open': Lent<{ readonly path: string; }, CrossingBytes | undefined>; 'folder.create': Lent<{ readonly path: string; }, PagePort>; 'folder.remove': Lent<{ readonly path: string; }, undefined>; 'backupFolder.create': Lent<{ readonly generation: BackupCopy; }, PagePort>; 'linkedFiles.locate': Lent<{ readonly asset: AssetId; readonly identity: ExternalSourceIdentity; }, CrossingLocated>; }
+  type PageOperations = { 'sink.write': Lent<{ readonly chunk: Uint8Array<ArrayBuffer>; }, undefined>; 'sink.close': Lent<unknown, undefined>; 'sink.abort': Lent<{ readonly reason: string | undefined; }, undefined>; 'source.read': Lent<{ readonly offset: number; readonly length: number; }, Uint8Array<ArrayBuffer>>; 'folder.list': Lent<unknown, readonly DirectoryFile[]>; 'folder.open': Lent<{ readonly path: string; }, CrossingBytes | undefined>; 'folder.create': Lent<{ readonly path: string; }, PagePort>; 'folder.remove': Lent<{ readonly path: string; }, undefined>; 'backupFolder.create': Lent<{ readonly generation: BackupCopy; }, PagePort>; 'linkedFiles.locate': Lent<{ readonly asset: AssetId; readonly identity: ExternalSourceIdentity; }, CrossingLocated>; 'collision.ask': Lent<{ readonly name: string; }, CollisionReply | undefined>; }
   type PagePort = number
 
 packages/storage-runtime/src/protocol/port-channel.ts
@@ -8113,20 +9359,13 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & RecordingOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & ImportOperations & ExportOperations & RecordingOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
-  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly packs: Stream<PackChange>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; readonly [session: RecordingStream]: Stream<RecordingStatus>; }; }
+  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly packs: Stream<PackChange>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; readonly [session: RecordingStream]: Stream<RecordingStatus>; readonly [report: ImportStream]: Stream<ImportReport>; readonly [report: StagingStream]: Stream<StagingReport>; }; }
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>
   type TransferOperations = { 'transfers.exportBundle': BundleExport<{ readonly held?: ProjectHandle; }>; 'transfers.exportBackup': BundleExport<{ readonly generation: number; }>; 'transfers.exportUnpacked': Operation<{ readonly project: ProjectId; readonly folder: PagePort; readonly options: CopyOptions & DirectoryClaim; readonly held?: ProjectHandle; }, DomainResult<ExportAttempt<readonly AssetId[]>>>; 'transfers.importBundle': Operation<{ readonly bundle: CrossingBytes; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.importUnpacked': Operation<{ readonly folder: CrossingFolder; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.consolidate': Operation<{ readonly handle: ProjectHandle; readonly locate: PagePort; }, DomainResult<readonly AssetConsolidation[]>>; }
-
-packages/storage/src/audio-import.ts
-  interface AudioImportServices extends ImportServices
-  readonly AudioImportServices.invocation: (asset: Asset, source: AssetSource) => CommandInvocation
-  readonly AudioImportServices.store: import("packages/media-store/src/object-store").MediaObjectStore
-  readonly AudioImportServices.digest: import("packages/project-format/src/byte-ports").Digest
-  readonly AudioImportServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
 
 packages/storage/src/audio-paste.ts
   interface AudioPasteServices extends Pick<ConsolidationServices, "digest" | "locate" | "store" | "yieldToHost">
@@ -8472,6 +9711,19 @@ packages/storage/src/source-versions.ts
   readonly SourceVersionServices.store: MediaObjectStore
   readonly SourceVersionServices.digest: Digest
   readonly SourceVersionServices.invocation: Readonly<Record<VersionChange, (asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId) => CommandInvocation>>
+
+packages/storage/src/staging-paths.ts
+  interface StagedExportPaths
+  readonly StagedExportPaths.head: string
+  readonly StagedExportPaths.body: string
+  readonly StagedExportPaths.tail: string
+
+packages/storage/src/start-up-cleaning.ts
+  type StagingCleared = { readonly kind: "cleared"; } | { readonly kind: "failed"; readonly reason: TreeFailureKind; }
+  interface StartUpParts
+  readonly StartUpParts.store: MediaObjectStore
+  readonly StartUpParts.tree: StorageTree
+  readonly StartUpParts.coordinator?: LeaseCoordinator
 
 packages/storage/src/storage-layout.ts
   class BackupPaths

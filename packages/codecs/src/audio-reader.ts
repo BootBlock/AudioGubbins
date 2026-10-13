@@ -3,11 +3,12 @@
  * at (ADR-0050, ADR-0052).
  *
  * Opening parses the header in bounded reads and refuses, before anything is
- * stored, a file this package does not read or one whose header breaks its
- * format's rules. A read then fetches only the bytes of the frames asked for,
- * in pieces of at most `MAXIMUM_READ_BYTES`, so neither a long read nor a long
- * file is ever held whole, and converts each by the rule in
- * `sample-conversion.ts`.
+ * stored, a file this package does not read in place or one whose header breaks
+ * its format's rules. A read then fetches only the bytes of the blocks that
+ * hold the frames asked for, a block being one frame of uncompressed PCM or
+ * G.711 or one ADPCM block, in pieces of at most `MAXIMUM_READ_BYTES`, so
+ * neither a long read nor a long file is ever held whole, and decodes them by
+ * the rule of their encoding (`block-coding.ts`).
  */
 
 import {
@@ -21,11 +22,12 @@ import {
 } from '@audiogubbins/domain';
 
 import type { AudioBytes } from './audio-bytes.js';
+import type { BlockCoding } from './block-coding.js';
 import { readExactly } from './byte-reading.js';
 import { readInvalid, readPastEnd, unsupportedFormat } from './codec-failures.js';
 import type { AudioFormatDescriptor } from './format-descriptor.js';
 import { recogniseStage } from './recognition.js';
-import { decodeFrames } from './sample-conversion.js';
+import { blockCoding } from './sample-coding.js';
 
 /** The most bytes one read asks the source for. */
 const MAXIMUM_READ_BYTES = 1 << 20;
@@ -66,9 +68,14 @@ function requestProblem(
   return start > format.frames ? fail(readPastEnd(start, format.frames)) : undefined;
 }
 
-/** A reader of the frames a descriptor locates in `bytes`. */
-function pcmReader(bytes: AudioBytes, format: AudioFormatDescriptor): AudioReader {
-  const framesPerRead = Math.max(1, Math.floor(MAXIMUM_READ_BYTES / format.blockAlign));
+/** A reader of the frames a descriptor locates in `bytes`, decoded by its block coding. */
+function blockReader(
+  bytes: AudioBytes,
+  format: AudioFormatDescriptor,
+  coding: BlockCoding,
+): AudioReader {
+  const { blockBytes, framesPerBlock } = coding;
+  const blocksPerRead = Math.max(1, Math.floor(MAXIMUM_READ_BYTES / blockBytes));
   return {
     format,
     read: async (start, frames, into, signal) => {
@@ -76,12 +83,19 @@ function pcmReader(bytes: AudioBytes, format: AudioFormatDescriptor): AudioReade
       const problem = requestProblem(format, start, frames, into);
       if (problem !== undefined) return problem;
       const count = Math.min(frames, format.frames - start);
-      for (let done = 0; done < count; done += framesPerRead) {
-        const piece = Math.min(framesPerRead, count - done);
-        const offset = format.dataOffset + (start + done) * format.blockAlign;
-        const bytesRead = await readExactly(bytes, offset, piece * format.blockAlign, signal);
+      let block = Math.floor(start / framesPerBlock);
+      // Only the first piece starts inside a block; each later one starts at a block's first frame.
+      let skip = start - block * framesPerBlock;
+      for (let done = 0; done < count;) {
+        const piece = Math.min(count - done, blocksPerRead * framesPerBlock - skip);
+        const offset = format.dataOffset + block * blockBytes;
+        const bytesRead = await readExactly(bytes, offset, coding.bytesFor(skip + piece), signal);
         if (!bytesRead.ok) return bytesRead;
-        decodeFrames(format.encoding, bytesRead.value, piece, into, done);
+        const decoded = coding.decode(bytesRead.value, skip, piece, into, done);
+        if (!decoded.ok) return decoded;
+        done += piece;
+        block += blocksPerRead;
+        skip = 0;
       }
       return succeed(count);
     },
@@ -101,5 +115,9 @@ export async function openAudio(
   if (!stage.value.readable) return fail(unsupportedFormat(stage.value.format));
   const described = await stage.value.describe(signal);
   throwIfCancelled(signal);
-  return mapResult(described, (format) => pcmReader(bytes, format));
+  if (!described.ok) return described;
+  const format = described.value;
+  return mapResult(blockCoding(format.encoding, format.channelCount, format.blockAlign), (coding) =>
+    blockReader(bytes, format, coding),
+  );
 }

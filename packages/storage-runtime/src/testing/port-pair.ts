@@ -1,12 +1,47 @@
 /**
  * A page and a storage worker joined in one test, as the browser joins them:
  * each message is cloned with its transfer list, so a buffer given up is
- * emptied on the sender's side, and arrives on a later task. Every message in
- * either direction is recorded, and a test may send either side anything as if
- * the other had, or report the worker failed or a message unreadable.
+ * emptied on the sender's side, and arrives on a later task. A file or folder
+ * handle clones as the handle it is, as the browser clones one, which a test's
+ * stand-in for the browser's class would not, so each is carried across as
+ * itself. Every message in either direction is recorded, and a test may send
+ * either side anything as if the other had, or report the worker failed or a
+ * message unreadable.
  */
 
 import type { PortEndpoint } from '../protocol/port-channel.js';
+
+/** The member a handle carried across stands in by, which no message of the protocol has. */
+const HANDLE = '__handle';
+
+/** Whether a value is a file or folder handle, where the environment has the class. */
+function isHandle(value: unknown): boolean {
+  const handle: unknown = Reflect.get(globalThis, 'FileSystemHandle');
+  return typeof handle === 'function' && value instanceof handle;
+}
+
+/**
+ * The value with each handle in its plain objects and arrays swapped out by
+ * `swap`, or, given the handles swapped out, each stand-in swapped back.
+ */
+function swapped(
+  value: unknown,
+  swap: (handle: unknown) => unknown,
+  handles?: readonly unknown[],
+): unknown {
+  if (handles === undefined && isHandle(value)) return swap(value);
+  if (Array.isArray(value)) {
+    const items: unknown[] = value;
+    return items.map((item) => swapped(item, swap, handles));
+  }
+  if (typeof value !== 'object' || value === null) return value;
+  if (Object.getPrototypeOf(value) !== Object.prototype) return value;
+  const standIn: unknown = Reflect.get(value, HANDLE);
+  if (handles !== undefined && typeof standIn === 'number') return handles[standIn];
+  return Object.fromEntries(
+    Object.entries(value).map(([key, member]) => [key, swapped(member, swap, handles)]),
+  );
+}
 
 /** One end of the pair: what it has been sent, and where it sends. */
 class End implements PortEndpoint {
@@ -26,7 +61,15 @@ class End implements PortEndpoint {
   }
 
   receive(message: unknown, transfer: Transferable[]): void {
-    const data: unknown = structuredClone(message, { transfer });
+    const handles: unknown[] = [];
+    const cloned: unknown = structuredClone(
+      swapped(message, (value) => {
+        handles.push(value);
+        return { [HANDLE]: handles.length - 1 };
+      }),
+      { transfer },
+    );
+    const data = swapped(cloned, (value) => value, handles);
     setTimeout(() => {
       this.received.push(data);
       this.dispatch('message', new MessageEvent('message', { data }));

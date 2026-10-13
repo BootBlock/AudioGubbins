@@ -12,6 +12,7 @@
  * `text-runs.ts`.
  */
 
+import { isSlashedProse } from './slashed-prose.js';
 import { SCHEME_RUN, WORD_CHARACTER } from './text-runs.js';
 
 /** A character a path's folder or file name can hold, apostrophes included. */
@@ -238,6 +239,17 @@ function firstAtOrAfter(sorted: readonly number[], from: number): number {
   return low;
 }
 
+/** The marks that can open a word in a sentence: a bracket or a quote. */
+const LEADING_PUNCTUATION = /^[([{'"]+/;
+
+/**
+ * Whether a word, read without the marks of the sentence around it, is a
+ * slashed word of prose ({@link isSlashedProse}) rather than more of a path.
+ */
+function readsAsSlashedProse(word: string): boolean {
+  return isSlashedProse(word.replace(LEADING_PUNCTUATION, '').replace(TRAILING_PUNCTUATION, ''));
+}
+
 /**
  * Where a path written without quotes ends.
  *
@@ -245,12 +257,19 @@ function firstAtOrAfter(sorted: readonly number[], from: number): number {
  * between each: ended at one space, a path followed by two spaces, a tab or a
  * no-break space would leave the rest of a name standing after it. Every run up
  * to the last that holds a separator is part of the path: `Alex Bloggs\Music`
- * is one folder, not the end of the path and a word. The final segment, after
- * the last separator, is where a path and a sentence meet. Its words are read
- * in turn, and the path ends:
+ * is one folder, not the end of the path and a word. A run whose slash is
+ * prose's ({@link readsAsSlashedProse}) is not counted as holding one: counted,
+ * a date or an `and/or` after a path would carry the path on through the
+ * sentence to the end of the line, past the extension and the clause's mark
+ * that end it. A folder after such a run still carries the path on through it,
+ * and so does a path of its own: a slashed word between two paths goes with
+ * them. The final segment, after the last separator, is where a path and a
+ * sentence meet. Its words are read in turn, and the path ends:
  *
  * - after a word ending in a user file's extension, so `take 3.wav for import`
  *   keeps `for import`;
+ * - before a slashed word of prose, which no name can hold, so
+ *   `notes on 10/10/2026` keeps the date and `notes and/or` the `and/or`;
  * - before a colon or a semicolon ending a word, so `notes: permission denied`
  *   keeps its reason. Neither can be part of a name on Windows, and neither is
  *   usual in one elsewhere. Every other mark can be: `J. Smith`, `Smith, Jane`,
@@ -278,11 +297,21 @@ function unquotedEnd(text: string, from: number): number {
     index = next;
   }
 
-  const lastFolder = runs.findLastIndex((run) => SEPARATOR.test(text.slice(run.start, run.end)));
+  // The first run follows the root, and is the path's whatever it holds.
+  const lastFolder = runs.findLastIndex((run, position) => {
+    const words = text.slice(run.start, run.end);
+    return SEPARATOR.test(words) && (position === 0 || !readsAsSlashedProse(words));
+  });
 
   for (let position = Math.max(0, lastFolder); position < runs.length; position += 1) {
     const run = runs[position];
     if (run === undefined) break;
+
+    // Past the last folder, a run with a separator in it is a slashed word of
+    // prose, and the path ends with the run before it.
+    if (position > lastFolder && SEPARATOR.test(text.slice(run.start, run.end))) {
+      return runs[position - 1]?.end ?? from;
+    }
 
     // The final segment begins after the last separator of the last run that
     // has one; every later run is a word of it whole.

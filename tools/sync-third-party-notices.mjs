@@ -31,6 +31,17 @@
  * where a repository path it names no longer exists, so a notice cannot
  * outlive or lose the code it is for.
  *
+ * The C libraries vendored under `third_party/` and built into the encoder
+ * modules (`build-encoder-modules.mjs`) are named by no lockfile, so each is
+ * listed by hand in `tools/vendored-library-notices.json`: the project, its
+ * version, licence and copyright, its folder, the release archive its source
+ * was taken from and that archive's SHA-256, which the folder's README must
+ * record too, and the modules it is built into. Its licence text is quoted
+ * from the files it ships. A library is refused where its folder or licence
+ * file is gone or a module it names is not built, and a folder of
+ * `third_party/` the list does not name is refused, so no vendored code ships
+ * without its notice.
+ *
  * Usage:
  *   node tools/sync-third-party-notices.mjs           write the notices
  *   node tools/sync-third-party-notices.mjs --check   exit non-zero if stale
@@ -38,15 +49,22 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { WASM_CRATE, WASM_TARGET } from './build-wasm.mjs';
+import { MP3_MODULE, SHIPPED_CRATES, VORBIS_MODULE, WASM_TARGET } from './build-wasm.mjs';
 import { localTracesIn } from './local-traces.mjs';
+import { ZIG_SOURCE, ZIG_VERSION } from './zig-toolchain.mjs';
 import { lockedPackagesOf } from './read-pnpm-lockfile.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTICES = join(REPO_ROOT, 'THIRD-PARTY-NOTICES.md');
+
+/** The committed, reviewed list of the C libraries vendored and built into encoder modules. */
+export const VENDORED_LIBRARIES = join(REPO_ROOT, 'tools', 'vendored-library-notices.json');
+
+/** Where the C libraries are vendored. */
+const THIRD_PARTY = 'third_party';
 
 /** The committed, reviewed list of the source code ported from other projects. */
 export const PORTED_CODE = join(REPO_ROOT, 'tools', 'ported-code-notices.json');
@@ -67,12 +85,17 @@ const SHIPPED_IMPORTER = 'apps/web';
  * licensed under Apache-2.0 and in minified form, on the condition that its
  * notice and terms travel with it, which this file is how the application
  * meets. None asks for the work's own source to be offered or its licence to
- * change. A weak copyleft licence (MPL-2.0, LGPL) and a strong one (GPL, AGPL)
- * do, and a licence that restricts use (CC-BY-NC, SSPL, BUSL) or names no
- * terms at all (UNLICENSED, `SEE LICENSE IN`) is not permission, so each is
- * refused here for a person to decide on, rather than added unread. Each has
- * its standard text in `LICENCE_TEXTS`, to quote for a package that ships no
- * licence file of its own.
+ * change. A weak copyleft licence (LGPL) and a strong one (GPL, AGPL) do, and
+ * a licence that restricts use (CC-BY-NC, SSPL, BUSL) or names no terms at all
+ * (UNLICENSED, `SEE LICENSE IN`) is not permission, so each is refused here
+ * for a person to decide on, rather than added unread. Each has its standard
+ * text in `LICENCE_TEXTS`, to quote for a package that ships no licence file
+ * of its own.
+ *
+ * MPL-2.0 was decided on by ADR-0091, for Symphonia: its copyleft reaches the
+ * files it covers and no further, those files are used unmodified, and it asks
+ * only that whoever receives them compiled be told where their source is,
+ * which the notices say of each package under it ({@link SOURCE_OFFERED}).
  */
 export const ALLOWED_LICENCES = Object.freeze([
   '0BSD',
@@ -85,11 +108,31 @@ export const ALLOWED_LICENCES = Object.freeze([
   'ISC',
   'MIT',
   'MIT-0',
+  'MPL-2.0',
   'Unicode-3.0',
   'Unicode-DFS-2016',
   'Unlicense',
   'Zlib',
 ]);
+
+/**
+ * The allowed licences that ask that a recipient of the compiled package be
+ * told where its source is: a package taken under one is refused unless its
+ * source is known, and the notices name it.
+ */
+export const SOURCE_OFFERED = Object.freeze(['MPL-2.0']);
+
+/**
+ * The licences a vendored library may carry beyond the allow-list. ADR-0091
+ * decided on LGPL-2.0-or-later for LAME on the terms the LGPL sets for a
+ * library: it is built into its own WebAssembly module, loaded from its own
+ * file, so a person can replace it with a build of the same interface;
+ * nothing of it is compiled into AudioGubbins' own code; and its
+ * corresponding source is vendored in this repository, where the notices
+ * say. It is allowed for a vendored library alone, never for a package or a
+ * port.
+ */
+export const VENDORED_LIBRARY_LICENCES = Object.freeze(['LGPL-2.0-or-later']);
 
 /**
  * The exceptions an allowed licence may be taken `WITH`, each of which only
@@ -230,6 +273,9 @@ const COPYRIGHT_PROSE =
  * @property {unknown} licence the manifest's `license` field, as written
  * @property {readonly { readonly name: string, readonly text: string }[]} files
  *   its licence files, by name
+ * @property {string} [source] where its source is published
+ * @property {string} [modified] the repository folder of the copy AudioGubbins
+ *   modified and builds in its place, for a crate vendored and patched in
  */
 
 /**
@@ -244,6 +290,10 @@ const COPYRIGHT_PROSE =
  *   them, or the standard texts of the licences it is taken under
  * @property {boolean} standard whether the texts are the licences' standard
  *   ones, because the package ships none
+ * @property {string} [source] where its source is published, for a package
+ *   whose licence asks that a recipient be told
+ * @property {string} [modified] the repository folder of the modified copy
+ *   shipped in its place, whose README states each change
  */
 
 /**
@@ -283,6 +333,12 @@ export function noticeOf(source, standardText) {
   if (!decision.allowed) {
     return { refused: `${named} is licensed ${source.licence}: ${decision.reason}` };
   }
+  const offered = decision.licences.some((licence) => listed(SOURCE_OFFERED, licence));
+  if (offered && source.source === undefined) {
+    return {
+      refused: `${named} is licensed ${source.licence}, which asks that its source be offered, and states none`,
+    };
+  }
   const shipped = source.files
     .filter((file) => LICENCE_FILE.test(file.name))
     .toSorted((one, other) => compare(one.name, other.name))
@@ -296,6 +352,8 @@ export function noticeOf(source, standardText) {
       copyright: [...new Set(lines.filter(isCopyright))],
       texts: shipped.length > 0 ? shipped : standardTexts(decision.licences, standardText),
       standard: shipped.length === 0,
+      ...(offered ? { source: source.source } : {}),
+      ...(source.modified === undefined ? {} : { modified: source.modified }),
     },
   };
 }
@@ -426,6 +484,201 @@ export function portedNoticesOf(list, exists, standardText) {
 }
 
 /**
+ * What the notices say of one library built into an encoder module: a C
+ * library vendored under `third_party/`, or a runtime library the C compiler
+ * links into every module it builds.
+ *
+ * @typedef {object} VendoredNotice
+ * @property {string} project
+ * @property {string} version
+ * @property {string} licence
+ * @property {readonly string[]} copyright
+ * @property {{ readonly directory: string }
+ *   | { readonly bundledBy: string }} source the repository folder its source
+ *   is vendored in, or the toolchain whose release holds it
+ * @property {readonly string[]} modules the module files it is built into
+ * @property {string} origin the release archive its source was taken from
+ * @property {string} sha256 that archive's SHA-256
+ * @property {readonly string[]} texts its licence's text: as a vendored library
+ *   ships it, or the standard text for a toolchain's
+ */
+
+/** A SHA-256, written in lower-case hexadecimal. */
+const SHA256 = /^[0-9a-f]{64}$/u;
+
+/**
+ * What the vendored notices are checked against: whether a repository path
+ * exists, a file's text, the folders `third_party/` holds, the module files
+ * the build writes, the pinned compiler's name and its source archive, and
+ * the standard text of a licence.
+ *
+ * @typedef {object} VendoredTree
+ * @property {(path: string) => boolean} exists
+ * @property {(path: string) => string} read
+ * @property {readonly string[]} directories
+ * @property {readonly string[]} modules
+ * @property {{ readonly name: string, readonly url: string,
+ *   readonly sha256: string }} toolchain
+ * @property {(licence: string) => string} standardText
+ */
+
+/**
+ * Why a vendored library's source is refused, or its folder and licence text.
+ *
+ * @param {Record<string, unknown>} fields
+ * @param {VendoredTree} tree
+ * @returns {{ readonly directory: string, readonly texts: readonly string[],
+ *   readonly reasons: readonly string[] }}
+ */
+function vendoredSourceOf(fields, tree) {
+  const { directory, licenceFiles, version, origin, sha256 } = fields;
+  const folder =
+    typeof directory === 'string' &&
+    REPOSITORY_PATH.test(directory) &&
+    directory.startsWith(`${THIRD_PARTY}/`) &&
+    tree.exists(directory)
+      ? directory
+      : undefined;
+  if (folder === undefined) {
+    return { directory: '', texts: [], reasons: ['names no folder of third_party/ that exists'] };
+  }
+  const reasons = [];
+  const files = Array.isArray(licenceFiles) ? licenceFiles : [];
+  if (files.length === 0) reasons.push('names no licence file');
+  /** @type {string[]} */
+  const texts = [];
+  for (const file of files) {
+    const path = `${folder}/${String(file)}`;
+    if (typeof file === 'string' && REPOSITORY_PATH.test(path) && tree.exists(path)) {
+      texts.push(normalised(tree.read(path)));
+    } else {
+      reasons.push(`names ${path}, which does not exist`);
+    }
+  }
+  const readme = `${folder}/README.md`;
+  const record = tree.exists(readme) ? tree.read(readme) : '';
+  if (![version, origin, sha256].every((stated) => isText(stated) && record.includes(stated))) {
+    reasons.push(`is not recorded in ${readme} with its version, release archive and SHA-256`);
+  }
+  return { directory: folder, texts, reasons };
+}
+
+/**
+ * Why one library is refused, or its notice.
+ *
+ * @param {unknown} entry the library as the list writes it
+ * @param {number} index
+ * @param {VendoredTree} tree
+ * @returns {{ readonly notice: VendoredNotice }
+ *   | { readonly refused: readonly string[] }}
+ */
+function vendoredLibraryOf(entry, index, tree) {
+  /** @type {Record<string, unknown>} */
+  const fields =
+    typeof entry === 'object' && entry !== null ? Object.fromEntries(Object.entries(entry)) : {};
+  const { project, version, licence, copyright, bundledBy, origin, sha256, modules } = fields;
+  const named = `the library ${isText(project) ? project : String(index + 1)}`;
+  const reasons = [];
+  if (!isText(project) || !isText(version)) reasons.push('names no project and version');
+  const decided = isText(licence) ? listed(VENDORED_LIBRARY_LICENCES, licence) : undefined;
+  const decision = isText(licence) ? decideLicence(licence) : undefined;
+  if (decision === undefined) reasons.push('declares no SPDX licence expression');
+  else if (!decision.allowed && decided === undefined) {
+    reasons.push(`is licensed ${String(licence)}: ${decision.reason}`);
+  }
+  const lines = Array.isArray(copyright) ? copyright : [];
+  if (lines.length === 0 || !lines.every((line) => isText(line) && isCopyright(line))) {
+    reasons.push('lists its copyright as anything but lines stating one');
+  }
+  if (!isText(origin) || !origin.startsWith('https://')) {
+    reasons.push('names no https address of the release archive its source was taken from');
+  }
+  if (typeof sha256 !== 'string' || !SHA256.test(sha256)) {
+    reasons.push('states no SHA-256 of its release archive');
+  }
+  const into = Array.isArray(modules) ? modules : [];
+  if (into.length === 0) reasons.push('names no module it is built into');
+  for (const module of into) {
+    if (typeof module !== 'string' || !tree.modules.includes(module)) {
+      reasons.push(`names ${String(module)}, which the build does not write`);
+    }
+  }
+  /** @type {VendoredNotice['source']} */
+  let source;
+  /** @type {readonly string[]} */
+  let texts;
+  if (bundledBy === undefined) {
+    const vendored = vendoredSourceOf(fields, tree);
+    reasons.push(...vendored.reasons);
+    source = { directory: vendored.directory };
+    texts = vendored.texts;
+  } else {
+    const { name, url } = tree.toolchain;
+    if (bundledBy !== name || origin !== url || sha256 !== tree.toolchain.sha256) {
+      reasons.push(`is bundled by no compiler but ${name}, from ${url} with its SHA-256`);
+    }
+    source = { bundledBy: name };
+    texts = standardTexts(decision?.allowed === true ? decision.licences : [], tree.standardText);
+  }
+  if (reasons.length > 0) return { refused: reasons.map((reason) => `${named} ${reason}`) };
+  return {
+    notice: {
+      project: String(project),
+      version: String(version),
+      licence: String(licence),
+      copyright: lines.map(String),
+      source,
+      modules: into.map(String),
+      origin: String(origin),
+      sha256: String(sha256),
+      texts,
+    },
+  };
+}
+
+/**
+ * The notices of the libraries built into the encoder modules that `list`
+ * names, read from `tools/vendored-library-notices.json`, or every reason one
+ * is refused: a field missing or malformed, a licence neither allowed nor
+ * decided on for a vendored library, a module the build does not write; for a
+ * vendored library a folder or licence file that does not exist, or a folder
+ * whose README does not record the release archive and its hash; for a
+ * toolchain's, a toolchain or archive other than the pinned compiler's; and a
+ * folder of `third_party/` the list does not name.
+ *
+ * @param {unknown} list the list's parsed JSON
+ * @param {VendoredTree} tree
+ * @returns {{ readonly notices: readonly VendoredNotice[] }
+ *   | { readonly refused: readonly string[] }}
+ */
+export function vendoredNoticesOf(list, tree) {
+  const entries =
+    typeof list === 'object' && list !== null && 'libraries' in list ? list.libraries : undefined;
+  if (!Array.isArray(entries)) return { refused: ['the list holds no `libraries` array'] };
+  /** @type {string[]} */
+  const refused = [];
+  /** @type {VendoredNotice[]} */
+  const notices = [];
+  for (const [index, entry] of entries.entries()) {
+    const decided = vendoredLibraryOf(entry, index, tree);
+    if ('refused' in decided) refused.push(...decided.refused);
+    else notices.push(decided.notice);
+  }
+  // A folder a refused entry names is named, so it is not refused a second time.
+  const named = new Set(
+    entries.flatMap((entry) =>
+      typeof entry === 'object' && entry !== null && 'directory' in entry ? [entry.directory] : [],
+    ),
+  );
+  for (const directory of tree.directories) {
+    if (!named.has(directory)) {
+      refused.push(`${directory} is vendored but the list does not name it`);
+    }
+  }
+  return refused.length > 0 ? { refused } : { notices };
+}
+
+/**
  * Whether a line of a licence file states a copyright.
  *
  * @param {string} line
@@ -469,15 +722,17 @@ function fenceFor(text) {
 }
 
 /**
- * The notices file, from every shipped package's notice and every port's.
- * Each distinct licence text is written once, after the tables, with the
- * packages and ports that ship it; texts that differ only in spacing are one.
+ * The notices file, from every shipped package's notice, every vendored
+ * library's and every port's. Each distinct licence text is written once,
+ * after the tables, with what ships it; texts that differ only in spacing are
+ * one.
  *
  * @param {readonly Notice[]} notices
  * @param {readonly PortedNotice[]} ported
+ * @param {readonly VendoredNotice[]} vendored
  * @returns {string}
  */
-export function renderNotices(notices, ported = []) {
+export function renderNotices(notices, ported = [], vendored = []) {
   const sorted = notices.toSorted(
     (one, other) => compare(one.name, other.name) || compare(one.version, other.version),
   );
@@ -521,6 +776,31 @@ export function renderNotices(notices, ported = []) {
         linksOf(port.texts, `the code ported from ${port.project}`).join(', '),
       ].join(' | '),
     );
+  const libraries = vendored
+    .toSorted((one, other) => compare(one.project, other.project))
+    .map((library) =>
+      [
+        cell(library.project),
+        cell(library.version),
+        cell(library.licence),
+        library.copyright.map(cell).join('<br>'),
+        library.modules.map((module) => `\`${cell(module)}\``).join('<br>'),
+        'directory' in library.source
+          ? `\`${cell(library.source.directory)}\``
+          : `bundled by ${cell(library.source.bundledBy)}`,
+        `<${library.origin}><br>SHA-256 \`${library.sha256}\``,
+        linksOf(library.texts, `${library.project} ${library.version}`).join(', '),
+      ].join(' | '),
+    );
+  const offered = sorted.flatMap((notice) => {
+    if (notice.source === undefined) return [];
+    const named = `- ${cell(notice.name)} ${cell(notice.version)}`;
+    return notice.modified === undefined
+      ? [`${named}: <${notice.source}>`]
+      : [
+          `${named}, modified: the files as shipped are in this repository at \`${cell(notice.modified)}\`, whose README.md states each change and why; the unmodified source is <${notice.source}>`,
+        ];
+  });
   const sections = [...texts.values()].map(({ number, text, users }) => {
     const fence = fenceFor(text);
     return [
@@ -538,8 +818,8 @@ export function renderNotices(notices, ported = []) {
     '# Third-party notices',
     '',
     '<!-- Generated by tools/sync-third-party-notices.mjs from pnpm-lock.yaml,',
-    'Cargo.lock and tools/ported-code-notices.json. Do not edit: run',
-    '`pnpm notices:update` and commit the result. -->',
+    'Cargo.lock, tools/ported-code-notices.json and tools/vendored-library-notices.json.',
+    'Do not edit: run `pnpm notices:update` and commit the result. -->',
     '',
     'AudioGubbins ships the third-party packages below inside the application. Each',
     'is listed with its version, the SPDX licence expression it declares, the',
@@ -547,7 +827,7 @@ export function renderNotices(notices, ported = []) {
     'none, the standard text of its licence. A package is listed when the published',
     'application runs with it: the production dependencies of `apps/web`, through',
     'every workspace package it uses, and the Rust crates linked into its WebAssembly',
-    'module. Tools used only to develop, test and build AudioGubbins, such as Vitest,',
+    'modules. Tools used only to develop, test and build AudioGubbins, such as Vitest,',
     'ESLint, Playwright, TypeScript and Vite, are not shipped and are not listed.',
     '',
     '## Packages',
@@ -556,6 +836,42 @@ export function renderNotices(notices, ported = []) {
     '| --- | --- | --- | --- | --- |',
     ...rows.map((row) => `| ${row} |`),
     '',
+    ...(offered.length === 0
+      ? []
+      : [
+          '## Source of the packages under the Mozilla Public License',
+          '',
+          'The packages below are licensed under the Mozilla Public License 2.0, which asks',
+          'that whoever receives them compiled be told where their source is. Each is',
+          'shipped unmodified, and its source is published where it says, but a package',
+          'marked modified, which is shipped as the copy vendored in this repository with',
+          'the changes its README states, each marked in the file it changes:',
+          '',
+          ...offered,
+          '',
+        ]),
+    ...(libraries.length === 0
+      ? []
+      : [
+          '## Libraries built from vendored source',
+          '',
+          'The encoder modules are built from the C libraries below, whose source is',
+          'vendored, unmodified, in the folder of this repository each names: that folder',
+          'is where the corresponding source of each is. Each module is a separate',
+          'WebAssembly file, loaded only when its format is exported, which can be replaced',
+          'by a build of the same interface (`native/`); nothing of the libraries is',
+          "compiled into AudioGubbins' own code. The compiler links its own runtime",
+          'libraries into each module, from the source of its pinned release. Each library',
+          'is listed with its version, licence and copyright, the modules built from it,',
+          "where its source is, the release archive it was taken from and that archive's",
+          'SHA-256, and the text of its licence: as a vendored library ships it, or the',
+          "standard text for the compiler's.",
+          '',
+          '| Library | Version | Licence | Copyright | Modules | Source | Release archive | Licence text |',
+          '| --- | --- | --- | --- | --- | --- | --- | --- |',
+          ...libraries.map((row) => `| ${row} |`),
+          '',
+        ]),
     '## Ported source code',
     '',
     'AudioGubbins also ships source code rewritten in TypeScript from the projects',
@@ -616,13 +932,15 @@ export function renderNotices(notices, ported = []) {
  * Every third-party crate a crate links, transitively: those it takes as
  * normal dependencies, not as development or build dependencies, which run
  * on the machine that builds it and are not in the module. A crate with no
- * source is one of the workspace's own.
+ * source is one of the workspace's own, unless it is a third party's crate
+ * vendored and patched in, which `vendored` recognises.
  *
  * @param {CargoMetadata} metadata
  * @param {string} root the crate's name
+ * @param {(crate: CargoCrate) => boolean} [vendored]
  * @returns {readonly CargoCrate[]}
  */
-export function linkedCratesOf(metadata, root) {
+export function linkedCratesOf(metadata, root, vendored = () => false) {
   const byId = new Map(metadata.packages.map((crate) => [crate.id, crate]));
   const nodes = new Map(metadata.resolve.nodes.map((node) => [node.id, node]));
   const start = metadata.packages.find((crate) => crate.name === root && crate.source === null);
@@ -638,7 +956,7 @@ export function linkedCratesOf(metadata, root) {
   }
   return [...reached]
     .map((id) => byId.get(id))
-    .filter((crate) => crate !== undefined && crate.source !== null)
+    .filter((crate) => crate !== undefined && (crate.source !== null || vendored(crate)))
     .map((crate) => /** @type {CargoCrate} */ (crate));
 }
 
@@ -690,15 +1008,16 @@ function shippedNodeSources() {
       version: one.version,
       licence: manifest.license,
       files: licenceFilesIn(folder),
+      source: `https://www.npmjs.com/package/${one.name}/v/${one.version}`,
     });
   }
   return [...sources.values()];
 }
 
 /**
- * The third-party crates the WebAssembly module links, from `cargo metadata`
- * held to `Cargo.lock` and run offline, so it neither changes the lockfile
- * nor reaches the network.
+ * The third-party crates the WebAssembly modules link, each listed once. They
+ * are read from `cargo metadata` held to `Cargo.lock` and run offline, so it
+ * neither changes the lockfile nor reaches the network.
  *
  * @returns {PackageSource[]}
  */
@@ -719,13 +1038,40 @@ function shippedCrateSources() {
   if (run.error !== undefined) throw new Error(`cargo could not be started: ${run.error.message}`);
   if (run.status !== 0) throw new Error(`cargo metadata failed:\n${run.stderr}`);
   const metadata = /** @type {CargoMetadata} */ (JSON.parse(run.stdout));
-  return linkedCratesOf(metadata, WASM_CRATE).map((crate) => ({
-    name: crate.name,
-    version: crate.version,
-    // Cargo's manifests once wrote `MIT/Apache-2.0` for a choice of either.
-    licence: crate.license?.replaceAll('/', ' OR ') ?? undefined,
-    files: licenceFilesIn(dirname(crate.manifest_path)),
-  }));
+  const vendoredFolderOf = (/** @type {CargoCrate} */ crate) =>
+    vendoredCrateFolder(relative(REPO_ROOT, crate.manifest_path));
+  const linked = new Map(
+    SHIPPED_CRATES.flatMap((root) =>
+      linkedCratesOf(metadata, root, (crate) => vendoredFolderOf(crate) !== undefined),
+    ).map((crate) => [crate.id, crate]),
+  );
+  return [...linked.values()].map((crate) => {
+    const modified = vendoredFolderOf(crate);
+    return {
+      name: crate.name,
+      version: crate.version,
+      // Cargo's manifests once wrote `MIT/Apache-2.0` for a choice of either.
+      licence: crate.license?.replaceAll('/', ' OR ') ?? undefined,
+      files: licenceFilesIn(dirname(crate.manifest_path)),
+      source: `https://crates.io/crates/${crate.name}/${crate.version}`,
+      ...(modified === undefined ? {} : { modified }),
+    };
+  });
+}
+
+/**
+ * The folder of `third_party/` a crate's manifest is vendored in, as
+ * `third_party/<name>/crate/Cargo.toml` lays one out beside the README that
+ * states its changes, or `undefined` for a crate that is not vendored.
+ *
+ * @param {string} manifest the manifest's path from the repository's root
+ * @returns {string | undefined}
+ */
+export function vendoredCrateFolder(manifest) {
+  const parts = manifest.split(/[\\/]/u);
+  return parts.length === 4 && parts[0] === THIRD_PARTY && parts[2] === 'crate'
+    ? `${THIRD_PARTY}/${String(parts[1])}`
+    : undefined;
 }
 
 /**
@@ -736,7 +1082,9 @@ function shippedCrateSources() {
  */
 function main(argv) {
   const checkOnly = argv.includes('--check');
-  const decided = [...shippedNodeSources(), ...shippedCrateSources()].map((source) =>
+  const crates = shippedCrateSources();
+  const patched = new Set(crates.flatMap((crate) => crate.modified ?? []));
+  const decided = [...shippedNodeSources(), ...crates].map((source) =>
     noticeOf(source, (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8')),
   );
   const refused = decided.flatMap((one) => ('refused' in one ? [one.refused] : []));
@@ -766,7 +1114,31 @@ function main(argv) {
     );
     return 1;
   }
-  const desired = renderNotices(notices, ported.notices);
+  const vendored = vendoredNoticesOf(JSON.parse(readFileSync(VENDORED_LIBRARIES, 'utf8')), {
+    exists: (path) => existsSync(join(REPO_ROOT, path)),
+    read: (path) => readFileSync(join(REPO_ROOT, path), 'utf8'),
+    // A crate patched in has its notice among the packages.
+    directories: readdirSync(join(REPO_ROOT, THIRD_PARTY), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => `${THIRD_PARTY}/${entry.name}`)
+      .filter((directory) => !patched.has(directory)),
+    modules: [MP3_MODULE, VORBIS_MODULE].map((module) => basename(module)),
+    toolchain: { name: `Zig ${ZIG_VERSION}`, ...ZIG_SOURCE },
+    standardText: (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+  });
+  if ('refused' in vendored) {
+    console.error(
+      `tools/vendored-library-notices.json cannot give ${String(vendored.refused.length)} notice(s):\n` +
+        vendored.refused.map((reason) => `  - ${reason}`).join('\n') +
+        '\n\nEach library names its project and version, a licence the allow-list permits\n' +
+        'or one decided on for a vendored library, the copyright lines its source states,\n' +
+        'its folder of third_party/ and the licence files in it, the https address of the\n' +
+        "release archive it was taken from and that archive's SHA-256, both recorded in\n" +
+        "the folder's README.md, and the module files it is built into.",
+    );
+    return 1;
+  }
+  const desired = renderNotices(notices, ported.notices, vendored.notices);
   const traces = localTracesIn(desired);
   if (traces.length > 0) {
     console.error(`The notices would name this machine: ${[...new Set(traces)].join(', ')}`);

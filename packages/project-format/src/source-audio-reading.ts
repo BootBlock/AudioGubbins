@@ -13,6 +13,8 @@
 import type { Asset } from '@audiogubbins/domain';
 
 import {
+  anyObjectOf,
+  checkMembers,
   objectOf,
   optional,
   pathOf,
@@ -20,7 +22,7 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
-import { SOURCE_CONTAINERS, type SourceAudioShape } from './project-state.js';
+import { SOURCE_CONTAINERS, type SourceAudioShape, type SourceEncoding } from './project-state.js';
 import { integerConverter, oneOfConverter } from './scalar-reading.js';
 import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
 
@@ -28,19 +30,60 @@ const AUDIO_MEMBERS: ReadonlySet<string> = new Set([
   'container',
   'sampleRate',
   'encoding',
-  'bitDepth',
-  'byteOrder',
   'statedLayout',
   'frames',
   'declaredFrames',
 ]);
 
+const PCM_MEMBERS: ReadonlySet<string> = new Set(['kind', 'bits', 'byteOrder']);
+const G711_MEMBERS: ReadonlySet<string> = new Set(['kind']);
+const ADPCM_MEMBERS: ReadonlySet<string> = new Set(['kind', 'framesPerBlock']);
+
 const asContainer = oneOfConverter(SOURCE_CONTAINERS);
-const asEncoding = oneOfConverter(['integer', 'float'] as const);
+const asEncodingKind = oneOfConverter([
+  'integer',
+  'float',
+  'g711-alaw',
+  'g711-ulaw',
+  'ima-adpcm',
+  'ms-adpcm',
+] as const);
 const asByteOrder = oneOfConverter(['little', 'big'] as const);
 
 /** Bits per sample, as a container states them. */
 const asBitDepth = integerConverter(1, 64);
+
+/** The frames of an ADPCM block, which its 16-bit block size bounds. */
+const asFramesPerBlock = integerConverter(1, 0x20000);
+
+/** How a file stores its samples where they are read in place. */
+const asSourceEncoding: Converter<SourceEncoding> = (reading, value, parent, key) => {
+  const object = anyObjectOf(reading, value, parent, key);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const kind = required(reading, object, at, 'kind', asEncodingKind);
+  switch (kind) {
+    case undefined:
+      return undefined;
+    case 'integer':
+    case 'float': {
+      checkMembers(reading, object, at, PCM_MEMBERS);
+      const bits = required(reading, object, at, 'bits', asBitDepth);
+      const byteOrder = required(reading, object, at, 'byteOrder', asByteOrder);
+      return bits === undefined || byteOrder === undefined ? undefined : { kind, bits, byteOrder };
+    }
+    case 'g711-alaw':
+    case 'g711-ulaw':
+      checkMembers(reading, object, at, G711_MEMBERS);
+      return { kind };
+    case 'ima-adpcm':
+    case 'ms-adpcm': {
+      checkMembers(reading, object, at, ADPCM_MEMBERS);
+      const framesPerBlock = required(reading, object, at, 'framesPerBlock', asFramesPerBlock);
+      return framesPerBlock === undefined ? undefined : { kind, framesPerBlock };
+    }
+  }
+};
 
 /** Reads the audio shape of an imported file. */
 export const readSourceAudioShape: Converter<SourceAudioShape> = (reading, value, parent, key) => {
@@ -50,9 +93,7 @@ export const readSourceAudioShape: Converter<SourceAudioShape> = (reading, value
 
   const container = required(reading, object, at, 'container', asContainer);
   const sampleRate = required(reading, object, at, 'sampleRate', asSampleRate);
-  const encoding = required(reading, object, at, 'encoding', asEncoding);
-  const bitDepth = required(reading, object, at, 'bitDepth', asBitDepth);
-  const byteOrder = required(reading, object, at, 'byteOrder', asByteOrder);
+  const encoding = required(reading, object, at, 'encoding', asSourceEncoding);
   const statedLayout = optional(reading, object, at, 'statedLayout', asChannelLayout);
   const frames = required(reading, object, at, 'frames', asSampleCount);
   const declaredFrames = required(reading, object, at, 'declaredFrames', asSampleCount);
@@ -61,8 +102,6 @@ export const readSourceAudioShape: Converter<SourceAudioShape> = (reading, value
     container === undefined ||
     sampleRate === undefined ||
     encoding === undefined ||
-    bitDepth === undefined ||
-    byteOrder === undefined ||
     frames === undefined ||
     declaredFrames === undefined
   ) {
@@ -81,8 +120,6 @@ export const readSourceAudioShape: Converter<SourceAudioShape> = (reading, value
     container,
     sampleRate,
     encoding,
-    bitDepth,
-    byteOrder,
     ...(statedLayout === undefined ? {} : { statedLayout }),
     frames,
     declaredFrames,

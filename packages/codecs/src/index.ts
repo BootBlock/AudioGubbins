@@ -1,15 +1,19 @@
 /**
  * The public contract of the AudioGubbins codecs: the read contract for audio
- * files (ADR-0050, ADR-0052).
+ * files (ADR-0050, ADR-0052), the codec registry and the writers (ADR-0090 to
+ * ADR-0093).
  *
  * A file is reached through `AudioBytes`, a size and a ranged, cancellable
  * read. `recogniseAudio` names its format from its contents alone, and
  * `openAudio` parses its header into an `AudioFormatDescriptor` and reads its
  * frames on demand at the rate it was recorded at, never holding the file whole
  * (REQ-AUDIO-220). Phase 09's decoders and writers extend this contract rather
- * than adding a second one, beginning from the one writer Phase 07's recorded
- * media needs: the 32-bit float WAV header, RF64 past four gibibytes, of a
- * recording whose length is known (ADR-0071).
+ * than adding a second one: G.711 and ADPCM are read in place, every other
+ * compressed format is routed by the registry to a decoded rendition, and the
+ * WAV, AIFF and AIFF-C writers serve the streaming write contract, the WAV
+ * writer built on Phase 07's recorded-media header (ADR-0071). The Ogg, FLAC,
+ * M4A and MP3 framers wrap an encoder's packets in their containers, and every
+ * container's metadata is read through `METADATA_READERS`.
  *
  * Portable: no browser or Node global, so the same readers serve the storage
  * worker, the feeder, render and peak workers, and a test. Depends on the
@@ -18,9 +22,29 @@
 
 export { type AudioBytes } from './audio-bytes.js';
 
-export { type ReadableContainer } from './recognised-format.js';
+export {
+  type ReadableContainer,
+  type RecognisedFormat,
+  type StatedCodec,
+  containerName,
+  formatName,
+} from './recognised-format.js';
 
-export { type AudioFormatDescriptor, type SampleEncoding } from './format-descriptor.js';
+export { recogniseAudio } from './recognition.js';
+
+export { type AudioFormatDescriptor, layoutRead } from './format-descriptor.js';
+
+export { speakerMaskLayout } from './channel-layouts.js';
+
+export {
+  type ByteOrder,
+  type FloatSampleEncoding,
+  type G711SampleEncoding,
+  type ImaAdpcmEncoding,
+  type IntegerSampleEncoding,
+  type MsAdpcmEncoding,
+  type SampleEncoding,
+} from './sample-encoding.js';
 
 export { type AudioReader, openAudio } from './audio-reader.js';
 
@@ -30,3 +54,119 @@ export {
   recordedWavHeader,
   recordedWavLength,
 } from './recorded-wav.js';
+
+export {
+  type BitRateBand,
+  type CodecCapability,
+  type CodecCodes,
+  type CodecDescriptor,
+  type CodecDirection,
+  type CodecId,
+  type CodecImplementation,
+  type CodecUse,
+  type ContainerId,
+  type DecoderIdentity,
+  type NumberRange,
+  type SampleRateSupport,
+} from './codec-descriptor.js';
+
+export {
+  type BitRateStream,
+  averageBitRateRanges,
+  constantBitRates,
+  takesAverageBitRate,
+} from './bit-rate-bands.js';
+
+export {
+  type BroadcastDescription,
+  type CoverArt,
+  type CuePoint,
+  type ForeignMetadataField,
+  type LoopDirection,
+  type MetadataLoop,
+  type MetadataMap,
+  type MetadataPart,
+  type MetadataTextKey,
+  type SamplerTuning,
+} from './metadata-map.js';
+
+export { metadataMapOf, metadataPartOf } from './metadata-map-reading.js';
+
+export { type SyncAudioBytes } from './sync-audio-bytes.js';
+
+export {
+  type AudioFileWriter,
+  type FinishedAudioFile,
+  type SamplePlane,
+} from './audio-file-writer.js';
+
+export { quantiseSample } from './sample-quantisation.js';
+
+export {
+  FLAC_DEPTHS,
+  PCM_INTEGER_DEPTHS,
+  type IntegerDepths,
+  containerBytes,
+  holdsDepth,
+} from './integer-depths.js';
+
+export { CODEC_REGISTRY, codecDescriptor } from './codec-registry.js';
+
+export { type CodecEnvironment, type ModuleLoad, codecCapability } from './codec-capability.js';
+export { codecDescriptorIn } from './codec-in-environment.js';
+export { AAC_LOWEST_BIT_RATE, aacHighestBitRate } from './aac-bit-rates.js';
+
+export { type ImportRoute, importRoute } from './import-route.js';
+
+export {
+  type WrittenChannelOrder,
+  statedChannelCounts,
+  writtenChannelOrder,
+} from './layout-statement.js';
+
+export { adtsAudioConfig } from './adts-config.js';
+
+export { type MetadataReader } from './metadata-reading.js';
+
+export { METADATA_READERS } from './metadata-readers.js';
+
+export {
+  type OpenedFileWriter,
+  type WavSampleFormat,
+  type WavWriterSettings,
+  createWavWriter,
+} from './wav-file-writer.js';
+
+export {
+  type AiffSampleFormat,
+  type AiffWriterSettings,
+  createAiffWriter,
+} from './aiff-file-writer.js';
+
+export {
+  type EncodedStreamLength,
+  type EncodedStreamWriter,
+  type FinishedEncodedStream,
+} from './encoded-stream-writer.js';
+
+export { OggOpusWriter, type OggOpusSettings } from './ogg-opus-writer.js';
+
+export { type OpusChannelMapping, type OpusHeadSettings, readOpusHead } from './opus-header.js';
+
+export { OggVorbisWriter } from './ogg-vorbis-writer.js';
+
+export { type FlacStreamFormat } from './flac-frame-header.js';
+
+export { type FlacMetadataSettings } from './flac-metadata-blocks.js';
+
+export { FlacSampleDigest } from './flac-sample-digest.js';
+
+export {
+  FlacStreamWriter,
+  type FlacStreamEnd,
+  type FlacStreamSettings,
+} from './flac-stream-writer.js';
+
+export { Mp4AacWriter, type Mp4AacSettings } from './mp4-aac-writer.js';
+
+export { Mp3StreamWriter, type Mp3StreamSettings } from './mp3-stream-writer.js';

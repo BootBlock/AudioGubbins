@@ -1,0 +1,42 @@
+{
+  "name": "@audiogubbins/codec-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The codec module host and the codec worker: the typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, the browser decoder of HE-AAC, and the worker that analyses, decodes and encodes files read through the synchronous byte port.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./threads/*": "./src/threads/*",
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": [
+    "./src/threads/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project codec-runtime"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/codecs": "workspace:*",
+    "@audiogubbins/import-export": "workspace:*",
+    "@audiogubbins/capabilities": "workspace:*",
+    "@audiogubbins/version": "workspace:*",
+    "@audiogubbins/diagnostics": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

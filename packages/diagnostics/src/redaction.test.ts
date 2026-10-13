@@ -902,6 +902,7 @@ describe('credential redaction', () => {
     'storedVersion',
     'text',
     'thisVersion',
+    'unread',
     'worstRatio',
   ];
 
@@ -1688,5 +1689,134 @@ describe('what a redaction leaves of a secret, a location and a name', () => {
     // standing before the placeholder.
     expect(redacted('Opened "Jane "Mimi.wav"')).toBe('Opened "<file>"');
     expect(redacted('Said "go" then opened "Take.wav"')).toBe('Said "go" then opened "<file>"');
+  });
+});
+
+describe('a path among the words after it', () => {
+  const redacted = (message: string, keepFileNames = false): string =>
+    redactOne(record({ message }), keepFileNames).record.message;
+
+  it('ends a path before a date or "and/or" that follows it, from every root', () => {
+    // A word after a path that held a slash was taken for a folder of it, so
+    // the path ran on through the date or the "and/or" and the words after it,
+    // and the rules that end a path at its file's extension or at a clause's
+    // mark were never read.
+    const cases: readonly [string, string][] = [
+      [
+        'Imported C:\\Users\\jane\\take.wav on 10/10/2026 at noon.',
+        'Imported <path> on 10/10/2026 at noon.',
+      ],
+      ['Copy /home/jane/notes and/or retry.', 'Copy <path> and/or retry.'],
+      [
+        'Read \\\\studio-nas\\projects\\take.wav, 2026/10/10 and later.',
+        'Read <path>, 2026/10/10 and later.',
+      ],
+      ['Dropped file:///C:/Users/jane/take.wav and/or later', 'Dropped <path> and/or later'],
+      ['Opened smb://nas/Clients/notes N/A retry', 'Opened <path> N/A retry'],
+      [
+        'Saved C:\\Users\\Alex Bloggs\\Sessions\\Jane Smith Interview (10/10/2026) twice',
+        'Saved <path> (10/10/2026) twice',
+      ],
+      ['Locked /home/jane/notes; 10/10/2026 retry', 'Locked <path>; 10/10/2026 retry'],
+      ["Opened '/home/jane/My Songs/demo' and/or 1/2 of it", "Opened '<path>' and/or 1/2 of it"],
+    ];
+
+    for (const [message, expected] of cases) expect(redacted(message)).toBe(expected);
+  });
+
+  it('keeps the name on request, and the date after it', () => {
+    expect(redacted('Imported C:\\Users\\jane\\take.wav on 10/10/2026', true)).toBe(
+      'Imported <path>/take.wav on 10/10/2026',
+    );
+  });
+
+  it('runs on through a slashed word that a folder after it shows was part of the path', () => {
+    // No name holds a slash, so a slashed word is either folders or prose; a
+    // folder after it settles that it was folders.
+    expect(redacted('Opened /Volumes/Jane Backup/Sessions and/or Takes/Jane Smith.wav')).toBe(
+      'Opened <path>',
+    );
+    expect(redacted('Opened /srv/audio/Session 2026/10/10/Jane Smith Interview')).toBe(
+      'Opened <path>',
+    );
+  });
+
+  it(
+    'reads a line of paths and slashed words in time in proportion to it',
+    { timeout: LONGEST_COST_TEST_MS },
+    () => {
+      // A path reads the words after it to the end of its line before it knows
+      // where it ends, so a line of paths, each ended by a slashed word, would
+      // be read once for each path were the next path not read as a folder of
+      // the one before. This line costs a few times what prose does, and read
+      // once a path, hundreds.
+      const line = '/home/jane/notes and/or 10/10/2026 '.repeat(2_000);
+      expect(costAgainstProse(redacted, line)).toBeLessThan(30);
+    },
+  );
+});
+
+describe('text written in percent-encoding', () => {
+  const redacted = (message: string, keepFileNames = false): string =>
+    redactOne(record({ message }), keepFileNames).record.message;
+
+  it('finds a path, a secret and an address that percent-encoding hides', () => {
+    // The rules read the runs of `%XX` as written, so a path, a secret or an
+    // address written in them went into the report whole.
+    const cases: readonly [string, string][] = [
+      [
+        'Could not open %2Fhome%2Fjane%2FPrivate%2FJane%20Smith%20Interview',
+        'Could not open <path>',
+      ],
+      ['Could not open C%3A%5CUsers%5CJane%20Smith%5CNotes', 'Could not open <path>'],
+      ['Opened %5C%5Cstudio-nas%5Cprojects%5Cnotes', 'Opened <path>'],
+      ['Opened %2Fhome%2Fzo%C3%AB%2Fnotes', 'Opened <path>'],
+      ['Refused %22password%22%3A%22hunter2%22', 'Refused <redacted>'],
+      ['Sent to jane%40example.com', 'Sent to <email>'],
+      ['Opened https%3A%2F%2Fexample.test%2Fusers%2Fjane', 'Opened <url>'],
+    ];
+
+    for (const [message, expected] of cases) expect(redacted(message)).toBe(expected);
+  });
+
+  it('decodes a path encoded more than once, and removes what is encoded past the bound', () => {
+    expect(redacted('Opened %252Fhome%252Fjane%252Fnotes')).toBe('Opened <path>');
+    expect(redacted('Opened %25252Fhome%25252Fjane%25252Fnotes')).toBe('Opened <path>');
+
+    // Encoded more times than the rules decode, a word is removed whole rather
+    // than kept for what it might still say.
+    const deep = `%${'25'.repeat(12)}2Fhome%${'25'.repeat(12)}2Fjane`;
+    const { record: deeper, summary } = redactOne(record({ message: `Opened ${deep} now` }));
+    expect(deeper.message).toBe('Opened <data> now');
+    expect(summary.counts['embedded-data']).toBe(1);
+  });
+
+  it('keeps a text as written where decoding it shows nothing to remove', () => {
+    expect(redacted('Loaded 100% of take%201, 50%ZZ')).toBe('Loaded 100% of take%201, 50%ZZ');
+    // An address keeps the extent it is written with: decoded first, its space
+    // would end it and leave the folder after it.
+    expect(redacted('Fetched https://example.test/Jane%20Smith/take now')).toBe(
+      'Fetched <url> now',
+    );
+  });
+
+  it('decodes in time in proportion to the text', { timeout: LONGEST_COST_TEST_MS }, () => {
+    // Decoded until nothing changes, a run of `%25` loses one layer a pass, so
+    // a text of them is read once for each of its characters.
+    expect(costAgainstProse(redacted, `%${'25'.repeat(20_000)}41`)).toBeLessThan(30);
+    expect(costAgainstProse(redacted, '%2Fhome%2Fjane%2Fa '.repeat(2_000))).toBeLessThan(30);
+  });
+});
+
+describe('inline data written with a space after its scheme', () => {
+  it('removes it as it removes inline data written without one', () => {
+    const redacted = (message: string): string => redactOne(record({ message })).record.message;
+    expect(redacted('Embedded data :audio/wav;base64,UklGRiQAAABXQVZF')).toBe('Embedded <data>');
+    expect(redacted('Embedded data :text/plain,Jane Smith notes')).toBe('Embedded <data>');
+    expect(
+      redactOne(record({ fields: { source: 'data :audio/wav;base64,UklGRiQAAABXQVZF' } })).record
+        .fields['source'],
+    ).toBe('<data>');
+    expect(redacted('Read the data : 3 frames.')).toBe('Read the data : 3 frames.');
   });
 });

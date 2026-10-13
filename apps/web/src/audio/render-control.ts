@@ -20,11 +20,18 @@
  * what is rendered.
  */
 
-import { channelCount, type DomainResult } from '@audiogubbins/domain';
+import {
+  channelCount,
+  mapResult,
+  type DomainResult,
+  type SampleCount,
+  type SampleRate,
+} from '@audiogubbins/domain';
 import {
   TransportMode,
   assessRender,
   conversionTableBudget,
+  type JobPriority,
   type PerformanceSettings,
   type PriorityScheduler,
   type RenderStrategy,
@@ -58,6 +65,17 @@ export interface RenderParts {
     PriorityScheduler,
     'setInteractive' | 'setPolicy' | 'setBackgroundConcurrencyWhileInteractive'
   >;
+}
+
+/**
+ * How a render of the page's other than the test signal runs: the chunks it
+ * is made in, what its conversions' tables may hold, and its place in the
+ * queue. None of them changes a bit of what is rendered.
+ */
+export interface RenderRun {
+  readonly chunkFrames: number;
+  readonly coefficientBudgetBytes: number | undefined;
+  readonly priority: JobPriority;
 }
 
 /** How a render asked for began. */
@@ -183,6 +201,52 @@ export class RenderControl {
     const strategy = decision === RenderDecision.Safer ? contested.safer : contested.strategy;
     this.#start(waiting, strategy);
     return { kind: 'started', strategy };
+  }
+
+  /**
+   * The render host, made on first use as the test signal's first render
+   * makes it, so another render of the page's, such as an export's, queues on
+   * the same scheduler, kept to the person's settings and playback.
+   */
+  async host(): Promise<DomainResult<RenderHost>> {
+    return mapResult(await this.#ready(), (parts) => parts.host);
+  }
+
+  /**
+   * How a render of `frames` frames of `channels` channels at `sampleRate`
+   * runs here, assessed as the test signal's is from the person's profile, any
+   * mode they set and what the machine has left now. Where a warning offers a
+   * safer strategy it is taken without asking: how a render is chunked and
+   * queued changes no bit of it, so the safer way costs only time.
+   */
+  planRender(shape: {
+    readonly frames: SampleCount;
+    readonly channels: number;
+    readonly sampleRate: SampleRate;
+  }): DomainResult<RenderRun> {
+    const settings = this.#settings.get();
+    const { availableMemoryBytes } = this.#resources();
+    const { measuredCostRatio } = this.#strategy.get();
+    const assessed = assessRender({
+      frames: shape.frames,
+      channels: shape.channels,
+      sampleRate: shape.sampleRate,
+      settings: settings.chosen.settings,
+      ...(availableMemoryBytes === undefined ? {} : { availableMemoryBytes }),
+      ...(measuredCostRatio === undefined ? {} : { measuredCostRatio }),
+      ...(settings.renderMode === undefined ? {} : { override: settings.renderMode }),
+    });
+    return mapResult(assessed, ({ strategy, safer }) => {
+      const chosen = safer ?? strategy;
+      return {
+        chunkFrames: chosen.plan.chunkFrames,
+        coefficientBudgetBytes: conversionTableBudget(
+          { channels: shape.channels, availableMemoryBytes },
+          chosen.plan,
+        ),
+        priority: chosen.priority,
+      };
+    });
   }
 
   /**

@@ -52,13 +52,18 @@ export interface CollectionReport {
 
 /**
  * The managed objects a project state refers to: each managed source's
- * content, and each external source's retained copy. An external file's own
+ * content, each external source's retained copy, and the compressed file a
+ * rendition was decoded from where it was copied into the store, or its
+ * protected copy where it is linked (ADR-0090). An external file's own
  * content identity is not one; the store need not hold it.
  */
 export function* contentReferencedBy(state: ProjectState): Generator<ContentId, void, undefined> {
-  for (const { media } of state.sources.values()) {
+  for (const { media, provenance } of state.sources.values()) {
     if (media.kind === 'managed') yield media.contentId;
     else if (media.retainedCopy !== undefined) yield media.retainedCopy;
+    const kept = provenance?.rendition?.kept;
+    if (kept?.kind === 'copied') yield kept.contentId;
+    else if (kept?.retainedCopy !== undefined) yield kept.retainedCopy;
   }
 }
 

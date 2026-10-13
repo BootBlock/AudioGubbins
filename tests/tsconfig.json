@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
     "outDir": "./dist/types",
     "rootDir": "..",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
@@ -11,6 +11,7 @@
   },
   "include": [
     "**/*.ts",
+    "../tools/build-encoder-modules.mjs",
     "../tools/build-wasm.mjs",
     "../tools/check-build-output.mjs",
     "../tools/check-record-titles.mjs",
@@ -18,6 +19,7 @@
     "../tools/local-traces.mjs",
     "../tools/read-pnpm-lockfile.mjs",
     "../tools/sync-third-party-notices.mjs",
+    "../tools/zig-toolchain.mjs",
     "../tools/model-packs/*.mjs"
   ],
   "exclude": ["dist"],
@@ -27,6 +29,9 @@
     },
     {
       "path": "../packages/capabilities"
+    },
+    {
+      "path": "../packages/codec-runtime"
     },
     {
       "path": "../packages/commands"

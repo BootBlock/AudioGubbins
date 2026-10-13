@@ -150,10 +150,12 @@ describe('cleanup (REQ-STOR-106, REQ-STOR-102)', () => {
     const before = notCaches();
     const usage = expectSuccess(await storage.caches.usage());
     const temporary = usage.get(CacheCategory.Temporary) ?? 0;
-    const relief = expectSuccess(await relieveStoragePressure(storage.caches, temporary + 1));
-    expect([...relief.freed.keys()]).toEqual([CacheCategory.Temporary, CacheCategory.Render]);
+    const relief = expectSuccess(
+      await relieveStoragePressure(storage.caches, storage.cleaning.coordinator, temporary + 1),
+    );
+    expect([...relief.freed.keys()]).toEqual([CacheCategory.Temporary, CacheCategory.Staging]);
     expect(notCaches()).toEqual(before);
-    expectSuccess(await relieveStoragePressure(storage.caches));
+    expectSuccess(await relieveStoragePressure(storage.caches, storage.cleaning.coordinator));
     expect(notCaches()).toEqual(before);
     expect(tree.paths().filter((path) => path.startsWith('cache/'))).toEqual([]);
   });

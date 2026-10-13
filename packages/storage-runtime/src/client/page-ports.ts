@@ -15,7 +15,12 @@
 import type { AssetId } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource, ExternalSourceIdentity } from '@audiogubbins/project-format';
-import type { DirectoryReader, DirectoryWriter, ExternalBackupTarget } from '@audiogubbins/storage';
+import type {
+  CollisionPrompt,
+  DirectoryReader,
+  DirectoryWriter,
+  ExternalBackupTarget,
+} from '@audiogubbins/storage';
 
 import { Transferring, type Handlers } from '../protocol/operations.js';
 import type {
@@ -61,6 +66,7 @@ export interface Lender {
   writer(writer: DirectoryWriter): PagePort;
   backupFolder(target: ExternalBackupTarget): PagePort;
   locate(locate: PageLocate): PagePort;
+  prompt(prompt: CollisionPrompt): PagePort;
 }
 
 type PageObject =
@@ -69,7 +75,8 @@ type PageObject =
   | { readonly kind: 'reader'; readonly reader: DirectoryReader }
   | { readonly kind: 'writer'; readonly writer: DirectoryWriter }
   | { readonly kind: 'backupFolder'; readonly target: ExternalBackupTarget }
-  | { readonly kind: 'locate'; readonly locate: PageLocate };
+  | { readonly kind: 'locate'; readonly locate: PageLocate }
+  | { readonly kind: 'prompt'; readonly prompt: CollisionPrompt };
 
 type ObjectOf<TKind extends PageObject['kind']> = Extract<PageObject, { readonly kind: TKind }>;
 
@@ -118,7 +125,7 @@ export class PagePorts {
 
   /** The service of the worker's calls on the ports lent. */
   handlers(): Handlers<PageOperations> {
-    return { ...this.#bytesHandlers(), ...this.#folderHandlers() };
+    return { ...this.#bytesHandlers(), ...this.#folderHandlers(), ...this.#promptHandlers() };
   }
 
   /** The service of the sinks and sources lent. */
@@ -184,6 +191,14 @@ export class PagePorts {
     };
   }
 
+  /** The service of the collision prompts lent. */
+  #promptHandlers(): PageHandlers<'collision'> {
+    return {
+      'collision.ask': async ({ port, name }, { signal }) =>
+        await this.#object(port, 'prompt').prompt(name, signal),
+    };
+  }
+
   #lenderFor(call: Call): Lender {
     const lend = (object: PageObject): PagePort => this.#lend(object, call);
     const bytes = (offered: PageBytes): CrossingBytes =>
@@ -198,6 +213,7 @@ export class PagePorts {
       writer: (writer) => lend({ kind: 'writer', writer }),
       backupFolder: (target) => lend({ kind: 'backupFolder', target }),
       locate: (locate) => lend({ kind: 'locate', locate }),
+      prompt: (prompt) => lend({ kind: 'prompt', prompt }),
     };
   }
 

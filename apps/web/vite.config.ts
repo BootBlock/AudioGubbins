@@ -6,7 +6,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-import { buildDspModule } from '../../tools/build-wasm.mjs';
+import { buildCodecModule, buildDspModule, buildEncoders } from '../../tools/build-wasm.mjs';
 import { inferenceRuntime, runtimeBundleReferences } from './inference-runtime.js';
 import { modelPackServing } from './model-pack-serving.js';
 import { previewRequestLog } from './preview-request-log.js';
@@ -156,12 +156,21 @@ const DSP_MODULE_ID = 'virtual:audiogubbins/dsp-module';
 /** The same, marked as no file on disk, so no other plugin tries to read it. */
 const RESOLVED_DSP_MODULE_ID = `\0${DSP_MODULE_ID}`;
 
-/** The crates' sources and manifests, each of which can change the module. */
+/** Every file under `directory` of the repository, recursively: a folder is no file to watch. */
+function filesUnder(directory: string): readonly string[] {
+  return readdirSync(join(REPOSITORY_ROOT, directory), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
+}
+
+/**
+ * The Rust sources and manifests, each of which can change a module: the
+ * crates', and those of the vendored crates the workspace patches in.
+ */
 function crateSources(): readonly string[] {
-  const crates = join(REPOSITORY_ROOT, 'crates');
-  const sources = readdirSync(crates, { recursive: true, encoding: 'utf8' })
-    .filter((path) => path.endsWith('.rs') || path.endsWith('Cargo.toml'))
-    .map((path) => join(crates, path));
+  const sources = [...filesUnder('crates'), ...filesUnder('third_party')].filter(
+    (path) => path.endsWith('.rs') || path.endsWith('Cargo.toml'),
+  );
   return [...sources, join(REPOSITORY_ROOT, 'Cargo.toml'), join(REPOSITORY_ROOT, 'Cargo.lock')];
 }
 
@@ -192,6 +201,71 @@ function dspModule(): Plugin {
         '  DSP_MODULE_BYTES[index] = binary.charCodeAt(index);',
         '}',
       ].join('\n');
+    },
+  };
+}
+
+/** The module text that makes `name` the bytes of `file`, decoded once when it is evaluated. */
+function bytesModule(name: string, file: string): string {
+  const encoded = readFileSync(file).toString('base64');
+  return [
+    `const binary = atob(${JSON.stringify(encoded)});`,
+    `export const ${name} = new Uint8Array(binary.length);`,
+    'for (let index = 0; index < binary.length; index += 1) {',
+    `  ${name}[index] = binary.charCodeAt(index);`,
+    '}',
+  ].join('\n');
+}
+
+/** What the application imports the codec module's bytes as, and the same marked as no file. */
+const CODEC_MODULE_ID = 'virtual:audiogubbins/codec-module';
+const RESOLVED_CODEC_MODULE_ID = `\0${CODEC_MODULE_ID}`;
+
+/** What the application imports each encoder module's bytes as, by the encoder's name. */
+const ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map([
+  ['virtual:audiogubbins/mp3-encoder-module', 'mp3'],
+  ['virtual:audiogubbins/vorbis-encoder-module', 'vorbis'],
+]);
+
+/** The same, marked as no file on disk. */
+const RESOLVED_ENCODER_MODULES: ReadonlyMap<string, 'mp3' | 'vorbis'> = new Map(
+  [...ENCODER_MODULES].map(([id, encoder]) => [`\0${id}`, encoder]),
+);
+
+/** The encoders' sources, their interfaces and the vendored libraries, each of which can change a module. */
+function encoderSources(): readonly string[] {
+  return [...filesUnder('native'), ...filesUnder('third_party')];
+}
+
+/**
+ * The codec module and the MP3 and Vorbis encoder modules, carried in the
+ * bundle as the DSP module is (ADR-0090, ADR-0091): the page makes no request,
+ * so each reaches it as a module of the bundle whose text is its bytes in
+ * base64, in a chunk that the page imports only when the codec worker is first
+ * needed, and compiles before it hands the worker the compiled module.
+ *
+ * Each is built by `tools/build-wasm.mjs`, the codec module from the crates and
+ * the encoders from their vendored sources, and a module that cannot be built
+ * fails the application's build, as the DSP module's does: a build always
+ * carries all three. One whose bytes this browser will not compile is the
+ * page's to say, and its formats are then unavailable here with the reason.
+ */
+function codecModules(): Plugin {
+  return {
+    name: 'audiogubbins:codec-modules',
+    resolveId: (id) => {
+      if (id === CODEC_MODULE_ID) return RESOLVED_CODEC_MODULE_ID;
+      return ENCODER_MODULES.has(id) ? `\0${id}` : undefined;
+    },
+    async load(id) {
+      if (id === RESOLVED_CODEC_MODULE_ID) {
+        for (const source of crateSources()) this.addWatchFile(source);
+        return bytesModule('CODEC_MODULE_BYTES', buildCodecModule());
+      }
+      const encoder = RESOLVED_ENCODER_MODULES.get(id);
+      if (encoder === undefined) return undefined;
+      for (const source of encoderSources()) this.addWatchFile(source);
+      return bytesModule('ENCODER_MODULE_BYTES', (await buildEncoders())[encoder]);
     },
   };
 }
@@ -241,6 +315,8 @@ export default defineConfig(({ command }) => ({
     contentSecurityPolicy(),
 
     dspModule(),
+
+    codecModules(),
 
     // The inference runtime's WebAssembly, served from the application's own
     // origin with the digests taken from the bytes served (ADR-0062).

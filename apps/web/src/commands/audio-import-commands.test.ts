@@ -66,7 +66,7 @@ function cancelOnStart(window: ProjectWindow): void {
 describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', () => {
   it('copies the chosen file in at its own rate, records its shape and opens it in the editor in use', async () => {
     const window = await windowWithProject();
-    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    window.files.mediaBatches.push([chosen(HARBOUR_WAV)]);
 
     expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
 
@@ -81,7 +81,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     expect(source?.provenance?.audio).toMatchObject({
       container: 'wav',
       sampleRate: 44_100,
-      bitDepth: 16,
+      encoding: { kind: 'integer', bits: 16, byteOrder: 'little' },
       frames: 22_050,
       declaredFrames: 22_050,
     });
@@ -92,7 +92,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     const window = await projectWorld().window();
     await window.runAndHear('file.create-project', { name: 'Harbour' });
     expect(window.context.editorViews.get().focused).toBeUndefined();
-    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    window.files.mediaBatches.push([chosen(HARBOUR_WAV)]);
 
     expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
 
@@ -107,7 +107,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     const window = await windowWithProject(linkedFiles);
     const file = chosen(HARBOUR_WAV, 'Harbour.wav', 'harbour-key');
     linkedFiles.keep(file);
-    window.files.mediaFiles.push(file);
+    window.files.mediaBatches.push([file]);
     window.run('settings.source-handling', { handling: SourceHandling.Link });
 
     expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
@@ -120,9 +120,9 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
   it('refuses a file that is not audio it can read, naming it, and leaves the project as it was', async () => {
     const window = await windowWithProject();
     const before = assetsOf(window);
-    window.files.mediaFiles.push(
+    window.files.mediaBatches.push([
       chosen(new TextEncoder().encode('Not a sound at all.'), 'notes.wav'),
-    );
+    ]);
 
     const said = await window.runAndHear('file.import-audio');
 
@@ -133,7 +133,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
   it('reads a file cut short to its last whole frame, and says by how much it fell short', async () => {
     const window = await windowWithProject();
     // Ten frames of 16-bit stereo, and half of one more, are gone from the end.
-    window.files.mediaFiles.push(chosen(HARBOUR_WAV.slice(0, HARBOUR_WAV.length - 42)));
+    window.files.mediaBatches.push([chosen(HARBOUR_WAV.slice(0, HARBOUR_WAV.length - 42))]);
 
     expect(await window.runAndHear('file.import-audio')).toBe(
       '“Harbour” is imported and open. Its audio ends 11 frames before its header says it does, so it was read to its last whole frame.',
@@ -145,7 +145,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
   it('keeps nothing of an import the person cancels', async () => {
     const window = await windowWithProject();
     const before = assetsOf(window);
-    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    window.files.mediaBatches.push([chosen(HARBOUR_WAV)]);
 
     cancelOnStart(window);
 
@@ -153,12 +153,18 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
       'The import of “Harbour.wav” was cancelled, and nothing was kept.',
     );
     expect(assetsOf(window)).toBe(before);
+    // The cancelled file stays listed, with what it came to, until it is cleared.
+    const listed = window.projects.imports.get();
+    expect(
+      listed.kind === 'ended' && listed.batch.job.entries.map((entry) => entry.state.kind),
+    ).toEqual(['cancelled']);
+    expect(window.run('file.clear-imports').kind).toBe('applied');
     expect(window.projects.imports.get().kind).toBe('idle');
   });
 
   it('reports an import as made where the cancel reaches the worker only after it added the asset', async () => {
     const window = await windowWithProject();
-    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    window.files.mediaBatches.push([chosen(HARBOUR_WAV)]);
     const session = window.projects.project.session();
     if (session === undefined) throw new Error('No project is open to change.');
     // The page hears the asset added before the worker's answer arrives, so a
@@ -176,7 +182,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
   it('says nothing and changes nothing when the person dismisses the chooser', async () => {
     const window = await windowWithProject();
     const before = assetsOf(window);
-    const asked = vi.spyOn(window.services.client.media, 'importFile');
+    const asked = vi.spyOn(window.services.client.imports, 'importFiles');
 
     const said = window.said.length;
 
@@ -192,7 +198,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
 
   it('offers neither another import nor a Quick Edit while one runs, saying why', async () => {
     const window = await windowWithProject();
-    window.files.mediaFiles.push(chosen(HARBOUR_WAV), chosen(HARBOUR_WAV, 'Again.wav'));
+    window.files.mediaBatches.push([chosen(HARBOUR_WAV)], [chosen(HARBOUR_WAV, 'Again.wav')]);
     // Asked the moment the first import starts, which a poll could miss. The
     // bus refuses a command its availability turns down, so a refusal here is
     // what the File menu and the palette read before anything is pressed.
@@ -212,10 +218,45 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     window.run('file.import-audio');
 
     expect(await refused).toEqual([
-      'A file is being imported already. Wait for it, or cancel it.',
-      'A file is being imported already. Wait for it, or cancel it.',
+      'Files are being imported already. Wait for them, or cancel the import.',
+      'Files are being imported already. Wait for them, or cancel the import.',
     ]);
     await expect.poll(() => window.said).toContain('“Harbour” is imported and open.');
     expect(assetsOf(window).project.assets.size).toBe(1);
+  });
+
+  it('imports every file of a folder in order, naming each refused with its reason, and opens the first', async () => {
+    const window = await windowWithProject();
+    window.files.mediaBatches.push([
+      chosen(HARBOUR_WAV, 'One.wav'),
+      chosen(new TextEncoder().encode('Not a sound at all.'), 'notes.txt'),
+      chosen(HARBOUR_WAV, 'Two.wav'),
+    ]);
+
+    expect(await window.runAndHear('file.import-audio-folder')).toEqual(
+      expect.stringMatching(
+        /^2 of 3 files imported\. Refused: “notes\.txt”: This file is not in an audio format AudioGubbins recognises\. .* “One” is imported and open\.$/u,
+      ),
+    );
+    const [first] = assetsOf(window).project.assets.values();
+    if (first === undefined) throw new Error('Nothing was imported.');
+    expect([...assetsOf(window).project.assets.values()].map((asset) => asset.displayName)).toEqual(
+      ['One', 'Two'],
+    );
+    expect(window.context.editorViews.entry('editor')?.asset).toBe(assetEntryId(first.id));
+  });
+
+  it('says what a batch the person cancels kept, and what it did not', async () => {
+    const window = await windowWithProject();
+    window.files.mediaBatches.push([
+      chosen(HARBOUR_WAV, 'One.wav'),
+      chosen(HARBOUR_WAV, 'Two.wav'),
+    ]);
+    cancelOnStart(window);
+
+    expect(await window.runAndHear('file.import-audio')).toBe(
+      '0 of 2 files imported. The import was cancelled, and nothing of the 2 files not yet imported was kept.',
+    );
+    expect(assetsOf(window).project.assets.size).toBe(0);
   });
 });

@@ -44,6 +44,17 @@ const ML_GOLDEN_NAMED = process.argv.some(
 );
 
 /**
+ * Whether the command names the `opus-conformance` project, as
+ * `pnpm test:opus-conformance` does. Its test fetches the Opus conformance
+ * vectors on demand into a cache outside the repository's sources
+ * (REQ-REPO-191) and decodes each at length, so it is defined only where it is
+ * asked for, and `pnpm test` never runs it.
+ */
+const OPUS_CONFORMANCE_NAMED = process.argv.some((argument) =>
+  argument.includes('opus-conformance'),
+);
+
+/**
  * The generated projects that run in a group of their own, after the rest. A
  * processor's tests run every kernel over every layout, block size and
  * signal the property harness names, which keeps every worker's core busy
@@ -70,9 +81,10 @@ export default defineConfig({
       },
     ],
 
-    // Builds the canonical DSP module from the crates before any test runs,
-    // so no test reads a module older than its source (ADR-0031).
-    globalSetup: ['./tests/setup/dsp-module.ts'],
+    // Builds the canonical DSP module and the codec module from the crates
+    // before any test runs, so no test reads a module older than its source
+    // (ADR-0031, ADR-0091).
+    globalSetup: ['./tests/setup/wasm-modules.ts'],
 
     // No test imports the crates, so an edit to one is not a change Vitest
     // follows; naming them reruns every test in watch mode, and the global
@@ -81,6 +93,8 @@ export default defineConfig({
       ...configDefaults.forceRerunTriggers,
       '**/crates/**/*.rs',
       '**/Cargo.{toml,lock}',
+      '**/native/**/*.{c,h}',
+      '**/third_party/**/*.{c,h}',
     ],
 
     projects: [
@@ -121,6 +135,24 @@ export default defineConfig({
                 environment: 'node' as const,
                 include: [`packages/*/src/${ML_GOLDEN_TESTS}`],
                 fileParallelism: false,
+              },
+            },
+          ]
+        : []),
+
+      ...(OPUS_CONFORMANCE_NAMED
+        ? [
+            {
+              // Each vector decodes and is compared for many seconds on one
+              // thread, so the files run one at a time and are given long.
+              test: {
+                name: 'opus-conformance',
+                root: '.',
+                environment: 'node' as const,
+                include: ['tests/opus-conformance/**/*.test.ts'],
+                fileParallelism: false,
+                testTimeout: 600_000,
+                hookTimeout: 600_000,
               },
             },
           ]

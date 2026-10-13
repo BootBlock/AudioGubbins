@@ -17,6 +17,7 @@ import { fileSource, listedFolder } from '@audiogubbins/browser-storage';
 import type { ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource } from '@audiogubbins/project-format';
 import type {
+  CollisionPrompt,
   ConsolidationServices,
   DirectoryReader,
   DirectoryWriter,
@@ -166,6 +167,14 @@ export function pageBackupFolder(channel: HostChannel, port: PagePort): External
     create: async (generation) =>
       pageSink(channel, await channel.call('backupFolder.create', { port, generation })),
   };
+}
+
+/** The collision prompt the page lent as `port`; where it lent none, nobody is asked. */
+export function pagePrompt(channel: HostChannel, port: PagePort | undefined): CollisionPrompt {
+  return async (name, signal) =>
+    port === undefined
+      ? undefined
+      : await channel.call('collision.ask', { port, name }, { signal });
 }
 
 /** The search for linked files the page lent as `port`. */

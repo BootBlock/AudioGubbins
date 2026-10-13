@@ -8,6 +8,7 @@ import type { ShellContext } from '../commands/shell-context.js';
 import { buildLayoutStore } from '../testing/layout-store.js';
 import { projectWorld } from '../testing/project-context.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
+import { IMPORT_EXPORT_MENU } from '../import-export-words.js';
 import { shellMenus, type MenuSources } from './menus.js';
 
 /**
@@ -55,7 +56,23 @@ describe('the menu bar', () => {
       'Editor',
       'Help',
     ]);
-    expect(entries).toHaveLength(189);
+    expect(entries).toHaveLength(193);
+  });
+
+  it('offers import and export in the File menu, each of the pair opening on a chord', () => {
+    const [file] = shellMenus(sources());
+    const entries = file?.groups.flatMap((group) => group.items) ?? [];
+    const labelled = (label: string) => entries.find((entry) => entry.label === label);
+
+    expect(labelled(IMPORT_EXPORT_MENU.importFiles)?.shortcut).toBe('Ctrl+K, Ctrl+I');
+    expect(labelled(IMPORT_EXPORT_MENU.exportAudio)?.shortcut).toBe('Ctrl+K, Ctrl+E');
+    expect(entries.map((entry) => entry.label)).toEqual(
+      expect.arrayContaining([
+        IMPORT_EXPORT_MENU.importFolder,
+        'Export every region…',
+        'Export the selection…',
+      ]),
+    );
   });
 
   it('offers the spectral tools and the spectral selection in the Editor menu, with their keys', () => {

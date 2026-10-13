@@ -1,0 +1,77 @@
+{
+  "libraries": [
+    {
+      "project": "LAME",
+      "version": "3.100",
+      "licence": "LGPL-2.0-or-later",
+      "copyright": [
+        "Copyright (c) 1999-2000 Mark Taylor",
+        "Copyright (c) 1999 Albert L Faber",
+        "Copyright (c) 1999-2005 Takehiro Tominaga",
+        "Copyright (c) 2000-2017 Robert Hegemann",
+        "Copyright (c) 2000-2008 Gabriel Bouvigne",
+        "Copyright (c) 2000-2005 Alexander Leidinger",
+        "Copyright (c) 2000 Don Melton",
+        "Copyright (c) 2001 David Robinson and Glen Sawyer",
+        "Copyright (c) 2001-2002 Naoki Shibata",
+        "Copyright (c) 2001 Jonathan Dee",
+        "Copyright (c) 2001 John Dahlstrom",
+        "Copyright (c) 2003 Olcios",
+        "Copyright 1988, 1993; Ron Mayer"
+      ],
+      "directory": "third_party/lame",
+      "licenceFiles": ["COPYING", "LICENSE"],
+      "origin": "https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz",
+      "sha256": "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e",
+      "modules": ["audiogubbins-mp3.wasm"]
+    },
+    {
+      "project": "libvorbis",
+      "version": "1.3.7",
+      "licence": "BSD-3-Clause",
+      "copyright": [
+        "Copyright (c) 2002-2020 Xiph.org Foundation",
+        "Copyright 1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin"
+      ],
+      "directory": "third_party/libvorbis",
+      "licenceFiles": ["COPYING"],
+      "origin": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz",
+      "sha256": "b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b",
+      "modules": ["audiogubbins-vorbis.wasm"]
+    },
+    {
+      "project": "libogg",
+      "version": "1.3.6",
+      "licence": "BSD-3-Clause",
+      "copyright": ["Copyright (c) 2002, Xiph.org Foundation"],
+      "directory": "third_party/libogg",
+      "licenceFiles": ["COPYING"],
+      "origin": "https://downloads.xiph.org/releases/ogg/libogg-1.3.6.tar.xz",
+      "sha256": "5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061",
+      "modules": ["audiogubbins-vorbis.wasm"]
+    },
+    {
+      "project": "Zig's standard library and compiler-rt",
+      "version": "0.17.0",
+      "licence": "MIT",
+      "copyright": ["Copyright (c) Zig contributors"],
+      "bundledBy": "Zig 0.17.0",
+      "origin": "https://ziglang.org/download/0.17.0/zig-0.17.0.tar.xz",
+      "sha256": "b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8abd",
+      "modules": ["audiogubbins-mp3.wasm", "audiogubbins-vorbis.wasm"]
+    },
+    {
+      "project": "wasi-libc, with musl and cloudlibc",
+      "version": "as Zig 0.17.0 bundles it",
+      "licence": "(Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND MIT AND BSD-2-Clause",
+      "copyright": [
+        "Copyright © 2005-2020 Rich Felker, et al.",
+        "Copyright (c) 2015-2017 Nuxi (https://nuxi.nl/) and contributors."
+      ],
+      "bundledBy": "Zig 0.17.0",
+      "origin": "https://ziglang.org/download/0.17.0/zig-0.17.0.tar.xz",
+      "sha256": "b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8abd",
+      "modules": ["audiogubbins-mp3.wasm", "audiogubbins-vorbis.wasm"]
+    }
+  ]
+}

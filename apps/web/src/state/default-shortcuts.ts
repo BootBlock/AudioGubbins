@@ -253,6 +253,17 @@ export function placeDefaults(
       shortcut: of(prefix, primaryOn('x')),
     },
 
+    // Import and export, behind the prefix, as a pair: I brings audio in, as
+    // an audio editor's import does, and E sends it out. Import asks for the
+    // files before anything is stored, and the Export dialog says what it
+    // will do before anything starts, so each chord only opens a choice.
+    // Written out, since a store imports no command module; the palette's and
+    // the File menu's tests read each chord from the command
+    // `ImportCommand.Files` or `ExportCommand.Audio` names, so the two cannot
+    // drift apart.
+    { commandId: commandId('file.import-audio'), shortcut: of(prefix, primaryOn('i')) },
+    { commandId: commandId('file.export-audio'), shortcut: of(prefix, primaryOn('e')) },
+
     // Theme, also behind the prefix: a user switches theme rarely and should
     // not be able to do it by accident while editing.
     { commandId: commandId('view.theme-dark'), shortcut: of(prefix, primaryOn('d')) },

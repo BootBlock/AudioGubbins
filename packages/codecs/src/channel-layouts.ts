@@ -8,14 +8,32 @@
  * `discrete`. Where the domain refuses the roles a header gives, as two
  * channels claiming one speaker, the header states no layout this reader can
  * use, and the descriptor says so by stating none rather than repairing it.
+ *
+ * CoreAudio also names ambisonic sets by layout tag: higher-order ACN sets in
+ * SN3D or N3D of any channel count, and the first-order B-format, which is
+ * Furse-Malham's. A `CHAN` chunk written for a layout uses those tags for an
+ * ambisonic set, and otherwise a description of each channel, which states any
+ * order of speakers and discrete channels; it has no place for a channel's
+ * name, so a labelled layout is one only WAV can state (ADR-0093).
  */
 
 import {
+  AmbisonicNormalisation,
+  AmbisonicOrdering,
   ChannelRole,
   StandardLayouts,
+  ambisonicLayout,
   channelLayout,
+  fail,
+  layoutsMatch,
+  succeed,
+  type AmbisonicConvention,
   type ChannelLayout,
+  type DomainResult,
 } from '@audiogubbins/domain';
+
+import { unwritableLayout } from './codec-failures.js';
+import { layoutRead } from './format-descriptor.js';
 
 /** The domain role of each speaker bit, in the WAVEFORMATEXTENSIBLE order. */
 const SPEAKER_ROLES: readonly ChannelRole[] = [
@@ -48,7 +66,28 @@ const LayoutTag = {
   UseChannelBitmap: 1 << 16,
   Mono: (100 << 16) | 1,
   Stereo: (101 << 16) | 2,
+  AmbisonicBFormat: (107 << 16) | 4,
 } as const;
+
+/** CoreAudio's ACN layout families, each ORed with its channel count. */
+const HOA_FAMILIES: ReadonlyMap<number, AmbisonicNormalisation> = new Map([
+  [190 << 16, AmbisonicNormalisation.Sn3d],
+  [191 << 16, AmbisonicNormalisation.N3d],
+]);
+
+/** A tag's family, its top sixteen bits, and its channel count, the bottom sixteen. */
+const TAG_FAMILY = 0xffff0000;
+const TAG_COUNT = 0xffff;
+
+/** kAudioChannelLabel_Discrete_0: a discrete channel's label is this ORed with its index. */
+const DISCRETE_LABEL = 1 << 16;
+
+/** The first-order Furse-Malham set CoreAudio's B-format tag names. */
+const FIRST_ORDER_FUMA: AmbisonicConvention = {
+  order: 1,
+  ordering: AmbisonicOrdering.FuMa,
+  normalisation: AmbisonicNormalisation.FuMa,
+};
 
 /** The layout of these roles, or `undefined` where the domain refuses them. */
 function layoutOf(roles: readonly ChannelRole[]): ChannelLayout | undefined {
@@ -70,6 +109,13 @@ export function speakerMaskLayout(mask: number, channelCount: number): ChannelLa
   }
   while (roles.length < channelCount) roles.push(ChannelRole.Discrete);
   return layoutOf(roles);
+}
+
+/** The speaker bit of a positional role, mono taken as the front centre, or `undefined`. */
+export function speakerBitOf(role: ChannelRole): number | undefined {
+  if (role === ChannelRole.Mono) return 2;
+  const bit = SPEAKER_ROLES.indexOf(role);
+  return bit === -1 ? undefined : bit;
 }
 
 /**
@@ -126,7 +172,71 @@ export function coreAudioLayout(
       return channelCount === 1 ? StandardLayouts.mono : undefined;
     case LayoutTag.Stereo:
       return channelCount === 2 ? StandardLayouts.stereo : undefined;
-    default:
-      return undefined;
+    case LayoutTag.AmbisonicBFormat:
+      return channelCount === 4 ? ambisonicOf(FIRST_ORDER_FUMA) : undefined;
+    default: {
+      const normalisation = HOA_FAMILIES.get(layout.tag & TAG_FAMILY);
+      const count = layout.tag & TAG_COUNT;
+      const order = Math.sqrt(count) - 1;
+      if (normalisation === undefined || count !== channelCount || !Number.isInteger(order)) {
+        return undefined;
+      }
+      return ambisonicOf({ order, ordering: AmbisonicOrdering.Acn, normalisation });
+    }
   }
+}
+
+/** The ambisonic layout of a convention, or `undefined` where the domain refuses it. */
+function ambisonicOf(convention: AmbisonicConvention): ChannelLayout | undefined {
+  const layout = ambisonicLayout(convention);
+  return layout.ok ? layout.value : undefined;
+}
+
+/** The CoreAudio layout of an ambisonic set, or why a `CHAN` chunk cannot state it. */
+function ambisonicCoreAudioLayout(
+  convention: AmbisonicConvention,
+  channelCount: number,
+): DomainResult<CoreAudioLayout> {
+  if (convention.ordering === AmbisonicOrdering.Acn) {
+    const family = [...HOA_FAMILIES].find(([, scaling]) => scaling === convention.normalisation);
+    if (family !== undefined) {
+      return succeed({ tag: (family[0] | channelCount) >>> 0, bitmap: 0, labels: [] });
+    }
+  }
+  if (convention.order === FIRST_ORDER_FUMA.order) {
+    return succeed({ tag: LayoutTag.AmbisonicBFormat, bitmap: 0, labels: [] });
+  }
+  return fail(
+    unwritableLayout(
+      'An AIFF file cannot state a Furse-Malham ambisonic set above the first order: CoreAudio names no layout for it. WAV can hold it.',
+    ),
+  );
+}
+
+/**
+ * The CoreAudio layout a `CHAN` chunk states `layout` by, `undefined` where the
+ * layout is the one an AIFF file of its channels is read as without one, or why
+ * no `CHAN` chunk can state it.
+ */
+export function coreAudioLayoutOf(
+  layout: ChannelLayout,
+): DomainResult<CoreAudioLayout | undefined> {
+  const channelCount = layout.roles.length;
+  if (layout.ambisonic !== undefined) {
+    return ambisonicCoreAudioLayout(layout.ambisonic, channelCount);
+  }
+  if (layout.labels !== undefined) {
+    return fail(
+      unwritableLayout(
+        "An AIFF file cannot state a layout of named channels: its CHAN chunk has no place for a channel's name. WAV can hold it.",
+      ),
+    );
+  }
+  const unstated = layoutRead(undefined, channelCount);
+  if (unstated.ok && layoutsMatch(unstated.value, layout)) return succeed(undefined);
+  const labels = layout.roles.map((role, index) => {
+    const bit = speakerBitOf(role);
+    return bit === undefined ? (DISCRETE_LABEL | index) >>> 0 : bit + 1;
+  });
+  return succeed({ tag: LayoutTag.UseChannelDescriptions, bitmap: 0, labels });
 }

@@ -13,13 +13,9 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 import { describe, expect, it } from 'vitest';
 
-import {
-  openAudio,
-  type AudioReader,
-  type ReadableContainer,
-  type SampleEncoding,
-} from './index.js';
+import { openAudio, type AudioReader, type ReadableContainer } from './index.js';
 import { recogniseAudio } from './recognition.js';
+import type { PcmSampleEncoding } from './sample-encoding.js';
 import {
   channelLayoutBody,
   memoryBytes,
@@ -135,7 +131,7 @@ function float64Channel(next: () => number): ChannelPlan {
 interface FixtureCase {
   readonly name: string;
   readonly container: ReadableContainer;
-  readonly encoding: SampleEncoding;
+  readonly encoding: PcmSampleEncoding;
   readonly statesLayout: boolean;
   readonly write: (
     channels: readonly FixtureChannel[],
@@ -164,7 +160,7 @@ function wavCases(): FixtureCase[] {
           depth.kind === 'float' ? depth.bits / 8 : (depth.bytes ?? Math.ceil(depth.bits / 8));
         if (!extensible && depth.kind === 'integer' && bytes !== Math.ceil(depth.bits / 8))
           continue;
-        const encoding: SampleEncoding =
+        const encoding: PcmSampleEncoding =
           depth.kind === 'float'
             ? {
                 kind: 'float',
@@ -242,7 +238,7 @@ function aiffCases(): FixtureCase[] {
   return [...plain, ...compressed].map((entry) => {
     const bytes = Math.ceil(entry.bits / 8);
     const byteOrder = entry.little ? 'little' : 'big';
-    const encoding: SampleEncoding =
+    const encoding: PcmSampleEncoding =
       entry.kind === 'float'
         ? {
             kind: 'float',
@@ -343,7 +339,9 @@ describe.each([...wavCases(), ...aiffCases()])('a $name fixture', (fixture) => {
           layout,
         );
         expect(expectSuccess(await recogniseAudio(memoryBytes(file)))).toEqual({
-          kind: fixture.container,
+          kind: 'audio',
+          container: fixture.container,
+          codec: { kind: 'named', codec: 'pcm' },
         });
         const reader = expectSuccess(await openAudio(memoryBytes(file)));
         const stated = fixture.statesLayout ? layout.stated : undefined;

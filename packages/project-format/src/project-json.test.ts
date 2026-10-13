@@ -794,6 +794,22 @@ describe('readProjectDocument refuses', () => {
     ]);
   });
 
+  // Version 7 holds take stacks and version 8 spectral edits; neither holds a
+  // decoded rendition, the file's metadata or the export settings, so a build
+  // that reads either as its own would read a document missing what it keeps.
+  it.each([7, 8])(
+    'a document of version %i, from before decoded renditions and export settings',
+    (written) => {
+      const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], written));
+      expect(result.ok ? [] : result.failures).toMatchObject([
+        {
+          code: 'format.schema-incompatible',
+          details: { schema: 'projectDocument', found: written, direction: 'older' },
+        },
+      ]);
+    },
+  );
+
   it('every problem at once, up to the bound, as integrity violations', () => {
     const broken = withValue(
       withValue(

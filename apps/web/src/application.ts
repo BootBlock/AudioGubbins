@@ -26,6 +26,7 @@ import {
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import {
+  CapabilityKey,
   askLateQuestions,
   audioRuntimeCapabilities,
   createCapabilityRegistry,
@@ -50,6 +51,9 @@ import type { AssetCatalogue } from './state/asset-catalogue.js';
 import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 
 import { startAnalysis } from './analysis/analysis-part.js';
+import { browserCodecs } from './codecs/browser-codecs.js';
+import { followExportFocus } from './export/export-focus.js';
+import { exportClockAt, startExport, storageRoom } from './export/page-export.js';
 import {
   browserCapture,
   browserContextHost,
@@ -336,6 +340,18 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
+  // Made whether or not projects can be kept here; joined to the storage worker
+  // where there is one.
+  const { storage: projectStorage } = projectSystem;
+  const codecs = browserCodecs({
+    webAssembly: capabilities.has(CapabilityKey.WebAssembly),
+    join:
+      projectStorage === undefined
+        ? undefined
+        : (port) => projectStorage.imports.connectCodecWorker(port),
+    logger: diagnostics.loggerFor('codecs'),
+  });
+
   const audioLogger = diagnostics.loggerFor('audio');
   const models = startModels(capabilities, projectSystem.storage, audioLogger);
   const audioPart = startAudio(capabilities, interaction, storage, audioLogger, models);
@@ -349,6 +365,7 @@ export function createApplication() {
     projectSystem,
     audioPart.previews,
     models,
+    codecs,
     audioPart.dsp,
   );
   audioPart.followAssets(editorPart.parts.assets);
@@ -380,6 +397,21 @@ export function createApplication() {
     logger: diagnostics.loggerFor('recording'),
   });
 
+  const rendering = audioPart.parts.rendering;
+  const exports = startExport(projectSystem.exporting, {
+    runner: {
+      host: () => rendering.host(),
+      planRender: (shape) => rendering.planRender(shape),
+    },
+    codecs,
+    assets: editorPart.parts.assets,
+    room: () => storageRoom(storagePlatform.estimate, diagnostics.loggerFor('projects')),
+    clock: () => exportClockAt(clock.now()),
+  });
+
+  // After recording, whose claims on the Inspector an export's description gives way to.
+  const exportFocus = followExportFocus(workspace, recordingPart.parts.claimed);
+
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
     workspace,
@@ -403,6 +435,9 @@ export function createApplication() {
     ...analysisPart.parts,
     packs: packsPart.manager,
     recording: recordingPart.parts,
+    codecs,
+    exports,
+    exportFocus,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -464,12 +499,14 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
+      exportFocus.stop();
       recordingPart.dispose();
       analysisPart.dispose();
       packsPart.dispose();
       audioPart.dispose();
       editorPart.dispose();
       models.dispose();
+      codecs.dispose();
       projectSystem.dispose();
     },
   };

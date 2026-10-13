@@ -57,6 +57,7 @@ import {
 import type { TreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
+  EXPORT_SETTINGS_PATH,
   BRANCH_NAMES_PATH,
   CACHE_INDEX_PATH,
   COMPARISON_PATH,
@@ -165,12 +166,16 @@ async function readState(tree: TreeReading, header: TreeHeader): Promise<Project
     return place.asset;
   });
   lists.set('sources', sources.paths);
+  const [exportFile] = tree.ofKind('export-settings');
+  const exportSettings = exportFile === undefined ? undefined : await tree.valueOf(exportFile);
   if (settings === undefined || trackOrder === undefined) return undefined;
+  if (exportFile !== undefined && exportSettings === undefined) return undefined;
   const state = readProjectDocument({
     format: PROJECT_DOCUMENT_FORMAT,
     schemaVersion: SCHEMA_VERSIONS.projectDocument,
     project: { ...project, settings, trackOrder },
     sources: sources.values,
+    ...(exportSettings === undefined ? {} : { exportSettings }),
   });
   if (state.ok) return state.value;
   tree.locate(state.failures, { lists, members: PROJECT_MEMBER_FILES });
@@ -181,6 +186,7 @@ async function readState(tree: TreeReading, header: TreeHeader): Promise<Project
 const PROJECT_MEMBER_FILES: ReadonlyMap<string, string> = new Map([
   ['project.settings', SETTINGS_PATH],
   ['project.trackOrder', TRACK_ORDER_PATH],
+  ['exportSettings', EXPORT_SETTINGS_PATH],
 ]);
 
 /** The file each member of the history put back together came from. */

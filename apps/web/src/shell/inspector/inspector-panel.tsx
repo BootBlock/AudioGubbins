@@ -8,6 +8,9 @@
  * by the controls the Effects rack shows them with; otherwise what the rack of
  * the asset or region runs, and the command that shows the rack (REQ-EDIT-072).
  *
+ * Recording, and an export the person asked to have described, are subjects
+ * of their own, shown in place of the editor's (`own-subjects.tsx`).
+ *
  * It reads the stores and runs commands; it writes nothing itself (`CLAUDE.md`
  * G2), and it follows every change to them, an undo included.
  */
@@ -32,32 +35,27 @@ import { ProcessorControls } from '../rack/processor-controls.js';
 import { scopeOf } from '../selection-scope.js';
 import { editWording, operationWords, type EditWording } from './edit-words.js';
 import type { ModelGate } from '../../assets/model-gate.js';
+import type { Observable } from '../../state/observable.js';
 import { inspected, type Inspected } from './inspected.js';
 import { LevelControls } from './level-controls.js';
+import { OwnSubjectView, useOwnSubject, type OwnSubjectParts } from './own-subjects.js';
 import { RegionProperties } from './region-properties.js';
-import { sourceFacts } from './source-words.js';
+import { AssetSourceFacts } from './asset-source.js';
 import { TimeControls } from './time-controls.js';
-import type { RecordingParts } from '../../recording/recording-part.js';
-import type { AudioSettings } from '../../state/audio-settings-store.js';
-import type { Observable } from '../../state/observable.js';
-import { RecordingConfiguration } from '../recording/recording-configuration.js';
-import { TakeInspector } from '../recording/take-inspector.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
 /**
  * What the Inspector reads: the editor's views, their selections and assets,
- * command labels, and the recording part and settings for the recording
- * configuration it shows while recording is the subject.
+ * command labels, and what its subjects of their own are read from
+ * (`own-subjects.tsx`).
  */
-export interface InspectorParts {
+export interface InspectorParts extends OwnSubjectParts {
   readonly editorViews: EditorPanelParts['stores']['editorViews'];
   readonly selections: EditorPanelParts['stores']['selections'];
   readonly assets: Pick<AssetCatalogue, 'get' | 'subscribe' | 'find'>;
   readonly labelFor: (id: string) => string;
-  readonly recording: RecordingParts;
-  readonly audioSettings: Observable<AudioSettings>;
   /** Why a processor cannot run for want of its model, which a spectral clean-up's words say. */
   readonly modelGate: Observable<ModelGate>;
 }
@@ -179,7 +177,7 @@ function RackSummary({
   );
 }
 
-/** The asset of the project: its source, its audio shape and its edits. */
+/** The asset of the project: its source, its audio shape, its file's metadata and its edits. */
 function AssetProperties({
   subject,
   words,
@@ -194,14 +192,7 @@ function AssetProperties({
       <h3 className="ag-inspector-heading" id={heading}>
         {`Asset: ${asset.displayName}`}
       </h3>
-      <dl className="ag-inspector-facts">
-        {sourceFacts(subject.source, asset).map((fact) => (
-          <div key={fact.term}>
-            <dt>{fact.term}</dt>
-            <dd>{fact.detail}</dd>
-          </div>
-        ))}
-      </dl>
+      <AssetSourceFacts source={subject.source} asset={asset} />
       <h4 className="ag-inspector-heading">Its edits</h4>
       {asset.edits.length === 0 ? (
         <p>None. It plays as its source does.</p>
@@ -274,6 +265,36 @@ function ProjectSubject({
   );
 }
 
+/** What the Inspector shows of what the editor last in use acts on. */
+function EditorSubject({
+  subject,
+  state,
+  parts,
+  commands,
+}: {
+  readonly subject: Inspected;
+  readonly state: ProjectState | undefined;
+  readonly parts: InspectorParts;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  switch (subject.kind) {
+    case 'nothing':
+      return <p>Open audio in an editor to see its properties here.</p>;
+    case 'session':
+      return (
+        <>
+          <p className="ag-editor-asset-name">{subject.view.name}</p>
+          <p>{subject.view.description}</p>
+          <p className="ag-panel-note">
+            It is not part of the project, so it keeps no edits. Import a file to edit it.
+          </p>
+        </>
+      );
+    case 'project':
+      return <ProjectSubject subject={subject} state={state} parts={parts} commands={commands} />;
+  }
+}
+
 /** The Inspector panel. */
 export function InspectorPanel({
   title,
@@ -287,45 +308,14 @@ export function InspectorPanel({
   readonly commands: PanelCommands;
 }): ReactNode {
   const { subject, state } = useInspected(parts, projects);
-  const recordingInFocus = useSyncExternalStore(
-    parts.recording.focus.subscribe,
-    parts.recording.focus.get,
-  );
-  const takeSubject = useSyncExternalStore(
-    parts.recording.inspected.subscribe,
-    parts.recording.inspected.get,
-  );
-  if (recordingInFocus) {
-    return (
-      <section className="ag-panel ag-inspector">
-        <h2 className="ag-panel-title">{title}</h2>
-        {takeSubject === undefined ? (
-          <RecordingConfiguration
-            recording={parts.recording}
-            audioSettings={parts.audioSettings}
-            commands={commands}
-          />
-        ) : (
-          <TakeInspector subject={takeSubject} projects={projects} commands={commands} />
-        )}
-      </section>
-    );
-  }
+  const own = useOwnSubject(parts);
   return (
     <section className="ag-panel ag-inspector">
       <h2 className="ag-panel-title">{title}</h2>
-      {subject.kind === 'nothing' && <p>Open audio in an editor to see its properties here.</p>}
-      {subject.kind === 'session' && (
-        <>
-          <p className="ag-editor-asset-name">{subject.view.name}</p>
-          <p>{subject.view.description}</p>
-          <p className="ag-panel-note">
-            It is not part of the project, so it keeps no edits. Import a file to edit it.
-          </p>
-        </>
-      )}
-      {subject.kind === 'project' && (
-        <ProjectSubject subject={subject} state={state} parts={parts} commands={commands} />
+      {own === undefined ? (
+        <EditorSubject subject={subject} state={state} parts={parts} commands={commands} />
+      ) : (
+        <OwnSubjectView own={own} parts={parts} projects={projects} commands={commands} />
       )}
     </section>
   );

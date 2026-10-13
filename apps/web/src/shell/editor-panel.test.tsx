@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import {
   DEFAULT_THEME_PREFERENCES,
@@ -38,7 +38,69 @@ function drawn(context: ShellContext, spectrogramWorker?: () => SpectrogramWorke
   );
 }
 
+/** The width every observed element is laid out at, reported as the browser does when it starts watching one. */
+const LAID_OUT = 800;
+
+/**
+ * Puts a `ResizeObserver` in place of the suite's own that reports each
+ * element it is given at {@link LAID_OUT} wide as it starts watching it, as a
+ * browser reports an element's first size, and never again, since nothing
+ * here is resized.
+ */
+function laidOutOnce(): void {
+  const standIn = window.ResizeObserver;
+  window.ResizeObserver = class {
+    readonly #callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.#callback = callback;
+    }
+
+    observe(target: Element): void {
+      const contentRect = new DOMRectReadOnly(0, 0, LAID_OUT, 200);
+      const entry: ResizeObserverEntry = {
+        target,
+        contentRect,
+        borderBoxSize: [],
+        contentBoxSize: [],
+        devicePixelContentBoxSize: [],
+      };
+      this.#callback([entry], this);
+    }
+
+    unobserve(): void {
+      return undefined;
+    }
+
+    disconnect(): void {
+      return undefined;
+    }
+  };
+  onTestFinished(() => {
+    window.ResizeObserver = standIn;
+  });
+}
+
 describe('the Editor panel', () => {
+  it('fits an asset opened in a view already laid out to its width, as it fitted the first', () => {
+    laidOutOnce();
+    const { context } = buildShellContext();
+    const tones = context.assets.find('test:tone-bursts');
+    const loop = context.assets.find('test:loop');
+    if (tones === undefined || loop === undefined) throw new Error('No test sounds.');
+    context.editorViews.open('editor', tones);
+    drawn(context);
+    expect(context.editorViews.entry('editor')?.state.viewport.width).toBe(LAID_OUT);
+
+    act(() => {
+      context.editorViews.open('editor', loop);
+    });
+
+    const entry = context.editorViews.entry('editor');
+    expect(entry).toMatchObject({ asset: loop.id, fitting: false });
+    expect(entry?.state.viewport.width).toBe(LAID_OUT);
+  });
+
   it('says of a test sound that no project holds it, so it cannot be marked or edited', () => {
     const { context } = buildShellContext();
     const tones = context.assets.find('test:tone-bursts');

@@ -17,6 +17,7 @@ import { invocationProvenance, type InvocationProvenance } from '@audiogubbins/p
 
 import { assetCommands } from './asset-commands.js';
 import { editCommands } from './editing/edit-commands.js';
+import { exportSettingsCommands } from './export-settings-commands.js';
 import { markerCommands } from './editing/marker-commands.js';
 import { regionCommands } from './editing/region-commands.js';
 import { processorCommands } from './processing/processor-commands.js';
@@ -37,6 +38,7 @@ import { takeMembershipCommands } from './takes/take-membership-commands.js';
 export function projectCommands(catalogue: ProcessorCatalogue): readonly ProjectCommand[] {
   return [
     ...projectNameCommands(),
+    ...exportSettingsCommands(),
     ...assetCommands(),
     ...sourceCommands(),
     ...editCommands(),

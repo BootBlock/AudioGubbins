@@ -34,6 +34,7 @@ import { createAudioSettingsStore, previewQualityOf } from '../state/audio-setti
 import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createHearingStore } from '../state/hearing-store.js';
 import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
+import { followExportFocus } from '../export/export-focus.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import {
   createKeyboardLayoutStore,
@@ -281,6 +282,8 @@ export function buildShellContext(
       storageRoot: unavailableStorageRoot('This test keeps no projects.'),
       projects: undefined,
       storageAbsences: [],
+      exports: undefined,
+      exportFocus: followExportFocus(workspace, recording.parts.claimed),
       ...parts,
       ...fakeEditor(storage, logger),
       detection: detection.control,

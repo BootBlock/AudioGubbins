@@ -5,7 +5,9 @@
  * every read, listing and removal still works.
  *
  * `fullAtWrite` fills it at the write numbered so, counted from 1 over every
- * write, so a test can fill it at each write of a sequence in turn.
+ * write, so a test can fill it at each write of a sequence in turn, and
+ * `fullUnder` refuses every write under a directory alone, as a storage left
+ * with room for some of what is written to it does.
  */
 
 import {
@@ -22,6 +24,7 @@ export class FillableTree implements StorageTree {
   full = false;
   writes = 0;
   fullAtWrite: number | undefined;
+  fullUnder: string | undefined;
   private readonly inner: StorageTree;
 
   constructor(inner: StorageTree) {
@@ -37,16 +40,16 @@ export class FillableTree implements StorageTree {
   }
 
   async writeFile(path: string, bytes: Uint8Array, signal?: AbortSignal): Promise<void> {
-    this.refuseWhileFull();
+    this.refuseWhileFull(path);
     await this.inner.writeFile(path, bytes, signal);
   }
 
   async createFile(path: string): Promise<ByteSink> {
-    this.refuseWhileFull();
+    this.refuseWhileFull(path);
     const sink = await this.inner.createFile(path);
     return {
       write: async (chunk) => {
-        this.refuseWhileFull();
+        this.refuseWhileFull(path);
         await sink.write(chunk);
       },
       close: async () => {
@@ -66,9 +69,12 @@ export class FillableTree implements StorageTree {
     return await this.inner.list(directory);
   }
 
-  private refuseWhileFull(): void {
+  private refuseWhileFull(path: string): void {
     this.writes += 1;
     if (this.writes === this.fullAtWrite) this.full = true;
-    if (this.full) throw new TreeFailure(TreeFailureKind.Quota, 'The test storage is full.');
+    const under = this.fullUnder !== undefined && path.startsWith(`${this.fullUnder}/`);
+    if (this.full || under) {
+      throw new TreeFailure(TreeFailureKind.Quota, 'The test storage is full.');
+    }
   }
 }

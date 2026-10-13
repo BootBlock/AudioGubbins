@@ -14,17 +14,19 @@ import type { Logger } from '@audiogubbins/diagnostics';
 import type { RecordingClient } from '@audiogubbins/storage-runtime';
 
 import type { BackupFolderPort } from '../io/backup-folder.js';
+import type { ExportDestinations } from '../io/export-destinations.js';
 import type { LibraryChanges } from '../io/library-channel.js';
 import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
-import { AudioImports } from './audio-imports.js';
 import { QuickEditStore } from './quick-edit-store.js';
 import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
+import { ExportDialogStore } from './export-dialog-store.js';
 import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
 import { HistoryRowOrders } from './history-row-orders.js';
+import { ImportBatches } from './import-batches.js';
 import { InterruptedRecordings } from './interrupted-recordings.js';
 import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
@@ -42,15 +44,18 @@ import { SourceChangeStore } from './source-change-store.js';
 import type { StateStorage } from './state-storage.js';
 import type { StorageRootStore } from './storage-root-store.js';
 import { StorageUsageStore } from './storage-usage-store.js';
+import { TrustedFoldersStore } from './trusted-folders-store.js';
 
 /** Every store of the project system, and the files it passes to and from the person. */
 export interface ProjectStores {
   readonly library: ProjectLibraryStore;
   readonly transfer: ProjectTransferStore;
-  /** Brings audio files into the open project. */
-  readonly imports: AudioImports;
+  /** Brings batches of audio files into the open project. */
+  readonly imports: ImportBatches;
   /** The Quick Edit in progress, while its project is open. */
   readonly quickEdit: QuickEditStore;
+  /** The Export dialog, while it is open over an asset of the open project. */
+  readonly exportDialog: ExportDialogStore;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
   readonly rowOrders: HistoryRowOrders;
@@ -64,6 +69,10 @@ export interface ProjectStores {
   readonly pastes: ProjectPastes;
   readonly preferences: ProjectPreferencesStore;
   readonly files: TransferFiles;
+  /** Where an export goes, as the person chooses it. */
+  readonly exportDestinations: ExportDestinations;
+  /** The folders kept trusted for exports, which the settings list and an export delivers into. */
+  readonly trustedFolders: TrustedFoldersStore;
   /** The person's library of saved chains and presets, kept beside the projects. */
   readonly savedProcessing: SavedProcessingStore;
   /** The storage worker's recordings, which the recording flow begins and stops takes through. */
@@ -76,6 +85,9 @@ export interface ProjectStores {
 export interface ProjectPorts {
   /** The files passed to and from the person. */
   readonly files: TransferFiles;
+
+  /** Where an export goes, as the browser lets the person choose it. */
+  readonly exportDestinations: ExportDestinations;
 
   /** Whether the browser gives files it lets AudioGubbins find again, which only the pickers do. */
   readonly canLink: boolean;
@@ -122,8 +134,9 @@ export function createProjectStores(
       project,
       recorder: new ExportRecorder(logger, project),
     }),
-    imports: new AudioImports(client.media, files, project, preferences),
+    imports: new ImportBatches(client.imports, files, project, preferences),
     quickEdit: new QuickEditStore(project),
+    exportDialog: new ExportDialogStore(project),
     project,
     review: new HistoryReviewStore(project, logger),
     rowOrders: new HistoryRowOrders(project),
@@ -142,6 +155,8 @@ export function createProjectStores(
     pastes: new ProjectPastes(client.media, project, linkedFiles),
     preferences,
     files,
+    exportDestinations: ports.exportDestinations,
+    trustedFolders: new TrustedFoldersStore(services.trustedFolders),
     savedProcessing: new SavedProcessingStore(
       client.processingLibrary,
       lifetime,

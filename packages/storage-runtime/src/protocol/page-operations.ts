@@ -15,7 +15,7 @@
 import type { AssetId } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
-import type { DirectoryFile, ExternalBackupTarget } from '@audiogubbins/storage';
+import type { CollisionReply, DirectoryFile, ExternalBackupTarget } from '@audiogubbins/storage';
 
 import type { Operation } from './operations.js';
 
@@ -88,4 +88,10 @@ export type PageOperations = {
     { readonly asset: AssetId; readonly identity: ExternalSourceIdentity },
     CrossingLocated
   >;
+
+  /**
+   * Asks the person what to do with a taken name, and answers what they
+   * chose, or nothing where they dismissed the question (ADR-0092).
+   */
+  'collision.ask': Lent<{ readonly name: string }, CollisionReply | undefined>;
 };

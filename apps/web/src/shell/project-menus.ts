@@ -12,6 +12,7 @@
 import type { MenuGroup, MenuItemDescriptor } from '@audiogubbins/design-system';
 import { redoTarget, undoTarget } from '@audiogubbins/history';
 
+import { ExportCommand, ImportCommand } from '../commands/import-export-ids.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { ProjectsSection } from '../state/interaction-store.js';
 
@@ -87,7 +88,11 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
         label: 'This project',
         items: [
           dialogueEntry(builders, ProjectsSection.Current, 'Rename, fork or export…'),
-          entry('file.import-audio'),
+          entry(ImportCommand.Files),
+          entry(ImportCommand.Folder),
+          entry(ExportCommand.Audio),
+          entry(ExportCommand.EveryRegion),
+          entry(ExportCommand.Selection),
           entry('file.back-up-now'),
           entry('file.consolidate'),
           entry('file.delete-project'),

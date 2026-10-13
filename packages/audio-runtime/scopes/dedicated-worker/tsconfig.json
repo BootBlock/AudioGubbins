@@ -42,6 +42,9 @@
     },
     {
       "path": "../../../../packages/ml-runtime"
+    },
+    {
+      "path": "../../../../packages/import-export"
     }
   ]
 }

@@ -1,0 +1,21 @@
+[package]
+name = "audiogubbins-codec-bindings"
+description = "The narrow C ABI through which AudioGubbins' TypeScript reaches its codec module (ADR-0091)."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+# A cdylib is the WebAssembly module; the rlib lets `cargo test` exercise the
+# same functions natively.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+audiogubbins-codecs = { path = "../codecs" }
+audiogubbins-handle-table = { path = "../handle-table" }
+
+[lints]
+workspace = true

@@ -228,7 +228,43 @@ export { type ListedEntry } from './library-entry-files.js';
 export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
-export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';
+export {
+  type AudioImportServices,
+  type ImportCommands,
+  type ImportedAudio,
+} from './import-contracts.js';
+export { type DecodedStream, type FileDecoding, type StreamAnalysis } from './decoded-stream.js';
+export { type SessionSound, type SessionSoundServices, SessionSounds } from './session-sounds.js';
+export { type FileMetadata } from './import-analysis.js';
+export {
+  type BatchFile,
+  type BatchObserver,
+  type BatchOutcome,
+  type ImportBatch,
+  type ImportedBatch,
+  importBatch,
+} from './import-batch.js';
+export { type StorageRoom } from './import-analysis.js';
+export { decodingUnavailable } from './import-failures.js';
+export { stagedExportMissing } from './export-failures.js';
+export { type EncodedStream } from './encoded-stream.js';
+export {
+  type ExportOrigin,
+  ExportStaging,
+  type StagedExport,
+  type StagingServices,
+} from './export-staging.js';
+export { type CollisionPrompt, type CollisionReply } from './export-collision.js';
+export {
+  type Delivery,
+  type DeliveryDestination,
+  type DeliveryFile,
+  type DeliveryFolder,
+  type DeliveryServices,
+  type DestinationAccess,
+  deliverStaged,
+  exportRecordOf,
+} from './export-delivery.js';
 export { type AudioPaste, pasteAudio } from './audio-paste.js';
 
 export { type CaptureStream, type CapturedEvent } from './capture-stream.js';
@@ -251,5 +287,5 @@ export { type RecordingCommands } from './recording-takes.js';
 export { type InterruptedRecording } from './recording-sessions.js';
 export { recordingInProgress } from './recording-failures.js';
 export { discardRecording, interruptedRecordings, recoverRecording } from './recording-recovery.js';
-export { recoverMediaStore } from './media-recovery.js';
+export { type StartUpCleaning, cleanAtStart } from './start-up-cleaning.js';
 export { type Alone } from './storage-sharing.js';

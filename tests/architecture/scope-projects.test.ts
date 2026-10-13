@@ -27,6 +27,7 @@ const PORTABLE = [
   'packages/codecs',
   'packages/timeline',
   'packages/recording',
+  'packages/import-export',
   'packages/video-reference',
   'packages/waveform',
   'packages/spectral-analysis',
@@ -56,6 +57,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
     'packages/audio-runtime/src/threads/preview-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
+    'packages/codec-runtime/src/threads/codec-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },

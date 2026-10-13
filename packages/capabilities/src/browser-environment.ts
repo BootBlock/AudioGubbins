@@ -17,7 +17,7 @@ import { namesCanBeCompared } from '@audiogubbins/text';
 
 import { CapabilityKey } from './capability.js';
 import { layoutMapRequest, type LayoutMapPairs } from './keyboard-layout-map.js';
-import { operatingSystemOf, type PlatformSignals } from './platform.js';
+import { browserFamilyOf, operatingSystemOf, type PlatformSignals } from './platform.js';
 import type { CapabilityEnvironment, LateAnswers } from './registry.js';
 
 /** Whether a named property exists on an object, without reading its value. */
@@ -380,23 +380,9 @@ export function readPlatformSignals(): PlatformSignals {
  * together identify a machine.
  */
 export function describeEnvironment(signals: PlatformSignals): EnvironmentSummary {
-  const agent = signals.userAgent;
-
-  const browser = ((): string => {
-    // Order matters: every Chromium browser also claims to be Chrome, and
-    // Chrome also claims to be Safari, so the most specific claim wins.
-    for (const [name, pattern] of [
-      ['Edge', /Edg\/(\d+)/],
-      ['Opera', /OPR\/(\d+)/],
-      ['Firefox', /Firefox\/(\d+)/],
-      ['Chrome', /Chrome\/(\d+)/],
-      ['Safari', /Version\/(\d+).*Safari/],
-    ] as const) {
-      const match = pattern.exec(agent);
-      if (match?.[1] !== undefined) return `${name} ${match[1]}`;
-    }
-    return 'Unknown browser';
-  })();
+  const family = browserFamilyOf(signals.userAgent);
+  const browser =
+    family === undefined ? 'Unknown browser' : `${family.name} ${family.majorVersion}`;
 
   const installed = canAskMediaQueries()
     ? safely(() => window.matchMedia('(display-mode: standalone)').matches)

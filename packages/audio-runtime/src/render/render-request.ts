@@ -48,8 +48,18 @@ export interface RenderRunOptions {
   readonly priority: JobPriority;
   readonly signal?: CancellationSignal;
   readonly onProgress?: (progress: RenderProgress) => void;
-  /** Where each sink's audio is written, by node. Every sink of the graph is bound. */
+  /**
+   * Where each sink's audio is written, by node. Every sink of the graph is
+   * bound, here or in `channels`, and none in both.
+   */
   readonly sinks: ReadonlyMap<NodeId, RenderSink>;
+  /**
+   * The sinks whose audio goes straight from the render worker to another
+   * worker, by node: each port is transferred to the render worker, which
+   * sends that sink's blocks over it (`RenderedBlockMessage`), so the audio
+   * never passes through this thread (ADR-0092).
+   */
+  readonly channels?: ReadonlyMap<NodeId, MessagePort>;
 }
 
 /** What a render in a worker did, and the DSP it ran on. */

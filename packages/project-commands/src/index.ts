@@ -24,6 +24,8 @@ export { commandProvenance, projectCommands } from './project-commands.js';
 
 export { ProjectCommandId, type ProjectCommand } from './project-command.js';
 
+export { setExportSettingsInvocation } from './export-settings-commands.js';
+
 export {
   addAssetInvocation,
   adoptSourceVersionInvocation,

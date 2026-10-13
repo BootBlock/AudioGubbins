@@ -62,6 +62,9 @@ import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
+import { exportDialogCommands } from './export-dialog-commands.js';
+import { exportCommands } from './export-commands.js';
+import { exportInspectionCommands } from './export-inspection-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
@@ -650,7 +653,7 @@ describe('the default shortcut profile', () => {
     // layout: Dvorak moves every one of them, AZERTY moves the comma, the Z of
     // undo and redo and the editor's A, German moves the Z alone, and the two
     // settled readings of Dvorak place them all.
-    expect(forTheLayer).toEqual(['apple, Dvorak: 16', 'apple, AZERTY: 4', 'apple, German: 2']);
+    expect(forTheLayer).toEqual(['apple, Dvorak: 18', 'apple, AZERTY: 4', 'apple, German: 2']);
   });
 
   it('leaves out a default whose key is not known yet, rather than put it on another', () => {
@@ -859,7 +862,14 @@ describe('finding the shell commands in the palette', () => {
       ...deletionCommands(),
       ...projectTransferCommands(),
       ...audioImportCommands(),
+      // The export's, run with its work awaited in `export-commands.test.ts`.
+      ...exportCommands(),
+      // Each describes an export that must first have run, as it is run twice
+      // in `export-commands.test.ts`.
+      ...exportInspectionCommands(),
       ...quickEditCommands(),
+      // Each is run twice, its work awaited, in `export-dialog-commands.test.ts`.
+      ...exportDialogCommands(),
       ...libraryCommands(),
       ...libraryApplyCommands(),
       // Each is a step of the storage worker's pack installer, run twice with

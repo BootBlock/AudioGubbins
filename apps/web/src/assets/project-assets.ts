@@ -67,6 +67,21 @@ import {
   type Reads,
 } from './project-entry.js';
 
+/**
+ * What every plan of `state` is made against: its chains, take stacks and
+ * assets, with the processors and engine versions of this build, so an asset
+ * is planned alike wherever its sound is asked for.
+ */
+export function planContextOf(state: ProjectState): PlanContext {
+  return {
+    chains: state.project.effectChains,
+    takeStacks: state.project.takeStacks,
+    assets: state.project.assets,
+    catalogue: PROCESSOR_CATALOGUE,
+    engine: ENGINE_VERSIONS,
+  };
+}
+
 /** An asset, with the markers and regions it owns. */
 interface Owned {
   readonly asset: Asset;
@@ -221,13 +236,7 @@ function madeAsset(
   before: MadeAsset | undefined,
   models: ModelGate,
 ): MadeAsset {
-  const context: PlanContext = {
-    chains: state.project.effectChains,
-    takeStacks: state.project.takeStacks,
-    assets: state.project.assets,
-    catalogue: PROCESSOR_CATALOGUE,
-    engine: ENGINE_VERSIONS,
-  };
+  const context = planContextOf(state);
   const place = placing(own, context);
   const chains = chainsNamed(own, context.chains);
   // A choice of another take changes what a punch plays without changing the

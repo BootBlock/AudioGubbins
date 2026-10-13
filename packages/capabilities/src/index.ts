@@ -82,6 +82,7 @@ export {
 } from './browser-environment.js';
 
 export {
+  type BrowserFamily,
   OperatingSystem,
   type PlatformSignals,
   operatingSystemOf,
@@ -133,3 +134,30 @@ export {
   StorageCapabilityKey,
   missingStorageCapabilities,
 } from './storage-capabilities.js';
+
+// The browser's codecs and WebAssembly, read from a worker's or the page's
+// scope and probed, for the codec worker (ADR-0090, ADR-0091).
+export {
+  type AudioDataClass,
+  type AudioDataInit,
+  type AudioDataLike,
+  type AudioDecoderCallbacks,
+  type AudioDecoderClass,
+  type AudioDecoderLike,
+  type AudioEncoderCallbacks,
+  type AudioEncoderClass,
+  type AudioEncoderLike,
+  type BrowserAudioDecoding,
+  type BrowserAudioEncoding,
+  type CodecPlatform,
+  type CodecProbes,
+  type CodecState,
+  type EncodedAudioChunkClass,
+  type EncodedAudioChunkInit,
+  type EncodedAudioChunkLike,
+  type EncodedAudioChunkMetadata,
+  type PlaneCopy,
+  probeCodecs,
+  readCodecPlatform,
+} from './codec-platform.js';
+export { type ConfigSupport, type WebCodecsAudioConfig } from './config-support.js';

@@ -23,6 +23,14 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
+ *   codec-runtime   the codec module's host and the codec worker: its typed
+ *                   loader, decode sessions and FLAC and Opus encoders over
+ *                   its narrow ABI, the browser's HE-AAC decoder, and the
+ *                   worker that analyses, decodes and encodes files read
+ *                   through the synchronous byte port; depends on domain +
+ *                   codecs + import-export, whose stream messages it sends,
+ *                   + capabilities, which reads the browser's codecs for it
+ *                   (ADR-0090, ADR-0091)
  *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
  *                   Web, which alone imports the runtime and only by import(),
  *                   and the worker that hosts it; depends on domain alone
@@ -33,6 +41,10 @@
  *   recording       the session and monitoring states, capture profiles,
  *                   calibration and diagnostics; depends on domain + text,
  *                   knows no browser, storage or audio host (ADR-0070)
+ *   import-export   export settings, presets, dither, file naming, collision
+ *                   rules and the import and export jobs as values; depends on
+ *                   domain + audio-graph + audio-engine + codecs, knows no
+ *                   browser, storage or worker (ADR-0090, ADR-0092)
  *   waveform       the peak pyramid, its worker, cache format and column
  *                   reads; depends on domain + audio-engine, knows no browser
  *                   (ADR-0043)
@@ -50,9 +62,10 @@
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
- *                   domain, whose results the media input answers in, and
+ *                   domain, whose results the media input answers in,
  *                   diagnostics + text, whose check of how names compare it
- *                   probes
+ *                   probes, and codecs, whose environment its codec probes
+ *                   answer
  *   design-system   React/Radix presentation; depends on version, knows nothing
  *                   of the domain
  *   workspace       docking; depends on diagnostics + text + version
@@ -66,7 +79,9 @@
  * Phase 02's packages sit between the domain and the application (ADR-0020):
  *
  * - project-format: the authoritative, versioned project and the forms it is
- *   written in; depends on domain + text + version.
+ *   written in; depends on domain + text + version, on the codecs' names and
+ *   metadata map a compressed source's provenance records, and on the export
+ *   settings a project and an export record keep (ADR-0090, ADR-0092).
  * - project-commands: the commands that change a project; depends on domain +
  *   commands + project-format + text.
  * - history: branching history as values; depends on domain + commands +
@@ -80,13 +95,15 @@
  *   domain + ml-runtime + project-format.
  * - storage: keeping projects, and the model packs installed, over a backend
  *   port; depends on domain + codecs + commands + diagnostics + history +
- *   media-store + model-packs + project-format + version, and on no browser
- *   API.
+ *   import-export + media-store + model-packs + project-format + version, and
+ *   on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
- *   diagnostics + media-store + project-format + storage.
+ *   diagnostics + import-export + media-store + project-format + storage, the
+ *   export records a trusted folder keeps among them.
  * - storage-runtime: the browser host of project storage, its worker, the port
  *   to the page and the page's client (ADR-0022); depends on browser-storage,
- *   capabilities, commands, diagnostics, domain, history, media-store,
+ *   capabilities, codec-runtime (the codec worker's protocol), codecs,
+ *   commands, diagnostics, domain, history, import-export, media-store,
  *   project-commands, project-format, recording and storage, and on
  *   audio-runtime's capture channel reader alone (ADR-0070).
  *
@@ -168,7 +185,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|import-export|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -216,10 +233,12 @@ module.exports = {
         'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
         'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
         'storage or command package. Its thread entries also make the effect rack its workers ' +
-        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062).',
+        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062). ' +
+        "An export's render sends its blocks to the codec worker as import-export's rendered " +
+        'stream (ADR-0092).',
       from: { path: '^packages/audio-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|ml-runtime|processors)/)',
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|import-export|ml-runtime|processors)/)',
       },
     },
     {
@@ -347,6 +366,23 @@ module.exports = {
       to: { path: '^packages/(?!(codecs|domain)/)', pathNot: '^packages/test-fixtures/' },
     },
     {
+      name: 'codec-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        "The codec module's host and the codec worker load the module, wrap its narrow ABI and " +
+        'read files through the synchronous byte port of the read contract (ADR-0090, ' +
+        'ADR-0091). It depends on the domain, whose results it answers in, the codecs, whose ' +
+        "contracts it serves, import and export's stream messages, which its streams carry, and " +
+        "the capabilities, which read the browser's codecs it calls, the version, whose " +
+        "release names AudioGubbins' own encoders, and the diagnostics, whose redaction a " +
+        "module's load failure passes through before the person reads it; the storage worker " +
+        'and the page that drive it sit above it.',
+      from: { path: '^packages/codec-runtime/' },
+      to: {
+        path: '^packages/(?!(capabilities|codec-runtime|codecs|diagnostics|domain|import-export|version)/)',
+      },
+    },
+    {
       name: 'clipboard-owns-nothing-else',
       severity: 'error',
       comment:
@@ -380,6 +416,18 @@ module.exports = {
         path: '^packages/(?!(recording|domain|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
+    },
+    {
+      name: 'import-export-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Import and export as values: the settings and their validation against a codec ' +
+        'descriptor, the presets, dither, naming, collision rules and the job machines, and the ' +
+        'graph an export renders through (ADR-0090, ADR-0092). It depends on the domain, the ' +
+        "codecs' contracts and the engine's and graph's, and knows no browser, storage or worker; " +
+        'the codec and storage workers run its jobs.',
+      from: { path: '^packages/import-export/' },
+      to: { path: '^packages/(?!(import-export|domain|audio-graph|audio-engine|codecs)/)' },
     },
     {
       name: 'waveform-owns-nothing-else',
@@ -518,10 +566,12 @@ module.exports = {
       comment:
         'The project format sits just above the domain it writes, so every Phase 02 package ' +
         'can read it and it can read none of them (ADR-0020); it reads the text leaf for the ' +
-        'rule a given name is held to. Its tests may take the fixtures package.',
+        'rule a given name is held to, and the codecs and the export settings, portable values ' +
+        'below every Phase 02 package, for the provenance and the export settings it keeps ' +
+        '(ADR-0090, ADR-0092). Its tests may take the fixtures package.',
       from: { path: '^packages/project-format/' },
       to: {
-        path: '^packages/(?!(domain|project-format|text|version)/)',
+        path: '^packages/(?!(codecs|domain|import-export|project-format|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -582,7 +632,7 @@ module.exports = {
         "packs through the model packs' store port (ADR-0062).",
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|model-packs|project-format|storage|text|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|import-export|media-store|model-packs|project-format|storage|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -594,7 +644,7 @@ module.exports = {
         'that composes them (ADR-0020).',
       from: { path: '^packages/browser-storage/' },
       to: {
-        path: '^packages/(?!(browser-storage|diagnostics|media-store|project-format|storage)/)',
+        path: '^packages/(?!(browser-storage|diagnostics|import-export|media-store|project-format|storage)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -609,7 +659,7 @@ module.exports = {
         "capture channel's reader (ADR-0070).",
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|browser-storage|capabilities|commands|diagnostics|domain|history|media-store|model-packs|processors|project-commands|project-format|recording|storage|storage-runtime|text)/)',
+        path: '^packages/(?!(audio-runtime|browser-storage|capabilities|codec-runtime|codecs|commands|diagnostics|domain|history|import-export|media-store|model-packs|processors|project-commands|project-format|recording|storage|storage-runtime|text)/)',
       },
     },
     {

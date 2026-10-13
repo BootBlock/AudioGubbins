@@ -212,17 +212,51 @@ const PACKAGES = [
   {
     // The read contract for audio files: recognition by content, the format
     // descriptor and readers that read frames on demand at the native rate
-    // (ADR-0050, ADR-0052). Bytes reach it through a port, so it runs in any
-    // scope.
+    // (ADR-0050, ADR-0052); the codec registry, the import route, the WAV,
+    // AIFF and AIFF-C writers and their metadata (ADR-0090 to ADR-0093).
+    // Bytes reach it through a port, so it runs in any scope.
     dir: 'packages/codecs',
     name: '@audiogubbins/codecs',
     description:
-      'The read contract for audio files: recognising a format by its contents, describing it, and reading its frames on demand at the rate it was recorded at.',
+      'The codecs: recognising a format by its contents, the registry of codecs and what a runtime can do with each, reading audio in place at the rate it was recorded at, and writing WAV, AIFF and AIFF-C with their metadata and channel layouts.',
     dom: false,
     jsx: false,
     portable: true,
     deps: ['@audiogubbins/domain'],
     devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The codec module's host: its typed loader, the decode sessions, FLAC
+    // frame and Opus encoders over its narrow ABI, and the synchronous read
+    // its one import makes of a file (ADR-0090, ADR-0091); and every export's
+    // encoder, composed from those, the LAME and libvorbis encoder modules
+    // built from vendored source, each its own file, and the browser's AAC
+    // encoder, quantising through the export's dither, fed the rendered blocks
+    // the engine's channel brings. Compiled with the DOM's definitions for the
+    // codec worker it serves and the browser's codecs it reaches.
+    dir: 'packages/codec-runtime',
+    name: '@audiogubbins/codec-runtime',
+    description:
+      'The codec module host and the codec worker: the typed loader, decode sessions and FLAC and Opus encoders over its narrow ABI, the browser decoder of HE-AAC, and the worker that analyses, decodes and encodes files read through the synchronous byte port.',
+    dom: true,
+    jsx: false,
+    threads: { 'codec-worker.ts': 'dedicated-worker' },
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/codecs',
+      '@audiogubbins/import-export',
+      // The browser's codec classes and probes, which capabilities reads and the worker calls.
+      '@audiogubbins/capabilities',
+      // The product's release, which names AudioGubbins' own encoders in an export's record.
+      '@audiogubbins/version',
+      // The redaction of the person's diagnostics, which a module's load
+      // failure passes through before the person reads it as why its formats
+      // are unavailable.
+      '@audiogubbins/diagnostics',
+    ],
+    devDeps: [],
     external: {},
     externalDev: {},
   },
@@ -344,6 +378,8 @@ const PACKAGES = [
       '@audiogubbins/effect-rack',
       '@audiogubbins/processors',
       '@audiogubbins/ml-runtime',
+      // The rendered stream an export's render sends the codec worker.
+      '@audiogubbins/import-export',
     ],
     devDeps: [],
     external: {},
@@ -381,6 +417,30 @@ const PACKAGES = [
     portable: true,
     deps: ['@audiogubbins/domain', '@audiogubbins/text'],
     devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // Import and export as values (ADR-0090, ADR-0092): the typed export
+    // settings and their presets, their validation against a codec's
+    // descriptor, the dither and quantisation, file naming, the collision
+    // rules, the export and import job machines, and the graph an export
+    // renders through. It knows no browser, storage or worker: the codec
+    // worker and the storage worker run its jobs, and the application asks.
+    dir: 'packages/import-export',
+    name: '@audiogubbins/import-export',
+    description:
+      'Import and export as values: export settings, presets, dither, file naming, collision rules and the job state machines.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/codecs',
+    ],
+    devDeps: [],
     external: {},
     externalDev: {},
   },
@@ -537,7 +597,13 @@ const PACKAGES = [
       'Runtime capability detection and degradation descriptors. The only package that probes the browser directly.',
     dom: true,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/diagnostics', '@audiogubbins/text'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/text',
+      // The codec identities and environment its codec probes answer in (ADR-0090).
+      '@audiogubbins/codecs',
+    ],
     devDeps: [],
     external: {},
     externalDev: {},
@@ -589,7 +655,13 @@ const PACKAGES = [
       'The authoritative, versioned AudioGubbins project and the forms it is written in: its validated document, content identity, the portable bundle and the unpacked tree.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/text', '@audiogubbins/version'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/codecs',
+      '@audiogubbins/import-export',
+      '@audiogubbins/text',
+      '@audiogubbins/version',
+    ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
@@ -698,6 +770,7 @@ const PACKAGES = [
       '@audiogubbins/commands',
       '@audiogubbins/diagnostics',
       '@audiogubbins/history',
+      '@audiogubbins/import-export',
       '@audiogubbins/media-store',
       '@audiogubbins/model-packs',
       '@audiogubbins/project-format',
@@ -720,6 +793,7 @@ const PACKAGES = [
     jsx: false,
     deps: [
       '@audiogubbins/diagnostics',
+      '@audiogubbins/import-export',
       '@audiogubbins/media-store',
       '@audiogubbins/project-format',
       '@audiogubbins/storage',
@@ -744,6 +818,11 @@ const PACKAGES = [
       '@audiogubbins/capabilities',
       '@audiogubbins/commands',
       '@audiogubbins/history',
+      '@audiogubbins/codecs',
+      // The codec worker's protocol and its readers, which the storage worker
+      // asks for an import's analysis and decoding (ADR-0090).
+      '@audiogubbins/codec-runtime',
+      '@audiogubbins/import-export',
       '@audiogubbins/project-format',
       '@audiogubbins/project-commands',
       '@audiogubbins/media-store',
@@ -801,6 +880,12 @@ const PACKAGES = [
       '@audiogubbins/storage',
       '@audiogubbins/browser-storage',
       '@audiogubbins/storage-runtime',
+      // The codec registry and capabilities, the codec worker it starts and
+      // talks to, and the export settings, jobs and collision rules it runs
+      // (ADR-0090, ADR-0092).
+      '@audiogubbins/codecs',
+      '@audiogubbins/codec-runtime',
+      '@audiogubbins/import-export',
       '@audiogubbins/audio-graph',
       '@audiogubbins/audio-engine',
       '@audiogubbins/audio-runtime',

@@ -4,8 +4,9 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { JsonValue } from './canonical-json.js';
 import { startReading, type Converter } from './document-reading.js';
-import { writeExternalIdentity, writeMediaSource } from './project-writing.js';
-import { readExternalIdentity, readMediaSource } from './source-reading.js';
+import { readExternalIdentity, writeExternalIdentity } from './external-identity-json.js';
+import { writeMediaSource } from './project-writing.js';
+import { readMediaSource } from './source-reading.js';
 import { randomIdentity, randomMedia, seededRandom } from './testing/random-values.js';
 
 /** Reads one value alone, at the place `at`, as a command reads its argument. */

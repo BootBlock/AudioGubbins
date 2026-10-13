@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   commandId,
@@ -9,10 +9,24 @@ import {
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import {
+  FailureKind,
+  StandardLayouts,
+  fail,
+  failure,
+  sampleCount,
+  sampleRate,
+  succeed,
+  type DomainResult,
+} from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
+import type { HeldSound, ImportsClient, PageFile } from '@audiogubbins/storage-runtime';
 import { boundaryAt, pixelOf, samplesWithin } from '@audiogubbins/timeline';
 
-import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
+import { PictureSoundDecoder } from '../picture/picture-sound.js';
+import { ScriptedCodecs } from '../testing/codec-fakes.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
+import { PROMPTLY, everythingQueued } from '../testing/waiting.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import type { ShellContext } from './shell-context.js';
 import { shellCommands } from './shell-commands.js';
@@ -346,29 +360,61 @@ describe('the reference picture', () => {
   });
 });
 
-describe("the reference picture's sound (REQ-EXEC-216)", () => {
-  /** What the decoder was asked, and a sound of two channels it answers each time. */
-  const asked: { file: Blob; signal: AbortSignal }[] = [];
+describe("the reference picture's sound (ADR-0021, ADR-0090)", () => {
+  /** A sound the storage holds: three seconds of stereo at 44.1 kHz, in a file of its own. */
+  function heldSound(token: string): HeldSound {
+    return {
+      token,
+      file: new Blob([new Uint8Array(64)]),
+      sampleRate: expectSuccess(sampleRate(44_100)),
+      layout: StandardLayouts.stereo,
+      frames: expectSuccess(sampleCount(132_300)),
+      decoder: { implementation: 'codec-module', name: 'Symphonia', version: '0.6.1' },
+    };
+  }
 
-  const decode: DecodeSound = (file, signal) => {
-    asked.push({ file, signal });
-    return Promise.resolve({ channels: [new Float32Array(480), new Float32Array(480)] });
-  };
+  /** The storage worker's holding of sounds, answering each as a test says, recording each call. */
+  class FakeSounds implements Pick<ImportsClient, 'holdSound' | 'letGoSound'> {
+    readonly asked: { readonly file: PageFile; readonly signal: AbortSignal | undefined }[] = [];
+    readonly letGo: string[] = [];
+    answer: (index: number) => Promise<DomainResult<HeldSound>> = (index) =>
+      Promise.resolve(succeed(heldSound(`t${String(index)}`)));
 
-  /** The picture's sound decoded by `decode`, in a page with `available` bytes to spare. */
-  function soundIn(available: number | undefined): void {
-    asked.length = 0;
+    holdSound(file: PageFile, signal?: AbortSignal): Promise<DomainResult<HeldSound>> {
+      this.asked.push({ file, signal });
+      return this.answer(this.asked.length);
+    }
+
+    letGoSound(token: string): Promise<void> {
+      this.letGo.push(token);
+      return Promise.resolve();
+    }
+  }
+
+  let sounds = new FakeSounds();
+  let codecs = new ScriptedCodecs();
+
+  /** The picture's sound opened through `held`, or where this browser keeps nothing. */
+  function soundIn(held: FakeSounds | undefined): void {
+    codecs = new ScriptedCodecs();
     context = {
       ...context,
+      codecs,
       pictureSound: new PictureSoundDecoder({
-        decode,
+        codecs,
+        sounds: held,
+        ids: context.ids,
         picture: context.picture,
         catalogue: context.assets,
         logger: createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor'),
-        resources: () => ({ availableMemoryBytes: available }),
       }),
     };
   }
+
+  beforeEach(() => {
+    sounds = new FakeSounds();
+    soundIn(sounds);
+  });
 
   /** Opens a picture of ten seconds, as the fake element reports. */
   function openPicture(): void {
@@ -378,54 +424,113 @@ describe("the reference picture's sound (REQ-EXEC-216)", () => {
   }
 
   it('reads nothing of the sound when a picture is opened', () => {
-    soundIn(undefined);
     openPicture();
 
-    expect(asked).toEqual([]);
+    expect(sounds.asked).toEqual([]);
+    expect(codecs.readied).toBe(0);
     expect(context.picture.get().sound).toEqual({ kind: 'none' });
   });
 
-  it('opens the sound as an asset when asked, within the memory the page can spare', async () => {
-    soundIn(undefined);
+  it('opens the sound when asked, decoded into the storage and read from the file it holds', async () => {
     openPicture();
 
     expect(run('picture.extract-sound').kind).toBe('applied');
-    expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
-    await Promise.resolve();
+    await everythingQueued();
 
+    expect(codecs.readied).toBe(1);
+    expect(sounds.asked.map(({ file }) => file.fileName)).toEqual(['reel.webm']);
     const { sound } = context.picture.get();
-    expect(sound.kind).toBe('decoded');
-    expect(sound.kind === 'decoded' && context.assets.find(sound.asset)?.name).toBe(
+    const asset = sound.kind === 'decoded' ? context.assets.find(sound.asset) : undefined;
+    expect(asset).toMatchObject({
+      name: 'Sound of reel.webm',
+      sampleRate: 44_100,
+      length: 132_300,
+      owner: { kind: 'session' },
+    });
+    // No sample is on the page: every thread reads the file the storage holds.
+    const described = asset?.describe();
+    expect(described?.kind).toBe('edited');
+    expect(described?.kind === 'edited' && described.media.map((media) => media.file)).toEqual([
+      expect.any(Blob),
+    ]);
+  });
+
+  it('says the reason an import gives where the file is refused, opening nothing', async () => {
+    sounds.answer = () =>
+      Promise.resolve(
+        fail(
+          failure(
+            'codec-runtime.codec-unavailable',
+            FailureKind.Rejected,
+            'Vorbis cannot be imported here.',
+          ),
+        ),
+      );
+    openPicture();
+
+    run('picture.extract-sound');
+    await everythingQueued();
+
+    expect(context.picture.get().sound).toEqual({
+      kind: 'unavailable',
+      reason: 'Vorbis cannot be imported here.',
+    });
+    expect(context.assets.get().assets.map((asset) => asset.name)).not.toContain(
       'Sound of reel.webm',
     );
   });
 
-  it('refuses before reading anything when the sound would need more than the page can spare', () => {
-    // Ten seconds in eight channels is 15 MB; a quarter of 40 MB is 10 MB.
-    soundIn(40e6);
-    openPicture();
-
-    const result = run('picture.extract-sound');
-
-    expect(result.kind).toBe('refused');
-    expect(result.kind === 'refused' && result.failures[0].summary).toContain(
-      'This page can spare 10 MB for it.',
-    );
-    expect(asked).toEqual([]);
-  });
-
-  it('abandons the sound being extracted when the picture is closed', async () => {
+  it('says why where this browser keeps nothing to decode the sound into', async () => {
     soundIn(undefined);
     openPicture();
+
     run('picture.extract-sound');
+    await everythingQueued();
+
+    const { sound } = context.picture.get();
+    expect(sound.kind === 'unavailable' && sound.reason).toMatch(/keeps no storage/u);
+    expect(codecs.readied).toBe(0);
+  });
+
+  it('abandons the sound being decoded when the picture is closed, keeping nothing of it', async () => {
+    let answer: () => void = () => undefined;
+    sounds.answer = (index) =>
+      new Promise((resolve) => {
+        answer = () => {
+          resolve(succeed(heldSound(`t${String(index)}`)));
+        };
+      });
+    openPicture();
+    run('picture.extract-sound');
+    await vi.waitFor(() => {
+      expect(sounds.asked).toHaveLength(1);
+    }, PROMPTLY);
 
     run('picture.close');
-    await Promise.resolve();
+    answer();
+    await everythingQueued();
 
-    expect(asked[0]?.signal.aborted).toBe(true);
+    expect(sounds.asked[0]?.signal?.aborted).toBe(true);
+    expect(sounds.letGo).toEqual(['t1']);
     expect(context.assets.get().assets.map((asset) => asset.name)).not.toContain(
       'Sound of reel.webm',
     );
     expect(context.picture.get().sound).toEqual({ kind: 'none' });
+  });
+
+  it('lets go of the sound an opening of the same picture’s sound takes the place of', async () => {
+    openPicture();
+    run('picture.extract-sound');
+    await everythingQueued();
+    const file = context.picture.file;
+    if (file === undefined) throw new Error('No picture is open.');
+
+    context.pictureSound.decode(file);
+    await everythingQueued();
+
+    expect(sounds.letGo).toEqual(['t1']);
+    expect(
+      context.assets.get().assets.filter((asset) => asset.name === 'Sound of reel.webm'),
+    ).toHaveLength(1);
   });
 });

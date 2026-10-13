@@ -74,6 +74,7 @@ export {
 } from './messages/message-fields.js';
 export {
   type FailureSummary,
+  domainFailureAt,
   domainFailuresAt,
   failureSummaryAt,
   failureSummaryOf,

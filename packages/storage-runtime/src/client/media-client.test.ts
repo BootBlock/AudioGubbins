@@ -8,8 +8,12 @@ import { SourceHandling } from '@audiogubbins/media-store';
 import { memorySource } from '@audiogubbins/media-store/testing';
 import { contentIdOf } from '@audiogubbins/project-format';
 
+import type { BatchOutcome } from '@audiogubbins/storage';
+
 import { projectScene, storedModel } from '../testing/project-scene.js';
 import type { PageFile } from './page-ports.js';
+import type { RemoteProjectSession } from './remote-project.js';
+import type { StorageClient } from './storage-client.js';
 
 const IMPORTED_AT = 1_790_000_000_000;
 const ASSET = unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a1');
@@ -51,6 +55,24 @@ function pageFileOf(bytes: Uint8Array<ArrayBuffer>, fileName: string): PageFile 
   };
 }
 
+/** Imports `file` alone as the asset `ASSET`, through the one batch path, and answers what it came to. */
+async function importedAlone(
+  client: StorageClient,
+  session: RemoteProjectSession,
+  file: PageFile,
+): Promise<BatchOutcome | undefined> {
+  const ended = await client.imports.importFiles(
+    session,
+    {
+      files: [{ file, assetId: ASSET }],
+      choice: { mode: SourceHandling.Copy },
+      importedAt: IMPORTED_AT,
+    },
+    () => undefined,
+  );
+  return ended.outcomes[0];
+}
+
 // jsdom's `File` and `Blob` clone to plain objects, where a browser clones
 // them whole, so these tests hold the platform's own.
 beforeEach(() => {
@@ -66,14 +88,13 @@ describe('audio files, through the storage worker (ADR-0052)', () => {
     const { storage, project, session } = await projectScene();
     const bytes = monoWav(Array.from({ length: 4_800 }, (_, index) => (index % 200) - 100));
 
-    const imported = expectSuccess(
-      await storage.client.media.importFile(session, {
-        file: pageFileOf(bytes, 'Kick drum.wav'),
-        choice: { mode: SourceHandling.Copy },
-        assetId: ASSET,
-        importedAt: IMPORTED_AT,
-      }),
+    const outcome = await importedAlone(
+      storage.client,
+      session,
+      pageFileOf(bytes, 'Kick drum.wav'),
     );
+    if (outcome?.kind !== 'imported') throw new Error('The file was not imported.');
+    const { imported } = outcome;
 
     expect(imported.asset).toMatchObject({ displayName: 'Kick drum', length: 4_800 });
     expect(session.getSnapshot().model.state.project.assets.get(ASSET)).toEqual(imported.asset);
@@ -94,15 +115,11 @@ describe('audio files, through the storage worker (ADR-0052)', () => {
     const ogg = new Uint8Array(1_024);
     ogg.set([0x4f, 0x67, 0x67, 0x53]);
 
-    const refused = await storage.client.media.importFile(session, {
-      file: pageFileOf(ogg, 'Rain.ogg'),
-      choice: { mode: SourceHandling.Copy },
-      assetId: ASSET,
-      importedAt: IMPORTED_AT,
-    });
+    const refused = await importedAlone(storage.client, session, pageFileOf(ogg, 'Rain.ogg'));
 
-    expect(expectFailureCode(refused)).toBe('codecs.unsupported-format');
-    expect(refused.ok ? '' : refused.failures[0].summary).toContain('Ogg');
+    if (refused?.kind !== 'refused') throw new Error('The file was not refused.');
+    expect(refused.failure.code).toBe('codecs.unsupported-format');
+    expect(refused.failure.summary).toContain('Ogg');
     expect((await storedModel(storage, project)).state.project.assets.size).toBe(0);
     const { contentId } = expectSuccess(
       await contentIdOf(memorySource(ogg), webDigest(crypto.subtle)),
@@ -114,14 +131,8 @@ describe('audio files, through the storage worker (ADR-0052)', () => {
 
   it('runs a planned paste in the worker as one change, lending the search for linked files only for the call', async () => {
     const { storage, session } = await projectScene();
-    expectSuccess(
-      await storage.client.media.importFile(session, {
-        file: pageFileOf(monoWav(Array.from({ length: 960 }, () => 0)), 'Hush.wav'),
-        choice: { mode: SourceHandling.Copy },
-        assetId: ASSET,
-        importedAt: IMPORTED_AT,
-      }),
-    );
+    const hush = pageFileOf(monoWav(Array.from({ length: 960 }, () => 0)), 'Hush.wav');
+    expect((await importedAlone(storage.client, session, hush))?.kind).toBe('imported');
     const deletion = {
       id: unsafeBrandId<'EditOperationId'>('0000aaaa-0000-4000-8000-0000000000e1'),
       kind: 'delete',

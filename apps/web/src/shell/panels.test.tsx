@@ -169,6 +169,8 @@ describe('every panel', () => {
           modelGate: shell.modelGate,
           hearing: shell.hearing,
           recording: shell.recording,
+          exports: shell.exports,
+          exportSubject: shell.exportFocus.subject,
           preferences: shell.preferences,
         })}
       </>,

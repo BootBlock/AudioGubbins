@@ -24,6 +24,7 @@ export function withProjectName(state: ProjectState, displayName: string): Proje
 /** The state with an asset and its source added. */
 export function withAsset(state: ProjectState, asset: Asset, source: AssetSource): ProjectState {
   return {
+    ...state,
     project: { ...state.project, assets: new Map(state.project.assets).set(asset.id, asset) },
     sources: new Map(state.sources).set(asset.id, source),
   };
@@ -35,7 +36,7 @@ export function withoutAsset(state: ProjectState, assetId: AssetId): ProjectStat
   assets.delete(assetId);
   const sources = new Map(state.sources);
   sources.delete(assetId);
-  return { project: { ...state.project, assets }, sources };
+  return { ...state, project: { ...state.project, assets }, sources };
 }
 
 /** The state with an asset renamed. */

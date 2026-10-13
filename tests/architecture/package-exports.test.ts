@@ -181,6 +181,35 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'wavFile',
       ],
   },
+  '@audiogubbins/import-export': {
+    "Import and export as values (ADR-0090, ADR-0092), built ahead of the codec worker, which quantises and encodes a planned file's render and decodes an import, of the storage worker, which stages, delivers by the collision rules and runs the import job, and of the application's Export dialog, collision prompt and import views, which edit the settings and presets and show the jobs' progress: the settings of every format with their validation, presets and defaults, the export plan and its render, the dither and quantisation, the metadata a file carries, the collision rules, and the export, batch and import machines.":
+      ['nextExportJob', 'rememberCollisionAnswer'],
+    "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
+      [],
+  },
+  '@audiogubbins/codec-runtime': {
+    "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
+      [
+        'CodecModule',
+        'DecoderSession',
+        'EncodedPacket',
+        'FlacFrameEncoder',
+        'FlacFrameSettings',
+        'OpusApplication',
+        'OpusEncoder',
+        'OpusEncoderSettings',
+        'OpusFrameDuration',
+        'OpusPacket',
+        'OpusRateControl',
+        'StatedLayout',
+        'StreamDescription',
+        'instantiateCodecModule',
+      ],
+    'The single-stream Opus packet decoder, taken by the conformance run alone (`pnpm test:opus-conformance`), which fetches the vectors on demand and so is no project the suite runs.':
+      ['MAX_OPUS_PACKET_FRAMES', 'OpusPacketDecoder'],
+    "The shape of the codec worker's export encoder factory (ADR-0092), which the worker is given and its own thread alone gives it today: a host that opens export encoders of its own, such as a test of the worker, implements it.":
+      ['ExportEncoderServices', 'OpenExportEncoder', 'OpenedExportEncoder'],
+  },
   '@audiogubbins/input': {
     'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. Its gesture of no contact is offered with the model, though the editor surface, which reads contacts and gestures through it, has not needed to name it.':
       ['NO_GESTURE'],
@@ -200,7 +229,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'clipsOnTrack',
         'clipsOverlap',
         'containsSample',
-        'convertSampleRate',
         'isAssetInUse',
         'isFailure',
         'isRetryable',
@@ -286,15 +314,11 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
   },
-  '@audiogubbins/project-commands': {},
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
   },
-  '@audiogubbins/browser-storage': {
-    "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
-      ['filesInDirectory'],
-  },
+  '@audiogubbins/browser-storage': {},
   '@audiogubbins/storage-runtime': {},
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":

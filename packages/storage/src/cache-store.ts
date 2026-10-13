@@ -58,6 +58,15 @@ import { CACHE_DIRECTORY } from './storage-layout.js';
 export const CacheCategory = {
   /** Regenerable temporary data, the first to go. */
   Temporary: 'temporary',
+
+  /**
+   * Work in progress that is made again by doing it again: a rendition being
+   * decoded, an export staged for delivery, and a sound the session holds
+   * (ADR-0090, ADR-0092). Never a root, removed once let go and whenever the
+   * storage worker starts alone, and given up under pressure only while no one
+   * uses it (`cache-eviction.ts`).
+   */
+  Staging: 'staging',
   Render: 'render',
   Analysis: 'analysis',
   Waveform: 'waveform',
@@ -73,6 +82,7 @@ export type CacheCategory = (typeof CacheCategory)[keyof typeof CacheCategory];
 /** The order storage pressure gives the categories up in (REQ-STOR-106). */
 export const CACHE_CLEANUP_ORDER: readonly CacheCategory[] = [
   CacheCategory.Temporary,
+  CacheCategory.Staging,
   CacheCategory.Render,
   CacheCategory.Analysis,
   CacheCategory.Waveform,
@@ -299,7 +309,11 @@ export class CacheStore {
     });
   }
 
-  /** Gives up every cache of a category, and says how many bytes that freed. */
+  /**
+   * Gives up every cache of a category, and says how many bytes that freed,
+   * whatever uses it: storage pressure and the person's cleanup give a category
+   * up through `evictUnused`, which keeps one still in use.
+   */
   async evictCategory(
     category: CacheCategory,
     signal?: AbortSignal,

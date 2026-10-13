@@ -6,6 +6,7 @@ import {
   compareCodeUnits,
   contentIdFrom,
   type ContentId,
+  type KeptCompressedSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
 import { seededRandom } from '@audiogubbins/project-format/testing';
@@ -210,5 +211,51 @@ describe('what a project state refers to', () => {
     };
 
     expect([...contentReferencedBy(state)]).toEqual([managed, retained]);
+  });
+
+  it('is the compressed file a rendition was decoded from, where it is copied or protected (ADR-0090)', () => {
+    const { project, assets } = sampleProject();
+    const [rendition, copied, other, protectedCopy] = [idOf('4'), idOf('5'), idOf('6'), idOf('7')];
+    const sourceOf = (media: ContentId, kept: KeptCompressedSource) => ({
+      media: { kind: 'managed', contentId: media, byteLength: 1, mediaType: 'audio/wav' } as const,
+      provenance: {
+        importedAt: 0,
+        byteLength: 1,
+        mediaType: 'audio/flac',
+        originProjectId: project.id,
+        rendition: {
+          container: 'flac',
+          codec: 'flac',
+          sampleRate: assets.footstep.sampleRate,
+          layout: assets.footstep.channelLayout,
+          frames: assets.footstep.length,
+          leadingFrames: assets.footstep.length,
+          decoder: { implementation: 'codec-module', name: 'flac', version: '1' },
+          kept,
+        },
+      } as const,
+    });
+    const state: ProjectState = {
+      project,
+      sources: new Map([
+        [assets.footstep.id, sourceOf(rendition, { kind: 'copied', contentId: copied })],
+        [
+          assets.ambience.id,
+          sourceOf(other, {
+            kind: 'linked',
+            identity: {
+              byteLength: 1,
+              lastModified: 0,
+              mediaType: 'audio/flac',
+              signature: '',
+              fastFingerprint: 'a'.repeat(64),
+            },
+            retainedCopy: protectedCopy,
+          }),
+        ],
+      ]),
+    };
+
+    expect([...contentReferencedBy(state)]).toEqual([rendition, copied, other, protectedCopy]);
   });
 });

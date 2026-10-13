@@ -212,6 +212,14 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain', '@audiogubbins/text'],
   '@audiogubbins/codecs': ['@audiogubbins/domain'],
+  '@audiogubbins/codec-runtime': [
+    '@audiogubbins/domain',
+    '@audiogubbins/codecs',
+    '@audiogubbins/import-export',
+    '@audiogubbins/capabilities',
+    '@audiogubbins/version',
+    '@audiogubbins/diagnostics',
+  ],
   '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
   '@audiogubbins/clipboard': [
     '@audiogubbins/domain',
@@ -220,6 +228,12 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/recording': ['@audiogubbins/domain', '@audiogubbins/text'],
+  '@audiogubbins/import-export': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/codecs',
+  ],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
     '@audiogubbins/domain',
@@ -278,6 +292,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/effect-rack',
     '@audiogubbins/processors',
     '@audiogubbins/ml-runtime',
+    '@audiogubbins/import-export',
   ],
   '@audiogubbins/commands': [
     '@audiogubbins/domain',
@@ -290,6 +305,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
     '@audiogubbins/text',
+    '@audiogubbins/codecs',
   ],
   '@audiogubbins/design-system': ['@audiogubbins/version'],
   '@audiogubbins/workspace': [
@@ -299,6 +315,8 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/project-format': [
     '@audiogubbins/domain',
+    '@audiogubbins/codecs',
+    '@audiogubbins/import-export',
     '@audiogubbins/text',
     '@audiogubbins/version',
   ],
@@ -325,6 +343,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/commands',
     '@audiogubbins/diagnostics',
     '@audiogubbins/history',
+    '@audiogubbins/import-export',
     '@audiogubbins/media-store',
     '@audiogubbins/model-packs',
     '@audiogubbins/project-format',
@@ -333,6 +352,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/browser-storage': [
     '@audiogubbins/diagnostics',
+    '@audiogubbins/import-export',
     '@audiogubbins/media-store',
     '@audiogubbins/project-format',
     '@audiogubbins/storage',
@@ -341,10 +361,13 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/audio-runtime',
     '@audiogubbins/browser-storage',
     '@audiogubbins/capabilities',
+    '@audiogubbins/codec-runtime',
+    '@audiogubbins/codecs',
     '@audiogubbins/commands',
     '@audiogubbins/diagnostics',
     '@audiogubbins/domain',
     '@audiogubbins/history',
+    '@audiogubbins/import-export',
     '@audiogubbins/media-store',
     '@audiogubbins/model-packs',
     '@audiogubbins/processors',
@@ -859,6 +882,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'editor-view',
     'effect-rack',
     'history',
+    'import-export',
     'input',
     'media-store',
     'ml-runtime',
@@ -1136,6 +1160,103 @@ describe('third-party libraries stay behind their adapters', () => {
   });
 });
 
+describe("the browser's codecs are probed in one package and called in one other (ADR-0090)", () => {
+  /**
+   * The browser's audio codecs: WebCodecs' audio classes, and the offline
+   * context Web Audio decodes a whole file through.
+   */
+  const BROWSER_CODEC = String.raw`(?:AudioDecoder|AudioEncoder|AudioData|EncodedAudioChunk|(?:webkit)?OfflineAudioContext)`;
+
+  /**
+   * Asking the browser whether it has a codec, or what one accepts: a type test
+   * of a codec's class, a codec named to look it up on a scope, as a membership
+   * test or a reflected read does, and the configuration probe WebCodecs gives.
+   */
+  const CODEC_PROBE = new RegExp(
+    [
+      String.raw`\bisConfigSupported\b`,
+      String.raw`\btypeof\s+${BROWSER_CODEC}\b`,
+      String.raw`['"\`]${BROWSER_CODEC}['"\`]`,
+    ].join('|'),
+  );
+
+  /**
+   * Using one: a codec, a chunk or a frame of audio made, whether its class is
+   * the global or one a platform object hands over, and any decode through Web
+   * Audio, whose `decodeAudioData` an `AudioContext` has as well.
+   */
+  const CODEC_CALL = new RegExp(
+    [
+      String.raw`\bnew\s+(?:[\w$#]+\s*\??\.\s*)*${BROWSER_CODEC}\s*\(`,
+      String.raw`\bdecodeAudioData\b`,
+    ].join('|'),
+  );
+
+  it.each([
+    ['a type test of a codec', "if (typeof AudioDecoder !== 'function') return;"],
+    ['a type test of the offline context', "typeof OfflineAudioContext !== 'function'"],
+    ['a membership test', "const hasEncoder = 'AudioEncoder' in self;"],
+    ['a reflected read', "const chunk = memberOf(scope, 'EncodedAudioChunk');"],
+    ['a configuration probe', 'await AudioDecoder.isConfigSupported(config);'],
+  ])('recognises %s as a probe of a codec', (_form, code) => {
+    expect(CODEC_PROBE.test(code)).toBe(true);
+  });
+
+  it.each([
+    ['a decoder made from the global', 'const decoder = new AudioDecoder({ output, error });'],
+    ['a decoder made from a platform', 'this.#decoder = new decoding.AudioDecoder({'],
+    ['a chunk made from a private field', 'new this.#decoding.EncodedAudioChunk({'],
+    ['a frame of audio made', 'const audio = new this.#webCodecs.AudioData({'],
+    ['an offline context made', 'const context = new OfflineAudioContext(1, 1, 48_000);'],
+    ['a decode through any context', 'const buffer = await context.decodeAudioData(bytes);'],
+  ])('recognises %s as a call of a codec', (_form, code) => {
+    expect(CODEC_CALL.test(code)).toBe(true);
+  });
+
+  it.each([
+    ['a playback context made', 'const context = new AudioContext({ latencyHint });'],
+    ['a type named after a codec', 'readonly #decoder: AudioDecoderLike;'],
+    ['a frame of video made', 'const picture = new VideoFrame(canvas, { timestamp });'],
+    ['a class that reads decoded data', 'const data = new AudioDataReader(port);'],
+  ])('does not mistake %s for a probe or a call of a codec', (_form, code) => {
+    expect(CODEC_PROBE.test(code)).toBe(false);
+    expect(CODEC_CALL.test(code)).toBe(false);
+  });
+
+  it('reads the packages it guards, so each expression is proved against real code', () => {
+    const probing = productionSources('packages/capabilities/src/**/*.ts').filter((path) =>
+      CODEC_PROBE.test(readCode(path)),
+    );
+    const calling = productionSources('packages/codec-runtime/src/**/*.ts').filter((path) =>
+      CODEC_CALL.test(readCode(path)),
+    );
+
+    expect(probing).toContain('packages/capabilities/src/codec-platform.ts');
+    expect(calling).toContain('packages/codec-runtime/src/decoding/browser-aac-blocks.ts');
+    expect(calling).toContain('packages/codec-runtime/src/encoding/aac-file-encoder.ts');
+  });
+
+  it('probes the browser’s codecs only from the capabilities package', () => {
+    // The packet's dependency rule: each codec's availability has one home,
+    // so what is offered is what was probed (REQ-EXEC-216).
+    const offenders = ALL_SOURCES.filter(
+      (path) => CODEC_PROBE.test(readCode(path)) && !path.startsWith('packages/capabilities/src/'),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('calls the browser’s codecs only from the codec runtime', () => {
+    // Decoding runs in the codec worker alone, through the codecs that serve
+    // each format there, never on the page or in the storage worker.
+    const offenders = ALL_SOURCES.filter(
+      (path) => CODEC_CALL.test(readCode(path)) && !path.startsWith('packages/codec-runtime/src/'),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 /**
  * The values the page may take from the packages that keep projects, each
  * under the reason the work is the page's own (see the rule below).
@@ -1170,11 +1291,13 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
         'requestKeptFileAccess',
         'requestKeptFolderAccess',
       ],
-    "The pickers and the page's own file input, which a browser opens only in the handler of the person's gesture.":
-      ['filesFromInput', 'pickDirectory', 'pickFiles', 'pickSaveFile'],
+    "The pickers and the page's own file input, which a browser opens only in the handler of the person's gesture, and the walk of a folder the picker gave, each file's handle kept so a file linked from it is found again.":
+      ['filesFromInput', 'filesInDirectory', 'pickDirectory', 'pickFiles', 'pickSaveFile'],
     'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
       ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
     "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],
+    'The folders the person keeps trusted for exports, and leave to write into a folder or file an export goes to, which only the page may ask the person for, in their gesture (ADR-0092).':
+      ['TrustedFolders', 'queryWritePermission', 'requestWritePermission'],
   },
 };
 
@@ -2890,8 +3013,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
     ],
     'apps/web/src/application.ts': [
-      349,
-      'The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back.',
+      378,
+      "The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts, the codecs and the export in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back. The export's lines are the render, codecs, assets, room and clock it is handed, which only the root holds together.",
     ],
     'apps/web/src/commands/recording-settings-commands.ts': [
       320,
@@ -2902,8 +3025,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table.",
     ],
     'apps/web/src/shell/panels.tsx': [
-      332,
-      'The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind.',
+      349,
+      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read.",
     ],
     'apps/web/src/commands/panel-commands.ts': [
       314,
@@ -2930,8 +3053,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Where a location starts and where it stops, for every form one is written in: a root of any kind, a path in quotes, a path without them, an address, and a file name written with no path at all. It is one algorithm read from both ends, and almost every line is a rule about a character a name can hold. Split by form, each part would need the others: a quoted path ends by the quote index the unquoted rules also read, an address ends where a path ends, and a file name ends before the name after it.',
     ],
     'packages/diagnostics/src/redaction.ts': [
-      323,
-      'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it. The finding of each is elsewhere \u2014 credentials in `credentials.ts` and every location in `path-finding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
+      349,
+      'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it; and the text read as written before it is read through its percent-encoding, so an address keeps the extent it is written with. The finding of each is elsewhere \u2014 credentials in `credentials.ts`, every location in `path-finding.ts` and the layers of encoding in `percent-decoding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
     ],
     'packages/workspace/src/adapter/dockview-adapter.tsx': [
       328,
@@ -3083,6 +3206,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * go stale.
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'apps/web/src/state/project-stores.ts: createProjectStores': [
+      51,
+      "The project system's composition: each store made once over the storage client's part it asks and the ports the browser gives, and handed the stores it reads; what remains are the lines that hand each its collaborators, every store a class or factory of its own.",
+    ],
+    'packages/storage-runtime/src/host/export-area.ts: exportHandlers': [
+      55,
+      'A table of the three export operations, stage, deliver and discard, each a few lines over the one staging area and the delivery services made here, which every operation shares; a download is a function of its own beside it.',
+    ],
     'apps/web/src/application.ts: startAudio': [
       52,
       "The audio part's composition: the view, the previews, the engine loader, the one context host that playback and the inputs share, the settings, and the playback and render controls, each made once with what it needs; what remains are the lines that hand each its collaborators and the dispose that ends them in order.",
@@ -3243,13 +3374,13 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      153,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), and local inference by `startModels` before the parts whose threads run chains, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
+      179,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, and the export by `startExport` once the render, the codecs and the assets it renders exist, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      229,
+      236,
       "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [
@@ -3278,7 +3409,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
     'apps/web/src/shell/settings-dialog.tsx: SettingsDialog': [
       82,
-      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, and the project system's tabs, which `projectTabs` builds.",
+      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, the project system's tabs, which `projectTabs` builds, and the Export tab, which `exportTab` builds.",
     ],
     'apps/web/src/shell/settings/appearance.tsx: Appearance': [
       66,

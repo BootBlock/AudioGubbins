@@ -58,6 +58,17 @@
       ]
     },
     {
+      "name": "codec-runtime",
+      "root": "packages/codec-runtime",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "audio-engine",
       "root": "packages/audio-engine",
       "environment": "node",
@@ -111,6 +122,14 @@
     {
       "name": "recording",
       "root": "packages/recording",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "import-export",
+      "root": "packages/import-export",
       "environment": "node",
       "include": [
         "src/**/*.test.ts"

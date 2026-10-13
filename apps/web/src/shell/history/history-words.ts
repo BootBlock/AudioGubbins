@@ -9,7 +9,8 @@
  */
 
 import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
-import type { ExportRecord } from '@audiogubbins/project-format';
+import { codecDescriptor, type CodecImplementation } from '@audiogubbins/codecs';
+import type { ExportCodec, ExportedAudioFile, ExportRecord } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
 import { describeBytes, when } from '../../wording.js';
@@ -27,12 +28,54 @@ export function describeNode(node: HistoryNode): string {
   }
 }
 
-/** What an export made from a point was, in a phrase. */
+/**
+ * Where an encoder ran, as the end of a phrase after its version, which names
+ * the encoder itself ("flacenc 0.5.1"): nothing for AudioGubbins' own writers,
+ * whose version is the product's ("AudioGubbins 0.1.0").
+ */
+const IMPLEMENTATION_WORDS: Readonly<Record<CodecImplementation, string>> = {
+  application: '',
+  'codec-module': ' in the codec module',
+  'encoder-module': ' in its encoder module',
+  browser: ", the browser's own encoder",
+};
+
+/**
+ * The codec an export was encoded with, by which encoder at which version and
+ * where it ran: "FLAC by flacenc 0.5.1 in the codec module".
+ */
+export function encodedByWords(codec: ExportCodec): string {
+  return `${codecDescriptor(codec.id).name} by ${codec.version}${IMPLEMENTATION_WORDS[codec.implementation]}`;
+}
+
+/** Whether the same project and settings give an export's bytes again, as a phrase. */
+export function reproducibleWords(reproducible: boolean): string {
+  return reproducible ? 'the same bytes on every machine' : 'bytes another machine may not repeat';
+}
+
+/** The file an export wrote, as a phrase names it: its codec, what served it and whether it is reproducible. */
+function writtenFile(file: ExportedAudioFile): string {
+  return `, encoded as ${encodedByWords(file.codec)}, ${reproducibleWords(file.reproducible)}`;
+}
+
+/**
+ * What an export made from a point was, in a phrase: the file it wrote and
+ * where, and for an audio file its codec, its version and whether the same
+ * project gives the same bytes (REQ-STOR-197, REQ-AUDIO-145).
+ */
 export function describeExport(record: ExportRecord): string {
-  const where = record.destination.label ?? record.output.container;
+  const { file } = record;
+  const label = record.destination.label;
+  const written = file?.fileName === undefined ? undefined : quoted(file.fileName);
+  const where =
+    written === undefined
+      ? (label ?? record.output.container)
+      : label === undefined || label === file?.fileName
+        ? written
+        : `${written} to ${quoted(label)}`;
   const status =
     record.status === 'succeeded' ? '' : record.status === 'partial' ? ', in part' : ', and failed';
-  return `Exported as ${where} on ${when(record.at)}${status}`;
+  return `Exported as ${where} on ${when(record.at)}${file === undefined ? '' : writtenFile(file)}${status}`;
 }
 
 /** What letting history go takes away, in a sentence. */

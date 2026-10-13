@@ -13,18 +13,19 @@
 import {
   CapabilityKey,
   readGraphicsPlatform,
-  readResourceFigures,
   type CapabilityRegistry,
 } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
-import { createIdGenerator } from '@audiogubbins/domain';
+import { createIdGenerator, type IdGenerator } from '@audiogubbins/domain';
 import { DEFAULT_GESTURE_SETTINGS } from '@audiogubbins/input';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import type { PreviewHost } from '@audiogubbins/audio-runtime';
+import type { StorageClient } from '@audiogubbins/storage-runtime';
 import { SpectrogramHost, type SpectralTileCache } from '@audiogubbins/spectral-analysis';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
+import type { CodecServices } from './codecs/codec-services.js';
 import { testAssets } from './assets/test-assets.js';
 import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
@@ -36,7 +37,7 @@ import { browserSpectrogramWorker } from './editor/spectrogram-threads.js';
 import type { ModelServices } from './ml/model-services.js';
 import { modelGates } from './ml/model-words.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
-import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
+import { browserPicturePlatform } from './picture/browser-picture.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
 import { ReferencePicture } from './picture/reference-picture.js';
 import { createAssetCatalogue, type AssetCatalogue } from './state/asset-catalogue.js';
@@ -168,10 +169,21 @@ export function panelPartsOf(
   };
 }
 
-/** The reference picture, and what extracts its sound as an asset of `assets`. */
+/** Identities drawn from the browser's random numbers, which no other session draws. */
+function randomIds(): IdGenerator {
+  return createIdGenerator((length) => crypto.getRandomValues(new Uint8Array(length)));
+}
+
+/**
+ * The reference picture, and what opens its sound as an asset of `assets`,
+ * decoded by `codecs` into the storage worker of `projects`, where there is
+ * one.
+ */
 function referencePicture(
   capabilities: CapabilityRegistry,
   assets: AssetCatalogue,
+  codecs: Pick<CodecServices, 'ready'>,
+  projects: { readonly storage: Pick<StorageClient, 'imports'> | undefined },
   logger: Logger,
 ): { readonly picture: ReferencePicture; readonly pictureSound: PictureSoundDecoder } {
   const picture = new ReferencePicture({
@@ -179,12 +191,12 @@ function referencePicture(
     logger,
   });
   const pictureSound = new PictureSoundDecoder({
-    decode: browserSoundDecoder(),
+    codecs,
+    sounds: projects.storage?.imports,
+    ids: randomIds(),
     picture,
     catalogue: assets,
     logger,
-    // Measured when each extraction is weighed, since what the page holds moves.
-    resources: () => readResourceFigures(performance),
   });
   return { picture, pictureSound };
 }
@@ -192,7 +204,9 @@ function referencePicture(
 /**
  * Builds the editor part, its assets following the open project of `projects`
  * where this browser keeps projects, and its peaks drawn at the chosen render
- * quality of `audioSettings`, a racked sound's from the renders of `previews`.
+ * quality of `audioSettings`, a racked sound's from the renders of `previews`,
+ * and a reference picture's sound decoded by `codecs` into the storage worker
+ * of `projects`, where this browser keeps projects.
  */
 export function startEditor(
   capabilities: CapabilityRegistry,
@@ -202,11 +216,13 @@ export function startEditor(
   audioSettings: Observable<Pick<AudioSettings, 'renderQuality'>>,
   projects: {
     readonly projects: ProjectStores | undefined;
+    readonly storage: Pick<StorageClient, 'imports'> | undefined;
     readonly peakCache: PeakCacheStore;
     readonly spectrogramCache: SpectralTileCache;
   },
   previews: PreviewHost,
   models: ModelServices,
+  codecs: Pick<CodecServices, 'ready'>,
   dsp: PageDsp,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
@@ -227,7 +243,7 @@ export function startEditor(
     if (document.visibilityState === 'hidden') editorViews.flush();
   };
   document.addEventListener('visibilitychange', flushViews);
-  const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
+  const shown = referencePicture(capabilities, assets, codecs, projects, logger);
   const peaks = peakHost(projects.peakCache, logger, previews, models);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
   const spectral = spectrogramParts(projects.spectrogramCache, logger, previews, models, dsp);
@@ -239,9 +255,9 @@ export function startEditor(
       selections,
       cues: createCueStore(),
       editorViews,
-      ids: createIdGenerator((length) => crypto.getRandomValues(new Uint8Array(length))),
-      picture,
-      pictureSound,
+      ids: randomIds(),
+      picture: shown.picture,
+      pictureSound: shown.pictureSound,
       chosenFiles: createChosenFiles(),
       clipboard: createClipboardStore(),
       modelGate,
@@ -256,7 +272,7 @@ export function startEditor(
       letShownPeaksGo();
       peaks.dispose();
       spectral.spectrograms.dispose();
-      picture.dispose();
+      shown.picture.dispose();
     },
   };
 }
