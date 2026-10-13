@@ -6708,6 +6708,7 @@ Published paths
   interface PressureRelief
   readonly PressureRelief.freed: ReadonlyMap<CacheCategory, number>
   readonly PressureRelief.total: number
+  readonly PressureRelief.kept: readonly CacheCategory[]
   class ProcessingLibraryStore
   new ProcessingLibraryStore(services: LibraryServices): ProcessingLibraryStore
   readonly ProcessingLibraryStore.files: LibraryEntryFiles
@@ -7038,7 +7039,7 @@ Published paths
   function projectPackPins(tree: StorageTree, digest: Digest): PackPins
   function recordingInProgress(session: RecordingSessionId): DomainFailure
   function recoverRecording(session: ProjectSession, id: RecordingSessionId, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
-  function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
+  function relieveStoragePressure(caches: CacheStore, coordinator: LeaseCoordinator | undefined, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>

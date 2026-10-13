@@ -36,6 +36,11 @@ export function usageHandlers(
         ...(held === undefined ? {} : { held: projects.session(held) }),
       }),
     'usage.relievePressure': (_nothing, { signal }) =>
-      relieveStoragePressure(services.caches, Number.POSITIVE_INFINITY, signal),
+      relieveStoragePressure(
+        services.caches,
+        services.coordinator,
+        Number.POSITIVE_INFINITY,
+        signal,
+      ),
   };
 }

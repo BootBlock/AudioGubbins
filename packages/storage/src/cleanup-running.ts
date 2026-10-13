@@ -39,6 +39,8 @@ import {
 import type { PackInstaller } from '@audiogubbins/model-packs';
 
 import { BackupGenerations } from './backup-generations.js';
+import { evictUnused } from './cache-eviction.js';
+import type { CacheCategory } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
 import {
   isDisposable,
@@ -144,13 +146,8 @@ async function runStep(
   const { held, signal } = options;
   const records = new CheckedRecords(services.tree, services.digest);
   switch (step.kind) {
-    case 'cache': {
-      const evicted = await services.caches.evictCategory(step.category, signal);
-      return outcomeOf(
-        step.kind,
-        mapResult(evicted, (freed) => ({ freed })),
-      );
-    }
+    case 'cache':
+      return await cacheGivenUp(step.category, services, signal);
     case 'pack-downloads':
     case 'model-packs':
       return await packsRemoved(step, services, signal);
@@ -264,6 +261,25 @@ async function setAsideRemoved(
     await tree.remove(path);
   }
   return freed;
+}
+
+/**
+ * Gives up a category of caches, or says it removed nothing where something in
+ * it is in use, as a step that finds another window storing removes nothing
+ * (`cache-eviction.ts`).
+ */
+async function cacheGivenUp(
+  category: CacheCategory,
+  services: CleanupRunServices,
+  signal: AbortSignal | undefined,
+): Promise<DomainResult<StepOutcome>> {
+  const evicted = await evictUnused(services.caches, category, services.coordinator, signal);
+  if (!evicted.ok) return evicted;
+  return succeed(
+    evicted.value.kind === 'in-use'
+      ? { step: 'cache', freed: 0, busy: [], refused: { kind: 'storing' } }
+      : { step: 'cache', freed: evicted.value.freed, busy: [] },
+  );
 }
 
 /**
