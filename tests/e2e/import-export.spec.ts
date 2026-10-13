@@ -335,7 +335,8 @@ test.describe('import and export', () => {
       const dialog = page.getByRole('dialog', { name: EXPORT_DIALOG_WORDS.title });
       await choose(page, dialog, 'Format', 'FLAC');
       await dialog.getByText(EXPORT_DIALOG_WORDS.everySetting, { exact: true }).click();
-      await choose(page, dialog, 'Bit depth', '16-bit');
+      // A depth is typed, as a bit rate is: the field takes any depth FLAC holds.
+      await dialog.getByRole('textbox', { name: 'Bit depth' }).fill('16');
       // Without dither the region's 16-bit samples come back as they went in.
       await choose(page, dialog, 'Kind of dither', 'None');
       await choose(page, dialog, 'Deliver to', 'A folder you choose');
