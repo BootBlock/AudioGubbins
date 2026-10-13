@@ -9,8 +9,11 @@
  */
 
 import {
+  defaultDither,
   defaultExportSettings,
+  exportTarget,
   resolvePreset,
+  type DitherSettings,
   type ExportContext,
   type ExportFormat,
   type ExportPreset,
@@ -102,4 +105,41 @@ export function inFormat(
     settings: { channels, metadata, fileName },
   };
   return { ...resolvePreset(preset, context), range };
+}
+
+/** Whether two dithers are the same: the same kind, and the same width, shaping and seed. */
+function sameDither(one: DitherSettings, other: DitherSettings): boolean {
+  if (one.kind === 'none' || other.kind === 'none') return one.kind === other.kind;
+  return (
+    one.kind === other.kind &&
+    one.amplitude === other.amplitude &&
+    one.shaping === other.shaping &&
+    one.seed === other.seed
+  );
+}
+
+/** Whether `settings`' dither is the one their depth takes unless the person chooses another. */
+export function ditherIsDefault(settings: ExportSettings): boolean {
+  return sameDither(settings.dither, defaultDither(exportTarget(settings).depth));
+}
+
+/**
+ * `changed`, made from `before` by an edit, with the dither its depth takes
+ * where the person has not set the dither themselves, before or in this
+ * edit: a change of depth or kind of sample then brings the dither the new
+ * depth defaults to, as a format chosen afresh does, and a dither the person
+ * set is theirs at every depth. Answers whether the dither is now theirs.
+ */
+export function ditherFollowingDepth(
+  before: ExportSettings,
+  changed: ExportSettings,
+  chosenBefore: boolean,
+): { readonly settings: ExportSettings; readonly ditherChosen: boolean } {
+  const ditherChosen = chosenBefore || !sameDither(before.dither, changed.dither);
+  return ditherChosen
+    ? { settings: changed, ditherChosen }
+    : {
+        settings: { ...changed, dither: defaultDither(exportTarget(changed).depth) },
+        ditherChosen,
+      };
 }

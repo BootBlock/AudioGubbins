@@ -29,6 +29,8 @@ import {
 } from '@audiogubbins/import-export';
 
 import {
+  ditherFollowingDepth,
+  ditherIsDefault,
   inFormat,
   openingSettings,
   overRange,
@@ -98,6 +100,13 @@ export interface OpenExportDialog extends Omit<
 
   /** The settings as the person last edited them, kept to be chosen again, where they edited any. */
   readonly edited: ExportSettings | undefined;
+
+  /**
+   * Whether the dither is the person's own: set in the expert controls, or
+   * other than its depth's default in the settings shown. Until it is, a new
+   * depth brings the dither that depth defaults to.
+   */
+  readonly ditherChosen: boolean;
   readonly destination: ExportDestinationDraft;
 
   /** The files the settings make, or every reason they cannot be made, as the package plans them. */
@@ -156,6 +165,7 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
       settings,
       source: { kind: kept === undefined ? 'default' : 'kept' },
       edited: undefined,
+      ditherChosen: !ditherIsDefault(settings),
       destination: firstDestination(request.dialogs, fileCount(planned)),
       planned,
     });
@@ -170,11 +180,15 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
 
   /** Sets the settings `offered` gives over the range shown. */
   readonly choosePreset = (offered: OfferedPreset): void => {
-    this.change((open) => ({
-      settings: presetSettingsOver(offered, open.context, open.settings.range),
-      source: { kind: 'preset', id: offered.preset.id },
-      edited: open.edited,
-    }));
+    this.change((open) => {
+      const settings = presetSettingsOver(offered, open.context, open.settings.range);
+      return {
+        settings,
+        source: { kind: 'preset', id: offered.preset.id },
+        edited: open.edited,
+        ditherChosen: !ditherIsDefault(settings),
+      };
+    });
   };
 
   /** Sets the settings as the person last edited them, where they edited any. */
@@ -182,28 +196,44 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
     this.change((open) =>
       open.edited === undefined
         ? open
-        : { settings: open.edited, source: { kind: 'edited' }, edited: open.edited },
+        : {
+            settings: open.edited,
+            source: { kind: 'edited' },
+            edited: open.edited,
+            ditherChosen: !ditherIsDefault(open.edited),
+          },
     );
   };
 
   /**
    * Changes the settings as the expert controls do, `change` given them and
-   * what they are planned against, keeping the result as the edited settings.
+   * what they are planned against, keeping the result as the edited
+   * settings; a dither the person has not set follows the depth
+   * (`ditherFollowingDepth`).
    */
   readonly edit = (
     change: (settings: ExportSettings, context: ExportContext) => ExportSettings,
   ): void => {
     this.change((open) => {
-      const settings = change(open.settings, open.context);
-      return { settings, source: { kind: 'edited' }, edited: settings };
+      const { settings, ditherChosen } = ditherFollowingDepth(
+        open.settings,
+        change(open.settings, open.context),
+        open.ditherChosen,
+      );
+      return { settings, source: { kind: 'edited' }, edited: settings, ditherChosen };
     });
   };
 
-  /** Changes the format, as an edit: see `inFormat`. */
+  /**
+   * Changes the format, as an edit: see `inFormat`, whose dither is the new
+   * format's default, so the dither follows the depth again.
+   */
   readonly chooseFormat = (format: ExportFormat): void => {
-    this.edit((settings, context) =>
-      settings.format === format ? settings : inFormat(settings, format, context),
-    );
+    this.change((open) => {
+      if (open.settings.format === format) return open;
+      const settings = inFormat(open.settings, format, open.context);
+      return { settings, source: { kind: 'edited' }, edited: settings, ditherChosen: false };
+    });
   };
 
   /** Changes the range, as an edit: see `overRange`. */
@@ -233,7 +263,9 @@ export class ExportDialogStore implements Observable<ExportDialogState> {
 
   /** Replaces the open dialog's settings, its source and its edits as `change` says, and plans them. */
   private change(
-    change: (open: OpenExportDialog) => Pick<OpenExportDialog, 'settings' | 'source' | 'edited'>,
+    change: (
+      open: OpenExportDialog,
+    ) => Pick<OpenExportDialog, 'settings' | 'source' | 'edited' | 'ditherChosen'>,
   ): void {
     const shown = this.state.get();
     if (shown.kind === 'closed') return;

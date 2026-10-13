@@ -89,6 +89,34 @@ describe('the Export dialog’s settings', () => {
     },
   );
 
+  it('takes the dither a new depth defaults to, until the person sets the dither themselves', () => {
+    const { store } = opened();
+    const depth = (bits: number) => {
+      store.edit(
+        (settings) => ({ ...settings, encoding: { kind: 'integer', bits } }) as ExportSettings,
+      );
+      return shown(store).settings.dither;
+    };
+    const triangular = { kind: 'triangular', amplitude: 1, shaping: 'none', seed: 0 };
+    expect(shown(store).settings.dither).toEqual({ kind: 'none' });
+    expect(depth(16)).toEqual(triangular);
+    expect(depth(8)).toEqual(triangular);
+    expect(depth(20)).toEqual({ kind: 'none' });
+    expect(depth(12)).toEqual(triangular);
+
+    // The person's own dither, even one a default would also be, is theirs at any depth.
+    const own = { kind: 'rectangular', amplitude: 0.5, shaping: 'first-order', seed: 9 } as const;
+    store.edit((settings) => ({ ...settings, dither: own }));
+    expect(depth(24)).toEqual(own);
+    store.edit((settings) => ({ ...settings, dither: { kind: 'none' } }));
+    expect(depth(16)).toEqual({ kind: 'none' });
+
+    // A format chosen afresh takes its own default dither, which then follows the depth again.
+    store.chooseFormat('aiff');
+    store.chooseFormat('wav');
+    expect(depth(16)).toEqual(triangular);
+  });
+
   it('keeps an edit made after a preset, and gives it back after another preset is tried', () => {
     const { store } = opened();
     store.choosePreset({ kind: 'built-in', preset: preset('master-flac') });
