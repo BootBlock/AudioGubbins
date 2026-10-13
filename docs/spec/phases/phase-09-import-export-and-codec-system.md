@@ -113,7 +113,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 - Game/Godot-specific policy layers may depend on generic export contracts, not the reverse.
 - `packages/codecs` depends on the domain alone, and stays portable.
 - `packages/import-export` depends on the domain, the codecs and the engine's contracts, and reads no browser global; `packages/project-format` depends on it and on the codecs for the provenance and export settings it keeps, so `packages/import-export` never depends on the project format (`ADR-0092` amended).
-- `packages/codec-runtime` depends on the codecs and the import-export contracts; only `packages/capabilities` probes the browser's codecs, and only `packages/codec-runtime` calls them.
+- `packages/codec-runtime` depends on the domain, the codecs, the import-export contracts, the capabilities, whose probed codec classes it calls, the version, whose release names AudioGubbins' own encoders, and the diagnostics, whose redaction a module's load failure passes through before the person reads it; only `packages/capabilities` probes the browser's codecs, and only `packages/codec-runtime` calls them, which `tests/architecture/dependency-rules.test.ts` enforces.
 - Only the storage worker writes renditions and staged exports; no sample passes through the page.
 
 ## Required Public Contracts
