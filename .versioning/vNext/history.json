@@ -1,0 +1,351 @@
+{
+  "schema": 1,
+  "entries": [
+    {
+      "id": "73ee99",
+      "kind": "fixed",
+      "text": "On a short tablet screen, the notice that the window is too narrow now fits in the workspace, and its bottom is no longer cut off.",
+      "date": "2026-10-10",
+      "commit": "063c0494",
+      "agent": "claude"
+    },
+    {
+      "id": "439a83",
+      "kind": "added",
+      "text": "Settings has a new Pen and touch tab. There you choose whether pen pressure sets the brush's strength or every stroke uses a fixed strength.",
+      "date": "2026-10-10",
+      "images": [
+        "images/pen-settings.png"
+      ],
+      "commit": "063c0494",
+      "agent": "claude"
+    },
+    {
+      "id": "4c7b39",
+      "kind": "added",
+      "text": "A new Spectral panel, part of the Spectral Repair workspace, lets you attenuate, remove, isolate or heal the selected area, or clean it up with a restoration processor. You can compare each change with how the audio was before, and every change can be undone and is kept with the project.",
+      "date": "2026-10-10",
+      "images": [
+        "images/spectral-panel.png"
+      ],
+      "commit": "063c0494",
+      "agent": "claude"
+    },
+    {
+      "id": "f96c97",
+      "kind": "added",
+      "text": "You can select an area of time and pitch with the spectral marquee, lasso and brush, and combine areas by adding to or taking away from the selection. This works with a mouse, a finger or a pen, and from the keyboard alone.",
+      "date": "2026-10-10",
+      "images": [
+        "images/spectral-selection.png",
+        "images/keyboard-lasso.png"
+      ],
+      "commit": "063c0494",
+      "agent": "claude"
+    },
+    {
+      "id": "67fecd",
+      "kind": "added",
+      "text": "The editor now shows a spectrogram of each channel, at any zoom and for recordings hours long, and it updates after every edit. It works with or without a graphics card.",
+      "date": "2026-10-10",
+      "images": [
+        "images/spectrogram.png"
+      ],
+      "commit": "063c0494",
+      "agent": "claude"
+    },
+    {
+      "id": "2345f0",
+      "kind": "added",
+      "text": "A recording cut short by a crash, a reload, an unplugged microphone or a full disk is offered when you open the project again, with everything saved up to that moment. You can recover it as a take, which says it ended unexpectedly, or discard it.",
+      "date": "2026-10-10",
+      "images": [
+        "images/recovery-offer.png"
+      ],
+      "commit": "1c357d0e",
+      "agent": "claude"
+    },
+    {
+      "id": "a409fa",
+      "kind": "added",
+      "text": "Recordings are kept as take stacks. You can name, annotate, hear, choose, reject, duplicate or branch a take, and removing one never destroys it. You can punch in over a range of a sound with pre-roll and post-roll, record several punch takes, and switch between them at any time. Undo gives back the earlier choice, and no take is lost.",
+      "date": "2026-10-10",
+      "images": [
+        "images/take-stack.png"
+      ],
+      "commit": "1c357d0e",
+      "agent": "claude"
+    },
+    {
+      "id": "7e9ae1",
+      "kind": "added",
+      "text": "You can now record from a microphone or an audio interface straight into a project. Arm the input, record and stop from the new Recorder panel, the palette or the keyboard. Every recording becomes a new sound, saved as it is made. For as long as an input is open, the status bar shows which input it is and whether it is armed, buffering, recording or monitoring. Monitoring stays off until you turn it on, warns you about feedback first, and can run through an effects chain. You can calibrate recording latency with a loopback test or enter it by hand. The Raw/Studio profile asks the browser not to process the sound, and the panel shows what the browser actually allowed.",
+      "date": "2026-10-10",
+      "images": [
+        "images/status-recording.png"
+      ],
+      "commit": "1c357d0e",
+      "agent": "claude"
+    },
+    {
+      "id": "4fdb7c",
+      "kind": "added",
+      "text": "An Analysis panel listens to a sound or a selection and finds clicks, clipping, hum, a DC offset, noise and silence, then recommends the effects to fix them, which you apply when you choose. It can trim the silence at the edges and shorten long pauses, with the threshold and the lengths you set.",
+      "date": "2026-10-09",
+      "images": [
+        "images/analysis-panel.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "a0d6da",
+      "kind": "added",
+      "text": "A Model packs panel installs optional machine-learning effects that run on your own computer, with nothing sent anywhere: DeepFilterNet 3 and MossFormer2 for speech clean-up, and Spleeter to separate a song into stems. Each pack shows its size, licence and how quick or thorough it is, and can be paused, resumed, cancelled, imported from a folder or removed. Opening a project never downloads anything.",
+      "date": "2026-10-09",
+      "images": [
+        "images/model-packs.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "205c60",
+      "kind": "added",
+      "text": "A Library panel keeps the chains and presets you save, and applies one to several sounds or regions in a single step that one undo reverses. Everything in it is there in every project.",
+      "date": "2026-10-09",
+      "images": [
+        "images/library-panel.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "cf7560",
+      "kind": "added",
+      "text": "An Effects rack panel puts effects on your audio without changing the original: apply a chain to a selection, or give a whole sound or a region a rack that follows it through later edits. Twenty-two effects are included (gain, peak and loudness normalisation, equaliser, filter, compressor, limiter, gate, expander, de-esser, delay, pitch shift, reverb, ambisonic encode, rotate and decode, DC-offset removal, de-hum, de-click, de-pop, noise reduction and dereverberation), in series or in parallel groups, each with its own on switch, solo and mix. You hear changes while the sound plays, can compare with before, and can copy and paste effects and chains.",
+      "date": "2026-10-09",
+      "images": [
+        "images/effects-rack.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "5e8f73",
+      "kind": "added",
+      "text": "Regions let you cut one recording into many named sounds. Make one from the selection or with the Region tool, select one by tapping it in the strip above the waveform or with Shift+] and Shift+[, move either end by dragging it or to the playhead, split it, loop part of it, tag it, or open it in a view of its own, where its own processing affects it alone.",
+      "date": "2026-10-05",
+      "images": [
+        "images/editor.png"
+      ],
+      "commit": "250362f",
+      "agent": "claude"
+    },
+    {
+      "id": "7bac1f",
+      "kind": "added",
+      "text": "You can now edit audio without ever changing the original file: cut, copy, paste (converting the sample rate when you ask), delete, trim, split, reverse, silence, fade, change the gain, invert the polarity, swap or copy channels, balance left and right, mix down to mono or make stereo. The Edit menu's \"Time and rate\" group inserts new silence, stretches the sound to another length, and converts its sample rate. Each edit acts on the selection, or on the whole sound when nothing is selected, and every one can be undone.",
+      "date": "2026-10-05",
+      "images": [
+        "images/edit-menu.png",
+        "images/edit-time-and-rate.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "e35e69",
+      "kind": "added",
+      "text": "An Inspector panel shows what you are working on: the selected region or sound, where it came from and its format, every edit made to it, and controls to change its gain, fade it, rename or tag a region and set its loop. Select an effect in a rack and the Inspector shows its settings, each with a slider and a typed value; its time controls insert silence, stretch the sound and convert its sample rate. A control that cannot be used says why beside it.",
+      "date": "2026-10-05",
+      "images": [
+        "images/inspector.png",
+        "images/inspector-rack.png",
+        "images/inspector-time.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "e1b2d6",
+      "kind": "added",
+      "text": "An Assets panel lists the project's audio and the regions made of each, with a short description of each, and opens any of them in the editor.",
+      "date": "2026-10-05",
+      "images": [
+        "images/assets.png"
+      ],
+      "commit": "250362f",
+      "agent": "claude"
+    },
+    {
+      "id": "fe349c",
+      "kind": "added",
+      "text": "You can bring your own audio into a project with \"Import audio…\" in the File menu or the Assets panel. WAV (including RF64 and BW64) and AIFF files are read at the rate they were recorded at, and a file that cannot be read is refused with the reason before anything is kept. \"Quick Edit a file…\" opens a single file to edit straight away in a project of its own, and the banner says which file you are editing.",
+      "date": "2026-10-05",
+      "images": [
+        "images/file-menu.png",
+        "images/banner.png"
+      ],
+      "commit": "250362f",
+      "agent": "claude"
+    },
+    {
+      "id": "2f8d81",
+      "kind": "added",
+      "text": "Saving, opening, backing up and cleaning up projects happen in the background, so the page stays responsive even with a very long history.",
+      "date": "2026-10-02",
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "766496",
+      "kind": "added",
+      "text": "If the browser holds projects saved in a storage format this version cannot read, AudioGubbins stops and says so, and lets you save everything as a file first, decide later, or remove it.",
+      "date": "2026-10-02",
+      "images": [
+        "images/09-compatibility-screen.png"
+      ],
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "0274ef",
+      "kind": "added",
+      "text": "When a linked audio file has changed or gone missing, AudioGubbins says so when the project opens and lets you keep the version the project used, take the new one, or choose another file.",
+      "date": "2026-10-02",
+      "images": [
+        "images/10-relink-prompt-missing-file.png",
+        "images/10-relink-offer-different-file.png"
+      ],
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "fb3bd6",
+      "kind": "added",
+      "text": "A project can be exported as a single bundle file or as a folder, with its whole history or its current state alone, keeping all, some or none of where its audio came from, and brought back in later, as a copy where the original is still here. Exporting into a folder that holds another project asks before replacing it.",
+      "date": "2026-10-02",
+      "images": [
+        "images/08-export-whole-history-leave-all-out.png",
+        "images/10-folder-replace-question.png"
+      ],
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "c4d6b4",
+      "kind": "added",
+      "text": "A Storage panel shows what your projects take up, waveform caches, audio kept for snapshots, undo and other branches, and installed model packs included. A cleanup lists what each step would remove before anything goes, removes a model pack only when you choose it and never one a project needs, and afterwards says what it freed and what it left and why.",
+      "date": "2026-10-02",
+      "images": [
+        "images/07-storage-usage-parts.png",
+        "images/07-storage-cleanup-plan.png",
+        "images/storage-packs.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "5bd190",
+      "kind": "added",
+      "text": "Projects are backed up as you work, by count, age or size in MB, and can be copied to a backups folder you choose. A backup you make by hand is kept until you let it go, deleting a backup asks first, and when a backup cannot be made the status bar says why and offers to try again.",
+      "date": "2026-10-02",
+      "images": [
+        "images/04-backup-keep-megabytes-after-save.png",
+        "images/04-backup-list-manual-protected.png",
+        "images/04-backup-delete-confirmation.png"
+      ],
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "447849",
+      "kind": "added",
+      "text": "A History panel keeps every change you make as a branching history, so undo never throws away what you did after it. Each point says what it changed, snapshots can carry notes, you can show only the changes to one thing, and you can compare any two points or snapshots, see what differs item by item, and hear either side with \"Play the side heard\" without changing either. Very long histories stay quick to scroll.",
+      "date": "2026-10-02",
+      "images": [
+        "images/06-history-rows-affected-and-notes.png",
+        "images/06-history-chosen-point-affected.png",
+        "images/06-history-comparison-entity-by-entity.png",
+        "images/comparison.png"
+      ],
+      "commit": "250362f",
+      "agent": "claude"
+    },
+    {
+      "id": "1db9d4",
+      "kind": "added",
+      "text": "A project open in two tabs is changed in one of them only. The other tab reads it and can ask to change it; it can take the project over only once a request goes unanswered, and the tab that lost it says which tab took it.",
+      "date": "2026-10-02",
+      "images": [
+        "images/02-second-tab-read-only.png",
+        "images/02-second-tab-unanswered.png"
+      ],
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "069cb0",
+      "kind": "added",
+      "text": "Projects are now kept on your own computer, in the browser's private storage: you can make, rename, copy, delete and restore them, and they are there again after a reload or a restart. A project name must have something visible in it.",
+      "date": "2026-10-02",
+      "images": [
+        "images/01-project-renamed-after-reload.png",
+        "images/03-new-project-invisible-name.png"
+      ],
+      "commit": "cfcb8d7",
+      "agent": "claude"
+    },
+    {
+      "id": "ed1195",
+      "kind": "added",
+      "text": "A Picture panel plays a video alongside the audio for sound-to-picture work, staying on the frame of the playhead, with timecode and frame readouts, a choice of frame rate, frame-by-frame nudges, lining the picture up with the playhead, a marker at the current frame and full screen. Its sound can be opened as a recording of its own when you ask for it.",
+      "date": "2026-09-30",
+      "images": [
+        "images/picture.png"
+      ],
+      "commit": "67d2b2d",
+      "agent": "claude"
+    },
+    {
+      "id": "8189e9",
+      "kind": "added",
+      "text": "An Editor panel shows your project's audio as a waveform with a lane for each channel, and you can zoom from the whole recording down to single samples, scroll, select time and channels, snap, and add and move markers with the mouse, a pen, touch or the keyboard, stepping between them with ] and [. You can open several Editor panels on one recording, each with its own zoom and view, sharing the selection, the markers and the playhead, and the editor's text stays readable in the light and dark themes. Markers are kept in the project with the audio.",
+      "date": "2026-09-30",
+      "images": [
+        "images/editor-dark.png",
+        "images/editor-samples.png",
+        "images/editor-light.png"
+      ],
+      "commit": "250362f",
+      "agent": "claude"
+    },
+    {
+      "id": "d1bcd2",
+      "kind": "added",
+      "text": "Settings has a new Audio section: choose a performance profile or set up your own Custom one, choose whether playback and editing come before background work, and choose how renders are processed. Render quality and preview quality are chosen apart, each as Draft, Standard, High or Maximum or as your own settings, and the final render is at Maximum unless you choose otherwise. Before a heavy render, AudioGubbins says which resource may run short and offers a safer way to do it, and you can still go ahead.",
+      "date": "2026-09-29",
+      "images": [
+        "images/audio-settings.png",
+        "images/quality-settings.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    },
+    {
+      "id": "7a63dd",
+      "kind": "added",
+      "text": "A Transport panel plays a test tone through the new audio engine, with Play, Pause and Stop, a position readout, level meters for each channel, a left-and-right correlation meter, a choice of performance profile, and a note of how each part of the audio is being processed. It says which quality you are hearing and why, and whether effects play live or from a cached preview made first, as an effect that measures the whole sound needs. \"Hear the original\" lets you switch between the processed and the original sound. Pause holds the position at the moment you last heard, and Stop returns to where playback began. It can also render the tone offline, which gives the same result on every machine.",
+      "date": "2026-09-29",
+      "images": [
+        "images/transport-playing.png",
+        "images/transport-quality.png",
+        "images/cached-preview.png",
+        "images/hear-original.png"
+      ],
+      "commit": "e99de37",
+      "agent": "claude"
+    }
+  ]
+}
