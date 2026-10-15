@@ -34,3 +34,7 @@ THIRD-PARTY-NOTICES.md
 # Each folder's README.md is ours, and is formatted.
 third_party/*/*
 !third_party/*/README.md
+
+# Written by the desktop application that records user-visible changes, which
+# owns its format. Reformatting it here would fight that writer.
+.versioning/

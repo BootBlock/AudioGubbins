@@ -14,7 +14,7 @@
 | 07 — Recording | `PASS` | 02, 03, 05, 06 | 10 | traceability/handoffs/phase-07.md |
 | 08 — Spectral Editing | `PASS` | 03, 04, 05, 06 | 1 | traceability/handoffs/phase-08.md |
 | 09 — Import, Export, and Codec System | `PASS` | 02, 03, 05, 06 | 3 | traceability/handoffs/phase-09.md |
-| 10 — Game-Audio Tooling | `NOT_READY` | 05, 06, 09 | 5 | — |
+| 10 — Game-Audio Tooling | `READY` | 05, 06, 09 | 5 | — |
 | 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10 | 29 | — |
 | 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09 | 8 | — |
 | 13 — Advanced Batch and Variation Workflows | `NOT_READY` | 05, 06, 09, 10, 11 | 4 | — |

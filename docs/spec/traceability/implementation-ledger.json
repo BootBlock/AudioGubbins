@@ -356,7 +356,7 @@
     "10": {
       "phase": 10,
       "name": "Game-Audio Tooling",
-      "status": "NOT_READY",
+      "status": "READY",
       "hard_dependencies": [
         5,
         6,
