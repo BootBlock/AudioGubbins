@@ -90,13 +90,12 @@ export const Attenuation = {
 export type Attenuation = (typeof Attenuation)[keyof typeof Attenuation];
 
 /**
- * Writes the linear gain distance gives the emitter, `d` from the listener
- * (in 2D, in the plane, z being no part of a 2D position): the
- * exponent model as Godot's 2D player has it, `(1 − d/max)^exponent`, silent
- * from the maximum and flat with none; any other as its 3D player has it
- * (`_get_attenuation_db`, `_update_panning`), the model's decibels capped at
- * the ceiling, then, where there is a maximum distance, faded by `1 − d/max`
- * to silence at it.
+ * Writes the linear gain distance gives the emitter, `d` from the listener (in
+ * 2D, in the plane, z being no part of a 2D position): the exponent model as
+ * Godot's 2D player has it, `(1 − d/max)^exponent`, silent from the maximum and
+ * flat with none; any other as its 3D player has it (`_get_attenuation_db`,
+ * `_update_panning`), the model's decibels capped at the ceiling, then, where
+ * there is a maximum distance, faded by `1 − d/max` to silence at it.
  */
 function distanceGain(space: Space, model: Attenuation, law: Float64Array): void {
   const x = law[EmitterLaw.X] ?? 0;
@@ -156,11 +155,12 @@ function pan(space: Space, law: Float64Array): void {
 }
 
 /**
- * Works out the emitter's law from its position and settings in `law`: the
- * gain distance gives it, its left and right gains, distance and pan
- * together, and its distance filter's gain, `(1 − min(1, m))` of the filter's decibels, where `m` is the linear
- * gain distance gave it (`AudioStreamPlayer3D::_update_panning`), floored as
- * Godot's filter floors it.
+ * Works out the emitter's law from its position and settings in `law`: the gain
+ * distance gives it, its left and right gains, distance and pan together, and
+ * its distance filter's gain, `(1 − min(1, m))` of the filter's decibels, where
+ * `m` is the linear gain distance gave it
+ * (`AudioStreamPlayer3D::_update_panning`), floored as Godot's filter floors
+ * it.
  */
 export function emitterLaw(space: Space, model: Attenuation, law: Float64Array): void {
   distanceGain(space, model, law);

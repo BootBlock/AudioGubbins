@@ -88,9 +88,9 @@ describe('the spatial panner as its emitter moves', () => {
     for (let frame = 1; frame < 9_600; frame += 1) {
       steepest = Math.max(steepest, Math.abs((left?.[frame] ?? 0) - (left?.[frame - 1] ?? 0)));
     }
-    // The left gain's whole swing, about 0.033 of the source here, is
-    // spread over the 10 ms ramp, 480 frames: about 7e-5 a frame. A gain held
-    // for an interval and then stepped would move about 32 times that at once.
+    // The left gain's whole swing, about 0.033 of the source here, is spread
+    // over the 10 ms ramp, 480 frames: about 7e-5 a frame. A gain held for an
+    // interval and then stepped would move about 32 times that at once.
     expect(steepest).toBeLessThan(3e-4);
     expect((left?.[9_000] ?? 0) - (left?.[1_000] ?? 0)).toBeLessThan(-0.02);
   });

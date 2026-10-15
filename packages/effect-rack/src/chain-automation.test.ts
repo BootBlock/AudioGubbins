@@ -1,10 +1,10 @@
 /**
  * A chain's parameters moved along its stream by a plan's automation
- * (ADR-0104): linear between points, given to each processor every 32 frames
- * of the run as the frame it hears, so an automated chain rendered offline is
- * the chain run with the same running changes at the same frames, however
- * its run is cut, wherever its processor sits behind others, and in every
- * measuring pass as in the run.
+ * (ADR-0104): linear between points, given to each processor every 32 frames of
+ * the run as the frame it hears, so an automated chain rendered offline is the
+ * chain run with the same running changes at the same frames, however its run
+ * is cut, wherever its processor sits behind others, and in every measuring
+ * pass as in the run.
  */
 
 import { describe, expect, it } from 'vitest';

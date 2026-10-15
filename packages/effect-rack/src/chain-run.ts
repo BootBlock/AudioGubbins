@@ -2,33 +2,32 @@
  * Running a chain over a stream (ADR-0060): the effect rack's answer to the
  * engine's `ChainProcessing` port.
  *
- * The chain's graph (`chain-graph.ts`) is compiled by the graph's own
- * analysis and run by the engine's executor, its input fed and its output
- * taken a block at a time, so a chain runs on whichever thread runs the
- * engine. A processor that measures its whole input is measured first, one
- * pass over the stream each, in signal order, each pass running the chain
- * with the measurements already made, so each measures what really reaches
- * it. A measurement that fails refuses the chain with its reason: the
- * processor unmeasured would pass its input on, and that would pass for
- * success. A chain whose latency cannot be known is refused, since its output
- * could not be put back where its input was (REQ-ARCH-144).
+ * The chain's graph (`chain-graph.ts`) is compiled by the graph's own analysis
+ * and run by the engine's executor, its input fed and its output taken a block
+ * at a time, so a chain runs on whichever thread runs the engine. A processor
+ * that measures its whole input is measured first, one pass over the stream
+ * each, in signal order, each pass running the chain with the measurements
+ * already made, so each measures what really reaches it. A measurement that
+ * fails refuses the chain with its reason: the processor unmeasured would pass
+ * its input on, and that would pass for success. A chain whose latency cannot
+ * be known is refused, since its output could not be put back where its input
+ * was (REQ-ARCH-144).
  *
  * A pass always hears the stream from its first frame, so every measurement
  * covers the whole stream; the run is then built for the frame its request
- * starts at, which reaches every processor's node, so one that plays back
- * its measurement plays it from there however the run was started.
+ * starts at, which reaches every processor's node, so one that plays back its
+ * measurement plays it from there however the run was started.
  *
- * A chain that runs a processor measuring its whole input, or one that
- * cannot keep to the audio thread's schedule, is heard from a render rather
- * than run as it plays (ADR-0061): the rack says so, naming them, and the
- * engine reads its render. A parameter changed while a chain runs reaches
- * its processor's kernel, which smooths it in, where the processor can take
- * it running.
+ * A chain that runs a processor measuring its whole input, or one that cannot
+ * keep to the audio thread's schedule, is heard from a render rather than run
+ * as it plays (ADR-0061): the rack says so, naming them, and the engine reads
+ * its render. A parameter changed while a chain runs reaches its processor's
+ * kernel, which smooths it in, where the processor can take it running.
  *
- * A run may be given automation of its chain's parameters (`chain-automation.ts`):
- * each automated processor starts at its lane's value and is given the
- * lane's next value every 32 frames of the run, in a run and in every pass
- * alike, so what a pass measures is what the run plays.
+ * A run may be given automation of its chain's parameters
+ * (`chain-automation.ts`): each automated processor starts at its lane's value
+ * and is given the lane's next value every 32 frames of the run, in a run and
+ * in every pass alike, so what a pass measures is what the run plays.
  *
  * The rack's live form runs a chain over an input with no end, as monitoring
  * hears a microphone through one (ADR-0070): made at once, with no pass, and

@@ -152,12 +152,12 @@ export function compiledRun(
 }
 
 /**
- * {@link compiledRun} of the graph `build` makes, its automated processors started at
- * their lanes' values and driven by them from frame `start` of the stream.
- * How late a processor hears the stream is known only once its graph is
- * compiled, so the graph is first built as if every automated processor
- * heard the stream on time, and built again, once, with their starting
- * values read that much earlier where one does not.
+ * {@link compiledRun} of the graph `build` makes, its automated processors
+ * started at their lanes' values and driven by them from frame `start` of the
+ * stream. How late a processor hears the stream is known only once its graph is
+ * compiled, so the graph is first built as if every automated processor heard
+ * the stream on time, and built again, once, with their starting values read
+ * that much earlier where one does not.
  */
 export function automatedRun(
   lanes: readonly AutomationLane[],

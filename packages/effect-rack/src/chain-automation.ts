@@ -1,17 +1,17 @@
 /**
- * A chain's parameters moved along its stream (ADR-0104): the automation a
- * plan gives a chain, as a moving emitter's position is given to its
- * spatial panner, so a motion renders the same offline as it plays.
+ * A chain's parameters moved along its stream (ADR-0104): the automation a plan
+ * gives a chain, as a moving emitter's position is given to its spatial panner,
+ * so a motion renders the same offline as it plays.
  *
- * A lane names one numeric parameter of one processor and its value at
- * frames of the stream, linear between them and held before the first and
- * after the last. The runner gives each lane's processor the lane's value at
- * the frame of the stream the processor hears, every {@link AUTOMATION_INTERVAL}
- * frames counted from the run's start, as a running change it smooths in, so
- * the kernel designs from it at its own design interval, which is the same
- * count from the same first frame. A processor late behind others hears its
- * stream later than the chain's input does, so its lane is read that much
- * earlier, and the parameter moves with the audio it acts on.
+ * A lane names one numeric parameter of one processor and its value at frames
+ * of the stream, linear between them and held before the first and after the
+ * last. The runner gives each lane's processor the lane's value at the frame of
+ * the stream the processor hears, every {@link AUTOMATION_INTERVAL} frames
+ * counted from the run's start, as a running change it smooths in, so the
+ * kernel designs from it at its own design interval, which is the same count
+ * from the same first frame. A processor late behind others hears its stream
+ * later than the chain's input does, so its lane is read that much earlier, and
+ * the parameter moves with the audio it acts on.
  */
 
 import {

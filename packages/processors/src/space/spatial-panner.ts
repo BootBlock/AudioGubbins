@@ -2,18 +2,18 @@
  * Spatial panner: one emitter heard by one listener, as Godot 4 hears it
  * (ADR-0104), so a game's sound is previewed here as the game will play it.
  *
- * The emitter's position is given in the listener's frame, in Godot's axes:
- * in 3D +x to the listener's right, +y up and the listener facing −z; in 2D
- * +x right and +y down the screen. Distance attenuates it by the model chosen,
- * its angle pans it, and, where a distance filter is set, a high shelf cuts
- * its top as it is attenuated (`emitter-laws.ts`, each law Godot's own). A
- * mono emitter is heard on both outputs, each by its own gain; a stereo one
- * has each channel scaled by its own side's gain, as Godot's mixer scales a
- * stereo stream, with no cross-feed. Any other layout is refused: a caller
- * that places one converts it first, and says it is not panned.
+ * The emitter's position is given in the listener's frame, in Godot's axes: in
+ * 3D +x to the listener's right, +y up and the listener facing −z; in 2D +x
+ * right and +y down the screen. Distance attenuates it by the model chosen, its
+ * angle pans it, and, where a distance filter is set, a high shelf cuts its top
+ * as it is attenuated (`emitter-laws.ts`, each law Godot's own). A mono emitter
+ * is heard on both outputs, each by its own gain; a stereo one has each channel
+ * scaled by its own side's gain, as Godot's mixer scales a stereo stream, with
+ * no cross-feed. Any other layout is refused: a caller that places one converts
+ * it first, and says it is not panned.
  *
- * The kernel (`panner-kernel.ts`) designs the law every 32 frames and moves
- * its gains smoothly between designs.
+ * The kernel (`panner-kernel.ts`) designs the law every 32 frames and moves its
+ * gains smoothly between designs.
  */
 
 import {
