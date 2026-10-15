@@ -353,8 +353,36 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'settingsFor',
         'timelineFrameAt',
       ],
-    "The canonical scalar primitives ADR-0061 admits that no processor calls yet, and the bounds of the FFT's sizes, which Phase 06's spectral processors and Phase 08's spectral analysis are the first to size a transform by. The engine's own nodes need none of them.":
-      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'log2'],
+    "The canonical scalar primitive ADR-0061 admits that no processor calls yet, and the smallest of the FFT's sizes, the bound below the sizes a transform is made at. The engine's own nodes need neither.":
+      ['SMALLEST_FFT_SIZE', 'log2'],
+  },
+  '@audiogubbins/loop-analysis': {
+    "The loop analysis's contract (ADR-0103): the request with its bounds and defaults, the analysis and every value it holds, and the audition plans. The detection worker runs the analysis, the Loop panel shows it and plays the auditions, and the Create Seamless Loop workflow plans from it; each is a later unit of this phase, built against this contract.":
+      [
+        'AnalysedLoop',
+        'CrossfadeSuitability',
+        'LOOP_ANALYSIS_VERSION',
+        'LoopAnalysis',
+        'LoopAnalysisRequest',
+        'LoopAudition',
+        'LoopAuditionMode',
+        'LoopCandidate',
+        'LoopMetric',
+        'LoopMetrics',
+        'LoopSearch',
+        'LoopTools',
+        'MOST_CANDIDATES',
+        'MetricUnit',
+        'SHORTEST_LOOP_FRAMES',
+        'SeamReference',
+        'SuggestedCrossfade',
+        'Verdict',
+        'analyseLoop',
+        'defaultLoopSearch',
+        'extendedAuditionPlan',
+        'loopAuditionPlan',
+        'widestRadiusFrames',
+      ],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

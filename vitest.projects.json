@@ -136,6 +136,14 @@
       ]
     },
     {
+      "name": "loop-analysis",
+      "root": "packages/loop-analysis",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "waveform",
       "root": "packages/waveform",
       "environment": "node",
