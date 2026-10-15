@@ -21,6 +21,12 @@
  * sound reads the renders of the chains it cannot run as it plays from
  * (ADR-0061); and a parameter changed while a request plays is sent to its
  * sources, which say whether their chains took it running.
+ *
+ * A request's edited sounds go on into plans that continue theirs without
+ * stopping (ADR-0104): the feeder answers with the frame they went on from,
+ * the first it had not read, or refuses where that is later than the main
+ * thread allowed, saying the frame so the continuation can be made again
+ * from there.
  */
 
 import {
@@ -32,6 +38,7 @@ import {
   numberAt,
   objectsAt,
   oneOf,
+  optionalCountAt,
   optionalTextAt,
   qualityModeAt,
   readMessage,
@@ -73,6 +80,7 @@ export const ToFeederKind = {
   Release: 'release',
   Previews: 'previews',
   Parameters: 'parameters',
+  Continue: 'continue',
 } as const;
 
 /** A message the feeder is sent. */
@@ -136,6 +144,19 @@ export type ToFeeder =
       readonly request: number;
       readonly change: number;
       readonly changes: readonly ParameterChange[];
+    }
+  | {
+      /**
+       * Goes on with request `request`'s edited sounds into `sources`, each
+       * the plan of one of them that continues the one it plays, where every
+       * one of them can go on at or before timeline frame `from`; answered as
+       * `continuation`.
+       */
+      readonly kind: typeof ToFeederKind.Continue;
+      readonly request: number;
+      readonly continuation: number;
+      readonly from: number;
+      readonly sources: readonly SourceDescription[];
     };
 
 /** The kinds of message the feeder sends. */
@@ -146,6 +167,8 @@ export const FromFeederKind = {
   FeedFailed: 'feed-failed',
   Fault: 'fault',
   ParametersTaken: 'parameters-taken',
+  Continued: 'continued',
+  ContinuationRefused: 'continuation-refused',
 } as const;
 
 /** A message the feeder sends. */
@@ -192,6 +215,22 @@ export type FromFeeder =
       readonly kind: typeof FromFeederKind.ParametersTaken;
       readonly change: number;
       readonly refusals: readonly FailureSummary[];
+    }
+  | {
+      /** Continuation `continuation` was taken: its sounds go on into their new plans from `frame`. */
+      readonly kind: typeof FromFeederKind.Continued;
+      readonly continuation: number;
+      readonly frame: number;
+    }
+  | {
+      /**
+       * Continuation `continuation` was not taken, for every reason given;
+       * `frame` is the first frame the feeder had not read, where it knew it.
+       */
+      readonly kind: typeof FromFeederKind.ContinuationRefused;
+      readonly continuation: number;
+      readonly frame: number | undefined;
+      readonly failures: readonly [FailureSummary, ...FailureSummary[]];
     };
 
 function parameterChangeFrom(fields: MessageFields): ParameterChange {
@@ -249,6 +288,14 @@ function toFeederFrom(fields: MessageFields): ToFeeder {
         change: countAt(fields, 'change'),
         changes: objectsAt(fields, 'changes', parameterChangeFrom),
       };
+    case ToFeederKind.Continue:
+      return {
+        kind,
+        request: countAt(fields, 'request'),
+        continuation: countAt(fields, 'continuation'),
+        from: countAt(fields, 'from'),
+        sources: objectsAt(fields, 'sources', sourceFrom),
+      };
   }
 }
 
@@ -285,6 +332,19 @@ function fromFeederFrom(fields: MessageFields): FromFeeder {
         kind,
         change: countAt(fields, 'change'),
         refusals: objectsAt(fields, 'refusals', failureSummaryOf),
+      };
+    case FromFeederKind.Continued:
+      return {
+        kind,
+        continuation: countAt(fields, 'continuation'),
+        frame: countAt(fields, 'frame'),
+      };
+    case FromFeederKind.ContinuationRefused:
+      return {
+        kind,
+        continuation: countAt(fields, 'continuation'),
+        frame: optionalCountAt(fields, 'frame'),
+        failures: nonEmptyObjectsAt(fields, 'failures', failureSummaryOf),
       };
   }
 }

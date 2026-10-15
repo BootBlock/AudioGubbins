@@ -176,6 +176,13 @@ function everyToFeeder(): readonly ToFeeder[] {
         },
       ],
     },
+    {
+      kind: ToFeederKind.Continue,
+      request: 4,
+      continuation: 2,
+      from: 96_000,
+      sources: [{ node: IN, ...EDITED }],
+    },
   ];
 }
 
@@ -201,6 +208,19 @@ const EVERY_FROM_FEEDER: readonly FromFeeder[] = [
     kind: FromFeederKind.ParametersTaken,
     change: 4,
     refusals: [{ code: 'playback.parameter-rendered', summary: 'Made with the value before.' }],
+  },
+  { kind: FromFeederKind.Continued, continuation: 2, frame: 91_520 },
+  {
+    kind: FromFeederKind.ContinuationRefused,
+    continuation: 3,
+    frame: 97_280,
+    failures: [{ code: 'playback.continuation-too-late', summary: 'Read past it.' }],
+  },
+  {
+    kind: FromFeederKind.ContinuationRefused,
+    continuation: 4,
+    frame: undefined,
+    failures: [{ code: 'playback.continuation-unloaded', summary: 'Nothing to go on from.' }],
   },
 ];
 
@@ -310,6 +330,11 @@ describe('the feeder protocol', () => {
       'ring',
     ],
     ['a start from a fractional frame', { kind: 'start', run: 1, from: 0.5 }, 'from'],
+    [
+      'a continuation from a fractional frame',
+      { kind: 'continue', request: 1, continuation: 1, from: 0.5, sources: [] },
+      'from',
+    ],
     ['a release of no request', { kind: 'release' }, 'request'],
     ['not an object', 'stop', 'body'],
   ])('refuses a message to the feeder with %s, naming the field', (_case, value, field) => {
@@ -323,6 +348,16 @@ describe('the feeder protocol', () => {
       'sources refused for no reason',
       { kind: 'sources-refused', request: 1, failures: [] },
       'failures',
+    ],
+    [
+      'a continuation refused for no reason',
+      { kind: 'continuation-refused', continuation: 1, failures: [] },
+      'failures',
+    ],
+    [
+      'a continuation taken at no frame',
+      { kind: 'continued', continuation: 1, frame: -1 },
+      'frame',
     ],
     [
       'sources made without saying whether the DSP is used',
