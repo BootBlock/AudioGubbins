@@ -906,7 +906,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37435: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37449: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1198,7 +1198,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37435: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37449: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3582,6 +3582,7 @@ Published paths
   function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
   function treatmentValues(descriptor: ProcessorDescriptor, step: TreatmentStep): DomainResult<ParameterValues>
   function unheardLive(descriptor: ProcessorDescriptor): string | undefined
+  function uniformDraw(key: number, stream: number, index: number): number
   function unrackedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function unrackedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>

@@ -19,8 +19,8 @@
  */
 
 import { quantiseSample, type SamplePlane } from '@audiogubbins/codecs';
+import { uniformDraw } from '@audiogubbins/domain';
 
-import { uniformDraw } from './dither-noise.js';
 import type { DitherSettings } from './export-settings.js';
 import { shapingCoefficients } from './noise-shaping.js';
 
