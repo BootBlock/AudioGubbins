@@ -76,7 +76,14 @@
       "adr/ADR-0090-codec-registry-and-decoded-renditions.md",
       "adr/ADR-0091-codec-implementations-and-licences.md",
       "adr/ADR-0092-export-jobs-settings-and-destinations.md",
-      "adr/ADR-0093-metadata-loops-and-channel-layouts-in-files.md"
+      "adr/ADR-0093-metadata-loops-and-channel-layouts-in-files.md",
+      "adr/ADR-0100-game-audio-package-topology.md",
+      "adr/ADR-0101-asset-groups-and-inherited-policy.md",
+      "adr/ADR-0102-naming-templates-export-profiles-and-destinations.md",
+      "adr/ADR-0103-loop-analysis-suggestions-and-loop-crossfades.md",
+      "adr/ADR-0104-game-preview-simulator.md",
+      "adr/ADR-0105-guided-workflows-as-command-plans.md",
+      "adr/ADR-0106-game-audio-persistence-and-state-ownership.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",
