@@ -445,6 +445,29 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The game-audio domain as values (ADR-0100): asset groups, inherited
+    // policy resolved with its provenance (ADR-0101), naming templates, game
+    // export profiles and the game export plan (ADR-0102), and the game
+    // preview's rules, seeded selection, voices and plan (ADR-0104). It reads
+    // no clock, browser global or thread, and knows nothing of Godot.
+    dir: 'packages/game-audio',
+    name: '@audiogubbins/game-audio',
+    description:
+      'Game audio as values: asset groups, inherited policy and its provenance, naming templates, game export profiles and the game preview.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      // The export settings, presets and template grammar a game export
+      // profile and a naming template are made of.
+      '@audiogubbins/import-export',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The multi-resolution peak pyramid, made off the page by the peak worker
     // and shared among views by source identity and revision, with its
     // disposable cache format and the zero-crossing search (ADR-0040,

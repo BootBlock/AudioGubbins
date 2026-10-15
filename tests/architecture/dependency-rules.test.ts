@@ -234,6 +234,11 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/audio-engine',
     '@audiogubbins/codecs',
   ],
+  '@audiogubbins/game-audio': [
+    '@audiogubbins/domain',
+    '@audiogubbins/import-export',
+    '@audiogubbins/audio-engine',
+  ],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
     '@audiogubbins/domain',
@@ -398,6 +403,7 @@ const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'clipboard',
   'codecs',
   'diagnostics',
+  'game-audio',
   'history',
   'media-store',
   'project-commands',
@@ -881,6 +887,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'domain',
     'editor-view',
     'effect-rack',
+    'game-audio',
     'history',
     'import-export',
     'input',

@@ -356,7 +356,14 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * An entry leaves the list once a module takes it, as the rule that lists
  * only what no module takes holds.
  */
-const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {};
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
+  "A member's name and export settings from its group's naming and profile (ADR-0102), built ahead of the game export plan and the region naming that take them for each member they plan.":
+    [
+      'packages/game-audio/src/export/member-export-settings.ts: memberExportSettings',
+      'packages/game-audio/src/export/member-naming.ts: NamingValues',
+      'packages/game-audio/src/export/member-naming.ts: expandNaming',
+    ],
+};
 
 /**
  * Each export of a test-support module that no test takes by name, under the
