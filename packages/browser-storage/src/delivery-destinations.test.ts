@@ -146,7 +146,9 @@ describe('an export’s destinations in the browser', () => {
   it('stops making folders when cancelled, taking back what it made', async () => {
     const root = new FakeDirectoryHandle('Game sounds', []);
     const controller = new AbortController();
+    const making: string[] = [];
     root.refuseMaking = (name) => {
+      making.push(name);
       if (name === 'ui') controller.abort(new Error('Called off.'));
       return undefined;
     };
@@ -154,6 +156,7 @@ describe('an export’s destinations in the browser', () => {
     const deeper = await (await (await folder.folder('sfx'))?.folder('ui'))?.folder('clicks');
 
     await expect(deeper?.create('Click.wav', controller.signal)).rejects.toThrow('Called off.');
+    expect(making).toEqual(['sfx', 'ui']);
     expect(await folder.list()).toEqual([]);
     await expect(folder.folder('sfx', controller.signal)).rejects.toThrow('Called off.');
   });
