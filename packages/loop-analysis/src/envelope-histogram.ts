@@ -1,8 +1,8 @@
 /**
  * The loop's 10 ms dB envelope as a histogram of fixed resolution (the plan's
- * candidate search, step 2): 0.1 dB bins from −120 to +12 dBFS, so the
- * median and median absolute deviation of every candidate's envelope are read
- * from counts, whatever the loop's length, rather than from every step kept.
+ * candidate search, step 2): 0.1 dB bins from −120 to +12 dBFS, so the median
+ * and median absolute deviation of every candidate's envelope are read from
+ * counts, whatever the loop's length, rather than from every step kept.
  */
 
 import { gainToDecibels } from '@audiogubbins/audio-engine';

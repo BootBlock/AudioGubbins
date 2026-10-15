@@ -1,8 +1,8 @@
 /**
  * The W-frame windows either side of a pair's seam, read from what the pass
- * kept: the tail the engine plays before it jumps, the head it plays after,
- * and the audio the region has after E and before S. A loop under 256
- * frames is read around itself, so its tail and head are the loop repeated.
+ * kept: the tail the engine plays before it jumps, the head it plays after, and
+ * the audio the region has after E and before S. A loop under 256 frames is
+ * read around itself, so its tail and head are the loop repeated.
  */
 
 import type { LoopCapture } from './loop-capture.js';
@@ -27,11 +27,10 @@ export interface SeamWindows {
 }
 
 /**
- * `count` frames of the loop `[start, start + length)` read around itself
- * from loop frame `offset`. Within one cycle they are at most two runs, one
- * ending at E and one starting at S, each kept around its boundary; more than
- * a cycle is only asked of a loop shorter than the margin kept, which is kept
- * whole.
+ * `count` frames of the loop `[start, start + length)` read around itself from
+ * loop frame `offset`. Within one cycle they are at most two runs, one ending
+ * at E and one starting at S, each kept around its boundary; more than a cycle
+ * is only asked of a loop shorter than the margin kept, which is kept whole.
  */
 export function cyclicFrames(
   capture: LoopCapture,

@@ -1,17 +1,17 @@
 /**
  * Auditioning a loop by cycling it (ADR-0103, "Audition by cycling"): a plan
- * whose first stream is segments of the region's own sound, so what is heard
- * is exactly what the region's plan makes, its loop's crossfade included.
+ * whose first stream is segments of the region's own sound, so what is heard is
+ * exactly what the region's plan makes, its loop's crossfade included.
  *
  * - `cycles`: a lead-in of up to a second before S, then S to E repeated.
- * - `seam`: the frames either side of the seam, E − side to E then S to
- *   S + side, repeated: the jump heard again and again.
+ * - `seam`: the frames either side of the seam, E − side to E then S to S +
+ *   side, repeated: the jump heard again and again.
  *
- * The region's plan becomes the audition's second stream onwards, every
- * stream it names renumbered one on, so a candidate is auditioned from a plan
- * whose loop is the candidate's without writing it to the region. An
- * audition is extended by more cycles without changing a stream or any
- * segment before its old end, so a programme playing it continues gaplessly.
+ * The region's plan becomes the audition's second stream onwards, every stream
+ * it names renumbered one on, so a candidate is auditioned from a plan whose
+ * loop is the candidate's without writing it to the region. An audition is
+ * extended by more cycles without changing a stream or any segment before its
+ * old end, so a programme playing it continues gaplessly.
  */
 
 import {

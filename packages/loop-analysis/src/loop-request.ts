@@ -3,8 +3,8 @@
  * in region frames, and whether to search for better boundaries.
  *
  * The request is checked once against the region it is read from, here, so
- * every later step reads a loop it knows lies inside the region and a search
- * it knows is bounded.
+ * every later step reads a loop it knows lies inside the region and a search it
+ * knows is bounded.
  */
 
 import {
@@ -108,8 +108,8 @@ function loopProblem(loop: AnalysedLoop, regionLength: number): DomainResult<nev
     crossfadeLength < 0 ||
     crossfadeLength > Math.min(start, end - start)
   ) {
-    // A placed loop's crossfade is clamped to the audio before its start and
-    // to the loop, so one beyond either did not come from a region's plan.
+    // A placed loop's crossfade is clamped to the audio before its start and to
+    // the loop, so one beyond either did not come from a region's plan.
     return refused(
       'loop.crossfade-without-lead',
       "A loop's crossfade spans at most the audio before its start and the loop itself.",

@@ -1,16 +1,16 @@
 /**
  * A loop analysis (ADR-0103, `REQ-GAME-121`): the seam of a region's loop
- * measured on the audio the engine plays, and on request the boundaries
- * nearby that would loop better.
+ * measured on the audio the engine plays, and on request the boundaries nearby
+ * that would loop better.
  *
- * It is given the region's audio twice, as sources it reads in bounded
- * chunks: `heard`, with the loop's crossfade as the region's plan realises it,
- * which the loop's own metrics measure; and `plain`, without it, which the
+ * It is given the region's audio twice, as sources it reads in bounded chunks:
+ * `heard`, with the loop's crossfade as the region's plan realises it, which
+ * the loop's own metrics measure; and `plain`, without it, which the
  * crossfade's suitability and every candidate are measured on. It is pure and
  * deterministic: the same audio, request and algorithm version give the same
- * result on every machine, and it returns a value. Applying a candidate is
- * the person's command; a refused, failed or cancelled analysis is a failure
- * result and changes nothing.
+ * result on every machine, and it returns a value. Applying a candidate is the
+ * person's command; a refused, failed or cancelled analysis is a failure result
+ * and changes nothing.
  */
 
 import {
@@ -282,8 +282,8 @@ export async function analyseLoop(
     progress.finish();
     return succeed(analysis);
   } catch (error: unknown) {
-    // The two ways audio ends an analysis: a refusal from the reading, and
-    // the caller's cancellation. Anything else is a fault and leaves as it came.
+    // The two ways audio ends an analysis: a refusal from the reading, and the
+    // caller's cancellation. Anything else is a fault and leaves as it came.
     if (error instanceof LoopRefused) return fail(error.refusal);
     if (tools.signal.aborted) {
       return fail(

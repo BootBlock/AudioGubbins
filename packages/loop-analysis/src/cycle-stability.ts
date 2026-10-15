@@ -2,20 +2,20 @@
  * How steady a loop is across its seam and over its cycle (the plan's
  * `cycleStability`), from the 10 ms dB envelope the pass kept.
  *
- * - `seam`: the level of the 10 ms the engine plays across the seam, the last
- *   5 ms before E and the first 5 ms from S, against the median of the loop's
- *   envelope, in robust deviations, `|e_seam − median| ÷ max(1.4826 · MAD,
- *   0.05 dB)`: a seam that dips or jumps against a level the loop otherwise
- *   holds.
+ * - `seam`: the level of the 10 ms the engine plays across the seam, the last 5
+ *   ms before E and the first 5 ms from S, against the median of the loop's
+ *   envelope, in robust deviations,
+ *   `|e_seam − median| ÷ max(1.4826 · MAD, 0.05 dB)`: a seam that dips or jumps
+ *   against a level the loop otherwise holds.
  * - `drift`: how the level a repeat jumps between differs from the level the
- *   region's own audio moves between, over `q = max(L/8, 100 ms)`, at most
- *   half the loop: a loop that fades or swells, which a repeat makes a jump.
- *   Compared, as every seam metric is, with what should follow E or precede
- *   S where the region has it: the mean level of the loop's first `q`
- *   against the `q` after E (`post-end`), or of the `q` before S against the
- *   loop's last `q` (`pre-start`), so a drum loop's hit after its decay is no
- *   drift where the region's own audio hits there too; and the loop's first
- *   `q` against its last only where the region has neither (`adjacent`).
+ *   region's own audio moves between, over `q = max(L/8, 100 ms)`, at most half
+ *   the loop: a loop that fades or swells, which a repeat makes a jump.
+ *   Compared, as every seam metric is, with what should follow E or precede S
+ *   where the region has it: the mean level of the loop's first `q` against the
+ *   `q` after E (`post-end`), or of the `q` before S against the loop's last
+ *   `q` (`pre-start`), so a drum loop's hit after its decay is no drift where
+ *   the region's own audio hits there too; and the loop's first `q` against its
+ *   last only where the region has neither (`adjacent`).
  *
  * An envelope step counts where it lies whole inside the loop.
  */

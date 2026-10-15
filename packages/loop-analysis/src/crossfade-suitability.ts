@@ -1,12 +1,12 @@
 /**
  * How well a crossfade suits a seam (the plan's `crossfade` metric): from the
  * audio without the loop's crossfade, the energy-weighted multichannel
- * correlation ρ of the span that fades out, x[E−C, E), and the span that
- * fades in, x[S−C, S); then for each of the domain's fade shapes, with the
- * domain's own gains g_o and g_i at each frame of the fade, the level change
+ * correlation ρ of the span that fades out, x[E−C, E), and the span that fades
+ * in, x[S−C, S); then for each of the domain's fade shapes, with the domain's
+ * own gains g_o and g_i at each frame of the fade, the level change
  * `10 · log10((g_o²·A + g_i²·B + 2ρ·g_o·g_i·√(AB)) ÷ ((1 − t)·A + t·B))`
- * against a level moving straight from one span's power A to the other's B.
- * The shape whose largest change is smallest suits it best.
+ * against a level moving straight from one span's power A to the other's B. The
+ * shape whose largest change is smallest suits it best.
  */
 
 import { log10 } from '@audiogubbins/audio-engine';
@@ -45,9 +45,9 @@ export interface SpanPair {
 }
 
 /**
- * The sums a span pair is made from, added a chunk at a time, in channel
- * order and then frame order within each chunk, so a crossfade longer than
- * any one read is measured without holding it.
+ * The sums a span pair is made from, added a chunk at a time, in channel order
+ * and then frame order within each chunk, so a crossfade longer than any one
+ * read is measured without holding it.
  */
 export class SpanPairSums {
   #frames = 0;

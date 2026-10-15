@@ -1,7 +1,7 @@
 /**
- * What another package's tests may take from the loop analysis's test
- * support: the loops with known seams the golden suite pins, so the detection
- * worker's and the workflows' tests analyse the same audio.
+ * What another package's tests may take from the loop analysis's test support:
+ * the loops with known seams the golden suite pins, so the detection worker's
+ * and the workflows' tests analyse the same audio.
  */
 
 export {

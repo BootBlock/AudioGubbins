@@ -3,19 +3,19 @@
  * `discontinuity`): the click detector's residual (`clicks.ts` through the
  * canonical port: an order-16 prediction-error filter fitted by Burg's method
  * over the stream, each sample's residual, and the stream's median and median
- * absolute deviation) at the seam's frames, in MADs. In MADs, it does not
- * scale with the sample rate or the level.
+ * absolute deviation) at the seam's frames, in MADs. In MADs, it does not scale
+ * with the sample rate or the level.
  *
- * The MAD is floored at the detector's own 2⁻²⁴, and at the stream's RMS
- * 60 dB down, the level the DC metrics also pass at. A pure tone is predicted
- * almost exactly, so its MAD is the noise of rounding, and against that any
- * change, even a crossfade's glide 50 dB under the tone, would read as
- * thousands of deviations; 60 dB under the level of what plays, a residual is
- * below what is heard over it.
+ * The MAD is floored at the detector's own 2⁻²⁴, and at the stream's RMS 60 dB
+ * down, the level the DC metrics also pass at. A pure tone is predicted almost
+ * exactly, so its MAD is the noise of rounding, and against that any change,
+ * even a crossfade's glide 50 dB under the tone, would read as thousands of
+ * deviations; 60 dB under the level of what plays, a residual is below what is
+ * heard over it.
  *
  * A seam's frames are the 16 from the first after it: each one's prediction
- * reads across the seam. A jump shows at the first; a turn at a zero, where
- * the first frame is as predicted, shows at the next.
+ * reads across the seam. A jump shows at the first; a turn at a zero, where the
+ * first frame is as predicted, shows at the next.
  */
 
 import { DetectorKind } from '@audiogubbins/audio-engine';
@@ -40,8 +40,8 @@ export function seamFrames(at: number): readonly number[] {
 const RECORD_WIDTH = 4;
 
 /**
- * For each channel of `stream` (one array per channel, all of one length),
- * the largest deviation in MADs of the residual at any of `atFrames`.
+ * For each channel of `stream` (one array per channel, all of one length), the
+ * largest deviation in MADs of the residual at any of `atFrames`.
  */
 export function seamDeviations(
   kit: MeasuringKit,

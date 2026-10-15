@@ -1,11 +1,11 @@
 /**
  * The public contract of @audiogubbins/loop-analysis (ADR-0100, ADR-0103).
  *
- * Seamless-loop analysis over a region's audio, read through the sources it
- * is given in bounded chunks: the seam's metrics with their verdicts, the
- * search for candidate boundaries with the micro-crossfades that make them
- * pass, and the plans that audition a loop by cycling it. It runs in the
- * detection worker, returns values and applies nothing.
+ * Seamless-loop analysis over a region's audio, read through the sources it is
+ * given in bounded chunks: the seam's metrics with their verdicts, the search
+ * for candidate boundaries with the micro-crossfades that make them pass, and
+ * the plans that audition a loop by cycling it. It runs in the detection
+ * worker, returns values and applies nothing.
  */
 
 export {

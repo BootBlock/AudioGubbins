@@ -6,16 +6,16 @@
  * A Welch average here is the canonical FFT of `N` samples, the largest power
  * of two within the window, weighted by the four-term Blackman–Harris window,
  * `N/2` apart, at least one frame, each bin's power `re² + im²` averaged over
- * the frames in order. The window is read less its mean: DC is the DC
- * metrics' to measure, and through the window's main lobe it would otherwise
- * count again in the lowest band and pass for a partial.
+ * the frames in order. The window is read less its mean: DC is the DC metrics'
+ * to measure, and through the window's main lobe it would otherwise count again
+ * in the lowest band and pass for a partial.
  *
- * A band's power is floored before the logarithm at `10⁻⁹ · N`, so two
- * silent windows compare as equal, and at the louder window's total power
- * 60 dB down, the level the DC metrics and the discontinuity also stop at: a
- * tone's empty bands hold only the window's leakage, 90 dB under it, whose
- * shape moves with the tone's phase, and compared there two windows of one
- * tone would differ by 10 dB in bands nothing is heard in.
+ * A band's power is floored before the logarithm at `10⁻⁹ · N`, so two silent
+ * windows compare as equal, and at the louder window's total power 60 dB down,
+ * the level the DC metrics and the discontinuity also stop at: a tone's empty
+ * bands hold only the window's leakage, 90 dB under it, whose shape moves with
+ * the tone's phase, and compared there two windows of one tone would differ by
+ * 10 dB in bands nothing is heard in.
  */
 
 import { log10 } from '@audiogubbins/audio-engine';

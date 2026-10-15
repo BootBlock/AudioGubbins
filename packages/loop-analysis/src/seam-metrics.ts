@@ -94,11 +94,11 @@ function rmsOf(samples: Float32Array): number {
 }
 
 /**
- * The spans whose weighted means the DC mismatch compares by `reference`:
- * as long as the DC span, the loop and the audio the reference reads allow.
- * The loop's own tail and head are read around the loop, as the engine plays
- * them, so a loop shorter than the span has one DC, never two halves of a
- * cycle compared as if they were offsets.
+ * The spans whose weighted means the DC mismatch compares by `reference`: as
+ * long as the DC span, the loop and the audio the reference reads allow. The
+ * loop's own tail and head are read around the loop, as the engine plays them,
+ * so a loop shorter than the span has one DC, never two halves of a cycle
+ * compared as if they were offsets.
  */
 function dcSpans(
   capture: LoopCapture,

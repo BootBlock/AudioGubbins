@@ -1,14 +1,15 @@
 /**
- * The pairs of boundaries a search measures (the plan's candidate search,
- * steps 1, 3 and 4), at most 512, found from what the pass kept.
+ * The pairs of boundaries a search measures (the plan's candidate search, steps
+ * 1, 3 and 4), at most 512, found from what the pass kept.
  *
- * Starts S′ lie within R of S and ends E′ within R of E, inside the region,
- * at least 256 frames apart. Without the length kept, the start anchors are
- * each channel's sign changes, the 64 nearest S (the 64 nearest frames where
- * no channel changes sign), and each anchor's best 8 ends by the multichannel
+ * Starts S′ lie within R of S and ends E′ within R of E, inside the region, at
+ * least 256 frames apart. Without the length kept, the start anchors are each
+ * channel's sign changes, the 64 nearest S (the 64 nearest frames where no
+ * channel changes sign), and each anchor's best 8 ends by the multichannel
  * normalised cross-correlation of its neighbourhood, w = min(256, W) frames
- * either side, over the end window (`end-correlation.ts`). With the length kept, every start is scored at E′ = S′ + L, the
- * numerator a running sum of products, and the best 512 kept.
+ * either side, over the end window (`end-correlation.ts`). With the length
+ * kept, every start is scored at E′ = S′ + L, the numerator a running sum of
+ * products, and the best 512 kept.
  *
  * Audio outside the region is left out of every sum: it reads as zero.
  */

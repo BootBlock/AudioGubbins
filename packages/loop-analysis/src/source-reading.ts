@@ -1,7 +1,7 @@
 /**
  * Reading a region's audio for a loop analysis: in chunks of at most 32,768
- * frames, through the source it is given, with the cancellation checked and
- * the host given its turn between chunks (`CLAUDE.md` G4).
+ * frames, through the source it is given, with the cancellation checked and the
+ * host given its turn between chunks (`CLAUDE.md` G4).
  *
  * A chunk that cannot be read, or holds a sample that is not finite, ends the
  * analysis with a refusal rather than a measurement of audio it did not have:
@@ -79,8 +79,8 @@ async function readExactly(
   try {
     read = await source.read(from.value, into, signal);
   } catch (error: unknown) {
-    // A cancellation is the caller's, and leaves as it came; any other error
-    // is the source's, and becomes the analysis's refusal with its reason.
+    // A cancellation is the caller's, and leaves as it came; any other error is
+    // the source's, and becomes the analysis's refusal with its reason.
     throwIfCancelled(signal);
     throw new LoopRefused(
       failure('loop.read-failed', FailureKind.Retryable, 'The region could not be read.', {
@@ -113,8 +113,8 @@ export async function readChunk(
 }
 
 /**
- * Reads frames `[from, to)` of `source` a chunk at a time, every sample
- * checked finite, handing each chunk and its first frame to `hear`.
+ * Reads frames `[from, to)` of `source` a chunk at a time, every sample checked
+ * finite, handing each chunk and its first frame to `hear`.
  */
 export async function streamFrames(
   source: PcmSource,

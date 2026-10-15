@@ -2,14 +2,14 @@
  * One cost over a candidate's metrics and how far it moved (the plan's
  * candidate search, steps 5 and 6), and the order candidates are offered in.
  *
- * `J = discontinuity/4 + levelMismatch/1 + spectralMismatch/1.5 +
- * phaseMismatch/15 + 10^((dcMismatch + 60)/20) + cycleStability.seam/3 +
- * 0.25 · (|S′ − S| + |E′ − E|) / R`: each metric over the value at which it
- * stops passing, so each counts one at its threshold, the DC mismatch as a
- * gain, since its dBFS fall without bound, and a metric not applicable
- * adding nothing. Ties fall to the smaller move, then the earlier start, then
- * the earlier end, so the same audio, settings and algorithm version give the
- * same list.
+ * The cost J is the sum of `discontinuity/4`, `levelMismatch/1`,
+ * `spectralMismatch/1.5`, `phaseMismatch/15`, `10^((dcMismatch + 60)/20)`,
+ * `cycleStability.seam/3` and `0.25 · (|S′ − S| + |E′ − E|) / R`: each metric
+ * over the value at which it stops passing, so each counts one at its
+ * threshold, the DC mismatch as a gain, since its dBFS fall without bound, and
+ * a metric not applicable adding nothing. Ties fall to the smaller move, then
+ * the earlier start, then the earlier end, so the same audio, settings and
+ * algorithm version give the same list.
  */
 
 import { decibelsToGain } from '@audiogubbins/audio-engine';

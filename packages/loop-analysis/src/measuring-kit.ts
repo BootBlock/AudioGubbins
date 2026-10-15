@@ -1,8 +1,8 @@
 /**
  * What one analysis measures with: the canonical DSP it was given, and the
- * windows, transforms and band layouts it makes from it, each made once for
- * the analysis's life however many pairs it measures (`CLAUDE.md` G5), and
- * released with it.
+ * windows, transforms and band layouts it makes from it, each made once for the
+ * analysis's life however many pairs it measures (`CLAUDE.md` G5), and released
+ * with it.
  */
 
 import type { CanonicalDsp, CanonicalFft } from '@audiogubbins/audio-engine';

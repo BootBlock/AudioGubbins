@@ -5,10 +5,10 @@
  * the crossfaded audio, `[E−C−W, E) ∪ [S, S+W)`, as the region's plan would
  * realise it: the last C frames of the loop become its end faded out summed
  * with the C frames before its start faded in, by the domain's gains. A
- * crossfade passes where the discontinuity at the fade's start and at the
- * seam passes, the level change of its shape passes, and the faded audio's
- * spectrum against the audio before S passes. The shortest length that
- * passes is suggested, with its shape that changes the level least.
+ * crossfade passes where the discontinuity at the fade's start and at the seam
+ * passes, the level change of its shape passes, and the faded audio's spectrum
+ * against the audio before S passes. The shortest length that passes is
+ * suggested, with its shape that changes the level least.
  */
 
 import { gainAt, type FadeShape } from '@audiogubbins/domain';

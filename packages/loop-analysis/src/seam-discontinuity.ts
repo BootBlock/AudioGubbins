@@ -1,16 +1,16 @@
 /**
  * The discontinuity of a seam: how far the residual at the seam of what the
- * engine plays, the tail then the head, stands out of that stream, beyond
- * how far it stands out where the region's own audio is joined.
+ * engine plays, the tail then the head, stands out of that stream, beyond how
+ * far it stands out where the region's own audio is joined.
  *
  * A seam is compared with what should be there, as every seam metric is
- * (ADR-0103): the tail then the audio after E, and the audio before S then
- * the head, where the region has them. Whichever natural join stands out
- * less is subtracted, so a drum loop whose head is a hit after its decay is
- * not a discontinuity where the region's own audio hits there too, while a
- * click on either side of the seam, which only one of the two natural joins
- * also has, still is. A loop with neither, a whole-sound loop, is measured on
- * the played stream alone.
+ * (ADR-0103): the tail then the audio after E, and the audio before S then the
+ * head, where the region has them. Whichever natural join stands out less is
+ * subtracted, so a drum loop whose head is a hit after its decay is not a
+ * discontinuity where the region's own audio hits there too, while a click on
+ * either side of the seam, which only one of the two natural joins also has,
+ * still is. A loop with neither, a whole-sound loop, is measured on the played
+ * stream alone.
  */
 
 import type { SeamPlace } from './loop-windows.js';
@@ -34,8 +34,8 @@ function joined(first: Float32Array, second: Float32Array): Float32Array {
 }
 
 /**
- * Each channel's discontinuity: the played stream's deviation at
- * `seamFrames`, less the smaller of the natural joins' at the same frames.
+ * Each channel's discontinuity: the played stream's deviation at `seamFrames`,
+ * less the smaller of the natural joins' at the same frames.
  */
 export function discontinuityOf(
   kit: MeasuringKit,

@@ -3,9 +3,9 @@
  * everything measuring the loop, or any pair of boundaries within the search's
  * radius R of it, needs, read once in chunks so no pair reads audio again.
  *
- * It keeps three things. The samples within R and a measuring margin M of
- * each boundary, where every seam window, DC span and fade a pair reads lies.
- * The running sum of each channel at every frame within R of a boundary, so a
+ * It keeps three things. The samples within R and a measuring margin M of each
+ * boundary, where every seam window, DC span and fade a pair reads lies. The
+ * running sum of each channel at every frame within R of a boundary, so a
  * pair's net DC is a difference of two sums. And the 10 ms dB envelope on a
  * grid from S − R: each step within R and the drift's reach q of a boundary
  * kept, either side, and every step between, which lies inside every pair,
@@ -33,16 +33,16 @@ export interface CaptureRequest {
   /** The frames of one envelope step. */
   readonly envelopeCell: number;
   /**
-   * How far beyond the radius either side of each boundary the envelope's
-   * steps are kept one by one: into the loop, where its first and last parts
-   * lie, and out of it, where the audio before S and after E lies that the
-   * drift compares them with.
+   * How far beyond the radius either side of each boundary the envelope's steps
+   * are kept one by one: into the loop, where its first and last parts lie, and
+   * out of it, where the audio before S and after E lies that the drift
+   * compares them with.
    */
   readonly driftReach: number;
   /**
    * How much further than S + R a start may be measured, its samples and
-   * running sums kept, so a start moved forward to make room for a crossfade
-   * is measured like any other.
+   * running sums kept, so a start moved forward to make room for a crossfade is
+   * measured like any other.
    */
   readonly startReach: number;
 }

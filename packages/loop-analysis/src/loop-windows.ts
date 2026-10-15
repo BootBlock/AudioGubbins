@@ -1,15 +1,15 @@
 /**
- * The windows a loop's seam is measured over (ADR-0103, the plan's "Windows
- * and references").
+ * The windows a loop's seam is measured over (ADR-0103, the plan's "Windows and
+ * references").
  *
  * S is the loop's start and E the first frame after it, L = E − S, in a region
  * of N frames. The analysis window W is 50 ms, between 256 and 32,768 frames,
  * and at most a quarter of a loop of 256 frames or more. A loop under 256
- * frames is read around itself, cyclically, since what an engine plays of it
- * is the loop repeated. A seam metric compares what an engine plays after E
- * with what should follow it, by the first reference the region has the audio
- * for: `post-end`, the head x[S, S+W) against x[E, E+W); `pre-start`, the
- * tail x[E−W, E) against x[S−W, S); `adjacent`, the tail against the head.
+ * frames is read around itself, cyclically, since what an engine plays of it is
+ * the loop repeated. A seam metric compares what an engine plays after E with
+ * what should follow it, by the first reference the region has the audio for:
+ * `post-end`, the head x[S, S+W) against x[E, E+W); `pre-start`, the tail
+ * x[E−W, E) against x[S−W, S); `adjacent`, the tail against the head.
  */
 
 import type { SampleRate } from '@audiogubbins/domain';

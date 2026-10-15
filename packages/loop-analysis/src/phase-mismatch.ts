@@ -1,11 +1,11 @@
 /**
- * The phase mismatch of a seam at its dominant partial (the plan's metric
- * table and "The dominant partial").
+ * The phase mismatch of a seam at its dominant partial (the plan's metric table
+ * and "The dominant partial").
  *
- * The partial is the bin of the largest Welch power of the two windows
- * summed, where it stands 20 dB above the median bin, refined to f̂ by
- * quadratic interpolation of the log powers of it and its neighbours. Each
- * window's phase is the arctangent of its Blackman–Harris-weighted projection
+ * The partial is the bin of the largest Welch power of the two windows summed,
+ * where it stands 20 dB above the median bin, refined to f̂ by quadratic
+ * interpolation of the log powers of it and its neighbours. Each window's phase
+ * is the arctangent of its Blackman–Harris-weighted projection
  * `Σ w[n] · x[n] · e^(−i2πf̂n/fs)`; the earlier window's is advanced by
  * `f̂ · distance / fs` turns, the distance being how far the later window
  * starts after it in what the engine plays, and the mismatch is the wrapped

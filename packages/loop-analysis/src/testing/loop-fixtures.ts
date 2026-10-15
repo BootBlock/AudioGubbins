@@ -1,13 +1,13 @@
 /**
- * Loops with known seams (`REQ-GAME-121`'s acceptance fixtures), generated
- * from their parameters so a golden result means the same audio on every
- * machine: every sine is the canonical `sineOfTurns` of an exactly reduced
- * argument, every decay the canonical `exp`, and every noise a 32-bit counter
- * hash, none of them a platform function.
+ * Loops with known seams (`REQ-GAME-121`'s acceptance fixtures), generated from
+ * their parameters so a golden result means the same audio on every machine:
+ * every sine is the canonical `sineOfTurns` of an exactly reduced argument,
+ * every decay the canonical `exp`, and every noise a 32-bit counter hash, none
+ * of them a platform function.
  *
- * A fixture's boundaries are stated in seconds where its rate can vary, each
- * a whole number of its sine's periods, so the same loop exists at every rate
- * a sample-rate test takes.
+ * A fixture's boundaries are stated in seconds where its rate can vary, each a
+ * whole number of its sine's periods, so the same loop exists at every rate a
+ * sample-rate test takes.
  */
 
 import { exp, memorySource, sineOfTurns, type PcmSource } from '@audiogubbins/audio-engine';
@@ -140,9 +140,9 @@ export function drone(rate = LOOP_FIXTURE_RATE): LoopFixture {
 }
 
 /**
- * Three identical half-second bars, each a kick (a 60 Hz sine falling away)
- * and a noise burst at its start, looped over the second bar: the head is a
- * hit after the tail's decay, as in the audio around it, so it is seamless.
+ * Three identical half-second bars, each a kick (a 60 Hz sine falling away) and
+ * a noise burst at its start, looped over the second bar: the head is a hit
+ * after the tail's decay, as in the audio around it, so it is seamless.
  */
 export function drumBars(rate = LOOP_FIXTURE_RATE): LoopFixture {
   const bar = Math.round(0.5 * rate);

@@ -1,10 +1,10 @@
 /**
  * The bands a loop's spectral mismatch compares (the plan's metric table):
  * third octaves with centres `1000 · 2^(k/3)` Hz and edges `f_c · 2^(±1/6)`,
- * from the lowest band holding at least four bins of the spectrum up to
- * min(20 kHz, 0.45 · rate), with every bin below that band, from the first
- * above 0 Hz, merged into one band. A band too narrow for four bins would
- * compare the noise of one or two bins, which a short window cannot resolve.
+ * from the lowest band holding at least four bins of the spectrum up to min(20
+ * kHz, 0.45 · rate), with every bin below that band, from the first above 0 Hz,
+ * merged into one band. A band too narrow for four bins would compare the noise
+ * of one or two bins, which a short window cannot resolve.
  */
 
 import { pow } from '@audiogubbins/audio-engine';

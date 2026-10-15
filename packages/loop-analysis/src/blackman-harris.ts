@@ -1,11 +1,11 @@
 /**
  * The periodic four-term Blackman–Harris window of any length (ADR-0080), by
  * the rule the canonical STFT weights its frames with: each cosine
- * `cosineOfTurns(((k · n) mod N) / N)`, an exact argument, and the terms
- * summed left to right, `a0 − a1 · c1 + a2 · c2 − a3 · c3` (ADR-0032).
+ * `cosineOfTurns(((k · n) mod N) / N)`, an exact argument, and the terms summed
+ * left to right, `a0 − a1 · c1 + a2 · c2 − a3 · c3` (ADR-0032).
  *
- * The STFT keeps its window to itself and takes only powers of two; a loop's
- * DC means and phase projections are weighted over spans of any length, so the
+ * The STFT keeps its window to itself and takes only powers of two; a loop's DC
+ * means and phase projections are weighted over spans of any length, so the
  * analysis states the same rule for them, and a test holds the two equal at a
  * power of two.
  */

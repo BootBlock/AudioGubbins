@@ -1,6 +1,6 @@
 /**
- * What a loop metric says, and the thresholds that say it (ADR-0103, the
- * plan's metric table).
+ * What a loop metric says, and the thresholds that say it (ADR-0103, the plan's
+ * metric table).
  *
  * Every metric is measured on each channel and reported once, for the worst
  * channel: the one whose verdict is worst, the larger value between two of one

@@ -1,11 +1,10 @@
 /**
- * The normalised cross-correlation of a start's neighbourhood with every end
- * a search may take (the plan's candidate search, step 4): the multichannel
- * `Σ_c Σ_n a_c · b_c ÷ √(Σ_c Σ a² · Σ_c Σ b²)`, its numerator by the
- * canonical FFT in overlap-save blocks of at most 65,536 frames, the largest
- * canonical size, in ascending order, and its energies by prefix sums of
- * squares. Audio outside the region reads as zero, so it is left out of every
- * sum.
+ * The normalised cross-correlation of a start's neighbourhood with every end a
+ * search may take (the plan's candidate search, step 4): the multichannel
+ * `Σ_c Σ_n a_c · b_c ÷ √(Σ_c Σ a² · Σ_c Σ b²)`, its numerator by the canonical
+ * FFT in overlap-save blocks of at most 65,536 frames, the largest canonical
+ * size, in ascending order, and its energies by prefix sums of squares. Audio
+ * outside the region reads as zero, so it is left out of every sum.
  */
 
 import { LARGEST_FFT_SIZE, type CanonicalFft } from '@audiogubbins/audio-engine';
@@ -62,9 +61,9 @@ function transformSize(frames: number): number {
 }
 
 /**
- * The normalised cross-correlation of a start's neighbourhood with every end
- * of the end window, by the canonical FFT in overlap-save blocks of at most
- * 65,536 frames, the end window's spectra made once for every start.
+ * The normalised cross-correlation of a start's neighbourhood with every end of
+ * the end window, by the canonical FFT in overlap-save blocks of at most 65,536
+ * frames, the end window's spectra made once for every start.
  */
 export class EndCorrelator {
   /** The first end scored; score `m` is of end `firstEnd + m`. */

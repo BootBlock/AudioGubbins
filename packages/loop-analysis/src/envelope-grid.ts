@@ -1,12 +1,12 @@
 /**
  * The loop's 10 ms dB envelope as one pass makes it (the plan's candidate
- * search, step 2): steps on a grid aligned to S − R, each the RMS of its
- * frames in dB, measured where a step lies whole inside the range the pass
- * reads for it. A step within the radius and the drift's reach of a boundary
- * is kept one by one, since which pairs it lies inside depends on the pair;
- * every step between lies inside every pair, so it is only counted, in a
- * histogram (`envelope-histogram.ts`), and the envelope's memory does not grow
- * with the loop.
+ * search, step 2): steps on a grid aligned to S − R, each the RMS of its frames
+ * in dB, measured where a step lies whole inside the range the pass reads for
+ * it. A step within the radius and the drift's reach of a boundary is kept one
+ * by one, since which pairs it lies inside depends on the pair; every step
+ * between lies inside every pair, so it is only counted, in a histogram
+ * (`envelope-histogram.ts`), and the envelope's memory does not grow with the
+ * loop.
  */
 
 import type { AudioFrameBlock } from '@audiogubbins/audio-engine';

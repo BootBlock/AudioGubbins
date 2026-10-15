@@ -3,14 +3,14 @@
  * search), over the region without its loop's crossfade, since the crossfade
  * belongs to the points being moved.
  *
- * One streamed pass keeps what every pair needs (`loop-capture.ts`); the
- * pairs are found (`candidate-pairs.ts`), measured by the same rules as the
- * loop itself (`seam-metrics.ts`), costed and ordered (`candidate-cost.ts`);
- * a returned candidate whose seam does not pass is offered the shortest
+ * One streamed pass keeps what every pair needs (`loop-capture.ts`); the pairs
+ * are found (`candidate-pairs.ts`), measured by the same rules as the loop
+ * itself (`seam-metrics.ts`), costed and ordered (`candidate-cost.ts`); a
+ * returned candidate whose seam does not pass is offered the shortest
  * micro-crossfade that makes it pass (`micro-crossfade.ts`); and a loop with
  * too little audio before its start for any crossfade is also offered the
- * candidate that moves its start forward by the crossfade's length, keeping
- * the audio before it as an intro.
+ * candidate that moves its start forward by the crossfade's length, keeping the
+ * audio before it as an intro.
  */
 
 import { throwIfCancelled, type SampleRate } from '@audiogubbins/domain';
@@ -133,8 +133,8 @@ function pairsOf(
 }
 
 /**
- * The candidate that moves the start of a loop with too little audio before
- * it for any crossfade forward by the shortest crossfade that then passes.
+ * The candidate that moves the start of a loop with too little audio before it
+ * for any crossfade forward by the shortest crossfade that then passes.
  */
 function roomForCrossfade(
   capture: LoopCapture,
