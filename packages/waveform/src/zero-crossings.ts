@@ -1,18 +1,22 @@
 /**
  * Finding the zero crossing nearest a position, for snapping (REQ-EDIT-013).
  *
- * A zero crossing is a boundary at which every channel asked for changes sign,
- * or has a sample of exactly zero on either side, so a cut there starts and
- * ends every channel at silence; a crossing on some channels and not others is
- * not one, since a cut there would click on the others. The audio before the
- * first frame and after the last counts as silence, so the start and end of a
- * source are crossings. The nearest is found by reading outward from the
- * position in widening windows, so a crossing a few samples away costs a few
- * samples to find, and a search reads at most its bounded reach either side.
+ * What a zero crossing is, the engine states once (`isZeroCrossingBoundary`);
+ * snapping counts the audio before the first frame and after the last as
+ * silence, so the start and end of a source are crossings. The nearest is
+ * found by reading outward from the position in widening windows, so a
+ * crossing a few samples away costs a few samples to find, and a search reads
+ * at most its bounded reach either side.
  */
 
 import { sampleCount, throwIfCancelled, type CancellationSignal } from '@audiogubbins/domain';
-import { allocateBlock, type PcmSource } from '@audiogubbins/audio-engine';
+import {
+  type BoundarySamples,
+  ZeroCrossingEdges,
+  allocateBlock,
+  isZeroCrossingBoundary,
+  type PcmSource,
+} from '@audiogubbins/audio-engine';
 
 /** The search a view makes for the zero crossing nearest a position. */
 export interface ZeroCrossingSearch {
@@ -38,35 +42,19 @@ const FIRST_REACH = 1024;
  */
 const MAXIMUM_REACH = 262_144;
 
-/** Whether boundary `at` of `samples`, which start at frame `from`, is a crossing on every channel. */
-function crosses(
-  samples: readonly Float32Array[],
-  from: number,
-  at: number,
-  length: number,
-): boolean {
-  return samples.every((channel) => {
-    const before = at - 1 < 0 ? 0 : (channel[at - 1 - from] ?? 0);
-    const after = at >= length ? 0 : (channel[at - from] ?? 0);
-    return before * after <= 0;
-  });
-}
-
-/** Reads frames `[from, to)` of `channels` of `source`. */
+/** Reads frames `[from, to)` of `source`, whose length is `length`. */
 async function readFrames(
   source: PcmSource,
   from: number,
   to: number,
-  channels: readonly number[],
+  length: number,
   signal?: CancellationSignal,
-): Promise<readonly Float32Array[]> {
+): Promise<BoundarySamples> {
   const start = sampleCount(from);
   if (!start.ok) throw new RangeError(`Frame ${String(from)} is not a position to read from.`);
   const block = allocateBlock(source.layout, source.sampleRate, Math.max(1, to - from));
   const read = await source.read(start.value, block, signal);
-  return channels.map((channel) =>
-    (block.channels[channel] ?? new Float32Array(0)).subarray(0, read),
-  );
+  return { channels: block.channels.map((channel) => channel.subarray(0, read)), from, length };
 }
 
 /** The crossing nearest `position` within `within` frames of `source`, on `channels`. */
@@ -83,10 +71,10 @@ export async function nearestZeroCrossing(
     throwIfCancelled(signal);
     const from = Math.max(0, position - span - 1);
     const to = Math.min(length, position + span + 1);
-    const samples = await readFrames(source, from, to, channels, signal);
+    const samples = await readFrames(source, from, to, length, signal);
     for (let distance = 0; distance <= span; distance += 1) {
       for (const at of distance === 0 ? [position] : [position - distance, position + distance]) {
-        if (at >= 0 && at <= length && crosses(samples, from, at, length)) return at;
+        if (isZeroCrossingBoundary(samples, at, channels, ZeroCrossingEdges.Silence)) return at;
       }
     }
     if (span >= reach) return undefined;

@@ -33,6 +33,11 @@ export {
 
 export { memorySource } from './pcm/memory-source.js';
 export {
+  type BoundarySamples,
+  ZeroCrossingEdges,
+  isZeroCrossingBoundary,
+} from './pcm/zero-crossing-boundary.js';
+export {
   type ChannelProgramme,
   type SignalRecipe,
   type SignalSegment,
