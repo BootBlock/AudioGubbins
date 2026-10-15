@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 05, 06, 09 reaching `PASS`.
+`READY` — its hard dependencies, Phases 05, 06 and 09, are `PASS`. The maintainer marked it `READY` on 2026-10-15 without a readiness review, so its packet is the unreviewed draft and no ADR settles its open placements.
 
 ## Objective
 
@@ -2243,7 +2243,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 10,
   "name": "Game-Audio Tooling",
-  "status": "NOT_READY",
+  "status": "READY",
   "hard_dependencies": [
     5,
     6,

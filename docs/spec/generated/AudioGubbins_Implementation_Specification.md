@@ -10391,7 +10391,7 @@ Create `traceability/handoffs/phase-09.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 05, 06, 09 reaching `PASS`.
+`READY` — its hard dependencies, Phases 05, 06 and 09, are `PASS`. The maintainer marked it `READY` on 2026-10-15 without a readiness review, so its packet is the unreviewed draft and no ADR settles its open placements.
 
 ## Objective
 
@@ -12023,7 +12023,7 @@ These identifiers are planning-level verification suites. Implementation phases 
 | 07 — Recording | `PASS` | 02, 03, 05, 06 | 10 | traceability/handoffs/phase-07.md |
 | 08 — Spectral Editing | `PASS` | 03, 04, 05, 06 | 1 | traceability/handoffs/phase-08.md |
 | 09 — Import, Export, and Codec System | `PASS` | 02, 03, 05, 06 | 3 | traceability/handoffs/phase-09.md |
-| 10 — Game-Audio Tooling | `NOT_READY` | 05, 06, 09 | 5 | — |
+| 10 — Game-Audio Tooling | `READY` | 05, 06, 09 | 5 | — |
 | 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10 | 29 | — |
 | 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09 | 8 | — |
 | 13 — Advanced Batch and Variation Workflows | `NOT_READY` | 05, 06, 09, 10, 11 | 4 | — |
@@ -12078,4 +12078,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:f2620d9bdcb82dd2dfa2e8ccb7d42e532300c3cee44763b26ee1635fa2cb360c`
+`sha256:1d0307812c6ef9a55936ceeec6a924e28508c3a16bfb86e4d7991cc9452078ee`
