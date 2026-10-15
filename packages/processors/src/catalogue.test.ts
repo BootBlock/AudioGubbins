@@ -56,6 +56,13 @@ describe('the processor catalogue', () => {
     for (const [key, type] of types) expect(type.descriptor).toBe(PROCESSOR_CATALOGUE.get(key));
   });
 
+  it('lists the spatial panner by the key a game preview plan names it by, run on the audio thread', () => {
+    const panner = PROCESSOR_TYPES_BY_KEY.get('spatial-panner')?.descriptor;
+    expect(panner?.category).toBe(ProcessorCategory.Space);
+    expect(panner?.realTime).toBe(true);
+    expect(PROCESSOR_CATALOGUE.get('spatial-panner')).toBe(panner);
+  });
+
   it('gives each parameter of every type its own identifier, no two types sharing one', () => {
     const owners = new Map<string, string[]>();
     for (const descriptor of PROCESSOR_CATALOGUE.values()) {
