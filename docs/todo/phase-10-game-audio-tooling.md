@@ -15,9 +15,10 @@ maintainer's acceptance before the unit that builds on it lands.
 
 ## STATUS LOG
 
-| Date       | Entry                                                                                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-15 | Design and ADR drafts written on `phase/10-game-audio-tooling` over `main` at `43968c5b`. Conflicts C1–C14 recorded. |
+| Date       | Entry                                                                                                                                                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-15 | Design and ADR drafts written on `phase/10-game-audio-tooling` over `main` at `43968c5b`. Conflicts C1–C14 recorded.                                                                                                                                                         |
+| 2026-10-15 | Revised after two independent adversarial reviews (architecture, 14 findings; DSP, 24), each verified against the code and the specification. CHG-0001 records the packet and scope conflicts; C6 withdrawn; C12 rejected by the maintainer (lens reviews run); Q6 answered. |
 
 ## Where the work is
 
@@ -33,13 +34,12 @@ and may take one first. `userPreferences` is unchanged.
 
 ## Gates
 
-Light gates, as Phase 09 ran them (owner decision of 2026-10-07):
 `pnpm run verify:commit` for every change, `pnpm run spec:verify` after an
-edit under `docs/spec/`, and the packet's commands (restated below) at the
-phase's end. The review lenses the packet names are deferred to the review
-after the whole specification is built, recorded in
-`docs/spec/reviews/phase-10-review.md` as Phase 09 recorded its own. The
-author of a new test sees it fail once against the code it guards.
+edit under `docs/spec/`, and the packet's commands at the phase's end. The
+maintainer requires this phase's independent lens reviews and adversarial
+review before `PASS` (section 16); the 2026-10-07 deferral does not apply.
+WU-10.D3's acceptance tests gate the audio-path units (section 6). The author
+of a new test sees it fail once against the code it guards.
 
 ## Contents
 
@@ -58,7 +58,7 @@ author of a new test sees it fail once against the code it guards.
 13. Test plan by requirement
 14. Work units, file ownership and order
 15. Conflicts and open questions
-16. Evidence the phase owes
+16. Reviews and evidence the phase owes
 
 ## 1. Scope and what it leaves to Phases 11 and 13
 
@@ -67,18 +67,18 @@ model, Phase 06's racks and assistants and Phase 09's export. Where its
 requirements name something another phase owns, the line is drawn here by the
 requirement text, and every crossing is recorded in section 15.
 
-| Item (packet / requirement)                                                                                | Phase 10 builds                                                                                                 | Left to                                                                                                                                 |
-| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Export recipes (`REQ-GAME-120`, `REQ-GODOT-119`)                                                           | `GameExportProfile`: one inherited profile per group or member, resolving to Phase 09's `ExportSettings`        | Phase 11: recipes as first-class project objects, several per object, target project, live-export policy, rebuild-all (`REQ-GODOT-119`) |
-| Destination paths (`REQ-GAME-120`)                                                                         | A literal relative folder path, inherited, honoured by folder delivery                                          | Phase 11: folder templates with tokens (`REQ-GODOT-119`), Godot project targets (`REQ-GODOT-124`)                                       |
-| Runtime variation policies (`REQ-GAME-120`), variation selection and repetition avoidance (`REQ-GAME-122`) | `PlaybackRules` with `uniform` and `avoid-recent(depth)` over a group's members, on the shared seeded generator | Phase 13: variation sets, weights, sequential, ping-pong, shuffle bag, custom hooks (`REQ-GAME-112`, `REQ-GAME-113`)                    |
-| "Same runtime-selection logic as the Godot addon" (`REQ-GAME-122`)                                         | The algorithms as the reference, with test vectors                                                              | Phase 11: the GDScript runtime held to the vectors in GUT                                                                               |
-| Event parameter manipulation (`REQ-GAME-122`)                                                              | Built-in parameters: position and distance, volume and pitch offsets, bus levels                                | Phase 11: authored runtime parameters, curves, conditions, layered events (`REQ-GODOT-114`, `-128`, `-129`)                             |
-| Batch export, batch conversion (`REQ-GAME-023`)                                                            | Many members exported as one itemised plan through Phase 09's batch                                             | Phase 13: `BatchJob` with bounded scheduling, retry and resume, import-edit-DSP-export pipelines                                        |
-| Controlled random variation generation (`REQ-GAME-023`)                                                    | Randomised pitch, gain and start offset in preview only                                                         | Phase 13: generating and exporting variants (`REQ-GAME-022`)                                                                            |
-| Godot-aware export, Godot project integration (`REQ-GAME-023`, guided "Export for Godot")                  | Ordinary profiles, names and paths chosen for what Godot 4's importer reads                                     | Phase 11: `.import` files, resources, manifests, project folders, live export (`REQ-GODOT-024`, `-116`, `-117`)                         |
-| Sample-rate, bit-depth, mono/stereo conversion, export presets (`REQ-GAME-023`)                            | Already Phase 09's settings; reached through profiles and presets                                               | —                                                                                                                                       |
-| Macros (`REQ-GAME-074`)                                                                                    | Workflows as plans of ordinary invocations                                                                      | Phase 13: recorded and composed action sequences                                                                                        |
+| Item (packet / requirement)                                                                                | Phase 10 builds                                                                                                                     | Left to                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Export recipes (`REQ-GAME-120`, `REQ-GODOT-119`)                                                           | `GameExportProfile`: one inherited profile per group or member, resolving to Phase 09's `ExportSettings`                            | Phase 11: recipes as first-class project objects, several per object, target project, live-export policy, rebuild-all (`REQ-GODOT-119`) |
+| Destination paths (`REQ-GAME-120`)                                                                         | A literal relative folder path, inherited, honoured by folder delivery                                                              | Phase 11: folder templates with tokens (`REQ-GODOT-119`), Godot project targets (`REQ-GODOT-124`)                                       |
+| Runtime variation policies (`REQ-GAME-120`), variation selection and repetition avoidance (`REQ-GAME-122`) | `EmitterRules` and `VoiceVariation` with `uniform` and `avoid-recent(depth)` over a group's members, on the shared seeded generator | Phase 13: variation sets, weights, sequential, ping-pong, shuffle bag, custom hooks (`REQ-GAME-112`, `REQ-GAME-113`)                    |
+| "Same runtime-selection logic as the Godot addon" (`REQ-GAME-122`)                                         | The algorithms as the reference, with test vectors                                                                                  | Phase 11: the GDScript runtime held to the vectors in GUT                                                                               |
+| Event parameter manipulation (`REQ-GAME-122`)                                                              | Built-in parameters: position and distance, volume and pitch offsets, bus levels                                                    | Phase 11: authored runtime parameters, curves, conditions, layered events (`REQ-GODOT-114`, `-128`, `-129`)                             |
+| Batch export, batch conversion (`REQ-GAME-023`)                                                            | Many members exported as one itemised plan through Phase 09's batch                                                                 | Phase 13: `BatchJob` with bounded scheduling, retry and resume, import-edit-DSP-export pipelines                                        |
+| Controlled random variation generation (`REQ-GAME-023`)                                                    | Randomised pitch, gain and start offset in preview only                                                                             | Phase 13: generating and exporting variants (`REQ-GAME-022`)                                                                            |
+| Godot-aware export, Godot project integration (`REQ-GAME-023`, guided "Export for Godot")                  | Ordinary profiles, names and paths chosen for what Godot 4's importer reads                                                         | Phase 11: `.import` files, resources, manifests, project folders, live export (`REQ-GODOT-024`, `-116`, `-117`)                         |
+| Sample-rate, bit-depth, mono/stereo conversion, export presets (`REQ-GAME-023`)                            | Already Phase 09's settings; reached through profiles and presets                                                                   | —                                                                                                                                       |
+| Macros (`REQ-GAME-074`)                                                                                    | Workflows as plans of ordinary invocations                                                                                          | Phase 13: recorded and composed action sequences                                                                                        |
 
 ## 2. Package topology and dependency direction
 
@@ -86,16 +86,16 @@ requirement text, and every crossing is recorded in section 15.
 own.
 
 ```
-domain ◄── import-export ◄── game-audio ◄── project-format ◄── project-commands ◄── guided-workflows ◄── apps/web
+domain, audio-engine ◄── import-export ◄── game-audio ◄── project-format ◄── project-commands ◄── guided-workflows ◄── apps/web
 domain, audio-engine ◄── loop-analysis ◄── detection-runtime, guided-workflows, apps/web
 history ──► game-audio (its diff names groups)
 ```
 
-| Package                     | Name                             | Portable | Depends on                                                                                 |
-| --------------------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| `packages/game-audio`       | `@audiogubbins/game-audio`       | yes      | `domain`, `import-export`                                                                  |
-| `packages/loop-analysis`    | `@audiogubbins/loop-analysis`    | yes      | `domain`, `audio-engine`                                                                   |
-| `packages/guided-workflows` | `@audiogubbins/guided-workflows` | yes      | `domain`, `game-audio`, `loop-analysis`, `processors`, `import-export`, `project-commands` |
+| Package                     | Name                             | Portable | Depends on                                                                                                                                    |
+| --------------------------- | -------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/game-audio`       | `@audiogubbins/game-audio`       | yes      | `domain`, `import-export`, `audio-engine` (the canonical `pow` for a pitch ratio)                                                             |
+| `packages/loop-analysis`    | `@audiogubbins/loop-analysis`    | yes      | `domain`, `audio-engine`                                                                                                                      |
+| `packages/guided-workflows` | `@audiogubbins/guided-workflows` | yes      | `domain`, `commands`, `game-audio`, `loop-analysis`, `processors`, `import-export`, `project-format`, `project-commands`, `detection-runtime` |
 
 New edges on existing packages: `project-format` → `game-audio`;
 `project-commands` → `game-audio`; `history` → `game-audio`;
@@ -120,12 +120,12 @@ packages/game-audio/src/
                membership.ts, game-audio-state.ts, state-validation.ts
   policy/      policy-fields.ts, inherited-policy.ts, loudness-target.ts,
                bus-name.ts, playback-rules.ts, policy-validation.ts,
-               policy-resolution.ts, processing-realisation.ts
+               policy-resolution.ts, processing-realisation.ts, chain-users.ts
   export/      naming-template.ts, naming-vocabulary.ts, case-modifiers.ts,
                member-naming.ts, destination-path.ts, game-export-profile.ts,
                member-export-settings.ts, game-export-plan.ts, member-names.ts
   preview/     preview-scenario.ts, preview-draws.ts, selection.ts, voice-allocation.ts,
-               cooldown.ts, attenuation.ts, panning.ts, motion.ts, preview-simulation.ts,
+               cooldown.ts, voice-budget.ts, motion.ts, preview-simulation.ts,
                preview-event-log.ts, preview-plan.ts, preview-chains.ts
   testing/     random-game-state.ts, preview-vectors.ts, index.ts
 packages/loop-analysis/src/
@@ -165,9 +165,13 @@ export type GroupMember =
   | { readonly kind: 'region'; readonly region: RegionId }
   | { readonly kind: 'asset'; readonly asset: AssetId };
 
+/** Whether the member's rack is its group's inherited chain, or its own: the one record of it. */
+export type MemberProcessing = 'inherit' | 'own';
+
 export interface GroupMembership {
   readonly member: GroupMember;
   readonly group: GameAssetGroupId;
+  readonly processing: MemberProcessing;
   readonly overrides: PolicyOverrides;
 }
 
@@ -189,7 +193,8 @@ export const POLICY_FIELDS = [
   'exportProfile',
   'naming',
   'destination',
-  'playback',
+  'emitter',
+  'variation',
   'bus',
   'tags',
 ] as const;
@@ -201,7 +206,8 @@ export interface PolicyValues {
   readonly exportProfile: GameExportProfile;
   readonly naming: NamingTemplate;
   readonly destination: DestinationPath;
-  readonly playback: PlaybackRules;
+  readonly emitter: EmitterRules; // how a player of the group behaves (section 6)
+  readonly variation: VoiceVariation; // how each voice of a member varies (section 6)
   readonly bus: BusName;
   readonly tags: readonly string[];
 }
@@ -209,10 +215,13 @@ export interface PolicyValues {
 /** What a group sets. */
 export type InheritedPolicy = { readonly [F in PolicyField]?: PolicyValues[F] };
 
-/** What a member sets over its group: processing is its rack, tags are its own. */
-export type PolicyOverrides = {
-  readonly [F in Exclude<PolicyField, 'processing' | 'tags'>]?: PolicyValues[F];
-};
+/**
+ * What a member sets over its group. `processing` is the membership's
+ * `processing` and the member's rack; `tags` are the region's own; `emitter`
+ * belongs to whoever plays the group, so a member cannot change it.
+ */
+export type OverridableField = Exclude<PolicyField, 'processing' | 'tags' | 'emitter'>;
+export type PolicyOverrides = { readonly [F in OverridableField]?: PolicyValues[F] };
 
 // policy/loudness-target.ts
 export interface LoudnessTarget {
@@ -220,14 +229,75 @@ export interface LoudnessTarget {
   readonly toleranceLu: number; // 0.1 to 6
   readonly truePeakCeilingDbtp?: number; // −20 to 0
 }
-
-// export/destination-path.ts
-export interface DestinationPath {
-  readonly segments: readonly string[];
-} // 0–16 segments
 // policy/bus-name.ts
 export type BusName = Branded<'BusName'>; // 1–64 characters, NFC, no control character
 ```
+
+`DestinationPath`, `NamingTemplate` and `GameExportProfile` are WU-10.A1's
+(section 4); `EmitterRules` and `VoiceVariation` are declared in
+`policy/playback-rules.ts` (section 6).
+
+**Processing: one authority.** A membership's `processing` is the record of
+whether the member inherits. The state is valid only when every `inherit`
+member's rack is exactly its inherited processing: the chain the nearest
+setting group names, and no rack where that is `none` or no group sets it
+(`game.member-processing-mismatch` otherwise). `own` members keep any rack
+or none. So:
+
+- a member can inherit `none` or `unset` (it has no rack while it inherits);
+- assigning with `processing: 'inherit'` sets the rack to the inherited chain
+  in the same command, so a group's chain reaches every existing member that
+  inherits, and `keep` records `own` even when the rack happens to equal the
+  group's chain;
+- every command that can change what an `inherit` member inherits
+  (`game.set-group-policy` on `processing`, `game.move-group`,
+  `game.assign-member`) re-points all of them (`game.remove-group` is refused
+  while a group has members), so a chain set to `none` and then to B takes
+  every inheritor from A to no rack to B;
+- `project.set-rack` on an `inherit` member sets it `own` in the same
+  command (the person chose a rack), and its inverse restores `inherit`;
+  editing the shared chain's slots changes the group's chain for every
+  inheritor, which is what sharing is (`ADR-0060`);
+- resetting processing to inherited is `game.set-member-processing` with
+  `inherit`, which sets the rack.
+
+```ts
+// policy/processing-realisation.ts — pure; the game commands call it, never the interface
+export function inheritedProcessing(
+  state: GameAudioState,
+  member: GroupMember,
+): EffectChainId | undefined;
+/** The rack each `inherit` member must have in `after`: the full set, not a difference. */
+export function inheritingRacks(
+  state: GameAudioState,
+): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined }[];
+```
+
+**Chain users: one function.** A group's `processing` names a chain, so the
+users of a chain are the project's and the groups'. `projectChainUsers`
+(`policy/chain-users.ts`) answers both, and every reader of chain users reads
+it instead of the domain's `chainUsers(project, id)`, which only sees
+`Project`:
+
+```ts
+export interface StateChainUsers extends ChainUsers {
+  readonly groups: readonly GameAssetGroupId[];
+}
+export function projectChainUsers(
+  project: Project,
+  game: GameAudioState | undefined,
+  chain: EffectChainId,
+): StateChainUsers;
+export function stateChainUseCount(users: StateChainUsers): number;
+```
+
+Its consumers, each changed by the unit that owns the file:
+`packages/project-commands/src/processing/chain-naming.ts:62` (WU-10.A5),
+`packages/history/src/difference-names.ts:36` (WU-10.A4, which names a
+group as a chain's owner), `apps/web/src/commands/rack-target.ts:102`
+(`otherUsers`) and `apps/web/src/commands/rack-building-commands.ts:211`
+(WU-10.E1). An architecture test (WU-10.0's line) refuses a new import of
+the domain's `chainUsers` outside `packages/game-audio`.
 
 **Resolution with provenance.**
 
@@ -245,14 +315,6 @@ export interface Resolved<T> {
   readonly shadowed: readonly { readonly group: GameAssetGroupId; readonly value: T }[];
 }
 
-export type ProcessingStatus =
-  | { readonly kind: 'inherited'; readonly chain: EffectChainId; readonly from: GameAssetGroupId }
-  | {
-      readonly kind: 'own';
-      readonly rack: EffectChainId | undefined;
-      readonly inherits?: EffectChainId | 'none';
-    };
-
 export interface ResolvedTag {
   readonly tag: string;
   readonly from: readonly (
@@ -260,15 +322,26 @@ export interface ResolvedTag {
   )[];
 }
 
+/** What a group's members inherit, the group itself included. */
+export interface GroupEffectivePolicy {
+  readonly group: GameAssetGroupId;
+  readonly fields: { readonly [F in Exclude<PolicyField, 'tags'>]: Resolved<PolicyValues[F]> };
+  readonly tags: readonly ResolvedTag[];
+}
+
 export interface EffectivePolicy {
   readonly member: GroupMember;
   readonly group: GameAssetGroupId | undefined;
-  readonly processing: Resolved<EffectChainId | 'none'> & { readonly status: ProcessingStatus };
+  readonly processing: Resolved<EffectChainId | 'none'> & {
+    readonly membership: MemberProcessing | undefined; // undefined: in no group
+    readonly rack: EffectChainId | undefined;
+  };
   readonly loudness: Resolved<LoudnessTarget>;
   readonly exportProfile: Resolved<GameExportProfile>;
   readonly naming: Resolved<NamingTemplate>;
   readonly destination: Resolved<DestinationPath>;
-  readonly playback: Resolved<PlaybackRules>;
+  readonly emitter: Resolved<EmitterRules>;
+  readonly variation: Resolved<VoiceVariation>;
   readonly bus: Resolved<BusName>;
   readonly tags: readonly ResolvedTag[]; // sorted by tag
 }
@@ -278,14 +351,14 @@ export function resolvePolicy(
   state: GameAudioState,
   member: GroupMember,
 ): EffectivePolicy;
-export function resolveAll(
-  project: Project,
-  state: GameAudioState,
-): ReadonlyMap<string, EffectivePolicy>; // keyed by memberKey(member)
 export function resolveGroupPolicy(
   state: GameAudioState,
   group: GameAssetGroupId,
-): GroupEffectivePolicy; // what a new member would inherit
+): GroupEffectivePolicy;
+export function resolveAll(
+  project: Project,
+  state: GameAudioState,
+): ReadonlyMap<string, EffectivePolicy>; // keyed by memberKey
 export function memberKey(member: GroupMember): string; // 'region:<id>' | 'asset:<id>'
 ```
 
@@ -293,24 +366,24 @@ Rules, each a test:
 
 1. A field resolves to the member's override where one is set, else to the
    nearest ancestor (the member's group first) that sets it, else `unset`.
-   `processing` is never an override: its status compares the member's rack
-   (`Region.rack` or `Asset.rack`) with the inherited chain (`ADR-0101`).
-2. `tags`: the sorted union of every ancestor's `tags` and `Region.tags`,
+2. `processing` resolves over groups only; `membership` and `rack` say how
+   the member stands against it, and the validator holds `inherit` to it.
+3. `tags`: the sorted union of every ancestor's `tags` and `Region.tags`,
    each with every source that gives it. No member override.
-3. Resolution walks parent links from the member's group to its root once;
+4. Resolution walks parent links from the member's group to its root once;
    the forest is validated acyclic, so it terminates, and the answer depends
    only on `(project, state, member)`. `resolveAll` equals `resolvePolicy`
    per member (property test) and runs in O(groups + members).
-4. A member in no group resolves every field `unset` but `processing`
-   (`own`) and `tags` (its own).
+5. A member in no group resolves every field `unset`, `membership`
+   undefined, and its tags its own.
 
 **Validation.** `validateGameAudioState(project, state): DomainResult<GameAudioState>`
-in `groups/state-validation.ts`, called by every game command on its result
-and by the project format's reader. Each failure's `details` carries
-`{ field, owner: 'group' | 'member', group?: id, groupPath?: 'A/B', member?: key }`
-and its summary names the group by path or the member by name, so "invalid
-inherited settings identify the owning group/override" holds everywhere
-the failure is shown.
+in `groups/state-validation.ts`, called by every game command on its result,
+by `project.set-rack`, and by the project format's reader. Each failure's
+`details` carries `{ field, owner: 'group' | 'member', group?, groupPath?,
+member? }` and its summary names the group by path or the member by name, so
+"invalid inherited settings identify the owning group/override" holds
+wherever the failure is shown.
 
 | Code                              | Refused                                                                     |
 | --------------------------------- | --------------------------------------------------------------------------- |
@@ -321,12 +394,14 @@ the failure is shown.
 | `game.member-unknown`             | A member naming no region or asset of the project                           |
 | `game.member-twice`               | A member in two memberships                                                 |
 | `game.member-group-unknown`       | A membership naming no group                                                |
+| `game.member-processing-mismatch` | An `inherit` member whose rack is not its inherited processing              |
 | `game.policy-chain-unknown`       | `processing` naming no chain of `project.effectChains`                      |
 | `game.policy-loudness-invalid`    | A target, tolerance or ceiling out of its range                             |
 | `game.policy-naming-invalid`      | A template the game vocabulary does not read (section 4)                    |
 | `game.policy-destination-invalid` | A segment `safeFolderName` would change, `.`/`..`, or more than 16 segments |
 | `game.policy-bus-invalid`         | A bus name out of its rule                                                  |
-| `game.policy-playback-invalid`    | A rule out of its range (section 6)                                         |
+| `game.policy-emitter-invalid`     | An emitter rule out of its range (section 6)                                |
+| `game.policy-variation-invalid`   | A variation range out of its range (section 6)                              |
 | `game.policy-profile-invalid`     | A profile whose choices do not read as its format's                         |
 | `game.policy-tag-invalid`         | A tag empty, over 64 characters or with a control character                 |
 
@@ -334,22 +409,29 @@ A profile valid in shape may still be one a member's audio cannot take; that
 is found per member when its export is planned (section 4), with the same
 owner details.
 
-**Processing realisation** (`policy/processing-realisation.ts`): a pure
-function the game commands call, never the interface.
+**Game processing presets.** `REQ-GAME-023` names game-oriented processing
+presets and the packet "loudness matching and game presets". They are
+built-in entries of the person's processing library (`ADR-0060`'s saved
+chains, `LibraryEntry` in `packages/domain/src/processing/processing-library.ts`),
+not a list of their own: `packages/processors/src/library/game-chains.ts`
+states `BUILT_IN_LIBRARY: readonly LibraryEntry[]` with fixed identifiers,
+built from the catalogue's keys and values:
 
-```ts
-/** The racks to set so every member that inherited `before` inherits `after`: the members whose status was 'inherited'. */
-export function realignedRacks(
-  project: Project,
-  before: GameAudioState,
-  after: GameAudioState,
-): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined }[];
-```
+| Entry                         | Chain                                                                                                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Game SFX, −16 LUFS            | `dc-offset-removal`; `filter` high-pass 30 Hz; `loudness-normalisation` −16 LUFS, −1 dBTP                              |
+| UI sound, −18 LUFS            | `dc-offset-removal`; `filter` high-pass 80 Hz; `loudness-normalisation` −18 LUFS, −1 dBTP                              |
+| Dialogue, −23 LUFS            | `filter` high-pass 80 Hz; `de-esser` default; `compressor` 3:1 at −24 dBFS; `loudness-normalisation` −23 LUFS, −2 dBTP |
+| Ambience loop, −24 LUFS       | `dc-offset-removal`; `loudness-normalisation` −24 LUFS, −2 dBTP                                                        |
+| Footstep / impact, peak −1 dB | `dc-offset-removal`; `filter` high-pass 40 Hz; `peak-normalisation` −1 dBTP true peak                                  |
 
-A member's status in `before` decides it: only members inheriting in
-`before` are re-pointed, to their inherited chain in `after` (`none` sets no
-rack). Assigning a member asks whether it takes the group's processing
-(re-pointed) or keeps its own (left); the command records which.
+`ProcessingLibraryStore` (`packages/storage/src/processing-library-store.ts`)
+is given them through `LibraryServices.builtIn` and lists them before the
+person's own as built-in: usable, applicable, copyable into the person's
+library, never renamed or removed (`library.built-in`). Applying one to a
+group copies it into the project and sets the group's `processing` to it, one
+step. The values above are this phase's decision and are pinned by test; a
+change is a change of the entry, not of a stored library.
 
 ## 4. Naming templates, export profiles, destinations, the game export plan
 
@@ -448,7 +530,7 @@ export function profileFromPreset(preset: ExportPreset): GameExportProfile;
 // export/member-export-settings.ts
 export function memberExportSettings(
   profile: GameExportProfile,
-  member: ExportMember,
+  member: GroupMember,
   context: ExportContext,
   fileName: string,
 ): ExportSettings;
@@ -529,23 +611,30 @@ step.
 
 ## 5. Loop definition and loop analysis (WU-10.C)
 
-`ADR-0103`. Contracts `LoopDefinition` (the domain's, unchanged:
-`{ loopStart, loopEnd, crossfadeLength }` from the region's start, placed
+`ADR-0103`. Contracts `LoopDefinition` (the domain's: `{ loopStart,
+loopEnd, crossfadeLength, crossfadeShape }` from the region's start, placed
 from `Region.loop: AnchoredLoop`) and `LoopAnalysis`.
 
-**The loop crossfade in the plan.** `packages/domain/src/editing/loop-crossfade.ts`
+**The loop crossfade in the plan** (WU-10.P). `packages/domain/src/editing/loop-crossfade.ts`
 (new) and `placement.ts`'s `regionPlan`: after the region's rack stream, a
 loop with `crossfadeLength` C > 0 adds a stream whose segments are the
-region's audio `[0, E−C)`, then `C` frames of a `mix` of the region's
-`[E−C, E)` with a fade-out stage and `[S−C, S)` with a fade-in stage, each
-of the loop's shape, then `[E, length)`. `AnchoredLoop` and `LoopDefinition`
-gain `crossfadeShape: FadeShape` (the domain's four shapes), so the shape
-the analysis suggests is the one written and heard; Phase 05's readers,
-writers and fixtures that make a loop give it `equal-power`.
-`placement-validation.ts` refuses a loop whose `crossfadeLength` exceeds
-`loop.start − region.start` (`region.loop-crossfade-without-lead`).
-`regionPlan(…, { loopCrossfade: false })` gives the plan the candidate
-search reads.
+region's audio `[0, E−C)`; then C frames of a `mix` of `[E−C, E)` faded out
+and `[S−C, S)` faded in; then, where the region continues past E, C' =
+min(C, region end − E) frames of a `mix` of `[S, S+C')` faded out and
+`[E, E+C')` faded in, so a playthrough that does not loop also leaves E
+without a jump; then `[E+C', length)`. Both joins use the loop's
+`crossfadeShape` (`AnchoredLoop` and `LoopDefinition` gain it: the domain's
+four `FadeShape`s, so the shape the analysis suggests is the one written and
+heard). The gains are the domain's fade function, which the analysis also
+uses. `placement-validation.ts` refuses a loop whose `crossfadeLength`
+exceeds `loop.start − region.start` when a command makes it
+(`region.loop-crossfade-without-lead`); because the loop's start is anchored
+and a later edit can move it, `placeRegion` also clamps the placed
+crossfade to min(C, loopStart, loopEnd − loopStart) and the placed value
+says it was shortened (`crossfadeClampedFrom`), which the Inspector and the
+Loop panel show. `regionPlan(…, { loopCrossfade: false })` gives the plan
+the candidate search reads (`plain`). Every existing site that makes or
+reads a loop gains the shape in WU-10.P (section 14).
 
 **Request and result.**
 
@@ -557,38 +646,49 @@ export interface LoopSearch {
   readonly candidates: number; // 1–16, default 5
 }
 export interface LoopAnalysisRequest {
-  readonly loop: { readonly start: number; readonly end: number; readonly crossfadeLength: number }; // region frames
+  readonly loop: {
+    readonly start: number;
+    readonly end: number; // region frames
+    readonly crossfadeLength: number;
+    readonly crossfadeShape: FadeShape;
+  };
   readonly search?: LoopSearch;
 }
 
 // analyse-loop.ts
 export const LOOP_ANALYSIS_VERSION = 1;
 export type Verdict = 'pass' | 'warn' | 'fail' | 'not-applicable';
+/** What a seam metric compared: the audio that follows E or precedes S where the region has it, else the loop's own tail and head. */
+export type SeamReference = 'post-end' | 'pre-start' | 'adjacent';
 export interface LoopMetric {
-  readonly value: number; // in `unit`
-  readonly unit: 'ratio' | 'dBFS' | 'dB' | 'degrees' | 'frames';
+  readonly value: number; // in `unit`; 0 where not applicable
+  readonly unit: 'deviations' | 'dBFS' | 'dB' | 'degrees' | 'frames' | 'ratio';
   readonly verdict: Verdict;
   readonly channel: number | undefined; // the worst channel
+  readonly reference?: SeamReference;
   readonly reason?: string; // why not applicable
 }
 export interface CrossfadeSuitability {
   readonly lengthFrames: number;
-  readonly correlation: number;
-  readonly shape: FadeShape; // 'linear' | 'equal-power'
-  readonly levelChangeDb: number;
+  readonly correlation: number; // energy-weighted over channels, from `plain`
+  readonly shape: FadeShape;
+  readonly levelChangeDb: number; // the largest over the fade, for that shape
   readonly verdict: Verdict;
 }
 export interface LoopMetrics {
-  readonly step: LoopMetric;
-  readonly click: LoopMetric;
+  readonly discontinuity: LoopMetric; // Burg residual at the seam, in deviations
   readonly dcMismatch: LoopMetric;
   readonly netDc: LoopMetric;
   readonly levelMismatch: LoopMetric;
   readonly phaseMismatch: LoopMetric;
   readonly spectralMismatch: LoopMetric;
-  readonly zeroCrossing: { readonly start: LoopMetric; readonly end: LoopMetric };
-  readonly crossfade: CrossfadeSuitability | undefined; // when crossfadeLength > 0
-  readonly cycleStability: LoopMetric;
+  readonly zeroCrossing: {
+    readonly start: LoopMetric;
+    readonly end: LoopMetric;
+    readonly signs: LoopMetric;
+  };
+  readonly crossfade: CrossfadeSuitability | undefined; // where crossfadeLength > 0
+  readonly cycleStability: { readonly seam: LoopMetric; readonly drift: LoopMetric };
 }
 export interface LoopCandidate {
   readonly rank: number;
@@ -609,88 +709,129 @@ export interface LoopAnalysis {
   readonly candidates: readonly LoopCandidate[]; // empty unless searched
   readonly seam: { readonly tail: readonly Float32Array[]; readonly head: readonly Float32Array[] }; // W frames each, for the seam view
 }
+export interface LoopTools {
+  readonly dsp: CanonicalDsp;
+  readonly signal: CancellationSignal;
+  readonly yieldToHost: () => Promise<void>;
+  readonly onProgress: (done: number, total: number) => void;
+}
 export function analyseLoop(
-  source: PcmSource,
+  heard: PcmSource,
   plain: PcmSource,
   request: LoopAnalysisRequest,
   tools: LoopTools,
 ): Promise<DomainResult<LoopAnalysis>>;
-// source: the region with its loop crossfade; plain: without it (candidates). LoopTools: { dsp, signal, yieldToHost, onProgress }.
+// heard: the region with its loop crossfade (the current loop's metrics);
+// plain: without it (the crossfade's correlation and every candidate).
 ```
 
-**Metrics.** Notation: x_c[n] the region's processed audio on channel c; S
-loop start, E loop end (first frame after the loop), L = E − S; W the window
-`clamp(round(0.05·fs), 256, 8192)` then `min(W, floor(L/4))`, refused below
-64 (`loop.too-short`); tail T = x[E−W, E), head H = x[S, S+W). Every
-logarithm, power, sine and arctangent is the canonical primitive of
-`@audiogubbins/audio-engine` (`gainToDecibels`, `log10`, `pow`,
-`sineOfTurns`, `cosineOfTurns`, `arctangentTurns`); sums are f64 in index
-order. Each metric is computed per channel and the worst channel reported.
+**Windows and references.** S loop start, E loop end (first frame after the
+loop), L = E − S, region [0, N). W = clamp(round(0.05·fs), 256, 32,768),
+then min(W, ⌊L/4⌋) where L ≥ 256 (above 655 kHz the 50 ms window is shortened
+to 32,768 frames). A loop shorter than 256 frames is analysed on cyclic
+windows (the loop read around itself), and its spectral and phase metrics are
+not applicable ("a loop shorter than 256 frames has too few frames for a
+spectrum"); shorter than 16 frames is refused (`loop.too-short`). A seam
+metric compares what the engine plays after E with what should follow, and
+uses, in this order where the region has the audio: `post-end`, the head
+H = x[S, S+W) against x[E, E+W); `pre-start`, the tail T = x[E−W, E) against
+x[S−W, S); `adjacent`, T against H, the only reference a whole-sound loop has.
+The reference is reported with each metric. Input with a sample that is not
+finite is refused (`loop.non-finite-audio`).
 
-| Metric             | Formula                                                                                                                                                            | Unit    | Pass  | Warn      | Fail                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ----- | --------- | ---------------------------- |
-| `step`             | \|x[S] − x[E−1]\| ÷ RMS of first differences inside T and H (seam pair excluded)                                                                                   | ratio   | ≤ 2   | ≤ 4       | > 4                          |
-| `click`            | \|x[S] − 2x[E−1] + x[E−2]\| ÷ RMS of second differences inside T and H (seam excluded); also at x[S+1] − 2x[S] + x[E−1], the larger                                | ratio   | ≤ 3   | ≤ 6       | > 6                          |
-| `dcMismatch`       | gainToDecibels(\|mean(T) − mean(H)\|)                                                                                                                              | dBFS    | ≤ −60 | ≤ −40     | > −40                        |
-| `netDc`            | gainToDecibels(\|mean of x over [S, E)\|), one streamed pass                                                                                                       | dBFS    | ≤ −60 | ≤ −40     | > −40                        |
-| `levelMismatch`    | \|gainToDecibels(RMS(T) ÷ RMS(H))\|; not applicable where both are below −90 dBFS                                                                                  | dB      | ≤ 1   | ≤ 3       | > 3                          |
-| `phaseMismatch`    | At the dominant partial (section below): \|wrap(φ_H − (φ_T + f̂·W ÷ fs))\| in turns × 360; not applicable with no partial 20 dB over the median                     | degrees | ≤ 15  | ≤ 45      | > 45                         |
-| `spectralMismatch` | √(mean over bands b of (10·log10(P_T,b ÷ P_H,b))²), third-octave bands from 25 Hz to min(20 kHz, fs/2), bands with both powers below −90 dBFS dropped              | dB      | ≤ 1.5 | ≤ 4       | > 4                          |
-| `zeroCrossing`     | Frames from S and from E to the nearest zero-crossing boundary (the snapping definition), searched at most 1 ms                                                    | frames  | ≤ 1   | otherwise | never                        |
-| `crossfade`        | ρ = correlation of x[E−C, E) with x[S−C, S); level change at the fade's middle, 10·log10((1+ρ)/2) linear, 10·log10(1+ρ) equal-power; shape: the smaller \|change\| | dB      | ≤ 1.5 | ≤ 3       | > 3, or C > S − region start |
-| `cycleStability`   | z = \|e_seam − median(e)\| ÷ (1.4826·MAD(e)), e the 10 ms RMS envelope over [S, E), e_seam over [E−5 ms, E) ∪ [S, S+5 ms); MAD 0 gives 0 if equal, else fail       | ratio   | ≤ 3   | ≤ 6       | > 6                          |
+**Metrics.** Every logarithm, power, sine and arctangent is the canonical
+primitive of `@audiogubbins/audio-engine` (`gainToDecibels`, `log10`, `pow`,
+`sineOfTurns`, `cosineOfTurns`, `arctangentTurns(y, x)`); sums are f64 in
+index order; a denominator is max(value, 2⁻²⁴), the floor `clicks.ts` uses
+(`LEAST_DEVIATION`), and where both compared values are under it the metric is
+0 and passes. Per channel; the worst channel is reported.
 
-The dominant partial: the canonical STFT (the four-term Blackman–Harris
-window, `ADR-0080`) at N, the largest power of two ≤ W, over the frame ending
-at E and the frame starting at S; the bin k of the largest summed magnitude
-(below the median-relative 20 dB rule it is not applicable), refined by
-quadratic interpolation of the log magnitudes to f̂. φ_T is the phase of
-Σ_n T[n]·e^(−i·2π·f̂·n/fs), φ_H of the same over H, each by
-`arctangentTurns`; wrap maps to (−0.5, 0.5] turns. The loop's verdict is the
-worst metric verdict; `zeroCrossing` is never worse than warn, because a
-noise loop needs no zero crossing.
+| Metric                       | Formula                                                                                                                                                                                                                                                                                                                         | Unit       | Pass  | Warn  | Fail  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----- | ----- | ----- |
+| `discontinuity`              | The click detector's residual (`packages/audio-engine/src/dsp/reference/analysis/clicks.ts`: order-16 Burg prediction, median and MAD) run over the virtual stream T‖H; the seam frames' residual in MADs of the stream's residual                                                                                              | deviations | ≤ 4   | ≤ 8   | > 8   |
+| `dcMismatch`                 | Blackman–Harris-weighted means over D = max(W, 200 ms) on each side of the seam (by the reference), gainToDecibels(\|μ_a − μ_b\|)                                                                                                                                                                                               | dBFS       | ≤ −60 | ≤ −40 | > −40 |
+| `netDc`                      | gainToDecibels(\|mean of x over [S, E)\|), from prefix sums                                                                                                                                                                                                                                                                     | dBFS       | ≤ −60 | ≤ −40 | > −40 |
+| `levelMismatch`              | \|gainToDecibels(RMS_a ÷ RMS_b)\| over the reference's windows                                                                                                                                                                                                                                                                  | dB         | ≤ 1   | ≤ 3   | > 3   |
+| `phaseMismatch`              | At the dominant partial: \|wrap(φ_b − φ_a)\| × 360, each phase a Blackman–Harris-weighted projection (below); not applicable without a partial 20 dB above the median                                                                                                                                                           | degrees    | ≤ 15  | ≤ 45  | > 45  |
+| `spectralMismatch`           | √(mean over bands b of (10·log10(P_a,b ÷ P_b,b))²) from Welch averages (below)                                                                                                                                                                                                                                                  | dB         | ≤ 1.5 | ≤ 4   | > 4   |
+| `zeroCrossing.start`, `.end` | Frames from S and E to the nearest zero-crossing boundary inside the region (the boundary predicate with the region's outside _not_ counted as silence), at most 1 ms                                                                                                                                                           | frames     | ≤ 1   | > 1   | —     |
+| `zeroCrossing.signs`         | Channels where sign(x[E−1]) ≠ sign(x[S]) and neither is 0, of all channels                                                                                                                                                                                                                                                      | ratio      | 0     | > 0   | —     |
+| `crossfade`                  | From `plain`: ρ = Σ_c Σ_t a_c b_c ÷ √(Σ a² · Σ b²) over the fade's two spans (energy-weighted over channels); for each domain `FadeShape` with gains g_o(t), g_i(t): change(t) = 10·log10((g_o²A + g_i²B + 2ρ g_o g_i √(AB)) ÷ ((1−t)A + tB)), A and B the spans' powers; the shape with the smallest max\|change\| is reported | dB         | ≤ 1.5 | ≤ 3   | > 3   |
+| `cycleStability.seam`        | On the 10 ms dB envelope e (RMS, floored at −120 dBFS) over [S, E): z = \|e_seam − median(e)\| ÷ max(1.4826·MAD(e), 0.05 dB), e_seam over [E−5 ms, E) ∪ [S, S+5 ms)                                                                                                                                                             | deviations | ≤ 3   | ≤ 6   | > 6   |
+| `cycleStability.drift`       | \|mean dB of e over the first q − over the last q\|, q = max(L/8, 100 ms)                                                                                                                                                                                                                                                       | dB         | ≤ 1   | ≤ 3   | > 3   |
+
+The dominant partial: Welch power spectra (canonical STFT, four-term
+Blackman–Harris window, `ADR-0080`, N the largest power of two ≤ W, hop N/2,
+at least one frame) of both reference windows, summed; bin k of the largest
+power where it stands 20 dB above the median bin, refined by quadratic
+interpolation of the log powers to f̂. φ = arctangentTurns of the
+Blackman–Harris-weighted projection Σ w[n]·x[n]·e^(−i2πf̂n/fs) of each window,
+the earlier window's phase advanced by f̂·(distance between the windows)/fs
+turns; wrap maps to (−0.5, 0.5]. Spectral bands: third octaves with centres
+f_c = 1000·2^(k/3) Hz and edges f_c·2^(±1/6), from the band whose upper edge
+holds 4 bins up to min(20 kHz, 0.45·fs); bands below that are merged into one
+band from the lowest bin; each band's power is floored at 10⁻⁹·N before the
+logarithm. The loop's verdict is the worst metric verdict.
 
 **Zero-crossing boundary, once.** The predicate in
 `packages/waveform/src/zero-crossings.ts` (every channel asked changes sign
-or has an exact zero either side; the outside of the source is silence) moves
-to `packages/audio-engine/src/pcm/zero-crossing-boundary.ts`
-(`isZeroCrossingBoundary(blocks, frame, channels)`); `nearestZeroCrossing`
-keeps its search over it; loop analysis uses the same predicate.
+or has an exact zero either side) moves to
+`packages/audio-engine/src/pcm/zero-crossing-boundary.ts` as
+`isZeroCrossingBoundary(blocks, frame, channels, edges: 'silence' | 'interior')`;
+snapping keeps `silence` (the start and end of a source are crossings) and
+loop analysis uses `interior`, so a loop at the start or end of a region is
+measured, not passed by definition.
 
-**Candidate search** (`candidate-pairs.ts`, `candidate-search.ts`,
-`candidate-cost.ts`), on the region without its loop's crossfade:
+**Candidate search** on `plain` (`candidate-pairs.ts`, `candidate-search.ts`,
+`candidate-cost.ts`):
 
 1. Windows: starts S′ ∈ [S−R, S+R], ends E′ ∈ [E−R, E+R], clipped to the
-   region with W of audio around each; E′ − S′ ≥ 4·64. With `keepLength`,
-   E′ = S′ + L.
-2. Start anchors: the 64 frames of the start window nearest S whose mix
-   (channel sum) changes sign, both directions, ties to the earlier; with
-   none, the 64 nearest frames.
-3. For each anchor, the normalised cross-correlation of its neighbourhood
-   (w = min(256, W) frames before and after, mix) over the end window, by the
-   canonical FFT, comparing x[E′−w, E′+w) with x[S′−w, S′+w); context outside
-   the region is not used, and a side with none is left out of the
-   normalisation; the best 8 ends by correlation, ties to the nearer E then
-   the earlier. With `keepLength`, every S′ in the window is scored the same
-   way at E′ = S′ + L. At most 512 pairs.
-4. Each pair is measured in full (the table) and given the cost
-   J = click/3 + levelMismatch/1 + spectralMismatch/1.5 + phase/15 (where
-   applicable) + 10^((dcMismatch+60)/20) + 0.25·(|S′−S| + |E′−E|)/R.
-5. Order by J (exact f64 comparison), then |S′−S| + |E′−E|, then S′, then
+   region; E′ − S′ ≥ 256. With `keepLength`, E′ = S′ + L.
+2. One streamed pass over [S−R−W, E+R+W) ∩ region in 32,768-frame chunks
+   reads everything the search needs: the two search windows with W around
+   each (kept, at most 2·(2 s + 2·32,768) frames a channel); prefix sums of x
+   for every pair's `netDc`; and the 10 ms dB envelope on an absolute 10 ms
+   grid from S−R, kept as a fixed-resolution histogram per channel (0.1 dB
+   bins from −120 to +12 dBFS) plus the grid values within R + q of each
+   boundary, from which each pair's median, MAD, seam and drift are read. No
+   pair reads audio again.
+3. Start anchors: per channel, the frames of the start window where that
+   channel changes sign; the 64 nearest S over all channels, ties to the
+   earlier; with none, the 64 nearest frames.
+4. For each anchor, the multichannel normalised cross-correlation
+   Σ_c Σ_n a_c b_c ÷ √(Σ_c Σ a² · Σ_c Σ b²) of its neighbourhood (w =
+   min(256, W) frames either side, every channel; context outside the region
+   is left out of both sums) over the end window, by the canonical FFT in
+   overlap-save blocks of 65,536 (the largest canonical size), hop 65,536 −
+   (2w − 1), with the window energy from prefix sums of squares, blocks in
+   ascending order; the best 8 ends, ties to the nearer E then the earlier.
+   With `keepLength` every S′ is scored at E′ = S′ + L and the best 512
+   kept, ties to the smaller |S′ − S| then the earlier. At most 512 pairs.
+5. Each pair is measured (the table) and costed:
+   J = discontinuity/4 + levelMismatch/1 + spectralMismatch/1.5 +
+   phaseMismatch/15 + 10^((dcMismatch+60)/20) + cycleStability.seam/3 +
+   0.25·(|S′−S| + |E′−E|)/R; a metric not applicable adds 0.
+6. Order by J (exact f64 comparison), then |S′−S| + |E′−E|, then S′, then
    E′; the first `candidates` are returned with ranks from 1.
-6. A candidate whose click, step or phase verdict is not pass is measured
-   again with each crossfade of 2, 5, 10, 20 and 50 ms that fits before S′,
-   at the shape the correlation chooses; the shortest whose crossfaded seam
-   passes is suggested.
-
-Bounds (G4): reads are the two search windows plus W each side, at most
-2·(2 s + 2·8,192 frames) of audio, and one streamed pass of 32,768-frame
-chunks over [S, E) for `netDc` and `cycleStability`; 512 pairs × O(W).
+7. Micro-crossfades: for a candidate whose discontinuity or phase verdict is
+   not pass, each length C of 2, 5, 10, 20 and 50 ms with C ≥ 2/f̂ where a
+   dominant partial stands (two periods), and every domain shape, is scored
+   over [E−C−W, E) ∪ [S, S+W) of the crossfaded audio: the discontinuity
+   residual including the fade's start, the crossfade level change verdict,
+   and the spectral mismatch of the faded span against `pre-start` audio.
+   The shortest C, then the shape with the smallest level change, whose
+   three verdicts pass is suggested.
+8. Whole-sound loops: where S − region start < C for every C that step 7
+   would take (a loop over the whole sound, or one imported from a file's
+   `smpl` loop), the search also offers the candidate that moves S forward
+   by C with that crossfade, so the region keeps [0, S+C) as its intro and
+   the crossfade has its lead; it is ranked by the same cost and marked
+   "moves the start to make room for a crossfade".
 
 **Failure.** Every refusal (`loop.too-short`, `loop.outside-region`,
-`loop.search-radius-invalid`, a read failure, cancellation) is the result;
-nothing is applied, and the region's loop is unchanged because the analysis
-never runs a command.
+`loop.search-radius-invalid`, `loop.non-finite-audio`, a read failure,
+cancellation) is the result; nothing is applied, and the region's loop is
+unchanged because the analysis never runs a command.
 
 **Audition plans** (`audition-plans.ts`):
 
@@ -704,18 +845,30 @@ export function loopAuditionPlan(
   mode: LoopAuditionMode,
   cycles: number,
 ): DomainResult<EditPlan>;
-export function extendedAuditionPlan(plan: EditPlan, cycles: number): EditPlan; // more cycles, identical prefix
+export function extendedAuditionPlan(plan: EditPlan, cycles: number): EditPlan; // more cycles; streams and segments before the old end unchanged
 ```
 
 A candidate is auditioned from a plan whose loop is the candidate's,
 without writing it to the region.
 
+**Stateful racks.** A region's rack runs from the region's start
+(`ADR-0060`), so a reverb's tail at the loop's head is the intro's, not the
+loop's own end's. The `cycleStability` and seam metrics measure what is
+rendered, so such a seam shows as a warning or failure with the rack named in
+the panel's explanation; rendering the loop wrapped is Q7.
+
 ## 6. Game preview simulator (WU-10.D)
 
 `ADR-0104`. Contract `GamePreviewScenario`.
 
+**Rules, split by who holds them.** A game engine's player holds one set of
+rules for everything it plays (selection, voices, cooldown, attenuation),
+while each sound it chooses may vary on its own (pitch, gain, offset, bus).
+So the authored rules are two policy fields: `emitter`, which a member cannot
+override, and `variation` and `bus`, which a member can.
+
 ```ts
-// policy/playback-rules.ts (the `playback` policy field)
+// policy/playback-rules.ts
 export type SelectionRule =
   { readonly kind: 'uniform' } | { readonly kind: 'avoid-recent'; readonly depth: number }; // 1–16
 export type VoiceStealing = 'oldest' | 'quietest' | 'reject';
@@ -723,32 +876,35 @@ export type Attenuation =
   | { readonly kind: 'none' }
   | {
       readonly kind: 'inverse' | 'inverse-square' | 'logarithmic';
-      readonly unitSize: number; // > 0, metres or pixels per the space
+      readonly unitSize: number; // > 0, metres in 3D, pixels in 2D
       readonly maxDistance: number; // > unitSize; silent beyond
       readonly ceilingDecibels: number; // −80 to 24
-      readonly lowPassAtMaxHertz?: number; // 20 to 20,000
     }
-  | {
-      readonly kind: 'exponent';
-      readonly maxDistance: number;
-      readonly exponent: number; // 0.01 to 16
-      readonly lowPassAtMaxHertz?: number;
-    };
-export interface PlaybackRules {
+  | { readonly kind: 'exponent'; readonly maxDistance: number; readonly exponent: number }; // 0.01 to 16
+export interface DistanceFilter {
+  // Godot 4's attenuation filter
+  readonly cutoffHertz: number; // 20 to 20,000, at most 0.45·fs when realised
+  readonly decibels: number; // −80 to 0, the shelf's gain at full attenuation
+}
+export interface EmitterRules {
   readonly selection: SelectionRule;
-  readonly pitchCents: { readonly min: number; readonly max: number }; // −2400 to 2400, min ≤ max
-  readonly gainDecibels: { readonly min: number; readonly max: number }; // −60 to 12
-  readonly startOffsetMilliseconds: { readonly max: number }; // 0 to 10,000; capped by the member's length
   readonly voices: { readonly limit: number; readonly stealing: VoiceStealing }; // 1–64
   readonly cooldownMilliseconds: number; // 0 to 60,000
   readonly attenuation: Attenuation;
+  readonly filter?: DistanceFilter;
 }
-export const DEFAULT_PLAYBACK_RULES: PlaybackRules; // uniform, no randomisation, 8 voices, oldest, no cooldown, attenuation none
+export interface VoiceVariation {
+  readonly pitchCents: { readonly min: number; readonly max: number }; // whole cents, −2400 to 2400, min ≤ max
+  readonly gainDecibels: { readonly min: number; readonly max: number }; // −60 to 12
+  readonly startOffsetMilliseconds: { readonly max: number }; // 0 to 10,000
+}
+export const DEFAULT_EMITTER_RULES: EmitterRules; // uniform, 8 voices, oldest, no cooldown, no attenuation, no filter
+export const DEFAULT_VOICE_VARIATION: VoiceVariation; // no variation
 ```
 
-`DEFAULT_PLAYBACK_RULES` is what the preview uses for a member whose
-`playback` resolves `unset`, and the preview says so beside the rules it
-shows; it is never written into a group.
+The defaults are what the preview uses where a field resolves `unset`, and
+the panel says so beside the rules it shows; they are never written into a
+group.
 
 ```ts
 // preview/preview-scenario.ts
@@ -764,19 +920,23 @@ export type TriggerPattern =
       readonly count: number;
     };
 // interval 20–60,000; jitter 0 to interval/2; count 1–10,000
+/**
+ * Godot's conventions, so Phase 11 maps nothing: 3D is right-handed, +y up,
+ * the listener facing −z, +x to its right; 2D has +x right and +y down, and
+ * the listener faces up the screen (−y). z is 0 in 2D.
+ */
 export interface Position {
   readonly x: number;
   readonly y: number;
   readonly z: number;
-} // z is 0 in 2D
+}
 export type Motion =
   | { readonly kind: 'still'; readonly at: Position }
   | {
       readonly kind: 'waypoints';
-      readonly points: readonly { readonly at: Position; readonly milliseconds: number }[];
+      readonly points: readonly { readonly at: Position; readonly milliseconds: number }[]; // 2–64, times rising from 0
       readonly repeat: 'once' | 'loop' | 'back-and-forth';
     };
-// 2–64 points, times strictly increasing from 0; linear between them
 export interface PreviewEmitter {
   readonly id: PreviewEmitterId;
   readonly name: string;
@@ -787,12 +947,12 @@ export interface PreviewEmitter {
 export interface Listener {
   readonly at: Position;
   readonly facingTurns: number;
-} // facing about the vertical axis
+} // about the vertical axis; 0 faces −z (3D) or −y (2D)
 export interface GamePreviewScenario {
   readonly id: GamePreviewScenarioId;
   readonly name: string;
   readonly space: '2d' | '3d';
-  readonly panWidth: number; // 2D: the distance at which pan reaches full left or right
+  readonly panWidth: number; // 2D: the distance to the side at which pan is full
   readonly listener: Listener;
   readonly emitters: readonly PreviewEmitter[]; // 1–16
   readonly seed: number; // a whole number below 2³²
@@ -800,39 +960,48 @@ export interface GamePreviewScenario {
 }
 ```
 
-**Draws.** `uniformDraw` and `lowbias32` move unchanged from
+**Draws.** `lowbias32` and `uniformDraw` move unchanged from
 `packages/import-export/src/dither-noise.ts` to
-`packages/domain/src/integrity/counter-draw.ts` as `counterDraw(key, stream,
-index)`; the dither imports it, and the byte pins prove its bits unchanged.
-The preview's key for emitter e is `lowbias32(seed ^ Math.imul(e + 1,
-0x9e3779b9))`; the streams are `SELECTION = 1`, `PITCH = 2`, `GAIN = 3`,
-`OFFSET = 4`, `JITTER = 5`; the index is the trigger's ordinal from 0.
+`packages/domain/src/integrity/counter-draw.ts`, both exported (today
+`lowbias32` is module-private); the dither imports them and Phase 09's byte
+pins prove its bits unchanged. An emitter's key is
+`lowbias32(seed ^ crc32(utf8(emitter.id)))` with the domain's CRC-32, so
+reordering emitters changes no emitter's draws. Streams: `SELECTION = 1`,
+`PITCH = 2`, `GAIN = 3`, `OFFSET = 4`, `JITTER = 5`; index: the trigger's
+ordinal k from 0. u is `uniformDraw(key, stream, k)` in [0, 1).
 
-**Decisions for trigger k of an emitter**, in this order:
+**Decisions for trigger k of an emitter**, frames at the preview's rate fs
+(the project's), in this order:
 
-1. Time: `repeat` triggers at round(k·interval + jitter) where jitter is
-   `floor(u_JITTER·(2J+1)) − J` frames; `by-hand` at the frame the person's
+1. Time: `repeat` triggers at
+   t_k = round(k·interval·fs/1000) + floor(u_JITTER·(2J+1)) − J, with
+   J = round(jitter·fs/1000), clamped to ≥ 0; `by-hand` at the frame the
    press is scheduled for (below).
-2. Cooldown: suppressed when within `cooldown` of the last accepted trigger
-   (logged `suppressed`), and the selection history is unchanged.
-3. Selection: the pool is the subject's members in membership order (a
-   member subject is a pool of one), each with its length and loop;
-   `uniform` takes
-   `floor(u·n)`; `avoid-recent(d)` removes the last `min(d, n−1)` chosen
-   members (most recent first) and takes `floor(u·m)` of the rest in pool
-   order.
-4. Pitch: `round(min + u·(max − min))` cents; gain: `min + u·(max − min)` dB;
-   offset: `floor(u·(maxFrames + 1))` frames, capped at the member's length
-   − 1.
-5. Voices: with fewer than `limit` voices sounding, a new voice; otherwise
-   `oldest` steals the earliest started (ties: lowest voice number),
-   `quietest` the lowest current gain including attenuation (ties: oldest),
-   `reject` logs `rejected`. A stolen voice fades out over 5 ms from the
-   trigger's frame.
-
-Every rule an emitter plays by is its subject's, as a game engine's player
-holds one set for all it plays: a group subject's effective `playback` and
-`bus` (`resolveGroupPolicy`), a member subject's own (`resolvePolicy`).
+2. Cooldown: with c = round(cooldown·fs/1000), a trigger with
+   t_k − t_last < c is `suppressed`, where t_last is the last _started_
+   trigger; a suppressed or rejected trigger leaves t_last and the selection
+   history unchanged.
+3. Selection: the pool is the subject's members in membership order (a member
+   subject is a pool of one), each with its length, loop and its own
+   effective `variation` and `bus`. `uniform` takes floor(u·n);
+   `avoid-recent(d)` removes the last min(d, n−1) chosen (most recent first)
+   and takes floor(u·m) of the m left, in pool order.
+4. Variation, from the _chosen member's_ effective `variation`: pitch
+   min + floor(u_PITCH·(max − min + 1)) cents; gain min + u_GAIN·(max − min)
+   dB; offset floor(u_OFFSET·(min(maxFrames, length − 1) + 1)) frames.
+5. Voices, by the emitter's rules: with fewer than `limit` voices sounding, a
+   new voice; otherwise `oldest` steals the earliest started (ties: the
+   lowest lane), `quietest` the lowest voice gain in dB (ties: oldest),
+   `reject` logs `rejected`. A stolen voice fades out over 5 ms from the new
+   trigger's frame. Voices take lanes: `limit + 1` lanes an emitter, a new
+   voice the lowest lane free at its frame, so a fading voice and its
+   replacement never share a lane.
+6. Budget: the preview sounds at most `PREVIEW_VOICE_BUDGET` voices across
+   all emitters, the number of resampled voices measured to run in real time
+   at preview quality on the reference machine (WU-10.D4, Q5, a test pins
+   it); past it the triggering emitter's stealing rule is applied across all
+   emitters and the log records `budget-stolen` or `budget-rejected`, which
+   the panel shows, as a game engine's virtual voices do.
 
 ```ts
 // preview/preview-event-log.ts
@@ -843,19 +1012,21 @@ export type PreviewEvent =
       readonly emitter: PreviewEmitterId;
       readonly trigger: number;
       readonly voice: number;
+      readonly lane: number;
       readonly member: GroupMember;
       readonly pitchCents: number;
       readonly gainDecibels: number;
       readonly offsetFrames: number;
+      readonly bus: BusName | undefined;
     }
   | {
-      readonly kind: 'suppressed' | 'rejected';
+      readonly kind: 'suppressed' | 'rejected' | 'budget-rejected';
       readonly frame: number;
       readonly emitter: PreviewEmitterId;
       readonly trigger: number;
     }
   | {
-      readonly kind: 'stolen' | 'stopped' | 'ended';
+      readonly kind: 'stolen' | 'budget-stolen' | 'stopped' | 'ended';
       readonly frame: number;
       readonly emitter: PreviewEmitterId;
       readonly voice: number;
@@ -868,45 +1039,55 @@ export interface PreviewEventLog {
 // preview/preview-simulation.ts
 export interface PreviewInput {
   readonly scenario: GamePreviewScenario;
-  readonly rulesOf: (subject: PreviewSubject) => PlaybackRules; // from resolution, or the defaults
-  readonly poolOf: (subject: PreviewSubject) => readonly PoolMember[]; // members with length, loop, rate
+  readonly emitterRules: (subject: PreviewSubject) => EmitterRules; // resolved, or the default
+  readonly poolOf: (subject: PreviewSubject) => readonly PoolMember[]; // each with its variation, bus, length, loop
   readonly handTriggers: readonly { readonly emitter: PreviewEmitterId; readonly frame: number }[];
-  readonly sampleRate: SampleRate; // the preview's frame rate: the project's
-  readonly horizonFrame: number; // at most 30 s past the previous horizon
+  readonly sampleRate: SampleRate;
+  readonly horizonFrame: number;
 }
-export function simulatePreview(input: PreviewInput, before?: PreviewEventLog): PreviewEventLog;
+/** The simulation as a value it continues from, so a hand trigger costs its own events, not a new run. */
+export interface PreviewSimulation {
+  readonly log: PreviewEventLog;
+  readonly state: SimulationState;
+}
+export function simulatePreview(input: PreviewInput, from?: PreviewSimulation): PreviewSimulation;
 ```
 
-`simulatePreview(input, before)` equals the prefix `before` up to its
-horizon and continues from it (property test): a continuation never changes
-what was heard.
+`simulatePreview(input, from)` equals `from.log` up to its horizon and
+continues from `from.state` (property test): a continuation never changes
+what was heard. A hand trigger at frame F adds events from F only.
 
-**Space** (`attenuation.ts`, `panning.ts`, `motion.ts`). d is the distance
-from the listener; u = unitSize.
+**Space.** The `spatial-panner` processor (`packages/processors/src/space/spatial-panner.ts`,
+new, canonical, golden and property tests like every catalogue type) is one
+emitter heard by one listener: parameters x, y, z (the emitter in the
+listener's frame, so a still listener's waypoints are linear in them), the
+space, the attenuation model and its values, the pan width and the distance
+filter. Mono or stereo in, stereo out; zero latency; real-time safe. It
+designs its gains and filter every 32 frames from its first frame (as
+`ambisonic-encode`'s `DESIGN_INTERVAL`), linearly interpolating its position
+parameters between automation points, so a moving emitter renders the same
+offline as live. With r = √(x² + y² + z²) (2D: z = 0) and d = r:
 
-| Model            | Gain in dB at distance d (d ≥ maxDistance: silent)                                          |
-| ---------------- | ------------------------------------------------------------------------------------------- |
-| `none`           | 0                                                                                           |
-| `inverse`        | min(ceiling, gainToDecibels(1 ÷ (d/u + 10⁻⁶)))                                              |
-| `inverse-square` | min(ceiling, gainToDecibels(1 ÷ ((d/u)² + 10⁻⁶)))                                           |
-| `logarithmic`    | min(ceiling, −20·ln(d/u + 10⁻⁶)), the natural logarithm, as Godot 4's source writes it (Q3) |
-| `exponent`       | gainToDecibels(pow(1 − d/maxDistance, exponent))                                            |
+| Model            | Gain in dB at distance d (d ≥ maxDistance: silent) |
+| ---------------- | -------------------------------------------------- |
+| `none`           | 0                                                  |
+| `inverse`        | min(ceiling, gainToDecibels(1 ÷ (d/u + 10⁻⁵)))     |
+| `inverse-square` | min(ceiling, gainToDecibels(1 ÷ ((d/u)² + 10⁻⁵)))  |
+| `logarithmic`    | min(ceiling, −20·ln(d/u + 10⁻⁵))                   |
+| `exponent`       | gainToDecibels(pow(1 − d/maxDistance, exponent))   |
 
-The low-pass cutoff where set falls log-linearly from 20 kHz at d ≤ u (or 0)
-to `lowPassAtMaxHertz` at `maxDistance`, through the existing `filter`
-processor's low-pass. Pan: in 3D, p = sin(azimuth) of the emitter relative
-to the listener's facing, by `sineOfTurns(arctangentTurns(x′, y′))`; in 2D,
-p = clamp(x′ ÷ panWidth, −1, 1); the `pan` processor's gains are
-cos((p+1)/8 turn) and sin((p+1)/8 turn). Elevation is not heard on stereo
-output in this phase (Q4). These formulas follow the attenuation models
-Godot 4 documents for `AudioStreamPlayer3D` and `AudioStreamPlayer2D`; their
-parity is Phase 11's to prove (Q3).
-
-**The `pan` processor** (`packages/processors/src/space/pan.ts`): typeKey
-`pan`, category `space`, one parameter `position` (−1 to 1, smoothed),
-inputs mono or stereo, output stereo (a stereo input is balanced, each side's
-gain as above), zero latency, real-time safe, deterministic, canonical, with
-its golden and property tests like every catalogue type.
+10⁻⁵ is Godot 4's `CMP_EPSILON`, and the natural logarithm is its
+logarithmic model's (Q3 confirms the source). The distance filter, where
+set, is Godot 4's: a high shelf at `cutoffHertz` (at most 0.45·fs) whose gain
+is (1 − min(1, linear attenuation))·`decibels`. Pan p: 0 where r = 0; in 3D
+p = x/r (the sine of the azimuth); in 2D p = clamp(x ÷ panWidth, −1, 1). A
+mono input's gains are cos((p+1)/8 turn) and sin((p+1)/8 turn); a stereo
+input is balanced, g_L = min(1, √2·cos((p+1)/8 turn)),
+g_R = min(1, √2·sin((p+1)/8 turn)). A member of any other layout is not
+panned: its voices reach the emitter's mix through the domain's layout
+conversion and the panel says "not panned: 5.1 source". The output follows
+the project's layout: each bus's stereo mix is converted to it by the
+domain's fold where it is not stereo.
 
 **The preview plan** (`preview/preview-plan.ts`, `preview-chains.ts`):
 
@@ -918,67 +1099,122 @@ export interface PreviewPlan {
   readonly controls: {
     readonly emitters: ReadonlyMap<
       PreviewEmitterId,
-      {
-        readonly stream: number;
-        readonly gain: ProcessorId;
-        readonly pan: ProcessorId;
-        readonly filter?: ProcessorId;
-      }
+      { readonly stream: number; readonly panner: ProcessorId }
     >;
     readonly buses: ReadonlyMap<BusName, { readonly stream: number; readonly gain: ProcessorId }>;
   };
+  /** Each lane's stream, kept at its index by every extension, so the engine keeps its reader. */
+  readonly lanes: ReadonlyMap<string, number>; // '<emitter>:<lane>'
 }
 export function previewPlan(
-  log: PreviewEventLog,
+  simulation: PreviewSimulation,
+  scenario: GamePreviewScenario,
   members: ReadonlyMap<string, EditPlan>,
   catalogue: ProcessorCatalogue,
   ids: IdGenerator,
   layout: ChannelLayout,
 ): DomainResult<PreviewPlan>;
-export function emitterParameters(
-  scenario: GamePreviewScenario,
-  rules: PlaybackRules,
-  emitter: PreviewEmitterId,
-  atMilliseconds: number,
-): { readonly gainDecibels: number; readonly pan: number; readonly cutoffHertz?: number };
+/** `previous` with the events after `from` added: every stream and every segment ending at or before `from` unchanged, at the same index. */
+export function extendPreviewPlan(
+  previous: PreviewPlan,
+  simulation: PreviewSimulation,
+  from: number,
+): DomainResult<PreviewPlan>;
 ```
 
 Streams: each member's plan (`regionPlan` or the asset's) once; for a voice
-with pitch ≠ 0 a varispeed stream over it at round(fs·2^(cents/1200)) Hz;
-one lane per voice slot, segments of silence and of voices, each voice with a
-constant gain stage and, when it ends early, a 5 ms fade-out stage; a looping
-member's voice is its intro then cycles to the horizon; each emitter a `mix`
-of its lanes processed by a chain [gain, pan, filter where set]; each bus a
-`mix` of its emitters' streams through a gain; the output a `mix` of buses.
-Identifiers come from the `ids` given, so the plan is reproducible from the
-same generator seed.
+with pitch ≠ 0 a varispeed stream over it; per emitter `limit + 1` lane
+streams of silence and voice segments, each voice with a constant gain stage
+and, when it ends early, a 5 ms fade-out stage; a looping member's voice is
+its intro then cycles to the horizon; each emitter a `mix` of its lanes
+through a chain of `spatial-panner`, whose x, y, z carry the motion as
+automation; each bus a `mix` of its voices' emitter streams through a `gain`
+(a voice's bus is its member's, so an emitter feeds every bus its members
+name, one emitter stream per bus it uses); the output a `mix` of buses.
+Identifiers come from `ids`, so a plan is reproducible from the same
+generator seed.
 
-**The varispeed stream** (domain, `ADR-0104`): `StreamProcessing` gains
-`{ kind: 'varispeed' }`: the stream has one segment reading one stream of
-its layout, whose frames it takes one for one at its own declared rate; a
-stream reading it at another rate converts with the canonical resampler, as
-any stream source is converted. `plan-validation.ts`, `plan-decoding.ts`,
-the plan readers in `packages/audio-engine/src/pcm/` and the project format's
-plan writer and reader learn it; an insertion's payload holding one is
-refused (`edit.payload-varispeed`).
+**Members with whole-pass processing.** A member whose plan holds a
+whole-pass processor (a `loudness-normalisation` slot the Normalise workflow
+added) is heard through the engine's cached render of that stream
+(`ADR-0061` amended): before Run, the panel asks the preview producer for
+every member's render and shows their progress; Run is available when they
+are ready, so no voice waits on a measurement mid-run.
 
-**The continued programme.** `apps/web/src/audio/programme.ts`'s `Following`
-gains `{ kind: 'continued'; from: SampleCount }`, chosen when the next
-programme states `continues: { key, from }` naming the loaded one;
-`PlaybackSessionPort` gains `continueWith(request, from)`, which the feeder
-honours by replacing its source for frames ≥ `from` when `from` is at or
-after the frame it reads next, and refuses with
-`playback.continuation-too-late` otherwise; `PlaybackControl.continue` and
-`readFrame()` (the frame the feeder reads next) are the port the preview and
-the loop audition use. A hand trigger is scheduled at `readFrame()` plus one
-chunk, so it is heard within the profile's feed-ahead time (50, 200 or
-1,000 ms); the panel shows that latency.
+**Plan additions** (WU-10.P, `ADR-0104`):
 
-**Bounds.** 16 emitters, 64 voices each, 50 triggers a second an emitter, a
-30-second horizon per plan, extended when the playhead is within 5 s of it.
-The simulation and plan building run on the page: at these bounds a horizon
-is at most 24,000 events and a plan a few thousand segments, built in well
-under a frame budget (measured, Q5).
+- _Varispeed by a ratio._ `StreamProcessing` gains
+  `{ kind: 'varispeed'; numerator: number; denominator: 4096 }`: the stream
+  has one segment reading one stream of its layout and rate, played at
+  numerator ÷ 4,096 of its speed by the canonical resampler run with integer
+  steps (output step 4,096, input step `numerator`, reduced), so pitch and
+  speed change together as an engine's pitch scale does. The ratio is
+  2^(cents/1200) rounded to the nearest 1/4,096 (0.42 cents at unison), 1,024
+  to 16,384 over ±2,400 cents; its frame count is the existing
+  `convertedFrameCount` rule over those steps. Because the denominator is
+  fixed, the resampler's phase table has at most 4,096 phases and is built
+  within its budget at preview quality (`ResamplingQuality` of the preview's
+  `QualityMode`, its taps stated in `resampling-grade.ts`); no declared rate
+  is involved, so a low-rate project's −2,400 cents never needs a rate below
+  8 kHz. An insertion's payload holding one is refused
+  (`edit.payload-varispeed`).
+- _Parameter automation in a plan's chain._ The chain processing of a plan
+  stream gains `automation?: readonly { processor: ProcessorId; parameter:
+ParameterId; points: readonly { frame: number; value: number }[] }[]`,
+  linear between points and held after the last, evaluated by the chain
+  runner (`packages/effect-rack`) at the processor's design interval. It is
+  a plan value only: a project's chains hold none, and the project format
+  refuses one in a persisted plan.
+
+**The continued programme** (WU-10.D3, gated). The engine has no way to
+change what is playing without reloading: `PlaybackSession.load` pauses the
+transport and replaces every source (`playback-session.ts:136-139`), and
+`PlaybackControl.#reload` restarts (`playback-control.ts:338`), which resets
+every processor, filter and resampler and would click at the change. The
+design keeps live readers:
+
+1. `Programme` gains `continues?: { key: string; from: SampleCount }`, and
+   `Following` gains `{ kind: 'continued'; from: SampleCount }`, chosen
+   where the next programme continues the loaded one.
+2. `PlaybackSessionPort.continueWith(request, from)` sends the new plan to
+   the feeder without pausing the transport. The feeder answers with the
+   frame F it will switch at: the first frame it has not yet read, refused
+   (`playback.continuation-too-late`) when that is after `from`.
+3. The feeder's plan readers (`packages/audio-engine/src/pcm/plan-readers.ts`
+   and its processed and resampled sources) are matched by stream index: a
+   stream of the new plan whose definition (source, rate, layout, processing
+   with every processor's identifier and value, and automation and segments
+   up to F) equals the old stream's keeps its live reader, with its
+   processor, filter and resampler state, and only takes the new segments
+   after F; any other stream gets a new reader sought to F. The preview plan
+   builder guarantees that the streams of sounding voices, lanes, emitters
+   and buses are kept at their indices with nothing changed before F.
+4. `PlaybackControl.continue(programme)` and `readFrame()` are the port the
+   preview and the loop audition use; a refused continuation is retried at
+   the new F.
+
+**Gate.** WU-10.D3 is the first unit to land in the audio path, and E2 and
+E3 do not branch until its acceptance tests pass in the reference renderer
+and the feeder: (a) a continuation whose new plan differs from the old only
+at or after the old horizon gives output bit-identical, on [F, old horizon),
+to the old plan played without it; (b) a continuation adding a voice at frame
+T ≥ F gives output bit-identical to the old plan on [F, T); (c) every
+sounding voice keeps its processor and resampler state across F (asserted
+on the readers). If the feeder cannot meet (a)–(c), the phase stops at
+`BLOCKED` with the evidence; there is no fallback of restarting playback.
+
+**Latency of a hand trigger**: the feed-ahead time of the profile (50, 200
+or 1,000 ms) plus one feeder chunk, plus building the continuation and one
+message. Building is incremental: `simulatePreview` from its state and
+`extendPreviewPlan` touch only the events after F (one voice's lane segment
+and, where pitched, its varispeed stream), at most O(events after F); a
+performance test holds a hand trigger's simulation and extension under 1 ms
+at the bounds, so they stay on the page beside the playback control that
+sends them. The panel states the profile's latency.
+
+**Bounds.** 16 emitters, 64 voices an emitter, `PREVIEW_VOICE_BUDGET`
+voices in all, 50 triggers a second an emitter, a 30-second horizon, extended
+when the playhead is within 5 s of it.
 
 ## 7. Guided workflows (WU-10.B)
 
@@ -986,13 +1222,21 @@ under a frame budget (measured, Q5).
 
 ```ts
 // guided-workflow.ts
-export type WorkflowTarget = GroupMember;
+export type WorkflowTarget =
+  | GroupMember
+  | { readonly kind: 'group'; readonly group: GameAssetGroupId; readonly subgroups: boolean };
+/** A target list expanded to members: a group's members in membership order, then its subgroups' depth first in name order where asked; each member once, at its first place. */
+export function targetMembers(
+  state: GameAudioState,
+  targets: readonly WorkflowTarget[],
+): readonly GroupMember[];
 export interface WorkflowInput<Options, Analyses> {
-  readonly state: ProjectState;
+  readonly state: ProjectState; // @audiogubbins/project-format
   readonly targets: readonly WorkflowTarget[];
   readonly options: Options;
   readonly analyses: Analyses;
   readonly catalogue: ProcessorCatalogue;
+  readonly library: readonly LibraryEntry[]; // the built-in game chains among them
   readonly ids: IdGenerator;
   readonly clock: ExportClock; // naming's {date}
 }
@@ -1019,62 +1263,82 @@ export type WorkflowKey =
 export type AnalysisNeed =
   | {
       readonly kind: 'assistants';
-      readonly target: WorkflowTarget;
+      readonly target: GroupMember;
       readonly assistants: readonly string[];
       readonly detectors: DetectorValues;
     }
-  | {
-      readonly kind: 'loop';
-      readonly target: WorkflowTarget;
-      readonly request: LoopAnalysisRequest;
-    }
-  | { readonly kind: 'loudness'; readonly target: WorkflowTarget };
+  | { readonly kind: 'loop'; readonly target: GroupMember; readonly request: LoopAnalysisRequest }
+  | { readonly kind: 'loudness'; readonly target: GroupMember };
 
 // workflow-plan.ts
 export type WorkflowItem =
   | {
       readonly kind: 'planned';
-      readonly target: WorkflowTarget;
+      readonly target: GroupMember | GameAssetGroupId;
       readonly changes: readonly string[];
     }
-  | { readonly kind: 'skipped'; readonly target: WorkflowTarget; readonly reason: string }
+  | {
+      readonly kind: 'skipped';
+      readonly target: GroupMember | GameAssetGroupId;
+      readonly reason: string;
+    }
   | {
       readonly kind: 'refused';
-      readonly target: WorkflowTarget;
+      readonly target: GroupMember | GameAssetGroupId;
       readonly failures: readonly [DomainFailure, ...DomainFailure[]];
     };
 export interface WorkflowPlan {
   readonly description: string; // the history step's name
-  readonly invocations: readonly CommandInvocation[]; // the planned items', in target order; may be empty
+  readonly invocations: readonly CommandInvocation[]; // @audiogubbins/commands; the planned items', in order
   readonly items: readonly WorkflowItem[];
+  /** Members whose export follows the step, as its own non-undoable action (Export for Godot). */
+  readonly exportAfter?: readonly GroupMember[];
 }
 ```
 
-The interface dispatches `session.runGroup(plan.description, invocations)`
-only when no item is `refused` and `invocations` is not empty; with a
-refused item the dialog lists it with its failures and offers "Leave these
-out", which plans again over the rest. `executeGroup` is all-or-nothing.
+Dependencies (`ADR-0100`): `domain`, `commands`, `game-audio`,
+`loop-analysis`, `processors`, `import-export`, `project-format`,
+`project-commands` and `detection-runtime`. What a planner needs from an
+assistant's report moves out of the web app to the package that defines the
+report, `packages/detection-runtime/src/report-reading.ts` (WU-10.C2):
+`silenceRemovals(report, scope, part)` and `SILENCE_PARTS` (now
+`apps/web/src/analysis/detection-control.ts:47-72`), `treatmentPlacement`
+with `DetectionScope`, and `learnedStates(report)` (now
+`apps/web/src/commands/analysis-commands.ts:205`). The web app imports them
+from there (WU-10.E1), so the panel, the command and the planner follow one
+rule.
 
-| Workflow             | Analyses                                       | What it plans (existing commands only)                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cut Into Sounds      | Silence assistant over each asset              | `project.add-region` per span the silence leaves (threshold, shortest pause, lead-in and tail as options), `game.assign-member` to the chosen group, `project.set-region` names from the effective naming (section 4)                                                                                                                                                                                                                       |
-| Prepare One-Shot     | Silence, and DC offset detector, per target    | Region: `project.set-region` boundaries trimmed to the sound plus lead-in and tail; asset: `trim` edits. Fades: `project.apply-region-edit` / `project.apply-edit` fade-in (default 2 ms linear) and fade-out (20 ms equal-power) at the new edges. DC: a `dc-offset-removal` slot where found. Level: a `loudness-normalisation` slot at the effective target, or `peak-normalisation` to a stated peak where none is set, placed as below |
-| Create Seamless Loop | Loop analysis with search                      | Nothing until the person chooses a candidate; then `project.set-region` with the loop `{ basis, start, end, crossfadeLength }` and, where asked, the region's end at the loop's end                                                                                                                                                                                                                                                         |
-| Normalise Game SFX   | Loudness measurement after, for conformance    | `game.set-group-policy` `loudness` where asked; a `loudness-normalisation` slot at the end of each group's chain (`project.add-slot` / `project.set-processor`) or of each own-rack member's rack                                                                                                                                                                                                                                           |
-| Clean Dialogue       | Restoration and repair assistants, noise floor | A rack extended (as `analysis.apply` does, `extendedRackInvocation`) with the recommended steps, a high-pass `filter` at 80 Hz, a `de-esser`, `deepfilternet-3` where its pack is installed else `noise-reduction` learned from the noise floor, and loudness normalisation at the dialogue target                                                                                                                                          |
-| Export for Godot     | none                                           | `game.set-group-policy` for `exportProfile` (looping members WAV integer 16-bit at the project rate, which carries `smpl` loops; one-shots WAV 16-bit or Ogg Vorbis as chosen), `naming` (default `{group:snake}_{number:2}`) and `destination` (default `audio/` then the group path in snake case); then the game export plan                                                                                                             |
+The interface dispatches `session.runGroup(plan.description, invocations)`
+only when no item is `refused` and `invocations` is not empty; with a refused
+item the dialog lists it with its failures and offers "Leave these out",
+which plans again over the rest. `executeGroup` is all-or-nothing. An export
+is never inside that step: it is an external side effect and is never undone
+(`ADR-0092`, the global invariant), so `exportAfter` is offered once the
+step has applied, as a separate action the person confirms, through the game
+export plan (section 4).
+
+| Workflow             | Analyses                                        | What it plans (existing commands only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cut Into Sounds      | Silence assistant over each asset               | `project.add-region` per span the silence leaves (threshold, shortest pause, lead-in and tail as options), `game.assign-member` to the chosen group with `processing: 'inherit'`, `project.set-region` names from the effective naming (section 4)                                                                                                                                                                                                                                                                                               |
+| Prepare One-Shot     | Silence, and the DC offset detector, per member | Region: `project.set-region` boundaries trimmed to the sound plus lead-in and tail; asset: `trim` edits. Fades: `project.apply-region-edit` / `project.apply-edit` fade-in (default 2 ms linear) and fade-out (20 ms equal-power) at the new edges. DC: a `dc-offset-removal` slot where found. Level: a `loudness-normalisation` slot at the effective target, or `peak-normalisation` to a stated peak where none is set, placed as below                                                                                                      |
+| Create Seamless Loop | Loop analysis with search, per region           | Nothing until the person chooses a candidate; then `project.set-region` with the loop `{ basis, start, end, crossfadeLength, crossfadeShape }` and, where asked, the region's end at the loop's end                                                                                                                                                                                                                                                                                                                                              |
+| Normalise Game SFX   | Loudness measurement after, for conformance     | Per group target: `game.set-group-policy` `loudness` where asked, and a `loudness-normalisation` slot at the end of the group's chain (`project.add-slot` / `project.set-processor`), or, where the group has no chain, the group's `processing` set to a copy of the matching built-in game chain; per `own` member: the slot at the end of its rack                                                                                                                                                                                            |
+| Clean Dialogue       | Restoration and repair assistants, noise floor  | A rack extended (as `analysis.apply` does, `extendedRackInvocation`) with the recommended steps, the built-in Dialogue chain's high-pass, de-esser and compressor, `deepfilternet-3` where its pack is installed else `noise-reduction` learned from the noise floor, and loudness normalisation at the effective target or the built-in −23 LUFS                                                                                                                                                                                                |
+| Export for Godot     | none                                            | Per group target: `game.set-group-policy` `exportProfile` (one-shots: WAV integer 16-bit at the project rate, or Ogg Vorbis as chosen), `naming` (default `{group:snake}_{number:2}`) and `destination` (default `audio/` then the group path in snake case); per looping member of a group whose profile is not WAV: `game.set-member-override` `exportProfile` to WAV integer 16-bit, which carries `smpl` loops (Q1), visible as an override; `exportAfter` every member. A member in no group is refused ("not in a group: assign it first") |
 
 Placement: trims, fades and loops are the region's (boundaries, its own
 processing, its loop); level and treatment chains are racks, so normalising
-runs last (`ADR-0060`'s order). For a member that inherits its group's chain
-the dialog asks: "Add to the group's chain (affects N members)" or "Give this
-member its own processing"; the default is the member's own, since a
-one-shot's preparation should not change its siblings without asking.
+runs last (`ADR-0060`'s order). For an `inherit` member the dialog asks:
+"Add to the group's chain (affects N members)" or "Give this member its own
+processing" (which sets it `own`); the default is its own for Prepare
+One-Shot and Clean Dialogue, which treat one sound, and the group's for
+Normalise Game SFX, whose subject is the group.
 
 Idempotence (`existing-operations.ts`): a fade already at an edge with the
 same direction and a length within one frame, a slot of the same type and
 values at the chain's end, a loop already at the chosen points, a region
-already over a span: each is `skipped` with its reason, never added again.
+already over a span, a policy field already at the value: each is `skipped`
+with its reason, never added again.
 
 ## 8. Persisted format and state ownership
 
@@ -1086,7 +1350,7 @@ already over a span: each is `skipped` with its reason, never added again.
 | A region's loop and its crossfade; racks and chains             | Authoritative project state (Phases 05, 06)                                     | unchanged members                                                                      |
 | History entries of game changes                                 | Persisted command journal                                                       | `AffectedEntities.gameGroups` (new), `EntityKind` `game-group`                         |
 | Effective policy                                                | Derived, cached per `ProjectState` value                                        | `apps/web/src/state/game-policy-view.ts` (memo, no store of its own)                   |
-| Loop analyses, loudness measurements, conformance               | Derived results, the session's, keyed by plan fingerprint + request + version   | `apps/web/src/state/loop-analysis-store.ts`, `loudness-store.ts`                       |
+| Loop analyses, loudness measurements, conformance (C15)         | Derived results, the session's, keyed by plan fingerprint + request + version   | `apps/web/src/state/loop-analysis-store.ts`, `loudness-store.ts`                       |
 | Analysis and measurement runs                                   | Background jobs with explicit states (queued, running, done, failed, cancelled) | the detection host's job records                                                       |
 | Preview programme, loop audition programme                      | Audio runtime state                                                             | `PlaybackControl`                                                                      |
 | Live preview parameters, hand triggers, event log, voice counts | Ephemeral interaction state                                                     | `apps/web/src/state/game-preview-store.ts`                                             |
@@ -1103,20 +1367,22 @@ arguments; a profile's choices are read and written by the encodings
 `writeProjectDocument` and `readProjectDocument` read it with `optional`; the
 reader runs `validateGameAudioState` after the project is read, so a chain,
 region or asset it names is checked. The tree layout gains
-`GAME_AUDIO_PATH = 'project/game-audio.json'` (kind `game-audio`); whether
-`projectStorage` must rise with a new tree file is checked against how
-`EXPORT_SETTINGS_PATH` was added (Q6). `version.json`'s `projectDocument`
-rises; the older-version refusal tests in `project-json.test.ts` and
+`GAME_AUDIO_PATH = 'project/game-audio.json'` (kind `game-audio`);
+`projectStorage` does not rise, as it did not when `EXPORT_SETTINGS_PATH` was
+added (`21694890` raised only `projectDocument`). `version.json`'s
+`projectDocument` rises; the older-version refusal tests in `project-json.test.ts` and
 `project-tree.test.ts` gain version 9. The random state generator
 (`testing/random-states.ts`) makes random game-audio state, so the 30-seed
 tree round trip and the document test cover it.
 
 **History.** `packages/project-format/src/history-record.ts`'s
-`AffectedEntities` gains `gameGroups: readonly GameAssetGroupId[]`;
+`AffectedEntities` gains `gameGroups: readonly GameAssetGroupId[]`, written
+by `history-node-json.ts` and read there with `optional`, as `takeStacks` is;
 `packages/history/src/state-diff.ts` and `entity-fields.ts` diff groups,
 memberships and scenarios (a membership change affects its group and its
 region or asset; a scenario change affects `project`); `history-rows.ts`
-gains the entity kind `game-group`.
+gains the entity kind `game-group`; `difference-names.ts` names a chain's
+owner through `projectChainUsers`, so a group can be it.
 
 ## 9. Commands
 
@@ -1132,34 +1398,40 @@ caller; every result passes `validateGameAudioState`.
 | `game.rename-group`          | `group`, `name`                                                      | Renames                                                                                                     | `game.rename-group` old name                                        |
 | `game.move-group`            | `group`, `parent?`                                                   | Re-parents; realigns inheriting members' racks                                                              | `game.move-group` back, racks restored                              |
 | `game.set-group-policy`      | `group`, `field`, `value?` (absent: unset)                           | Sets or unsets one field; for `processing` realigns inheriting members' racks and moves the chain in or out | `game.set-group-policy` old value                                   |
-| `game.assign-member`         | `member`, `group`, `processing: 'inherit' \| 'keep'`, `overrides?`   | Joins (or moves between groups); `inherit` sets the rack to the inherited chain                             | `game.assign-member` back, or `game.unassign-member`, rack restored |
-| `game.unassign-member`       | `member`                                                             | Leaves; its rack stays as it is, now its own                                                                | `game.assign-member` with its overrides and processing              |
-| `game.set-member-override`   | `member`, `field`, `value`                                           | Sets an override (not `processing`, not `tags`)                                                             | set or reset to the old                                             |
-| `game.reset-member-override` | `member`, `field`                                                    | Removes an override; for `processing` sets the rack to the inherited chain                                  | set the old value, or the old rack                                  |
+| `game.assign-member`         | `member`, `group`, `processing: 'inherit' \| 'own'`, `overrides?`    | Joins (or moves between groups); `inherit` sets the rack to the inherited processing, `own` keeps it        | `game.assign-member` back, or `game.unassign-member`, rack restored |
+| `game.unassign-member`       | `member`                                                             | Leaves; its rack stays as it is                                                                             | `game.assign-member` with its overrides and processing              |
+| `game.set-member-override`   | `member`, `field` (an `OverridableField`), `value`                   | Sets an override                                                                                            | set or reset to the old                                             |
+| `game.reset-member-override` | `member`, `field` (an `OverridableField`)                            | Removes an override                                                                                         | `game.set-member-override` old value                                |
+| `game.set-member-processing` | `member`, `processing: 'inherit' \| 'own'`                           | `inherit` sets the rack to the inherited processing (reset to inherited); `own` keeps the rack              | the old processing and rack                                         |
 | `game.add-scenario`          | `scenario`                                                           | Adds                                                                                                        | `game.remove-scenario`                                              |
 | `game.set-scenario`          | `scenario`                                                           | Replaces whole                                                                                              | `game.set-scenario` old                                             |
 | `game.remove-scenario`       | `scenario` id                                                        | Removes                                                                                                     | `game.add-scenario`                                                 |
 
-Changes to existing commands: `project.remove-region` and
-`project.remove-asset` refuse a member (`region.in-group`,
-`asset.in-group`); `chain-naming.ts` counts a group's `processing` as naming
-its chain, so a chain a group names is never removed and enters or leaves
-with the group command; `region-commands.ts`'s split path is untouched (the
+Every command that changes what an `inherit` member inherits
+(`game.set-group-policy` on `processing`, `game.move-group`,
+`game.assign-member`) sets the rack of every `inherit` member to
+`inheritingRacks(after)` in the same command. Changes to existing commands:
+`project.remove-region` and `project.remove-asset` refuse a member
+(`region.in-group`, `asset.in-group`); `project.set-rack` on an `inherit`
+member sets it `own` in the same command, its inverse restoring both;
+`chain-naming.ts` counts a group's `processing` through `projectChainUsers`,
+so a chain a group names is never removed and enters or leaves with the
+group command; `region-commands.ts`'s split path is untouched (the
 shell's split command joins the halves to the group).
 
 Shell commands (`apps/web/src/commands/`), each with a label, category,
 availability and reason (`ADR-0013`), in the palette and menus:
 
-| Module                        | Commands                                                                                                                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `game-group-commands.ts`      | `game.new-group`, `game.rename-group`, `game.move-group`, `game.delete-group`, `game.set-policy`, `game.unset-policy`, `game.apply-preset-to-group`                             |
-| `game-member-commands.ts`     | `game.assign-selection`, `game.remove-from-group`, `game.set-override`, `game.reset-override`, `game.reset-all-overrides`, `game.name-members`                                  |
-| `game-export-commands.ts`     | `game.export-group`, `game.export-members` (the game export plan, then a Phase 09 batch)                                                                                        |
-| `loudness-commands.ts`        | `game.measure-loudness` (conformance)                                                                                                                                           |
-| `loop-analysis-commands.ts`   | `loop.analyse`, `loop.find-candidates`, `loop.apply-candidate`, `loop.apply-crossfade`, `loop.cancel-analysis`                                                                  |
-| `loop-audition-commands.ts`   | `loop.audition-cycles`, `loop.audition-seam`, `loop.audition-candidate`, `loop.stop-audition`                                                                                   |
-| `game-preview-commands.ts`    | `preview.run`, `preview.stop`, `preview.trigger` (per emitter), `preview.new-seed`, `preview.keep-scenario`, `preview.new-scenario`, `preview.delete-scenario`                  |
-| `guided-workflow-commands.ts` | `workflow.cut-into-sounds`, `workflow.prepare-one-shot`, `workflow.create-seamless-loop`, `workflow.normalise-game-sfx`, `workflow.clean-dialogue`, `workflow.export-for-godot` |
+| Module                        | Commands                                                                                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `game-group-commands.ts`      | `game.new-group`, `game.rename-group`, `game.move-group`, `game.delete-group`, `game.set-policy`, `game.unset-policy`, `game.apply-preset-to-group`                                              |
+| `game-member-commands.ts`     | `game.assign-selection`, `game.remove-from-group`, `game.set-override`, `game.reset-override`, `game.inherit-processing`, `game.own-processing`, `game.reset-all-overrides`, `game.name-members` |
+| `game-export-commands.ts`     | `game.export-group`, `game.export-members` (the game export plan, then a Phase 09 batch; never inside an undoable step)                                                                          |
+| `loudness-commands.ts`        | `game.measure-loudness` (conformance)                                                                                                                                                            |
+| `loop-analysis-commands.ts`   | `loop.analyse`, `loop.find-candidates`, `loop.apply-candidate`, `loop.apply-crossfade`, `loop.cancel-analysis`                                                                                   |
+| `loop-audition-commands.ts`   | `loop.audition-cycles`, `loop.audition-seam`, `loop.audition-candidate`, `loop.stop-audition`                                                                                                    |
+| `game-preview-commands.ts`    | `preview.run`, `preview.stop`, `preview.trigger` (per emitter), `preview.new-seed`, `preview.keep-scenario`, `preview.new-scenario`, `preview.delete-scenario`                                   |
+| `guided-workflow-commands.ts` | `workflow.cut-into-sounds`, `workflow.prepare-one-shot`, `workflow.create-seamless-loop`, `workflow.normalise-game-sfx`, `workflow.clean-dialogue`, `workflow.export-for-godot`                  |
 
 The existing region delete and split shell commands compose
 `game.unassign-member` and `game.assign-member` in the same step for a
@@ -1173,13 +1445,14 @@ member region.
 | Loudness measurement                       | Detection worker               | New request `measure-loudness`: integrated LUFS, range and true peak of a target, by `CanonicalDsp.createLoudnessMeter` and `createPeakMeter` in 32,768-frame chunks                         |
 | Assistants for workflows                   | Detection worker               | The existing `detect` request                                                                                                                                                                |
 | Policy resolution, naming, export planning | Page                           | Pure and O(groups + members); memoised per state                                                                                                                                             |
-| Preview simulation and plan                | Page                           | Pure, bounded (section 6)                                                                                                                                                                    |
+| Preview simulation and plan                | Page                           | Incremental from the last state; a hand trigger under 1 ms at the bounds, held by a performance test (section 6)                                                                             |
 | Preview and loop audition audio            | Feeder worker and worklet      | The existing programme path, continued programmes                                                                                                                                            |
 | Export renders, encodes, delivery          | Render, codec, storage workers | Phase 09's, unchanged but for the relative folder                                                                                                                                            |
 
 `packages/detection-runtime/src/detection-messages.ts` gains the two
 request and reply kinds; `detection-host.ts` gains `analyseLoop` and
-`measureLoudness`; `loop-run.ts` and `loudness-run.ts` are new beside
+`measureLoudness`; `loop-run.ts`, `loudness-run.ts` and `report-reading.ts`
+(the report helpers moved from the web app, section 7) are new beside
 `detection-run.ts`. Readers of every new message validate it as the existing
 ones do.
 
@@ -1228,45 +1501,54 @@ Words live beside their surfaces (`apps/web/src/shell/game/game-words.ts`,
 
 ## 12. Verification scripts
 
-Root `package.json` gains (the packet's command names restated where its form
-does not run, conflict C6):
+The packet's commands run as written:
 
-```json
-"test:game-audio": "vitest run --project game-audio --project loop-analysis --project guided-workflows",
-"test:loop-golden": "vitest run loop-golden",
-"test:e2e:game-workflows": "playwright test --project=chromium-game-workflows"
-```
+- `pnpm test --filter game-audio --filter loop-analysis`: pnpm consumes the
+  filters and runs each matched package's own `test` script, which WU-10.0
+  gives both packages (and `guided-workflows`) as the graph generates every
+  package's: `vitest run --root ../../ --project <name>`.
+- `pnpm test:loop-golden`: root script `"vitest run loop-golden"`, selecting
+  `*.loop-golden.test.ts` by file name across projects, as
+  `test:spectral-golden` does; `test:audio-golden` (`vitest run golden`)
+  runs them too.
+- `pnpm test:e2e:game-workflows`: root script
+  `"playwright test --project=chromium-game-workflows"`, with
+  `{ name: 'chromium-game-workflows', use: { ...devices['Desktop Chrome'] }, testMatch: /game-workflows\.spec\.ts/ }`
+  in `playwright.config.ts`.
 
-`pnpm --filter @audiogubbins/game-audio --filter @audiogubbins/loop-analysis test`
-also runs (each package's `test` script, generated). `test:loop-golden`
-selects `*.loop-golden.test.ts` by file name across projects, as
-`test:spectral-golden` does, so `test:audio-golden` (`vitest run golden`)
-runs them too. `playwright.config.ts` gains
-`{ name: 'chromium-game-workflows', use: { ...devices['Desktop Chrome'] }, testMatch: /game-workflows\.spec\.ts/ }`.
-The existing `test:project-roundtrip`, `test:editing-property`,
-`test:dsp-property`, `test:audio-golden`, `test:architecture` and
-`test:roundtrip-audio` run unchanged and cover the extended surfaces.
+Root `package.json` also gains `"test:game-audio": "vitest run --project
+game-audio --project loop-analysis --project guided-workflows"`, the three
+packages in one run. The existing `test:project-roundtrip`,
+`test:editing-property`, `test:dsp-property`, `test:audio-golden`,
+`test:architecture` and `test:roundtrip-audio` run unchanged and cover the
+extended surfaces.
 
 ## 13. Test plan by requirement
 
-| Requirement                 | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `REQ-GAME-120`              | `policy-resolution.test.ts` (each rule of section 3, by fixture forest); `policy-resolution.properties.test.ts` (random forests: `resolveAll` equals `resolvePolicy`, permuting maps and memberships never changes an answer, an override's reset reveals `shadowed[0]`); `state-validation.test.ts` (every code, each failure naming its owner); `processing-realisation.test.ts`; `game/*-commands.test.ts` (each command and its inverse, rack realignment, chain entering and leaving); the random command walk extended with game commands; `game-audio-json.test.ts` and the tree round trip                                                                  |
-| `REQ-GAME-121`              | `*.loop-golden.test.ts` over `testing/loop-fixtures.ts` (below) pinning metrics (`doublesFingerprint`) and the ranked candidates' frames; `seam-metrics.test.ts` per metric against hand-computed values; `candidate-search.test.ts` (tie-breaking, keep-length, radius clipping); `loop-crossfade.test.ts` and `loop-crossfade-property.test.ts` in the domain against its oracle; `loop-run.test.ts` (cancelled and failed runs return no result and change nothing); `audition-plans.test.ts` rendered offline against expected samples                                                                                                                          |
-| `REQ-GAME-122`              | `selection.test.ts`, `voice-allocation.test.ts`, `cooldown.test.ts`, `attenuation.test.ts`, `panning.test.ts`, `motion.test.ts`; `preview-simulation.properties.test.ts` (same seed same log; continuation equals the whole; never more than `limit` voices; `avoid-recent(d)` never repeats within d when n > d; suppressed triggers change no later choice); `preview-vectors.test.ts` (the reference vectors Phase 11 consumes); `preview-plan.test.ts` (rendered offline: a voice's samples at its frame, gain and pitch); `pan.golden.test.ts` and properties; continuation tests in `playback-session.test.ts`, `feeder` tests and `playback-control.test.ts` |
-| `REQ-GAME-075`              | Each planner's test over `testing/workflow-states.ts` (plans, skips, refusals); `workflow-dispatch.test.ts` in the web app (a refused item dispatches nothing; one undo reverses a run); dialog tests; the browser test                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `REQ-GAME-023`              | Naming: `naming-template.test.ts`, `member-naming.test.ts` (every token and modifier), `template-grammar.test.ts` in import-export with Phase 09's tests unchanged; export: `game-export-plan.test.ts` (resolution equals `resolvePreset`, collisions, per-item refusal with owner), `export-delivery.test.ts` (relative folders, trusted records by path); loudness: `loudness-run.test.ts`; the remaining items as section 1 maps them                                                                                                                                                                                                                            |
-| Acceptance: long recordings | The browser test cuts a long signal asset into regions with Cut Into Sounds, names them, gives the group a profile and exports them; `cut-into-sounds.test.ts` asserts no new source or media is made (only regions)                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Requirement                 | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REQ-GAME-120`              | `policy-resolution.test.ts` (each rule of section 3, by fixture forest); `policy-resolution.properties.test.ts` (random forests: `resolveAll` equals `resolvePolicy`, permuting maps and memberships never changes an answer, a reset reveals `shadowed[0]`); `state-validation.test.ts` (every code, each failure naming its owner; `inherit` with a mismatched rack refused); `processing-realisation.test.ts` (inheriting `none` and unset; A → none → B keeps every inheritor; `own` with an equal rack stays `own`); `chain-users.test.ts` and an architecture rule that no other package imports the domain's `chainUsers`; `game/*-commands.test.ts` (each command and its inverse, rack re-pointing, chain entering and leaving, `set-rack` turning a member `own`); the random command walk extended with game commands; `game-audio-json.test.ts`, `history-node-json.test.ts` (a node without `gameGroups` still reads) and the tree round trip; `game-chains.test.ts` (each built-in entry valid against the catalogue, values pinned) and `processing-library-store.test.ts` (built-ins listed, never renamed or removed)                                                                                                                                                                                                  |
+| `REQ-GAME-121`              | `*.loop-golden.test.ts` over `testing/loop-fixtures.ts` (below) pinning metrics (`doublesFingerprint`) and the ranked candidates' frames; `seam-metrics.test.ts` per metric against hand-computed values, including zero RMS, a steady sine's zero MAD, non-finite input and each reference; `candidate-search.test.ts` (overlap-save NCC against a direct sum, tie-breaking, keep-length, radius clipping, multichannel and anti-phase stereo); `search-bounds.test.ts` (one pass, the reads counted); `crossfade-suggestion.test.ts` (a sine needs at least two periods; a whole-sound loop gets the moved-start candidate); `loop-crossfade.test.ts` and `loop-crossfade-property.test.ts` in the domain against its oracle (both joins, every shape, the clamp after a later edit); `loop-run.test.ts` (cancelled and failed runs return no result and change nothing); `audition-plans.test.ts` rendered offline                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `REQ-GAME-122`              | `selection.test.ts`, `voice-allocation.test.ts` (limit + 1 lanes, a stolen voice's fade never shares a lane), `cooldown.test.ts` (strict, rejected and suppressed leave it), `voice-budget.test.ts`, `motion.test.ts`, `preview-draws.test.ts` (every formula of section 6; reordering emitters changes no draw); `preview-simulation.properties.test.ts` (same seed same log; continuation equals the whole; never more than `limit` voices; `avoid-recent(d)` never repeats within d when n > d; suppressed triggers change no later choice; a member's `variation` and `bus` override reach its voices); `preview-vectors.test.ts` (the reference vectors Phase 11 consumes); `preview-plan.test.ts` and `extend-preview-plan.test.ts` (rendered offline: a voice's samples at its frame, gain and pitch; streams before F unchanged at their indices); `spatial-panner.golden.test.ts` and properties (each model, the filter, the pan laws, automation rendered offline equal to running changes at the same frames); the varispeed property tests against the domain's oracle; `chain-automation.test.ts` in the effect rack; the D3 gate tests (a)–(c) in `plan-readers.test.ts`, the feeder tests and `playback-session.test.ts`, and `playback-control.test.ts`; `hand-trigger.performance.test.ts` (under 1 ms at the bounds) |
+| `REQ-GAME-075`              | Each planner's test over `testing/workflow-states.ts` (plans, skips, refusals); `workflow-dispatch.test.ts` in the web app (a refused item dispatches nothing; one undo reverses a run); dialog tests; the browser test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `REQ-GAME-023`              | Naming: `naming-template.test.ts`, `member-naming.test.ts` (every token and modifier), `template-grammar.test.ts` in import-export with Phase 09's tests unchanged; export: `game-export-plan.test.ts` (resolution equals `resolvePreset`, collisions, per-item refusal with owner), `export-delivery.test.ts` (relative folders, trusted records by path); loudness: `loudness-run.test.ts`; the remaining items as section 1 maps them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Acceptance: long recordings | The browser test cuts a long signal asset into regions with Cut Into Sounds, names them, gives the group a profile and exports them; `cut-into-sounds.test.ts` asserts no new source or media is made (only regions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Loop fixtures (generated by `@audiogubbins/test-fixtures` signals and
 `loop-analysis/src/testing/loop-fixtures.ts`, at 48 kHz, mono and stereo):
-a 480 Hz sine looped at a whole number of periods (all pass); the same loop
-cut a quarter period short (phase ≈ 90°, click fail); a sine with a 0.05
-DC step at the seam (DC mismatch fail); a 6 dB level step (level fail); a
-seeded noise loop cut at random frames (spectral and click warn, candidates
-found within the radius); a two-tone loop; a stereo loop with only the right
-channel discontinuous (worst channel 1); a click inserted at E−1; a loop with
-2 ms of pre-roll only (a 5 ms crossfade refused, 2 ms suggested). Each golden
+a 480 Hz sine looped at a whole number of periods inside a longer region
+(all pass, reference `post-end`); the same as a whole-sound loop (reference
+`adjacent`, all pass, the moved-start crossfade offered only where asked); the
+loop cut a quarter period short (phase ≈ 90°, discontinuity fail); a sine
+with a 0.05 DC step at the seam (DC mismatch fail); a 6 dB level step (level
+fail); a bass drone with a steady DC (no false DC mismatch); a drum loop whose
+head is a hit and whose tail is decay (no false level or spectral failure on
+`post-end`); a seeded noise loop cut at random frames (candidates found within
+the radius); a stereo loop with only the right channel discontinuous (worst
+channel 1); an anti-phase stereo loop (anchors and correlation still found);
+a click inserted at E−1; a single-cycle loop of 100 frames (cyclic windows,
+spectral and phase not applicable); a loop with 2 ms of pre-roll only (a 5 ms
+crossfade not offered, 2 ms suggested where it passes). Each golden
 pins the analysis result and the candidate list; the suggested points of the
 sine fixtures are asserted exactly (whole periods).
 
@@ -1276,6 +1558,8 @@ deterministic test asset, Cut Into Sounds into a new group
 `Grass` inherit it in the Inspector with its source, override it on one
 region and reset it; Prepare One-Shot on the group and find the step in
 History and the fades and slot in the Inspector, then undo it in one step;
+apply the built-in "Game SFX, −16 LUFS" chain to the group from the Library
+and find it inherited by every member;
 Create Seamless Loop on a looped region: analyse, audition a candidate,
 apply it and find the loop in the Inspector; run a preview scenario that
 triggers the group 20 times and a loop emitter, check the event log's
@@ -1285,168 +1569,175 @@ downloads and check the names; reload and find the groups.
 ## 14. Work units, file ownership and order
 
 Every unit is a branch from the phase branch, merged back by the integrator.
-No two units edit one file. A unit that needs a line in a shared file lists it
-in its brief, and the integrator commits it on the phase branch before the
-unit branches (Phase 09 edited shared lists line by line per slice; here one
-owner does it, so no two branches touch them). `tests/architecture/public-contracts.txt`
+No two units edit one file at the same time. A unit that needs a line in a
+shared file lists it in its brief, and the integrator commits it on the phase
+branch before the unit branches. Where one file must change in two units, it
+is _handed over_: the first unit owns it until it merges, the second branches
+after that merge, and the table says so (→). `tests/architecture/public-contracts.txt`
 is regenerated by the integrator after each merge (`pnpm contracts:update`).
 
-| Unit     | Work                                                                   | Owns (exclusively)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Needs                                                   |
-| -------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| WU-10.0  | Integration and shared files                                           | `package.json`; `tools/sync-workspace-graph.mjs` and what it generates (`vitest.projects.json`, `tsconfig.build.json`, `packages/*/package.json`, `packages/*/tsconfig.json`, `packages/*/scopes/**`); `tests/architecture/dependency-rules.test.ts`; `.dependency-cruiser.cjs`; `tests/architecture/public-contracts.txt`; `playwright.config.ts`; `eslint.config.js`; `version.json`, `packages/version/src/index.ts`, `crates/audiogubbins-version/src/generated.rs`; `apps/web/src/application.ts`, `apps/web/src/panel-descriptors.ts`, `apps/web/src/panel-kinds.ts`, `apps/web/src/shell/panels.tsx` and its test, `apps/web/src/commands/shell-commands.ts`, `apps/web/src/commands/shell-context.ts`, `apps/web/src/shell/menus.ts` and its test; `packages/workspace/src/presets.ts` and its test; `packages/*/src/index.ts` of the three new packages (exports added per unit's list); this plan; everything under `docs/spec/` | —                                                       |
-| WU-10.A1 | Template grammar, naming templates, destination paths, export profiles | `packages/import-export/src/template-grammar.ts` (new), `file-name-template.ts`, `file-name-safety.ts` and their tests; `packages/game-audio/src/export/naming-template.ts`, `naming-vocabulary.ts`, `case-modifiers.ts`, `member-naming.ts`, `destination-path.ts`, `game-export-profile.ts`, `member-export-settings.ts` and their tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 0                                                       |
-| WU-10.A2 | Groups, membership, policy types, validation, resolution, realisation  | `packages/game-audio/src/groups/**`, `src/policy/**` (including `playback-rules.ts`'s types and validation), `src/testing/random-game-state.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | A1                                                      |
-| WU-10.A3 | Game export plan and member naming                                     | `packages/game-audio/src/export/game-export-plan.ts`, `member-names.ts` and their tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | A2                                                      |
-| WU-10.A4 | Persistence and history                                                | `packages/project-format/src/game-audio-json.ts` (new), `project-state.ts`, `project-json.ts`, `project-tree-layout.ts`, `project-tree-reading.ts`, `project-tree-writing.ts`, `history-record.ts`, `testing/random-states.ts`, `testing/random-values.ts`, `testing/project-states.ts` and their tests; `packages/history/src/state-diff.ts`, `entity-fields.ts` (with the loop's `crossfadeShape`), `history-rows.ts` and their tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | A2, P                                                   |
-| WU-10.A5 | Game project commands                                                  | `packages/project-commands/src/game/**` (new), `project-command.ts`, `project-commands.ts`, `processing/chain-naming.ts`, `editing/region-commands.ts`, `asset-commands.ts`, `testing/**` and their tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | A2, A4                                                  |
-| WU-10.A6 | Delivery into a relative folder                                        | `packages/storage/src/export-delivery.ts`, `export-collision.ts`, the trusted-folder record modules; `packages/storage-runtime/src/protocol/` export messages and `src/client/exports-client.ts`, `src/host/` export handler; `packages/browser-storage/src/` folder destination adapter; their tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | A1                                                      |
-| WU-10.P  | Plan extensions: loop crossfade and varispeed                          | `packages/domain/src/project/timeline.ts` (the loop's shape), `src/editing/plan.ts`, `plan-building.ts`, `placement.ts`, `placement-validation.ts`, `plan-validation.ts`, `plan-decoding.ts`, `processed-streams.ts`, `loop-crossfade.ts` (new), `operation-validation.ts` (payload refusal) and tests; `packages/audio-engine/src/pcm/plan-readers.ts`, `edited-source.ts`, `plan-content.ts` and tests; `packages/project-format/src/plan-writing.ts`, `plan-reading.ts`, `placement-reading.ts`, `placement-writing.ts`, `testing/random-edits.ts` and tests; the loops made in `packages/storage/src/import-placements.ts` and `packages/test-fixtures/src/projects.ts`                                                                                                                                                                                                                                                                | 0                                                       |
-| WU-10.C1 | Loop analysis core and the shared zero-crossing boundary               | `packages/loop-analysis/**`; `packages/audio-engine/src/pcm/zero-crossing-boundary.ts` (new) and test; `packages/waveform/src/zero-crossings.ts` and test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 0 (P for audition plans' tests over crossfaded regions) |
-| WU-10.C2 | Analysis and measurement in the detection worker                       | `packages/detection-runtime/src/**` (`loop-run.ts`, `loudness-run.ts` new; messages, message reading, core, host, threads)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | C1                                                      |
-| WU-10.D1 | Shared counter draw                                                    | `packages/domain/src/integrity/counter-draw.ts` (new) and test; `packages/import-export/src/dither-noise.ts` and its users' imports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 0                                                       |
-| WU-10.D2 | `pan` processor                                                        | `packages/processors/src/space/pan.ts` (new) with golden and property tests; `packages/processors/src/catalogue.ts` and `catalogue.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 0                                                       |
-| WU-10.D3 | Continued programme                                                    | `packages/audio-runtime/src/playback/**`, `src/feeder/**`, `src/protocol/feeder-messages.ts`, `feed-messages.ts`; `packages/audio-engine/src/transport/**` where a continuation is a transport event; `apps/web/src/audio/programme.ts`, `playback-control.ts`, `playback-parts.ts`, `browser-engine.ts` and tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 0                                                       |
-| WU-10.D4 | Preview simulation and plan                                            | `packages/game-audio/src/preview/**`, `src/testing/preview-vectors.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | A2, P, D1, D2                                           |
-| WU-10.B  | Guided workflow planners                                               | `packages/guided-workflows/**`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | A3, A5, C1                                              |
-| WU-10.E1 | Interface: groups, policy, Inspector section, export, workflows        | `apps/web/src/shell/game/**`, `apps/web/src/shell/workflows/**`, `apps/web/src/shell/inspector/**`, `apps/web/src/commands/game-group-commands.ts`, `game-member-commands.ts`, `game-export-commands.ts`, `loudness-commands.ts`, `guided-workflow-commands.ts`, `export-starting.ts`, `split-commands.ts`, the region delete command's module; `apps/web/src/state/workflow-draft-store.ts`, `loudness-store.ts`, `game-policy-view.ts`; `apps/web/src/analysis/` additions for the new requests; tests                                                                                                                                                                                                                                                                                                                                                                                                                                   | A3, A5, A6, B, C2                                       |
-| WU-10.E2 | Interface: loop panel and auditions                                    | `apps/web/src/shell/loop/**`, `apps/web/src/commands/loop-analysis-commands.ts`, `loop-audition-commands.ts`, `region-property-commands.ts` (the loop's shape), `apps/web/src/state/loop-analysis-store.ts`, `apps/web/src/audio/loop-audition.ts`; tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | C2, P, D3                                               |
-| WU-10.E3 | Interface: preview panel                                               | `apps/web/src/shell/preview/**`, `apps/web/src/commands/game-preview-commands.ts`, `apps/web/src/state/game-preview-store.ts`, `apps/web/src/audio/preview-programme.ts`; tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | D3, D4, A5                                              |
-| WU-10.F  | Browser test                                                           | `tests/e2e/game-workflows.spec.ts` and its fixtures under `tests/e2e/`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | E1, E2, E3                                              |
-| WU-10.Z  | Evidence, review record, ledger, handoff                               | (integrator, WU-10.0's files under `docs/spec/`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | all                                                     |
+| Unit     | Work                                                                   | Owns (exclusively)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Needs                                   |
+| -------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| WU-10.0  | Integration and shared files                                           | `package.json`; `tools/sync-workspace-graph.mjs` and what it generates (`vitest.projects.json`, `tsconfig.build.json`, `packages/*/package.json` with each new package's `test` script `vitest run --root ../../ --project <name>`, `packages/*/tsconfig.json`, `packages/*/scopes/**`); `tests/architecture/dependency-rules.test.ts` (with the `chainUsers` import rule); `.dependency-cruiser.cjs`; `tests/architecture/public-contracts.txt`; `playwright.config.ts`; `eslint.config.js`; `version.json`, `packages/version/src/index.ts`, `crates/audiogubbins-version/src/generated.rs`; `apps/web/src/application.ts`, `apps/web/src/panel-descriptors.ts`, `apps/web/src/panel-kinds.ts`, `apps/web/src/shell/panels.tsx` and its test, `apps/web/src/commands/shell-commands.ts`, `apps/web/src/commands/shell-context.ts`, `apps/web/src/shell/menus.ts` and its test; `packages/workspace/src/presets.ts` and its test; the new packages' `src/index.ts`; this plan; everything under `docs/spec/`                                                                                                        | —                                       |
+| WU-10.D3 | **Gate.** Continued programme with live readers                        | `packages/audio-runtime/src/playback/**`, `src/feeder/**`, `src/feed/**`, `src/protocol/feeder-messages.ts`, `feed-messages.ts`; `packages/audio-engine/src/pcm/plan-readers.ts`, `edited-source.ts`, `processed-content.ts`, `resampled-source.ts`, `plan-content.ts` and tests (→ P after D3 merges); `packages/audio-engine/src/transport/**`; `apps/web/src/audio/programme.ts`, `playback-control.ts`, `playback-parts.ts`, `browser-engine.ts` and tests. Acceptance: section 6's tests (a)–(c)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 0                                       |
+| WU-10.A1 | Template grammar, naming templates, destination paths, export profiles | `packages/import-export/src/template-grammar.ts` (new), `file-name-template.ts`, `file-name-safety.ts` and tests; `packages/game-audio/src/export/naming-template.ts`, `naming-vocabulary.ts`, `case-modifiers.ts`, `member-naming.ts`, `destination-path.ts`, `game-export-profile.ts`, `member-export-settings.ts` and tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 0                                       |
+| WU-10.D1 | Shared counter draw                                                    | `packages/domain/src/integrity/counter-draw.ts` (new) and test; `packages/import-export/src/dither-noise.ts` and its users' imports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 0                                       |
+| WU-10.C1 | Loop analysis core, shared zero-crossing boundary                      | `packages/loop-analysis/**`; `packages/audio-engine/src/pcm/zero-crossing-boundary.ts` (new) and test; `packages/waveform/src/zero-crossings.ts` and test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 0 (P for the crossfaded-audition tests) |
+| WU-10.D2 | Processors, chain automation, built-in game chains                     | `packages/processors/src/space/spatial-panner.ts` (new) with golden and property tests; `packages/processors/src/library/game-chains.ts` (new) and test; `catalogue.ts`, `catalogue.test.ts`; `packages/effect-rack/src/chain-run.ts`, `chain-graph.ts` (automation) and tests; `packages/storage/src/processing-library-store.ts` (built-in entries) and test; `packages/storage-runtime/src/host/host-services.ts`, `processing-library-area.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 0                                       |
+| WU-10.P  | Plan additions: loop crossfade and shape, varispeed, chain automation  | `packages/domain/src/project/timeline.ts`, `src/editing/plan.ts`, `plan-building.ts`, `placement.ts`, `placement-validation.ts`, `plan-validation.ts`, `plan-decoding.ts`, `processed-streams.ts`, `loop-crossfade.ts` (new), `operation-validation.ts`, and every domain test naming `crossfadeLength`; the plan readers after D3 merges (varispeed and automation reading); `packages/project-format/src/plan-writing.ts`, `plan-reading.ts`, `placement-reading.ts`, `placement-writing.ts`, `testing/random-edits.ts`, `edit-json.test.ts`, `project-json.test.ts` (→ A4); `packages/history/src/entity-fields.ts` (→ A4); `apps/web/src/commands/region-property-commands.ts` (→ E2), `apps/web/src/shell/inspector/region-properties.tsx` and `inspector-panel.test.tsx` (→ E1), `apps/web/src/commands/edit-commands.test.ts`, `apps/web/src/export/file-metadata.test.ts`; `packages/storage/src/import-placements.ts`, `decoded-import.test.ts`; `packages/test-fixtures/src/projects.ts`; `packages/editor-view/src/view.test.ts`; `packages/project-commands/src/editing/editing-commands.test.ts` (→ A5) | D3                                      |
+| WU-10.A2 | Groups, membership, policy, validation, resolution, chain users        | `packages/game-audio/src/groups/**`, `src/policy/**` (with `playback-rules.ts` and `chain-users.ts`), `src/testing/random-game-state.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | A1                                      |
+| WU-10.A6 | Delivery into a relative folder                                        | `packages/storage/src/export-delivery.ts`, `export-collision.ts`, the trusted-folder record modules; `packages/storage-runtime/src/protocol/` export messages, `src/client/exports-client.ts`, the host's export handler; `packages/browser-storage/src/` folder destination adapter; tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A1                                      |
+| WU-10.C2 | Analysis in the detection worker; report reading                       | `packages/detection-runtime/src/**` (`loop-run.ts`, `loudness-run.ts`, `report-reading.ts` new; messages, message reading, core, host, threads)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | C1                                      |
+| WU-10.A3 | Game export plan and member naming                                     | `packages/game-audio/src/export/game-export-plan.ts`, `member-names.ts` and tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | A2                                      |
+| WU-10.A4 | Persistence and history                                                | `packages/project-format/src/game-audio-json.ts` (new), `project-state.ts`, `project-json.ts` (with the version-9 refusal), `project-tree-layout.ts`, `project-tree-reading.ts`, `project-tree-writing.ts`, `history-record.ts`, `history-node-json.ts` (`gameGroups` read with `optional`, as `takeStacks`), `testing/random-states.ts`, `testing/random-values.ts`, `testing/project-states.ts` and tests; `packages/history/src/state-diff.ts`, `entity-fields.ts`, `history-rows.ts`, `difference-names.ts` and tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | A2, P                                   |
+| WU-10.D4 | Preview simulation and plan                                            | `packages/game-audio/src/preview/**`, `src/testing/preview-vectors.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | A2, P, D1, D2, D3                       |
+| WU-10.A5 | Game project commands                                                  | `packages/project-commands/src/game/**` (new), `project-command.ts`, `project-commands.ts`, `processing/chain-naming.ts`, `processing/rack-commands.ts` (`set-rack` sets an `inherit` member `own`), `editing/region-commands.ts`, `editing/editing-commands.test.ts`, `asset-commands.ts`, `testing/**` and tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | A2, A4, P                               |
+| WU-10.B  | Guided workflow planners                                               | `packages/guided-workflows/**`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | A3, A5, C1, C2, D2                      |
+| WU-10.E1 | Interface: groups, policy, Inspector, library, export, workflows       | `apps/web/src/shell/game/**`, `apps/web/src/shell/workflows/**`, `apps/web/src/shell/inspector/**`, `apps/web/src/shell/library/**`; `apps/web/src/commands/game-group-commands.ts`, `game-member-commands.ts`, `game-export-commands.ts`, `loudness-commands.ts`, `guided-workflow-commands.ts`, `export-starting.ts`, `split-commands.ts`, the region delete command's module, `rack-target.ts`, `rack-building-commands.ts`, `analysis-commands.ts`, `silence-commands.ts`; `apps/web/src/analysis/detection-control.ts`, `loudness-measuring.ts` (new); `apps/web/src/state/workflow-draft-store.ts`, `loudness-store.ts`, `game-policy-view.ts`; tests                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A3, A5, A6, B, C2, D2                   |
+| WU-10.E2 | Interface: loop panel and auditions                                    | `apps/web/src/shell/loop/**`; `apps/web/src/commands/loop-analysis-commands.ts`, `loop-audition-commands.ts`, `region-property-commands.ts`; `apps/web/src/analysis/loop-analysing.ts` (new); `apps/web/src/state/loop-analysis-store.ts`; `apps/web/src/audio/loop-audition.ts`; tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | C2, P, D3 (gate passed)                 |
+| WU-10.E3 | Interface: preview panel                                               | `apps/web/src/shell/preview/**`; `apps/web/src/commands/game-preview-commands.ts`; `apps/web/src/state/game-preview-store.ts`; `apps/web/src/audio/preview-programme.ts`; tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | D3 (gate passed), D4, A5                |
+| WU-10.F  | Browser test                                                           | `tests/e2e/game-workflows.spec.ts` and its fixtures under `tests/e2e/`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | E1, E2, E3                              |
+| WU-10.R  | Lens and adversarial reviews, remediation                              | review records under `docs/spec/reviews/` (through WU-10.0); fixes go to the unit that owns the file, re-opened                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | F                                       |
+| WU-10.Z  | Evidence, ledger, handoff                                              | (WU-10.0's files under `docs/spec/`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | R                                       |
 
 Order:
 
-1. WU-10.0 lands the three packages' scaffolds (an `index.ts` exporting the
-   first unit's names), their graph entries, layering and cruise rules, and
-   the scripts; then for each unit, before it branches, the lines it lists.
-2. Wave 1, in parallel: A1, P, C1, D1, D2, D3.
-3. Wave 2: A2 (after A1); A6 (after A1); C2 (after C1).
-4. Wave 3: A3 (after A2); A4 (after A2, P); D4 (after A2, P, D1, D2).
-5. Wave 4: A5 (after A2, A4).
-6. Wave 5: B (after A3, A5, C1).
-7. Wave 6, in parallel: E1 (after A3, A5, A6, B, C2); E2 (after C2, P,
-   D3); E3 (after D3, D4, A5). Each gives WU-10.0 its panel, command and
-   context lines.
-8. WU-10.F, then the packet's commands over the integrated branch, then
-   WU-10.Z.
+1. WU-10.0 lands the three packages' scaffolds with their `test` scripts,
+   graph entries, layering and cruise rules and the root scripts; then for
+   each unit, before it branches, the lines it lists.
+2. Wave 1, in parallel: **D3 (the gate)**, A1, D1, C1, D2.
+3. Wave 2: P (after D3 merges, since it takes the plan readers over);
+   A2 and A6 (after A1); C2 (after C1).
+4. Wave 3: A3 (after A2); A4 (after A2 and P); D4 (after A2, P, D1, D2, D3).
+5. Wave 4: A5 (after A2, A4, P).
+6. Wave 5: B (after A3, A5, C1, C2, D2).
+7. Wave 6, in parallel: E1 (after A3, A5, A6, B, C2, D2); E2 (after C2, P
+   and the passed D3 gate); E3 (after the passed D3 gate, D4, A5). Each gives
+   WU-10.0 its panel, command and context lines.
+8. WU-10.F; the packet's commands over the integrated branch; WU-10.R (the
+   lens reviews, the adversarial review, verification of findings,
+   remediation and re-review, section 16); WU-10.Z.
 
 The version raise is WU-10.0's line, committed when A4 branches; A4's
 refusal test names the version it takes.
 
 ## 15. Conflicts and open questions
 
-Conflicts, each with evidence and the recommended resolution (`REQ-EXEC-168`
-asks for a record, not a silent choice). None blocks the phase if the
-maintainer accepts the recommendations.
+The packet and scope conflicts are recorded formally in
+`docs/spec/traceability/changes/CHG-0001-phase-10-scope-and-ownership.md`
+(`Proposed`, `REQ-EXEC-168`), with the packet amendments it carries applied
+to `docs/spec/phases/phase-10-game-audio-tooling.md` under "Specification
+change CHG-0001". Summary:
 
-- **C1. `REQ-GAME-023` names features other phases own.** Its list includes
-  "Godot-aware export", "Godot project integration" (owned by Phase 11 under
-  `REQ-GODOT-024`), "Controlled random variation generation" (Phase 13,
-  `REQ-GAME-022`), "Batch conversion" and "Batch export" (Phase 13's
-  `BatchJob`), and items Phase 09 delivered (rate, depth and channel
-  conversion, export presets). Recommended: a specification change marking
-  the parts of `REQ-GAME-023` later phases deliver, as the Phase 05 and 06
-  handoffs record for their requirements; this phase's evidence maps each
-  item to section 1's line.
-- **C2. Export recipes and the packet's "packages/export-recipes game
-  layer".** `REQ-GAME-120` lists "Export recipes" as an inherited default;
-  `REQ-GODOT-119` (Phase 11) makes export recipes "first-class persistent
-  project objects", several per object; the Phase 09 handoff defers them to
-  Phase 11. Recommended: Phase 10's `GameExportProfile` is one inherited
-  profile; Phase 11 introduces recipe objects and changes the policy field to
-  reference them (a document raise, no migration before 1.0); the packet's
-  owned module is amended to `packages/game-audio` (export layer) and
-  `packages/guided-workflows` added (`ADR-0100`).
-- **C3. Variation selection.** `REQ-GAME-122` asks for "variation-set
-  selection" and "repetition-avoidance simulation", and `REQ-GAME-120` for
-  inherited "runtime variation policies"; variation sets (`REQ-GAME-112`) and
-  the selection strategies (`REQ-GAME-113`, including "random with
-  configurable recent-history exclusion" and "deterministic seeded
-  selection") are Phase 13's. Recommended: Phase 10 delivers groups as pools,
-  `uniform` and `avoid-recent(depth)` on the shared generator as the
-  selection core; Phase 13 extends the same union and pool kinds and records
-  that it builds on them.
-- **C4. "The same … runtime-selection logic as the Godot runtime addon"
-  (`REQ-GAME-122`).** The addon is Phase 11's, and Phase 11 depends on this
-  phase. Recommended: this phase's algorithms and vectors are normative; the
-  Phase 11 packet names `packages/game-audio`'s preview vectors as a consumed
-  contract its GUT tests reproduce.
-- **C5. Event parameters.** `REQ-GAME-122`'s "event parameter manipulation"
-  meets `REQ-GODOT-114` and `REQ-GODOT-128` (Phase 11's runtime parameter
-  model). Recommended: built-in parameters only in Phase 10 (section 6).
-- **C6. The packet's `pnpm test --filter game-audio --filter loop-analysis`.**
-  pnpm passes flags after a script name to the script, so the root `test`
-  script's Vitest receives `--filter`, which it does not take (to confirm by
-  running it once at the phase's end, Q7). Recommended: amend the packet to
-  `pnpm test:game-audio` (section 12), as Phase 06's packet uses the
-  `pnpm --filter … test` form.
-- **C7. Packages beyond the packet's owned modules.** The design changes
-  `packages/domain` (loop crossfade, varispeed, counter draw),
-  `packages/audio-engine`, `packages/audio-runtime`, `packages/processors`,
-  `packages/detection-runtime`, `packages/storage*`, `packages/browser-storage`,
-  `packages/project-format`, `packages/history`, `packages/project-commands`,
-  `packages/waveform` and `packages/workspace`. Recommended: the packet's
-  owned modules and dependency rules are amended to list them, with
-  `ADR-0100` as the record.
-- **C8. Two phases own `packages/game-audio`.** Phase 13's packet also lists
-  it. Recommended: Phase 10 creates it; Phase 13 extends it.
-- **C9. "Export for Godot" against `REQ-GODOT-024`.** `REQ-GAME-075` names an
-  Export for Godot workflow; `REQ-GODOT-024` (Phase 11) owns "Godot-aware
-  naming", "Godot-aware audio presets", "Loop metadata handling" and "Asset
-  preparation workflows". Recommended: Phase 10's workflow sets ordinary
-  profiles, names and paths only; Phase 11 extends it with import files and
-  resources.
-- **C10. Destination paths against folder templates.** `REQ-GAME-120`
-  (Phase 10) lists "destination paths"; `REQ-GODOT-119` (Phase 11) lists a
-  "folder template". Recommended: literal relative paths now, tokens in
-  Phase 11.
-- **C11. A loop's crossfade becomes audible.** Phase 05's `AnchoredLoop`
-  recorded `crossfadeLength` and nothing rendered it; `REQ-GAME-121` asks
-  that export preserve loop semantics, and a file holds loop points only.
-  Recommended: `ADR-0103`'s realisation in the plan, amending `ADR-0051`,
-  with the tighter validation inside this phase's document raise.
-- **C12. Review lenses.** The packet requires six lenses; the owner's
-  decision of 2026-10-07 defers every lens to the post-specification review.
-  Recommended: record the deferral in `phase-10-review.md`, as Phase 09 did.
-- **C13. The document version.** Phase 12 may raise `projectDocument`
-  first. Recommended: take the next free version at merge.
-- **C14. `docs/spec/adr/README.md` has no index.** The ADR list the
-  specification compiles is `docs/spec/tools/spec_manifest.json`; the drafts
-  are registered there, and the compiled specification, phase contexts and
-  checksums regenerated, as Phase 09's readiness commit did.
+- **C1. `REQ-GAME-023` names features other phases own** (Godot-aware
+  export and project integration: Phase 11, `REQ-GODOT-024`; variation
+  generation: Phase 13, `REQ-GAME-022`; batch conversion and export at scale:
+  Phase 13's `BatchJob`; rate, depth and channel conversion and export
+  presets: Phase 09). CHG-0001 maps each item to its deliverer.
+- **C2. Export recipes and "packages/export-recipes game layer".** Phase 10
+  delivers one inherited `GameExportProfile`; recipe objects are Phase 11's
+  (`REQ-GODOT-119`, the Phase 09 handoff); the owned module is
+  `packages/game-audio`'s export layer.
+- **C3. Variation selection** (`REQ-GAME-122`, `REQ-GAME-120` against
+  `REQ-GAME-112`/`-113`): Phase 10 delivers the selection core Phase 13
+  extends. Within the packet; recorded in section 1 and `ADR-0104`.
+- **C4. The Godot runtime's selection logic** (`REQ-GAME-122`): Phase 10's
+  algorithms and vectors are the reference Phase 11's GUT tests reproduce;
+  CHG-0001 names them as a contract the Phase 11 packet consumes.
+- **C5. Event parameters** (`REQ-GAME-122` against `REQ-GODOT-114`/`-128`):
+  built-in parameters only. Within the packet; recorded in section 1.
+- **C7. Packages beyond the packet's owned modules**: amended by CHG-0001.
+- **C8. Two phases own `packages/game-audio`**: CHG-0001 amends the Phase 13
+  packet to "extends".
+- **C9. Export for Godot against `REQ-GODOT-024`**: ordinary profiles, names
+  and paths only; recorded in section 1 and `ADR-0105`.
+- **C10. Destination paths against folder templates**: literal paths now,
+  tokens in Phase 11; recorded in `ADR-0102`.
+- **C11. A loop's crossfade becomes audible**, with a shape, a tail join and
+  a clamp: amends `ADR-0051` and Phase 05's passed behaviour; CHG-0001 states
+  the effect on Phase 05's evidence.
+- **C13. The document version**: the next free one at merge.
+- **C14. `docs/spec/adr/README.md` has no index**; the drafts are registered
+  in `tools/spec_manifest.json`.
+- **C15. Loop-analysis results are not persisted.** The packet's Data/Schema
+  says the phase introduces "loop-analysis results"; they are derived from
+  audio, which the global invariant keeps as disposable cache, and the
+  analysis is reproducible from the plan, so they are a published type and a
+  session cache, while the loop the person chooses is persisted. CHG-0001
+  records the reading and amends the packet's line.
+- **C16. Game processing presets.** The packet's "Loudness matching and game
+  presets" and `REQ-GAME-023`'s "game-oriented processing presets" are
+  delivered as built-in entries of the processing library (section 3); the
+  packet names no home, and CHG-0001 records it.
+
+Withdrawn after review: C6 (the packet's `pnpm test --filter game-audio
+--filter loop-analysis`: pnpm consumes `--filter` itself and runs each
+matched package's own `test` script, as observed in this worktree, "Scope: 0
+of 38 workspace projects" before the packages exist; WU-10.0 gives both
+packages that script) and C12 (the maintainer requires this phase's lens
+reviews; section 16).
 
 Open questions, to settle in the unit named:
 
 - **Q1 (E1, Export for Godot).** Godot 4's WAV importer's loop detection
   from `smpl`, and whether its Ogg Vorbis importer reads `LOOPSTART`
-  comments or only its import settings, are to be confirmed against the
-  Godot 4 documentation before the workflow's text says what Godot will do.
-- **Q2 (D3).** Whether the feeder can swap its source at its next read frame
-  without disturbing the worklet's queue in every profile; the 1,000 ms
-  feed-ahead profile makes a hand trigger late by up to a second, which the
-  panel states.
-- **Q3 (D4, Phase 11).** The attenuation formulas' parity with Godot 4's
-  `AudioStreamPlayer2D` and `AudioStreamPlayer3D`, including its
-  `CMP_EPSILON` and its logarithmic model's base.
-- **Q4 (D4).** Elevation and surround output: the preview pans to stereo;
-  `ambisonic-encode` and `ambisonic-decode` could place a 3D emitter on a
-  surround or binaural output, which is a later decision.
-- **Q5 (D4).** The measured cost of building a 30-second preview plan at the
-  bounds, and of the canonical resampler at varispeed rates, at preview
-  quality.
-- **Q6 (A4).** Whether a new tree file raises `projectStorage` as well as
-  `projectDocument`.
-- **Q7 (WU-10.0).** The literal packet command's behaviour (C6).
+  comments or only its import settings, to be confirmed against the Godot 4
+  documentation before the workflow's text says what Godot will do.
+- **Q2 (D3, the gate).** Whether the feeder can switch at its next read frame
+  in every profile; this is what the gate's tests decide, and a failure
+  blocks the phase rather than degrading it.
+- **Q3 (D2, D4; Phase 11).** The attenuation formulas', `CMP_EPSILON`'s and
+  the distance filter's parity with Godot 4's `AudioStreamPlayer2D` and
+  `AudioStreamPlayer3D` source, confirmed before the vectors are pinned.
+- **Q4 (D4).** Elevation on surround or binaural output: the preview pans to
+  stereo and folds to the project's layout; `ambisonic-encode`/`-decode`
+  could place an emitter in height, a later decision.
+- **Q5 (D4).** `PREVIEW_VOICE_BUDGET`: the measured number of varispeed
+  voices at preview quality in real time on the reference machine, and the
+  cost of `extendPreviewPlan`, each pinned by a test.
+- **Q6 — answered.** A new tree file does not raise `projectStorage`: the
+  commit that added `project/export-settings.json` (`21694890`) raised only
+  `projectDocument` (7 to 8 in `version.json`).
+- **Q7 (P, maintainer).** A stateful rack renders the loop's head after the
+  intro, not after the loop's own end. Rendering a looping region's rack
+  "wrapped" (the loop processed twice, the second cycle kept) would make the
+  seam exact; it changes `ADR-0060`'s rule that a rack runs from its target's
+  start, so it is the maintainer's to decide. Until then the analysis
+  measures and reports such a seam.
 
-## 16. Evidence the phase owes
+## 16. Reviews and evidence the phase owes
 
-`docs/spec/reviews/phase-10-evidence.md` in Phase 09's sections (objective,
-checklist, inherited debt, files, contracts, ADRs, decisions beyond the ADRs,
-tests, commands, results, browser results, acceptance criteria, limitations,
-dependencies, schema impact, requirement-to-evidence mapping, commits,
-findings); `docs/spec/reviews/phase-10-review.md` with the lens deferral;
-the ledger's Phase 10 entry with its evidence files, status `PASS` when the
-packet's criteria hold; `docs/spec/traceability/handoffs/phase-10.md` after
-`PASS`, stating the preview vectors and the game-audio contracts Phase 11
-consumes and the extension points Phase 13 takes (the selection union, the
-member union, the game export plan's items).
+**Reviews (WU-10.R), before `PASS`.** The maintainer requires this phase to
+run the review pipeline of `contracts/review-gates.md`; the 2026-10-07
+deferral does not apply to it. After the packet's commands pass over the
+integrated branch:
+
+1. Evidence assembly (`docs/spec/reviews/phase-10-evidence.md`).
+2. Independent lens reviews, each by an agent that built none of the work,
+   given the packet, the requirements, the evidence, the ADRs and the public
+   contracts, and no instruction to preserve the implementation:
+   Audio/DSP Correctness, UX/Accessibility, Architecture, Testing/Regression,
+   Performance, and the required Code Quality/Maintainability.
+3. An adversarial review across them (shortcuts, unimplemented edges,
+   architecture erosion, test cheating, data-loss paths, capability
+   assumptions, requirement drift).
+4. Verification of each finding (reproduced or proved, false ones closed
+   with evidence), remediation by the unit that owns the file with a
+   regression test that fails without the fix, and re-review of the affected
+   lenses.
+5. The gate: `PASS` only with no open `BLOCKER`, `CRITICAL` or `HIGH`, and
+   every `MEDIUM` fixed or accepted as recorded debt.
+
+`docs/spec/reviews/phase-10-review.md` records each lens, every finding with
+its severity, status, disposition and proof, and the re-review.
+
+**Evidence.** `phase-10-evidence.md` in Phase 09's sections (objective,
+checklist, inherited debt, files, contracts, ADRs, decisions beyond the
+ADRs, tests, commands, results, browser results, acceptance criteria,
+limitations, dependencies, schema impact, requirement-to-evidence mapping,
+commits, findings), with CHG-0001's decision; the ledger's Phase 10 entry
+with its evidence files, status `PASS` when the gate holds;
+`docs/spec/traceability/handoffs/phase-10.md` after `PASS`, stating the
+preview vectors and the game-audio contracts Phase 11 consumes and the
+extension points Phase 13 takes (the selection union, the member union, the
+game export plan's items).

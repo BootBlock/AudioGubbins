@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — its hard dependencies, Phases 05, 06 and 09, are `PASS`. The maintainer marked it `READY` on 2026-10-15 without a readiness review, so its packet is the unreviewed draft and no ADR settles its open placements.
+`READY` — its hard dependencies, Phases 05, 06 and 09, are `PASS`. The maintainer marked it `READY` on 2026-10-15 without a readiness review, so its packet is the unreviewed draft. Its placements are proposed by `ADR-0100` to `ADR-0106` and its packet and scope conflicts by the specification change `CHG-0001` (`traceability/changes/CHG-0001-phase-10-scope-and-ownership.md`), all `Proposed`; the sections marked "CHG-0001" below are its amendments.
 
 ## Objective
 
@@ -63,15 +63,17 @@ Users can turn long recordings or individual sounds into organised game-ready as
 
 ## Owned Modules / Packages
 
-- `packages/game-audio`
+- `packages/game-audio`, with the game layer of export in its `src/export/` (CHG-0001: no `packages/export-recipes`; recipe objects are Phase 11's, `REQ-GODOT-119`)
 - `packages/loop-analysis`
-- `packages/export-recipes game layer`
+- `packages/guided-workflows` (CHG-0001)
 - `apps/web game-audio workspace`
+- At their seams (CHG-0001, `ADR-0100`): `packages/domain` (loop crossfade and shape, varispeed stream, plan-chain automation, counter draw), `packages/audio-engine`, `packages/audio-runtime` (continued programme), `packages/effect-rack`, `packages/processors` (`spatial-panner`, built-in game chains), `packages/detection-runtime`, `packages/storage`, `packages/storage-runtime`, `packages/browser-storage`, `packages/project-format`, `packages/history`, `packages/project-commands`, `packages/waveform`, `packages/workspace`
 
 ## Cross-Package Dependency Rules
 
 - Game-audio domain depends on generic editing/DSP/export contracts.
 - It must not import Godot-specific runtime/editor types.
+- CHG-0001: `packages/game-audio` depends on `domain`, `import-export` and `audio-engine`; `packages/loop-analysis` on `domain` and `audio-engine`; `packages/guided-workflows` on `domain`, `commands`, `game-audio`, `loop-analysis`, `processors`, `import-export`, `project-format`, `project-commands` and `detection-runtime`; `project-format`, `project-commands` and `history` gain `game-audio`, and `detection-runtime` gains `loop-analysis`.
 
 ## Required Public Contracts
 
@@ -81,10 +83,13 @@ Users can turn long recordings or individual sounds into organised game-ready as
 - GamePreviewScenario
 - NamingTemplate
 - GameExportProfile
+- CHG-0001: `LoopDefinition` is the domain's existing placed loop (`Region.loop`), gaining `crossfadeShape`; the preview's selection, voice, cooldown and attenuation test vectors are a contract Phase 11 consumes.
 
 ## Data / Schema Changes
 
 - Introduces game asset-group policy, loop-analysis results, naming templates, game-preview scenarios and game export profiles.
+- CHG-0001: loop-analysis results are a published type and a session cache keyed by the plan's fingerprint, never persisted; the loop chosen from them is persisted in the region. The project document gains one member, `gameAudio`, and a loop's `crossfadeShape`; `projectStorage` and the preferences are unchanged.
+- CHG-0001: game-oriented processing presets are built-in entries of the processing library.
 
 ## Browser / Platform Considerations
 
