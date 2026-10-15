@@ -11,7 +11,7 @@
  * (`host-turns.ts`).
  */
 
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
@@ -105,6 +105,23 @@ export interface HostServices extends OpeningServices, CleanupRunServices, PackS
   readonly nextToken: HostParts['nextToken'];
 }
 
+/**
+ * The person's library of saved chains and presets, kept in `tree`, with the
+ * build's catalogue and its own entries, the game processing presets.
+ */
+function processingLibraryOf(tree: StorageTree, parts: HostParts): ProcessingLibraryStore {
+  const { digest, clock, ids, coordinator } = parts;
+  return new ProcessingLibraryStore({
+    tree,
+    digest,
+    clock,
+    ids,
+    catalogue: PROCESSOR_CATALOGUE,
+    builtIn: BUILT_IN_LIBRARY,
+    ...(coordinator === undefined ? {} : { coordinator }),
+  });
+}
+
 /** The services made from their parts (see the module comment). */
 export function hostServices(parts: HostParts): HostServices {
   const { digest, clock, ids, owner, coordinator, nextToken, logs } = parts;
@@ -144,14 +161,7 @@ export function hostServices(parts: HostParts): HostServices {
     fileAt: parts.fileAt,
     estimate: parts.estimate,
     nextToken,
-    processingLibrary: new ProcessingLibraryStore({
-      tree,
-      digest,
-      clock,
-      ids,
-      catalogue: PROCESSOR_CATALOGUE,
-      ...coordinated,
-    }),
+    processingLibrary: processingLibraryOf(tree, parts),
     ...coordinated,
   };
 }

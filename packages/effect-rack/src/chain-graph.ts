@@ -25,6 +25,7 @@ import {
   type ChannelLayout,
   type DomainResult,
   type EffectChain,
+  type ParameterId,
   type ProcessorGroupId,
   type ProcessorId,
   type QualitySettings,
@@ -80,12 +81,26 @@ export interface MeasureTap {
 /**
  * What a graph is built for: the frame of the stream its run starts at, the
  * measurements made so far, written into the nodes of the processors they
- * were made for, and the processor a measuring graph taps, if it is one.
+ * were made for, the processor a measuring graph taps, if it is one, and the
+ * values automated processors start at in place of their slots' own.
  */
 export interface ChainGraphRun {
   readonly start: number;
   readonly measured: ReadonlyMap<ProcessorId, Measurement>;
   readonly at?: ProcessorId;
+  readonly starting?: ReadonlyMap<ProcessorId, ReadonlyMap<ParameterId, number>>;
+}
+
+/** `slot` with the values `starting` gives it in place of its own, where it gives any. */
+function startingSlot(
+  slot: Extract<ChainSlot, { kind: 'processor' }>,
+  starting: ChainGraphRun['starting'],
+): Extract<ChainSlot, { kind: 'processor' }> {
+  const values = starting?.get(slot.id);
+  if (values === undefined) return slot;
+  const started = new Map(slot.values);
+  for (const [parameter, value] of values) started.set(parameter, value);
+  return { ...slot, values: started };
 }
 
 /** A point in the graph being built: a port and the layout it carries. */
@@ -192,11 +207,12 @@ class GraphBuilder {
   #processor(slot: Extract<ChainSlot, { kind: 'processor' }>, from: Tap): DomainResult<Tap> {
     const type = this.#types.get(slot.typeKey);
     if (type === undefined) return unknownType(slot.typeKey);
-    const layout = type.descriptor.outputLayout(from.layout, slot.values);
+    const started = startingSlot(slot, this.#run.starting);
+    const layout = type.descriptor.outputLayout(from.layout, started.values);
     if (!layout.ok) return layout;
     const id = idOf(`processor-${slot.id}`);
     const settings = processorNodeSettings(
-      slot,
+      started,
       type.descriptor,
       this.#quality,
       this.#run.start,

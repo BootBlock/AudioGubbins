@@ -907,7 +907,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37449: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37451: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1199,7 +1199,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37449: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37451: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -4975,6 +4975,7 @@ Published paths
   readonly AudioDetector.parameters: readonly NumericParameterDescriptor[]
   AudioDetector.refusal: (values: ReadonlyMap<string, number>) => string | undefined
   AudioDetector.open: (settings: DetectionSettings) => DomainResult<Detection>
+  const BUILT_IN_LIBRARY: readonly LibraryEntry[]
   const CANONICAL_ASSISTANTS: readonly Assistant[]
   const CLICK_DETECTOR: AudioDetector
   const CLIPPING_DETECTOR: AudioDetector
@@ -6664,6 +6665,7 @@ Published paths
   readonly LibraryServices.clock: Clock
   readonly LibraryServices.ids: IdGenerator
   readonly LibraryServices.catalogue: ProcessorCatalogue
+  readonly LibraryServices.builtIn: readonly LibraryEntry[]
   readonly LibraryServices.coordinator?: LeaseCoordinator
   type ListedEntry = { readonly kind: "unusable"; readonly id: LibraryEntryId; readonly reason: DomainFailure; readonly entry?: LibraryEntry; } | { readonly kind: "usable"; readonly entry: LibraryEntry; }
   type LocatedFile = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: ExternalFile; }
@@ -6736,12 +6738,15 @@ Published paths
   new ProcessingLibraryStore(services: LibraryServices): ProcessingLibraryStore
   readonly ProcessingLibraryStore.files: LibraryEntryFiles
   readonly ProcessingLibraryStore.services: LibraryServices
-  ProcessingLibraryStore.list: (signal?: AbortSignal) => Promise<DomainResult<readonly ListedEntry[]>>
-  ProcessingLibraryStore.entry: (id: LibraryEntryId, signal?: AbortSignal) => Promise<DomainResult<ListedEntry>>
+  readonly ProcessingLibraryStore.builtIn: ReadonlyMap<LibraryEntryId, LibraryListing>
+  ProcessingLibraryStore.list: (signal?: AbortSignal) => Promise<DomainResult<readonly LibraryListing[]>>
+  ProcessingLibraryStore.entry: (id: LibraryEntryId, signal?: AbortSignal) => Promise<DomainResult<LibraryListing>>
   ProcessingLibraryStore.save: (name: string, content: LibraryContent, signal?: AbortSignal) => Promise<DomainResult<LibraryEntry>>
   ProcessingLibraryStore.replace: (id: LibraryEntryId, content: LibraryContent, signal?: AbortSignal) => Promise<DomainResult<LibraryEntry>>
   ProcessingLibraryStore.rename: (id: LibraryEntryId, name: string, signal?: AbortSignal) => Promise<DomainResult<LibraryEntry>>
   ProcessingLibraryStore.remove: (id: LibraryEntryId, signal?: AbortSignal) => Promise<DomainResult<void>>
+  ProcessingLibraryStore.kept: (signal: AbortSignal | undefined) => Promise<LibraryListing[]>
+  ProcessingLibraryStore.listed: (signal: AbortSignal | undefined) => Promise<ListedEntry[]>
   ProcessingLibraryStore.changing: <TValue>(work: () => Promise<DomainResult<TValue>>, signal?: AbortSignal) => Promise<DomainResult<TValue>>
   ProcessingLibraryStore.givenName: (name: string) => DomainResult<string>
   ProcessingLibraryStore.readable: (id: LibraryEntryId, signal: AbortSignal | undefined) => Promise<DomainResult<ReadableEntry>>
@@ -8785,6 +8790,7 @@ packages/effect-rack/src/chain-graph.ts
   readonly ChainGraphRun.start: number
   readonly ChainGraphRun.measured: ReadonlyMap<ProcessorId, Measurement>
   readonly ChainGraphRun.at?: ProcessorId
+  readonly ChainGraphRun.starting?: ReadonlyMap<ProcessorId, ReadonlyMap<ParameterId, number>>
   interface MeasureTap
   readonly MeasureTap.sink: NodeId
   readonly MeasureTap.layout: ChannelLayout
@@ -9558,6 +9564,7 @@ packages/storage/src/pack-runs.ts
   readonly Runs.stranded: readonly string[]
 
 packages/storage/src/processing-library-store.ts
+  type LibraryListing = ListedEntry & { readonly builtIn: boolean; }
   type ReadableEntry = { readonly entry: LibraryEntry; } & Pick<KeptEntry, "pair">
 
 packages/storage/src/project-copy.ts

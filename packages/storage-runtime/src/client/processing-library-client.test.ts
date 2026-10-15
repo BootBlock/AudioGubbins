@@ -9,7 +9,7 @@ import {
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { MemoryLeaseCoordinator } from '@audiogubbins/storage/testing';
 
 import { memoryStorage } from '../testing/memory-storage.js';
@@ -18,10 +18,14 @@ import { memoryStorage } from '../testing/memory-storage.js';
  * The person's library, asked of the storage worker (ADR-0060): a chain of
  * the build's own processors crosses the port and comes back as saved, from
  * this tab and from another tab of the profile after it, which shares the
- * storage; and a refusal crosses as the library's reason.
+ * storage, listed after the build's own game chains; and a refusal crosses as
+ * the library's reason.
  */
 
 const ids = createDeterministicIdGenerator(404);
+
+/** The build's own entries as every library lists them, first. */
+const BUILT_IN = BUILT_IN_LIBRARY.map((entry) => ({ kind: 'usable', entry, builtIn: true }));
 
 function descriptor(typeKey: string): ProcessorDescriptor {
   const found = PROCESSOR_CATALOGUE.get(typeKey);
@@ -67,7 +71,7 @@ describe('the library of saved chains and presets, asked of the storage worker',
 
     const second = memoryStorage({ tree, coordinator, tab: { name: 'second', seed: 2 } });
     const listed = expectSuccess(await second.client.processingLibrary.list());
-    expect(listed).toEqual([{ kind: 'usable', entry }]);
+    expect(listed).toEqual([...BUILT_IN, { kind: 'usable', entry, builtIn: false }]);
     expect(entry).toMatchObject({
       name: 'Parallel squeeze',
       content: { kind: 'chain', chain: saved },
@@ -75,7 +79,19 @@ describe('the library of saved chains and presets, asked of the storage worker',
     expect(expectSuccess(await second.client.processingLibrary.entry(entry.id))).toEqual({
       kind: 'usable',
       entry,
+      builtIn: false,
     });
+  });
+
+  it('lists the build’s game chains, which it refuses to remove or rename', async () => {
+    const { client } = memoryStorage();
+    const library = client.processingLibrary;
+    const [first] = BUILT_IN_LIBRARY;
+    if (first === undefined) throw new Error('The build has its own chains.');
+
+    expect(expectSuccess(await library.list())).toEqual(BUILT_IN);
+    expect(expectFailureCode(await library.remove(first.id))).toBe('library.built-in');
+    expect(expectFailureCode(await library.rename(first.id, 'Mine'))).toBe('library.built-in');
   });
 
   it('answers a refusal as the reason the library gave', async () => {
@@ -100,6 +116,6 @@ describe('the library of saved chains and presets, asked of the storage worker',
     expect(replaced).toMatchObject({ id: saved.id, name: renamed.name, content: { chain: other } });
 
     expectSuccess(await library.remove(saved.id));
-    expect(expectSuccess(await library.list())).toEqual([]);
+    expect(expectSuccess(await library.list())).toEqual(BUILT_IN);
   });
 });
