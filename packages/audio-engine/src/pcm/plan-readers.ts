@@ -12,6 +12,14 @@
  * likewise (`spectral-content.ts`). The chains are kept as they stand, so a
  * numeric parameter changed while the sound plays reaches the run of the stream
  * it names, and every run made after it (`running-parameters.ts`).
+ *
+ * A reading goes on with a plan that continues its own (ADR-0104): each reader
+ * whose state was made from nothing the new plan reads differently keeps it,
+ * a chain's run and a conversion's resampler among them, and reads the new
+ * segments from then on; every other reader is let go, to be made afresh by
+ * the next read that needs it (`reader-continuation.ts` says which). So a
+ * stream that sounds as it did until a change goes on through the change
+ * without a seam, its filters, delays and resamplers carried over.
  */
 
 import {
@@ -21,7 +29,6 @@ import {
   fail,
   findSlot,
   processorsOf,
-  sampleCount,
   streamChain,
   succeed,
   withSlotReplaced,
@@ -41,44 +48,37 @@ import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
 import { resamplingQualityOf } from '../dsp/resampling-grade.js';
 import { CachedContent } from './cached-content.js';
 import { MixedContent } from './mixed-content.js';
-import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 import {
   ConvertedContent,
   FileContent,
   MediaReadFailure,
   SilentContent,
   StreamContent,
+  streamAsSource,
   type ContentReader,
   type MediaEntry,
+  type ProcessedOutput,
   type ReadableContent,
+  type StreamOutput,
 } from './plan-content.js';
 import { ProcessedContent, ProcessedStart, type PlanProcessing } from './processed-content.js';
+import { continueReaders, conversionKey, type MadeReaders } from './reader-continuation.js';
 import { resampledSource } from './resampled-source.js';
 import type { ParameterChange, ParameterTarget } from './running-parameters.js';
 import { SpectralContent } from './spectral-content.js';
 import { StretchedContent } from './stretched-content.js';
 import type { WindowSource } from '../spectral/forward-window.js';
 
-/** What a stream of the plan makes, at its own rate and in its own layout. */
-export interface StreamOutput extends ReadableContent {
-  readonly length: number;
-}
-
-/** A stream of the plan as a source at its own rate and layout. */
-function streamSource(content: StreamOutput, stream: PlanStream): PcmSource {
-  const length = sampleCount(content.length);
-  return {
-    layout: stream.layout,
-    sampleRate: stream.sampleRate,
-    length: length.ok ? length.value : undefined,
-    read: async (start, into, signal) => {
-      assertReadableInto({ layout: stream.layout, sampleRate: stream.sampleRate }, into);
-      const count = framesAvailable(length.ok ? length.value : undefined, start, into.frames);
-      await content.read(start, count, into.channels, signal);
-      return count;
-    },
-    release: () => undefined,
-  };
+/** The chain of each stream processed by one, as `plan` states it, by place. */
+function chainsOf(plan: EditPlan): Map<number, EffectChain> {
+  const chains = new Map<number, EffectChain>();
+  plan.streams.forEach((stream, place) => {
+    // A spectral edit's chain runs inside its frames, so a parameter changed
+    // while it plays is heard once the plan is read again.
+    const run = streamChain(stream.processing);
+    if (run?.kind === 'chain') chains.set(place, run.chain);
+  });
+  return chains;
 }
 
 /** Whether `chain` runs the processor `change` names. */
@@ -103,27 +103,30 @@ function withChange(chain: EffectChain, change: ParameterChange): EffectChain {
  * a converted stream and a mix, by where the plan names them.
  */
 export class PlanReaders implements ParameterTarget {
-  readonly #plan: EditPlan;
-  readonly #media: readonly MediaEntry[];
-  readonly #entries: ReadonlyMap<AssetId, MediaEntry>;
+  #plan: EditPlan;
+  #media: readonly MediaEntry[];
+  #entries: ReadonlyMap<AssetId, MediaEntry>;
   readonly #dsp: CanonicalDsp;
   readonly #processing: PlanProcessing;
-  readonly #streams = new Map<number, StreamContent>();
-  readonly #outputs = new Map<number, StreamOutput>();
+  /**
+   * The readers made, by what they read: each stream's content and output, the
+   * runs of the chains this reading runs itself, each conversion by place and
+   * rate, each file, and each distinct mix by the places it sums in their order,
+   * which holds only the streams' outputs, so nothing releases it.
+   */
+  readonly #readers: MadeReaders = {
+    streams: new Map(),
+    outputs: new Map(),
+    runs: new Map(),
+    converted: new Map(),
+    files: new Map(),
+    mixes: new Map(),
+  };
   /** The chain each processed stream runs, with the parameters changed while it plays. */
-  readonly #chains = new Map<number, EffectChain>();
-  /** The runs of the processed streams this reading runs itself, by place. */
-  readonly #runs = new Map<number, ProcessedContent>();
-  readonly #files = new Map<AssetId, FileContent>();
+  #chains: Map<number, EffectChain>;
   /** Generated silence, by its channel count; it holds nothing, so nothing releases it. */
   readonly #silences = new Map<number, SilentContent>();
-  readonly #converted = new Map<number, ConvertedContent>();
-  /**
-   * Each distinct mix, by the places it sums in their order; it holds only the
-   * streams' outputs, which are released as streams, so nothing releases it.
-   */
-  readonly #mixes = new Map<string, MixedContent>();
-  readonly #made: ContentReader[] = [];
+  #made: ContentReader[] = [];
 
   constructor(
     plan: EditPlan,
@@ -136,21 +139,38 @@ export class PlanReaders implements ParameterTarget {
     this.#entries = new Map(media.map((entry) => [entry.asset, entry]));
     this.#dsp = dsp;
     this.#processing = processing;
-    plan.streams.forEach((stream, place) => {
-      // A spectral edit's chain runs inside its frames, so a parameter changed
-      // while it plays is heard once the plan is read again.
-      const run = streamChain(stream.processing);
-      if (run?.kind === 'chain') this.#chains.set(place, run.chain);
-    });
+    this.#chains = chainsOf(plan);
+  }
+
+  /**
+   * Reads `plan`, which continues the plan read so far, from the next read on,
+   * from the files `media` names, against which `plan` was validated. Called
+   * between reads. Each reader whose state the new plan leaves as it was is
+   * kept, reading the new plan's segments from now on; every other reader is
+   * let go, and made again by the next read that needs it.
+   */
+  continueWith(plan: EditPlan, media: readonly MediaEntry[]): void {
+    const entries = new Map(media.map((entry) => [entry.asset, entry]));
+    const released = continueReaders(
+      this.#readers,
+      { before: this.#plan, after: plan },
+      { before: this.#entries, after: entries },
+      (place) => this.#chains.get(place),
+    );
+    this.#made = this.#made.filter((reader) => !released.has(reader));
+    this.#plan = plan;
+    this.#media = media;
+    this.#entries = entries;
+    this.#chains = chainsOf(plan);
   }
 
   /** The content of the plan's stream at `place`. */
   stream(place: number): StreamContent {
-    const known = this.#streams.get(place);
+    const known = this.#readers.streams.get(place);
     if (known !== undefined) return known;
     const stream = this.#streamAt(place);
     const content = new StreamContent(stream, (source) => this.#reader(source, stream.sampleRate));
-    this.#streams.set(place, content);
+    this.#readers.streams.set(place, content);
     return content;
   }
 
@@ -160,12 +180,12 @@ export class PlanReaders implements ParameterTarget {
    * where the reading has one to read.
    */
   output(place: number): StreamOutput {
-    const known = this.#outputs.get(place);
+    const known = this.#readers.outputs.get(place);
     if (known !== undefined) return known;
     const stream = this.#streamAt(place);
     const content = this.stream(place);
     const { processing } = stream;
-    let output: StreamOutput;
+    let output: StreamContent | ProcessedOutput;
     if (processing === undefined) {
       output = content;
     } else if (processing.kind === 'chain') {
@@ -175,7 +195,7 @@ export class PlanReaders implements ParameterTarget {
     } else {
       output = this.#stretched(content, stream, processing.length);
     }
-    this.#outputs.set(place, output);
+    this.#readers.outputs.set(place, output);
     return output;
   }
 
@@ -198,7 +218,8 @@ export class PlanReaders implements ParameterTarget {
       );
     }
     const changed = withChange(chain, change);
-    const taken = this.#runs.get(place)?.setParameter(changed, change) ?? succeed(undefined);
+    const taken =
+      this.#readers.runs.get(place)?.setParameter(changed, change) ?? succeed(undefined);
     if (!taken.ok) return taken;
     this.#chains.set(place, changed);
     return succeed(true);
@@ -256,13 +277,16 @@ export class PlanReaders implements ParameterTarget {
     stream: PlanStream,
     layout: ChannelLayout,
     content: StreamContent,
-  ): StreamOutput {
+  ): ProcessedOutput {
     const chain = this.#chains.get(place);
     if (chain === undefined) throw new Error('A processed stream has its chain.');
     const input = {
       layout,
       sampleRate: stream.sampleRate,
-      length: content.length,
+      // Read as the run goes, since a continued plan may lengthen the stream.
+      get length() {
+        return content.length;
+      },
       read: (
         start: number,
         frames: number,
@@ -277,7 +301,7 @@ export class PlanReaders implements ParameterTarget {
         ...this.#processing,
         dsp: this.#dsp,
       });
-      this.#runs.set(place, run);
+      this.#readers.runs.set(place, run);
       return run;
     };
     const { cached, quality } = this.#processing;
@@ -303,12 +327,12 @@ export class PlanReaders implements ParameterTarget {
   }
 
   #file(asset: AssetId): FileContent {
-    const known = this.#files.get(asset);
+    const known = this.#readers.files.get(asset);
     if (known !== undefined) return known;
     const entry = this.#entries.get(asset);
     if (entry === undefined) throw new Error('A validated plan reads only the files it was given.');
     const file = new FileContent(entry);
-    this.#files.set(asset, file);
+    this.#readers.files.set(asset, file);
     this.#made.push(file);
     return file;
   }
@@ -327,12 +351,12 @@ export class PlanReaders implements ParameterTarget {
    */
   #mix(places: readonly number[]): MixedContent {
     const key = places.join(',');
-    const known = this.#mixes.get(key);
+    const known = this.#readers.mixes.get(key);
     if (known !== undefined) return known;
     const [first, ...rest] = places.map((place) => this.output(place));
     if (first === undefined) throw new Error('A validated mix sums two or more streams.');
     const mix = new MixedContent(first, rest);
-    this.#mixes.set(key, mix);
+    this.#readers.mixes.set(key, mix);
     return mix;
   }
 
@@ -348,7 +372,7 @@ export class PlanReaders implements ParameterTarget {
     stream: PlanStream,
     edit: PlannedSpectralEdit,
     content: StreamContent,
-  ): StreamOutput {
+  ): ProcessedOutput {
     const settings = { quality: this.#processing.quality, dsp: this.#dsp };
     const { operation } = edit;
     const wet =
@@ -418,7 +442,7 @@ export class PlanReaders implements ParameterTarget {
   }
 
   /** The stream's segments made `length` frames long (`stretched-content.ts`). */
-  #stretched(content: StreamContent, stream: PlanStream, length: number): StreamOutput {
+  #stretched(content: StreamContent, stream: PlanStream, length: number): ProcessedOutput {
     const stretched = new StretchedContent(content, stream, length, {
       quality: this.#processing.quality,
       dsp: this.#dsp,
@@ -429,17 +453,18 @@ export class PlanReaders implements ParameterTarget {
   }
 
   #convert(place: number, rate: SampleRate): ConvertedContent {
-    const known = this.#converted.get(place);
+    const key = conversionKey(place, rate);
+    const known = this.#readers.converted.get(key);
     if (known !== undefined) return known;
     const resampled = resampledSource(
       this.#dsp,
-      streamSource(this.output(place), this.#streamAt(place)),
+      streamAsSource(() => this.output(place), this.#streamAt(place)),
       rate,
       resamplingQualityOf(this.#processing.quality.resampling),
     );
     if (!resampled.ok) throw new MediaReadFailure(resampled.failures[0]);
     const reader = new ConvertedContent(resampled.value);
-    this.#converted.set(place, reader);
+    this.#readers.converted.set(key, reader);
     this.#made.push(reader);
     return reader;
   }

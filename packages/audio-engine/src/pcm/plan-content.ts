@@ -33,7 +33,8 @@ import {
 } from '@audiogubbins/domain';
 
 import { mediaBytes, type MediaFile } from './media-file.js';
-import type { PcmSource } from './pcm-source.js';
+import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
+import type { ResampledSource } from './resampled-source.js';
 
 /** An asset a plan reads, as recorded in the project, and the file behind it. */
 export interface MediaEntry {
@@ -78,6 +79,43 @@ export interface ReadableContent {
 /** Content that holds what it opened until it is released: a file, a conversion, a run. */
 export interface ContentReader extends ReadableContent {
   release(): void;
+}
+
+/** What a stream of a plan makes, at its own rate and in its own layout. */
+export interface StreamOutput extends ReadableContent {
+  readonly length: number;
+}
+
+/** What a processed stream makes: a reader of its own, which holds state until released. */
+export type ProcessedOutput = StreamOutput & ContentReader;
+
+/** Frames as a count, which every position and length of a validated plan is. */
+export function framesOf(frames: number): SampleCount {
+  const count = sampleCount(frames);
+  if (!count.ok) throw new Error(count.failures[0].summary);
+  return count.value;
+}
+
+/**
+ * What `stream` makes, `output`, as a source at its rate and in its layout,
+ * found at each read, so the output a continued plan has for it is the one read.
+ */
+export function streamAsSource(output: () => StreamOutput, stream: PlanStream): PcmSource {
+  return {
+    layout: stream.layout,
+    sampleRate: stream.sampleRate,
+    get length() {
+      return framesOf(output().length);
+    },
+    read: async (start, into, signal) => {
+      assertReadableInto({ layout: stream.layout, sampleRate: stream.sampleRate }, into);
+      const content = output();
+      const count = framesAvailable(framesOf(content.length), start, into.frames);
+      await content.read(start, count, into.channels, signal);
+      return count;
+    },
+    release: () => undefined,
+  };
 }
 
 /** Reads an asset's file through the read contract, opened when first needed. */
@@ -173,12 +211,17 @@ export class SilentContent implements ReadableContent {
   }
 }
 
-/** One stream of a plan, read segment by segment. */
+/**
+ * One stream of a plan, read segment by segment. It keeps nothing between
+ * reads but scratch, so a plan continued with new segments for the stream
+ * (`reader-continuation.ts`) gives them to it in place, and whatever reads it reads
+ * them from then on.
+ */
 export class StreamContent {
   readonly channels: number;
-  readonly length: number;
-  readonly #stream: PlanStream;
-  readonly #starts: readonly number[];
+  #stream: PlanStream;
+  #starts: readonly number[] = [];
+  #length = 0;
   readonly #sources: (source: PlanSource) => ReadableContent;
   readonly #scratch = new Map<number, Float32Array[]>();
 
@@ -186,13 +229,23 @@ export class StreamContent {
     this.#stream = stream;
     this.#sources = sources;
     this.channels = channelCount(stream.layout);
+    this.redefine(stream);
+  }
+
+  get length(): number {
+    return this.#length;
+  }
+
+  /** Reads `stream`'s segments from now on: the stream as a continued plan states it, of the same channels. */
+  redefine(stream: PlanStream): void {
     let position = 0;
     this.#starts = stream.segments.map((segment) => {
       const start = position;
       position += segment.length;
       return start;
     });
-    this.length = position;
+    this.#stream = stream;
+    this.#length = position;
   }
 
   /** The index of the segment holding frame `position`. */
@@ -250,11 +303,21 @@ export class StreamContent {
 /** A stream heard at another rate: a later stream of the plan, converted. */
 export class ConvertedContent implements ContentReader {
   readonly channels: number;
-  readonly #source: PcmSource;
+  readonly #source: ResampledSource;
 
-  constructor(source: PcmSource) {
+  constructor(source: ResampledSource) {
     this.#source = source;
     this.channels = channelCount(source.layout);
+  }
+
+  /** Frames of the stream the resampler needs past an output frame's position. */
+  get lookahead(): number {
+    return this.#source.lookahead;
+  }
+
+  /** How far into the stream the resampler's state reaches (`resampled-source.ts`). */
+  get consumedTo(): number | undefined {
+    return this.#source.consumedTo;
   }
 
   async read(

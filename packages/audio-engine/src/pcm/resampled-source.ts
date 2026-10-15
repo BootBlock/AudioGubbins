@@ -16,6 +16,11 @@
  * The resampler's position is shared by every read, so reads take turns
  * (`read-turns.ts`), and a read that fails or is cancelled part way leaves
  * the position unknown, so the read after it seeks.
+ *
+ * The source's length is read at each read, not once: a stream of a plan
+ * continued with a longer one (`reader-continuation.ts`) is still converted by the
+ * resampler that was running, which is why the conversion says how far into
+ * its source the state it holds reaches.
  */
 
 import {
@@ -24,6 +29,7 @@ import {
   sampleCount,
   throwIfCancelled,
   type CancellationSignal,
+  type ChannelLayout,
   type DomainResult,
   type SampleCount,
   type SampleRate,
@@ -45,6 +51,15 @@ const INPUT_CHUNK = 4_096;
 /** A converted source, and how its resampler came by its taps, for a workload estimate. */
 export interface ResampledSource extends PcmSource {
   readonly coefficients: ResamplerCoefficients;
+  /** Source frames the resampler needs past an output frame's position. */
+  readonly lookahead: number;
+  /**
+   * The source frame the resampler's state has read up to, from where it last
+   * sought: what a change to the source before it would leave stale. Infinite
+   * once it has been told the source ended, since that end is part of its
+   * state too; `undefined` where the next read seeks afresh, holding nothing.
+   */
+  readonly consumedTo: number | undefined;
 }
 
 /**
@@ -59,10 +74,7 @@ export function resampledSource(
   quality: ResamplingQuality,
   coefficientBudgetBytes?: number,
 ): DomainResult<ResampledSource> {
-  const length =
-    source.length === undefined
-      ? undefined
-      : sampleCount(convertedFrameCount(source.length, source.sampleRate, to));
+  const length = convertedLength(source, to);
   if (length !== undefined && !length.ok) return length;
   const made = dsp.createResampler({
     from: source.sampleRate,
@@ -71,54 +83,75 @@ export function resampledSource(
     quality,
     ...(coefficientBudgetBytes === undefined ? {} : { coefficientBudgetBytes }),
   });
-  return mapResult(made, (resampler) =>
-    new Conversion(source, to, resampler).asSource(length?.value),
-  );
+  return mapResult(made, (resampler) => new Conversion(source, to, resampler));
+}
+
+/** The frames `source` holds at `to`, or `undefined` for a source without an end. */
+function convertedLength(source: PcmSource, to: SampleRate): DomainResult<SampleCount> | undefined {
+  return source.length === undefined
+    ? undefined
+    : sampleCount(convertedFrameCount(source.length, source.sampleRate, to));
 }
 
 /** The running conversion behind a resampled source. */
-class Conversion {
+class Conversion implements ResampledSource {
+  readonly coefficients: ResamplerCoefficients;
+  readonly lookahead: number;
+  readonly layout: ChannelLayout;
+  readonly sampleRate: SampleRate;
   readonly #source: PcmSource;
-  readonly #to: SampleRate;
   readonly #resampler: CanonicalResampler;
   /** The source frame the next push starts at. */
   #read = 0;
   /** The output frame the next pull gives, or `NaN` where a read ended part way. */
   #written = 0;
+  /** Whether the resampler has been told the source ended since it last sought. */
+  #finished = false;
   readonly #input: AudioFrameBlock;
   readonly #turns = new ReadTurns();
 
   constructor(source: PcmSource, to: SampleRate, resampler: CanonicalResampler) {
     this.#source = source;
-    this.#to = to;
     this.#resampler = resampler;
+    this.coefficients = resampler.coefficients;
+    this.lookahead = resampler.lookahead;
+    this.layout = source.layout;
+    this.sampleRate = to;
     this.#input = allocateBlock(source.layout, source.sampleRate, INPUT_CHUNK);
   }
 
-  asSource(length: SampleCount | undefined): ResampledSource {
-    return {
-      coefficients: this.#resampler.coefficients,
-      layout: this.#source.layout,
-      sampleRate: this.#to,
-      length,
-      read: (start, into, signal) =>
-        this.#turns.take(() => this.read(start, length, into, signal), signal),
-      release: () => {
-        this.#resampler.release();
-      },
-    };
+  /** The frames the source holds now, converted; the length was validated when it was converted. */
+  get length(): SampleCount | undefined {
+    const length = convertedLength(this.#source, this.sampleRate);
+    if (length !== undefined && !length.ok) throw new Error(length.failures[0].summary);
+    return length?.value;
   }
 
-  async read(
+  get consumedTo(): number | undefined {
+    if (Number.isNaN(this.#written)) return undefined;
+    return this.#finished ? Number.POSITIVE_INFINITY : this.#read;
+  }
+
+  read(start: SampleCount, into: AudioFrameBlock, signal?: CancellationSignal): Promise<number> {
+    return this.#turns.take(() => this.#convert(start, into, signal), signal);
+  }
+
+  release(): void {
+    this.#resampler.release();
+  }
+
+  async #convert(
     start: number,
-    length: SampleCount | undefined,
     into: AudioFrameBlock,
     signal: CancellationSignal | undefined,
   ): Promise<number> {
-    assertReadableInto({ layout: this.#source.layout, sampleRate: this.#to }, into);
-    if (start !== this.#written) this.#read = this.#resampler.seek(start);
+    assertReadableInto(this, into);
+    if (start !== this.#written) {
+      this.#read = this.#resampler.seek(start);
+      this.#finished = false;
+    }
     this.#written = Number.NaN;
-    const wanted = framesAvailable(length, start, into.frames);
+    const wanted = framesAvailable(this.length, start, into.frames);
     let filled = 0;
     while (filled < wanted) {
       throwIfCancelled(signal);
@@ -140,7 +173,10 @@ class Conversion {
     );
     if (read > 0) this.#resampler.push(blockView(this.#input, 0, read).channels);
     this.#read += read;
-    if (read < this.#input.frames) this.#resampler.finish();
+    if (read < this.#input.frames) {
+      this.#resampler.finish();
+      this.#finished = true;
+    }
     return read > 0 || !this.#resampler.drained;
   }
 
