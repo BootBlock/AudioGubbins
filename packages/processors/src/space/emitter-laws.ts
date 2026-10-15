@@ -26,7 +26,7 @@ import {
 } from '@audiogubbins/audio-engine';
 
 /** Godot 4's `CMP_EPSILON` (`core/math/math_defs.h`), which keeps a distance of zero finite. */
-export const CMP_EPSILON = 0.00001;
+const CMP_EPSILON = 0.00001;
 
 /**
  * The least linear gain Godot's filter designs a shelf with
