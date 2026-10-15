@@ -48,6 +48,7 @@ export {
   pcmDescriptionOf,
 } from './pcm/pcm-description.js';
 export { type PlanProcessing, ProcessedStart } from './pcm/processed-content.js';
+export { EditedSource, type HeldContinuation } from './pcm/edited-source.js';
 export {
   type CachedStream,
   type CachedStreamRequest,
