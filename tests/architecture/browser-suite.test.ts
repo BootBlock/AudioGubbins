@@ -174,6 +174,7 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-effect-rack': ['effect-rack'],
   'chromium-recording': ['recording'],
   'chromium-import-export': ['import-export'],
+  'chromium-game-workflows': [],
   'chromium-spectral': ['spectral'],
   'chromium-worker-policy': ['worker-policy'],
   'chromium-renderer': ['renderer-loss'],

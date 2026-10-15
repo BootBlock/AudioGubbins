@@ -1554,6 +1554,95 @@ describe('test fixtures never reach production code (REQ-EXEC-181)', () => {
   });
 });
 
+describe("a chain's users are read with the game-audio state (ADR-0101)", () => {
+  /**
+   * The modules that may take the domain's `chainUsers`: the game-audio
+   * module that answers for the project and its groups together, and its
+   * test, which holds the two answers equal where no group names a chain.
+   * The domain's own modules and tests are not read.
+   */
+  const READS_THE_PROJECT_ALONE = /^packages\/game-audio\/src\/policy\/chain-users(\.test)?\.ts$/u;
+
+  /**
+   * The modules that took it before a group could name a chain, each until it
+   * reads the answer that counts the groups. A module leaves this list when it
+   * changes; none joins it.
+   */
+  const NOT_YET_MOVED: readonly string[] = [
+    'apps/web/src/commands/rack-building-commands.ts',
+    'apps/web/src/commands/rack-target.ts',
+    'packages/history/src/difference-names.ts',
+    'packages/project-commands/src/processing/chain-naming.ts',
+  ];
+
+  /** Whether any identifier of a file's code, never its comments, is `chainUsers`. */
+  const namesChainUsers = (node: ts.Node): boolean =>
+    (ts.isIdentifier(node) && node.text === 'chainUsers') ||
+    (ts.forEachChild(node, namesChainUsers) ?? false);
+
+  /**
+   * Whether a file takes `chainUsers` from the domain: by name, or with the
+   * whole module, when its code then names the function on it.
+   */
+  const takesChainUsers = (file: ts.SourceFile): boolean =>
+    valuesTaken(file).some(
+      ({ module, name }) =>
+        module === '@audiogubbins/domain' &&
+        (name === 'chainUsers' || (name === '*' && namesChainUsers(file))),
+    );
+
+  /**
+   * Every file outside the domain that takes it, tests and test support
+   * included. Only a file whose code names the function can take it, so only
+   * those are parsed: parsing every source would take longer than a test may.
+   */
+  const takers = (): readonly string[] =>
+    EVERY_SOURCE.filter(
+      (path) =>
+        !path.startsWith('packages/domain/') &&
+        readCode(path).includes('chainUsers') &&
+        takesChainUsers(parse(path)),
+    );
+
+  it('is taken outside the domain by the game-audio module alone, and the modules still to move', () => {
+    // A group's processing names a chain, so a reader that asks the domain
+    // alone would miss a chain only a group uses: rename it as unused, or
+    // delete it from under the group.
+    expect(
+      takers().filter(
+        (path) => !READS_THE_PROJECT_ALONE.test(path) && !NOT_YET_MOVED.includes(path),
+      ),
+    ).toEqual([]);
+  });
+
+  it('lists only modules that still take it, so the list shrinks as each moves', () => {
+    const taking = new Set(takers());
+    expect(NOT_YET_MOVED.filter((path) => !taking.has(path))).toEqual([]);
+  });
+
+  it.each([
+    ['a named import', "import { chainUsers } from '@audiogubbins/domain';", true],
+    ['a renamed import', "import { chainUsers as users } from '@audiogubbins/domain';", true],
+    ['a re-export', "export { chainUsers } from '@audiogubbins/domain';", true],
+    [
+      'the whole module',
+      "import * as domain from '@audiogubbins/domain';\ndomain.chainUsers(project, chain);",
+      true,
+    ],
+    ['a dynamic import', "const { chainUsers } = await import('@audiogubbins/domain');", true],
+    [
+      'the whole module, for another value',
+      "import * as domain from '@audiogubbins/domain';\n// chainUsers\ndomain.chainUseCount(users);",
+      false,
+    ],
+    ['another value', "import { chainUseCount } from '@audiogubbins/domain';", false],
+    ['a type alone', "import type { ChainUsers } from '@audiogubbins/domain';", false],
+  ])('reads %s', (_form, code, taken) => {
+    const file = ts.createSourceFile('control.ts', code, ts.ScriptTarget.Latest, true);
+    expect(takesChainUsers(file)).toBe(taken);
+  });
+});
+
 describe('no placeholder survives into production code (REQ-EXEC-181)', () => {
   it('holds no unresolved marker', () => {
     // The lint rule catches these where they are written. This catches one that

@@ -199,6 +199,17 @@ export default defineConfig<SuiteOptions>({
       testMatch: /import-export\.spec\.ts/,
     },
     {
+      // The game-audio workflows: a long recording cut into a named group of
+      // sounds, the group's inherited export preset and chain overridden and
+      // reset, a one-shot prepared and undone in one step, a seamless loop
+      // analysed and applied, a preview scenario run and counted, and the
+      // group exported and found again after a reload (the packet's
+      // `test:e2e:game-workflows`).
+      name: 'chromium-game-workflows',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /game-workflows\.spec\.ts/,
+    },
+    {
       // Spectral editing in the Spectral Repair workspace: an area selected by
       // pointer and from the keyboard, attenuated and healed, compared with
       // before, undone and found again after a reload, and the lasso and the
