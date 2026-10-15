@@ -3,7 +3,8 @@
  * rules from the folder's listing at delivery, never assumed (ADR-0092,
  * REQ-ARCH-054): the policy, the answer the person gave for the rest of a
  * batch, and, in a trusted folder, the records of what AudioGubbins exported
- * there before against the size and SHA-256 of the file now there. Where the
+ * there before against the size and SHA-256 of the file now there, each
+ * record naming its file by its path from the trusted folder. Where the
  * rules ask, the person is asked, and the delivery waits for the answer; a
  * question dismissed skips the file.
  */
@@ -103,6 +104,33 @@ async function contentOf(
     await run.update(chunk);
   }
   return { size: file.size, hash: hexOf(await run.digest()) };
+}
+
+/**
+ * The name a trusted folder's record keeps a delivered file under: its path
+ * from the trusted folder, `/` between names (ADR-0102). Neither a folder's
+ * name nor a file's holds a `/`, so the path is read back as it was written,
+ * and a file delivered into the trusted folder itself keeps its bare name.
+ */
+export function trustedRecordName(path: readonly string[], name: string): string {
+  return [...path, name].join('/');
+}
+
+/**
+ * The records, of those kept for a trusted folder, of the files in the folder
+ * `path` leads to, each named as that folder lists it. Folder names are
+ * matched as written, so a record of the same folder under another case is
+ * not found and its file is asked about, the safe way to be wrong.
+ */
+export function recordsIn(
+  records: readonly ExportedFileRecord[],
+  path: readonly string[],
+): readonly ExportedFileRecord[] {
+  const folder = trustedRecordName(path, '');
+  return records.flatMap((record) => {
+    const name = record.name.slice(folder.length);
+    return record.name.startsWith(folder) && !name.includes('/') ? [{ ...record, name }] : [];
+  });
 }
 
 /** Decides a folder delivery's name from its listing, asking the person where the rules ask. */

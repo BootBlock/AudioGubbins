@@ -6,7 +6,10 @@
  * exported there before, unchanged since, is overwritten without asking. So
  * beside the handle is kept the record of each file exported there: its name,
  * size and SHA-256, the last for each name, which the delivery checks the file
- * now there against. Only this browser on this machine keeps them, in the
+ * now there against. A file delivered into a folder inside the trusted one is
+ * named by its path from it, `sfx/ui/Click.wav` (ADR-0102,
+ * `trustedRecordName` in `@audiogubbins/storage`), so a record speaks only for
+ * the file at that path. Only this browser on this machine keeps them, in the
  * database the kept handles are in (`handle-database.ts`), since a handle
  * cannot be kept anywhere else: a folder under a token of its own, and a list
  * of the tokens, every key beginning with the project format's

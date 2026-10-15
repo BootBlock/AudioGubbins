@@ -131,14 +131,36 @@ function absent(name: string): DOMException {
   return new DOMException(`There is nothing called ${name} here.`, 'NotFoundError');
 }
 
-/** A folder's handle, listing the handles given it, which opens, makes and removes by name. */
+/** Why a fake folder opens nothing of the kind asked for by a name the other kind has. */
+function otherKind(name: string): DOMException {
+  return new DOMException(`${name} is not of the kind asked for.`, 'TypeMismatchError');
+}
+
+/**
+ * A folder's handle, listing the handles given it, which opens, makes and
+ * removes by name, refusing as Chromium does: a name of the other kind with
+ * `TypeMismatchError`, and a folder that is not empty, removed without
+ * `recursive`, with `InvalidModificationError`.
+ */
 export class FakeDirectoryHandle extends FakeHandle implements FileSystemDirectoryHandle {
   readonly kind = 'directory';
   readonly #children: (FakeFileHandle | FakeDirectoryHandle)[];
 
+  /**
+   * The refusal, if any, of making a file or a folder of a name in this
+   * folder, which every folder made in it refuses by too: a tree that fails
+   * part-way as it is made.
+   */
+  refuseMaking: ((name: string) => DOMException | undefined) | undefined = undefined;
+
   constructor(name: string, children: readonly (FakeFileHandle | FakeDirectoryHandle)[]) {
     super(name);
     this.#children = [...children];
+  }
+
+  /** Puts a file or a folder in the folder, as another program would. */
+  add(child: FakeFileHandle | FakeDirectoryHandle): void {
+    this.#children.push(child);
   }
 
   async *values(): AsyncGenerator<FakeFileHandle | FakeDirectoryHandle> {
@@ -154,8 +176,12 @@ export class FakeDirectoryHandle extends FakeHandle implements FileSystemDirecto
   ): Promise<FileSystemDirectoryHandle> {
     const found = this.#children.find((child) => child.name === name);
     if (found instanceof FakeDirectoryHandle) return Promise.resolve(found);
-    if (found !== undefined || options.create !== true) return Promise.reject(absent(name));
+    if (found !== undefined) return Promise.reject(otherKind(name));
+    if (options.create !== true) return Promise.reject(absent(name));
+    const refusal = this.refuseMaking?.(name);
+    if (refusal !== undefined) return Promise.reject(refusal);
     const made = new FakeDirectoryHandle(name, []);
+    made.refuseMaking = this.refuseMaking;
     this.#children.push(made);
     return Promise.resolve(made);
   }
@@ -166,17 +192,28 @@ export class FakeDirectoryHandle extends FakeHandle implements FileSystemDirecto
   ): Promise<FileSystemFileHandle> {
     const found = this.#children.find((child) => child.name === name);
     if (found instanceof FakeFileHandle) return Promise.resolve(found);
-    if (found !== undefined || options.create !== true) return Promise.reject(absent(name));
+    if (found !== undefined) return Promise.reject(otherKind(name));
+    if (options.create !== true) return Promise.reject(absent(name));
+    const refusal = this.refuseMaking?.(name);
+    if (refusal !== undefined) return Promise.reject(refusal);
     const made = new FakeFileHandle(new File([], name));
     this.#children.push(made);
     return Promise.resolve(made);
   }
 
-  removeEntry(name: string): Promise<void> {
+  removeEntry(name: string, options: { readonly recursive?: boolean } = {}): Promise<void> {
     const index = this.#children.findIndex((child) => child.name === name);
-    if (index < 0) return Promise.reject(absent(name));
+    const found = this.#children[index];
+    if (found === undefined) return Promise.reject(absent(name));
+    if (found instanceof FakeDirectoryHandle && options.recursive !== true && !found.#empty()) {
+      return Promise.reject(new DOMException(`${name} is not empty.`, 'InvalidModificationError'));
+    }
     this.#children.splice(index, 1);
     return Promise.resolve();
+  }
+
+  #empty(): boolean {
+    return this.#children.length === 0;
   }
 
   resolve(): Promise<string[] | null> {

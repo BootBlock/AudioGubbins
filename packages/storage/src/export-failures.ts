@@ -74,3 +74,27 @@ export function deliveryRefused(refusal: TreeFailure): DomainFailure {
       );
   }
 }
+
+/**
+ * A delivery whose folder path names a folder outside the one chosen, or a
+ * name no common file system takes as it is, nothing written and the export
+ * left staged.
+ */
+export function deliveryPathInvalid(segment: string, index: number): DomainFailure {
+  return failure(
+    'export.destination-path-invalid',
+    FailureKind.Rejected,
+    `The destination's folder "${segment}" is not a folder name inside the folder chosen, so nothing was written; the export is kept.`,
+    { details: { segment, index } },
+  );
+}
+
+/** A delivery whose folder path names a file, nothing written and the export left staged. */
+export function destinationFolderTaken(path: string): DomainFailure {
+  return failure(
+    'export.destination-folder-taken',
+    FailureKind.Conflict,
+    'A file has the name of a folder the export goes into, so nothing was written. Rename the file or choose another destination; the export is kept and needs no new render.',
+    { details: { path } },
+  );
+}

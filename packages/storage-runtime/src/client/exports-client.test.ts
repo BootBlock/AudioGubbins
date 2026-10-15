@@ -116,6 +116,13 @@ async function bytesOf(handle: FileSystemFileHandle): Promise<Uint8Array> {
   return new Uint8Array(await (await handle.getFile()).arrayBuffer());
 }
 
+/** The name of every entry a fake folder holds. */
+async function folderNames(folder: FakeDirectoryHandle): Promise<readonly string[]> {
+  const names: string[] = [];
+  for await (const handle of folder.values()) names.push(handle.name);
+  return names;
+}
+
 beforeEach(() => {
   installFakeHandles();
   vi.stubGlobal('File', PlatformFile);
@@ -208,6 +215,136 @@ describe('exports through the storage worker (ADR-0092)', () => {
     );
     expect(second).toMatchObject({ kind: 'delivered', replaced: 'trusted' });
     expect(asked).toEqual([]);
+  });
+
+  it('delivers into a relative folder inside the one chosen, made where it is not there', async () => {
+    const { storage, project, session, file } = await staged();
+    const old = new FakeFileHandle(new File(['old'], 'Forest walk.wav'));
+    const folder = new FakeDirectoryHandle('Game sounds', [old]);
+    const asked: string[] = [];
+    const delivery = expectSuccess(
+      await storage.client.exports.deliver(session, file.token, ENCODER, {
+        kind: 'folder',
+        handle: folder,
+        path: ['sfx', 'ambience'],
+        wanted: { stem: 'Forest walk', extension: 'wav' },
+        policy: 'prompt',
+        remembered: undefined,
+        prompt: (name) => {
+          asked.push(name);
+          return Promise.resolve(undefined);
+        },
+      }),
+    );
+
+    expect(delivery).toMatchObject({
+      kind: 'delivered',
+      name: 'Forest walk.wav',
+      replaced: 'none',
+    });
+    expect(asked).toEqual([]);
+    const ambience = await (await folder.getDirectoryHandle('sfx')).getDirectoryHandle('ambience');
+    expect(await bytesOf(await ambience.getFileHandle('Forest walk.wav'))).toEqual(WHOLE);
+    expect(new TextDecoder().decode(await bytesOf(old))).toBe('old');
+    expect((await storedModel(storage, project)).exports[0]?.destination).toEqual({
+      kind: ExportDestinationKind.Directory,
+      label: 'Game sounds',
+    });
+  });
+
+  it('refuses a path that steps out of the folder, writing nothing and keeping the export', async () => {
+    const { storage, session, file } = await staged();
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+    const destination = {
+      kind: 'folder',
+      handle: folder,
+      path: ['sfx', '..', '..'],
+      wanted: { stem: 'Forest walk', extension: 'wav' },
+      policy: 'overwrite',
+      remembered: undefined,
+      prompt: () => Promise.resolve(undefined),
+    } as const;
+    const refused = expectSuccess(
+      await storage.client.exports.deliver(session, file.token, ENCODER, destination),
+    );
+    expect(refused.kind === 'refused' ? refused.failure.code : refused.kind).toBe(
+      'export.destination-path-invalid',
+    );
+    expect(await folderNames(folder)).toEqual([]);
+
+    // Kept staged: the same export goes where the path is one inside the folder.
+    expect(
+      expectSuccess(
+        await storage.client.exports.deliver(session, file.token, ENCODER, {
+          ...destination,
+          path: ['sfx'],
+        }),
+      ).kind,
+    ).toBe('delivered');
+  });
+
+  it('keeps a trusted folder’s record by the path from it, so only that path overwrites silently', async () => {
+    const { storage, session, file } = await staged();
+    const folders = new TrustedFolders(new MemoryDatabases(), countingTokens());
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+    const key = await folders.trust(folder);
+    const asked: string[] = [];
+    const into = (path: readonly string[]) =>
+      ({
+        kind: 'trusted-folder',
+        folders,
+        key,
+        path,
+        wanted: { stem: 'Forest walk', extension: 'wav' },
+        policy: 'prompt',
+        remembered: undefined,
+        prompt: (name: string) => {
+          asked.push(name);
+          return Promise.resolve(undefined);
+        },
+      }) as const;
+    expect(
+      expectSuccess(
+        await storage.client.exports.deliver(
+          session,
+          file.token,
+          ENCODER,
+          into(['sfx', 'ambience']),
+        ),
+      ).kind,
+    ).toBe('delivered');
+    expect((await folders.find(key))?.records).toEqual([
+      { name: 'sfx/ambience/Forest walk.wav', size: WHOLE.length, hash: file.sha256 },
+    ]);
+
+    const again = async (path: readonly string[]) => {
+      const channel = new MessageChannel();
+      new Producer(channel.port2, encoded());
+      const restaged = expectSuccess(
+        await storage.client.exports.stage(
+          session,
+          { stream: channel.port1, origin: ORIGIN },
+          () => undefined,
+        ),
+      );
+      return expectSuccess(
+        await storage.client.exports.deliver(session, restaged.token, ENCODER, into(path)),
+      );
+    };
+    expect(await again(['sfx', 'ambience'])).toMatchObject({
+      kind: 'delivered',
+      replaced: 'trusted',
+    });
+    expect(asked).toEqual([]);
+
+    // The same file in the trusted folder itself is no export of that record: it is asked about.
+    await folder.getFileHandle('Forest walk.wav', { create: true }).then(async (handle) => {
+      const writable = await handle.createWritable();
+      await writable.write(WHOLE);
+      await writable.close();
+    });
+    expect((await again([])).kind).toBe('refused');
+    expect(asked).toEqual(['Forest walk.wav']);
   });
 
   it('answers a download as a file of the staged parts, and keeps it staged until given up', async () => {

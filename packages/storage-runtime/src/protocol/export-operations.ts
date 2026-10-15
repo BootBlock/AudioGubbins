@@ -6,8 +6,9 @@
  * storage worker, transferred, so no sample and no byte of it passes through
  * the page; the worker stages it, and delivers it on the page's word to a
  * destination the page chose, whose handle crosses as itself: a save dialog's
- * file, or a folder, with the records of what was exported there before where
- * the page keeps it trusted. Where a name is taken and the rules ask, the
+ * file, or a folder, with the relative folder inside it the file goes into
+ * (ADR-0102) and the records of what was exported there before where the page
+ * keeps it trusted. Where a name is taken and the rules ask, the
  * worker asks the person through the prompt the page lends and waits for the
  * answer. A download is answered as a file of the staged parts, read where they
  * lie, never copied whole into memory, so its staging stays until the page
@@ -45,15 +46,25 @@ export interface StagedFile {
 export type CrossingDestination =
   /** A file a save dialog gave. */
   | { readonly kind: 'file'; readonly handle: FileSystemFileHandle }
-  /** A folder, chosen or kept trusted, with the file's name wanted and the collision rules. */
+  /** A folder, chosen or kept trusted, with the file's folder and name wanted and the collision rules. */
   | {
       readonly kind: 'folder';
       readonly handle: FileSystemDirectoryHandle;
+
+      /**
+       * The folders inside `handle`'s the file goes into, outermost first,
+       * each checked by the worker before anything is written; none is the
+       * folder itself.
+       */
+      readonly path: readonly string[];
       readonly wanted: ExportFileName;
       readonly policy: CollisionPolicy;
       readonly remembered: CollisionAnswer | undefined;
 
-      /** What was exported to the folder before, where the page keeps it trusted. */
+      /**
+       * What was exported to the folder before, where the page keeps it
+       * trusted, each file named by its path from the folder.
+       */
       readonly trusted: readonly ExportedFileRecord[] | undefined;
     }
   /** A download, where no dialog or folder can be written. */
