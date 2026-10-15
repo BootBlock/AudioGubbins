@@ -11,6 +11,8 @@
 
 import {
   StandardLayouts,
+  addSamples,
+  derivedSampleCount,
   fail,
   flatMapResult,
   failure,
@@ -39,6 +41,7 @@ import {
   GpuUseKind,
   LifecycleState,
   PlaybackPhase,
+  type Continuation,
   type DeviceReport,
   type DspStatus,
   type MeterLevels,
@@ -177,6 +180,30 @@ export class FakeSession implements PlaybackSessionPort {
   changeParameters(changes: readonly ParameterChange[]): Promise<DomainResult<void>> {
     this.changes.push(changes);
     return Promise.resolve(this.changeResult);
+  }
+
+  /** Every continuation asked for, with the frame its programme may first differ at, in order. */
+  readonly continuations: { readonly request: PlaybackRequest; readonly from: SampleCount }[] = [];
+  /**
+   * What each continuation answers, in order, where a test wants other than
+   * one taken at the frame it was asked for.
+   */
+  readonly continuationResults: DomainResult<Continuation>[] = [];
+
+  continueWith(request: PlaybackRequest, from: SampleCount): Promise<DomainResult<Continuation>> {
+    this.continuations.push({ request, from });
+    return Promise.resolve(
+      this.continuationResults.shift() ?? succeed({ kind: 'continued', frame: from }),
+    );
+  }
+
+  /** How far ahead of the position the feeder may have read, which a test sets. */
+  readAhead = 0;
+
+  readFrame(): DomainResult<SampleCount> {
+    return flatMapResult(this.position(), (position) =>
+      addSamples(position, derivedSampleCount(this.readAhead)),
+    );
   }
 
   /** Plays from where the transport is, as the processor says when it starts. */

@@ -5,10 +5,11 @@
  * alike.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import type { DomainResult, QualityMode } from '@audiogubbins/domain';
 import type { PlaybackSession } from '@audiogubbins/audio-runtime';
 
 import type { ChosenProfile } from '../state/audio-settings-store.js';
+import type { Programme } from './programme.js';
 
 /** The part of a playback session the control drives. */
 export type PlaybackSessionPort = Pick<
@@ -25,6 +26,8 @@ export type PlaybackSessionPort = Pick<
   | 'audiblePosition'
   | 'meters'
   | 'changeParameters'
+  | 'continueWith'
+  | 'readFrame'
   | 'dispose'
 >;
 
@@ -48,6 +51,28 @@ export interface PlaybackParts {
    * too (`context-host.ts`).
    */
   readonly close: () => Promise<void>;
+}
+
+/** One profile's parts at one rate, and what was made with them. */
+export interface Opened {
+  readonly profile: ChosenProfile;
+  readonly rate: number | undefined;
+  readonly parts: PlaybackParts;
+  session: PlaybackSessionPort | undefined;
+  stopListening: (() => void) | undefined;
+  /**
+   * The programme given to the session, which it keeps through a lost
+   * context, and which a change of profile goes on playing.
+   */
+  loaded: Programme | undefined;
+  /** The preview quality `loaded` was loaded at. */
+  quality: QualityMode | undefined;
+  /**
+   * Whether the session holds an older sound of `loaded` than `loaded` is,
+   * one a change it could not take running left behind, which the next Play
+   * loads.
+   */
+  stale: boolean;
 }
 
 /** Makes the parts for a profile, the context at `rate`, or the device's where it is `undefined`. */

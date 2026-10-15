@@ -8,6 +8,7 @@ import {
   namedQualityMode,
   sampleCount,
   sampleRate,
+  succeed,
   unsafeBrandId,
   type EffectChain,
   type QualityMode,
@@ -564,5 +565,133 @@ describe('following a programme the project changed while it plays', () => {
     control.play(racked(0, true));
     await settled();
     expect(parts.latest().loads).toHaveLength(3);
+  });
+});
+
+describe('continuing the programme that plays', () => {
+  const frame = (value: number) => expectSuccess(sampleCount(value));
+
+  /** A preview's programme, made to `horizon`, continuing the one before it from `from` where given. */
+  function preview(horizon: number, from?: number): Programme {
+    const programme: Programme = {
+      ...TEST_SIGNAL_PROGRAMME,
+      key: 'preview',
+      content: `preview to ${String(horizon)}`,
+    };
+    return from === undefined
+      ? programme
+      : { ...programme, continues: { key: 'preview', from: frame(from) } };
+  }
+
+  /** Makes the continuation again from a later frame, as a preview does, noting each frame. */
+  function again() {
+    const asked: number[] = [];
+    const make = (from: number): Programme => {
+      asked.push(from);
+      return preview(48_000 + from, from);
+    };
+    return { asked, make };
+  }
+
+  it('goes on into it at the quality it was loaded at, loading, seeking and playing nothing again', async () => {
+    const { control, parts, settled, announce, settings } = rig();
+    control.play(preview(24_000));
+    await settled();
+    const session = parts.latest();
+    // Chosen since, but not yet in force for what plays, which a continuation keeps.
+    settings.choosePreviewQuality(namedQualityMode(QualityLevel.Draft));
+
+    const outcome = await control.continue(preview(48_000, 9_600), again().make);
+
+    expect(outcome).toEqual({ kind: 'continued', frame: 9_600 });
+    expect(session.continuations.map(({ from }) => from)).toEqual([9_600]);
+    expect(session.continuations[0]?.request.quality).toBe(session.loads[0]?.quality);
+    expect(session.loads).toHaveLength(1);
+    expect(session.seeks).toEqual([]);
+    expect(session.status.transport.mode).toBe(TransportMode.Playing);
+    expect(announce).not.toHaveBeenCalledWith(expect.stringContaining('go on'));
+  });
+
+  it('makes one the feeder was too late for again, from where it had read or may read now, whichever is later', async () => {
+    const { control, parts, settled } = rig();
+    control.play(preview(24_000));
+    await settled();
+    const session = parts.latest();
+    session.readAhead = 13_000;
+    session.continuationResults.push(
+      succeed({ kind: 'too-late', frame: frame(12_000) }),
+      succeed({ kind: 'too-late', frame: frame(14_000) }),
+    );
+    const remade = again();
+
+    const outcome = await control.continue(preview(48_000, 9_600), remade.make);
+
+    expect(remade.asked).toEqual([13_000, 14_000]);
+    expect(session.continuations.map(({ from }) => from)).toEqual([9_600, 13_000, 14_000]);
+    expect(outcome).toEqual({ kind: 'continued', frame: 14_000 });
+  });
+
+  it('says a refusal once, and gives up, saying so, while the feeder keeps reading past it', async () => {
+    const { control, parts, settled, announce } = rig();
+    control.play(preview(24_000));
+    await settled();
+    const session = parts.latest();
+    session.continuationResults.push(
+      fail(failure('playback.continuation-unmatched', FailureKind.Rejected, 'The graph changed.')),
+    );
+    for (let tries = 0; tries < 4; tries += 1) {
+      session.continuationResults.push(succeed({ kind: 'too-late', frame: frame(30_000) }));
+    }
+    announce.mockClear();
+
+    const refused = await control.continue(preview(48_000, 9_600), again().make);
+    const remade = again();
+    const outrun = await control.continue(preview(48_000, 9_600), remade.make);
+
+    expect(refused).toEqual({ kind: 'refused', reasons: ['The graph changed.'] });
+    expect(outrun.kind).toBe('refused');
+    expect(remade.asked).toEqual([30_000, 30_000, 30_000]);
+    expect(announce.mock.calls).toEqual([
+      ['The graph changed.'],
+      ['The new sound could not be prepared before playback reached it.'],
+    ]);
+  });
+
+  it('refuses one whose programme is not the one playing, asking nothing of the session', async () => {
+    const { control, parts, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    const outcome = await control.continue(preview(48_000, 9_600), again().make);
+
+    expect(outcome).toEqual({
+      kind: 'refused',
+      reasons: ['What it goes on from is no longer playing.'],
+    });
+    expect(parts.latest().continuations).toEqual([]);
+  });
+
+  it('follows a programme that continues the one playing by going on into it', async () => {
+    const { control, parts, settled } = rig();
+    control.play(preview(24_000));
+    await settled();
+
+    control.follow(preview(48_000, 9_600));
+    await Promise.resolve();
+
+    expect(parts.latest().continuations.map(({ from }) => from)).toEqual([9_600]);
+    expect(parts.latest().loads).toHaveLength(1);
+  });
+
+  it('reads where the feeder reads from at the latest, and nothing with no session', async () => {
+    const { control, parts, settled } = rig();
+    expect(control.readFrame()).toBeUndefined();
+    control.play(preview(24_000));
+    await settled();
+    const session = parts.latest();
+    session.readAhead = 5_000;
+    session.contextFrame = 2_000;
+
+    expect(control.readFrame()).toBe(expectSuccess(session.position()) + 5_000);
   });
 });
