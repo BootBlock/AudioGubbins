@@ -136,6 +136,14 @@
       ]
     },
     {
+      "name": "game-audio",
+      "root": "packages/game-audio",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "waveform",
       "root": "packages/waveform",
       "environment": "node",

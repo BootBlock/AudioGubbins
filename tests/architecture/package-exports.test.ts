@@ -187,6 +187,17 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
       [],
   },
+  '@audiogubbins/game-audio': {
+    "The game export layer's values (ADR-0102), built ahead of the project format that keeps them in a group's policy and reads them back through these constructors, and of the application's group policy editor, which applies a preset to a group as a profile: the naming template, the destination path and the game export profile.":
+      [
+        'DestinationPath',
+        'GameExportProfile',
+        'NamingTemplate',
+        'destinationPath',
+        'namingTemplate',
+        'profileFromPreset',
+      ],
+  },
   '@audiogubbins/codec-runtime': {
     "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
       [

@@ -35,6 +35,7 @@ const PORTABLE = [
   'packages/effect-rack',
   'packages/ml-runtime',
   'packages/detection-runtime',
+  'packages/game-audio',
 ];
 
 /** The library each thread entry's scope is compiled with, by entry. */

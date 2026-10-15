@@ -107,6 +107,11 @@
  *   project-commands, project-format, recording and storage, and on
  *   audio-runtime's capture channel reader alone (ADR-0070).
  *
+ * Phase 10's packages (ADR-0100), none of which imports anything of Godot:
+ *
+ * - game-audio: groups, inherited policy, naming, game export profiles and the
+ *   preview as values; depends on domain + import-export.
+ *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,
  * may take the fixtures package, which their own rules below leave out of what
  * they refuse, and so may the tests of every package no such rule governs
@@ -185,7 +190,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|import-export|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|game-audio|history|import-export|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -428,6 +433,37 @@ module.exports = {
         'the codec and storage workers run its jobs.',
       from: { path: '^packages/import-export/' },
       to: { path: '^packages/(?!(import-export|domain|audio-graph|audio-engine|codecs)/)' },
+    },
+    {
+      name: 'game-audio-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Game audio as values: groups, inherited policy, naming, game export profiles and the ' +
+        'preview (ADR-0100). It depends on the domain, the export settings a profile resolves to ' +
+        "and the engine's canonical primitives, and knows no browser, storage, command or " +
+        'interface package: the project format and the commands keep and change its state from ' +
+        'above. Its tests may take the fixtures package.',
+      from: { path: '^packages/game-audio/' },
+      to: {
+        path: '^packages/(?!(game-audio|audio-engine|domain|import-export)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'game-audio-knows-no-godot',
+      severity: 'error',
+      comment:
+        'The game-audio packages are the contracts an engine integration is written against, so ' +
+        'they import nothing of one (ADR-0100, REQ-GODOT-107): a Godot package depends on them, ' +
+        'never the reverse. Matched on any path naming Godot, in any case, so a package of the ' +
+        'workspace, a third-party library and a relative path into either are all refused. ' +
+        "The packages' own modules are not: a module may be named for what it prepares for an " +
+        'engine without importing anything of it.',
+      from: { path: '^packages/game-audio/' },
+      to: {
+        path: '[Gg][Oo][Dd][Oo][Tt]',
+        pathNot: '^packages/game-audio/',
+      },
     },
     {
       name: 'waveform-owns-nothing-else',

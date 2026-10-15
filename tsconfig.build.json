@@ -96,6 +96,12 @@
       "path": "./packages/import-export/scopes/any"
     },
     {
+      "path": "./packages/game-audio"
+    },
+    {
+      "path": "./packages/game-audio/scopes/any"
+    },
+    {
       "path": "./packages/waveform"
     },
     {

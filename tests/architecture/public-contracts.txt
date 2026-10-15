@@ -26,6 +26,7 @@ Published paths
   @audiogubbins/domain/testing
   @audiogubbins/editor-view
   @audiogubbins/effect-rack
+  @audiogubbins/game-audio
   @audiogubbins/history
   @audiogubbins/import-export
   @audiogubbins/input
@@ -3883,6 +3884,17 @@ Published paths
   function chainGraph(chain: Pick<EffectChain, "slots">, types: ReadonlyMap<string, ProcessorType>, input: ChannelLayout, quality: QualitySettings, run: ChainGraphRun): DomainResult<ChainGraph>
   function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing
 
+@audiogubbins/game-audio
+  interface DestinationPath
+  readonly DestinationPath.segments: readonly string[]
+  type GameExportProfile = { readonly format: "aac"; readonly choices: ProfileChoices<"aac">; } | { readonly format: "aifc"; readonly choices: ProfileChoices<"aifc">; } | { readonly format: "aiff"; readonly choices: ProfileChoices<"aiff">; } | { readonly format: "flac"; readonly choices: ProfileChoices<"flac">; } | { readonly format: "mp3"; readonly choices: ProfileChoices<"mp3">; } | { readonly format: "ogg-vorbis"; readonly choices: ProfileChoices<"ogg-vorbis">; } | { readonly format: "opus"; readonly choices: ProfileChoices<"opus">; } | { readonly format: "wav"; readonly choices: ProfileChoices<"wav">; }
+  interface NamingTemplate
+  readonly NamingTemplate.source: string
+  readonly NamingTemplate.parts: readonly TemplatePart<"asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region">[]
+  function destinationPath(segments: readonly string[]): DomainResult<DestinationPath>
+  function namingTemplate(source: string): DomainResult<NamingTemplate>
+  function profileFromPreset(preset: ExportPreset): GameExportProfile
+
 @audiogubbins/history
   interface ChainDifference
   readonly ChainDifference.id: EffectChainId
@@ -4291,6 +4303,12 @@ Published paths
   readonly StagedFile.hash: string
   readonly StagedFile.reproducible: boolean
   type StreamReceiverMessage = { readonly kind: "ready"; readonly credit: number; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
+  type TemplatePart<Token extends string> = { readonly kind: "text"; readonly text: string; } | { readonly kind: "token"; readonly token: Token; readonly modifier?: string; }
+  interface TemplateVocabulary<Token extends string>
+  readonly TemplateVocabulary.tokens: ReadonlySet<Token>
+  readonly TemplateVocabulary.modifiers: ReadonlyMap<Token, ReadonlySet<string>>
+  readonly TemplateVocabulary.noun: string
+  readonly TemplateVocabulary.refusalCode: string
   interface TrustedFolder
   readonly TrustedFolder.records: readonly ExportedFileRecord[]
   readonly TrustedFolder.existing: ListedFileContent | undefined
@@ -4301,10 +4319,12 @@ Published paths
   function bitRatesWords(rates: readonly number[]): string
   function cancelExportBatch(batch: ExportBatch): ExportBatch
   function cancelImport(job: ImportJob): ImportJob
+  function dateOf(clock: ExportClock): string
   function decideCollision(query: CollisionQuery): CollisionDecision
   function defaultDither(depth: number | undefined): DitherSettings
   function defaultExportSettings<F extends ExportFormat>(format: F, context: ExportContext): SettingsByFormat[F]
   function encodingProblems(encoding: FormatEncoding, facts: EncodingFacts): readonly DomainFailure[]
+  function escapeTemplateText(text: string): string
   function exportBatch(jobs: readonly ExportJob[]): ExportBatch
   function exportMetadata(project: MetadataMap, region: MetadataMap | undefined, settings: MetadataSettings, rates: MetadataRates): DomainResult<MetadataMap>
   function exportTarget(settings: FormatEncoding): ExportTarget
@@ -4322,9 +4342,11 @@ Published paths
   function readEncodedStreamMessage(value: unknown): DomainResult<EncodedStreamMessage>
   function readRenderedStreamMessage(value: unknown): DomainResult<RenderedStreamMessage>
   function readStreamReceiverMessage(value: unknown): DomainResult<StreamReceiverMessage>
+  function readTemplate<Token extends string>(template: string, vocabulary: TemplateVocabulary<Token>): DomainResult<readonly TemplatePart<Token>[]>
   function rememberCollisionAnswer(batch: ExportBatch, answer: CollisionAnswer, applyToAll: boolean): ExportBatch
   function resolvePreset(preset: ExportPreset, context: ExportContext): (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; })
   function safeFileName(name: ExportFileName, copy?: number | undefined): string
+  function safeFolderName(segment: string): string
   function validateExportSettings(settings: ExportSettings, context: ExportContext): DomainResult<ExportSettings>
 
 @audiogubbins/input
@@ -8768,6 +8790,9 @@ packages/effect-rack/src/chain-graph.ts
   readonly MeasureTap.layout: ChannelLayout
   readonly MeasureTap.type: string
   readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
+
+packages/game-audio/src/export/game-export-profile.ts
+  type ProfileChoices<F extends ExportFormat> = { [P in Exclude<Exclude<keyof import("packages/import-export/src/export-settings").SettingsByFormat[F], "format">, "fileName" | "range">]: Partial<Omit<import("packages/import-export/src/export-settings").SettingsByFormat[F], "format">>[P]; }
 
 packages/import-export/src/export-settings.ts
   type FormatEncodingByFormat = { readonly flac: { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
