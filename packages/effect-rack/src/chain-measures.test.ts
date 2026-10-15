@@ -155,9 +155,10 @@ describe('a chain’s latency, as the domain walks it and as the graph analyses 
         }
       }
     }
-    // Ambisonic encoding and decoding change the layout; every other type is
+    // Ambisonic encoding and decoding change the layout, and so does the
+    // spatial panner, given the mono it takes first; every other type is
     // tried in all three shapes, at both qualities.
-    expect(compared).toBe((PROCESSOR_CATALOGUE.size * 3 - 2 * 2) * 2);
+    expect(compared).toBe((PROCESSOR_CATALOGUE.size * 3 - 3 * 2) * 2);
   });
 });
 
