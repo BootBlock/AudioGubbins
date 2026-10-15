@@ -12,7 +12,7 @@ import {
   type ProcessorInstance,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ListedEntry } from '@audiogubbins/storage';
 import { sine } from '@audiogubbins/test-fixtures';
 
@@ -231,7 +231,9 @@ describe('the Library panel', { timeout: 30_000 }, () => {
     await userEvent.click(within(warm).getByRole('button', { name: 'Remove for good' }));
 
     expect(ran).toEqual([['library.remove', { entry: chain.id }]]);
-    expect(screen.getByRole('heading', { name: 'Saved chains (1)' })).toHaveFocus();
+    // The person's one chain, after the chains every library lists first.
+    const chains = String(BUILT_IN_LIBRARY.length + 1);
+    expect(screen.getByRole('heading', { name: `Saved chains (${chains})` })).toHaveFocus();
   });
 
   it('renames an entry to the name typed, giving the focus back to what opened it', async () => {

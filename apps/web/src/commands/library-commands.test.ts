@@ -12,7 +12,7 @@ import {
   type ProcessorInstance,
   type Region,
 } from '@audiogubbins/domain';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { setProcessorInvocation, setRackInvocation } from '@audiogubbins/project-commands';
 import type { ListedEntry } from '@audiogubbins/storage';
 import { sine, type SignalFixture } from '@audiogubbins/test-fixtures';
@@ -78,9 +78,19 @@ async function racked(): Promise<{ audio: AudioWindow; rack: EffectChain }> {
   return { audio, rack };
 }
 
-/** The only entry the window's library lists. */
+/** The identifiers of the entries every library lists before the person's own. */
+const BUILT_IN_IDS: ReadonlySet<string> = new Set(BUILT_IN_LIBRARY.map((entry) => entry.id));
+
+/** The entries the person kept, among all a library lists. */
+function ownEntries(entries: readonly ListedEntry[]): readonly ListedEntry[] {
+  return entries.filter(
+    (listed) => !BUILT_IN_IDS.has(listed.kind === 'usable' ? listed.entry.id : listed.id),
+  );
+}
+
+/** The only entry of the person's own the window's library lists. */
 function onlyEntry(audio: AudioWindow): ListedEntry & { readonly kind: 'usable' } {
-  const [listed, ...rest] = audio.window.projects.savedProcessing.get().entries;
+  const [listed, ...rest] = ownEntries(audio.window.projects.savedProcessing.get().entries);
   if (listed?.kind !== 'usable' || rest.length > 0) throw new Error('Expected one usable entry.');
   return listed;
 }
@@ -264,7 +274,7 @@ describe('the library of saved chains and presets (ADR-0060)', { timeout: 30_000
     expect(await twice('library.save-preset', { name: 'Flat', processorId: gain.id })).toBe(
       'A preset is already saved as “Flat”: replace it, or choose another name.',
     );
-    const saved = window.projects.savedProcessing.get().entries;
+    const saved = ownEntries(window.projects.savedProcessing.get().entries);
     const entryOf = (kind: string) =>
       saved.find((listed) => listed.kind === 'usable' && listed.entry.content.kind === kind)?.entry;
     const chainEntry = entryOf('chain');
@@ -325,6 +335,6 @@ describe('the library of saved chains and presets (ADR-0060)', { timeout: 30_000
     const other = await world.window();
     await other.projects.savedProcessing.refresh();
 
-    expect(other.projects.savedProcessing.get().entries).toEqual([onlyEntry(audio)]);
+    expect(ownEntries(other.projects.savedProcessing.get().entries)).toEqual([onlyEntry(audio)]);
   });
 });

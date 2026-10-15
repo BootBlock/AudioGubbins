@@ -6,7 +6,7 @@ import {
   type LibraryContent,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 
@@ -29,11 +29,17 @@ function gainChain(): LibraryContent {
   };
 }
 
-/** The names a window's library lists, in its order. */
+/** The identifiers of the entries every library lists before the person's own. */
+const BUILT_IN_IDS: ReadonlySet<string> = new Set(BUILT_IN_LIBRARY.map((entry) => entry.id));
+
+/** The names of the person's own entries a window's library lists, in its order. */
 function namesIn(window: ProjectWindow): readonly string[] {
   return window.projects.savedProcessing
     .get()
-    .entries.map((listed) => (listed.kind === 'usable' ? listed.entry.name : listed.id));
+    .entries.filter(
+      (listed) => !BUILT_IN_IDS.has(listed.kind === 'usable' ? listed.entry.id : listed.id),
+    )
+    .map((listed) => (listed.kind === 'usable' ? listed.entry.name : listed.id));
 }
 
 describe('the library as a tab lists it', { timeout: 30_000 }, () => {
