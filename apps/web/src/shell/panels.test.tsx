@@ -22,6 +22,8 @@ import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
+import type { GroupChoice } from '../state/group-focus.js';
+import type { LoudnessReadings } from '../state/loudness-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import {
   createRenderStrategyStore,
@@ -121,6 +123,9 @@ describe('what a panel is given', () => {
     expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
     expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
     expectTypeOf<PanelContext['detection']>().toEqualTypeOf<Observable<Detections>>();
+    // The group chosen and the loudness readings alone, and no step that changes either.
+    expectTypeOf<PanelContext['groups']>().toEqualTypeOf<Observable<GroupChoice | undefined>>();
+    expectTypeOf<PanelContext['loudness']>().toEqualTypeOf<Observable<LoudnessReadings>>();
     // The manager's state alone, and no step that changes a pack.
     expectTypeOf<Omit<PanelContext['packs'], 'unavailable' | 'availability'>>().toEqualTypeOf<
       Observable<PackManagerState>
@@ -172,6 +177,9 @@ describe('every panel', () => {
           exports: shell.exports,
           exportSubject: shell.exportFocus.subject,
           preferences: shell.preferences,
+          groups: shell.groups.chosen,
+          loudness: shell.loudness.readings,
+          codecs: shell.codecs.environment,
         })}
       </>,
     );

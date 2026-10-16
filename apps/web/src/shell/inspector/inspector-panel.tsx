@@ -8,8 +8,13 @@
  * by the controls the Effects rack shows them with; otherwise what the rack of
  * the asset or region runs, and the command that shows the rack (REQ-EDIT-072).
  *
- * Recording, and an export the person asked to have described, are subjects
- * of their own, shown in place of the editor's (`own-subjects.tsx`).
+ * For a region or an asset of the project it shows its game policy too: the
+ * asset group it is in, and every field it resolves with where each value
+ * comes from, overridden and reset here (`../game/policy-section.tsx`).
+ *
+ * Recording, an export the person asked to have described, and an asset
+ * group chosen, are subjects of their own, shown in place of the editor's
+ * (`own-subjects.tsx`).
  *
  * It reads the stores and runs commands; it writes nothing itself (`CLAUDE.md`
  * G2), and it follows every change to them, an undo included.
@@ -41,6 +46,8 @@ import { LevelControls } from './level-controls.js';
 import { OwnSubjectView, useOwnSubject, type OwnSubjectParts } from './own-subjects.js';
 import { RegionProperties } from './region-properties.js';
 import { AssetSourceFacts } from './asset-source.js';
+import { MemberPolicySection } from '../game/policy-section.js';
+import { usePolicyParts } from '../game/policy-parts.js';
 import { TimeControls } from './time-controls.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
@@ -207,16 +214,45 @@ function AssetProperties({
   );
 }
 
+/** The game policy of the region or asset shown, as the project holds it. */
+function MemberPolicy({
+  subject,
+  state,
+  parts,
+  projects,
+  commands,
+}: {
+  readonly subject: Extract<Inspected, { readonly kind: 'project' }>;
+  readonly state: ProjectState;
+  readonly parts: InspectorParts;
+  readonly projects: ProjectStores | undefined;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const policyParts = usePolicyParts({ projects, preferences: parts.preferences, commands }, state);
+  return (
+    <MemberPolicySection
+      member={
+        subject.region === undefined
+          ? { kind: 'asset', asset: subject.asset.id }
+          : { kind: 'region', region: subject.region.region.id }
+      }
+      parts={policyParts}
+    />
+  );
+}
+
 /** What the Inspector shows of a subject of the project. */
 function ProjectSubject({
   subject,
   state,
   parts,
+  projects,
   commands,
 }: {
   readonly subject: Extract<Inspected, { readonly kind: 'project' }>;
   readonly state: ProjectState | undefined;
   readonly parts: InspectorParts;
+  readonly projects: ProjectStores | undefined;
   readonly commands: PanelCommands;
 }): ReactNode {
   const { view, state: viewState, panel } = subject;
@@ -261,6 +297,15 @@ function ProjectSubject({
         />
       )}
       <AssetProperties subject={subject} words={words} />
+      {state !== undefined && (
+        <MemberPolicy
+          subject={subject}
+          state={state}
+          parts={parts}
+          projects={projects}
+          commands={commands}
+        />
+      )}
     </>
   );
 }
@@ -270,11 +315,13 @@ function EditorSubject({
   subject,
   state,
   parts,
+  projects,
   commands,
 }: {
   readonly subject: Inspected;
   readonly state: ProjectState | undefined;
   readonly parts: InspectorParts;
+  readonly projects: ProjectStores | undefined;
   readonly commands: PanelCommands;
 }): ReactNode {
   switch (subject.kind) {
@@ -291,7 +338,15 @@ function EditorSubject({
         </>
       );
     case 'project':
-      return <ProjectSubject subject={subject} state={state} parts={parts} commands={commands} />;
+      return (
+        <ProjectSubject
+          subject={subject}
+          state={state}
+          parts={parts}
+          projects={projects}
+          commands={commands}
+        />
+      );
   }
 }
 
@@ -313,7 +368,13 @@ export function InspectorPanel({
     <section className="ag-panel ag-inspector">
       <h2 className="ag-panel-title">{title}</h2>
       {own === undefined ? (
-        <EditorSubject subject={subject} state={state} parts={parts} commands={commands} />
+        <EditorSubject
+          subject={subject}
+          state={state}
+          parts={parts}
+          projects={projects}
+          commands={commands}
+        />
       ) : (
         <OwnSubjectView own={own} parts={parts} projects={projects} commands={commands} />
       )}

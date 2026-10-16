@@ -12,7 +12,8 @@
  * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
  * latency in the Recording panel (`recording/recording-panel.tsx`), the
  * spectral selection, tools and edits in the Spectral panel
- * (`spectral/spectral-panel.tsx`), and the project system's History and Storage
+ * (`spectral/spectral-panel.tsx`), the asset groups in the Asset groups panel
+ * (`game/groups-panel.tsx`), and the project system's History and Storage
  * panels (`project-panels.tsx`).
  */
 
@@ -28,6 +29,7 @@ import {
 import type { LogStore } from '@audiogubbins/diagnostics';
 import { PanelKinds, type OpenPanel } from '@audiogubbins/workspace';
 import type { NodeId } from '@audiogubbins/audio-graph';
+import type { CodecEnvironment } from '@audiogubbins/codecs';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { Detections } from '../analysis/detection-control.js';
@@ -37,7 +39,9 @@ import type { RecordingParts } from '../recording/recording-part.js';
 import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { GroupChoice } from '../state/group-focus.js';
 import type { Hearing } from '../state/hearing-store.js';
+import type { LoudnessReadings } from '../state/loudness-store.js';
 import type { UserPreferences } from '../state/preferences-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { ExportSubject } from '../export/export-focus.js';
@@ -51,6 +55,7 @@ import type { PanelCommands } from './command-button.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
+import { GroupsPanel, type GroupsParts } from './game/groups-panel.js';
 import { InspectorPanel } from './inspector/inspector-panel.js';
 import { LibraryPanel, type LibraryParts } from './library/library-panel.js';
 import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-panel.js';
@@ -216,6 +221,15 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** The person's preferences, whose pressure choice the Spectral panel shows. */
   readonly preferences: Observable<UserPreferences>;
+
+  /** The asset group chosen, which the Asset groups panel and the Inspector show. */
+  readonly groups: Observable<GroupChoice | undefined>;
+
+  /** The loudness of the members measured this session, which the Asset groups panel shows. */
+  readonly loudness: Observable<LoudnessReadings>;
+
+  /** The codecs as this browser serves them, which a group's export is planned against. */
+  readonly codecs: Observable<CodecEnvironment>;
 }
 
 /**
@@ -254,6 +268,9 @@ export function panelContextOf(
     exports: context.exports,
     exportSubject: context.exportFocus.subject,
     preferences: context.preferences,
+    groups: context.groups.chosen,
+    loudness: context.loudness.readings,
+    codecs: context.codecs.environment,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
@@ -280,6 +297,18 @@ function libraryPartsOf({ projects, ...context }: PanelContext): LibraryParts {
     unavailable: context.projectsUnavailable,
     editorViews: context.editor.stores.editorViews,
     assets: context.editor.assets,
+  };
+}
+
+/** What the Asset groups panel reads of a panel's context. */
+function groupsPartsOf(context: PanelContext): GroupsParts {
+  return {
+    projects: context.projects,
+    groups: context.groups,
+    loudness: context.loudness,
+    assets: context.editor.assets,
+    audioSettings: context.audioSettings,
+    codecs: context.codecs,
   };
 }
 
@@ -337,6 +366,8 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             exports: context.exports,
             exportSubject: context.exportSubject,
             modelGate: context.modelGate,
+            groups: context.groups,
+            preferences: context.preferences,
           }}
           commands={context}
         />
@@ -385,6 +416,9 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case PanelKinds.Spectral:
       return <SpectralPanel title={title} context={context} />;
+
+    case PanelKinds.GameGroups:
+      return <GroupsPanel title={title} parts={groupsPartsOf(context)} commands={context} />;
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;

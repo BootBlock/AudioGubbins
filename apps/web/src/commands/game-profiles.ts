@@ -58,17 +58,15 @@ function ownPreset(own: OwnExportPreset): ProfilePreset {
   };
 }
 
-/** Every preset a profile may be set from: AudioGubbins's, then the person's own. */
-export function profilePresets(
-  context: Pick<ShellContext, 'preferences'>,
-): readonly ProfilePreset[] {
+/** Every preset a profile may be set from: AudioGubbins's, then `own`, the person's own. */
+export function profilePresets(own: readonly OwnExportPreset[]): readonly ProfilePreset[] {
   return [
     ...BUILT_IN_PRESETS.map((preset) => ({
       id: preset.id,
       name: preset.name,
       profile: profileFromPreset(preset),
     })),
-    ...context.preferences.get().exportPresets.map(ownPreset),
+    ...own.map(ownPreset),
   ];
 }
 
@@ -80,7 +78,7 @@ export function presetProfile(
   const id = textArgument(invocation, 'preset');
   if (id === undefined) return 'Choose an export preset.';
   return (
-    profilePresets(context).find((one) => one.id === id) ??
+    profilePresets(context.preferences.get().exportPresets).find((one) => one.id === id) ??
     'There is no export preset of that name.'
   );
 }

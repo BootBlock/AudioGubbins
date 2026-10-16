@@ -49,9 +49,9 @@ function onlyGroup(audio: AudioWindow): GameAssetGroup {
 }
 
 /** Selects `regions` in the editor in use, as tapping them in the region strip does. */
-function select(audio: AudioWindow, regions: readonly Region[]): void {
+function select(audio: AudioWindow, regions: readonly [Region, ...Region[]]): void {
   audio.window.context.selections.change(audio.entry, () => ({
-    objects: { kind: 'regions', ids: regions.map((one) => one.id) },
+    objects: { kind: 'regions', ids: [regions[0].id, ...regions.slice(1).map((one) => one.id)] },
     recency: ['objects'],
   }));
 }
@@ -251,10 +251,8 @@ describe('the asset group commands (ADR-0101)', { timeout: 30_000 }, () => {
     await audio.window.runAndHear('game.set-policy', { field: 'processing', entry: entry.id });
 
     const chain = onlyGroup(audio).policy.processing;
-    expect(chain).not.toBe('none');
-    expect(chain === undefined ? undefined : stateOf(audio).project.effectChains.has(chain)).toBe(
-      true,
-    );
+    if (chain === undefined || chain === 'none') throw new Error('The group names a chain.');
+    expect(stateOf(audio).project.effectChains.has(chain)).toBe(true);
     expect(regionsOf(audio).map((region) => region.rack)).toEqual([chain, chain, undefined]);
   });
 
