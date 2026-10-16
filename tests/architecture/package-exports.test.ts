@@ -198,37 +198,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'GameExportRequest',
         'planGameExport',
       ],
-    "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
-      ['resolveAll'],
     "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
       ['inheritedProcessing'],
-    "The game preview (ADR-0104), built ahead of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario's validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
-      [
-        'DEFAULT_EMITTER_RULES',
-        'DEFAULT_VOICE_VARIATION',
-        'HandAction',
-        'MemberSound',
-        'PoolMember',
-        'PreviewControls',
-        'PreviewEvent',
-        'PreviewEventLog',
-        'PreviewInput',
-        'PreviewPlan',
-        'PreviewPlanBuild',
-        'PreviewSimulation',
-        'PreviewSubjects',
-        'RefusedEvent',
-        'SimulationState',
-        'StartedEvent',
-        'VoiceEndEvent',
-        'extendPreviewPlan',
-        'previewPlan',
-        'previewScenarioProblems',
-        'previewSubjects',
-        'previewVoiceBudget',
-        'scenarioSubjectProblems',
-        'simulatePreview',
-      ],
+    "The variation a member's voices are played with where its policy sets none (ADR-0104), which the preview applies inside the package, offered for a view of a member's effective variation to name beside the field it resolves unset, as the preview panel names the default emitter rules.":
+      ['DEFAULT_VOICE_VARIATION'],
   },
   '@audiogubbins/codec-runtime': {
     "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
@@ -258,8 +231,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['NO_GESTURE'],
   },
   '@audiogubbins/domain': {
-    "The deterministic identity generator, which the fixtures package and every package's test support make reproducible identities with; the fixtures package may take no test support, so it is offered here. The application makes its identities with `createIdGenerator`.":
-      ['createDeterministicIdGenerator'],
     'The channel layout REQ-ARCH-157 asks for and ADR-0033 extends: the ambisonic sets, their conventions and components, and the labels of a custom map, which the channel-layout operations and the export recipes of later phases read.':
       ['ambisonicChannelCount', 'labelledLayout'],
     'The domain value model ADR-0015 gives Phase 01, for the phases that edit and play a project. Phase 02 keeps projects and edits their names, assets, sources and history, and reaches none of these: processors, clips, tracks and the arithmetic of time and ranges arrive with editing and mixing.':
@@ -359,8 +330,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'setMemberProcessingInvocation',
         'unassignMemberInvocation',
       ],
-    "The invocations of the preview scenario commands (ADR-0104, ADR-0106), built ahead of the application's preview panel, which keeps, changes and deletes a scenario through them: adding a scenario, replacing one whole, and removing one.":
-      ['addScenarioInvocation', 'removeScenarioInvocation', 'setScenarioInvocation'],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':

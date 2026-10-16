@@ -180,6 +180,8 @@ describe('every panel', () => {
           exports: shell.exports,
           exportSubject: shell.exportFocus.subject,
           preferences: shell.preferences,
+          gamePreview: shell.gamePreview,
+          ids: shell.ids,
         })}
       </>,
     );

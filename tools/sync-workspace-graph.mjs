@@ -982,7 +982,8 @@ const PACKAGES = [
       '@audiogubbins/processors',
       '@audiogubbins/detection-runtime',
       // Asset groups, their inherited policy and the game export plan the Asset
-      // groups panel and the Inspector show and change (ADR-0101, ADR-0102).
+      // groups panel and the Inspector show and change (ADR-0101, ADR-0102),
+      // and the game preview's simulation and plan (ADR-0104).
       '@audiogubbins/game-audio',
       // The Loop panel's analyses, thresholds and audition plans (ADR-0103).
       '@audiogubbins/loop-analysis',

@@ -34,8 +34,9 @@ import {
 } from '@audiogubbins/workspace';
 
 import { showPanelCommandId } from '../commands/panel-commands.js';
-import { WORKFLOW_KEYS, WORKFLOW_OPENING } from '../commands/workflow-command-ids.js';
+import { PREVIEW_MENU_IDS } from '../commands/preview-run-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
+import { WORKFLOW_KEYS, WORKFLOW_OPENING } from '../commands/workflow-command-ids.js';
 import type { WorkspaceState } from '../state/workspace-store.js';
 import { projectMenus } from './project-menus.js';
 
@@ -251,6 +252,7 @@ const EDITOR_GROUPS: readonly {
       'loop.stop-audition',
     ],
   },
+  { key: 'game-preview', label: 'Game preview', ids: PREVIEW_MENU_IDS },
   {
     key: 'picture',
     label: 'Reference picture',
