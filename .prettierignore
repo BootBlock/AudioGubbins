@@ -38,3 +38,7 @@ third_party/*/*
 # Written by the desktop application that records user-visible changes, which
 # owns its format. Reformatting it here would fight that writer.
 .versioning/
+
+# Measurements written by the editing-latency suite and kept as it wrote
+# them: a formatted copy would no longer be the evidence the run produced.
+docs/design/evidence/

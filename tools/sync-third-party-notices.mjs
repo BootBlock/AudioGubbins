@@ -135,6 +135,23 @@ export const SOURCE_OFFERED = Object.freeze(['MPL-2.0']);
 export const VENDORED_LIBRARY_LICENCES = Object.freeze(['LGPL-2.0-or-later']);
 
 /**
+ * The licences a font package may carry beyond the allow-list, and the font
+ * packages that may carry them. ADR-0108 decided on OFL-1.1 for the fonts the
+ * interface is set in: it lets a font be bundled with any software, asks only
+ * that the copyright and the licence travel with it, and reaches no further
+ * than the font itself. It is allowed for the packages named here alone, so a
+ * package of code that declared it would still be refused for a person to
+ * decide on.
+ */
+export const FONT_LICENCES = Object.freeze(['OFL-1.1']);
+
+/** The font packages ADR-0108 accepts under {@link FONT_LICENCES}. */
+export const FONT_PACKAGES = Object.freeze([
+  '@fontsource-variable/inter',
+  '@fontsource-variable/jetbrains-mono',
+]);
+
+/**
  * The exceptions an allowed licence may be taken `WITH`, each of which only
  * grants more: the LLVM exception, common in WebAssembly toolchain crates,
  * waives Apache-2.0's notice terms for code compiled into a binary.
@@ -329,7 +346,13 @@ export function noticeOf(source, standardText) {
   if (typeof source.licence !== 'string' || source.licence.trim() === '') {
     return { refused: `${named} declares no SPDX licence expression` };
   }
-  const decision = decideLicence(source.licence);
+  const font = FONT_PACKAGES.includes(source.name)
+    ? listed(FONT_LICENCES, source.licence.trim())
+    : undefined;
+  const decision =
+    font === undefined
+      ? decideLicence(source.licence)
+      : { allowed: /** @type {const} */ (true), licences: [font] };
   if (!decision.allowed) {
     return { refused: `${named} is licensed ${source.licence}: ${decision.reason}` };
   }

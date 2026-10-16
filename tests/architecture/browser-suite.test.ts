@@ -131,8 +131,12 @@ function matches(pattern: unknown, text: string): boolean {
   });
 }
 
-/** Every spec of the browser suite, written with forward slashes. */
-const SPECS = sourcesMatching('tests/e2e/*.spec.ts').toSorted();
+/**
+ * Every spec of the browser suite, written with forward slashes: those of the
+ * suite's own folder, and those of a folder of specs of one kind beside them,
+ * such as the editing-latency measurement.
+ */
+const SPECS = sourcesMatching('tests/e2e/**/*.spec.ts').toSorted();
 
 /** A spec's name: its file's name before `.spec.ts`. */
 function specName(path: string): string {
@@ -165,6 +169,7 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-smoke': ['smoke'],
   'chromium-accessibility': ['accessibility'],
   'chromium-input': ['input', 'touch'],
+  'chromium-latency': ['interaction-latency'],
   'chromium-projects': ['projects'],
   'firefox-projects': ['projects'],
   'chromium-transport': ['transport'],
@@ -339,6 +344,7 @@ describe('the browser matrix', () => {
       'tests/e2e/game-workflows.spec.ts',
       'tests/e2e/import-export.spec.ts',
       'tests/e2e/input.spec.ts',
+      'tests/e2e/latency/interaction-latency.spec.ts',
       'tests/e2e/ml-golden.spec.ts',
       'tests/e2e/pages.spec.ts',
       'tests/e2e/projects.spec.ts',
@@ -603,6 +609,12 @@ describe('the device each project stands for', () => {
   });
 });
 
+/** How the spec at `path` names the suite's own `test`, from the folder it is in. */
+function suiteTestFrom(path: string): string {
+  const relative = posix.relative(posix.dirname(path), 'tests/e2e/test.js');
+  return relative.startsWith('.') ? relative : `./${relative}`;
+}
+
 describe('what each browser spec is built on', () => {
   it("takes its test from the suite's own, whose pages name the test in each request", () => {
     // Playwright's own `test` gives a page that sends no header naming its
@@ -611,7 +623,7 @@ describe('what each browser spec is built on', () => {
       SPECS.filter(
         (path) =>
           valuesImported(path, '@playwright/test').some((name) => name !== 'expect') ||
-          !valuesImported(path, './test.js').includes('test'),
+          !valuesImported(path, suiteTestFrom(path)).includes('test'),
       ),
     ).toEqual([]);
   });
