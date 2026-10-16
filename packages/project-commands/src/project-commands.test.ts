@@ -335,7 +335,9 @@ function randomEditingInvocation(
       break;
     case 17:
       if (region !== undefined && fresh !== undefined) {
-        return setRegionInvocation({ ...fresh, id: region.id });
+        const changed = { ...fresh, id: region.id };
+        const set = setRegionInvocation(changed);
+        return random.chance(0.2) ? { ...set, commandId: ProjectCommandId.RestoreRegion } : set;
       }
       break;
     case 18:

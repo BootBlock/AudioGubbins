@@ -3,7 +3,9 @@
  * region's own processing (REQ-EDIT-014, ADR-0051).
  *
  * A region's properties (its name, boundaries, loop and tags) are set whole by
- * one command whose inverse sets them back; its rack is set by the rack
+ * one command, which refuses a loop it leaves without the frames its crossfade
+ * reads (`validateLoopLead`), and whose inverse restores them as they were,
+ * even a loop read back without those frames; its rack is set by the rack
  * command alone (`rack-commands.ts`); a region in an asset group leaves it as
  * the region is removed, and rejoins it at its place as it is added back; its
  * processing is a chain like an asset's, applied at the end and withdrawn from
@@ -27,7 +29,9 @@ import {
   FailureKind,
   fail,
   failure,
+  validateLoopLead,
   validateRegion,
+  type Asset,
   type DomainResult,
   type Region,
 } from '@audiogubbins/domain';
@@ -58,6 +62,15 @@ import { withRegion, withoutRegion } from './editing-state.js';
 import { rejoined, withoutMember } from '../game/member-removal.js';
 import { quoted } from '@audiogubbins/text';
 
+/**
+ * Sets an existing region's properties back to what `region` gives, keeping
+ * its processing, without asking its loop for the frames its crossfade reads:
+ * how undo restores a region as it was.
+ */
+function restoreRegionInvocation(region: Region): CommandInvocation {
+  return { ...setRegionInvocation(region), commandId: ProjectCommandId.RestoreRegion };
+}
+
 /** The commands that change regions and their processing. */
 export function regionCommands(): readonly ProjectCommand[] {
   return [
@@ -71,7 +84,13 @@ export function regionCommands(): readonly ProjectCommand[] {
       ProjectCommandId.SetRegion,
       'Change a region',
       'Sets a region’s name, boundaries, loop and tags.',
-      setRegion,
+      (state, invocation) => setRegion(state, invocation, 'checked'),
+    ),
+    editCommand(
+      ProjectCommandId.RestoreRegion,
+      'Restore a region',
+      'Sets a region’s name, boundaries, loop and tags back as they were, which is how undo restores them.',
+      (state, invocation) => setRegion(state, invocation, 'restored'),
     ),
     editCommand(
       ProjectCommandId.RemoveRegion,
@@ -142,13 +161,35 @@ function addRegion(
   );
 }
 
+/** The text of a region's loop, as the document writes it, or `null` where it does not loop. */
+function writtenLoop(region: Region): string {
+  return canonicalJson(writeRegion(region)['loop'] ?? null);
+}
+
+/**
+ * Whether a change of `old` to `region` must leave its loop's crossfade the
+ * frames it reads before the loop's start (`validateLoopLead`): where the loop
+ * changes, or where the region's start does and the loop had them. A loop
+ * read back without them, as an edit made since can leave one, is kept while
+ * the change leaves the loop alone, since placing the region shortens its
+ * crossfade to fit and says so.
+ */
+function asksLoopLead(asset: Asset, old: Region, region: Region): boolean {
+  if (writtenLoop(old) !== writtenLoop(region)) return true;
+  const moved = old.basis !== region.basis || old.start !== region.start;
+  return moved && validateLoopLead(asset, old).ok;
+}
+
 /**
  * The region the argument `region` sets: its properties as given over the
  * region as it stands, keeping its identity, its asset and its processing.
+ * Its loop's crossfade is `checked` for its lead (see {@link asksLoopLead}),
+ * except where the change is undo `restored`ing the region as it was.
  */
 function setRegion(
   state: ProjectState,
   invocation: CommandInvocation,
+  lead: 'checked' | 'restored',
 ): CommandOutcome<ProjectState> {
   const old = targetRegion(state, invocation);
   if (!old.ok) return refusedBy(old);
@@ -172,9 +213,14 @@ function setRegion(
   if (canonicalJson(writeRegion(region.value)) === canonicalJson(kept)) {
     return unchanged('region.unchanged', 'The region is already as given.');
   }
+  const asset = state.project.assets.get(region.value.assetId);
+  if (lead === 'checked' && asset !== undefined && asksLoopLead(asset, old.value, region.value)) {
+    const looped = validateLoopLead(asset, region.value);
+    if (!looped.ok) return refusedBy(looped);
+  }
   return applied(
     withRegion(state, region.value),
-    setRegionInvocation(old.value),
+    restoreRegionInvocation(old.value),
     `Change region ${quoted(region.value.displayName)}`,
   );
 }

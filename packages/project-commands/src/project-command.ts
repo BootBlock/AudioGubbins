@@ -50,6 +50,7 @@ export const ProjectCommandId = {
   AddRegion: commandId('project.add-region'),
   RemoveRegion: commandId('project.remove-region'),
   SetRegion: commandId('project.set-region'),
+  RestoreRegion: commandId('project.restore-region'),
   ApplyRegionEdit: commandId('project.apply-region-edit'),
   WithdrawRegionEdit: commandId('project.withdraw-region-edit'),
   SetRack: commandId('project.set-rack'),

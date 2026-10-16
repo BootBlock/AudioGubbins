@@ -496,6 +496,47 @@ describe('project.set-region', () => {
   });
 });
 
+describe('a region’s loop and the frames its crossfade reads (ADR-0103)', () => {
+  /** The loop's crossfade, its loop starting 2,400 frames into the region. */
+  const crossfading = (frames: number): Region => {
+    if (loop.loop === undefined) throw new Error('The walk loop loops.');
+    return { ...loop, loop: { ...loop.loop, crossfadeLength: at(frames) } };
+  };
+  /** The state holding `region` as a document read back may hold it, unchecked. */
+  const holding = (region: Region): ProjectState => ({
+    ...state,
+    project: { ...state.project, regions: new Map(state.project.regions).set(region.id, region) },
+  });
+
+  it('refuses a loop changed so its crossfade reads before the region, saying how much there is', () => {
+    const result = bus.execute(state, setRegionInvocation(crossfading(2_401)));
+    expect(refusalCodeOf(result)).toBe('editing.loop-crossfade-without-lead');
+    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain(
+      'the region has 2400 frames there, fewer than the crossfade’s 2401',
+    );
+    appliedAndUndone(state, setRegionInvocation(crossfading(2_400)));
+  });
+
+  it('refuses a start moved into the frames the crossfade reads', () => {
+    expect(
+      refusalCodeOf(bus.execute(state, setRegionInvocation({ ...loop, start: at(2_000) }))),
+    ).toBe('editing.loop-crossfade-without-lead');
+    appliedAndUndone(state, setRegionInvocation({ ...loop, start: at(1_920) }));
+  });
+
+  it('keeps a loop read back without its lead while the change leaves it alone, and undo restores one', () => {
+    const short = holding(crossfading(3_000));
+    appliedAndUndone(
+      short,
+      setRegionInvocation({ ...crossfading(3_000), displayName: 'Run loop' }),
+    );
+    const { entry } = appliedAndUndone(short, setRegionInvocation(crossfading(480)));
+    expect(entry.inverse).toEqual([
+      { ...setRegionInvocation(crossfading(3_000)), commandId: ProjectCommandId.RestoreRegion },
+    ]);
+  });
+});
+
 describe('a region in an asset group (ADR-0101)', () => {
   const grouped = groupedState(state, assets, loop, ids);
   const forestMember = { kind: 'asset', asset: forest.id } as const;
