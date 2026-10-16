@@ -945,7 +945,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38363: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38681: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1240,7 +1240,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38363: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38681: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3711,6 +3711,9 @@ Published paths
   const CUTOFF: ParameterId
   const GENTLE: ParameterId
   const LOOK_AHEAD: ParameterId
+  interface LoopRacks
+  readonly LoopRacks.asset?: (samples: Samples) => Samples
+  readonly LoopRacks.region?: (samples: Samples) => Samples
   interface OracleWorld
   readonly OracleWorld.inserted?: Samples
   readonly OracleWorld.chain?: (chain: EffectChainId, samples: Samples, automation?: readonly ParameterAutomation[]) => Samples
@@ -3734,6 +3737,8 @@ Published paths
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
   function loopCrossfaded(plain: Samples, loop: LoopDefinition): Samples
   function nestedGroups(ids: IdGenerator, depth: number): ChainSlot
+  function rackedFromStart(edited: Samples, region: { readonly start: number; readonly end: number; }, racks: LoopRacks): Samples
+  function rackedWrapped(edited: Samples, region: { readonly start: number; readonly end: number; }, racks: LoopRacks, loop: LoopDefinition, cycles: number, splice: number): Samples
   function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>, world?: OracleWorld): Samples
   function sourceShape(asset: Asset): EditShape
 

@@ -29,6 +29,6 @@ export {
   TEST_UPMIXER,
 } from './test-processors.js';
 export { renderPlan } from './plan-render.js';
-export { loopCrossfaded } from './loop-oracle.js';
+export { type LoopRacks, loopCrossfaded, rackedFromStart, rackedWrapped } from './loop-oracle.js';
 export { crossingThreads } from './thread-crossing.js';
 export { sourceShape } from '../editing/edit-shape.js';

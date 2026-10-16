@@ -16,13 +16,16 @@ import type {
   PlacedRegion,
   Region,
 } from '../project/timeline.js';
-import { mapResult, type DomainResult } from '../result.js';
+import type { EffectChain } from '../processing/effect-chain.js';
+import { flatMapResult, mapResult, succeed, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
 import { assetPlan, bypassedAssetPlan, unrackedAssetPlan, withRack } from './plan-building.js';
 import type { PlanContext } from './plan-context.js';
 import type { EditPlan } from './plan.js';
 import { withLoopCrossfade } from './loop-crossfade.js';
+import { loopRendering, warmUpCycles } from './loop-rendering.js';
+import { introSpliceLength, joinedAtLoopStart, warmUpInput } from './loop-wrapping.js';
 import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';
 
@@ -135,19 +138,24 @@ export interface RegionPlanOptions {
   /**
    * Whether the plan holds the loop's crossfade, as the region is heard: true
    * unless asked otherwise. Without it is how a search for loop points reads
-   * the region, since the crossfade belongs to the points being moved.
+   * the region, since the crossfade belongs to the points being moved. The
+   * loop's processing is rendered as the loop chooses either way (ADR-0107):
+   * the crossfade reads what that rendering made.
    */
   readonly loopCrossfade?: boolean;
 }
 
 /**
- * What a region sounds like (ADR-0060, ADR-0103): its asset's audio through the
- * region's own processing, each operation folded in on the timeline of its
- * basis (`plan-building.ts`), so it stays on the content it was put on and a
- * fade begun outside the region keeps its ramp inside it; then the asset's rack
- * over the whole asset; then the region's span of that, so its rack reads
- * exactly that span of its asset's processed audio; then its rack; then its
- * loop's crossfade, over what the rack made (`loop-crossfade.ts`).
+ * What a region sounds like (ADR-0060, ADR-0103, ADR-0107): its asset's audio
+ * through the region's own processing, each operation folded in on the
+ * timeline of its basis (`plan-building.ts`), so it stays on the content it
+ * was put on and a fade begun outside the region keeps its ramp inside it;
+ * then the asset's rack over the whole asset; then the region's span of that,
+ * so its rack reads exactly that span of its asset's processed audio; then its
+ * rack. Where its loop renders wrapped (`loopRendering`), the racks also run
+ * over a warm-up of the loop's body, and the region is joined from both runs
+ * at the loop's start (`loop-wrapping.ts`). Then its loop's crossfade, over
+ * what the racks made (`loop-crossfade.ts`).
  */
 export function regionPlan(
   asset: Asset,
@@ -156,14 +164,69 @@ export function regionPlan(
   resolver = anchorResolver(asset),
   options: RegionPlanOptions = {},
 ): DomainResult<EditPlan> {
+  const loop = placeRegion(resolver, region)?.loop;
+  const rendering = loopRendering(asset, region, context);
+  const sound =
+    rendering?.kind === 'wrapped' && loop !== undefined
+      ? wrappedRegionPlan(asset, region, context, resolver, { loop, racks: rendering.racks })
+      : fromStartRegionPlan(asset, region, context, resolver);
+  return mapResult(sound, (plan) =>
+    options.loopCrossfade === false || loop === undefined ? plan : withLoopCrossfade(plan, loop),
+  );
+}
+
+/** A region's sound before its loop's crossfade, its racks run from its start (ADR-0060). */
+function fromStartRegionPlan(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver: AnchorResolver,
+): DomainResult<EditPlan> {
   const whole = assetPlan(asset, context, region.operations);
   if (!whole.ok) return whole;
   return mapResult(
     withRack(regionSlice(whole.value, resolver, region), region.rack, context),
-    (racked) =>
-      options.loopCrossfade === false
-        ? pruneStreams(racked)
-        : looped(pruneStreams(racked), resolver, region),
+    pruneStreams,
+  );
+}
+
+/**
+ * A region's sound before its loop's crossfade, its racks wrapped across its
+ * placed `loop` (ADR-0107): run from the region's start for its intro, and
+ * over a warm-up of the loop's body, enough cycles to cover the lead-in of
+ * `racks`, for the loop and what follows it.
+ */
+function wrappedRegionPlan(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver: AnchorResolver,
+  wrapping: { readonly loop: LoopDefinition; readonly racks: readonly EffectChain[] },
+): DomainResult<EditPlan> {
+  const edited = unrackedAssetPlan(asset, context, region.operations);
+  if (!edited.ok) return edited;
+  const { loop, racks } = wrapping;
+  const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
+  const { sampleRate } = edited.value.streams[0];
+  const cycles = warmUpCycles(
+    racks,
+    context.catalogue,
+    sampleRate,
+    loop.loopEnd - loop.loopStart,
+    introSpliceLength(loop, sampleRate),
+  );
+  // The asset's rack over what it is given, then the region's over `cut` of that.
+  const racked = (plan: EditPlan, cut: (whole: EditPlan) => EditPlan) =>
+    flatMapResult(withRack(plan, asset.rack, context), (whole) =>
+      withRack(cut(whole), region.rack, context),
+    );
+  const ordinary = racked(edited.value, (whole) => regionSlice(whole, resolver, region));
+  if (!ordinary.ok) return ordinary;
+  const wrapped = racked(warmUpInput(edited.value, span, loop, cycles), (whole) => whole);
+  if (!wrapped.ok) return wrapped;
+  const shared = edited.value.streams.length - 1;
+  return succeed(
+    pruneStreams(joinedAtLoopStart(ordinary.value, wrapped.value, shared, loop, cycles)),
   );
 }
 

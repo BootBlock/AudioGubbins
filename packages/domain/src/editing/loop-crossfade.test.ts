@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
 import { unsafeBrandId, type EffectChainId } from '../identity/branded-id.js';
-import type { EffectChain } from '../processing/effect-chain.js';
+import { instantiateProcessor, type EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
 import { ProcessingAcrossLoop, type AnchoredLoop, type Region } from '../project/timeline.js';
 import type { OracleWorld, Samples } from '../testing/edit-oracle.js';
 import { assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
-import { loopCrossfaded } from '../testing/loop-oracle.js';
+import { loopCrossfaded, rackedFromStart, rackedWrapped } from '../testing/loop-oracle.js';
 import { PLAN_WITHOUT_CHAINS, TEST_ENGINE } from '../testing/plan-context.js';
 import { renderPlan } from '../testing/plan-render.js';
-import { TEST_CATALOGUE } from '../testing/test-processors.js';
+import { TEST_CATALOGUE, TEST_FILTER } from '../testing/test-processors.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
 import { anchorResolver } from './anchors.js';
 import { FadeShape } from './fades.js';
@@ -26,16 +26,50 @@ const asset = assetOf('drone', 400, [], StandardLayouts.mono);
 const RAMP: Samples = [Float32Array.from({ length: 400 }, (_, frame) => Math.fround(frame / 512))];
 const SOURCES = new Map([[asset.id, RAMP]]);
 
-function loopOf(start: number, end: number, crossfade: number, shape: FadeShape): AnchoredLoop {
+function loopOf(
+  start: number,
+  end: number,
+  crossfade: number,
+  shape: FadeShape,
+  processingAcrossLoop: ProcessingAcrossLoop = ProcessingAcrossLoop.Wrapped,
+): AnchoredLoop {
   return {
     basis: 0,
     start: frames(start),
     end: frames(end),
     crossfadeLength: frames(crossfade),
     crossfadeShape: shape,
-    processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
+    processingAcrossLoop,
   };
 }
+
+const RACK = unsafeBrandId<'EffectChainId'>('33333333-rack');
+
+/** A context whose one chain, the region's rack, runs a filter of 64 frames' lead-in. */
+const RACKED: PlanContext = {
+  chains: new Map<EffectChainId, EffectChain>([
+    [
+      RACK,
+      {
+        id: RACK,
+        slots: [instantiateProcessor(unsafeBrandId<'ProcessorId'>('44444444-filter'), TEST_FILTER)],
+      },
+    ],
+  ]),
+  takeStacks: new Map(),
+  assets: new Map(),
+  catalogue: TEST_CATALOGUE,
+  engine: TEST_ENGINE,
+};
+
+/** A running sum: every frame it makes carries all it heard before, and it never settles. */
+const RUNNING_SUM = (samples: Samples): Samples =>
+  samples.map((channel) => {
+    let sum = 0;
+    return channel.map((sample) => (sum = Math.fround(sum + sample)));
+  });
+
+const SUMMING: OracleWorld = { chain: (_, samples) => RUNNING_SUM(samples) };
 
 function regionWith(start: number, end: number, loop: AnchoredLoop | undefined): Region {
   return {
@@ -115,29 +149,66 @@ describe('a loop’s crossfade in its region’s plan', () => {
     );
   });
 
-  it('crosses what the region’s rack made, read from the region’s start', () => {
-    const rack = unsafeBrandId<'EffectChainId'>('33333333-rack');
-    const chains = new Map<EffectChainId, EffectChain>([[rack, { id: rack, slots: [] }]]);
-    const context: PlanContext = {
-      chains,
-      takeStacks: new Map(),
-      assets: new Map(),
-      catalogue: TEST_CATALOGUE,
-      engine: TEST_ENGINE,
-    };
-    // A running sum: every frame it makes carries all it heard before.
-    const world: OracleWorld = {
-      chain: (_, samples) =>
-        samples.map((channel) => {
-          let sum = 0;
-          return channel.map((sample) => (sum = Math.fround(sum + sample)));
-        }),
-    };
-    const region = { ...regionWith(50, 350, loopOf(150, 250, 20, FadeShape.Linear)), rack };
+  it('crosses what the region’s rack made, read from the region’s start, for a loop that renders so', () => {
+    const loop = loopOf(150, 250, 20, FadeShape.Linear, ProcessingAcrossLoop.FromStart);
+    const region = { ...regionWith(50, 350, loop), rack: RACK };
 
-    expect(rendered(region, context, world)).toEqual(
-      loopCrossfaded(plain(region, context, world), placedLoop(region)),
+    const heard = rendered(region, RACKED, SUMMING);
+
+    expect(heard).toEqual(loopCrossfaded(plain(region, RACKED, SUMMING), placedLoop(region)));
+    expect(plain(region, RACKED, SUMMING)).toEqual(
+      rackedFromStart(RAMP, { start: 50, end: 350 }, { region: RUNNING_SUM }),
     );
+  });
+
+  it('crosses what the region’s rack made wrapped across the loop, its intro spliced into the warm-up', () => {
+    const region = { ...regionWith(50, 350, loopOf(150, 250, 20, FadeShape.Linear)), rack: RACK };
+
+    const heard = rendered(region, RACKED, SUMMING);
+
+    // The filter's 64 frames of lead-in are covered by one cycle of the
+    // 100-frame body, and the splice takes the crossfade's 20 frames.
+    const wrapped = rackedWrapped(
+      RAMP,
+      { start: 50, end: 350 },
+      { region: RUNNING_SUM },
+      placedLoop(region),
+      1,
+      20,
+    );
+    expect(plain(region, RACKED, SUMMING)).toEqual(wrapped);
+    expect(heard).toEqual(loopCrossfaded(wrapped, placedLoop(region)));
+    // From the loop's start to its crossfade, the region is the run over the
+    // body once and then the region from the loop's start, read after the
+    // body.
+    const ramp = RAMP[0] ?? new Float32Array(0);
+    const input = [...ramp.slice(150, 250), ...ramp.slice(150, 350)];
+    const run = RUNNING_SUM([Float32Array.from(input)])[0] ?? new Float32Array(0);
+    expect(heard[0]?.slice(100, 180)).toEqual(run.slice(100, 180));
+  });
+
+  it('renders a loop with nothing upstream that processes the same either way', () => {
+    const empty: PlanContext = {
+      ...RACKED,
+      chains: new Map([[RACK, { id: RACK, slots: [] }]]),
+    };
+    for (const context of [PLAN_WITHOUT_CHAINS, empty]) {
+      const rack = context === empty ? { rack: RACK } : {};
+      const wrapped = { ...regionWith(50, 350, loopOf(150, 250, 20, FadeShape.Linear)), ...rack };
+      const fromStart = {
+        ...regionWith(
+          50,
+          350,
+          loopOf(150, 250, 20, FadeShape.Linear, ProcessingAcrossLoop.FromStart),
+        ),
+        ...rack,
+      };
+
+      expect(expectSuccess(regionPlan(asset, wrapped, context))).toEqual(
+        expectSuccess(regionPlan(asset, fromStart, context)),
+      );
+      expect(rendered(wrapped, context, SUMMING)).toEqual(rendered(fromStart, context, SUMMING));
+    }
   });
 
   it('is kept when every chain is bypassed, since it is no chain', () => {

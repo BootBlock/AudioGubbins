@@ -24,6 +24,14 @@ function renumbered(segment: PlanSegment, renumber: (stream: number) => number):
   }
 }
 
+/** `stream` with every stream a segment of it reads moved to the place `renumber` gives. */
+export function renumberStream(
+  stream: PlanStream,
+  renumber: (place: number) => number,
+): PlanStream {
+  return { ...stream, segments: stream.segments.map((segment) => renumbered(segment, renumber)) };
+}
+
 /** The streams with every stream a segment reads moved `by` places on. */
 export function shiftStreams(
   streams: EditPlan['streams'],
