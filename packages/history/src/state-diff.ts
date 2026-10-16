@@ -5,7 +5,9 @@
  * (`chain-differences.ts`, REQ-STOR-195).
  *
  * A take stack's takes are compared as a list, so naming, choosing, rejecting
- * or removing a take is a difference of its stack.
+ * or removing a take is a difference of its stack. Asset groups and their
+ * memberships are compared field by field, a group's policy one field each and
+ * its members in order (`game-entities.ts`).
  *
  * A difference is a value the History panel and the A/B comparison show, and
  * the source of the entities a change affects. Everything is in a fixed order,
@@ -31,6 +33,7 @@ import type {
   Track,
   TrackId,
 } from '@audiogubbins/domain';
+import type { GameAssetGroupId } from '@audiogubbins/game-audio';
 import {
   canonicalJson,
   compareCodeUnits,
@@ -55,6 +58,8 @@ import {
   type FieldOf,
 } from './entity-fields.js';
 import { chainDifferences, type ChainDifference } from './chain-differences.js';
+import { gameEntities, type GameGroupEntity, type GameMemberEntity } from './game-entities.js';
+import { GAME_GROUP_FIELDS, GAME_MEMBER_FIELDS } from './game-fields.js';
 
 /** An entity present in both states whose fields differ. */
 export interface EntityChange<TId extends string, TEntity> {
@@ -89,6 +94,15 @@ export interface StateDifference {
 
   /** The stacks of recorded takes, and the punch of each that has one. */
   readonly takeStacks: EntityDifferences<TakeStackId, TakeStack>;
+
+  /** The asset groups: their names, places, members and policy. */
+  readonly gameGroups: EntityDifferences<GameAssetGroupId, GameGroupEntity>;
+
+  /**
+   * Who belongs to a group, by the member's key (`memberKey`): a member
+   * joining or leaving one, and its group, processing and overrides.
+   */
+  readonly gameMembers: EntityDifferences<string, GameMemberEntity>;
 }
 
 /** The difference from state `before` to state `after`. */
@@ -106,6 +120,23 @@ export function diffStates(before: ProjectState, after: ProjectState): StateDiff
     markers: entityDifferences(was.markers, is.markers, MARKER_FIELDS),
     effectChains: chainDifferences(was.effectChains, is.effectChains),
     takeStacks: entityDifferences(was.takeStacks, is.takeStacks, TAKE_STACK_FIELDS),
+    ...gameDifferences(before, after),
+  };
+}
+
+/** How the asset groups and memberships differ; none where the two states share them. */
+function gameDifferences(
+  before: ProjectState,
+  after: ProjectState,
+): Pick<StateDifference, 'gameGroups' | 'gameMembers'> {
+  if (before.gameAudio === after.gameAudio) {
+    return { gameGroups: NO_DIFFERENCES, gameMembers: NO_DIFFERENCES };
+  }
+  const was = gameEntities(before.gameAudio);
+  const is = gameEntities(after.gameAudio);
+  return {
+    gameGroups: entityDifferences(was.groups, is.groups, GAME_GROUP_FIELDS),
+    gameMembers: entityDifferences(was.members, is.members, GAME_MEMBER_FIELDS),
   };
 }
 

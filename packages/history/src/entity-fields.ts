@@ -48,7 +48,7 @@ import {
 } from '@audiogubbins/project-format';
 
 /** Whether two values of a field are the same. */
-type Comparison<TValue> = (before: TValue, after: TValue) => boolean;
+export type Comparison<TValue> = (before: TValue, after: TValue) => boolean;
 
 /** A comparison for every field of an entity. */
 export type FieldComparisons<TEntity> = {
@@ -80,7 +80,8 @@ export function changedFields<TEntity>(
   return changed;
 }
 
-const same = <TValue>(before: TValue, after: TValue): boolean => Object.is(before, after);
+/** The same value, or the same primitive. */
+export const same = <TValue>(before: TValue, after: TValue): boolean => Object.is(before, after);
 
 /** Equal lists of values compared with `same`. */
 export function sameList<TValue>(before: readonly TValue[], after: readonly TValue[]): boolean {
@@ -91,7 +92,7 @@ export function sameList<TValue>(before: readonly TValue[], after: readonly TVal
 }
 
 /** A comparison of an optional value that compares present values with `compare`. */
-function optionally<TValue>(compare: Comparison<TValue>): Comparison<TValue | undefined> {
+export function optionally<TValue>(compare: Comparison<TValue>): Comparison<TValue | undefined> {
   return (before, after) =>
     before === undefined || after === undefined ? before === after : compare(before, after);
 }

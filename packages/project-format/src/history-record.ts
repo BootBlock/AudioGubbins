@@ -31,6 +31,7 @@ import {
   type TakeStackId,
   type TrackId,
 } from '@audiogubbins/domain';
+import type { GameAssetGroupId } from '@audiogubbins/game-audio';
 
 import type { StateFingerprint } from './content-identity.js';
 import type { ExportRecordId } from './export-provenance.js';
@@ -71,8 +72,9 @@ export interface InvocationRecord {
 /**
  * The entities one change touched, by kind, each list sorted and without a
  * repeat. `project` says whether the project's own name, settings or track
- * order changed. Serves the History panel's indication of what a change
- * affected (REQ-STOR-196).
+ * order changed. A change of who belongs to an asset group touches the group
+ * and the region or asset (ADR-0106). Serves the History panel's indication of
+ * what a change affected (REQ-STOR-196).
  */
 export interface AffectedEntities {
   readonly assets: readonly AssetId[];
@@ -83,6 +85,7 @@ export interface AffectedEntities {
   readonly markers: readonly MarkerId[];
   readonly effectChains: readonly EffectChainId[];
   readonly takeStacks: readonly TakeStackId[];
+  readonly gameGroups: readonly GameAssetGroupId[];
   readonly project: boolean;
 }
 

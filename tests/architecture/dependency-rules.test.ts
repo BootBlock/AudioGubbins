@@ -1584,7 +1584,6 @@ describe("a chain's users are read with the game-audio state (ADR-0101)", () => 
   const NOT_YET_MOVED: readonly string[] = [
     'apps/web/src/commands/rack-building-commands.ts',
     'apps/web/src/commands/rack-target.ts',
-    'packages/history/src/difference-names.ts',
     'packages/project-commands/src/processing/chain-naming.ts',
   ];
 

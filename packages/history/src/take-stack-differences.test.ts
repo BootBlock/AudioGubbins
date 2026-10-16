@@ -54,6 +54,8 @@ function onlyStacks(takeStacks: StateDifference['takeStacks']): StateDifference 
     markers: NONE,
     effectChains: [],
     takeStacks,
+    gameGroups: NONE,
+    gameMembers: NONE,
   };
 }
 

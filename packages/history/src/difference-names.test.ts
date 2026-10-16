@@ -87,7 +87,7 @@ describe('the names of what differs between two states (REQ-STOR-195)', () => {
         ]),
       },
     };
-    expect(chainOwner(ranged.project, chain.id)).toEqual({
+    expect(chainOwner(ranged, chain.id)).toEqual({
       kind: 'region',
       naming: 'range',
       name: loop.displayName,
@@ -99,7 +99,7 @@ describe('the names of what differs between two states (REQ-STOR-195)', () => {
         assets: new Map([...ranged.project.assets, [footstep.id, { ...footstep, rack: chain.id }]]),
       },
     };
-    expect(chainOwner(racked.project, chain.id)).toEqual({
+    expect(chainOwner(racked, chain.id)).toEqual({
       kind: 'asset',
       naming: 'whole',
       name: footstep.displayName,

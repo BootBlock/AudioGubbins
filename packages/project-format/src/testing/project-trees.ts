@@ -47,6 +47,7 @@ const NO_EFFECT = {
   markers: [],
   effectChains: [],
   takeStacks: [],
+  gameGroups: [],
   project: true,
 };
 

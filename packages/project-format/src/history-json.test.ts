@@ -44,6 +44,7 @@ const EMPTY_AFFECTS = {
   markers: [],
   effectChains: [],
   takeStacks: [],
+  gameGroups: [],
   project: false,
 };
 
@@ -171,6 +172,7 @@ function randomRecord(seed: number): HistoryRecord {
         clips: random.chance(0.5) ? [ids.next<'ClipId'>()] : [],
         regions: random.chance(0.3) ? [ids.next<'RegionId'>(), ids.next<'RegionId'>()] : [],
         takeStacks: random.chance(0.3) ? [ids.next<'TakeStackId'>()] : [],
+        gameGroups: random.chance(0.3) ? [ids.next<'GameAssetGroupId'>()] : [],
         project: random.chance(0.2),
       },
       ...(random.chance(0.3) ? { stateFingerprint: fingerprint(index) } : {}),
@@ -427,6 +429,37 @@ describe('one node as JSON', () => {
       );
       expect(expectSuccess(back)).toEqual(node);
     }
+  });
+
+  it('keeps the asset groups a change affected, and reads a node from before them as affecting none', () => {
+    const node = fixedRecord().nodes[1];
+    if (node?.kind !== 'change') throw new Error('The fixed record’s second node is a change.');
+    const group = createDeterministicIdGenerator(7).next<'GameAssetGroupId'>();
+    const grouped: ChangeNodeRecord = {
+      ...node,
+      affects: { ...node.affects, gameGroups: [group] },
+    };
+    const readBack = (value: JsonValue): HistoryNodeRecord => {
+      const reading = startReading();
+      return expectSuccess(reading.outcome(readHistoryNodeRecord(reading, value, '', 'node')));
+    };
+
+    expect(writeHistoryNodeRecord(grouped)['affects']).toEqual({
+      project: true,
+      gameGroups: [group],
+    });
+    expect(readBack(writeHistoryNodeRecord(grouped))).toEqual(grouped);
+    // A node written before asset groups has no member for them, as one that touched none.
+    expect(readBack(writeHistoryNodeRecord(node))).toEqual(node);
+    expect(node.affects.gameGroups).toEqual([]);
+    const reading = startReading();
+    const named = readHistoryNodeRecord(
+      reading,
+      withValue(writeHistoryNodeRecord(grouped), ['affects', 'gameGroups'], ['Footsteps']),
+      '',
+      'node',
+    );
+    expect(expectFailureCode(reading.outcome(named))).toBe('schema.malformed-id');
   });
 
   it('refuses an argument past the longest text, or a number that is not finite', () => {

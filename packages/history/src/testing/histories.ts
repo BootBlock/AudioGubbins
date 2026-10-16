@@ -47,6 +47,7 @@ export const NOTHING_AFFECTED: AffectedEntities = {
   markers: [],
   effectChains: [],
   takeStacks: [],
+  gameGroups: [],
   project: false,
 };
 
