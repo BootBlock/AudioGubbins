@@ -264,6 +264,10 @@ Loop preview should support repeated cycling and stress-testing of the boundary.
 
 Where target formats or Godot integration support loop metadata, exported configuration should preserve the intended loop semantics.
 
+#### 121.1 Processing Across the Loop
+
+A loop's body shall sound as it does on every repeat: by default, a stateful process upstream of the loop (a reverb's or a delay's tail) carries from the loop's end into its start, so that the seam a game engine plays from the second cycle on is the seam the editor plays, analyses and exports. The person shall be able to choose, for each loop, that the processing instead runs from the region's start, and the loop analysis shall say when a seam fault comes from that choice. `ADR-0107` states how the region's plan renders each (`CHG-0003`).
+
 ---
 
 ## REQ-GAME-122 — Game-Context Preview Simulator

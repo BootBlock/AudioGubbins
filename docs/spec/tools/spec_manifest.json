@@ -83,7 +83,8 @@
       "adr/ADR-0103-loop-analysis-suggestions-and-loop-crossfades.md",
       "adr/ADR-0104-game-preview-simulator.md",
       "adr/ADR-0105-guided-workflows-as-command-plans.md",
-      "adr/ADR-0106-game-audio-persistence-and-state-ownership.md"
+      "adr/ADR-0106-game-audio-persistence-and-state-ownership.md",
+      "adr/ADR-0107-wrapped-rendering-of-a-looping-region.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",

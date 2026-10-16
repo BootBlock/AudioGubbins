@@ -1,9 +1,9 @@
 /**
  * A region's properties in the Inspector (REQ-EDIT-014): its name and tags,
- * typed and kept by the region commands, its loop and crossfade, and its own
- * processing in the order it was made. Each field starts from what the project
- * holds, and starts again whenever the project's value changes, by undo or by
- * another view.
+ * typed and kept by the region commands, its loop and crossfade, how its loop
+ * renders the effects upstream of it (ADR-0107), and its own processing in the
+ * order it was made. Each field starts from what the project holds, and starts
+ * again whenever the project's value changes, by undo or by another view.
  */
 
 import { useId, useState, type ReactNode } from 'react';
@@ -11,8 +11,10 @@ import { useId, useState, type ReactNode } from 'react';
 import { OptionSelect, TextField } from '@audiogubbins/design-system';
 import {
   DEFAULT_LOOP_CROSSFADE_SHAPE,
+  type AnchoredLoop,
   type FadeShape,
   type LoopDefinition,
+  type LoopRendering,
   type Region,
 } from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
@@ -21,6 +23,11 @@ import { loopAbsence } from '../../commands/region-property-commands.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { FADE_SHAPE_NAMES, regionOperationWords, type EditWording } from './edit-words.js';
 import type { InspectedRegion } from './inspected.js';
+import {
+  PROCESSING_ACROSS_LOOP_LABEL,
+  PROCESSING_ACROSS_LOOP_NAMES,
+  loopRenderingNote,
+} from './loop-processing-words.js';
 
 /** What the region controls are given. */
 interface RegionControls {
@@ -117,6 +124,47 @@ function LoopField({ controls }: { readonly controls: RegionControls }): ReactNo
   );
 }
 
+const PROCESSING_OPTIONS = [...PROCESSING_ACROSS_LOOP_NAMES].map(([value, label]) => ({
+  value,
+  label,
+}));
+
+/**
+ * How the region's loop renders the effects upstream of it, changed by the
+ * region's command as it is chosen, and why it is not heard as chosen where it
+ * is not (ADR-0107).
+ */
+function LoopProcessingField({
+  loop,
+  rendering,
+  controls,
+}: {
+  readonly loop: AnchoredLoop;
+  readonly rendering: LoopRendering | undefined;
+  readonly controls: RegionControls;
+}): ReactNode {
+  const note = rendering === undefined ? undefined : loopRenderingNote(rendering);
+  return (
+    <>
+      <OptionSelect
+        label={PROCESSING_ACROSS_LOOP_LABEL}
+        value={loop.processingAcrossLoop}
+        options={PROCESSING_OPTIONS}
+        onValueChange={(value) => {
+          const chosen = PROCESSING_OPTIONS.find((option) => option.value === value);
+          if (chosen === undefined) return;
+          controls.commands.run('region.set-loop-processing', {
+            view: controls.panel,
+            region: controls.region.id,
+            processing: chosen.value,
+          });
+        }}
+      />
+      {note !== undefined && <p className="ag-panel-note">{note}</p>}
+    </>
+  );
+}
+
 /**
  * How a loop sounds, in words: where it lies, its crossfade and the crossfade's
  * shape, and, where an edit since it was set left less audio before its start
@@ -146,10 +194,14 @@ function LoopControls({
   readonly words: EditWording;
 }): ReactNode {
   const loop = inspected.placed?.loop;
+  const kept = controls.region.loop;
   const args = { view: controls.panel, region: controls.region.id };
   return (
     <div className="ag-inspector-controls">
       <p>{loop === undefined ? 'It does not loop.' : loopWords(loop, words)}</p>
+      {kept !== undefined && (
+        <LoopProcessingField loop={kept} rendering={inspected.rendering} controls={controls} />
+      )}
       {inspected.shownAlone ? (
         <LoopField controls={controls} />
       ) : (

@@ -1,7 +1,9 @@
 import {
   FadeShape,
+  ProcessingAcrossLoop,
   createDeterministicIdGenerator,
   derivedSampleCount,
+  type Region,
 } from '@audiogubbins/domain';
 import { memberKey } from '@audiogubbins/game-audio';
 import type {
@@ -156,11 +158,41 @@ describe('Create Seamless Loop', () => {
           end: derivedSampleCount(21_650),
           crossfadeLength: derivedSampleCount(240),
           crossfadeShape: FadeShape.Linear,
+          processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
         },
       }),
     ]);
     expect(stateText(step.next)).toBe(stateText(byHand));
     expect(stateText(applied(bus, step.next, step.entry.inverse))).toBe(stateText(world.state));
+  });
+
+  it('keeps how a loop renders its effects, and carries them over for a region that did not loop', () => {
+    const world = workflowWorld(sampleProject());
+    const walk = world.regions.walk;
+    if (walk.loop === undefined) throw new Error('The walk loops.');
+    const holding = (region: Region): ProjectState => ({
+      ...world.state,
+      project: {
+        ...world.state.project,
+        regions: new Map(world.state.project.regions).set(region.id, region),
+      },
+    });
+    const { loop: _loop, ...unlooped } = walk;
+    const chosen = chose(memberKey(world.members.walk), { rank: 1 });
+    const renderedAfter = (state: ProjectState) =>
+      applied(
+        workflowBus(),
+        state,
+        plan(state, [world.members.walk], chosen, CANDIDATES).invocations,
+      ).project.regions.get(walk.id)?.loop?.processingAcrossLoop;
+
+    const fromStart = holding({
+      ...walk,
+      loop: { ...walk.loop, processingAcrossLoop: ProcessingAcrossLoop.FromStart },
+    });
+
+    expect(renderedAfter(fromStart)).toBe(ProcessingAcrossLoop.FromStart);
+    expect(renderedAfter(holding(unlooped))).toBe(ProcessingAcrossLoop.Wrapped);
   });
 
   it('plans nothing again once the region loops at the points chosen', () => {

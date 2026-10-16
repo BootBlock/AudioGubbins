@@ -23,7 +23,7 @@ export const SCHEMA_VERSIONS = {
   audioSettings: 3,
   editorViews: 2,
   diagnosticBundle: 1,
-  projectDocument: 10,
+  projectDocument: 11,
   projectStorage: 11,
   processingLibrary: 1,
   portableBundle: 2,

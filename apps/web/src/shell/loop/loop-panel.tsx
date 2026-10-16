@@ -15,6 +15,7 @@
 
 import { useId, useSyncExternalStore, type ReactNode } from 'react';
 
+import type { LoopRendering } from '@audiogubbins/domain';
 import { LOOP_ANALYSIS_VERSION, type LoopAnalysis } from '@audiogubbins/loop-analysis';
 import { formatPosition } from '@audiogubbins/timeline';
 import { counted, quoted } from '@audiogubbins/text';
@@ -35,10 +36,11 @@ import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { inspected } from '../inspector/inspected.js';
+import { seamCauseWords } from '../inspector/loop-processing-words.js';
 import { ChecksTable } from './checks-table.js';
 import { LoopCandidates, type CandidateTarget } from './loop-candidates.js';
 import { Hearing, Running, SearchSettings } from './loop-controls.js';
-import { millisecondsWords, shapeWords } from './loop-words.js';
+import { millisecondsWords, seamFaulted, shapeWords } from './loop-words.js';
 import { SeamView } from './seam-view.js';
 
 /** What the Loop panel reads. */
@@ -131,6 +133,7 @@ function Answered({
   searched,
   shown,
   current,
+  rendering,
   commands,
 }: {
   readonly analysis: LoopAnalysis;
@@ -138,9 +141,17 @@ function Answered({
   readonly searched: boolean;
   readonly shown: Shown;
   readonly current: boolean;
+  /** How the loop renders its effects now (ADR-0107). */
+  readonly rendering: LoopRendering | undefined;
   readonly commands: PanelCommands;
 }): ReactNode {
   const checks = useId();
+  // Said only of an analysis of the sound as it is, whose rendering is the
+  // loop's now.
+  const cause =
+    current && rendering !== undefined && seamFaulted(analysis.current)
+      ? seamCauseWords(rendering)
+      : undefined;
   const target: CandidateTarget = {
     view: shown.panel,
     region: shown.region,
@@ -166,6 +177,7 @@ function Answered({
           channels={shown.channels}
           caption="The loop’s checks, as it is heard with its crossfade"
         />
+        {cause !== undefined && <p className="ag-panel-note">{cause}</p>}
       </section>
       <SeamView analysis={analysis} channels={shown.channels} />
       {searched ? (
@@ -209,6 +221,7 @@ function AnalysisState({
           searched={record.request.search !== undefined}
           shown={shown}
           current={isCurrent(record, looped.identity, LOOP_ANALYSIS_VERSION)}
+          rendering={looped.rendering}
           commands={commands}
         />
       );

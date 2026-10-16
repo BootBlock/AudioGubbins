@@ -151,6 +151,41 @@ export interface AnchoredLoop {
 
   /** How the crossfade's two sides move, the loop's end out and the audio before its start in. */
   readonly crossfadeShape: FadeShape;
+
+  /** How the processing upstream of the loop is rendered across it (ADR-0107). */
+  readonly processingAcrossLoop: ProcessingAcrossLoop;
+}
+
+/**
+ * How a loop renders the processing upstream of it, the asset's rack and the
+ * region's (ADR-0107).
+ *
+ * - `wrapped`: the loop's body sounds as it does on every repeat after the
+ *   first, a stateful processor's tail from the loop's end carried into its
+ *   start, as a game engine plays it from the second cycle on.
+ * - `from-start`: the processing runs from the region's start, as every other
+ *   processed stream is rendered (ADR-0060), so the loop's head carries the
+ *   tail of the audio before it.
+ */
+export const ProcessingAcrossLoop = { Wrapped: 'wrapped', FromStart: 'from-start' } as const;
+
+/** How a loop renders the processing upstream of it. */
+export type ProcessingAcrossLoop = (typeof ProcessingAcrossLoop)[keyof typeof ProcessingAcrossLoop];
+
+/**
+ * How a loop renders its processing where no one chose otherwise: wrapped, as
+ * a game engine hears the loop's body on every repeat (ADR-0107). Every
+ * command that makes a loop, and every loop read from a file, takes it.
+ */
+export const DEFAULT_PROCESSING_ACROSS_LOOP: ProcessingAcrossLoop = ProcessingAcrossLoop.Wrapped;
+
+/**
+ * How a loop a command makes on `region` renders its processing: as the loop
+ * it replaces chose, so moving a loop's points keeps the person's choice for
+ * that sound, and the default where the region does not loop yet (ADR-0107).
+ */
+export function processingOfNewLoop(region: Pick<Region, 'loop'>): ProcessingAcrossLoop {
+  return region.loop?.processingAcrossLoop ?? DEFAULT_PROCESSING_ACROSS_LOOP;
 }
 
 /**
@@ -231,6 +266,9 @@ export interface LoopDefinition {
 
   /** How the crossfade's two sides move. */
   readonly crossfadeShape: FadeShape;
+
+  /** How the processing upstream of the loop is rendered across it (ADR-0107). */
+  readonly processingAcrossLoop: ProcessingAcrossLoop;
 
   /**
    * The crossfade's length as the loop keeps it, where placing the loop

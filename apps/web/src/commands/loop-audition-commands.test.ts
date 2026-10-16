@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
 import type { PlaybackRequest } from '@audiogubbins/audio-runtime';
-import { derivedSampleCount, regionPlan, type EditPlan, type RegionId } from '@audiogubbins/domain';
+import {
+  ProcessingAcrossLoop,
+  derivedSampleCount,
+  regionPlan,
+  type EditPlan,
+  type RegionId,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { loopAuditionPlan } from '@audiogubbins/loop-analysis';
 import { sine } from '@audiogubbins/test-fixtures';
@@ -151,6 +157,7 @@ describe('hearing a region’s loop', () => {
               end: derivedSampleCount(room.end),
               crossfadeLength: derivedSampleCount(room.crossfade.lengthFrames),
               crossfadeShape: room.crossfade.shape,
+              processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
             },
           },
           planContextOf(state),
@@ -164,6 +171,7 @@ describe('hearing a region’s loop', () => {
             loopEnd: derivedSampleCount(room.end),
             crossfadeLength: derivedSampleCount(room.crossfade.lengthFrames),
             crossfadeShape: room.crossfade.shape,
+            processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
           },
           { kind: 'cycles', leadInFrames: 48_000 },
           1,

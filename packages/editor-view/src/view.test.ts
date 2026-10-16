@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { FadeShape, RegionBoundary } from '@audiogubbins/domain';
+import { FadeShape, ProcessingAcrossLoop, RegionBoundary } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import {
   DEFAULT_SNAP_SETTINGS,
@@ -200,6 +200,7 @@ describe('snap targets', () => {
         loopEnd: at(400),
         crossfadeLength: at(0),
         crossfadeShape: FadeShape.Linear,
+        processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
       },
     };
     const targets = snapTargetsOf({

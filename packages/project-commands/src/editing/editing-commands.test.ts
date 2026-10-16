@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
   FadeShape,
+  ProcessingAcrossLoop,
   StandardLayouts,
   assetPlan,
   sampleCount,
@@ -251,6 +252,7 @@ describe('project.withdraw-edit', () => {
           end: at(100),
           crossfadeLength: at(0),
           crossfadeShape: FadeShape.Linear,
+          processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
         },
       }),
     ];
@@ -452,6 +454,7 @@ describe('project.add-region', () => {
               end: at(10),
               crossfadeLength: at(11),
               crossfadeShape: FadeShape.Linear,
+              processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
             },
           }),
         ),
@@ -469,6 +472,19 @@ describe('project.set-region', () => {
 
     expect(next.project.regions.get(loop.id)).toEqual({ ...renamed, operations: [processing] });
     expect(entry.description).toBe('Change region “Run loop”');
+  });
+
+  it('sets how its loop renders its processing, undone by setting it back', () => {
+    if (loop.loop === undefined) throw new Error('The walk loop loops.');
+    expect(loop.loop.processingAcrossLoop).toBe(ProcessingAcrossLoop.Wrapped);
+    const fromStart = {
+      ...loop,
+      loop: { ...loop.loop, processingAcrossLoop: ProcessingAcrossLoop.FromStart },
+    };
+
+    const { next } = appliedAndUndone(state, setRegionInvocation(fromStart));
+
+    expect(next.project.regions.get(loop.id)).toEqual(fromStart);
   });
 
   it('keeps the region on its asset whatever asset the properties name', () => {

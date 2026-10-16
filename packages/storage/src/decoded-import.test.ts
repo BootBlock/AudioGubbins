@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { openAudio } from '@audiogubbins/codecs';
 import {
   DEFAULT_LOOP_CROSSFADE_SHAPE,
+  ProcessingAcrossLoop,
   StandardLayouts,
   derivedSampleCount,
   type AssetId,
@@ -204,6 +205,7 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
           end: 1_800,
           crossfadeLength: 0,
           crossfadeShape: DEFAULT_LOOP_CROSSFADE_SHAPE,
+          processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
         },
       }),
     ]);

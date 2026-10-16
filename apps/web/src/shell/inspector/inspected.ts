@@ -7,8 +7,10 @@
 
 import {
   anchorResolver,
+  loopRendering,
   placeRegion,
   type Asset,
+  type LoopRendering,
   type PlacedRegion,
   type Region,
 } from '@audiogubbins/domain';
@@ -17,6 +19,7 @@ import type { AssetSource, ProjectState } from '@audiogubbins/project-format';
 import type { SelectionSet } from '@audiogubbins/timeline';
 
 import type { EditorAsset, ProjectOwner } from '../../assets/editor-asset.js';
+import { planContextOf } from '../../assets/project-assets.js';
 import { regionsInView } from '../../commands/region-target.js';
 
 /** A region of the project as the Inspector shows it. */
@@ -26,6 +29,8 @@ export interface InspectedRegion {
   readonly placed: PlacedRegion | undefined;
   /** Whether the view shows the region alone, where a part of it can be looped. */
   readonly shownAlone: boolean;
+  /** How its loop renders the processing upstream of it, or `undefined` where it does not loop. */
+  readonly rendering: LoopRendering | undefined;
 }
 
 /** What the Inspector shows. */
@@ -74,12 +79,13 @@ export function inspected(
     asset: owner.asset,
     source: project?.sources.get(owner.asset.id),
     region:
-      one === undefined
+      one === undefined || project === undefined
         ? undefined
         : {
             region: one,
             placed: placeRegion(anchorResolver(owner.asset), one),
             shownAlone: owner.region?.id === one.id,
+            rendering: loopRendering(owner.asset, one, planContextOf(project)),
           },
   };
 }

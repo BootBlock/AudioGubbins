@@ -106,9 +106,28 @@ export function namedQualityMode(level: NamedQualityLevel): QualityMode {
 /** What a final render uses unless the person chooses otherwise (REQ-AUDIO-143). */
 export const MAXIMUM_QUALITY: QualityMode = namedQualityMode(QualityLevel.Maximum);
 
-const OVERSAMPLING: ReadonlySet<unknown> = new Set([1, 2, 4, 8]);
-const OVERLAP: ReadonlySet<unknown> = new Set([2, 4, 8]);
+/** Every oversampling factor a setting may hold. */
+const OVERSAMPLING_FACTORS: readonly QualitySettings['oversampling'][] = [1, 2, 4, 8];
+
+/** Every spectral overlap a setting may hold. */
+const SPECTRAL_OVERLAPS: readonly QualitySettings['spectralOverlap'][] = [2, 4, 8];
+
+const OVERSAMPLING: ReadonlySet<unknown> = new Set(OVERSAMPLING_FACTORS);
+const OVERLAP: ReadonlySet<unknown> = new Set(SPECTRAL_OVERLAPS);
 const GRADES: ReadonlySet<unknown> = new Set(Object.values(ResamplingGrade));
+
+/**
+ * Every set of quality settings a level or a Custom choice may make: what a
+ * statement that must hold whatever quality renders it is taken over, as a
+ * plan, which names no quality, is (ADR-0107's warm-up).
+ */
+export const EVERY_QUALITY_SETTINGS: readonly QualitySettings[] = Object.values(
+  ResamplingGrade,
+).flatMap((resampling) =>
+  OVERSAMPLING_FACTORS.flatMap((oversampling) =>
+    SPECTRAL_OVERLAPS.map((spectralOverlap) => ({ resampling, oversampling, spectralOverlap })),
+  ),
+);
 
 const isGrade = (value: unknown): value is ResamplingGrade => GRADES.has(value);
 const isOversampling = (value: unknown): value is QualitySettings['oversampling'] =>

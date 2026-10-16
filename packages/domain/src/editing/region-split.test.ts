@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { unsafeBrandId } from '../identity/branded-id.js';
 import { createDeterministicIdGenerator } from '../identity/id-generator.js';
-import type { Region } from '../project/timeline.js';
+import { ProcessingAcrossLoop, type Region } from '../project/timeline.js';
 import { FadeShape } from './fades.js';
 import { assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
 import { renderPlan } from '../testing/plan-render.js';
@@ -94,6 +94,7 @@ describe('splitting a region', () => {
       end: frames(650),
       crossfadeLength: frames(10),
       crossfadeShape: FadeShape.EqualPower,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
     };
     const [first, second] = split(regionWith([], { loop }), 500);
     expect([first.loop, second.loop]).toEqual([undefined, loop]);

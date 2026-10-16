@@ -81,7 +81,7 @@ Requirements whose behaviour this phase must keep while it changes their appeara
 - The matrix of browsers, operating systems and devices (Phase 14); this phase compares screenshots in one pinned Chromium environment
 - User-authored custom themes; the token system keeps them possible (`REQ-UX-070`)
 - Surfaces Phases 11, 12 and 13 add: they run after this phase and deliver them to this language (`CHG-0002`)
-- The open Phase 10 question Q7 (a looping region with an effect rack restarts the rack once per cycle, and a wrapped render changes `ADR-0060`), which stays with the product owner
+- Phase 10's question Q7, decided by `CHG-0003` (`ADR-0107`) and delivered with it; this phase designs the loop's new setting with the Inspector's other controls
 
 ## Owned Modules / Packages
 

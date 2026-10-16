@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { ENGINE_VERSIONS, decibelsToGain } from '@audiogubbins/audio-engine';
-import { FadeShape, sampleRate, type EditOperation, type Region } from '@audiogubbins/domain';
+import {
+  FadeShape,
+  ProcessingAcrossLoop,
+  sampleRate,
+  type EditOperation,
+  type Region,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sine } from '@audiogubbins/test-fixtures';
 
@@ -546,6 +552,50 @@ describe('regions (REQ-EDIT-014)', () => {
     await ran(audio, 'region.loop', { crossfade: 64 });
 
     expect(regionsOf(audio)[0]?.loop?.crossfadeShape).toBe(FadeShape.EqualPower);
+  });
+
+  it('sets how a loop renders its effects, keeps it as the loop moves, and one undo puts it back', async () => {
+    const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
+    const [region] = regionsOf(audio);
+    if (region === undefined) throw new Error('No region.');
+    audio.window.run('region.open', { region: region.id });
+    expect(
+      audio.window.run('region.set-loop-processing', { processing: 'from-start' }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'Body does not loop.' }],
+    });
+    audio.window.run('editor.select-time', { start: 64, end: 48_064 });
+    await ran(audio, 'region.loop', { crossfade: 64 });
+    // A loop a command makes carries its effects over by default.
+    expect(regionsOf(audio)[0]?.loop?.processingAcrossLoop).toBe(ProcessingAcrossLoop.Wrapped);
+
+    expect(
+      audio.window.run('region.set-loop-processing', { processing: 'sideways' }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'Say how the loop renders its effects: wrapped or from-start.' }],
+    });
+    expect(audio.window.run('region.set-loop-processing', { processing: 'wrapped' })).toMatchObject(
+      {
+        kind: 'unchanged',
+      },
+    );
+    expect(await ran(audio, 'region.set-loop-processing', { processing: 'from-start' })).toBe(
+      'The loop of “Body” runs its effects from the region’s start.',
+    );
+    expect(regionsOf(audio)[0]?.loop?.processingAcrossLoop).toBe(ProcessingAcrossLoop.FromStart);
+
+    // Moving the loop keeps the person's choice for the sound.
+    audio.window.run('editor.select-time', { start: 128, end: 24_128 });
+    await ran(audio, 'region.loop', { crossfade: 64 });
+    expect(regionsOf(audio)[0]?.loop).toMatchObject({
+      start: 48_128,
+      processingAcrossLoop: ProcessingAcrossLoop.FromStart,
+    });
+    await ran(audio, 'edit.undo');
+    await ran(audio, 'edit.undo');
+    expect(regionsOf(audio)[0]?.loop?.processingAcrossLoop).toBe(ProcessingAcrossLoop.Wrapped);
   });
 
   it('stops a region looping, which one undo puts back', async () => {
