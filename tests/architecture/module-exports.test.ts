@@ -182,6 +182,11 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "The game preview's bound on a varispeed's taps, which its test holds to the canonical resampler's own filter at each grade, and the most voices any preview sounds, which a preview that varies no pitch is budgeted; the budget reads both through `previewVoiceBudget`.":
+    [
+      'packages/game-audio/src/preview/voice-budget.ts: MOST_PREVIEW_VOICES',
+      'packages/game-audio/src/preview/voice-budget.ts: varispeedTaps',
+    ],
   "The pass the loop's own metrics read, which the bounds test holds the reads of the heard source to; the analysis makes it through `analyseLoop`.":
     ['packages/loop-analysis/src/analyse-loop.ts: heardCapture'],
   "The value an envelope histogram's bin stands for, which the envelope's tests hold a steady seam's median to; the cycle stability reads it through `histogramSpread`.":
@@ -360,13 +365,7 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * An entry leaves the list once a module takes it, as the rule that lists
  * only what no module takes holds.
  */
-const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
-  "What a varispeed voice's filter costs at each grade (ADR-0104), stated with the varispeed ahead of the preview's voice budget (WU-10.D4), which is measured against it.":
-    [
-      'packages/audio-engine/src/dsp/resampling-grade.ts: VARISPEED_MOST_TAPS',
-      'packages/audio-engine/src/dsp/resampling-grade.ts: varispeedTableBytes',
-    ],
-};
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {};
 
 /**
  * Each export of a test-support module that no test takes by name, under the

@@ -644,6 +644,7 @@ Published paths
   UnderrunHistory.#frameAt: (index: number) => number
   UnderrunHistory.#countAt: (index: number) => number
   UnderrunHistory.#grow: () => void
+  const VARISPEED_MOST_TAPS: Readonly<Record<ResamplingGrade, number>>
   interface WorkloadEstimate
   readonly WorkloadEstimate.bytesHeldWhole: number
   readonly WorkloadEstimate.audioSeconds: number
@@ -725,6 +726,7 @@ Published paths
   function truePeakPhases(rate: number): readonly (readonly number[])[]
   function unknownParameter(type: string, name: string): DomainFailureResult
   function validatePerformanceSettings(settings: PerformanceSettings): DomainResult<PerformanceSettings>
+  function varispeedTableBytes(grade: ResamplingGrade): number
   function vocoderWindow(size: number): Float64Array<ArrayBufferLike>
   function wasmDsp(exports: unknown): DomainResult<CanonicalDsp>
 
@@ -940,7 +942,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38308: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38314: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1235,7 +1237,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38308: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38314: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3584,6 +3586,7 @@ Published paths
   function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
   function layoutOf(value: unknown, field: string): ChannelLayout
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
+  function lowbias32(input: number): number
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
   function maskOutline(mask: SpectralMask): SpectralBounds
@@ -3977,6 +3980,9 @@ Published paths
 
 @audiogubbins/game-audio
   type Attenuation = { readonly kind: "exponent"; readonly maxDistance: number; readonly exponent: number; } | { readonly kind: "inverse" | "inverse-square" | "logarithmic"; readonly unitSize: number; readonly maxDistance: number; readonly ceilingDecibels: number; } | { readonly kind: "none"; }
+  interface BusLevel
+  readonly BusLevel.bus: BusName
+  readonly BusLevel.decibels: number
   type BusName = string & { readonly [BrandTag]: "BusName"; }
   const DEFAULT_EMITTER_RULES: EmitterRules
   const DEFAULT_VOICE_VARIATION: VoiceVariation
@@ -4023,6 +4029,17 @@ Published paths
   interface GameExportRequest
   readonly GameExportRequest.members: readonly GroupMember[]
   readonly GameExportRequest.clock: ExportClock
+  interface GamePreviewScenario
+  readonly GamePreviewScenario.id: GamePreviewScenarioId
+  readonly GamePreviewScenario.name: string
+  readonly GamePreviewScenario.space: "2d" | "3d"
+  readonly GamePreviewScenario.panWidth: number
+  readonly GamePreviewScenario.panningStrength: number
+  readonly GamePreviewScenario.listener: Listener
+  readonly GamePreviewScenario.emitters: readonly PreviewEmitter[]
+  readonly GamePreviewScenario.seed: number
+  readonly GamePreviewScenario.busLevels: readonly BusLevel[]
+  type GamePreviewScenarioId = string & { readonly [BrandTag]: "GamePreviewScenarioId"; }
   interface GroupEffectivePolicy
   readonly GroupEffectivePolicy.group: GameAssetGroupId
   readonly GroupEffectivePolicy.fields: ResolvedFields
@@ -4033,12 +4050,24 @@ Published paths
   readonly GroupMembership.group: GameAssetGroupId
   readonly GroupMembership.processing: MemberProcessing
   readonly GroupMembership.overrides: PolicyOverrides
+  interface HandAction
+  readonly HandAction.kind: "stop" | "trigger"
+  readonly HandAction.emitter: PreviewEmitterId
+  readonly HandAction.frame: number
   type InheritedPolicy = { readonly processing?: "none" | import("packages/domain/src/index").EffectChainId; readonly bus?: import("packages/game-audio/src/index").BusName; readonly tags?: readonly string[]; readonly naming?: import("packages/game-audio/src/index").NamingTemplate; readonly destination?: import("packages/game-audio/src/index").DestinationPath; readonly loudness?: import("packages/game-audio/src/index").LoudnessTarget; readonly exportProfile?: import("packages/game-audio/src/index").GameExportProfile; readonly emitter?: import("packages/game-audio/src/index").EmitterRules; readonly variation?: import("packages/game-audio/src/index").VoiceVariation; }
+  interface Listener
+  readonly Listener.at: Position
+  readonly Listener.facingTurns: number
   interface LoudnessTarget
   readonly LoudnessTarget.integratedLufs: number
   readonly LoudnessTarget.toleranceLu: number
   readonly LoudnessTarget.truePeakCeilingDbtp?: number
   type MemberProcessing = "inherit" | "own"
+  interface MemberSound
+  readonly MemberSound.sampleRate: SampleRate
+  readonly MemberSound.length: number
+  readonly MemberSound.loop?: { readonly start: number; readonly end: number; }
+  type Motion = { readonly kind: "still"; readonly at: Position; } | { readonly kind: "waypoints"; readonly points: readonly Waypoint[]; readonly repeat: "back-and-forth" | "loop" | "once"; }
   interface NamingTemplate
   readonly NamingTemplate.source: string
   readonly NamingTemplate.parts: readonly TemplatePart<"asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region">[]
@@ -4057,6 +4086,59 @@ Published paths
   readonly PolicyValues.variation: VoiceVariation
   readonly PolicyValues.bus: BusName
   readonly PolicyValues.tags: readonly string[]
+  interface PoolMember extends MemberSound
+  readonly PoolMember.member: GroupMember
+  readonly PoolMember.variation: VoiceVariation
+  readonly PoolMember.bus: BusName | undefined
+  readonly PoolMember.sampleRate: SampleRate
+  readonly PoolMember.length: number
+  readonly PoolMember.loop?: { readonly start: number; readonly end: number; }
+  interface Position
+  readonly Position.x: number
+  readonly Position.y: number
+  readonly Position.z: number
+  interface PreviewControls
+  readonly PreviewControls.emitters: ReadonlyMap<string, readonly { readonly bus: BusName; readonly stream: number; readonly panner: ProcessorId; }[]>
+  readonly PreviewControls.buses: ReadonlyMap<BusName, { readonly stream: number; readonly gain: ProcessorId; }>
+  interface PreviewEmitter
+  readonly PreviewEmitter.id: PreviewEmitterId
+  readonly PreviewEmitter.name: string
+  readonly PreviewEmitter.subject: PreviewSubject
+  readonly PreviewEmitter.trigger: TriggerPattern
+  readonly PreviewEmitter.motion: Motion
+  type PreviewEmitterId = string & { readonly [BrandTag]: "PreviewEmitterId"; }
+  type PreviewEvent = RefusedEvent | StartedEvent | VoiceEndEvent
+  interface PreviewEventLog
+  readonly PreviewEventLog.events: readonly PreviewEvent[]
+  readonly PreviewEventLog.horizonFrame: number
+  interface PreviewInput
+  readonly PreviewInput.scenario: GamePreviewScenario
+  readonly PreviewInput.emitterRules: (subject: PreviewSubject) => EmitterRules
+  readonly PreviewInput.poolOf: (subject: PreviewSubject) => readonly PoolMember[]
+  readonly PreviewInput.hand: readonly HandAction[]
+  readonly PreviewInput.sampleRate: SampleRate
+  readonly PreviewInput.voiceBudget: number
+  readonly PreviewInput.horizonFrame: number
+  interface PreviewPlan
+  readonly PreviewPlan.plan: EditPlan
+  readonly PreviewPlan.media: readonly AssetId[]
+  readonly PreviewPlan.controls: PreviewControls
+  readonly PreviewPlan.lanes: ReadonlyMap<string, number>
+  readonly PreviewPlan.build: PreviewPlanBuild
+  interface PreviewPlanBuild
+  readonly PreviewPlanBuild.horizonFrame: number
+  interface PreviewSimulation
+  readonly PreviewSimulation.log: PreviewEventLog
+  readonly PreviewSimulation.state: SimulationState
+  type PreviewSubject = { readonly kind: "group"; readonly group: GameAssetGroupId; } | { readonly kind: "member"; readonly member: GroupMember; }
+  interface PreviewSubjects
+  readonly PreviewSubjects.emitterRules: (subject: PreviewSubject) => EmitterRules
+  readonly PreviewSubjects.poolOf: (subject: PreviewSubject) => readonly PoolMember[]
+  interface RefusedEvent
+  readonly RefusedEvent.kind: "budget-rejected" | "rejected" | "suppressed"
+  readonly RefusedEvent.frame: number
+  readonly RefusedEvent.emitter: PreviewEmitterId
+  readonly RefusedEvent.trigger: number
   interface RegionMember
   readonly RegionMember.kind: "region"
   readonly RegionMember.region: RegionId
@@ -4069,6 +4151,20 @@ Published paths
   readonly ResolvedTag.tag: string
   readonly ResolvedTag.from: readonly TagSource[]
   type SelectionRule = { readonly kind: "avoid-recent"; readonly depth: number; } | { readonly kind: "uniform"; }
+  interface SimulationState
+  readonly SimulationState.horizonFrame: number
+  interface StartedEvent
+  readonly StartedEvent.kind: "started"
+  readonly StartedEvent.frame: number
+  readonly StartedEvent.emitter: PreviewEmitterId
+  readonly StartedEvent.trigger: number
+  readonly StartedEvent.voice: number
+  readonly StartedEvent.lane: number
+  readonly StartedEvent.member: GroupMember
+  readonly StartedEvent.pitchCents: number
+  readonly StartedEvent.gainDecibels: number
+  readonly StartedEvent.offsetFrames: number
+  readonly StartedEvent.bus: BusName | undefined
   interface StateChainUsers extends ChainUsers
   readonly StateChainUsers.groups: readonly GameAssetGroupId[]
   readonly StateChainUsers.assetEdits: readonly import("packages/domain/src/index").AssetId[]
@@ -4077,24 +4173,40 @@ Published paths
   readonly StateChainUsers.regionRacks: readonly import("packages/domain/src/index").RegionId[]
   readonly StateChainUsers.tracks: readonly import("packages/domain/src/index").TrackId[]
   readonly StateChainUsers.buses: readonly import("packages/domain/src/index").BusId[]
+  type TriggerPattern = { readonly kind: "by-hand"; } | { readonly kind: "repeat"; readonly intervalMilliseconds: number; readonly jitterMilliseconds: number; readonly count: number; }
+  interface VoiceEndEvent
+  readonly VoiceEndEvent.kind: "budget-stolen" | "ended" | "stolen" | "stopped"
+  readonly VoiceEndEvent.frame: number
+  readonly VoiceEndEvent.emitter: PreviewEmitterId
+  readonly VoiceEndEvent.voice: number
   type VoiceStealing = "oldest" | "quietest" | "reject"
   interface VoiceVariation
   readonly VoiceVariation.pitchCents: { readonly min: number; readonly max: number; }
   readonly VoiceVariation.gainDecibels: { readonly min: number; readonly max: number; }
   readonly VoiceVariation.startOffsetMilliseconds: { readonly max: number; }
+  interface Waypoint
+  readonly Waypoint.at: Position
+  readonly Waypoint.milliseconds: number
   function busName(text: string): DomainResult<BusName>
   function destinationPath(segments: readonly string[]): DomainResult<DestinationPath>
+  function extendPreviewPlan(previous: PreviewPlan, simulation: PreviewSimulation, from: number): DomainResult<PreviewPlan>
   function inheritedProcessing(state: GameAudioState, member: GroupMember): EffectChainId | undefined
   function inheritingRacks(state: GameAudioState): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined; }[]
   function memberKey(member: GroupMember): string
   function memberNames(project: Project, state: GameAudioState, members: readonly RegionMember[], template: NamingTemplate, clock: ExportClock): readonly RegionName[]
   function namingTemplate(source: string): DomainResult<NamingTemplate>
   function planGameExport(project: Project, state: GameAudioState, request: GameExportRequest, contextOf: (member: GroupMember) => DomainResult<ExportContext>): GameExportPlan
+  function previewPlan(simulation: PreviewSimulation, scenario: GamePreviewScenario, members: ReadonlyMap<string, EditPlan>, catalogue: ProcessorCatalogue, ids: IdGenerator, output: ChannelLayout): DomainResult<PreviewPlan>
+  function previewScenarioProblems(scenario: GamePreviewScenario): readonly DomainFailure[]
+  function previewSubjects(project: Project, state: GameAudioState, sounds: (member: GroupMember) => MemberSound | undefined): PreviewSubjects
+  function previewVoiceBudget(grade: ResamplingGrade, variations: Iterable<VoiceVariation>): number
   function profileFromPreset(preset: ExportPreset): GameExportProfile
   function projectChainUsers(project: Project, game: GameAudioState | undefined, chain: EffectChainId): StateChainUsers
   function resolveAll(project: Project, state: GameAudioState): ReadonlyMap<string, EffectivePolicy>
   function resolveGroupPolicy(state: GameAudioState, group: GameAssetGroupId): GroupEffectivePolicy
   function resolvePolicy(project: Project, state: GameAudioState, member: GroupMember): EffectivePolicy
+  function scenarioSubjectProblems(scenario: GamePreviewScenario, hasGroup: (group: GameAssetGroupId) => boolean, hasMember: (member: GroupMember) => boolean): readonly DomainFailure[]
+  function simulatePreview(input: PreviewInput, from?: PreviewSimulation | undefined): DomainResult<PreviewSimulation>
   function stateChainUseCount(users: StateChainUsers): number
   function validateGameAudioState(project: Project, state: GameAudioState): DomainResult<GameAudioState>
   function withOverride<F extends OverridableField>(overrides: PolicyOverrides, field: F, value: PolicyValues[F] | undefined): PolicyOverrides
@@ -7899,7 +8011,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 9; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 10; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
