@@ -36,18 +36,28 @@ import type { EffectChain } from '../processing/effect-chain.js';
 import { spectralMaskOf } from '../spectral/mask-decoding.js';
 import type { PlannedSpectralEdit, PlannedSpectralOperation } from '../spectral/spectral-edit.js';
 import { FadeShape } from './fades.js';
-import type {
-  EditPlan,
-  GainCurve,
-  PlanSegment,
-  PlanSource,
-  PlanStage,
-  PlanStream,
-  StreamProcessing,
+import {
+  VARISPEED_DENOMINATOR,
+  type AutomationPoint,
+  type EditPlan,
+  type GainCurve,
+  type ParameterAutomation,
+  type PlanSegment,
+  type PlanSource,
+  type PlanStage,
+  type PlanStream,
+  type StreamProcessing,
 } from './plan.js';
 
-/** The most streams, segments and stages a message may hold. */
-const LIMITS = { streams: 4_096, segments: 1_000_000, stages: 10_000, channels: 256 } as const;
+/** The most streams, segments, stages, automation lanes and points a message may hold. */
+const LIMITS = {
+  streams: 4_096,
+  segments: 1_000_000,
+  stages: 10_000,
+  channels: 256,
+  lanes: 256,
+  points: 1_000_000,
+} as const;
 
 /**
  * The value, named `field`, as a whole number of either sign: a stage's range
@@ -218,26 +228,21 @@ function spectralEditOf(value: unknown, field: string): PlannedSpectralEdit {
   };
 }
 
-function processingOf(read: MessageFields, field: string): StreamProcessing {
-  switch (read['kind']) {
-    case 'stretch':
-      return { kind: 'stretch', length: sampleCountOf(read['length'], `${field}.length`) };
-    case 'chain':
-      return {
-        kind: 'chain',
-        chain: chainOf(read['chain'], `${field}.chain`),
-        input: layoutOf(read['input'], `${field}.input`),
-      };
-    case 'spectral':
-      return { kind: 'spectral', edit: spectralEditOf(read['edit'], `${field}.edit`) };
-    default:
-      throw new Malformed(`${field}.kind`, 'chain, stretch or spectral');
-  }
+function pointOf(value: unknown, field: string): AutomationPoint {
+  const read = fieldsOf(value, field);
+  return {
+    frame: integerOf(read['frame'], `${field}.frame`),
+    value: numberOf(read['value'], `${field}.value`),
+  };
 }
 
-/** Reads streams whose segments together stay within the bound a plan may ask for. */
+/**
+ * Reads streams whose segments, and whose chains' automation points, together
+ * stay within the bounds a plan may ask for.
+ */
 class StreamReader {
   #segments: number = LIMITS.segments;
+  #points: number = LIMITS.points;
 
   stream(value: unknown, field: string): PlanStream {
     const read = fieldsOf(value, field);
@@ -247,12 +252,64 @@ class StreamReader {
     const processing =
       read['processing'] === undefined
         ? undefined
-        : processingOf(fieldsOf(read['processing'], `${field}.processing`), `${field}.processing`);
+        : this.#processing(
+            fieldsOf(read['processing'], `${field}.processing`),
+            `${field}.processing`,
+          );
     return {
       sampleRate: rateOf(read['sampleRate'], `${field}.sampleRate`),
       layout: layoutOf(read['layout'], `${field}.layout`),
       segments,
       ...(processing === undefined ? {} : { processing }),
+    };
+  }
+
+  #processing(read: MessageFields, field: string): StreamProcessing {
+    switch (read['kind']) {
+      case 'stretch':
+        return { kind: 'stretch', length: sampleCountOf(read['length'], `${field}.length`) };
+      case 'chain': {
+        const automation =
+          read['automation'] === undefined
+            ? undefined
+            : boundedItemsOf(
+                read['automation'],
+                `${field}.automation`,
+                LIMITS.lanes,
+                (lane, name) => this.#lane(lane, name),
+              );
+        return {
+          kind: 'chain',
+          chain: chainOf(read['chain'], `${field}.chain`),
+          input: layoutOf(read['input'], `${field}.input`),
+          ...(automation === undefined ? {} : { automation }),
+        };
+      }
+      case 'spectral':
+        return { kind: 'spectral', edit: spectralEditOf(read['edit'], `${field}.edit`) };
+      case 'varispeed': {
+        if (read['denominator'] !== VARISPEED_DENOMINATOR) {
+          throw new Malformed(`${field}.denominator`, String(VARISPEED_DENOMINATOR));
+        }
+        return {
+          kind: 'varispeed',
+          numerator: integerOf(read['numerator'], `${field}.numerator`),
+          denominator: VARISPEED_DENOMINATOR,
+        };
+      }
+      default:
+        throw new Malformed(`${field}.kind`, 'chain, stretch, spectral or varispeed');
+    }
+  }
+
+  #lane(value: unknown, field: string): ParameterAutomation {
+    const read = fieldsOf(value, field);
+    const points = boundedItemsOf(read['points'], `${field}.points`, this.#points, pointOf);
+    this.#points -= points.length;
+    return {
+      processor: identifierOf<'ProcessorId'>(read['processor'], `${field}.processor`),
+      parameter: identifierOf<'ParameterId'>(read['parameter'], `${field}.parameter`),
+      points,
     };
   }
 }

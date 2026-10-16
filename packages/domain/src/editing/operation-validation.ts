@@ -18,6 +18,7 @@ import { sampleCount, sampleRate } from '../time/sample-time.js';
 import { shapeAfter, sourceShape, type EditShape } from './edit-shape.js';
 import { isLevelEdit, type EditOperation, type EditRange, type RangeEdit } from './operations.js';
 import { spectralEditProblem } from '../spectral/spectral-edit.js';
+import { generatedProcessing } from './generated-processing.js';
 import { punchProblem } from './punch-validation.js';
 import {
   MAXIMUM_STRETCH_RATIO,
@@ -133,6 +134,20 @@ function insertionProblem(
   }
   const plan = validatePlan(operation.payload, assets);
   if (!plan.ok) return plan;
+  switch (generatedProcessing(operation.payload)) {
+    case 'varispeed':
+      return refused(
+        'payload-varispeed',
+        'The inserted audio is played faster or slower, which only a game’s preview does.',
+      );
+    case 'automation':
+      return refused(
+        'payload-automation',
+        'The inserted audio moves a chain’s parameters, which only a game’s preview does.',
+      );
+    case undefined:
+      break;
+  }
   const [stream] = operation.payload.streams;
   if (!layoutsMatch(stream.layout, shape.layout)) {
     return refused('payload-layout', 'The inserted audio does not have this audio’s channels.');

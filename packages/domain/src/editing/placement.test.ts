@@ -5,6 +5,7 @@ import { StandardLayouts } from '../audio/channel-layout.js';
 import { unsafeBrandId } from '../identity/branded-id.js';
 import type { Asset } from '../project/asset.js';
 import type { Marker, Region } from '../project/timeline.js';
+import { FadeShape } from './fades.js';
 import { assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
 import { renderPlan } from '../testing/plan-render.js';
 import { expectSuccess } from '../testing/unwrap.js';
@@ -74,10 +75,52 @@ describe('placing regions', () => {
   it('cuts a loop to its region and its crossfade to its loop', () => {
     const [region] = placeRegions(edited, [
       regionOf('loop', 300, 400, {
-        loop: { basis: 1, start: frames(350), end: frames(450), crossfadeLength: frames(80) },
+        loop: {
+          basis: 1,
+          start: frames(350),
+          end: frames(450),
+          crossfadeLength: frames(80),
+          crossfadeShape: FadeShape.SCurve,
+        },
       }),
     ]);
-    expect(region?.loop).toEqual({ loopStart: 50, loopEnd: 100, crossfadeLength: 50 });
+    expect(region?.loop).toEqual({
+      loopStart: 50,
+      loopEnd: 100,
+      crossfadeLength: 50,
+      crossfadeShape: FadeShape.SCurve,
+      crossfadeClampedFrom: 80,
+    });
+  });
+
+  it('shortens a crossfade to the audio left before a loop’s start, and says what it was', () => {
+    const loopOf = (crossfade: number) =>
+      regionOf('loop', 300, 400, {
+        loop: {
+          basis: 1,
+          start: frames(330),
+          end: frames(390),
+          crossfadeLength: frames(crossfade),
+          crossfadeShape: FadeShape.Linear,
+        },
+      });
+
+    const [shortened] = placeRegions(edited, [loopOf(45)]);
+    const [whole] = placeRegions(edited, [loopOf(30)]);
+
+    expect(shortened?.loop).toEqual({
+      loopStart: 30,
+      loopEnd: 90,
+      crossfadeLength: 30,
+      crossfadeShape: FadeShape.Linear,
+      crossfadeClampedFrom: 45,
+    });
+    expect(whole?.loop).toEqual({
+      loopStart: 30,
+      loopEnd: 90,
+      crossfadeLength: 30,
+      crossfadeShape: FadeShape.Linear,
+    });
   });
 
   it('drops a loop a later deletion closed up', () => {
@@ -89,7 +132,13 @@ describe('placing regions', () => {
         ...regionOf('loop', 200, 600),
         assetId: asset.id,
         basis: 0,
-        loop: { basis: 0, start: frames(310), end: frames(390), crossfadeLength: frames(0) },
+        loop: {
+          basis: 0,
+          start: frames(310),
+          end: frames(390),
+          crossfadeLength: frames(0),
+          crossfadeShape: FadeShape.Linear,
+        },
       },
     ]);
     expect(region?.loop).toBeUndefined();

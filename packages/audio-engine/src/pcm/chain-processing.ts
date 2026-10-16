@@ -17,6 +17,11 @@
  * whether the chain can run as it is heard at all, is the chain's to say
  * before the run is made, so playback chooses between running it and hearing
  * a render of it first (ADR-0061).
+ *
+ * A game preview's plan may move a chain's parameters along its stream
+ * (ADR-0104): the request carries the stream's automation, which the run gives
+ * its processors as it goes, in every measuring pass as in the run, and a run
+ * kept into a plan that continues its own takes the new plan's automation.
  */
 
 import type {
@@ -25,6 +30,7 @@ import type {
   ChannelLayout,
   DomainResult,
   EffectChain,
+  ParameterAutomation,
   ParameterId,
   ProcessorId,
   QualitySettings,
@@ -61,6 +67,12 @@ export interface ChainRequest {
    * a preview.
    */
   readonly start: number;
+
+  /**
+   * The automation of the chain's parameters along the stream, as the plan's
+   * stream states it (`StreamProcessing`); none where absent.
+   */
+  readonly automation?: readonly ParameterAutomation[];
 }
 
 /**
@@ -69,7 +81,7 @@ export interface ChainRequest {
  * start, since a live input has neither an end to measure to nor a frame
  * before its first.
  */
-export type LiveChainRequest = Omit<ChainRequest, 'length' | 'start'>;
+export type LiveChainRequest = Omit<ChainRequest, 'length' | 'start' | 'automation'>;
 
 /** What how a chain is heard depends on: the chain, and the stream as it runs it. */
 export type ListeningRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
@@ -93,6 +105,15 @@ export interface ChainRun {
    * take the change running.
    */
   setParameter(processor: ProcessorId, parameter: ParameterId, value: number): DomainResult<void>;
+
+  /**
+   * Takes the automation of a plan that continues the one the run was made
+   * for, from the next frame it is given: lanes for the same parameters as its
+   * own, the same as far as it has run, so only what comes after changes; or
+   * says why it cannot, a lane added or taken away among them, which a run
+   * made afresh must start with.
+   */
+  automate(automation: readonly ParameterAutomation[]): DomainResult<void>;
 
   release(): void;
 }

@@ -360,7 +360,13 @@ const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
  * An entry leaves the list once a module takes it, as the rule that lists
  * only what no module takes holds.
  */
-const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {};
+const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
+  "What a varispeed voice's filter costs at each grade (ADR-0104), stated with the varispeed ahead of the preview's voice budget (WU-10.D4), which is measured against it.":
+    [
+      'packages/audio-engine/src/dsp/resampling-grade.ts: VARISPEED_MOST_TAPS',
+      'packages/audio-engine/src/dsp/resampling-grade.ts: varispeedTableBytes',
+    ],
+};
 
 /**
  * Each export of a test-support module that no test takes by name, under the

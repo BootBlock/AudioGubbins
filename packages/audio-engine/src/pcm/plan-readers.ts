@@ -5,6 +5,11 @@
  * stream's processing, each made once, on the first read that needs it, and
  * released with the source.
  *
+ * A stream a game preview plays at a ratio is read through the canonical
+ * resampler run with whole steps (`resampled-source.ts`), at the reading's
+ * resampling quality, and a chain's automation reaches the run of its chain
+ * (ADR-0104).
+ *
  * A processed stream is read from its render where the reading has a cache of
  * renders and the stream is one it would otherwise run from its start, or one a
  * preview cannot run as it is heard (`cached-streams.ts`), and through a run of
@@ -38,13 +43,14 @@ import {
   type DomainResult,
   type EditPlan,
   type EffectChain,
+  type ParameterAutomation,
   type PlanSource,
   type PlanStream,
   type PlannedSpectralEdit,
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
+import type { CanonicalDsp, ResamplingQuality } from '../dsp/canonical-dsp.js';
 import { resamplingQualityOf } from '../dsp/resampling-grade.js';
 import { CachedContent } from './cached-content.js';
 import { MixedContent } from './mixed-content.js';
@@ -63,7 +69,7 @@ import {
 } from './plan-content.js';
 import { ProcessedContent, ProcessedStart, type PlanProcessing } from './processed-content.js';
 import { continueReaders, conversionKey, type MadeReaders } from './reader-continuation.js';
-import { resampledSource } from './resampled-source.js';
+import { resampledSource, varispeedSource, type ResampledSource } from './resampled-source.js';
 import type { ParameterChange, ParameterTarget } from './running-parameters.js';
 import { SpectralContent } from './spectral-content.js';
 import { StretchedContent } from './stretched-content.js';
@@ -108,6 +114,8 @@ export class PlanReaders implements ParameterTarget {
   #entries: ReadonlyMap<AssetId, MediaEntry>;
   readonly #dsp: CanonicalDsp;
   readonly #processing: PlanProcessing;
+  /** The resampler's quality for every conversion and varispeed, by the reading's grade. */
+  readonly #resampling: ResamplingQuality;
   /**
    * The readers made, by what they read: each stream's content and output, the
    * runs of the chains this reading runs itself, each conversion by place and
@@ -139,6 +147,7 @@ export class PlanReaders implements ParameterTarget {
     this.#entries = new Map(media.map((entry) => [entry.asset, entry]));
     this.#dsp = dsp;
     this.#processing = processing;
+    this.#resampling = resamplingQualityOf(processing.quality.resampling);
     this.#chains = chainsOf(plan);
   }
 
@@ -192,6 +201,10 @@ export class PlanReaders implements ParameterTarget {
       output = this.#processed(place, stream, processing.input, content);
     } else if (processing.kind === 'spectral') {
       output = this.#spectral(place, stream, processing.edit, content);
+    } else if (processing.kind === 'varispeed') {
+      const { numerator } = processing;
+      const source = streamAsSource(() => content, stream);
+      output = this.#resampled(varispeedSource(this.#dsp, source, numerator, this.#resampling));
     } else {
       output = this.#stretched(content, stream, processing.length);
     }
@@ -227,6 +240,12 @@ export class PlanReaders implements ParameterTarget {
 
   release(): void {
     for (const reader of this.#made) reader.release();
+  }
+
+  /** The automation of the chain of the stream at `place`, where it has any. */
+  #automationAt(place: number): readonly ParameterAutomation[] | undefined {
+    const { processing } = this.#streamAt(place);
+    return processing?.kind === 'chain' ? processing.automation : undefined;
   }
 
   #streamAt(place: number): PlanStream {
@@ -297,10 +316,14 @@ export class PlanReaders implements ParameterTarget {
     // The chain as it stands when the run is made, which a parameter changed
     // while the sound played before this stream was first read has changed.
     const own = (): ProcessedContent => {
-      const run = new ProcessedContent(this.#chains.get(place) ?? chain, input, stream.layout, {
-        ...this.#processing,
-        dsp: this.#dsp,
-      });
+      const run = new ProcessedContent(
+        this.#chains.get(place) ?? chain,
+        input,
+        stream.layout,
+        { ...this.#processing, dsp: this.#dsp },
+        // The plan's as it stands when the run is made, a continued plan's among them.
+        this.#automationAt(place),
+      );
       this.#readers.runs.set(place, run);
       return run;
     };
@@ -452,20 +475,21 @@ export class PlanReaders implements ParameterTarget {
     return stretched;
   }
 
+  /** What a resampler makes, a conversion's or a varispeed's, read until the source is released. */
+  #resampled(made: DomainResult<ResampledSource>): ConvertedContent {
+    if (!made.ok) throw new MediaReadFailure(made.failures[0]);
+    const reader = new ConvertedContent(made.value);
+    this.#made.push(reader);
+    return reader;
+  }
+
   #convert(place: number, rate: SampleRate): ConvertedContent {
     const key = conversionKey(place, rate);
     const known = this.#readers.converted.get(key);
     if (known !== undefined) return known;
-    const resampled = resampledSource(
-      this.#dsp,
-      streamAsSource(() => this.output(place), this.#streamAt(place)),
-      rate,
-      resamplingQualityOf(this.#processing.quality.resampling),
-    );
-    if (!resampled.ok) throw new MediaReadFailure(resampled.failures[0]);
-    const reader = new ConvertedContent(resampled.value);
+    const source = streamAsSource(() => this.output(place), this.#streamAt(place));
+    const reader = this.#resampled(resampledSource(this.#dsp, source, rate, this.#resampling));
     this.#readers.converted.set(key, reader);
-    this.#made.push(reader);
     return reader;
   }
 }

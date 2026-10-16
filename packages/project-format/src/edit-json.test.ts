@@ -435,9 +435,42 @@ describe('an edit-model value read alone refuses', () => {
     [
       'a loop with no crossfade length',
       readAnchoredLoop,
-      { basis: 0, start: 0, end: 10 },
+      { basis: 0, start: 0, end: 10, crossfadeShape: 'linear' },
       'schema.missing-member',
       'value.crossfadeLength',
+    ],
+    [
+      'a loop with no crossfade shape',
+      readAnchoredLoop,
+      { basis: 0, start: 0, end: 10, crossfadeLength: 0 },
+      'schema.missing-member',
+      'value.crossfadeShape',
+    ],
+    [
+      'a loop whose crossfade has a shape no fade has',
+      readAnchoredLoop,
+      { basis: 0, start: 0, end: 10, crossfadeLength: 2, crossfadeShape: 'cubic' },
+      'schema.unknown-value',
+      'value.crossfadeShape',
+    ],
+    [
+      'a stored plan played at a ratio, as only a game preview’s is',
+      readEditPlan,
+      planProcessedBy({ kind: 'varispeed', numerator: 5_000, denominator: 4_096 }),
+      'schema.unknown-value',
+      'value.streams[1].processing.kind',
+    ],
+    [
+      'a stored plan whose chain is automated, as only a game preview’s is',
+      readEditPlan,
+      planProcessedBy({
+        kind: 'chain',
+        chain: { id: '0000cccc', slots: [] },
+        input: { roles: ['mono'] },
+        automation: [],
+      }),
+      'schema.unknown-member',
+      'value.streams[1].processing',
     ],
   ];
 
@@ -471,6 +504,41 @@ function planReadingFrom(source: JsonValue): JsonValue {
         sampleRate: 48_000,
         layout: { roles: ['mono'] },
         segments: [{ source, start: 0, length: 10, reversed: false, stages: [] }],
+      },
+    ],
+  };
+}
+
+/** A mono plan whose sound reads a stream that `processing` processes. */
+function planProcessedBy(processing: JsonValue): JsonValue {
+  return {
+    streams: [
+      {
+        sampleRate: 48_000,
+        layout: { roles: ['mono'] },
+        segments: [
+          {
+            source: { kind: 'stream', stream: 1 },
+            start: 0,
+            length: 10,
+            reversed: false,
+            stages: [],
+          },
+        ],
+      },
+      {
+        sampleRate: 48_000,
+        layout: { roles: ['mono'] },
+        segments: [
+          {
+            source: { kind: 'media', asset: '0000bbbb' },
+            start: 0,
+            length: 10,
+            reversed: false,
+            stages: [],
+          },
+        ],
+        processing,
       },
     ],
   };

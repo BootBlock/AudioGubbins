@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ENGINE_VERSIONS, decibelsToGain } from '@audiogubbins/audio-engine';
-import { sampleRate, type EditOperation, type Region } from '@audiogubbins/domain';
+import { FadeShape, sampleRate, type EditOperation, type Region } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sine } from '@audiogubbins/test-fixtures';
 
@@ -488,13 +488,20 @@ describe('regions (REQ-EDIT-014)', () => {
     expect(audio.window.context.editorViews.entry('editor')?.asset).toBe(regionEntryId(region.id));
 
     await ran(audio, 'region.rename', { name: 'Sustain' });
-    audio.window.run('editor.select-time', { start: 0, end: 48_000 });
-    await ran(audio, 'region.loop', { crossfade: 64 });
+    // The crossfade reads the 64 frames of the region before the loop's start.
+    audio.window.run('editor.select-time', { start: 64, end: 48_064 });
+    await ran(audio, 'region.loop', { crossfade: 64, shape: FadeShape.SCurve });
     await ran(audio, 'region.set-tags', { tags: 'loop, pad, loop' });
 
     expect(regionsOf(audio)[0]).toMatchObject({
       displayName: 'Sustain',
-      loop: { basis: 0, start: 48_000, end: 96_000, crossfadeLength: 64 },
+      loop: {
+        basis: 0,
+        start: 48_064,
+        end: 96_064,
+        crossfadeLength: 64,
+        crossfadeShape: FadeShape.SCurve,
+      },
       tags: ['loop', 'pad'],
     });
 
@@ -504,6 +511,10 @@ describe('regions (REQ-EDIT-014)', () => {
 
   it.each([
     [48_001, 'A loop’s crossfade must fit within the loop.'],
+    [
+      64,
+      'A loop’s crossfade reads the audio before the loop’s start, and the region has 0 frames there, fewer than the crossfade’s 64.',
+    ],
     [-1, 'A sample count cannot be negative.'],
     [0.5, 'A sample count must be a whole number of frames.'],
     ['', 'A sample count must be a whole number of frames.'],
@@ -521,12 +532,28 @@ describe('regions (REQ-EDIT-014)', () => {
     expect(regionsOf(audio)[0]?.loop).toBeUndefined();
   });
 
+  it('gives a loop’s crossfade the shape named, equal power where none is, and refuses one no fade has', async () => {
+    const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
+    const [region] = regionsOf(audio);
+    if (region === undefined) throw new Error('No region.');
+    audio.window.run('region.open', { region: region.id });
+    audio.window.run('editor.select-time', { start: 64, end: 48_064 });
+
+    expect(audio.window.run('region.loop', { crossfade: 64, shape: 'cubic' })).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'A crossfade is linear, equal-power, s-curve, square.' }],
+    });
+    await ran(audio, 'region.loop', { crossfade: 64 });
+
+    expect(regionsOf(audio)[0]?.loop?.crossfadeShape).toBe(FadeShape.EqualPower);
+  });
+
   it('stops a region looping, which one undo puts back', async () => {
     const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
     const [region] = regionsOf(audio);
     if (region === undefined) throw new Error('No region.');
     audio.window.run('region.open', { region: region.id });
-    audio.window.run('editor.select-time', { start: 0, end: 48_000 });
+    audio.window.run('editor.select-time', { start: 64, end: 48_064 });
     await ran(audio, 'region.loop', { crossfade: 64 });
     const looped = regionsOf(audio)[0]?.loop;
     expect(looped).toBeDefined();

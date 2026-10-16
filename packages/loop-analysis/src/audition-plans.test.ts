@@ -17,6 +17,7 @@ import {
   sampleRate,
   streamLength,
   type EditPlan,
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
   type LoopDefinition,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -33,6 +34,7 @@ const LOOP: LoopDefinition = {
   loopStart: derivedSampleCount(1_000),
   loopEnd: derivedSampleCount(1_500),
   crossfadeLength: derivedSampleCount(0),
+  crossfadeShape: DEFAULT_LOOP_CROSSFADE_SHAPE,
 };
 
 const whole = {

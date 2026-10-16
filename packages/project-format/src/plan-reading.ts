@@ -8,6 +8,11 @@
  * is given) depends on the project's assets, and is decided by the domain's
  * `validatePlan` where the plan is used, by the one rule a command and a
  * document share.
+ *
+ * A varispeed stream and a chain's automation belong to a game preview's plan
+ * alone and a project never keeps one (ADR-0104), so the format has neither:
+ * a stored plan holding one is refused as a processing kind, or a member of a
+ * chain's processing, the format does not know.
  */
 
 import {

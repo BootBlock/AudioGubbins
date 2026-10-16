@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { RegionBoundary } from '@audiogubbins/domain';
+import { FadeShape, RegionBoundary } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import {
   DEFAULT_SNAP_SETTINGS,
@@ -195,7 +195,12 @@ describe('snap targets', () => {
   it('offers markers, region and loop boundaries, the playhead, selection edges, grid, frames and a zero crossing', () => {
     const looped = {
       ...region('r', 1000, 500),
-      loop: { loopStart: at(100), loopEnd: at(400), crossfadeLength: at(0) },
+      loop: {
+        loopStart: at(100),
+        loopEnd: at(400),
+        crossfadeLength: at(0),
+        crossfadeShape: FadeShape.Linear,
+      },
     };
     const targets = snapTargetsOf({
       markers: [marker('m', 10)],

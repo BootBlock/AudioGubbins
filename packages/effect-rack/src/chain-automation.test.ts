@@ -14,19 +14,24 @@ import {
   StandardLayouts,
   createDeterministicIdGenerator,
   instantiateProcessor,
+  type AutomationPoint,
   type ChainSlot,
   type EffectChain,
+  type ParameterAutomation,
   type ParameterValue,
   type ProcessorInstance,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { REFERENCE_DSP, decibelsToGain, type ChainRun } from '@audiogubbins/audio-engine';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
-import { PROCESSOR_TYPES_BY_KEY, type ProcessorType } from '@audiogubbins/processors';
+import {
+  DESIGN_INTERVAL,
+  PROCESSOR_TYPES_BY_KEY,
+  type ProcessorType,
+} from '@audiogubbins/processors';
 import { TEST_RATE, delayingProcessor, processorValues } from '@audiogubbins/processors/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 
-import type { AutomationPoint, ParameterAutomation } from './chain-automation.js';
 import { chainProcessing } from './chain-run.js';
 
 const ids = createDeterministicIdGenerator(104);
@@ -121,7 +126,7 @@ function rendered(
 }
 
 /** Frames from one value a lane gives its processor to the next. */
-const INTERVAL = 32;
+const INTERVAL = DESIGN_INTERVAL;
 
 /**
  * The value of `points` at `frame` as the plan states it, written apart from
@@ -372,5 +377,66 @@ describe('a chain run refusing automation it cannot follow', () => {
     );
     expectSuccess(run.setParameter(panner.id, parameter('z'), -3));
     run.release();
+  });
+});
+
+describe('a chain run kept into a plan that continues its own', () => {
+  // Before the last point the two lanes share, so the new one agrees as far as the run has gone.
+  const PART = 8_000;
+
+  /** `run` over the input from frame `from` to `to`, in calls of 512, into `out`. */
+  function runPart(run: ChainRun, out: readonly Float32Array[], from: number, to: number): void {
+    for (let at = from; at < to; at += 512) {
+      const frames = Math.min(512, to - at);
+      run.process(
+        [MONO[0]?.subarray(at, at + frames) ?? new Float32Array(frames)],
+        out.map((channel) => channel.subarray(at, at + frames)),
+        frames,
+      );
+    }
+  }
+
+  it('takes the new plan’s points from where it has run, as a run of them from the start plays', async () => {
+    const panner = slotOf('spatial-panner', { z: -6 });
+    const begun = [lane(panner, 'x', SWEEP.slice(0, 2))];
+    const extended = [lane(panner, 'x', SWEEP)];
+    const kept = expectSuccess(await prepared({ slots: [panner], automation: begun }));
+    const out = kept.layout.roles.map(() => new Float32Array(LENGTH));
+
+    runPart(kept, out, 0, PART);
+    expectSuccess(kept.automate(extended));
+    runPart(kept, out, PART, LENGTH);
+    kept.release();
+
+    const whole = rendered(
+      expectSuccess(await prepared({ slots: [panner], automation: extended })),
+      [512],
+    );
+    expect(prints(out)).toEqual(prints(whole));
+    // Without the new points the old lane holds its last value past them.
+    const held = rendered(
+      expectSuccess(await prepared({ slots: [panner], automation: begun })),
+      [512],
+    );
+    expect(prints(held)).not.toEqual(prints(whole));
+  });
+
+  it('refuses lanes for parameters it does not move, or none of those it does', async () => {
+    const panner = slotOf('spatial-panner');
+    const run = expectSuccess(
+      await prepared({ slots: [panner], automation: [lane(panner, 'x', SWEEP)] }),
+    );
+    const plain = expectSuccess(await prepared({ slots: [panner] }));
+
+    expect(expectFailureCode(run.automate([lane(panner, 'z', SWEEP)]))).toBe(
+      'effect-rack.automation-lanes-changed',
+    );
+    expect(expectFailureCode(run.automate([]))).toBe('effect-rack.automation-lanes-changed');
+    expect(expectFailureCode(plain.automate([lane(panner, 'x', SWEEP)]))).toBe(
+      'effect-rack.automation-lanes-changed',
+    );
+    expectSuccess(plain.automate([]));
+    run.release();
+    plain.release();
   });
 });

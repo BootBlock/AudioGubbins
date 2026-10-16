@@ -406,7 +406,12 @@ function randomLoop(random: Random, shapes: readonly EditShape[]): AnchoredLoop 
   const span = randomRange(random, shapes[basis]?.length ?? 0);
   return span === undefined
     ? undefined
-    : { basis, ...span, crossfadeLength: randomCount(random, span.end - span.start) };
+    : {
+        basis,
+        ...span,
+        crossfadeLength: randomCount(random, span.end - span.start),
+        crossfadeShape: random.pick(Object.values(FadeShape)),
+      };
 }
 
 function proposeRegionOperation(

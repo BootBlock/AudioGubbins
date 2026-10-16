@@ -50,6 +50,7 @@ const HOLDING: ChainProcessing = {
         }
       },
       setParameter: () => succeed(undefined),
+      automate: () => succeed(undefined),
       release: () => undefined,
     };
     return Promise.resolve(succeed(run));
@@ -120,6 +121,7 @@ const DELAYING: ChainProcessing = {
         }
       },
       setParameter: () => succeed(undefined),
+      automate: () => succeed(undefined),
       release: () => undefined,
     };
     return Promise.resolve(succeed(run));

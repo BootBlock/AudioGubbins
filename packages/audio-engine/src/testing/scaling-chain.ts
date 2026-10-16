@@ -48,6 +48,11 @@ function scalingRun(initial: number): ChainRun {
       factor = value;
       return succeed(undefined);
     },
+    // It moves nothing along its stream, so it takes no automation but none.
+    automate: (automation) =>
+      automation.length === 0
+        ? succeed(undefined)
+        : fail(failure('test.no-automation', FailureKind.Rejected, 'It moves nothing.')),
     release: () => undefined,
   };
 }

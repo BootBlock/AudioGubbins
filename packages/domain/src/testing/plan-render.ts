@@ -74,6 +74,15 @@ function renderStream(
   if (processing.kind === 'stretch') {
     return (world.stretch ?? missing('a stretch'))(out, processing.length);
   }
+  if (processing.kind === 'varispeed') {
+    const { numerator, denominator } = processing;
+    return (world.varispeed ?? missing('a varispeed'))(
+      out,
+      numerator,
+      denominator,
+      convertedFrameCount(total, numerator, denominator),
+    );
+  }
   if (processing.kind === 'spectral') {
     const { mask, resolution, operation, channels } = processing.edit;
     return (world.spectral ?? missing('a spectral edit'))(
@@ -87,7 +96,7 @@ function renderStream(
       out,
     );
   }
-  return (world.chain ?? missing('a chain'))(processing.chain.id, out);
+  return (world.chain ?? missing('a chain'))(processing.chain.id, out, processing.automation);
 }
 
 /** The streams `places` names, each rendered whole, summed in order by the plan's rule. */

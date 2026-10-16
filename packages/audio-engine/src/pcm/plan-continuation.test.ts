@@ -10,6 +10,11 @@
  * one-pole smoother, whose every output frame carries its whole history, so a
  * run made again anywhere is heard; a test sees each run prepared, and each
  * resampler made, through the ports it injects.
+ *
+ * A game preview's own streams go on alike (ADR-0104): a voice played at a
+ * ratio through a varispeed keeps its resampler, and a chain whose smoothing
+ * follows the plan's automation keeps its run and takes the new plan's points
+ * where the two agree as far as it has run.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -19,6 +24,8 @@ import {
   FailureKind,
   MAXIMUM_QUALITY,
   StandardLayouts,
+  VARISPEED_DENOMINATOR,
+  automationValueAt,
   derivedSampleCount,
   fail,
   failure,
@@ -28,6 +35,7 @@ import {
   type AssetId,
   type EditPlan,
   type EffectChain,
+  type ParameterAutomation,
   type PlanSegment,
   type PlanSource,
   type PlanStream,
@@ -114,7 +122,25 @@ function valueOf(chain: EffectChain, parameter: typeof SMOOTHING): number {
   return value;
 }
 
-/** Runs smoothers, each prepare counted with the chain it ran and the frame it started at. */
+/**
+ * The points of the lane of `automation` that moves the smoothing of `chain`'s
+ * one processor, or `undefined` where none does.
+ */
+function smoothingLane(
+  chain: EffectChain,
+  automation: readonly ParameterAutomation[],
+): readonly { readonly frame: number; readonly value: number }[] | undefined {
+  const [slot] = chain.slots;
+  return automation.find((lane) => lane.processor === slot?.id && lane.parameter === SMOOTHING)
+    ?.points;
+}
+
+/**
+ * Runs smoothers, each prepare counted with the chain it ran and the frame it
+ * started at. A smoother whose smoothing a lane of its request's automation
+ * moves leaks the lane's value at each frame of the stream it is given, and a
+ * kept run takes a continued plan's lane for the same parameter.
+ */
 function smoothing(): { readonly processing: ChainProcessing; readonly prepared: string[] } {
   const prepared: string[] = [];
   const processing: ChainProcessing = {
@@ -124,7 +150,8 @@ function smoothing(): { readonly processing: ChainProcessing; readonly prepared:
       fail(failure('test.no-live-run', FailureKind.Rejected, 'No live run is made here.')),
     prepare: (request) => {
       prepared.push(`${request.chain.id}@${String(request.start)}`);
-      const leak = valueOf(request.chain, SMOOTHING);
+      const fixed = valueOf(request.chain, SMOOTHING);
+      let lane = smoothingLane(request.chain, request.automation ?? []);
       const latency = valueOf(request.chain, LATENCY);
       const late = new Float32Array(latency);
       let last = 0;
@@ -143,12 +170,23 @@ function smoothing(): { readonly processing: ChainProcessing; readonly prepared:
               late[at % latency] = sample;
               sample = delayed;
             }
+            const leak = lane === undefined ? fixed : automationValueAt(lane, request.start + at);
             at += 1;
             last = Math.fround((1 - leak) * sample + leak * last);
             into[frame] = last;
           }
         },
         setParameter: () => succeed(undefined),
+        automate: (automation) => {
+          const next = smoothingLane(request.chain, automation);
+          if ((next === undefined) !== (lane === undefined)) {
+            return fail(
+              failure('test.lanes-differ', FailureKind.Rejected, 'It moves other parameters.'),
+            );
+          }
+          lane = next;
+          return succeed(undefined);
+        },
         release: () => undefined,
       };
       return Promise.resolve(succeed(run));
@@ -515,5 +553,155 @@ describe('a continuation held between two reads', () => {
       'editing.plan-malformed',
     );
     expect(await read(playing.source, 0, CHUNK)).toHaveLength(CHUNK);
+  });
+});
+
+/** The emitter's smoothing moved along the stream by `points`. */
+function moving(points: readonly (readonly [number, number])[]): readonly ParameterAutomation[] {
+  const [slot] = CHAINS.emitter.slots;
+  if (slot?.kind !== 'processor') throw new Error('The emitter’s chain has its smoother.');
+  return [
+    {
+      processor: slot.id,
+      parameter: SMOOTHING,
+      points: points.map(([frame, value]) => ({ frame, value })),
+    },
+  ];
+}
+
+/** The programme with its emitter's smoothing moved by `automation`. */
+function automatedProgramme(
+  horizon: number,
+  automation: readonly ParameterAutomation[],
+  lane3: readonly { readonly at: number; readonly segment: PlanSegment }[] = [],
+): EditPlan {
+  const [output, bus, emitter, ...rest] = programme(horizon, { lane3 }).streams;
+  if (emitter?.processing?.kind !== 'chain' || bus === undefined) {
+    throw new Error('The programme’s emitter runs its chain.');
+  }
+  return {
+    streams: [
+      output,
+      bus,
+      { ...emitter, processing: { ...emitter.processing, automation } },
+      ...rest,
+    ],
+  };
+}
+
+describe('an edited source continued with a plan whose chain is automated', () => {
+  const SWEEP: readonly (readonly [number, number])[] = [
+    [0, 0.5],
+    [4_096, 0.125],
+    [8_192, 0.75],
+  ];
+
+  it('keeps the run of a chain whose automation goes on past the old horizon, and takes its new points', async () => {
+    const before = automatedProgramme(HORIZON, moving(SWEEP));
+    const after = automatedProgramme(12_288, moving([...SWEEP, [12_288, 0.25]]), [
+      { at: 9_000, segment: fileVoice(0, 2_000) },
+    ]);
+
+    const run = await continued(before, after, 12_288);
+
+    expect(run.preparedAfter).toEqual(run.preparedBefore);
+    expect(run.heard).toEqual((await uninterrupted(after, 12_288)).slice(AT));
+    // The new point is heard: without it the old lane holds its last value.
+    expect(run.heard).not.toEqual(
+      (
+        await uninterrupted(
+          automatedProgramme(12_288, moving(SWEEP), [{ at: 9_000, segment: fileVoice(0, 2_000) }]),
+          12_288,
+        )
+      ).slice(AT),
+    );
+  });
+
+  it('makes the run afresh where the automation changes before where it has run', async () => {
+    const before = automatedProgramme(HORIZON, moving(SWEEP));
+    const after = automatedProgramme(
+      HORIZON,
+      moving([
+        [0, 0.5],
+        [2_048, 0.25],
+        [8_192, 0.75],
+      ]),
+    );
+
+    const run = await continued(before, after, HORIZON);
+
+    expect(run.preparedAfter).toEqual([
+      ...run.preparedBefore,
+      `${CHAINS.bus.id}@${String(AT)}`,
+      `${CHAINS.emitter.id}@${String(AT)}`,
+    ]);
+  });
+});
+
+/** The rate of a varispeed voice: 5,000 / 4,096, about 345 cents up. */
+const RATIO = 5_000;
+
+/**
+ * A pitched programme to `horizon`: 0 the output, 1 an emitter's chain over 2,
+ * its lane, which sounds 3, member A played at `ratio` through a varispeed,
+ * from frame 256 to its end, and any `extra` voices; 4 member A's file.
+ */
+function pitchedProgramme(
+  horizon: number,
+  ratio = RATIO,
+  extra: readonly { readonly at: number; readonly segment: PlanSegment }[] = [],
+): EditPlan {
+  const played = Math.ceil((6_000 * VARISPEED_DENOMINATOR) / ratio);
+  return {
+    streams: [
+      {
+        sampleRate: RATE,
+        layout: MONO,
+        segments: [whole({ kind: 'stream', stream: 1 }, 0, horizon)],
+      },
+      {
+        sampleRate: RATE,
+        layout: MONO,
+        segments: [whole({ kind: 'stream', stream: 2 }, 0, horizon)],
+        processing: { kind: 'chain', chain: CHAINS.emitter, input: MONO },
+      },
+      lane([{ at: 256, segment: voice(3, 0, played) }, ...extra], horizon),
+      {
+        sampleRate: RATE,
+        layout: MONO,
+        segments: [whole({ kind: 'stream', stream: 4 }, 0, 6_000)],
+        processing: { kind: 'varispeed', numerator: ratio, denominator: VARISPEED_DENOMINATOR },
+      },
+      {
+        sampleRate: RATE,
+        layout: MONO,
+        segments: [whole({ kind: 'media', asset: ASSET_A }, 0, 6_000)],
+      },
+    ],
+  };
+}
+
+describe('an edited source continued with a plan that plays a voice at a ratio', () => {
+  it('keeps the varispeed of a voice sounding across the change, and sounds the new plan bit for bit', async () => {
+    const added = pitchedProgramme(12_288, RATIO, [{ at: 9_000, segment: fileVoice(0, 2_000) }]);
+
+    const run = await continued(pitchedProgramme(HORIZON), added, 12_288);
+
+    expect(run.resamplersBefore).toBe(1);
+    expect(run.resamplersAfter).toBe(1);
+    expect(run.preparedAfter).toEqual(run.preparedBefore);
+    expect(run.heard).toEqual((await uninterrupted(added, 12_288)).slice(AT));
+  });
+
+  it('makes the varispeed afresh where its ratio changed, from the frame it goes on at', async () => {
+    const lower = pitchedProgramme(HORIZON, 4_000);
+
+    const run = await continued(pitchedProgramme(HORIZON), lower, HORIZON);
+
+    expect(run.resamplersAfter).toBe(run.resamplersBefore + 1);
+    expect(run.preparedAfter).toEqual([
+      ...run.preparedBefore,
+      `${CHAINS.emitter.id}@${String(AT)}`,
+    ]);
   });
 });

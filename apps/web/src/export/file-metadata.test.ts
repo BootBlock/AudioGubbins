@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FadeShape,
   StandardLayouts,
   derivedSampleCount,
   sampleRate,
@@ -40,7 +41,12 @@ const REGIONS: readonly PlacedRegion[] = [
     displayName: 'Waves',
     start: at(10_000),
     length: at(20_000),
-    loop: { loopStart: at(2_000), loopEnd: at(12_000), crossfadeLength: at(0) },
+    loop: {
+      loopStart: at(2_000),
+      loopEnd: at(12_000),
+      crossfadeLength: at(0),
+      crossfadeShape: FadeShape.Linear,
+    },
     tags: [],
   },
   { id: GULLS, displayName: 'Gulls', start: at(35_000), length: at(5_000), tags: [] },

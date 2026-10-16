@@ -2,6 +2,11 @@
  * Writing an edit plan as `plan-reading.ts` reads it (ADR-0051): every member
  * of every stream, segment and stage, an optional one left out where it is
  * absent, lists in the plan's own order, which is its meaning.
+ *
+ * A project keeps only plans its own edits make: a varispeed stream and a
+ * chain's automation belong to a game preview's plan alone (ADR-0104), and the
+ * domain refuses a payload holding either before it joins a project, so this
+ * writes neither and the reader reads neither.
  */
 
 import type {
@@ -20,6 +25,10 @@ import { presentMembers } from './document-writing.js';
 import { writePlannedSpectralOperation, writeSpectralMask } from './spectral-writing.js';
 import { writeLayout } from './value-writing.js';
 
+/** Why a plan holding what only a preview's has is never written. */
+const KEPT_ONLY_BY_A_PREVIEW =
+  'A project keeps no varispeed or automation; validation refuses a plan holding either.';
+
 /** Writes an edit plan, or a clipboard payload, which is one. */
 export function writeEditPlan(plan: EditPlan): JsonObject {
   return { streams: plan.streams.map(writeStream) };
@@ -30,6 +39,7 @@ function writeProcessing(processing: StreamProcessing): JsonObject {
     case 'stretch':
       return { kind: 'stretch', length: processing.length };
     case 'chain':
+      if (processing.automation !== undefined) throw new Error(KEPT_ONLY_BY_A_PREVIEW);
       return {
         kind: 'chain',
         chain: writeEffectChain(processing.chain),
@@ -47,6 +57,8 @@ function writeProcessing(processing: StreamProcessing): JsonObject {
         }),
       };
     }
+    case 'varispeed':
+      throw new Error(KEPT_ONLY_BY_A_PREVIEW);
   }
 }
 

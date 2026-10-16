@@ -17,6 +17,7 @@
  */
 
 import {
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
   derivedSampleCount,
   type Asset,
   type IdGenerator,
@@ -71,6 +72,7 @@ export function importPlacements(
         start: derivedSampleCount(start),
         end: derivedSampleCount(end),
         crossfadeLength: derivedSampleCount(0),
+        crossfadeShape: DEFAULT_LOOP_CROSSFADE_SHAPE,
       },
       tags: [],
       operations: [],

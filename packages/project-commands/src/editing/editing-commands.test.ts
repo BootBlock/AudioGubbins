@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
+  FadeShape,
   StandardLayouts,
   assetPlan,
   sampleCount,
@@ -242,7 +243,13 @@ describe('project.withdraw-edit', () => {
       addRegionInvocation(region),
       setRegionInvocation({
         ...loop,
-        loop: { basis: 1, start: at(0), end: at(100), crossfadeLength: at(0) },
+        loop: {
+          basis: 1,
+          start: at(0),
+          end: at(100),
+          crossfadeLength: at(0),
+          crossfadeShape: FadeShape.Linear,
+        },
       }),
     ];
     for (const invocation of placed) {
@@ -437,7 +444,13 @@ describe('project.add-region', () => {
           state,
           addRegionInvocation({
             ...region,
-            loop: { basis: 0, start: at(0), end: at(10), crossfadeLength: at(11) },
+            loop: {
+              basis: 0,
+              start: at(0),
+              end: at(10),
+              crossfadeLength: at(11),
+              crossfadeShape: FadeShape.Linear,
+            },
           }),
         ),
       ),
