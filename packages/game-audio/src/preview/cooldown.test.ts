@@ -22,8 +22,8 @@ describe('a cooldown', () => {
   });
 
   it('suppresses triggers within it, measured from the last trigger that started', () => {
-    // Every 60 ms with a 100 ms cooldown: 0 starts, 60 is suppressed, 120 starts
-    // (120 after 0), 180 suppressed, 240 starts.
+    // Every 60 ms with a 100 ms cooldown: 0 starts, 60 is suppressed, 120
+    // starts (120 after 0), 180 suppressed, 240 starts.
     const emitter = repeatEmitter(1, {
       kind: 'repeat',
       intervalMilliseconds: 60,

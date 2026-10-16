@@ -88,7 +88,8 @@ function runSegments(
   const cycle = loop.end - loop.start;
   const wanted = heard + RUN_MARGIN;
   // The member's frames that make `wanted`, each conversion's ceiling taken
-  // back, then as many cycles as reach them, and one more where rounding fell short.
+  // back, then as many cycles as reach them, and one more where rounding fell
+  // short.
   const varied = Math.ceil((wanted * member.sampleRate) / rate) + 1;
   const frames = Math.ceil((varied * numerator) / VARISPEED_DENOMINATOR) + 1;
   let cycles = Math.max(0, Math.ceil((frames - intro) / cycle));

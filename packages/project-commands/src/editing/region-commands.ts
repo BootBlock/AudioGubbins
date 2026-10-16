@@ -169,10 +169,10 @@ function writtenLoop(region: Region): string {
 /**
  * Whether a change of `old` to `region` must leave its loop's crossfade the
  * frames it reads before the loop's start (`validateLoopLead`): where the loop
- * changes, or where the region's start does and the loop had them. A loop
- * read back without them, as an edit made since can leave one, is kept while
- * the change leaves the loop alone, since placing the region shortens its
- * crossfade to fit and says so.
+ * changes, or where the region's start does and the loop had them. A loop read
+ * back without them, as an edit made since can leave one, is kept while the
+ * change leaves the loop alone, since placing the region shortens its crossfade
+ * to fit and says so.
  */
 function asksLoopLead(asset: Asset, old: Region, region: Region): boolean {
   if (writtenLoop(old) !== writtenLoop(region)) return true;
