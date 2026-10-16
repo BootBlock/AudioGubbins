@@ -188,10 +188,10 @@ describe('a preview plan continued by hand', () => {
   });
 
   it('lays a looping voice cut past the plan’s old end as far as it sounds', () => {
-    // One voice at a time, the oldest stolen, every 450 ms: the voice of
-    // 9.9 s starts a tenth of a second before the plan's end at 10 s, so its run
-    // is laid that far and a margin, and the next trigger at 10.35 s cuts it
-    // once the end has moved on, 0.45 s into its sound.
+    // One voice at a time, the oldest stolen, every 450 ms: the voice of 9.9 s
+    // starts a tenth of a second before the plan's end at 10 s, so its run is
+    // laid that far and a margin, and the next trigger at 10.35 s cuts it once
+    // the end has moved on, 0.45 s into its sound.
     const spec: VectorSpec = {
       scenario: vectorScenario(
         [

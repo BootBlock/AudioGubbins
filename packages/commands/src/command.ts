@@ -295,8 +295,8 @@ export interface Command<TContext> {
    * offers the command, so it must be cheap and must not change anything. A
    * control that runs the command with arguments, and the bus that runs it,
    * pass the invocation, so a command whose subject an argument names, rather
-   * than what the interface has chosen, is available where the argument
-   * names one.
+   * than what the interface has chosen, is available where the argument names
+   * one.
    */
   availability(context: TContext, invocation?: CommandInvocation): CommandAvailability;
 

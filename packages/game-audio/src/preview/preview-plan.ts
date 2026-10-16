@@ -6,8 +6,8 @@
  * The fixed streams (`plan-layout.ts`) come first; then each voice's own
  * streams (`voice-streams.ts`) and the lanes an emitter takes beyond its first,
  * each at places the plan gives (`stream-places.ts`), so a continuation from a
- * frame lets go of every stream made for an event from it on and keeps the
- * rest at their places (`plan-build.ts`). Each voice is laid in its lane at its
+ * frame lets go of every stream made for an event from it on and keeps the rest
+ * at their places (`plan-build.ts`). Each voice is laid in its lane at its
  * frame (`plan-voices.ts`), and the fixed streams are written for the horizon
  * and the end (`plan-fixed-streams.ts`). A plan that plays for long forgets
  * what has been heard ({@link forgetPreviewPlanBefore}, `plan-forgetting.ts`).
@@ -334,11 +334,12 @@ export function extendPreviewPlan(
 }
 
 /**
- * `previous` with what was heard before `frame` forgotten (`plan-forgetting.ts`):
- * the same sound from `frame` on, every stream still sounding at its place and
- * stating where it describes from, so an engine continuing into it keeps every
- * reader of what sounds. `frame` is one the engine has read past, at or before
- * `previous`'s horizon; a later continuation goes on from it or after it only.
+ * `previous` with what was heard before `frame` forgotten
+ * (`plan-forgetting.ts`): the same sound from `frame` on, every stream still
+ * sounding at its place and stating where it describes from, so an engine
+ * continuing into it keeps every reader of what sounds. `frame` is one the
+ * engine has read past, at or before `previous`'s horizon; a later continuation
+ * goes on from it or after it only.
  */
 export function forgetPreviewPlanBefore(
   previous: PreviewPlan,

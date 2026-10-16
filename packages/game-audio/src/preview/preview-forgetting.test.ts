@@ -4,14 +4,14 @@
  * times a second, its triggers overlapping without a silent moment between.
  *
  * Without forgetting, the plan keeps the streams of every voice it ever laid,
- * the loop's run gains a cycle for every one played and the emitter's motion
- * a point for every waypoint passed, and the simulation keeps a snapshot every
- * 256 actions and every event it made: each grows with the time played, and
- * the plan outgrows what a message may carry in minutes. Forgetting keeps each
- * as large as what is still to be heard, and changes nothing heard from the
- * frame forgotten: the plan sounds the same from there, every stream still
- * sounding stays at its place and reads the same, and a continuation after
- * forgetting keeps every reader of what sounds.
+ * the loop's run gains a cycle for every one played and the emitter's motion a
+ * point for every waypoint passed, and the simulation keeps a snapshot every
+ * 256 actions and every event it made: each grows with the time played, and the
+ * plan outgrows what a message may carry in minutes. Forgetting keeps each as
+ * large as what is still to be heard, and changes nothing heard from the frame
+ * forgotten: the plan sounds the same from there, every stream still sounding
+ * stays at its place and reads the same, and a continuation after forgetting
+ * keeps every reader of what sounds.
  */
 
 import { describe, expect, it } from 'vitest';

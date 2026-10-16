@@ -117,11 +117,11 @@ function pointsFrom(points: readonly AutomationPoint[], from: number): readonly 
 }
 
 /**
- * The first frame of a stream from `from` at which the automation `before`
- * and `after` may give a parameter another value: from `from` where they move
- * other parameters, and otherwise just past the last point each pair of lanes
- * shares from there, since a lane is linear between its points and held before
- * its first and after its last.
+ * The first frame of a stream from `from` at which the automation `before` and
+ * `after` may give a parameter another value: from `from` where they move other
+ * parameters, and otherwise just past the last point each pair of lanes shares
+ * from there, since a lane is linear between its points and held before its
+ * first and after its last.
  */
 function automationDivergence(
   before: readonly ParameterAutomation[] | undefined,

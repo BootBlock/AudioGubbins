@@ -81,8 +81,9 @@ export function targetGroup(
 /**
  * Available where a project is open to change and a group is named by the
  * invocation's `group` or chosen: a control that names its group, a row of the
- * groups' tree, runs on it whether or not one is chosen. Whether the named group
- * is one of the project's is the command's to say, as {@link targetGroup} does.
+ * groups' tree, runs on it whether or not one is chosen. Whether the named
+ * group is one of the project's is the command's to say, as {@link targetGroup}
+ * does.
  */
 export function groupAvailability(
   context: ShellContext,

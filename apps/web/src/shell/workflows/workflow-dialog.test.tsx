@@ -94,8 +94,9 @@ describe('a guided workflow’s dialog', () => {
     'analyses the whole of a region that does not loop as the loop Create Seamless Loop asks for',
     { timeout: 180_000 },
     async () => {
-      // The workflow asks for the whole region where it has no loop; read as the
-      // Loop panel reads a region, one that does not loop could not be analysed.
+      // The workflow asks for the whole region where it has no loop; read as
+      // the Loop panel reads a region, one that does not loop could not be
+      // analysed.
       const { window, regions } = await shown('workflow.create-seamless-loop');
       const dialog = screen.getByRole('dialog', { name: 'Create Seamless Loop' });
       expect(dialog).not.toHaveTextContent('does not loop');

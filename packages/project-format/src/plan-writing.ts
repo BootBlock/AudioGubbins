@@ -3,10 +3,10 @@
  * of every stream, segment and stage, an optional one left out where it is
  * absent, lists in the plan's own order, which is its meaning.
  *
- * A project keeps only plans its own edits make: a varispeed stream, a
- * chain's automation and a stream's forgotten frames belong to a game
- * preview's plan alone (ADR-0104), and the domain refuses a payload holding any
- * before it joins a project, so this writes none and the reader reads none.
+ * A project keeps only plans its own edits make: a varispeed stream, a chain's
+ * automation and a stream's forgotten frames belong to a game preview's plan
+ * alone (ADR-0104), and the domain refuses a payload holding any before it
+ * joins a project, so this writes none and the reader reads none.
  */
 
 import type {

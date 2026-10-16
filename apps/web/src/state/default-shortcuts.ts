@@ -330,8 +330,8 @@ export function placeDefaults(
  * monitoring on or off, and Shift with A, P, R and S arms, arms a punch,
  * records and stops. In the Loop panel, Y, E and Q cycle the loop, stress-test
  * its seam and stop; in the Game preview panel, T triggers an emitter by hand;
- * in a workflow's dialog, the usual modifier with Enter
- * applies it, and with Shift too leaves the refused items out.
+ * in a workflow's dialog, the usual modifier with Enter applies it, and with
+ * Shift too leaves the refused items out.
  *
  * The spectral selection is made from the keyboard as a pointer makes it
  * (REQ-UX-005). B selects a band of the time selection, Shift with B adds one
