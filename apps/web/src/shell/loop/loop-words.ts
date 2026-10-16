@@ -143,6 +143,17 @@ const SEAM_CHECKS: readonly (readonly [
   ['cycle-drift', 'Level drift over the loop', 'cycleDrift', (m) => m.cycleStability.drift],
 ];
 
+/**
+ * Whether a seam or cycle-stability check of `metrics` warns or fails: the
+ * checks a loop's processing can upset (ADR-0107), the crossfade's apart.
+ */
+export function seamFaulted(metrics: LoopMetrics): boolean {
+  return SEAM_CHECKS.some(([, , , read]) => {
+    const { verdict } = read(metrics);
+    return verdict === 'warn' || verdict === 'fail';
+  });
+}
+
 /** The crossfade's check, where the loop has one. */
 function crossfadeRow(crossfade: CrossfadeSuitability): CheckRow {
   return {

@@ -3,7 +3,7 @@
  * REQ-EDIT-014), each changed by one project command the history keeps.
  */
 
-import type { Command, CommandInvocation } from '@audiogubbins/commands';
+import { unchanged, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
   DEFAULT_LOOP_CROSSFADE_SHAPE,
   FadeShape,
@@ -12,6 +12,7 @@ import {
   flatMapResult,
   placeRegion,
   processingOfNewLoop,
+  ProcessingAcrossLoop,
   sampleCount,
   validateLoopLead,
   validateRegion,
@@ -197,6 +198,55 @@ function clearLoopCommand(): Command<ShellContext> {
   );
 }
 
+/** How a command says a loop renders its processing, or `undefined` where it names no way a loop has. */
+function processingArgument(invocation: CommandInvocation): ProcessingAcrossLoop | undefined {
+  const named = textArgument(invocation, 'processing');
+  return Object.values(ProcessingAcrossLoop).find((value) => value === named);
+}
+
+/** What a loop rendering its processing `processing` is said to do. */
+const PROCESSING_SAID: Readonly<Record<ProcessingAcrossLoop, string>> = {
+  [ProcessingAcrossLoop.Wrapped]: 'carries its effects over from the loop’s end',
+  [ProcessingAcrossLoop.FromStart]: 'runs its effects from the region’s start',
+};
+
+function loopProcessingCommand(): Command<ShellContext> {
+  return regionCommand(
+    'region.set-loop-processing',
+    'Set how effects run across the loop',
+    (context, invocation) => {
+      const processing = processingArgument(invocation);
+      if (processing === undefined) {
+        return `Say how the loop renders its effects: ${Object.values(ProcessingAcrossLoop).join(' or ')}.`;
+      }
+      const found = oneRegion(context, invocation);
+      if (typeof found === 'string') return found;
+      const { loop } = found.region;
+      if (loop === undefined) return loopAbsence(found.region);
+      const name = found.region.displayName;
+      if (loop.processingAcrossLoop === processing) {
+        return unchanged(
+          'loop.processing-unchanged',
+          `The loop of ${quoted(name)} already ${PROCESSING_SAID[processing]}.`,
+        );
+      }
+      changeProject(context, found.project.session, {
+        description: `Set how ${name}’s loop runs its effects`,
+        invocations: [
+          setRegionInvocation({
+            ...found.region,
+            loop: { ...loop, processingAcrossLoop: processing },
+          }),
+        ],
+        said: `The loop of ${quoted(name)} ${PROCESSING_SAID[processing]}.`,
+      });
+      return undefined;
+    },
+    ['region', 'loop', 'effects', 'rack', 'wrap', 'tail', 'processing'],
+    false,
+  );
+}
+
 /** Tags as a region keeps them: trimmed, each once, sorted. */
 function tagsOf(text: string): readonly string[] {
   const tags = text
@@ -233,5 +283,11 @@ function tagCommand(): Command<ShellContext> {
 
 /** The commands that name, loop and tag a region. */
 export function regionPropertyCommands(): readonly Command<ShellContext>[] {
-  return [renameCommand(), loopCommand(), clearLoopCommand(), tagCommand()];
+  return [
+    renameCommand(),
+    loopCommand(),
+    clearLoopCommand(),
+    loopProcessingCommand(),
+    tagCommand(),
+  ];
 }

@@ -305,6 +305,12 @@ export {
 } from './editing/placement-validation.js';
 export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
 export {
+  type FromStartCause,
+  type LoopRendering,
+  type LoopRenderingContext,
+  loopRendering,
+} from './editing/loop-rendering.js';
+export {
   markersInRegion,
   placeMarkers,
   placeRegion,

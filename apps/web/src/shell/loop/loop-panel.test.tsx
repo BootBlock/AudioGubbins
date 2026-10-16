@@ -9,6 +9,7 @@ import { regionEntryId } from '../../assets/project-entry.js';
 import { LOOP_PANEL } from '../../input/use-shortcuts.js';
 import type { ShellContext } from '../../commands/shell-context.js';
 import { panelCommandsOver } from '../../testing/command-availability.js';
+import { loopUnderReverb } from '../../testing/loop-under-reverb.js';
 import {
   holdPlatformFiles,
   windowWithAudio,
@@ -154,6 +155,41 @@ describe('the Loop panel', () => {
           'The region’s sound has changed since its loop was analysed, so what is shown here is of its sound as it was. Analyse it again to see its loop as it is now.',
         ),
       ).toBeInTheDocument();
+    },
+  );
+
+  it(
+    'says a seam fault comes from effects run from the region’s start, and that the loop can carry them over',
+    SEARCHING,
+    async () => {
+      const user = userEvent.setup();
+      const { audio } = await loopUnderReverb();
+      await audio.window.runAndHear('region.set-loop-processing', { processing: 'from-start' });
+      drawn(audio.window.context);
+      const cause =
+        'Its effects run from the region’s start, so the head of the loop carries the tail of the audio before it, not of its own end. Set “Effects across the loop” to “Carried over from the loop’s end” in the Inspector to hear the loop as it repeats.';
+
+      await user.click(screen.getByRole('button', { name: 'Analyse the loop' }));
+      await screen.findByRole(
+        'table',
+        { name: 'The loop’s checks, as it is heard with its crossfade' },
+        { timeout: 60_000 },
+      );
+      expect(await screen.findByText(/^As heard, the loop fails/u)).toBeInTheDocument();
+      expect(screen.getByText(cause)).toBeInTheDocument();
+
+      await act(async () => {
+        await audio.window.runAndHear('region.set-loop-processing', { processing: 'wrapped' });
+      });
+      // The analysis is of the sound as it was, so it says nothing of the loop now.
+      expect(screen.queryByText(cause)).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Analyse the loop' }));
+      await expect
+        .poll(() => screen.queryByText(/^The region’s sound has changed since its loop/u), {
+          timeout: 60_000,
+        })
+        .toBeNull();
+      expect(screen.queryByText(cause)).not.toBeInTheDocument();
     },
   );
 });

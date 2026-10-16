@@ -945,7 +945,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38681: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38685: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1240,7 +1240,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38681: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38685: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3134,6 +3134,7 @@ Published paths
   interface FrequencyBand
   readonly FrequencyBand.low: number
   readonly FrequencyBand.high: number
+  type FromStartCause = { readonly kind: "chosen"; } | { readonly kind: "unprocessed"; } | { readonly kind: "whole-pass"; readonly processors: readonly string[]; }
   type GainCurve = FadeCurve | { readonly kind: "constant"; readonly gain: number; }
   const HEAL_BORDER_FRAMES: 4
   const HIGHEST_MASK_FREQUENCY: number
@@ -3160,6 +3161,10 @@ Published paths
   readonly LoopDefinition.crossfadeShape: FadeShape
   readonly LoopDefinition.processingAcrossLoop: ProcessingAcrossLoop
   readonly LoopDefinition.crossfadeClampedFrom?: SampleCount
+  type LoopRendering = { readonly kind: "from-start"; readonly cause: FromStartCause; } | { readonly kind: "wrapped"; readonly racks: readonly EffectChain[]; }
+  interface LoopRenderingContext
+  readonly LoopRenderingContext.chains: ProjectChains
+  readonly LoopRenderingContext.catalogue: ProcessorCatalogue
   const MAIN_OUTPUT: RoutingTarget
   const MAXIMUM_CHAIN_SLOTS: 256
   const MAXIMUM_CHANNEL_COUNT: 256
@@ -3595,6 +3600,7 @@ Published paths
   function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
   function layoutOf(value: unknown, field: string): ChannelLayout
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
+  function loopRendering(asset: Asset, region: Region, context: LoopRenderingContext): LoopRendering | undefined
   function lowbias32(input: number): number
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]

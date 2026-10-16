@@ -383,6 +383,65 @@ describe('the Inspector panel (WU-05.D)', () => {
     expect(regionOf(audio).loop?.crossfadeLength).toBe(480);
   });
 
+  it('chooses how the loop renders its effects by the region’s command, one undo reversing it', async () => {
+    const audio = await loopInView();
+    await regionInView(audio);
+    audio.window.run('editor.select-time', { start: 12_000, end: 36_000 });
+    await audio.window.runAndHear('region.loop', { crossfade: 480 });
+    const ran: (readonly [string, CommandInvocation['arguments']])[] = [];
+    inspectorOver(audio.window, ran);
+    const user = userEvent.setup();
+
+    const choice = screen.getByRole('combobox', { name: 'Effects across the loop' });
+    expect(choice).toHaveTextContent('Carried over from the loop’s end');
+    // Nothing processes the region yet, so the choice changes nothing heard.
+    expect(
+      screen.getByText('No effect processes this region, so either choice sounds the same.'),
+    ).toBeInTheDocument();
+
+    await audio.window.runAndHear('rack.add-processor', { typeKey: 'reverb' });
+    expect(
+      screen.queryByText('No effect processes this region, so either choice sounds the same.'),
+    ).not.toBeInTheDocument();
+    choice.focus();
+    await user.keyboard('{Enter}');
+    await user.click(screen.getByRole('option', { name: 'From the region’s start' }));
+
+    expect(ran.at(-1)).toEqual([
+      'region.set-loop-processing',
+      { view: 'editor', region: regionOf(audio).id, processing: 'from-start' },
+    ]);
+    expect(regionOf(audio).loop?.processingAcrossLoop).toBe('from-start');
+    expect(
+      await screen.findByRole('combobox', { name: 'Effects across the loop' }),
+    ).toHaveTextContent('From the region’s start');
+    await act(async () => {
+      await audio.window.runAndHear('edit.undo');
+    });
+    expect(regionOf(audio).loop?.processingAcrossLoop).toBe('wrapped');
+    expect(screen.getByRole('combobox', { name: 'Effects across the loop' })).toHaveTextContent(
+      'Carried over from the loop’s end',
+    );
+  });
+
+  it('says why a loop under a processor that measures its whole input renders from the region’s start', async () => {
+    const audio = await loopInView();
+    await regionInView(audio);
+    audio.window.run('editor.select-time', { start: 12_000, end: 36_000 });
+    await audio.window.runAndHear('region.loop', { crossfade: 480 });
+    await audio.window.runAndHear('rack.add-processor', { typeKey: 'loudness-normalisation' });
+    inspectorOver(audio.window);
+
+    expect(screen.getByRole('combobox', { name: 'Effects across the loop' })).toHaveTextContent(
+      'Carried over from the loop’s end',
+    );
+    expect(
+      screen.getByText(
+        'Its effects run from the region’s start: Loudness normalisation measures the whole of its input, so the loop cannot carry them over from its end.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('never shows a name typed for one region as another’s of the same name', async () => {
     const audio = await windowWithAudio({
       regions: [

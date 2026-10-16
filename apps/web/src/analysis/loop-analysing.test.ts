@@ -15,8 +15,9 @@ import { sine } from '@audiogubbins/test-fixtures';
 
 import { planContextOf } from '../assets/project-assets.js';
 import { regionEntryId } from '../assets/project-entry.js';
+import { loopUnderReverb } from '../testing/loop-under-reverb.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
-import { regionLoopOf, type RegionLoop } from './loop-analysing.js';
+import { loopRequestOf, regionLoopOf, type RegionLoop } from './loop-analysing.js';
 
 holdPlatformFiles();
 
@@ -137,4 +138,58 @@ describe('a looped region as a loop analysis reads it (ADR-0103)', () => {
       expect(analysis.seam).toEqual(heardOnly.seam);
     },
   );
+});
+
+describe('a loop under a reverb, analysed (ADR-0107)', () => {
+  it('has a seamless loop where the reverb wraps across it, and a seam where it runs from the region’s start', async () => {
+    const { audio, region } = await loopUnderReverb();
+    const { context } = audio.window;
+    const analysed = async (name: string): Promise<LoopAnalysis> => {
+      const looped = loopOf(audio, region);
+      const asked = {
+        request: loopRequestOf(looped.loop),
+        quality: context.audioSettings.get().renderQuality,
+      };
+      return await analysedAs(looped, asked, looped.heard, looped.plain, name);
+    };
+
+    // What playback, export and the audition read is the region's own plan,
+    // wrapped, and changes with the choice.
+    const described = () => {
+      const sound = context.assets.find(regionEntryId(region));
+      const { state } = audio.session.getSnapshot().model;
+      const asset = state.project.assets.get(audio.assetId);
+      const kept = state.project.regions.get(region);
+      if (sound === undefined || asset === undefined || kept === undefined) {
+        throw new Error('The region is not open.');
+      }
+      const description = sound.describe();
+      expect(description).toMatchObject({
+        plan: expectSuccess(regionPlan(asset, kept, planContextOf(state))),
+      });
+      return description;
+    };
+    const wrappedSound = described();
+    const wrapped = (await analysed('wrapped')).current;
+    await audio.window.runAndHear('region.set-loop-processing', { processing: 'from-start' });
+    await expect.poll(() => described(), { timeout: 5000 }).not.toEqual(wrappedSound);
+    const fromStart = (await analysed('from-start')).current;
+
+    // Wrapped, the seam a game plays from the second cycle on is the loop's own.
+    for (const metric of [
+      wrapped.discontinuity,
+      wrapped.levelMismatch,
+      wrapped.phaseMismatch,
+      wrapped.spectralMismatch,
+      wrapped.cycleStability.seam,
+      wrapped.cycleStability.drift,
+    ]) {
+      expect(metric.verdict).toBe('pass');
+    }
+    // From the region's start, the loud half's tail is in the loop's head
+    // and gone by its end.
+    expect(fromStart.discontinuity.verdict).toBe('fail');
+    expect(fromStart.levelMismatch.verdict).toBe('fail');
+    expect(fromStart.cycleStability.drift.verdict).toBe('fail');
+  });
 });
