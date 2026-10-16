@@ -183,8 +183,8 @@ export interface PreviewParts {
 
 /**
  * The Game preview as the page runs it: played through `audio`'s playback on
- * the page's timers, its members' renders made by `audio`'s preview worker,
- * and set up from the project open in `projects` and `assets`.
+ * the page's timers, its members' renders made by `audio`'s preview worker, and
+ * set up from the project open in `projects` and `assets`.
  */
 export function startGamePreview(
   audio: PreviewParts,

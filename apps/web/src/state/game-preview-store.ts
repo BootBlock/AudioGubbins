@@ -8,11 +8,12 @@
  * scenario commands, which is the only way it reaches the project. Nothing here
  * is saved, undone or written into the project, and a run changes no edit.
  *
- * Beside it, how far the renders its members are heard from have come, which
- * a run waits for. The run's view is what the panel lists: the events heard so far, newest
- * last and only the latest {@link RECENT_EVENTS} of them, with a count of every
- * kind; the voices sounding against each emitter's limit; the voice budget and
- * how many were stolen or refused for it; and how late a hand trigger is heard.
+ * Beside it, how far the renders its members are heard from have come, which a
+ * run waits for. The run's view is what the panel lists: the events heard so
+ * far, newest last and only the latest {@link RECENT_EVENTS} of them, with a
+ * count of every kind; the voices sounding against each emitter's limit; the
+ * voice budget and how many were stolen or refused for it; and how late a hand
+ * trigger is heard.
  */
 
 import type {
@@ -44,8 +45,8 @@ export interface PreviewRunStats {
   /** The most voices sounding at once across every emitter, at the preview quality. */
   readonly budget: number;
   /**
-   * How long the last hand trigger took from the press to being heard, the
-   * feed ahead, a chunk and the build included; `undefined` before one is heard.
+   * How long the last hand trigger took from the press to being heard, the feed
+   * ahead, a chunk and the build included; `undefined` before one is heard.
    */
   readonly latencyMilliseconds: number | undefined;
   /** The latest events heard, oldest first, at most {@link RECENT_EVENTS}. */

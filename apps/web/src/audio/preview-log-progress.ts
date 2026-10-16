@@ -1,14 +1,14 @@
 /**
  * What a run of the game preview has been heard to do, as the panel lists it
  * (ADR-0104): the events up to the frame the listener hears, the voices each
- * emitter sounds against its limit, a count of each kind of event, and how
- * late the last hand trigger was heard.
+ * emitter sounds against its limit, a count of each kind of event, and how late
+ * the last hand trigger was heard.
  *
  * Only events the listener has heard are taken: a continuation decides afresh
  * only from a frame the feeder has not read, which is never before the frame
- * heard, so the events taken are never changed under the list, and the place
- * it has reached in the log stays the place of the same event. Each is taken
- * once, so a long run costs its new events at each look.
+ * heard, so the events taken are never changed under the list, and the place it
+ * has reached in the log stays the place of the same event. Each is taken once,
+ * so a long run costs its new events at each look.
  */
 
 import type { PreviewEmitterId, PreviewEventLog } from '@audiogubbins/game-audio';

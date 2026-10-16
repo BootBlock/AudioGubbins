@@ -1,9 +1,9 @@
 /**
  * A run of the game preview through a playback control it drives (ADR-0104):
- * played from the start, laid further ahead as the feeder reads, continued
- * from the frame the feeder reads next by a hand trigger, moved where the
- * feeder had read past it, followed by a running change where a still emitter
- * moves, kept from growing over a long run, and stopped.
+ * played from the start, laid further ahead as the feeder reads, continued from
+ * the frame the feeder reads next by a hand trigger, moved where the feeder had
+ * read past it, followed by a running change where a still emitter moves, kept
+ * from growing over a long run, and stopped.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -124,9 +124,9 @@ function setupOf(
 }
 
 /**
- * A playback control as the run sees it: it holds what it was last given,
- * reads where a test says, and goes on into a continuation from where it
- * reads, making it again where the feeder had read past its frame.
+ * A playback control as the run sees it: it holds what it was last given, reads
+ * where a test says, and goes on into a continuation from where it reads,
+ * making it again where the feeder had read past its frame.
  */
 class FakePlayback implements PreviewPlayback {
   loaded: Programme | undefined;

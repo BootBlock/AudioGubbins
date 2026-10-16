@@ -1,13 +1,13 @@
 /**
  * The listener-and-emitter pad (ADR-0104, the plan's section 11): the scenario
- * seen from above, the listener at its place, each emitter where it stands
- * and each moving one's path.
+ * seen from above, the listener at its place, each emitter where it stands and
+ * each moving one's path.
  *
- * The listener and each still emitter are focusable: the arrow keys move one
- * by a tenth of a unit, by a whole unit with Shift, and a pointer drags it; a
+ * The listener and each still emitter are focusable: the arrow keys move one by
+ * a tenth of a unit, by a whole unit with Shift, and a pointer drags it; a
  * moving emitter's path is set by its waypoints' fields. Nothing on the pad
- * moves of its own accord, so it honours reduced motion as it is. A list
- * beside it says each emitter's distance and direction in words.
+ * moves of its own accord, so it honours reduced motion as it is. A list beside
+ * it says each emitter's distance and direction in words.
  */
 
 import {

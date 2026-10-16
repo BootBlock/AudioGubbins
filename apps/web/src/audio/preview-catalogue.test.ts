@@ -4,11 +4,11 @@
  * The game-audio package plans with a restatement of the spatial panner's and
  * the gain's descriptors, since it may not reach the processors; the
  * application plans with the processors' own. So a plan the package's tests
- * prove could still name a value the real panner refuses, or a parameter it
- * has not got. Here every rule and space the preview can be given is planned
- * with the real catalogue and each value checked against the real descriptor;
- * and the restatement is held to the real descriptors, parameter by
- * parameter, so it cannot drift from them.
+ * prove could still name a value the real panner refuses, or a parameter it has
+ * not got. Here every rule and space the preview can be given is planned with
+ * the real catalogue and each value checked against the real descriptor; and
+ * the restatement is held to the real descriptors, parameter by parameter, so
+ * it cannot drift from them.
  */
 
 import { describe, expect, it } from 'vitest';

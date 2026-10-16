@@ -5,16 +5,15 @@
  * the preview continues with a horizon 100 ms past it, the rest laid later off
  * the trigger's path.
  *
- * Counted in the processor time the trigger takes on the test's own thread,
- * not by the clock: by the clock a reading also counts the time the test waits
+ * Counted in the processor time the trigger takes on the test's own thread, not
+ * by the clock: by the clock a reading also counts the time the test waits
  * while a busy machine runs other work, which put a trigger of 0.6 ms at 1.6 ms
- * on a shared machine; and not in the whole process's, which counts the
- * garbage collector's helper threads as well, two or three times the thread's
- * own for work that allocates as a plan's extension does. Processor time is
- * counted in steps of the system's clock tick, so the trigger is run in blocks
- * of at least 64 ms of it and each block's average taken; the least of five
- * blocks is what the work costs when nothing else slows it, as a benchmark's
- * best run is.
+ * on a shared machine; and not in the whole process's, which counts the garbage
+ * collector's helper threads as well, two or three times the thread's own for
+ * work that allocates as a plan's extension does. Processor time is counted in
+ * steps of the system's clock tick, so the trigger is run in blocks of at least
+ * 64 ms of it and each block's average taken; the least of five blocks is what
+ * the work costs when nothing else slows it, as a benchmark's best run is.
  *
  * Measured on the reference machine: the simulation 0.5 to 0.7 ms, the plan's
  * extension 1.3 to 2.5 ms, most of it laying again every lane that sounds

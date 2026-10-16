@@ -6,10 +6,10 @@
  * quality.
  *
  * Read, never written: the project's state, its game-audio policy and the
- * catalogue of opened assets are only looked at, so a run changes no edit.
- * Each member is heard as its view hears it, its rack and loop crossfade
- * included, and a member whose audio the page cannot open yet leaves its
- * pool with the reason said.
+ * catalogue of opened assets are only looked at, so a run changes no edit. Each
+ * member is heard as its view hears it, its rack and loop crossfade included,
+ * and a member whose audio the page cannot open yet leaves its pool with the
+ * reason said.
  */
 
 import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
@@ -157,8 +157,8 @@ function heardMembers(
 /**
  * The setup that plays `scenario` in `sources`, or why it cannot be played: the
  * project has no game audio, or a subject's members cannot be heard yet. What
- * each member sounds like is read once, so a run plays what it was started
- * with however the project changes while it plays.
+ * each member sounds like is read once, so a run plays what it was started with
+ * however the project changes while it plays.
  */
 function previewSetup(scenario: GamePreviewScenario, sources: SetupSources): SetupResult {
   const { state } = sources;

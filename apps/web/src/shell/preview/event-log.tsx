@@ -1,8 +1,8 @@
 /**
  * The preview's event log as a table (ADR-0104): each trigger and voice the
  * listener has heard, newest last, with the member, pitch, gain, offset and bus
- * each start chose; and a polite count of them said at most once a second, so
- * a rapid run is not read out event by event.
+ * each start chose; and a polite count of them said at most once a second, so a
+ * rapid run is not read out event by event.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';

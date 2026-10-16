@@ -1,8 +1,8 @@
 /**
  * One emitter of the scenario set up: what it plays, the rules it plays by and
- * where they come from (the defaults where they resolve unset, said so), how
- * it is triggered and moves, its voices against its limit while a run plays,
- * and its own Trigger and Stop.
+ * where they come from (the defaults where they resolve unset, said so), how it
+ * is triggered and moves, its voices against its limit while a run plays, and
+ * its own Trigger and Stop.
  */
 
 import { useId, type ReactNode } from 'react';

@@ -1,6 +1,6 @@
 /**
- * A position typed in, axis by axis, in the scenario's space: x, y and z in
- * 3D, x and y in 2D, where z is always 0.
+ * A position typed in, axis by axis, in the scenario's space: x, y and z in 3D,
+ * x and y in 2D, where z is always 0.
  */
 
 import type { ReactNode } from 'react';

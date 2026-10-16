@@ -1,9 +1,9 @@
 /**
- * The Game preview panel (ADR-0104, the plan's section 11): the scenario
- * picker and editor, the listener-and-emitter pad, Run, Stop and the
- * triggers, the rules each emitter plays by and where they come from, the bus
- * levels, the seed, the event log, the voices sounding against each limit and
- * the voice budget, and how late a hand trigger is heard.
+ * The Game preview panel (ADR-0104, the plan's section 11): the scenario picker
+ * and editor, the listener-and-emitter pad, Run, Stop and the triggers, the
+ * rules each emitter plays by and where they come from, the bus levels, the
+ * seed, the event log, the voices sounding against each limit and the voice
+ * budget, and how late a hand trigger is heard.
  *
  * It reads the stores and runs commands; the scenario set up is the session's
  * and changes in its store until it is kept (`game-preview-store.ts`), and no

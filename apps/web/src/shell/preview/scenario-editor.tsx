@@ -1,9 +1,9 @@
 /**
  * The scenario set up, as the person changes it (ADR-0104): its name, space,
  * seed and panning, the listener, the bus levels and each emitter, with every
- * reason it cannot be played as it stands. A change is the session's until
- * the scenario is kept; while a run plays it, what can be heard moving is
- * heard at once and the rest from the next run, which the panel says.
+ * reason it cannot be played as it stands. A change is the session's until the
+ * scenario is kept; while a run plays it, what can be heard moving is heard at
+ * once and the rest from the next run, which the panel says.
  */
 
 import { useId, useMemo, type ReactNode } from 'react';

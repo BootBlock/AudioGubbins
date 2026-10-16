@@ -1,9 +1,9 @@
 /**
  * A run of the game preview, as the transport plays it (ADR-0104): the
- * simulation of a scenario played as its plan through the one playback
- * control, a short way ahead of what the feeder reads, and continued without a
- * break as playback goes on, as a hand triggers or stops an emitter, and as the
- * person moves what can be heard moving.
+ * simulation of a scenario played as its plan through the one playback control,
+ * a short way ahead of what the feeder reads, and continued without a break as
+ * playback goes on, as a hand triggers or stops an emitter, and as the person
+ * moves what can be heard moving.
  *
  * The run keeps one lineage: the hand actions so far, the simulation made of
  * them and the plan made of that, and the programme playing it. Every change
@@ -11,15 +11,15 @@
  * own state and the plan extended from the frame the change starts at, which
  * costs the change's own events, and the transport goes on into the new
  * programme from there (`PlaybackControl.continue`). A continuation the feeder
- * has read past is made again from where it had read; a hand action is moved
- * to that frame. The plan is laid {@link AHEAD_SECONDS} ahead of what the
- * feeder reads, so a hand trigger replaces little, and it is laid afresh at a
- * silent moment once it holds many voices (`preview-rebase.ts`), so a long run's
- * plan does not grow without end.
+ * has read past is made again from where it had read; a hand action is moved to
+ * that frame. The plan is laid {@link AHEAD_SECONDS} ahead of what the feeder
+ * reads, so a hand trigger replaces little, and it is laid afresh at a silent
+ * moment once it holds many voices (`preview-rebase.ts`), so a long run's plan
+ * does not grow without end.
  *
  * The run plays at the person's preview quality, as the transport plays
- * everything, and reads the project only through the setup it was made with;
- * it runs no project command and changes no edit.
+ * everything, and reads the project only through the setup it was made with; it
+ * runs no project command and changes no edit.
  */
 
 import {
@@ -212,9 +212,9 @@ export class PreviewRun {
   }
 
   /**
-   * Runs `change` once every change before it has settled. A change that
-   * faults ends the run, saying why, rather than leaving every later change
-   * waiting on it.
+   * Runs `change` once every change before it has settled. A change that faults
+   * ends the run, saying why, rather than leaving every later change waiting on
+   * it.
    */
   #enqueue(change: () => Promise<void>): Promise<void> {
     const next = this.#work
@@ -227,9 +227,9 @@ export class PreviewRun {
   }
 
   /**
-   * The lineage going on from `base` with `hand` to `horizon`, its plan
-   * changed from `from`, laid afresh where it holds many voices and nothing
-   * sounds at `read`, the first frame the feeder may switch at.
+   * The lineage going on from `base` with `hand` to `horizon`, its plan changed
+   * from `from`, laid afresh where it holds many voices and nothing sounds at
+   * `read`, the first frame the feeder may switch at.
    */
   #built(
     base: Lineage,
@@ -255,8 +255,8 @@ export class PreviewRun {
 
   /**
    * Goes on into `built` from `from`, made again by `again` where the feeder
-   * had read past it, and answers what it went on into, or `undefined` where
-   * it could not, which ends the run.
+   * had read past it, and answers what it went on into, or `undefined` where it
+   * could not, which ends the run.
    */
   async #continue(
     built: DomainResult<Lineage>,

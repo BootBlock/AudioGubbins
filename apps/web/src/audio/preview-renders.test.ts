@@ -1,8 +1,8 @@
 /**
- * The renders a preview's members are heard from (`preview-renders.ts`):
- * asked for only where a member's chain cannot run as it is heard, counted
- * made once each render is whole, declined ones said, kept while the same
- * scenario asks for them and let go for another.
+ * The renders a preview's members are heard from (`preview-renders.ts`): asked
+ * for only where a member's chain cannot run as it is heard, counted made once
+ * each render is whole, declined ones said, kept while the same scenario asks
+ * for them and let go for another.
  */
 
 import { describe, expect, it } from 'vitest';

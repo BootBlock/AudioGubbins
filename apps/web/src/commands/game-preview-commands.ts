@@ -1,8 +1,8 @@
 /**
  * The Game preview's commands (ADR-0104, ADR-0106, ADR-0013): those over its
  * scenario, here, setting one up, new or from the project, keeping it in the
- * project, deleting it there and drawing it with a new seed; and those that
- * run it (`preview-run-commands.ts`).
+ * project, deleting it there and drawing it with a new seed; and those that run
+ * it (`preview-run-commands.ts`).
  *
  * A scenario set up is the session's (`game-preview-store.ts`) until it is
  * kept, which runs the project's scenario commands as one change the history

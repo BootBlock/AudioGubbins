@@ -3,17 +3,17 @@
  *
  * A preview plan keeps the streams of every voice it ever laid, at their
  * places, so a continuation keeps every reader of what is sounding; and the
- * feeder compares every stream and segment of the old plan with the new one
- * at each continuation. Over a long run, triggered by hand or by a pattern,
- * that is a plan and a comparison that grow with every trigger.
+ * feeder compares every stream and segment of the old plan with the new one at
+ * each continuation. Over a long run, triggered by hand or by a pattern, that
+ * is a plan and a comparison that grow with every trigger.
  *
  * So a run lays its plan again from a frame at which nothing sounds: the plan
  * is made afresh from the events from that frame on, the voices numbered from
  * the first of them, and the transport goes on into it there. Every reader is
  * made afresh at that frame, which nothing sounding can hear: each lane is
  * silent, so each panner, bus gain and the output read silence on both sides.
- * The simulation is untouched, so the log, every later choice and what the
- * seed decides are what they would have been.
+ * The simulation is untouched, so the log, every later choice and what the seed
+ * decides are what they would have been.
  */
 
 import type { PreviewEvent, PreviewSimulation } from '@audiogubbins/game-audio';

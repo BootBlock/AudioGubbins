@@ -1,7 +1,7 @@
 /**
  * The Game preview's commands that run it (ADR-0104, ADR-0013): running the
- * scenario set up, stopping it, and triggering and stopping an emitter by
- * hand; the scenario's own are `game-preview-commands.ts`, which gathers both.
+ * scenario set up, stopping it, and triggering and stopping an emitter by hand;
+ * the scenario's own are `game-preview-commands.ts`, which gathers both.
  *
  * A scenario set up is the session's (`game-preview-store.ts`) until it is
  * kept, which runs the project's scenario commands as one change the history
@@ -79,9 +79,9 @@ function playable(
 }
 
 /**
- * The emitter an invocation names, or the first of the scenario playing, or
- * why there is none. An identifier is text, so it is answered inside an
- * object, apart from the refusal's text.
+ * The emitter an invocation names, or the first of the scenario playing, or why
+ * there is none. An identifier is text, so it is answered inside an object,
+ * apart from the refusal's text.
  */
 function emitterOf(
   context: ShellContext,

@@ -2,8 +2,8 @@
  * The Game preview's commands over a real project (ADR-0104, ADR-0106): a
  * scenario set up is the session's until it is kept, which the project's
  * scenario commands do as a change the history keeps; deleting a kept one
- * removes it there; and running the preview changes nothing of the project,
- * its history least of all.
+ * removes it there; and running the preview changes nothing of the project, its
+ * history least of all.
  */
 
 import { describe, expect, it } from 'vitest';

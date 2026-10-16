@@ -1,10 +1,10 @@
 /**
  * The programme of a game preview (ADR-0104): a preview plan played as the
  * transport plays every edited sound, through a graph of its sound in the
- * project's layout to a meter and the output, at the project's rate, and
- * going on from the programme playing where it continues one. Its content is
- * a version the run counts, so the transport tells a running change of its
- * values (a still emitter moved, a bus fader) from the plan before.
+ * project's layout to a meter and the output, at the project's rate, and going
+ * on from the programme playing where it continues one. Its content is a
+ * version the run counts, so the transport tells a running change of its values
+ * (a still emitter moved, a bus fader) from the plan before.
  */
 
 import {

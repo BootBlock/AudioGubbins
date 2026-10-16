@@ -1,16 +1,16 @@
 /**
  * The renders a game preview's members are heard from, made before a run
  * (ADR-0104, ADR-0061 amended): a member whose sound runs a chain that cannot
- * be run as it is heard, as a loudness normaliser that measures its whole
- * input first cannot, is played from the preview worker's render of it, and
- * a voice that reached a render still being made would wait for it. So the
- * preview asks for each such render while the scenario is set up, holds it
- * while the scenario is, and runs only once every one is made.
+ * be run as it is heard, as a loudness normaliser that measures its whole input
+ * first cannot, is played from the preview worker's render of it, and a voice
+ * that reached a render still being made would wait for it. So the preview asks
+ * for each such render while the scenario is set up, holds it while the
+ * scenario is, and runs only once every one is made.
  *
- * A render is kept under what decides its sound, not under its place in a
- * plan (`cached-stream-key.ts`), so the render of a member's own stream is the
- * one each voice's copy of it reads. A render the cache declines is not
- * waited for: the voice runs the chain itself, and the reason is said.
+ * A render is kept under what decides its sound, not under its place in a plan
+ * (`cached-stream-key.ts`), so the render of a member's own stream is the one
+ * each voice's copy of it reads. A render the cache declines is not waited for:
+ * the voice runs the chain itself, and the reason is said.
  */
 
 import {
@@ -125,8 +125,8 @@ export class RenderPreparation {
   }
 
   /**
-   * Settles once `stream` is made to its `last` frame, with why it was
-   * declined or failed where it was, and with nothing once let go.
+   * Settles once `stream` is made to its `last` frame, with why it was declined
+   * or failed where it was, and with nothing once let go.
    */
   async #made(
     stream: CachedStream,
