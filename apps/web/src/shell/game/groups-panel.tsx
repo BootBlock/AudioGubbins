@@ -1,16 +1,16 @@
 /**
- * The Asset groups panel (ADR-0101, ADR-0102): the project's asset groups as
- * a tree, the commands that make, move, name, delete and export them, and, for
+ * The Asset groups panel (ADR-0101, ADR-0102): the project's asset groups as a
+ * tree, the commands that make, move, name, delete and export them, and, for
  * the group chosen, its members in their assignment order, each with how it
- * stands to its group's processing, what it overrides, its loudness against
- * the target it resolves to, and its export as the game export plan has it,
- * planned with the owner of each value or refused with every reason.
+ * stands to its group's processing, what it overrides, its loudness against the
+ * target it resolves to, and its export as the game export plan has it, planned
+ * with the owner of each value or refused with every reason.
  *
  * It reads the stores and runs commands, and writes nothing itself (`CLAUDE.md`
  * G2): the policy is the game-audio package's resolution of the project state
  * as it stands, the plan is worked out from it as it is drawn
- * (`export-plan.tsx`), and the loudness readings are the session's
- * measurements (`group-members.tsx`).
+ * (`export-plan.tsx`), and the loudness readings are the session's measurements
+ * (`group-members.tsx`).
  */
 
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';

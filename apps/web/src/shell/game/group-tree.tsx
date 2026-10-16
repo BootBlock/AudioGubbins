@@ -1,13 +1,12 @@
 /**
- * The asset groups' forest as an ARIA tree (ADR-0101, REQ-UX-005): each group
- * a tree item at its depth, with roving focus, so the tree is one stop in the
- * tab order and the arrows move inside it. Up and Down move to the item
- * before and after, Right opens a closed group or moves into an open one,
- * Left closes an open group or moves to its parent, Home and End go to the
- * first and last, Enter chooses the group, which the Inspector then shows,
- * F2 renames it in place, Escape putting the name back, and Delete deletes
- * it, its refusal said where it holds members or groups. A press chooses the
- * group too.
+ * The asset groups' forest as an ARIA tree (ADR-0101, REQ-UX-005): each group a
+ * tree item at its depth, with roving focus, so the tree is one stop in the tab
+ * order and the arrows move inside it. Up and Down move to the item before and
+ * after, Right opens a closed group or moves into an open one, Left closes an
+ * open group or moves to its parent, Home and End go to the first and last,
+ * Enter chooses the group, which the Inspector then shows, F2 renames it in
+ * place, Escape putting the name back, and Delete deletes it, its refusal said
+ * where it holds members or groups. A press chooses the group too.
  *
  * Every change is the command of its name, which the palette runs as well;
  * the tree keeps only which groups are closed and which one has the focus.

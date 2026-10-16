@@ -9,18 +9,57 @@
  * target, through the project's commands.
  */
 
-import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
+import {
+  CommandCategory,
+  unchanged,
+  type Command,
+  type CommandInvocation,
+} from '@audiogubbins/commands';
 import { memberKey, type GroupMember } from '@audiogubbins/game-audio';
 
 import type { MeasuredMember } from '../analysis/loudness-measuring.js';
 import { assetEntryId, regionEntryId } from '../assets/project-entry.js';
-import { gameScope, groupAvailability, groupName, memberName, targetGroup } from './game-target.js';
-import { shellCommand } from './shell-command.js';
+import {
+  gameScope,
+  groupName,
+  memberName,
+  namesOf,
+  targetGroup,
+  targetMembers,
+  type GameScope,
+} from './game-target.js';
+import { sessionAvailability } from './project-access.js';
+import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The entry the editor opens `member` as. */
 function entryOf(member: GroupMember): string {
   return member.kind === 'region' ? regionEntryId(member.region) : assetEntryId(member.asset);
+}
+
+/**
+ * The members a measurement reads: those the invocation names by `members`,
+ * as a workflow's follow-up names what it normalised, or else every member of
+ * the group named or chosen; with what the measurement is said to be of.
+ */
+function measuredMembers(
+  context: ShellContext,
+  invocation: CommandInvocation,
+  scope: GameScope,
+): { readonly members: readonly GroupMember[]; readonly of: string } | string {
+  if (textArgument(invocation, 'members') !== undefined) {
+    const named = targetMembers(context, invocation, scope.state.project);
+    return typeof named === 'string'
+      ? named
+      : { members: named, of: namesOf(scope.state.project, named) };
+  }
+  const group = targetGroup(context, invocation, scope.view);
+  if (typeof group === 'string') return group;
+  const members = scope.view.membersOf(group.id).map((one) => one.member);
+  const name = groupName(scope.view, group.id);
+  return members.length === 0
+    ? `The group ${name} has no member to measure.`
+    : { members, of: `the group ${name}’s members` };
 }
 
 function measureCommand(): Command<ShellContext> {
@@ -31,34 +70,29 @@ function measureCommand(): Command<ShellContext> {
     (context, invocation) => {
       const scope = gameScope(context);
       if (typeof scope === 'string') return scope;
-      const group = targetGroup(context, invocation, scope.view);
-      if (typeof group === 'string') return group;
-      const memberships = scope.view.membersOf(group.id);
-      if (memberships.length === 0) {
-        return `The group ${groupName(scope.view, group.id)} has no member to measure.`;
-      }
+      const asked = measuredMembers(context, invocation, scope);
+      if (typeof asked === 'string') return asked;
       const measured: MeasuredMember[] = [];
       const unheard: string[] = [];
-      for (const { member } of memberships) {
+      for (const member of asked.members) {
         const name = memberName(scope.state.project, member);
         const audio = context.assets.find(entryOf(member));
         if (audio === undefined) unheard.push(name);
         else measured.push({ key: memberKey(member), name, audio });
       }
       if (unheard.length > 0) {
-        return `${unheard.join(', ')} cannot be heard yet, so the group is not measured; wait for ${unheard.length === 1 ? 'it' : 'them'} to open.`;
+        return `${unheard.join(', ')} cannot be heard yet, so nothing is measured; wait for ${unheard.length === 1 ? 'it' : 'them'} to open.`;
       }
       context.loudness.measure(measured, context.audioSettings.get().renderQuality);
-      context.interaction.announce(
-        `Measuring the loudness of the group ${groupName(scope.view, group.id)}’s members against their targets.`,
-      );
+      context.interaction.announce(`Measuring the loudness of ${asked.of} against their targets.`);
       return undefined;
     },
     {
-      availability: groupAvailability,
+      // Named members need no group chosen, so the body says what is missing.
+      availability: sessionAvailability,
       keywords: ['loudness', 'lufs', 'measure', 'conformance', 'target', 'true peak', 'group'],
       description:
-        'Measures the integrated loudness and true peak of each member of the asset group chosen, as the final render hears it, against the loudness target it resolves to.',
+        'Measures the integrated loudness and true peak of each member of the asset group chosen, or of the members named, as the final render hears it, against the loudness target each resolves to.',
     },
   );
 }

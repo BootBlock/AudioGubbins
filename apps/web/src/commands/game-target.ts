@@ -1,11 +1,11 @@
 /**
- * What the game commands act on (ADR-0101): the asset group an invocation
- * names by `group`, or the one chosen in the Asset groups panel; and the
- * members it names by `member`, as `region:<identifier>` or
- * `asset:<identifier>` separated by commas, or else the regions selected in
- * the editor in use, or the region or asset it shows. One rule for the
- * commands, the panel and the Inspector, so a control acts on what it is
- * drawn beside.
+ * What the game commands act on (ADR-0101): the asset group an invocation names
+ * by `group`, or the one chosen in the Asset groups panel; and the members it
+ * names by `member` or `members`, each by its member key (`region:<identifier>`
+ * or `asset:<identifier>`, `memberKey`) separated by commas, or else the
+ * regions selected in the editor in use, or the region or asset it shows. One
+ * rule for the commands, the panel and the Inspector, so a control acts on what
+ * it is drawn beside.
  *
  * A game command changes the project only through its game commands, run on
  * its session as one step; it reads the project state the session holds, and
@@ -104,11 +104,6 @@ function namedMember(project: Project, text: string): GroupMember | undefined {
   return undefined;
 }
 
-/** How a member is named in an argument: `region:<identifier>` or `asset:<identifier>`. */
-export function memberArgument(member: GroupMember): string {
-  return member.kind === 'region' ? `region:${member.region}` : `asset:${member.asset}`;
-}
-
 /** What a member is called in a sentence, quoted, or a phrase for one no longer in the project. */
 export function memberName(project: Project, member: GroupMember): string {
   const name =
@@ -147,13 +142,14 @@ function membersInView(
     : [{ kind: 'region', region: owner.region.id }];
 }
 
-/** The members the invocation names by `member`, or those of the editor in use; or why none. */
+/** The members the invocation names by `members` or `member`, or those of the editor in use; or why none. */
 export function targetMembers(
   context: ShellContext,
   invocation: CommandInvocation,
   project: Project,
 ): readonly [GroupMember, ...GroupMember[]] | string {
-  const named = textArgument(invocation, 'member');
+  // `members` is the name a workflow's follow-up gives the same list by.
+  const named = textArgument(invocation, 'members') ?? textArgument(invocation, 'member');
   if (named === undefined) return membersInView(context, invocation);
   const members: GroupMember[] = [];
   for (const text of named.split(',')) {

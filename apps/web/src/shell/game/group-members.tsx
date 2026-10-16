@@ -16,7 +16,7 @@ import { counted } from '@audiogubbins/text';
 
 import { detectionIdentity } from '../../analysis/detection-control.js';
 import { assetEntryId, regionEntryId } from '../../assets/project-entry.js';
-import { memberArgument, memberName } from '../../commands/game-target.js';
+import { memberName } from '../../commands/game-target.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { GamePolicyView } from '../../state/game-policy-view.js';
 import type { LoudnessReadings } from '../../state/loudness-store.js';
@@ -66,7 +66,7 @@ function MemberRow({
           id="game.remove-from-group"
           label="Take out"
           commands={commands}
-          args={{ member: memberArgument(member) }}
+          args={{ member: memberKey(member) }}
           compact
         />
       </td>

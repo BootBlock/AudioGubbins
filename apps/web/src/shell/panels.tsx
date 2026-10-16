@@ -12,12 +12,10 @@
  * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
  * latency in the Recording panel (`recording/recording-panel.tsx`), the
  * spectral selection, tools and edits in the Spectral panel
- * (`spectral/spectral-panel.tsx`), the asset groups in the Asset groups panel
+ * (`spectral/spectral-panel.tsx`), a region's loop in the Loop panel
+ * (`loop/loop-panel.tsx`), the asset groups in the Asset groups panel
  * (`game/groups-panel.tsx`), and the project system's History and Storage
  * panels (`project-panels.tsx`).
- * (`spectral/spectral-panel.tsx`), a region's loop in the Loop panel
- * (`loop/loop-panel.tsx`), and the project system's History and Storage panels
- * (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';

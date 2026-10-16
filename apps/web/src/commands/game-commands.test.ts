@@ -367,3 +367,43 @@ describe("measuring the group's loudness (ADR-0101)", { timeout: 30_000 }, () =>
     expect(readings.get().has(memberKey(regionMember(two)))).toBe(true);
   });
 });
+
+describe("the members a workflow's follow-up names (ADR-0105)", { timeout: 30_000 }, () => {
+  it('measures the members named by their keys, with no group chosen', async () => {
+    const audio = await footsteps();
+    audio.window.context.groups.forget();
+    const [, two] = regionsOf(audio);
+    if (two === undefined) throw new Error('The tone has its regions.');
+
+    audio.window.run('game.measure-loudness', { members: memberKey(regionMember(two)) });
+
+    const { readings } = audio.window.context.loudness;
+    await expect
+      .poll(() => [...readings.get()].map(([key, reading]) => [key, reading.kind]), {
+        timeout: 15_000,
+      })
+      .toEqual([[memberKey(regionMember(two)), 'measured']]);
+  });
+
+  it('exports the members named by their keys, each by its own policy', async () => {
+    const audio = await footsteps();
+    await audio.window.runAndHear('game.apply-preset-to-group', { preset: 'game-wav-16-48k' });
+    await audio.window.runAndHear('game.set-policy', {
+      field: 'naming',
+      value: policyValueArgument(
+        'naming',
+        expectSuccess(namingTemplate('{group:snake}_{number:2}')),
+      ),
+    });
+    const [, two] = regionsOf(audio);
+    if (two === undefined) throw new Error('The tone has its regions.');
+    const folder = new FakeDirectoryHandle('Game sounds', []);
+    audio.window.exporting.destinations.folder = folder;
+
+    await audio.window.runAndHear('game.export-members', {
+      members: memberKey(regionMember(two)),
+    });
+
+    expect(await namesIn(folder)).toEqual(['footsteps_02.wav']);
+  });
+});

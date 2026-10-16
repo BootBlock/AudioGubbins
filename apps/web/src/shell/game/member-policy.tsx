@@ -12,6 +12,7 @@ import { useId, type ReactNode } from 'react';
 
 import {
   POLICY_FIELDS,
+  memberKey,
   inheritedProcessing,
   type EffectivePolicy,
   type GroupMember,
@@ -23,7 +24,7 @@ import type { ProjectState } from '@audiogubbins/project-format';
 import { quoted } from '@audiogubbins/text';
 
 import { OVERRIDABLE_FIELDS } from '../../commands/game-field-words.js';
-import { memberArgument, memberName } from '../../commands/game-target.js';
+import { memberName } from '../../commands/game-target.js';
 import { chainWords } from '../../commands/rack-words.js';
 import { CommandButton } from '../command-button.js';
 import {
@@ -51,9 +52,9 @@ function MemberProcessing({
     processing.rack === undefined ? undefined : project.effectChains.get(processing.rack);
   const heard = rack === undefined ? 'It has no rack.' : `Its rack runs ${chainWords(rack)}.`;
   const inherits = processing.membership === 'inherit';
-  const args = { member: memberArgument(member) };
+  const args = { member: memberKey(member) };
   // What a reset to inherited would give it: the rack the package says an
-  // inheriting member has, never a reading of the policy of the interface's own.
+  // inheriting member has, never the interface's own reading of the policy.
   const wouldInherit = inheritedProcessing(parts.view.game, member);
   const inherited = wouldInherit === undefined ? undefined : project.effectChains.get(wouldInherit);
   const reset =
@@ -127,7 +128,7 @@ function MemberField<F extends Exclude<PolicyField, 'tags' | 'processing'>>({
               id: 'game.set-override',
               label: 'Override on this member',
               args: (edited) => ({
-                member: memberArgument(member),
+                member: memberKey(member),
                 field: overridable,
                 ...edited,
               }),
@@ -139,7 +140,7 @@ function MemberField<F extends Exclude<PolicyField, 'tags' | 'processing'>>({
               id="game.reset-override"
               label="Reset to inherited"
               commands={parts.commands}
-              args={{ member: memberArgument(member), field: overridable }}
+              args={{ member: memberKey(member), field: overridable }}
               compact
             />
           )}
@@ -204,7 +205,7 @@ function NotInGroup({
         id="game.assign-selection"
         label="Put it in the chosen group"
         commands={parts.commands}
-        args={{ member: memberArgument(member) }}
+        args={{ member: memberKey(member) }}
         compact
       />
     </section>
@@ -237,7 +238,7 @@ function MemberPolicySection({
           id="game.reset-all-overrides"
           label="Reset everything to inherited"
           commands={parts.commands}
-          args={{ member: memberArgument(member) }}
+          args={{ member: memberKey(member) }}
           compact
         />
       )}
@@ -245,7 +246,7 @@ function MemberPolicySection({
         id="game.remove-from-group"
         label="Take out of the group"
         commands={parts.commands}
-        args={{ member: memberArgument(member) }}
+        args={{ member: memberKey(member) }}
         compact
       />
     </section>

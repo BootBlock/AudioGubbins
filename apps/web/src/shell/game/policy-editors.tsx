@@ -2,10 +2,10 @@
  * The editors of an asset group's policy fields (ADR-0101): each starts from
  * the value the field resolves to now, so changing an inherited value starts
  * from it, and gives what it was set to as the value the policy commands take,
- * the project document's own canonical JSON, built by the game-audio
- * package's own constructors. A value one refuses is shown with its reason
- * beside the control that would set it, and nothing is run; one it accepts is
- * read again by the project's command, which is the authority.
+ * the project document's own canonical JSON, built by the game-audio package's
+ * own constructors. A value one refuses is shown with its reason beside the
+ * control that would set it, and nothing is run; one it accepts is read again
+ * by the project's command, which is the authority.
  */
 
 import { useState, type ReactNode } from 'react';

@@ -3132,12 +3132,12 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "Every command that changes the recording settings, as three tables, the profiles, the buffer and count-in, and the preferences and latency, each command a few lines over the store's revisions in `recording-settings.ts`; split by table, the shared `revised` and argument readers would move to a fourth file.",
     ],
     'apps/web/src/shell/menus.ts': [
-      355,
-      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table. Reviewed again when the Editor menu gained the asset groups' commands (ADR-0101): the growth is that group's entries, still a table.",
+      386,
+      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table. Reviewed again when the Editor menu gained the asset groups' commands (ADR-0101): the growth is that group's entries, still a table. Reviewed again when the asset groups' and the Loop panel's groups met: the growth is those two groups' entries, still a table.",
     ],
     'apps/web/src/shell/panels.tsx': [
-      374,
-      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read. Reviewed again when the Asset groups panel joined (ADR-0101): the growth is its arm, the parts it reads, and the context members it and the Inspector read, the group chosen, the loudness readings and the codecs served, still one arm per kind and one member per part read.",
+      393,
+      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read. Reviewed again when the Asset groups panel joined (ADR-0101): the growth is its arm, the parts it reads, and the context members it and the Inspector read, the group chosen, the loudness readings and the codecs served, still one arm per kind and one member per part read. Reviewed again when the Asset groups and Loop panels met: the growth is their two arms and the parts each reads, still one arm per kind.",
     ],
     'apps/web/src/commands/panel-commands.ts': [
       314,
@@ -3382,8 +3382,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'An exhaustive switch over the editing panels, one arm per kind, each handing a panel only the parts it reads. Reviewed again when the Inspector came to read the asset group chosen and the preferences its policy reads (ADR-0101): two parts more in one arm.',
     ],
     'apps/web/src/shell/panels.tsx: renderPanel': [
-      61,
-      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own.',
+      68,
+      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own. Reviewed again when the Asset groups panel’s arm joined the Loop panel’s: one arm more.',
     ],
     'apps/web/src/shell/recording/latency-section.tsx: Figures': [
       52,

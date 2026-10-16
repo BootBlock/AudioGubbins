@@ -4,11 +4,11 @@
  * setting and resetting what a member sets over its group, and choosing
  * whether it inherits its group's processing.
  *
- * A member joins inheriting its group's processing where it has no rack of
- * its own, and owning its processing where it has one, so joining never takes
- * away processing the person made; either is changed after by the command of
- * its name. Each change is the project's own game commands as one step. Naming
- * a group's regions by its template is `game-naming-commands.ts`.
+ * A member joins inheriting its group's processing where it has no rack of its
+ * own, and owning its processing where it has one, so joining never takes away
+ * processing the person made; either is changed after by the command of its
+ * name. Each change is the project's own game commands as one step. Naming a
+ * group's regions by its template is `game-naming-commands.ts`.
  */
 
 import {

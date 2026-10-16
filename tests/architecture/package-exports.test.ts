@@ -188,24 +188,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [],
   },
   '@audiogubbins/game-audio': {
-    "A preset's choices as a game export profile (ADR-0102), built ahead of the application's group policy editor, which applies a preset to a group as a profile.":
-      ['profileFromPreset'],
-    "The game export plan (ADR-0102), built ahead of the application's group export, which runs the planned items as one export batch after showing the refused ones, as the Export for Godot workflow's export follows its step: each member planned or refused with its owner named.":
-      [
-        'GameExportItem',
-        'GameExportPlan',
-        'GameExportProvenance',
-        'GameExportRequest',
-        'planGameExport',
-      ],
-    "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
-      ['resolveAll'],
-    "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
-      ['inheritedProcessing'],
     "The game preview (ADR-0104), built ahead of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario's validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
       [
-        'DEFAULT_EMITTER_RULES',
-        'DEFAULT_VOICE_VARIATION',
         'HandAction',
         'MemberSound',
         'PoolMember',
@@ -350,15 +334,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readEditPlan'],
   },
   '@audiogubbins/project-commands': {
-    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) which the guided workflows' plans are made of too: adding, removing, renaming and moving a group, resetting an override, taking a member out of its group, and choosing whether a member inherits its group's processing.":
-      [
-        'moveGroupInvocation',
-        'removeGroupInvocation',
-        'renameGroupInvocation',
-        'resetMemberOverrideInvocation',
-        'setMemberProcessingInvocation',
-        'unassignMemberInvocation',
-      ],
     "The invocations of the preview scenario commands (ADR-0104, ADR-0106), built ahead of the application's preview panel, which keeps, changes and deletes a scenario through them: adding a scenario, replacing one whole, and removing one.":
       ['addScenarioInvocation', 'removeScenarioInvocation', 'setScenarioInvocation'],
   },

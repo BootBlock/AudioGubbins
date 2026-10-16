@@ -5,11 +5,12 @@
  *
  * The path crosses from the page, so it is held here to the rule a game
  * export's destination is planned by (`folderSegmentProblem`): each name one
- * `safeFolderName` leaves as it is, and neither `.` nor `..`. That refuses an empty name, a separator or a
- * drive's colon inside a name, and every step out, so nothing is written
- * outside the folder chosen. A folder the path names that is not there yet is
- * made only once a file is created in it (`DeliveryFolder.folder`), so a
- * delivery refused, skipped or cancelled leaves the destination as it was.
+ * `safeFolderName` leaves as it is, and neither `.` nor `..`. That refuses an
+ * empty name, a separator or a drive's colon inside a name, and every step out,
+ * so nothing is written outside the folder chosen. A folder the path names that
+ * is not there yet is made only once a file is created in it
+ * (`DeliveryFolder.folder`), so a delivery refused, skipped or cancelled leaves
+ * the destination as it was.
  */
 
 import type { DomainFailure } from '@audiogubbins/domain';

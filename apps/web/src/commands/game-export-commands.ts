@@ -1,10 +1,10 @@
 /**
  * Exporting an asset group's members (ADR-0102): the game export plan of a
  * group or of the members selected, each member planned by the export profile,
- * naming template and destination folder it resolves to, or refused with
- * every reason naming the group or override that owns it, and then the
- * planned files run as one batch of the page's export, each by its own
- * settings into its own folder.
+ * naming template and destination folder it resolves to, or refused with every
+ * reason naming the group or override that owns it, and then the planned files
+ * run as one batch of the page's export, each by its own settings into its own
+ * folder.
  *
  * Nothing renders until every planned file is ready: the refused members are
  * said before the export starts, and the planned ones are exported without
