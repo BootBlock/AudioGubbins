@@ -1,17 +1,12 @@
 # Phase 10 — Game-Audio Tooling — Review Record
 
-> **Draft.** Written while the phase is built. The scope checks over the
-> integrated branch and the findings of the build are to be added when the
-> remaining work units land (WU-10.B, WU-10.E1a, WU-10.E1b, WU-10.E2,
-> WU-10.E3 and WU-10.F).
-
 ## The maintainer's decision
 
 On 2026-10-15 the maintainer required this phase to run the review pipeline
 of `contracts/review-gates.md` before `PASS`, and rejected the plan's
 recommendation (its conflict C12) to defer the lenses as the decision of
 2026-10-07 defers every phase's; section 16 of the plan
-(`docs/todo/phase-10-game-audio-tooling.md`) was written so.
+(`docs/todo/done/phase-10-game-audio-tooling.md`) was written so.
 
 On 2026-10-16 the maintainer decided otherwise: the packet's lens reviews and
 its adversarial review, with their verification, remediation and re-review,
@@ -21,7 +16,10 @@ The work units run the narrow gates of what they change, the type checks,
 lint, the dependency rules and the architecture and repository tests; the
 integrator runs one full `pnpm run verify:commit` over the phase branch for
 each wave of merges, recorded in the evidence
-(`reviews/phase-10-evidence.md`).
+(`reviews/phase-10-evidence.md`). The same day the maintainer
+relaxed, for this phase's units, the rule that a test written after the code
+it guards is proved by mutating that code: per-test mutation proofs are not
+required.
 
 Severity follows `contracts/review-gates.md`. `BLOCKER`, `CRITICAL` and `HIGH`
 prevent `PASS`. `MEDIUM` must be fixed or explicitly accepted with
@@ -107,21 +105,55 @@ kept in the tree. By the area of the design they changed:
 
 ## The scope checks
 
-**PENDING.** As Phase 09 did in place of its lenses, read-only scope checks
-by agents that built none of the work are to read the integrated branch
-against every In Scope item, acceptance criterion, invariant, cross-package
-rule, failure behaviour, forbidden shortcut and required contract of the
-packet, and against `ADR-0100` to `ADR-0106` and `CHG-0001`. Their findings
-will be numbered from F-01.
+No read-only scope check ran over the integrated branch before `PASS`. Under
+the maintainer's decision of 2026-10-16 the checks of the packet's In Scope
+items, acceptance criteria, invariants, cross-package rules, failure
+behaviour, forbidden shortcuts and required contracts, against `ADR-0100` to
+`ADR-0106` and `CHG-0001`, fall to the review after the whole specification
+is implemented, with the lenses. The evidence maps every item to its
+implementation and tests (`reviews/phase-10-evidence.md`).
 
 ## Found by the build
 
-**PENDING.** The units' reports and the integrator's follow-ups, numbered
-from B-01, with their dispositions, once the remaining units land. The
-deviations the merged units took from the design are recorded with their
-evidence in `reviews/phase-10-evidence.md` ("Accepted deviations from the
-design") and in the plan and ADRs they amend.
+The units and the integrator found B-01 to B-09 while building and
+integrating; B-01 to B-03 were found by running the browser test
+(`tests/e2e/game-workflows.spec.ts`). The deviations the units took from the
+design are recorded with their evidence in `reviews/phase-10-evidence.md`
+("Accepted deviations from the design") and in the plan and ADRs they amend.
+
+| Id | Severity | Status | Finding |
+| --- | --- | --- | --- |
+| B-01 | MEDIUM | CONFIRMED | A group command's availability asked only for a chosen group and never saw the invocation's group: with groups made and none chosen, as straight after Cut Into Sounds, pressing a group in the tree, F2 or Delete on it was refused with "Choose a group in the Asset groups panel first". |
+| B-02 | HIGH | CONFIRMED | A looping voice's run was laid to the plan's end when it started and lengthened only while not cut: a voice started just before the end and cut after the end moved on read its run past its end, a plan the engine refuses, which ended a preview of overlapping loops within a minute. |
+| B-03 | HIGH | CONFIRMED | The preview's plan was laid afresh only at a silent moment: a never-stopped loop, or triggers overlapping without a break, grew the plan (a cycle per cycle played), the motion (a point per waypoint) and the simulation's log and snapshots for as long as they played, past the 4,096 streams a message carries in minutes. |
+| B-04 | MEDIUM | CONFIRMED | Create Seamless Loop asked to analyse a region that does not loop over its whole length, but its analyses read each region as the Loop panel does and refused one without a loop, so its analysis could never be asked and the region never planned. |
+| B-05 | MEDIUM | CONFIRMED | A policy value a game command could not read was refused with the project format's document wording, which names no group or member, against the packet's rule that an invalid inherited setting identifies the group or override that owns it. |
+| B-06 | LOW | CONFIRMED | `packages/game-audio`'s refusals quoted the names people gave with straight quotes, where every command's text quotes with `@audiogubbins/text`'s curly `quoted`; one refusal then quoted two ways. |
+| B-07 | LOW | CONFIRMED | `hand-trigger.performance.test.ts` read the wall clock, and on a shared machine its 1 ms bound on the simulation read 1.28 to 1.60 ms even alone. |
+| B-08 | LOW | CONFIRMED | The preview plan was tested only against a catalogue double, which restated the spatial panner's ranges. |
+| B-09 | LOW | CONFIRMED | The Game preview's hand trigger had no default key, and the Loop panel's auditions were scoped to their keys by the panel's styling class. |
 
 ## Disposition
 
-**PENDING.**
+Every finding is fixed on the phase branch: B-08 by WU-10.E3 (`9cea6fc2`),
+B-07 by WU-10.E3, and B-01 to B-06 and B-09 by the final integration fixes,
+WU-10.FX (`39a4885e`). No `BLOCKER`, `CRITICAL`, `HIGH` or `MEDIUM` finding
+is open. The accepted `LOW` debt is listed in the evidence ("Accepted
+non-blocking debt") and the handoff (`traceability/handoffs/phase-10.md`):
+the browser test does not apply the built-in "Game SFX, −16 LUFS" chain;
+`packages/guided-workflows`' refusals still quote with straight quotes; the
+preview's simulation runs on the page at 2 to 3 ms a trigger; and the tests
+that time out under the whole suite's load. Q7, a looping region's rack
+rendered wrapped, is open for the maintainer.
+
+| Id | Disposition |
+| --- | --- |
+| B-01 | **Fixed** in `a14f67ee`. A command's availability is given the invocation where it is known: the bus passes the one it runs, and a control asks with the arguments it would run with. Held by "chooses the group an invocation names while none is chosen", "renames the group an invocation names while none is chosen, and refuses one naming none" and "deletes the group an invocation names while none is chosen" (`apps/web/src/commands/game-commands.test.ts`), and "hands a command the invocation it would run with, asked and run alike" (`packages/commands/src/registry.test.ts`). |
+| B-02 | **Fixed** in `08beafbd`. Every looping voice is lengthened as far as it sounds within the end: to the end where it is not cut, and to its fade's end where it is. Held by "lays a looping voice cut past the plan’s old end as far as it sounds" (`packages/game-audio/src/preview/extend-preview-plan.test.ts`). |
+| B-03 | **Fixed** in `121a40f3`, `e80d3951` and `ff40b06a`. A plan stream may state `forgottenBefore`, the first frame it still describes, and a continuation compares it only from there; `forgetPreviewBefore` and `forgetPreviewPlanBefore` drop what was heard; the run forgets every 5 s of playback what was heard more than 1 s behind the listener, and the laying afresh at a silent moment is removed (`ADR-0104` amended). Held by "holds a plan and a simulation no larger after eight minutes than after two", "sounds the same from the frame forgotten, and goes on into a hand trigger after it alike" and "refuses to go on from a frame it has forgotten" (`packages/game-audio/src/preview/preview-forgetting.test.ts`); "keeps every reader and sounds on bit for bit where the forgetting is stated" (`packages/audio-engine/src/pcm/plan-continuation.test.ts`); "compares a stream that has forgotten its past only from where it remembers" (`plan-divergence.test.ts`); "let a stream forgotten whole hold its place where nothing reads it, and no other" (`packages/domain/src/editing/preview-streams.test.ts`); and "keeps its plan from growing without end where a loop and its triggers never fall silent" (`apps/web/src/audio/preview-run.test.ts`). |
+| B-04 | **Fixed** in `1c2ed9ea`. The workflow's analyses read such a region as its whole length joined hard; the Loop panel and the auditions still read only a loop the region has. Held by "analyses the whole of a region that does not loop as the loop Create Seamless Loop asks for" (`apps/web/src/shell/workflows/workflow-dialog.test.tsx`). |
+| B-05 | **Fixed** in `00a727eb`. Each refusal of a value read for a group's policy, a member's override, a membership's overrides or a new group's policy names the group by its path or the member by its name, and the field (`packages/project-commands/src/game/value-owners.ts`). Held by "refuses a policy value that does not read, naming the new group by its path and the field" and "refuses a value that does not read, naming the group by its path and the field" (`group-commands.test.ts`), "is refused naming the member by its name and the field" (`member-setting-commands.test.ts`) and "are refused naming the member by its name and each field" (`membership-commands.test.ts`). |
+| B-06 | **Fixed** in `291d875b` for `packages/game-audio`, which gains the dependency on `@audiogubbins/text` in the workspace graph, the cruise rule and the allowed dependencies. Held by the curly quotes its tests now expect (`state-validation.test.ts`, `group-names.test.ts`, `game-export-plan.test.ts`, `member-names.test.ts`, `destination-path.test.ts`, `scenario-commands.test.ts`, `rack-commands.test.ts`). `packages/guided-workflows`' refusals keep straight quotes, accepted as `LOW` debt. |
+| B-07 | **Fixed** in `2d7f613f`. The test measures the thread's processor time. Held by "is simulated within 1 ms and planned within 5 ms in all" (`packages/game-audio/src/preview/hand-trigger.performance.test.ts`). |
+| B-08 | **Fixed** in `0ecedebc`. The preview plan is held to the real processors' catalogue in the web app, which may import them. Held by "takes every value of $space, $rules.attenuation.kind" and "states %s as the processors do" (`apps/web/src/audio/preview-catalogue.test.ts`). |
+| B-09 | **Fixed** in `47438def`. T triggers the hand trigger, run only where the Game preview panel has the keyboard; both panels mark themselves with an attribute of their own (`data-ag-preview-panel`, `data-ag-loop-panel`), which the shortcut scoping reads. Held by "marks itself as the place its hand trigger’s key is its own" (`apps/web/src/shell/preview/preview-panel.test.tsx`). |

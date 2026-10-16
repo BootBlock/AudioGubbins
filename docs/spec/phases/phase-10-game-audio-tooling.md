@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — its hard dependencies, Phases 05, 06 and 09, are `PASS`. The maintainer marked it `READY` on 2026-10-15 without a readiness review, so its packet is the unreviewed draft. Its placements are proposed by `ADR-0100` to `ADR-0106` and its packet and scope conflicts by the specification change `CHG-0001` (`traceability/changes/CHG-0001-phase-10-scope-and-ownership.md`), all `Proposed`; the sections marked "CHG-0001" below are its amendments.
+`PASS` — completed on 2026-10-16; see `reviews/phase-10-evidence.md`, `reviews/phase-10-review.md` and `traceability/handoffs/phase-10.md`. `ADR-0100` to `ADR-0106` and the specification change `CHG-0001` (`traceability/changes/CHG-0001-phase-10-scope-and-ownership.md`) were accepted on 2026-10-16; the sections marked "CHG-0001" below are its amendments.
 
 ## Objective
 

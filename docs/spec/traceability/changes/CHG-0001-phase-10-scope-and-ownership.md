@@ -1,7 +1,7 @@
 # Specification Change Record — CHG-0001
 
 ## Status
-`Proposed`
+`Accepted` — approved by the maintainer on 2026-10-16, as Phase 10 closed.
 
 ## Summary
 Phase 10's packet and owned requirements are reconciled with the requirements and packets of Phases 05, 09, 11 and 13, as `REQ-EXEC-168` requires instead of a silent choice. Seven conflicts and readings are recorded, each with its evidence and the resolution `ADR-0100` to `ADR-0106` propose:

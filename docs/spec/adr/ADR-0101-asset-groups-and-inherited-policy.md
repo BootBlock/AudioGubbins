@@ -1,6 +1,6 @@
 # ADR-0101 — An Asset Group Is A Node Of One Tree, Its Policy Is Resolved Field By Field With The Owner Named, And Its Processing Is Heard Through The Member's Shared Rack
 
-- **Status:** Proposed
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
 - **Decision:** `REQ-GAME-120`'s hierarchical groups are values of `packages/game-audio`, kept in the project and changed only by project commands with inverses.
   - **The tree.** A `GameAssetGroup` has an identifier, a name, an optional parent and the policy it sets. The groups form one forest: a parent exists, no group is its own ancestor, and siblings' names differ in NFC lower case. A name is one path segment, 1 to 128 characters, with no `/`, control character or surrounding space, so `Footsteps/Grass` is the path of the group `Grass` under `Footsteps`, never a name.
   - **Members.** A member is a region or an asset (`GroupMember`), each in at most one group, so its effective policy has one answer. A group's members are held in the order they were assigned, which is the order the preview chooses among and `{number}` counts by (`ADR-0102`); reordering and weights are Phase 13's (`REQ-GAME-112`). A variation set and an event join the member union when Phases 13 and 11 make them; no arm is made before them. A region or asset in a group cannot be removed by the project's remove command until it leaves the group, as a chain something names cannot (`ADR-0060`); the interface's delete and split commands leave and rejoin in the same step.

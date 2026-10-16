@@ -356,7 +356,7 @@
     "10": {
       "phase": 10,
       "name": "Game-Audio Tooling",
-      "status": "READY",
+      "status": "PASS",
       "hard_dependencies": [
         5,
         6,
@@ -371,9 +371,35 @@
         "REQ-GAME-122"
       ],
       "open_verified_findings": [],
-      "commits": [],
-      "evidence": [],
-      "handoff": null
+      "commits": [
+        "790c1059",
+        "7d95a79f",
+        "e65f264f",
+        "37461b2d",
+        "26d1dfec",
+        "c6677d89",
+        "2b71bdcf",
+        "3fa1ca5e",
+        "fab28094",
+        "3ed20b6a",
+        "155e9e39",
+        "593091fa",
+        "4e6ba6cd",
+        "61fe7563",
+        "e989e3cc",
+        "48f8c071",
+        "720d4c95",
+        "3c12e1a9",
+        "9cea6fc2",
+        "c089f3c2",
+        "8b793cb1",
+        "39a4885e"
+      ],
+      "evidence": [
+        "reviews/phase-10-evidence.md",
+        "reviews/phase-10-review.md"
+      ],
+      "handoff": "traceability/handoffs/phase-10.md"
     },
     "11": {
       "phase": 11,
