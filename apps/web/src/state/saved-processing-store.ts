@@ -28,7 +28,7 @@ import {
   type LibraryEntry,
   type LibraryEntryId,
 } from '@audiogubbins/domain';
-import type { ListedEntry } from '@audiogubbins/storage';
+import type { LibraryListing } from '@audiogubbins/storage';
 import type { ProcessingLibraryClient } from '@audiogubbins/storage-runtime';
 
 import type { LibraryChanges } from '../io/library-channel.js';
@@ -39,7 +39,7 @@ import { observable, type Observable } from './observable.js';
 /** The saved chains and presets, and what is being done to them. */
 export interface SavedProcessingState {
   /** Every entry kept, usable or not, in the order the library lists them. */
-  readonly entries: readonly ListedEntry[];
+  readonly entries: readonly LibraryListing[];
 
   /** Whether the list has been read yet. */
   readonly loaded: boolean;
@@ -49,7 +49,7 @@ export interface SavedProcessingState {
 }
 
 /** Whether a reading found an entry as it was: the same identity, name, save and reason. */
-function sameEntry(one: ListedEntry, other: ListedEntry): boolean {
+function sameEntry(one: LibraryListing, other: LibraryListing): boolean {
   // Content changes only by a save, which stamps it, and a name only by a
   // rename, so an entry with the same name and stamp holds the same content.
   const same = (a: LibraryEntry | undefined, b: LibraryEntry | undefined): boolean =>
@@ -66,7 +66,7 @@ function sameEntry(one: ListedEntry, other: ListedEntry): boolean {
 }
 
 /** What identifies an entry, usable or not. */
-function idOf(listed: ListedEntry): LibraryEntryId {
+function idOf(listed: LibraryListing): LibraryEntryId {
   return listed.kind === 'usable' ? listed.entry.id : listed.id;
 }
 
@@ -75,9 +75,9 @@ function idOf(listed: ListedEntry): LibraryEntryId {
  * was; the list it had where nothing at all changed.
  */
 function keptInPlace(
-  before: readonly ListedEntry[],
-  read: readonly ListedEntry[],
-): readonly ListedEntry[] {
+  before: readonly LibraryListing[],
+  read: readonly LibraryListing[],
+): readonly LibraryListing[] {
   const known = new Map(before.map((listed) => [idOf(listed), listed]));
   const after = read.map((listed) => {
     const was = known.get(idOf(listed));
@@ -116,7 +116,7 @@ export class SavedProcessingStore implements Observable<SavedProcessingState> {
    */
   readonly refresh = async (): Promise<DomainResult<void>> => {
     const signal = this.readings.next();
-    let listed: DomainResult<readonly ListedEntry[]>;
+    let listed: DomainResult<readonly LibraryListing[]>;
     try {
       listed = await this.library.list(signal);
       signal.throwIfAborted();
@@ -169,7 +169,7 @@ export class SavedProcessingStore implements Observable<SavedProcessingState> {
   };
 
   /** The entry `id` as the library keeps it now, or why there is none. */
-  readonly entry = (id: LibraryEntryId): Promise<DomainResult<ListedEntry>> =>
+  readonly entry = (id: LibraryEntryId): Promise<DomainResult<LibraryListing>> =>
     this.library.entry(id, this.lifetime);
 
   readonly save = (name: string, content: LibraryContent): Promise<DomainResult<LibraryEntry>> =>
