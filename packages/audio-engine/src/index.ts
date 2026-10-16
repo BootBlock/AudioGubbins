@@ -104,7 +104,11 @@ export {
   ResamplingQuality,
   SMALLEST_FFT_SIZE,
 } from './dsp/canonical-dsp.js';
-export { resamplingQualityOf } from './dsp/resampling-grade.js';
+export {
+  VARISPEED_MOST_TAPS,
+  resamplingQualityOf,
+  varispeedTableBytes,
+} from './dsp/resampling-grade.js';
 export { CANONICAL_RESAMPLER_VERSION, ENGINE_VERSIONS } from './dsp/algorithm-versions.js';
 export {
   type CanonicalDetectorFeatures,

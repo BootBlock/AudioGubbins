@@ -475,5 +475,5 @@ export {
 } from './project/take-stack.js';
 export { type StackUse, punchStackOf, stackUsers } from './project/take-users.js';
 
-export { uniformDraw } from './integrity/counter-draw.js';
+export { lowbias32, uniformDraw } from './integrity/counter-draw.js';
 export { crc32 } from './integrity/crc32.js';

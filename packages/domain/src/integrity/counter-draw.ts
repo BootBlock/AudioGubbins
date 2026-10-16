@@ -21,7 +21,7 @@ const TWO_TO_32 = 2 ** 32;
  * Chris Wellons' `lowbias32` 32-bit integer hash (public domain): `input` taken
  * as an unsigned 32-bit word, hashed to an unsigned 32-bit word.
  */
-function lowbias32(input: number): number {
+export function lowbias32(input: number): number {
   let x = input >>> 0;
   x ^= x >>> 16;
   x = Math.imul(x, 0x7feb_352d);
