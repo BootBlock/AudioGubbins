@@ -71,6 +71,7 @@ function world(): {
         joined(owl, birdsId),
         joined(lark, birdsId),
       ],
+      scenarios: new Map(),
     }),
   );
   return { project, state, birds: [wren, robin, owl, lark], crow, wind };

@@ -91,6 +91,7 @@ function world(): {
       },
       { member: ambience, group: footstepsId, processing: 'own', overrides: {} },
     ],
+    scenarios: new Map(),
   };
   expectSuccess(validateGameAudioState(project, state));
   return { project, state, loop, ambience, footstep };

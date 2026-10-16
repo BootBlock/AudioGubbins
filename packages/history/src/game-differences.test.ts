@@ -7,6 +7,7 @@ import {
   memberKey,
   type GameAssetGroup,
   type GameAudioState,
+  type GamePreviewScenario,
   type GroupMembership,
 } from '@audiogubbins/game-audio';
 import { compareCodeUnits, type ProjectState } from '@audiogubbins/project-format';
@@ -26,7 +27,7 @@ import { diffStates } from './state-diff.js';
  */
 
 const fixture = sampleProject();
-const { state: GROUPED, outer, inner, chain } = groupedReferenceState(fixture);
+const { state: GROUPED, outer, inner, chain, scenario } = groupedReferenceState(fixture);
 
 function gameOf(state: ProjectState): GameAudioState {
   if (state.gameAudio === undefined) throw new Error('The state has asset groups.');
@@ -183,7 +184,11 @@ describe('the names of a difference’s groups and members', () => {
     // A group taken away is named from the state that held it.
     const removed: ProjectState = {
       ...GROUPED,
-      gameAudio: { groups: new Map([[outer.id, outer]]), memberships: [IN_OUTER] },
+      gameAudio: {
+        groups: new Map([[outer.id, outer]]),
+        memberships: [IN_OUTER],
+        scenarios: new Map(),
+      },
     };
     const gone = differenceNames(GROUPED, removed, diffStates(GROUPED, removed));
     expect(gone.entities.get(inner.id)).toBe('Footsteps/Grass');
@@ -218,5 +223,52 @@ describe('the names of a difference’s groups and members', () => {
     });
     // A chain a track or bus has is still theirs first: the reference bus has the outer group's chain.
     expect(chainOwner(GROUPED, chain)?.kind).toBe('bus');
+  });
+});
+
+describe('the difference of two states’ preview scenarios (ADR-0106, REQ-STOR-195)', () => {
+  /** `GROUPED` with its scenarios those given. */
+  function withScenarios(...scenarios: readonly GamePreviewScenario[]): ProjectState {
+    return {
+      ...GROUPED,
+      gameAudio: { ...gameOf(GROUPED), scenarios: new Map(scenarios.map((one) => [one.id, one])) },
+    };
+  }
+  const [, flat] = [...gameOf(GROUPED).scenarios.values()].sort((left, right) =>
+    left.id === scenario.id ? -1 : right.id === scenario.id ? 1 : 0,
+  );
+  if (flat === undefined) throw new Error('The grouped state has two scenarios.');
+
+  it('is none for equal scenarios built apart', () => {
+    const rebuilt: ProjectState = { ...GROUPED, gameAudio: structuredClone(gameOf(GROUPED)) };
+    expect(diffStates(GROUPED, rebuilt).gameScenarios).toEqual(NONE);
+    expect(affectedBy(GROUPED, rebuilt).project).toBe(false);
+  });
+
+  it('says which parts of a scenario changed, and that the change affected the project', () => {
+    const [walker, door] = scenario.emitters;
+    if (walker === undefined || door === undefined) throw new Error('Two emitters.');
+    const after = withScenarios(
+      { ...scenario, name: 'Hall', seed: 1, emitters: [{ ...walker, name: 'Runner' }, door] },
+      flat,
+    );
+    const difference = diffStates(GROUPED, after);
+    expect(difference.gameScenarios).toEqual({
+      ...NONE,
+      changed: [{ id: scenario.id, fields: ['name', 'emitters', 'seed'] }],
+    });
+    expect(difference.gameGroups).toEqual(NONE);
+    expect(affectedBy(GROUPED, after).project).toBe(true);
+    expect(differenceNames(GROUPED, after, difference).entities.get(scenario.id)).toBe('Hall');
+  });
+
+  it('lists a scenario added or removed, named from the state that holds it', () => {
+    const removed = withScenarios(flat);
+    const difference = diffStates(GROUPED, removed);
+    expect(difference.gameScenarios).toEqual({ ...NONE, removed: [scenario.id] });
+    expect(differenceNames(GROUPED, removed, difference).entities.get(scenario.id)).toBe(
+      'Corridor',
+    );
+    expect(diffStates(removed, GROUPED).gameScenarios).toEqual({ ...NONE, added: [scenario.id] });
   });
 });

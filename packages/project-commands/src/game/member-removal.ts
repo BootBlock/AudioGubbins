@@ -3,7 +3,8 @@
  * its membership leaves with it, and the inverse that adds it back puts the
  * membership back at the place it had in the assignment order, with its
  * processing and overrides, so one undo restores the member and how it
- * belonged.
+ * belonged. A member a preview scenario plays is not removed: the scenario
+ * would play nothing.
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
@@ -20,6 +21,7 @@ import {
   withMembership,
   withoutMembership,
 } from './game-state.js';
+import { unplayed } from './scenario-players.js';
 
 /** A state a member has left, and the arguments that put its membership back. */
 export interface Left {
@@ -36,6 +38,8 @@ export function withoutMember(state: ProjectState, member: GroupMember): DomainR
   const index = membershipIndex(game, member);
   const membership = index === undefined ? undefined : game.memberships[index];
   if (index === undefined || membership === undefined) return succeed({ state, rejoining: {} });
+  const played = unplayed(game, { kind: 'member', member }, `the ${member.kind}`, 'removed');
+  if (!played.ok) return played;
   const held = heldValid(state, withoutMembership(game, member));
   return held.ok
     ? succeed({ state: held.value, rejoining: joiningArguments(membership, index) })

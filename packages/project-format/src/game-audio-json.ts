@@ -1,42 +1,45 @@
 /**
  * Writing and reading a project's game-audio state (`ProjectState.gameAudio`,
  * ADR-0106): its asset groups with their policy, and its memberships with
- * their processing and overrides, as the document member `gameAudio` and the
- * tree's `project/game-audio.json` (REQ-EXEC-136.12).
+ * their processing and overrides, and the preview scenarios that play them, as
+ * the document member `gameAudio` and the tree's `project/game-audio.json`
+ * (REQ-EXEC-136.12).
  *
  * ```
- * { "groups": [ { "id", "name", "parent"?, "policy": { <field>: <value>, ... } } ],
- *   "memberships": [ { "member": { "kind": "region", "region" } | { "kind": "asset", "asset" },
- *                      "group", "processing": "inherit" | "own", "overrides": { ... } } ] }
+ * { "groups": [ { "id", "name", "parent"?,
+ *                 "policy": { <field>: <value>, ... } } ],
+ *   "memberships": [ { "member": { "kind": "region", "region" }
+ *                              | { "kind": "asset", "asset" },
+ *                      "group", "processing": "inherit" | "own",
+ *                      "overrides": { ... } } ],
+ *   "scenarios": [ <scenario>, ... ] }
  * ```
  *
- * The writer is canonical: groups sorted by identifier, which says nothing of
- * them, and memberships in assignment order, which is what a group's members
- * are chosen and numbered in; a policy writes the fields it sets and nothing
- * else (`game-policy-json.ts`). The reader holds every member to its shape and
- * every value to its field's, refusing a group twice, a member it does not
- * know, and a state that holds nothing, which the project keeps by having no
- * member at all (`withGameAudio`), so one state is written one way. Whether
- * the forest, the references and the ranges are ones the project can hold is
- * `validateGameAudioState`'s, which the project document's reader runs once
- * the project is read, through {@link validatedGameAudio}: the same rules a
- * game command's result is held to.
- *
- * Its members are an object's, so a member a later phase adds, such as the
- * preview's scenarios, is one more member read and written beside these.
+ * The writer is canonical: groups and scenarios sorted by identifier, which
+ * says nothing of them, and memberships in assignment order, which is what a
+ * group's members are chosen and numbered in; a policy writes the fields it
+ * sets and nothing else (`game-policy-json.ts`), and a scenario is written by
+ * `game-scenario-json.ts`. The reader holds every member to its shape and every
+ * value to its field's, refusing a group or a scenario twice, a member it does
+ * not know, and a state that holds nothing, which the project keeps by having
+ * no member at all (`withGameAudio`), so one state is written one way. Whether
+ * the forest, the references, the subjects and the ranges are ones the project
+ * can hold is `validateGameAudioState`'s, which the project document's reader
+ * runs once the project is read, through {@link validatedGameAudio}: the same
+ * rules a game command's result is held to.
  */
 
 import type { Project } from '@audiogubbins/domain';
 import {
+  OVERRIDABLE_FIELDS,
   POLICY_FIELDS,
+  holdsNoGameAudio,
   memberKey,
   validateGameAudioState,
   type GameAssetGroup,
   type GameAudioState,
-  type GroupMember,
   type GroupMembership,
   type InheritedPolicy,
-  type OverridableField,
   type PolicyField,
   type PolicyOverrides,
   type PolicyValues,
@@ -54,31 +57,16 @@ import {
   type Reading,
 } from './document-reading.js';
 import { presentMembers, sortedBy } from './document-writing.js';
+import { readGroupMember, writeGroupMember } from './game-member-json.js';
 import { readPolicyField, refuseSafely, writePolicyValue } from './game-policy-json.js';
+import { readPreviewScenario, writePreviewScenario } from './game-scenario-json.js';
 import { asId, oneOfConverter, textConverter } from './scalar-reading.js';
-import { kindOf, members } from './variant-reading.js';
+import { members } from './variant-reading.js';
 import { MAXIMUM_ENTITIES, NAME_RULE } from './value-reading.js';
 
-const STATE_MEMBERS = members('groups', 'memberships');
+const STATE_MEMBERS = members('groups', 'memberships', 'scenarios');
 const GROUP_MEMBERS = members('id', 'name', 'parent', 'policy');
 const MEMBERSHIP_MEMBERS = members('member', 'group', 'processing', 'overrides');
-
-/**
- * The fields a member may override, each named once: a record typed over
- * `OverridableField`, so a field the type gains or loses fails to compile here.
- */
-const OVERRIDABLE: Readonly<Record<OverridableField, true>> = {
-  loudness: true,
-  exportProfile: true,
-  naming: true,
-  destination: true,
-  variation: true,
-  bus: true,
-};
-
-const OVERRIDABLE_FIELDS = POLICY_FIELDS.filter(
-  (field): field is OverridableField => field in OVERRIDABLE,
-);
 
 const POLICY_MEMBERS: ReadonlySet<string> = new Set(POLICY_FIELDS);
 const OVERRIDE_MEMBERS: ReadonlySet<string> = new Set(OVERRIDABLE_FIELDS);
@@ -145,22 +133,6 @@ export const readGameAssetGroup: Converter<GameAssetGroup> = (reading, value, pa
   return { id, name, ...(parentGroup === undefined ? {} : { parent: parentGroup }), policy };
 };
 
-/** Reads a member of a group: a region or an asset. */
-export const readGroupMember: Converter<GroupMember> = (reading, value, parent, key) => {
-  const read = kindOf(reading, value, parent, key, 'kind', {
-    region: members('kind', 'region'),
-    asset: members('kind', 'asset'),
-  });
-  if (read === undefined) return undefined;
-  const { object, at, kind } = read;
-  if (kind === 'region') {
-    const region = required(reading, object, at, 'region', asId<'RegionId'>);
-    return region === undefined ? undefined : { kind, region };
-  }
-  const asset = required(reading, object, at, 'asset', asId<'AssetId'>);
-  return asset === undefined ? undefined : { kind, asset };
-};
-
 const readMembership: Converter<GroupMembership> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, MEMBERSHIP_MEMBERS);
   if (object === undefined) return undefined;
@@ -186,16 +158,27 @@ export const readGameAudio: Converter<GameAudioState> = (reading, value, parent,
   const at = pathOf(parent, key);
   const groups = entitiesOf(reading, object, at, 'groups', MAXIMUM_ENTITIES, readGameAssetGroup);
   const memberships = required(reading, object, at, 'memberships', asMemberships);
-  if (groups === undefined || memberships === undefined) return undefined;
-  if (groups.size === 0 && memberships.length === 0) {
+  const scenarios = entitiesOf(
+    reading,
+    object,
+    at,
+    'scenarios',
+    MAXIMUM_ENTITIES,
+    readPreviewScenario,
+  );
+  if (groups === undefined || memberships === undefined || scenarios === undefined) {
+    return undefined;
+  }
+  const state: GameAudioState = { groups, memberships, scenarios };
+  if (holdsNoGameAudio(state)) {
     reading.refuse(
       'game-audio.empty',
-      'A project with no groups keeps no game-audio settings, so this member is left out.',
+      'A project with no groups and no preview scenarios keeps no game-audio settings, so this member is left out.',
       at,
     );
     return undefined;
   }
-  return { groups, memberships };
+  return state;
 };
 
 /**
@@ -211,19 +194,23 @@ export function validatedGameAudio(
 ): GameAudioState | undefined {
   const valid = validateGameAudioState(project, game);
   if (valid.ok) return valid.value;
-  // The document lists the groups in the order they were read, and the memberships in theirs.
+  // The document lists the groups, memberships and scenarios in the order they were read.
   const groupAt = new Map([...game.groups.keys()].map((id, index) => [String(id), index]));
   const memberAt = new Map(game.memberships.map((one, index) => [memberKey(one.member), index]));
+  const scenarioAt = new Map([...game.scenarios.keys()].map((id, index) => [String(id), index]));
   for (const failure of valid.failures) {
     const details = failure.details ?? {};
     const group = groupAt.get(String(details['group']));
     const member = memberAt.get(String(details['member']));
+    const scenario = scenarioAt.get(String(details['scenario']));
     const place =
       details['owner'] === 'member' && member !== undefined
         ? pathOf(pathOf(at, 'memberships'), member)
         : details['owner'] === 'group' && group !== undefined
           ? pathOf(pathOf(at, 'groups'), group)
-          : at;
+          : scenario !== undefined
+            ? pathOf(pathOf(at, 'scenarios'), scenario)
+            : at;
     refuseSafely(reading, [failure], place);
   }
   return undefined;
@@ -262,13 +249,6 @@ export function writeGameAssetGroup(group: GameAssetGroup): JsonObject {
   });
 }
 
-/** Writes a member of a group. */
-export function writeGroupMember(member: GroupMember): JsonObject {
-  return member.kind === 'region'
-    ? { kind: member.kind, region: member.region }
-    : { kind: member.kind, asset: member.asset };
-}
-
 /** Writes a project's game-audio state. */
 export function writeGameAudio(state: GameAudioState): JsonObject {
   return {
@@ -279,5 +259,6 @@ export function writeGameAudio(state: GameAudioState): JsonObject {
       processing: membership.processing,
       overrides: writePolicyOverrides(membership.overrides),
     })),
+    scenarios: sortedBy(state.scenarios.values(), (scenario) => scenario.id, writePreviewScenario),
   };
 }

@@ -7,7 +7,8 @@
  * has, or the one the command gives it, which is how an inverse gives back a
  * rack the change replaced. A membership keeps its place in the assignment
  * order as it moves between groups, and an inverse puts it back at the place
- * it had: the order a group's members are chosen and numbered in.
+ * it had: the order a group's members are chosen and numbered in. A member a
+ * preview scenario plays stays in a group until the scenario stops playing it.
  */
 
 import { unchanged, type CommandInvocation, type CommandOutcome } from '@audiogubbins/commands';
@@ -35,6 +36,7 @@ import {
 import { unassignMemberInvocation } from './game-invocations.js';
 import { gameOf, rackOf, withGame, withMembership, withoutMembership } from './game-state.js';
 import { groupWords } from './game-words.js';
+import { unplayed } from './scenario-players.js';
 import {
   inheritedRack,
   joinedMember,
@@ -152,6 +154,13 @@ function unassignMember(
   const rack = rackArgument(state, invocation);
   if (!rack.ok) return refusedBy(rack);
   const game = gameOf(state);
+  const played = unplayed(
+    game,
+    { kind: 'member', member: target.member },
+    quoted(target.name),
+    'taken out of its group',
+  );
+  if (!played.ok) return refusedBy(played);
   const left = withGame(
     withRackChange(state, target.member, rack.value),
     withoutMembership(game, target.member),

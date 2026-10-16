@@ -4,7 +4,9 @@
  * refused or changing nothing, as a person, a guided workflow or a journal
  * might send them: a group added with a name its siblings hold, moved inside
  * itself, removed while it holds members; a member given a rack while it
- * inherits, or reset where it overrides nothing.
+ * inherits, or reset where it overrides nothing; a preview scenario added,
+ * changed and removed, sometimes playing a sound in no group, and the groups
+ * and members scenarios play removed or taken out, which is refused.
  *
  * Policy values are the game-audio generator's own, collected once from the
  * worlds it makes, so each is a value its field takes; a processing value is
@@ -14,39 +16,44 @@
 import type { CommandInvocation } from '@audiogubbins/commands';
 import type { EffectChain, IdGenerator } from '@audiogubbins/domain';
 import {
+  OVERRIDABLE_FIELDS,
   POLICY_FIELDS,
   withOverride,
   withPolicyField,
   type GameAssetGroup,
   type GameAssetGroupId,
+  type GamePreviewScenario,
   type GroupMember,
   type InheritedPolicy,
   type MemberProcessing,
-  type OverridableField,
   type PolicyField,
   type PolicyOverrides,
   type PolicyValues,
+  type PreviewSubject,
 } from '@audiogubbins/game-audio';
-import { randomGameWorld } from '@audiogubbins/game-audio/testing';
+import { randomGameWorld, randomScenario, seededRandom } from '@audiogubbins/game-audio/testing';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { randomChain, randomName, type Random } from '@audiogubbins/project-format/testing';
 
 import {
   addGroupInvocation,
+  addScenarioInvocation,
   assignMemberInvocation,
   moveGroupInvocation,
   removeGroupInvocation,
+  removeScenarioInvocation,
   renameGroupInvocation,
   resetMemberOverrideInvocation,
   setGroupPolicyInvocation,
   setMemberOverrideInvocation,
   setMemberProcessingInvocation,
+  setScenarioInvocation,
   unassignMemberInvocation,
   type GivenRack,
 } from '../game/game-invocations.js';
 
 /** How many kinds of invocation {@link randomGameInvocation} chooses among. */
-export const GAME_CHOICES = 12;
+export const GAME_CHOICES = 15;
 
 /** How many of the generator's worlds the values are collected from. */
 const WORLDS = 32;
@@ -55,15 +62,6 @@ const WORLDS = 32;
 type CollectedField = Exclude<PolicyField, 'processing'>;
 
 const COLLECTED = POLICY_FIELDS.filter((field): field is CollectedField => field !== 'processing');
-
-const OVERRIDABLE: readonly OverridableField[] = [
-  'loudness',
-  'exportProfile',
-  'naming',
-  'destination',
-  'variation',
-  'bus',
-];
 
 type Pool = { readonly [F in CollectedField]: PolicyValues[F][] };
 
@@ -164,10 +162,49 @@ function candidates(state: ProjectState): readonly GroupMember[] {
 /** Some overrides of the generator's values. */
 function randomOverrides(random: Random): PolicyOverrides {
   let overrides: PolicyOverrides = {};
-  for (const field of OVERRIDABLE) {
+  for (const field of OVERRIDABLE_FIELDS) {
     if (random.chance(0.25)) overrides = withOverride(overrides, field, valueOf(random, field));
   }
   return overrides;
+}
+
+/**
+ * What a scenario's emitters play: the state's groups and members, and now and
+ * then a sound in no group, which the state refuses.
+ */
+function randomSubjects(
+  random: Random,
+  state: ProjectState,
+  members: readonly GroupMember[],
+): readonly PreviewSubject[] {
+  const game = state.gameAudio;
+  const subjects: PreviewSubject[] = [
+    ...[...(game?.groups.keys() ?? [])].map((group): PreviewSubject => ({ kind: 'group', group })),
+    ...(game?.memberships ?? []).map(({ member }): PreviewSubject => ({ kind: 'member', member })),
+  ];
+  return subjects.length === 0 || random.chance(0.05)
+    ? [...subjects, { kind: 'member', member: random.pick(members) }]
+    : subjects;
+}
+
+/** A scenario changed: renamed, given a new seed, or replaced by another under its identifier. */
+function changedScenario(
+  random: Random,
+  ids: IdGenerator,
+  scenario: GamePreviewScenario,
+  subjects: readonly PreviewSubject[],
+): GamePreviewScenario {
+  switch (random.below(3)) {
+    case 0:
+      return { ...scenario, name: randomName(random) };
+    case 1:
+      return { ...scenario, seed: random.below(2 ** 32) };
+    default:
+      return {
+        ...randomScenario(seededRandom(random.below(2 ** 31)), ids, subjects),
+        id: scenario.id,
+      };
+  }
 }
 
 /** A rack an owning member is given: none, one of the state's chains, or a new one whole. */
@@ -233,19 +270,44 @@ export function randomGameInvocation(
         random.chance(0.2) ? randomRack(random, ids, state) : undefined,
       );
     case 9: {
-      const field = random.pick(OVERRIDABLE);
+      const field = random.pick(OVERRIDABLE_FIELDS);
       const value = valueOf(random, field);
       return value === undefined
         ? resetMemberOverrideInvocation(member, field)
         : setMemberOverrideInvocation(member, field, value);
     }
     case 10:
-      return resetMemberOverrideInvocation(member, random.pick(OVERRIDABLE));
-    default:
+      return resetMemberOverrideInvocation(member, random.pick(OVERRIDABLE_FIELDS));
+    case 11:
       return setMemberProcessingInvocation(
         member,
         processing,
         random.chance(0.3) ? randomRack(random, ids, state) : undefined,
       );
+    default:
+      return randomScenarioInvocation(random, ids, state, members, choice);
   }
+}
+
+/** An invocation of a scenario command, of the kind `choice` names, 12 to 14. */
+function randomScenarioInvocation(
+  random: Random,
+  ids: IdGenerator,
+  state: ProjectState,
+  members: readonly GroupMember[],
+  choice: number,
+): CommandInvocation {
+  const subjects = randomSubjects(random, state, members);
+  const scenarios = [...(state.gameAudio?.scenarios.values() ?? [])];
+  const held = scenarios.length > 0 ? random.pick(scenarios) : undefined;
+  if (choice === 12 || held === undefined) {
+    // Now and then one the state holds already, which is refused.
+    const again = held !== undefined && random.chance(0.1);
+    return addScenarioInvocation(
+      again ? held : randomScenario(seededRandom(random.below(2 ** 31)), ids, subjects),
+    );
+  }
+  return choice === 13
+    ? setScenarioInvocation(changedScenario(random, ids, held, subjects))
+    : removeScenarioInvocation(held.id);
 }

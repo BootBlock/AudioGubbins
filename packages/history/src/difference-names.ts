@@ -7,14 +7,14 @@
  * whichever state holds it: one added from the later state, one removed from
  * the earlier, one changed from the later. A take stack is known by its own
  * name, as every other entity is by its display name; an asset group by its
- * path from its root, as every refusal of its settings names it, and a
- * membership by its region's or asset's name. An effect chain has no name of
- * its own, so it is named for what names it, by the one account of that which
- * counts the groups (`projectChainUsers`): a track's or a bus's effects, a
- * group's processing, an asset's or a region's rack, or a range of one. Only
- * the entities the difference holds are looked up, and the owners only of an
- * effect chain that differs, so naming never walks the clips of a large
- * project.
+ * path from its root, as every refusal of its settings names it, a membership
+ * by its region's or asset's name, and a preview scenario by its name. An
+ * effect chain has no name of its own, so it is named for what names it, by the
+ * one account of that which counts the groups (`projectChainUsers`): a track's
+ * or a bus's effects, a group's processing, an asset's or a region's rack, or a
+ * range of one. Only the entities the difference holds are looked up, and the
+ * owners only of an effect chain that differs, so naming never walks the clips
+ * of a large project.
  */
 
 import type { EffectChainId, Project, TakeStack } from '@audiogubbins/domain';
@@ -23,6 +23,8 @@ import {
   pathText,
   projectChainUsers,
   type GameAssetGroupId,
+  type GamePreviewScenario,
+  type GamePreviewScenarioId,
   type GroupMember,
 } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
@@ -81,13 +83,40 @@ export function chainOwner(state: ProjectState, chain: EffectChainId): ChainOwne
 /** The name of each entity a difference holds, by identifier. */
 export interface DifferenceNames {
   /**
-   * Assets, tracks, buses, clips, regions, markers, take stacks and asset
-   * groups by identifier, and memberships by their member's key.
+   * Assets, tracks, buses, clips, regions, markers, take stacks, asset groups
+   * and preview scenarios by identifier, and memberships by their member's key.
    */
   readonly entities: ReadonlyMap<string, string>;
 
   /** The owner of each effect chain, where one holds it. */
   readonly chains: ReadonlyMap<EffectChainId, ChainOwner>;
+}
+
+/**
+ * Names in `entities` each entity `differences` holds, from whichever state
+ * holds it: one added from the later, one removed from the earlier, one
+ * changed from the later. A source differs as its own entity and is named for
+ * its asset.
+ */
+function nameEach<TId extends string, TDiffered, TEntity>(
+  entities: Map<string, string>,
+  differences: EntityDifferences<TId, TDiffered>,
+  later: ReadonlyMap<TId, TEntity>,
+  earlier: ReadonlyMap<TId, TEntity>,
+  nameOf: (entity: TEntity) => string | undefined,
+): void {
+  const name = (id: TId, ...holders: readonly ReadonlyMap<TId, TEntity>[]): void => {
+    for (const holder of holders) {
+      const found = holder.get(id);
+      const named = found === undefined ? undefined : nameOf(found);
+      if (named === undefined) continue;
+      entities.set(id, named);
+      return;
+    }
+  };
+  for (const id of differences.added) name(id, later);
+  for (const id of differences.removed) name(id, earlier);
+  for (const { id } of differences.changed) name(id, later, earlier);
 }
 
 /** The names of what `difference`, from `before` to `after`, holds. */
@@ -99,49 +128,40 @@ export function differenceNames(
   const was = before.project;
   const is = after.project;
   const entities = new Map<string, string>();
-  // A source differs as its own entity and is named for its asset.
-  const nameAll = <TId extends string, TDiffered, TEntity>(
-    differences: EntityDifferences<TId, TDiffered>,
-    later: ReadonlyMap<TId, TEntity>,
-    earlier: ReadonlyMap<TId, TEntity>,
-    nameOf: (entity: TEntity) => string | undefined,
-  ): void => {
-    const name = (id: TId, ...holders: readonly ReadonlyMap<TId, TEntity>[]): void => {
-      for (const holder of holders) {
-        const found = holder.get(id);
-        const named = found === undefined ? undefined : nameOf(found);
-        if (named === undefined) continue;
-        entities.set(id, named);
-        return;
-      }
-    };
-    for (const id of differences.added) name(id, later);
-    for (const id of differences.removed) name(id, earlier);
-    for (const { id } of differences.changed) name(id, later, earlier);
-  };
-  nameAll(difference.assets, is.assets, was.assets, displayed);
-  nameAll(difference.sources, is.assets, was.assets, displayed);
-  nameAll(difference.tracks, is.tracks, was.tracks, displayed);
-  nameAll(difference.buses, is.buses, was.buses, displayed);
-  nameAll(difference.clips, is.clips, was.clips, displayed);
-  nameAll(difference.regions, is.regions, was.regions, displayed);
-  nameAll(difference.markers, is.markers, was.markers, displayed);
-  nameAll(difference.takeStacks, is.takeStacks, was.takeStacks, stackName);
-  nameAll(
+  nameEach(entities, difference.assets, is.assets, was.assets, displayed);
+  nameEach(entities, difference.sources, is.assets, was.assets, displayed);
+  nameEach(entities, difference.tracks, is.tracks, was.tracks, displayed);
+  nameEach(entities, difference.buses, is.buses, was.buses, displayed);
+  nameEach(entities, difference.clips, is.clips, was.clips, displayed);
+  nameEach(entities, difference.regions, is.regions, was.regions, displayed);
+  nameEach(entities, difference.markers, is.markers, was.markers, displayed);
+  nameEach(entities, difference.takeStacks, is.takeStacks, was.takeStacks, stackName);
+  nameEach(
+    entities,
     difference.gameGroups,
     gameEntities(after.gameAudio).groups,
     gameEntities(before.gameAudio).groups,
     // A group is named by its path in the state that holds it.
     ({ id }) => gameGroupName(after, id) ?? gameGroupName(before, id),
   );
-  nameAll(
+  nameEach(
+    entities,
     difference.gameMembers,
     gameEntities(after.gameAudio).members,
     gameEntities(before.gameAudio).members,
     ({ member }: GameMemberEntity) => memberName(is, member) ?? memberName(was, member),
   );
+  nameEach(
+    entities,
+    difference.gameScenarios,
+    after.gameAudio?.scenarios ?? NO_SCENARIOS,
+    before.gameAudio?.scenarios ?? NO_SCENARIOS,
+    ({ name }: GamePreviewScenario) => name,
+  );
   return { entities, chains: chainOwners(difference, after, before) };
 }
+
+const NO_SCENARIOS: ReadonlyMap<GamePreviewScenarioId, GamePreviewScenario> = new Map();
 
 /** Anything a person knows by a name. */
 interface Named {

@@ -7,13 +7,13 @@
  * with their own processing (ADR-0051); and its racks, the chains of processors
  * that assets, regions and ranges name, slot by slot, each chain entering and
  * leaving the project with what names it (ADR-0060, ADR-0061); and its take
- * stacks and punches (ADR-0072); and its asset groups (ADR-0101): their
- * forest, their policy, who belongs to them and how, each command re-pointing
- * the rack of every member that inherits its group's processing in the same
- * step; with the builders of the changes the interface, the guided workflows
- * and the storage worker make of them. Each is undoable through an inverse
- * invocation and deterministic under replay, so the history can keep a journal
- * of invocations rather than of states (REQ-EDIT-073, REQ-STOR-101), and each
+ * stacks and punches (ADR-0072); and its asset groups (ADR-0101): their forest,
+ * their policy, who belongs to them and how, each command re-pointing the rack
+ * of every member that inherits its group's processing in the same step; with
+ * the builders of the changes the interface, the guided workflows and the
+ * storage worker make of them. Each is undoable through an inverse invocation
+ * and deterministic under replay, so the history can keep a journal of
+ * invocations rather than of states (REQ-EDIT-073, REQ-STOR-101), and each
  * declares which of its arguments hold provenance, which `commandProvenance`
  * makes the port a whole history is stripped through (REQ-STOR-166). The
  * commands run through `createCommandBus` from `@audiogubbins/commands`, over a
@@ -92,6 +92,9 @@ export {
   setGroupPolicyInvocation,
   setMemberOverrideInvocation,
   setMemberProcessingInvocation,
+  addScenarioInvocation,
+  removeScenarioInvocation,
+  setScenarioInvocation,
   unassignMemberInvocation,
 } from './game/game-invocations.js';
 export {

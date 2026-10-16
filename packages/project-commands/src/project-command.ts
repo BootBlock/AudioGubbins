@@ -89,6 +89,9 @@ export const ProjectCommandId = {
   SetMemberOverride: commandId('game.set-member-override'),
   ResetMemberOverride: commandId('game.reset-member-override'),
   SetMemberProcessing: commandId('game.set-member-processing'),
+  AddScenario: commandId('game.add-scenario'),
+  SetScenario: commandId('game.set-scenario'),
+  RemoveScenario: commandId('game.remove-scenario'),
 } as const;
 
 /** What a command declares where none of its arguments holds provenance. */

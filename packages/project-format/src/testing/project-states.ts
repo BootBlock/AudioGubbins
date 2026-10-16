@@ -51,6 +51,7 @@ import {
   validateGameAudioState,
   type GameAssetGroup,
   type GameAudioState,
+  type GamePreviewScenario,
   type GroupMember,
 } from '@audiogubbins/game-audio';
 import { BUILT_IN_PRESETS } from '@audiogubbins/import-export';
@@ -417,16 +418,21 @@ export interface GroupedReference {
 
   /** The chain the outer group's members inherit. */
   readonly chain: EffectChainId;
+
+  /** The 3D scenario, which plays the inner group and the footstep, each part of a scenario in it. */
+  readonly scenario: GamePreviewScenario;
 }
 
 /**
- * The reference state with asset groups (ADR-0101, ADR-0106): a root group
- * that sets every field of its policy, an export profile among them that
- * makes every choice a profile may, and a group inside it that sets its bus
- * and emitter rules; the sample's region in the inner group, inheriting its
- * processing, so its rack is the outer group's chain, and the footstep in the
- * outer group with processing of its own and an override of every field a
- * member may override. Every reader and writer of the game-audio state is
+ * The reference state with asset groups (ADR-0101, ADR-0106): a root group that
+ * sets every field of its policy, an export profile among them that makes every
+ * choice a profile may, and a group inside it that sets its bus and emitter
+ * rules; the sample's region in the inner group, inheriting its processing, so
+ * its rack is the outer group's chain, and the footstep in the outer group with
+ * processing of its own and an override of every field a member may override;
+ * and two preview scenarios, a 3D one playing the inner group and the footstep,
+ * with every kind of trigger, motion and subject and a bus level, and a 2D one
+ * moving back and forth. Every reader and writer of the game-audio state is
  * pinned with it, so a member left out of one is found.
  */
 export function groupedReferenceState(fixture: SampleProject): GroupedReference {
@@ -518,18 +524,84 @@ export function groupedReferenceState(fixture: SampleProject): GroupedReference 
         },
       },
     ],
+    scenarios: new Map(),
+  };
+  const scenario: GamePreviewScenario = {
+    id: ids.next<'GamePreviewScenarioId'>(),
+    name: 'Corridor',
+    space: '3d',
+    panWidth: 1_152,
+    panningStrength: 0.5,
+    listener: { at: { x: 0.5, y: 1.75, z: -2.25 }, facingTurns: 0.125 },
+    emitters: [
+      {
+        id: ids.next<'PreviewEmitterId'>(),
+        name: 'Walker',
+        subject: { kind: 'group', group: inner.id },
+        trigger: { kind: 'repeat', intervalMilliseconds: 450, jitterMilliseconds: 30, count: 40 },
+        motion: {
+          kind: 'waypoints',
+          points: [
+            { at: { x: -4, y: 0, z: -3 }, milliseconds: 0 },
+            { at: { x: 4, y: 0, z: -3.5 }, milliseconds: 6_000 },
+            { at: { x: -4, y: 0, z: -3 }, milliseconds: 12_000 },
+          ],
+          repeat: 'loop',
+        },
+      },
+      {
+        id: ids.next<'PreviewEmitterId'>(),
+        name: 'Door',
+        subject: { kind: 'member', member: footstep },
+        trigger: { kind: 'by-hand' },
+        motion: { kind: 'still', at: { x: 2, y: 0.25, z: 1.5 } },
+      },
+    ],
+    seed: 4_294_967_295,
+    busLevels: [{ bus: expectSuccess(busName('SFX')), decibels: -4.5 }],
+  };
+  const flat: GamePreviewScenario = {
+    id: ids.next<'GamePreviewScenarioId'>(),
+    name: 'Side scroller',
+    space: '2d',
+    panWidth: 640,
+    panningStrength: 1,
+    listener: { at: { x: 0, y: 0, z: 0 }, facingTurns: 0 },
+    emitters: [
+      {
+        id: ids.next<'PreviewEmitterId'>(),
+        name: 'Patrol',
+        subject: { kind: 'group', group: outer.id },
+        trigger: { kind: 'repeat', intervalMilliseconds: 20, jitterMilliseconds: 0, count: 1 },
+        motion: {
+          kind: 'waypoints',
+          points: [
+            { at: { x: -300, y: 12, z: 0 }, milliseconds: 0 },
+            { at: { x: 300, y: 12, z: 0 }, milliseconds: 10 },
+          ],
+          repeat: 'back-and-forth',
+        },
+      },
+    ],
+    seed: 0,
+    busLevels: [],
   };
   const project: Project = {
     ...state.project,
     regions: new Map([...state.project.regions, [region.id, { ...region, rack: chain }]]),
   };
+  const scenarios = new Map([
+    [scenario.id, scenario],
+    [flat.id, flat],
+  ]);
   return {
     state: withGameAudio(
       { ...state, project },
-      expectSuccess(validateGameAudioState(project, game)),
+      expectSuccess(validateGameAudioState(project, { ...game, scenarios })),
     ),
     outer,
     inner,
     chain,
+    scenario,
   };
 }

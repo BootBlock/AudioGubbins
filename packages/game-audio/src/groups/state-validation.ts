@@ -8,6 +8,11 @@
  * with the member's key, and its summary names the group by path or the member
  * by name, so an invalid setting is traced to whoever set it wherever the
  * failure is shown. Policy values are checked by `policyProblems`.
+ *
+ * A preview scenario is held to its own rules (`previewScenarioProblems`), its
+ * failures naming it by `scenario` in their details, and every subject it plays
+ * to the state: a group the state has, or a member of one of its groups, whose
+ * group's rules it plays by.
  */
 
 import {
@@ -29,6 +34,12 @@ import {
 } from '../policy/policy-validation.js';
 import { groupPolicies, type GroupEffectivePolicy } from '../policy/policy-resolution.js';
 import { rackInherited } from '../policy/processing-realisation.js';
+import {
+  previewScenarioProblems,
+  scenarioSubjectProblems,
+  type GamePreviewScenario,
+  type GamePreviewScenarioId,
+} from '../preview/preview-scenario.js';
 import type { GameAssetGroup } from './game-asset-group.js';
 import type { GameAudioState } from './game-audio-state.js';
 import type { GameAssetGroupId } from './group-ids.js';
@@ -203,6 +214,28 @@ function processingMismatch(
   ];
 }
 
+/** A scenario held under an identifier that is not its own: the map would let two share one. */
+function misfiled(key: GamePreviewScenarioId, scenario: GamePreviewScenario): DomainFailure {
+  return failure(
+    'game.scenario-id-mismatch',
+    FailureKind.Rejected,
+    `The scenario "${scenario.name}" is held under the identifier ${key}, not its own.`,
+    { details: { scenario: scenario.id, part: 'id' } },
+  );
+}
+
+/** Every reason a scenario of `state` is not one it can hold. */
+function scenarioProblems(state: GameAudioState): readonly DomainFailure[] {
+  const members = new Set(state.memberships.map((one) => memberKey(one.member)));
+  const hasGroup = (group: GameAssetGroupId): boolean => state.groups.has(group);
+  const hasMember = (member: GroupMember): boolean => members.has(memberKey(member));
+  return [...state.scenarios].flatMap(([key, scenario]) => [
+    ...(key === scenario.id ? [] : [misfiled(key, scenario)]),
+    ...previewScenarioProblems(scenario),
+    ...scenarioSubjectProblems(scenario, hasGroup, hasMember),
+  ]);
+}
+
 /** `state`, where `project` can hold it, or every reason it cannot. */
 export function validateGameAudioState(
   project: Project,
@@ -215,6 +248,7 @@ export function validateGameAudioState(
     ...takenNames(readings),
     ...readings.flatMap(({ group, owner }) => policyProblems(project, group.policy, owner)),
     ...membershipProblems(project, state, sound),
+    ...scenarioProblems(state),
   ];
   return first === undefined ? succeed(state) : fail(first, ...rest);
 }

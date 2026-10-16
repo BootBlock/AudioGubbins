@@ -25,16 +25,19 @@ export type Attenuation =
   | { readonly kind: 'none' }
   | {
       readonly kind: 'inverse' | 'inverse-square' | 'logarithmic';
-      /** The distance of no attenuation, above 0: metres in 3D, pixels in 2D. */
+      /** The distance of no attenuation, 0.01 to 1,000,000: metres in 3D, pixels in 2D. */
       readonly unitSize: number;
-      /** The distance from which the emitter is silent, above `unitSize`. */
+      /**
+       * The distance from which the emitter is silent, above `unitSize` and at
+       * most 1,000,000, or 0 for no limit, as Godot's players read it.
+       */
       readonly maxDistance: number;
       /** The most gain attenuation gives, −80 to 24 dB. */
       readonly ceilingDecibels: number;
     }
   | {
       readonly kind: 'exponent';
-      /** The distance from which the emitter is silent, above 0. */
+      /** The distance from which the emitter is silent, at most 1,000,000, or 0 for no limit. */
       readonly maxDistance: number;
       /** 0.01 to 16. */
       readonly exponent: number;
@@ -87,6 +90,16 @@ interface Range {
   readonly highest: number;
 }
 
+/**
+ * The spatial panner's ranges of a distance (`spatial-panner.ts` of the
+ * processors, which this package may not reach): a validated rule is one the
+ * preview's panner takes, so the preview never refuses a scenario the project
+ * holds.
+ */
+const UNIT_SIZE: Range = { lowest: 0.01, highest: 1_000_000 };
+const FARTHEST_DISTANCE = 1_000_000;
+/** Godot's, and the panner's, maximum distance of no limit. */
+const NO_DISTANCE_LIMIT = 0;
 const AVOID_RECENT_DEPTH: Range = { lowest: 1, highest: 16 };
 const VOICE_LIMIT: Range = { lowest: 1, highest: 64 };
 const COOLDOWN_MILLISECONDS: Range = { lowest: 0, highest: 60_000 };
@@ -110,9 +123,12 @@ function words(range: Range): string {
   return `${String(range.lowest)} to ${String(range.highest)}`;
 }
 
-/** Whether `value` is a finite distance above `floor`. */
-function beyond(value: number, floor: number): boolean {
-  return Number.isFinite(value) && value > floor;
+/** Whether `distance` is no limit, or one above `floor` and at most the farthest. */
+function maximumDistance(distance: number, floor: number): boolean {
+  return (
+    distance === NO_DISTANCE_LIMIT ||
+    (Number.isFinite(distance) && distance > floor && distance <= FARTHEST_DISTANCE)
+  );
 }
 
 function emitterInvalid(part: string, sentence: string): DomainFailure {
@@ -123,9 +139,12 @@ function attenuationProblems(attenuation: Attenuation): readonly DomainFailure[]
   if (attenuation.kind === 'none') return [];
   const problems: DomainFailure[] = [];
   if (attenuation.kind === 'exponent') {
-    if (!beyond(attenuation.maxDistance, 0)) {
+    if (!maximumDistance(attenuation.maxDistance, 0)) {
       problems.push(
-        emitterInvalid('attenuation.maxDistance', 'Attenuation is silent from a distance above 0.'),
+        emitterInvalid(
+          'attenuation.maxDistance',
+          `Attenuation is silent from a distance above 0 and at most ${String(FARTHEST_DISTANCE)}, or 0 for no limit.`,
+        ),
       );
     }
     if (!within(attenuation.exponent, EXPONENT)) {
@@ -138,14 +157,19 @@ function attenuationProblems(attenuation: Attenuation): readonly DomainFailure[]
     }
     return problems;
   }
-  if (!beyond(attenuation.unitSize, 0)) {
-    problems.push(emitterInvalid('attenuation.unitSize', "An attenuation's unit size is above 0."));
+  if (!within(attenuation.unitSize, UNIT_SIZE)) {
+    problems.push(
+      emitterInvalid(
+        'attenuation.unitSize',
+        `An attenuation's unit size is from ${words(UNIT_SIZE)}.`,
+      ),
+    );
   }
-  if (!beyond(attenuation.maxDistance, attenuation.unitSize)) {
+  if (!maximumDistance(attenuation.maxDistance, attenuation.unitSize)) {
     problems.push(
       emitterInvalid(
         'attenuation.maxDistance',
-        'Attenuation is silent from a distance above its unit size.',
+        `Attenuation is silent from a distance above its unit size and at most ${String(FARTHEST_DISTANCE)}, or 0 for no limit.`,
       ),
     );
   }
