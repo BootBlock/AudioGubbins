@@ -1,6 +1,8 @@
-> **Status:** In progress. 2026-10-15: the design and the ADR drafts
-> (`ADR-0100` to `ADR-0106`, `Proposed`) are written; no product code is
-> built yet. Phase 10 is `READY` in the implementation ledger.
+> **Status:** In progress. 2026-10-16: the domain, engine, worker,
+> persistence and command units are merged (WU-10.0, A1–A6, C1, C2, D1–D4,
+> P); WU-10.B, E1a, E1b, E2, E3 and F remain, then the evidence. The design
+> below is amended where the build deviated from it (marked "Amended
+> 2026-10-16"). Phase 10 is `READY` in the implementation ledger.
 
 # Phase 10 — Game-Audio Tooling
 
@@ -21,6 +23,7 @@ maintainer's acceptance before the unit that builds on it lands.
 | 2026-10-15 | Revised after two independent adversarial reviews (architecture, 14 findings; DSP, 24), each verified against the code and the specification. CHG-0001 records the packet and scope conflicts; C6 withdrawn; C12 rejected by the maintainer (lens reviews run); Q6 answered.                                                                                                                                                                                                                                                                                    |
 | 2026-10-16 | Integrated on the phase branch: WU-10.0 (chain-users rule, game workflows run), WU-10.D1, WU-10.A1 (with the `game-audio` scaffold), WU-10.D2. Each new package lands its scaffold with its first unit. Running: D3, C1, A2, A6. Integration follow-ups owed before review: the effect rack's local automation types move to the domain plan (P), the library's built-in flag reaches the page, the 32-frame design interval gets one authority, `lowbias32` is exported when D4 uses it, and the "ahead of use" export entries are removed by their consumers. |
 | 2026-10-16 | Merged: D3 (gate passed: bit-identical continuation), A2, A6, C1, A3, C2, P; `projectDocument` raised to 10. Running: A4 (persistence, history, export record sub-folder path) and D4 part 1 (simulation and plan; scenarios join the state, format and commands in part 2 after A5). Then A5, B, E1–E3, F, reviews, evidence. Integration follow-ups are tracked outside the repository and closed in the units named for them.                                                                                                                                |
+| 2026-10-16 | The maintainer deferred this phase's lens reviews and adversarial review to the review after the whole specification is implemented, as Phase 09's were (section 16, Gates). Merged: A4, D4, A5, D4 part 2 (scenarios in the state, format and commands). The design and `ADR-0101` to `ADR-0104` and `ADR-0106` amended where the build deviated; the evidence and review record drafted (`docs/spec/reviews/phase-10-evidence.md`, `phase-10-review.md`).                                                                                                     |
 
 ## Where the work is
 
@@ -36,12 +39,18 @@ and may take one first. `userPreferences` is unchanged.
 
 ## Gates
 
-`pnpm run verify:commit` for every change, `pnpm run spec:verify` after an
-edit under `docs/spec/`, and the packet's commands at the phase's end. The
-maintainer requires this phase's independent lens reviews and adversarial
-review before `PASS` (section 16); the 2026-10-07 deferral does not apply.
+A unit runs the narrow gates of what it changes (the type checks, lint, the
+dependency rules, the architecture and repository tests, and the Vitest
+projects it touches); the integrator runs `pnpm run verify:commit` over the
+phase branch once for each wave of merges; `pnpm run spec:verify` runs after
+an edit under `docs/spec/`, and the packet's commands at the phase's end.
 WU-10.D3's acceptance tests gate the audio-path units (section 6). The author
 of a new test sees it fail once against the code it guards.
+
+Amended 2026-10-16: the maintainer deferred this phase's independent lens
+reviews and adversarial review to the review after the whole specification
+is implemented, as Phase 09's were (section 16). This paragraph said they ran
+before `PASS` and that every change ran `pnpm run verify:commit`.
 
 ## Contents
 
@@ -387,29 +396,35 @@ member? }` and its summary names the group by path or the member by name, so
 "invalid inherited settings identify the owning group/override" holds
 wherever the failure is shown.
 
-| Code                              | Refused                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------- |
-| `game.group-parent-unknown`       | A parent that is not a group                                                |
-| `game.group-cycle`                | A group that is its own ancestor                                            |
-| `game.group-name-invalid`         | A name breaking the segment rule                                            |
-| `game.group-name-taken`           | Two siblings (or two roots) equal in NFC lower case                         |
-| `game.member-unknown`             | A member naming no region or asset of the project                           |
-| `game.member-twice`               | A member in two memberships                                                 |
-| `game.member-group-unknown`       | A membership naming no group                                                |
-| `game.member-processing-mismatch` | An `inherit` member whose rack is not its inherited processing              |
-| `game.policy-chain-unknown`       | `processing` naming no chain of `project.effectChains`                      |
-| `game.policy-loudness-invalid`    | A target, tolerance or ceiling out of its range                             |
-| `game.policy-naming-invalid`      | A template the game vocabulary does not read (section 4)                    |
-| `game.policy-destination-invalid` | A segment `safeFolderName` would change, `.`/`..`, or more than 16 segments |
-| `game.policy-bus-invalid`         | A bus name out of its rule                                                  |
-| `game.policy-emitter-invalid`     | An emitter rule out of its range (section 6)                                |
-| `game.policy-variation-invalid`   | A variation range out of its range (section 6)                              |
-| `game.policy-profile-invalid`     | A profile whose choices do not read as its format's                         |
-| `game.policy-tag-invalid`         | A tag empty, over 64 characters or with a control character                 |
+| Code                               | Refused                                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| `game.group-parent-unknown`        | A parent that is not a group                                                                  |
+| `game.group-cycle`                 | A group that is its own ancestor                                                              |
+| `game.group-name-invalid`          | A name breaking the segment rule                                                              |
+| `game.group-name-taken`            | Two siblings (or two roots) equal in NFC lower case                                           |
+| `game.member-unknown`              | A member naming no region or asset of the project                                             |
+| `game.member-twice`                | A member in two memberships                                                                   |
+| `game.member-group-unknown`        | A membership naming no group                                                                  |
+| `game.member-processing-mismatch`  | An `inherit` member whose rack is not its inherited processing                                |
+| `game.policy-chain-unknown`        | `processing` naming no chain of `project.effectChains`                                        |
+| `game.policy-loudness-invalid`     | A target, tolerance or ceiling out of its range                                               |
+| `game.policy-naming-invalid`       | A template the game vocabulary does not read (section 4)                                      |
+| `game.policy-destination-invalid`  | A segment `safeFolderName` would change, `.`/`..`, or more than 16 segments                   |
+| `game.policy-bus-invalid`          | A bus name out of its rule                                                                    |
+| `game.policy-emitter-invalid`      | An emitter rule out of its range (section 6)                                                  |
+| `game.policy-variation-invalid`    | A variation range out of its range (section 6)                                                |
+| `game.policy-tag-invalid`          | A tag empty, over 64 characters or with a control character                                   |
+| `game.scenario-invalid` and others | A scenario its own rules refuse, or one playing a group or member the state lacks (section 6) |
 
 A profile valid in shape may still be one a member's audio cannot take; that
 is found per member when its export is planned (section 4), with the same
 owner details.
+
+Amended 2026-10-16: `game.policy-profile-invalid` is not the validator's. A
+profile's shape is held by its type and by the project format's reader, so
+the validator has nothing to refuse; the code is raised per member when its
+export is planned (section 4), with the owner of the profile. Scenarios are
+validated with the state (WU-10.D4 part 2).
 
 **Game processing presets.** `REQ-GAME-023` names game-oriented processing
 presets and the packet "loudness matching and game presets". They are
@@ -606,10 +621,19 @@ folder's listing. `TrustedFolders` records are keyed by the relative path
 `a/b/name.ext`. A `file` or `download` destination ignores the path and the
 plan's item says so before the export starts.
 
+Amended 2026-10-16 (WU-10.A3, A4, A6): a folder the path names is made only
+when a file is created in it, and those made are taken back where the file is
+abandoned, refused or cancelled, keeping a folder something else was put in;
+an `ExportRecord`'s file keeps the folder it went to (`projectDocument` 10),
+so the history names where each file went; a member asked for twice in one
+request is planned once and refused at its repeats
+(`game.export-member-repeated`).
+
 **Region naming.** `memberNames(project, state, members, template, clock)`
 answers each region member's new `displayName`; the shell's
 `game.name-members` command runs one `project.set-region` per region as one
-step.
+step. Amended 2026-10-16: it refuses a template naming `{format}`, a file's
+extension, which no region's name has (`game.region-name-format-token`).
 
 ## 5. Loop definition and loop analysis (WU-10.C)
 
@@ -630,7 +654,9 @@ four `FadeShape`s, so the shape the analysis suggests is the one written and
 heard). The gains are the domain's fade function, which the analysis also
 uses. `placement-validation.ts` refuses a loop whose `crossfadeLength`
 exceeds `loop.start − region.start` when a command makes it
-(`region.loop-crossfade-without-lead`); because the loop's start is anchored
+(`editing.loop-crossfade-without-lead`, amended 2026-10-16 from
+`region.loop-crossfade-without-lead`: the domain's placement validation names
+its failures `editing.`); because the loop's start is anchored
 and a later edit can move it, `placeRegion` also clamps the placed
 crossfade to min(C, loopStart, loopEnd − loopStart) and the placed value
 says it was shortened (`crossfadeClampedFrom`), which the Inspector and the
@@ -775,6 +801,30 @@ holds 4 bins up to min(20 kHz, 0.45·fs); bands below that are merged into one
 band from the lowest bin; each band's power is floored at 10⁻⁹·N before the
 logarithm. The loop's verdict is the worst metric verdict.
 
+Amended 2026-10-16 (WU-10.C1): every seam metric compares what the engine
+plays with what the region's own audio does there, beyond the formulas
+above, since a drum loop's hit after its decay and a pure tone's rounding
+noise failed under them:
+
+- `discontinuity` is the played stream's residual at the seam's frames (the
+  16 from the first after it) less the smaller residual of the region's
+  natural joins there, the tail then the audio after E and the audio before
+  S then the head, where the region has them; a whole-sound loop is measured
+  on the played stream alone. The MAD is floored also at the stream's RMS
+  60 dB down, under which a residual is below what is heard.
+- `spectralMismatch` floors each band's power also at the louder window's
+  total power 60 dB down.
+- `cycleStability.drift` compares the mean level of the loop's first q with
+  the q after E (`post-end`), or the q before S with the loop's last q
+  (`pre-start`), and the loop's first q with its last only where the region
+  has neither (`adjacent`); q is at most half the loop.
+- `zeroCrossing.signs` compares the sign the engine plays across the seam
+  with the region's own there: x[S] against x[E] (`post-end`), x[E−1]
+  against x[S−1] (`pre-start`), x[E−1] against x[S] (`adjacent`).
+
+The DC means and the 10 ms envelope are spans of time at every rate (`8d042c1c`),
+and the Blackman–Harris weights are the engine's one function (`f7ea8898`).
+
 **Zero-crossing boundary, once.** The predicate in
 `packages/waveform/src/zero-crossings.ts` (every channel asked changes sign
 or has an exact zero either side) moves to
@@ -908,6 +958,13 @@ The defaults are what the preview uses where a field resolves `unset`, and
 the panel says so beside the rules it shows; they are never written into a
 group.
 
+Amended 2026-10-16 (WU-10.D4 part 2): a `maxDistance` of 0 is no limit, as
+Godot and the panner read it, and every distance keeps to the panner's
+ranges (a `unitSize` from 0.01, every distance at most 1,000,000), so a
+validated scenario always becomes a plan. A scenario also states a
+`panningStrength` from 0 to 1, Godot's project and player panning strengths
+multiplied (below).
+
 ```ts
 // preview/preview-scenario.ts
 export type PreviewSubject =
@@ -972,6 +1029,14 @@ reordering emitters changes no emitter's draws. Streams: `SELECTION = 1`,
 `PITCH = 2`, `GAIN = 3`, `OFFSET = 4`, `JITTER = 5`; index: the trigger's
 ordinal k from 0. u is `uniformDraw(key, stream, k)` in [0, 1).
 
+Amended 2026-10-16 (WU-10.D4): a whole choice among n is ⌊h·n / 2³²⌋ of the
+draw's 32-bit word h, exactly, where the double product ⌊u·n⌋ of step 3 can
+round across a boundary a runtime would not reproduce; milliseconds become
+frames as ⌊ms·fs/1000 + 0.5⌋; a hand trigger's ordinal is the repeat's count
+(or 0) plus the emitter's hand triggers before it. The reference vectors
+(`packages/game-audio/src/testing/preview-vectors.ts`) state every rule a
+runtime reproduces.
+
 **Decisions for trigger k of an emitter**, frames at the preview's rate fs
 (the project's), in this order:
 
@@ -1003,7 +1068,15 @@ ordinal k from 0. u is `uniformDraw(key, stream, k)` in [0, 1).
    at preview quality on the reference machine (WU-10.D4, Q5, a test pins
    it); past it the triggering emitter's stealing rule is applied across all
    emitters and the log records `budget-stolen` or `budget-rejected`, which
-   the panel shows, as a game engine's virtual voices do.
+   the panel shows, as a game engine's virtual voices do. Amended
+   2026-10-16 (WU-10.D4, Q5): the budget is `previewVoiceBudget(grade,
+variations)`, not one constant. A voice at its member's own pitch costs
+   little; a varispeed voice costs taps in proportion to its faster step and
+   tables of up to about 35 MB at High, so the budget is 2 to 7 voices at
+   High and 8 to 26 at Draft where pitch varies, and every voice the
+   scenario can sound where none does. The preview plays at the person's
+   preview quality (`ADR-0061`), not the render's; WU-10.E3 gives it the
+   grade.
 
 ```ts
 // preview/preview-event-log.ts
@@ -1091,6 +1164,30 @@ conversion and the panel says "not panned: 5.1 source". The output follows
 the project's layout: each bus's stereo mix is converted to it by the
 domain's fold where it is not stereo.
 
+Amended 2026-10-16 (WU-10.D2, Q3 answered against Godot 4's
+`audio_stream_player_3d.cpp`, `audio_stream_player_2d.cpp` and
+`audio_filter_sw.cpp`; `packages/processors/src/space/emitter-laws.ts`):
+
+- The ceiling caps the model's decibels; then, where `maxDistance` is above
+  0, the inverse models' gain is faded by 1 − d/maxDistance to silence at
+  it, and 0 is no maximum. The exponent model is 1 with no maximum.
+- 3D pan: p is the cosine of the emitter's angle from the listener's right
+  in the horizontal plane, x/√(x² + z²) (0 straight above, below or at the
+  listener), scaled by (1 − g)/(1 + g) with g = (1 − strength)², and spread
+  by the equal-power law √((1 ∓ p)/2). 2D pan: clamp(x ÷ panWidth, −1, 1),
+  scaled by half the strength and moved to 0 to 1, spread by the linear law
+  1 − p, p. `panning-strength` is a parameter the table above lacked.
+- A stereo source has each channel scaled by its own side's gain, with no
+  cross-feed, as Godot's mixer scales a stereo stream; no √2 balance.
+- The distance filter is Godot's high shelf with Q = 1 and the cookbook's A
+  taken as the linear gain itself, so it cuts by its gain at the cutoff and
+  twice that above, floored at −60 dB.
+- Two differences remain, for the post-specification review and Phase 11's
+  parity tests: Godot caps attenuation and `volume_db` together where the
+  panner caps attenuation alone (a voice's gain is its own stage), and the
+  panner filters each channel before its gain where Godot filters after,
+  which differ only while the gain moves.
+
 **The preview plan** (`preview/preview-plan.ts`, `preview-chains.ts`):
 
 ```ts
@@ -1159,7 +1256,9 @@ are ready, so no voice waits on a measurement mid-run.
   `QualityMode`, its taps stated in `resampling-grade.ts`); no declared rate
   is involved, so a low-rate project's −2,400 cents never needs a rate below
   8 kHz. An insertion's payload holding one is refused
-  (`edit.payload-varispeed`).
+  (`editing.payload-varispeed`, and `editing.payload-automation` for plan
+  automation; amended 2026-10-16 from `edit.payload-varispeed`, the domain's
+  operation validation naming its failures `editing.`).
 - _Parameter automation in a plan's chain._ The chain processing of a plan
   stream gains `automation?: readonly { processor: ProcessorId; parameter:
 ParameterId; points: readonly { frame: number; value: number }[] }[]`,
@@ -1214,8 +1313,15 @@ performance test holds a hand trigger's simulation and extension under 1 ms
 at the bounds, so they stay on the page beside the playback control that
 sends them. The panel states the profile's latency.
 
+Amended 2026-10-16 (WU-10.D4): measured on the reference machine, the
+simulation takes 0.5 to 0.7 ms and the extension 1.3 to 2.5 ms, most of it
+laying again every lane sounding across the trigger. The test holds the
+simulation to 1 ms and the two together to 5 ms, a tenth of the shortest
+feed-ahead (50 ms). The test reads the wall clock and has exceeded 1 ms on a
+shared machine; it is to measure processor time before the phase closes.
+
 **Bounds.** 16 emitters, 64 voices an emitter, `PREVIEW_VOICE_BUDGET`
-voices in all, 50 triggers a second an emitter, a 30-second horizon, extended
+voices in all (`previewVoiceBudget`, amended above), 50 triggers a second an emitter, a 30-second horizon, extended
 when the playhead is within 5 s of it.
 
 ## 7. Guided workflows (WU-10.B)
@@ -1386,6 +1492,13 @@ region or asset; a scenario change affects `project`); `history-rows.ts`
 gains the entity kind `game-group`; `difference-names.ts` names a chain's
 owner through `projectChainUsers`, so a group can be it.
 
+Amended 2026-10-16: scenarios joined `GameAudioState`, the document member
+(written sorted by identifier) and the history's differences in WU-10.D4
+part 2, after WU-10.A4 and WU-10.A5 merged, rather than with A4; whether a
+state holds anything is one test in `packages/game-audio`, which counts
+scenarios, read by the format and the commands. An `ExportRecord`'s file
+gains its folder in the same version (section 4).
+
 ## 9. Commands
 
 Project commands, `packages/project-commands/src/game/`, ids in
@@ -1414,12 +1527,33 @@ Every command that changes what an `inherit` member inherits
 `game.assign-member`) sets the rack of every `inherit` member to
 `inheritingRacks(after)` in the same command. Changes to existing commands:
 `project.remove-region` and `project.remove-asset` refuse a member
-(`region.in-group`, `asset.in-group`); `project.set-rack` on an `inherit`
+(`region.in-group`, `asset.in-group`) (amended 2026-10-16, below);
+`project.set-rack` on an `inherit`
 member sets it `own` in the same command, its inverse restoring both;
 `chain-naming.ts` counts a group's `processing` through `projectChainUsers`,
 so a chain a group names is never removed and enters or leaves with the
 group command; `region-commands.ts`'s split path is untouched (the
 shell's split command joins the halves to the group).
+
+Amended 2026-10-16 (WU-10.A5, WU-10.D4 part 2):
+
+- `project.remove-region` and `project.remove-asset` take a member's
+  membership with it instead of refusing it, and their inverses add it back
+  at its place in the assignment order with its processing and overrides,
+  so one undo restores the member and how it belonged; the remove is one
+  step, and the shell's delete composes no `game.unassign-member`.
+- `project.restore-region` (new) is `project.set-region`'s inverse: it sets
+  a region back without asking its loop for the frames its crossfade reads,
+  so undo restores a loop read back, or left by an earlier edit, with less
+  audio before its start than its crossfade. `project.set-region` asks only
+  when the loop or the region's start changed, and refuses only a start
+  moved into frames the loop had.
+- Removing a group, taking a member out of its group, or removing its
+  region or asset is refused while a scenario plays it, naming the scenario
+  (`game.subject-played`): the preview would fall silent, and a step never
+  edits a scenario the person did not touch.
+- The overridable fields are one list in `packages/game-audio`, read by the
+  commands.
 
 Shell commands (`apps/web/src/commands/`), each with a label, category,
 availability and reason (`ADR-0013`), in the palette and menus:
@@ -1441,15 +1575,15 @@ member region.
 
 ## 10. Workers and threads
 
-| Work                                       | Thread                         | How                                                                                                                                                                                          |
-| ------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Loop analysis                              | Detection worker               | New request `analyse-loop`: `{ job, description (the region's plan with and without the loop crossfade), request, quality }`; `REFERENCE_DSP`; progress; cancellation; yields between chunks |
-| Loudness measurement                       | Detection worker               | New request `measure-loudness`: integrated LUFS, range and true peak of a target, by `CanonicalDsp.createLoudnessMeter` and `createPeakMeter` in 32,768-frame chunks                         |
-| Assistants for workflows                   | Detection worker               | The existing `detect` request                                                                                                                                                                |
-| Policy resolution, naming, export planning | Page                           | Pure and O(groups + members); memoised per state                                                                                                                                             |
-| Preview simulation and plan                | Page                           | Incremental from the last state; a hand trigger under 1 ms at the bounds, held by a performance test (section 6)                                                                             |
-| Preview and loop audition audio            | Feeder worker and worklet      | The existing programme path, continued programmes                                                                                                                                            |
-| Export renders, encodes, delivery          | Render, codec, storage workers | Phase 09's, unchanged but for the relative folder                                                                                                                                            |
+| Work                                       | Thread                         | How                                                                                                                                                                                           |
+| ------------------------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Loop analysis                              | Detection worker               | New request `analyse-loop`: `{ job, description (the region's plan with and without the loop crossfade), request, quality }`; `REFERENCE_DSP`; progress; cancellation; yields between chunks  |
+| Loudness measurement                       | Detection worker               | New request `measure-loudness`: integrated LUFS, range and true peak of a target, by `CanonicalDsp.createLoudnessMeter` and `createPeakMeter` in 32,768-frame chunks                          |
+| Assistants for workflows                   | Detection worker               | The existing `detect` request                                                                                                                                                                 |
+| Policy resolution, naming, export planning | Page                           | Pure and O(groups + members); memoised per state                                                                                                                                              |
+| Preview simulation and plan                | Page                           | Incremental from the last state; a hand trigger's simulation under 1 ms and its simulation and extension under 5 ms at the bounds, held by a performance test (section 6, amended 2026-10-16) |
+| Preview and loop audition audio            | Feeder worker and worklet      | The existing programme path, continued programmes                                                                                                                                             |
+| Export renders, encodes, delivery          | Render, codec, storage workers | Phase 09's, unchanged but for the relative folder                                                                                                                                             |
 
 `packages/detection-runtime/src/detection-messages.ts` gains the two
 request and reply kinds; `detection-host.ts` gains `analyseLoop` and
@@ -1527,14 +1661,14 @@ extended surfaces.
 
 ## 13. Test plan by requirement
 
-| Requirement                 | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `REQ-GAME-120`              | `policy-resolution.test.ts` (each rule of section 3, by fixture forest); `policy-resolution.properties.test.ts` (random forests: `resolveAll` equals `resolvePolicy`, permuting maps and memberships never changes an answer, a reset reveals `shadowed[0]`); `state-validation.test.ts` (every code, each failure naming its owner; `inherit` with a mismatched rack refused); `processing-realisation.test.ts` (inheriting `none` and unset; A → none → B keeps every inheritor; `own` with an equal rack stays `own`); `chain-users.test.ts` and an architecture rule that no other package imports the domain's `chainUsers`; `game/*-commands.test.ts` (each command and its inverse, rack re-pointing, chain entering and leaving, `set-rack` turning a member `own`); the random command walk extended with game commands; `game-audio-json.test.ts`, `history-node-json.test.ts` (a node without `gameGroups` still reads) and the tree round trip; `game-chains.test.ts` (each built-in entry valid against the catalogue, values pinned) and `processing-library-store.test.ts` (built-ins listed, never renamed or removed)                                                                                                                                                                                                  |
-| `REQ-GAME-121`              | `*.loop-golden.test.ts` over `testing/loop-fixtures.ts` (below) pinning metrics (`doublesFingerprint`) and the ranked candidates' frames; `seam-metrics.test.ts` per metric against hand-computed values, including zero RMS, a steady sine's zero MAD, non-finite input and each reference; `candidate-search.test.ts` (overlap-save NCC against a direct sum, tie-breaking, keep-length, radius clipping, multichannel and anti-phase stereo); `search-bounds.test.ts` (one pass, the reads counted); `crossfade-suggestion.test.ts` (a sine needs at least two periods; a whole-sound loop gets the moved-start candidate); `loop-crossfade.test.ts` and `loop-crossfade-property.test.ts` in the domain against its oracle (both joins, every shape, the clamp after a later edit); `loop-run.test.ts` (cancelled and failed runs return no result and change nothing); `audition-plans.test.ts` rendered offline                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `REQ-GAME-122`              | `selection.test.ts`, `voice-allocation.test.ts` (limit + 1 lanes, a stolen voice's fade never shares a lane), `cooldown.test.ts` (strict, rejected and suppressed leave it), `voice-budget.test.ts`, `motion.test.ts`, `preview-draws.test.ts` (every formula of section 6; reordering emitters changes no draw); `preview-simulation.properties.test.ts` (same seed same log; continuation equals the whole; never more than `limit` voices; `avoid-recent(d)` never repeats within d when n > d; suppressed triggers change no later choice; a member's `variation` and `bus` override reach its voices); `preview-vectors.test.ts` (the reference vectors Phase 11 consumes); `preview-plan.test.ts` and `extend-preview-plan.test.ts` (rendered offline: a voice's samples at its frame, gain and pitch; streams before F unchanged at their indices); `spatial-panner.golden.test.ts` and properties (each model, the filter, the pan laws, automation rendered offline equal to running changes at the same frames); the varispeed property tests against the domain's oracle; `chain-automation.test.ts` in the effect rack; the D3 gate tests (a)–(c) in `plan-readers.test.ts`, the feeder tests and `playback-session.test.ts`, and `playback-control.test.ts`; `hand-trigger.performance.test.ts` (under 1 ms at the bounds) |
-| `REQ-GAME-075`              | Each planner's test over `testing/workflow-states.ts` (plans, skips, refusals); `workflow-dispatch.test.ts` in the web app (a refused item dispatches nothing; one undo reverses a run); dialog tests; the browser test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `REQ-GAME-023`              | Naming: `naming-template.test.ts`, `member-naming.test.ts` (every token and modifier), `template-grammar.test.ts` in import-export with Phase 09's tests unchanged; export: `game-export-plan.test.ts` (resolution equals `resolvePreset`, collisions, per-item refusal with owner), `export-delivery.test.ts` (relative folders, trusted records by path); loudness: `loudness-run.test.ts`; the remaining items as section 1 maps them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Acceptance: long recordings | The browser test cuts a long signal asset into regions with Cut Into Sounds, names them, gives the group a profile and exports them; `cut-into-sounds.test.ts` asserts no new source or media is made (only regions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Requirement                 | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REQ-GAME-120`              | `policy-resolution.test.ts` (each rule of section 3, by fixture forest); `policy-resolution.properties.test.ts` (random forests: `resolveAll` equals `resolvePolicy`, permuting maps and memberships never changes an answer, a reset reveals `shadowed[0]`); `state-validation.test.ts` (every code, each failure naming its owner; `inherit` with a mismatched rack refused); `processing-realisation.test.ts` (inheriting `none` and unset; A → none → B keeps every inheritor; `own` with an equal rack stays `own`); `chain-users.test.ts` and an architecture rule that no other package imports the domain's `chainUsers`; `game/*-commands.test.ts` (each command and its inverse, rack re-pointing, chain entering and leaving, `set-rack` turning a member `own`); the random command walk extended with game commands; `game-audio-json.test.ts`, `history-node-json.test.ts` (a node without `gameGroups` still reads) and the tree round trip; `game-chains.test.ts` (each built-in entry valid against the catalogue, values pinned) and `processing-library-store.test.ts` (built-ins listed, never renamed or removed)                                                                                                                                                                                                                                                                     |
+| `REQ-GAME-121`              | `*.loop-golden.test.ts` over `testing/loop-fixtures.ts` (below) pinning metrics (`doublesFingerprint`) and the ranked candidates' frames; `seam-metrics.test.ts` per metric against hand-computed values, including zero RMS, a steady sine's zero MAD, non-finite input and each reference; `candidate-search.test.ts` (overlap-save NCC against a direct sum, tie-breaking, keep-length, radius clipping, multichannel and anti-phase stereo); `search-bounds.test.ts` (one pass, the reads counted); `crossfade-suggestion.test.ts` (a sine needs at least two periods; a whole-sound loop gets the moved-start candidate); `loop-crossfade.test.ts` and `loop-crossfade-property.test.ts` in the domain against its oracle (both joins, every shape, the clamp after a later edit); `loop-run.test.ts` (cancelled and failed runs return no result and change nothing); `audition-plans.test.ts` rendered offline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `REQ-GAME-122`              | `selection.test.ts`, `voice-allocation.test.ts` (limit + 1 lanes, a stolen voice's fade never shares a lane), `cooldown.test.ts` (strict, rejected and suppressed leave it), `voice-budget.test.ts`, `motion.test.ts`, `preview-draws.test.ts` (every formula of section 6; reordering emitters changes no draw); `preview-simulation.properties.test.ts` (same seed same log; continuation equals the whole; never more than `limit` voices; `avoid-recent(d)` never repeats within d when n > d; suppressed triggers change no later choice; a member's `variation` and `bus` override reach its voices); `preview-vectors.test.ts` (the reference vectors Phase 11 consumes); `preview-plan.test.ts` and `extend-preview-plan.test.ts` (rendered offline: a voice's samples at its frame, gain and pitch; streams before F unchanged at their indices); `spatial-panner.golden.test.ts` and properties (each model, the filter, the pan laws, automation rendered offline equal to running changes at the same frames); the varispeed property tests against the domain's oracle; `chain-automation.test.ts` in the effect rack; the D3 gate tests (a)–(c) in `plan-readers.test.ts`, the feeder tests and `playback-session.test.ts`, and `playback-control.test.ts`; `hand-trigger.performance.test.ts` (the simulation under 1 ms, with the extension under 5 ms, at the bounds; amended 2026-10-16) |
+| `REQ-GAME-075`              | Each planner's test over `testing/workflow-states.ts` (plans, skips, refusals); `workflow-dispatch.test.ts` in the web app (a refused item dispatches nothing; one undo reverses a run); dialog tests; the browser test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `REQ-GAME-023`              | Naming: `naming-template.test.ts`, `member-naming.test.ts` (every token and modifier), `template-grammar.test.ts` in import-export with Phase 09's tests unchanged; export: `game-export-plan.test.ts` (resolution equals `resolvePreset`, collisions, per-item refusal with owner), `export-delivery.test.ts` (relative folders, trusted records by path); loudness: `loudness-run.test.ts`; the remaining items as section 1 maps them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Acceptance: long recordings | The browser test cuts a long signal asset into regions with Cut Into Sounds, names them, gives the group a profile and exports them; `cut-into-sounds.test.ts` asserts no new source or media is made (only regions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 Loop fixtures (generated by `@audiogubbins/test-fixtures` signals and
 `loop-analysis/src/testing/loop-fixtures.ts`, at 48 kHz, mono and stereo):
@@ -1618,7 +1752,9 @@ Order:
    WU-10.0 its panel, command and context lines.
 8. WU-10.F; the packet's commands over the integrated branch; WU-10.R (the
    lens reviews, the adversarial review, verification of findings,
-   remediation and re-review, section 16); WU-10.Z.
+   remediation and re-review, section 16); WU-10.Z. Amended 2026-10-16:
+   WU-10.R is the scope checks and their fixes; the lens reviews and the
+   adversarial review are deferred (section 16).
 
 The version raise is WU-10.0's line, committed when A4 branches; A4's
 refusal test names the version it takes.
@@ -1677,7 +1813,9 @@ Withdrawn after review: C6 (the packet's `pnpm test --filter game-audio
 matched package's own `test` script, as observed in this worktree, "Scope: 0
 of 38 workspace projects" before the packages exist; WU-10.0 gives both
 packages that script) and C12 (the maintainer requires this phase's lens
-reviews; section 16).
+reviews; section 16). Amended 2026-10-16: the maintainer has since deferred
+this phase's lens reviews to the review after the whole specification is
+implemented, which C12 had recommended (section 16).
 
 Open questions, to settle in the unit named:
 
@@ -1687,16 +1825,22 @@ Open questions, to settle in the unit named:
   documentation before the workflow's text says what Godot will do.
 - **Q2 (D3, the gate).** Whether the feeder can switch at its next read frame
   in every profile; this is what the gate's tests decide, and a failure
-  blocks the phase rather than degrading it.
+  blocks the phase rather than degrading it. Answered 2026-10-16: the
+  gate's tests (a)–(c) pass in the reference renderer and the feeder
+  (`plan-continuation.test.ts`, `feeder-continuation.test.ts`; `c6677d89`).
 - **Q3 (D2, D4; Phase 11).** The attenuation formulas', `CMP_EPSILON`'s and
   the distance filter's parity with Godot 4's `AudioStreamPlayer2D` and
   `AudioStreamPlayer3D` source, confirmed before the vectors are pinned.
+  Answered 2026-10-16 (WU-10.D2) against Godot 4's source, with the
+  differences section 6 records ("Space", amended).
 - **Q4 (D4).** Elevation on surround or binaural output: the preview pans to
   stereo and folds to the project's layout; `ambisonic-encode`/`-decode`
   could place an emitter in height, a later decision.
 - **Q5 (D4).** `PREVIEW_VOICE_BUDGET`: the measured number of varispeed
   voices at preview quality in real time on the reference machine, and the
-  cost of `extendPreviewPlan`, each pinned by a test.
+  cost of `extendPreviewPlan`, each pinned by a test. Answered 2026-10-16
+  (WU-10.D4): a budget by grade and pitch range, not one number, and a hand
+  trigger's cost of 5 ms at most (section 6, amended).
 - **Q6 — answered.** A new tree file does not raise `projectStorage`: the
   commit that added `project/export-settings.json` (`21694890`) raised only
   `projectDocument` (7 to 8 in `version.json`).
@@ -1709,29 +1853,31 @@ Open questions, to settle in the unit named:
 
 ## 16. Reviews and evidence the phase owes
 
-**Reviews (WU-10.R), before `PASS`.** The maintainer requires this phase to
-run the review pipeline of `contracts/review-gates.md`; the 2026-10-07
-deferral does not apply to it. After the packet's commands pass over the
-integrated branch:
+**Reviews (WU-10.R), before `PASS`.** Amended 2026-10-16: the maintainer
+deferred this phase's independent lens reviews and adversarial review, with
+their verification, remediation and re-review, to the review after the whole
+specification is implemented, as Phase 09's were; this section required the
+pipeline of `contracts/review-gates.md` before `PASS`. In its place, after
+the packet's commands pass over the integrated branch:
 
-1. Evidence assembly (`docs/spec/reviews/phase-10-evidence.md`).
-2. Independent lens reviews, each by an agent that built none of the work,
-   given the packet, the requirements, the evidence, the ADRs and the public
-   contracts, and no instruction to preserve the implementation:
-   Audio/DSP Correctness, UX/Accessibility, Architecture, Testing/Regression,
-   Performance, and the required Code Quality/Maintainability.
-3. An adversarial review across them (shortcuts, unimplemented edges,
-   architecture erosion, test cheating, data-loss paths, capability
-   assumptions, requirement drift).
-4. Verification of each finding (reproduced or proved, false ones closed
-   with evidence), remediation by the unit that owns the file with a
-   regression test that fails without the fix, and re-review of the affected
-   lenses.
-5. The gate: `PASS` only with no open `BLOCKER`, `CRITICAL` or `HIGH`, and
-   every `MEDIUM` fixed or accepted as recorded debt.
+1. Evidence assembly (`docs/spec/reviews/phase-10-evidence.md`, drafted
+   while the units land).
+2. Read-only scope checks, as Phase 09 ran, each by an agent that built none
+   of the work, reading the integrated branch against every In Scope item,
+   acceptance criterion, invariant, cross-package rule, failure behaviour,
+   forbidden shortcut and required contract of the packet, `ADR-0100` to
+   `ADR-0106` and `CHG-0001`, editing nothing.
+3. Each finding confirmed by reading the code again or reproduced by a
+   failing test, and fixed by the unit that owns the file with a regression
+   test that fails without the fix.
+4. The gate: `PASS` only with no open `BLOCKER`, `CRITICAL` or `HIGH`, and
+   every `MEDIUM` fixed or accepted as recorded debt; the ledger notes the
+   deferred lenses.
 
-`docs/spec/reviews/phase-10-review.md` records each lens, every finding with
-its severity, status, disposition and proof, and the re-review.
+`docs/spec/reviews/phase-10-review.md` records the decision, each deferred
+lens, the design-stage adversarial reviews (architecture, 14 findings; DSP,
+24; disposed of by `61bd8f1a`), and every finding of the scope checks and of
+the build with its severity, status, disposition and proof.
 
 **Evidence.** `phase-10-evidence.md` in Phase 09's sections (objective,
 checklist, inherited debt, files, contracts, ADRs, decisions beyond the
