@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { lockedPackagesOf, readLockfileDocuments } from '../tools/read-pnpm-lockfile.mjs';
 import {
   ALLOWED_LICENCES,
+  FONT_LICENCES,
+  FONT_PACKAGES,
   LICENCE_TEXTS,
   PORTED_CODE,
   VENDORED_LIBRARIES,
@@ -343,12 +345,33 @@ describe('what the licence of a shipped package permits', () => {
     expect('notice' in notice && 'source' in notice.notice).toBe(false);
   });
 
-  it('holds the standard text of every allowed licence, and of no other', () => {
+  it('takes a font package ADR-0108 names under the Open Font License, and refuses any other package under it', () => {
+    const font = {
+      name: '@fontsource-variable/inter',
+      version: '5.3.0',
+      licence: 'OFL-1.1',
+      files: [{ name: 'LICENSE', text: 'Copyright 2016 The Inter Project Authors\nThe OFL text.' }],
+    };
+    expect(FONT_PACKAGES).toContain(font.name);
+    expect(noticeOf(font, standardText)).toMatchObject({
+      notice: { licence: 'OFL-1.1', copyright: ['Copyright 2016 The Inter Project Authors'] },
+    });
+    // A package of code that declares the font licence is a person's decision.
+    expect(noticeOf({ ...font, name: 'not-a-font' }, standardText)).toEqual({
+      refused: 'not-a-font 5.3.0 is licensed OFL-1.1: OFL-1.1 is not allowed',
+    });
+    // A named font under a licence of another kind is decided as any package is.
+    expect(noticeOf({ ...font, licence: 'GPL-3.0-only' }, standardText)).toMatchObject({
+      refused: expect.stringMatching(/GPL-3\.0-only is not allowed/u),
+    });
+  });
+
+  it('holds the standard text of every allowed licence and every font licence, and of no other', () => {
     expect(
       readdirSync(LICENCE_TEXTS)
         .map((name) => name.replace(/\.txt$/u, ''))
         .toSorted(),
-    ).toEqual([...ALLOWED_LICENCES].toSorted());
+    ).toEqual([...ALLOWED_LICENCES, ...FONT_LICENCES].toSorted());
   });
 });
 
