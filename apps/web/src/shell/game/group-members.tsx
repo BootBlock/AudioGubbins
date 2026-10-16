@@ -102,32 +102,34 @@ export function GroupMembers({
     );
   }
   return (
-    <table className="ag-group-members" aria-labelledby={caption}>
-      <caption id={caption}>{`Members of ${view.pathOf(group.id).join('/')}`}</caption>
-      <thead>
-        <tr>
-          <th scope="col">Member</th>
-          <th scope="col">Processing</th>
-          <th scope="col">Overrides</th>
-          <th scope="col">Loudness target</th>
-          <th scope="col">Loudness</th>
-          <th scope="col">
-            <VisuallyHidden>Actions</VisuallyHidden>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {memberships.map((membership) => (
-          <MemberRow
-            key={memberKey(membership.member)}
-            membership={membership}
-            state={state}
-            view={view}
-            loudness={{ readings, quality: settings.renderQuality, assets: parts.assets }}
-            commands={commands}
-          />
-        ))}
-      </tbody>
-    </table>
+    <div className="ag-group-members">
+      <table aria-labelledby={caption}>
+        <caption id={caption}>{`Members of ${view.pathOf(group.id).join('/')}`}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Member</th>
+            <th scope="col">Processing</th>
+            <th scope="col">Overrides</th>
+            <th scope="col">Loudness target</th>
+            <th scope="col">Loudness</th>
+            <th scope="col">
+              <VisuallyHidden>Actions</VisuallyHidden>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {memberships.map((membership) => (
+            <MemberRow
+              key={memberKey(membership.member)}
+              membership={membership}
+              state={state}
+              view={view}
+              loudness={{ readings, quality: settings.renderQuality, assets: parts.assets }}
+              commands={commands}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

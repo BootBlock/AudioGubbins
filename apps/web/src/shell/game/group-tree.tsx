@@ -13,7 +13,7 @@
  * the tree keeps only which groups are closed and which one has the focus.
  */
 
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 
 import { TextField } from '@audiogubbins/design-system';
 import type { GameAssetGroup, GameAssetGroupId } from '@audiogubbins/game-audio';
@@ -120,6 +120,11 @@ function keyActions(
   };
 }
 
+/** The style that indents an item by its depth, which the stylesheet reads as `--ag-group-depth`. */
+function depthStyle(depth: number): CSSProperties & { readonly '--ag-group-depth': number } {
+  return { '--ag-group-depth': depth };
+}
+
 /** What a group's item says: that it is chosen, its name, and how many members it has. */
 function itemWords(view: GamePolicyView, group: GameAssetGroup, chosen: boolean): string {
   const members = view.membersOf(group.id).length;
@@ -181,7 +186,7 @@ function TreeItem({
       aria-selected={group.id === tree.chosen}
       {...(row.hasChildren ? { 'aria-expanded': !tree.closed.has(group.id) } : {})}
       tabIndex={tree.stop === group.id ? 0 : -1}
-      style={{ paddingInlineStart: `${String(row.level - 1)}rem` }}
+      style={depthStyle(row.level - 1)}
       onFocus={(event) => {
         if (event.target === event.currentTarget) tree.focused(group.id);
       }}
