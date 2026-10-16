@@ -17,6 +17,8 @@
  */
 
 import {
+  FadeShape,
+  ZERO_SAMPLES,
   anchorResolver,
   createCancellationSource,
   placeRegion,
@@ -27,6 +29,7 @@ import {
   type LoopDefinition,
   type QualityMode,
   type Region,
+  type SampleCount,
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind, type PcmDescription } from '@audiogubbins/audio-engine';
 import type { DetectionHost, LoopOutcome, LoopSubject } from '@audiogubbins/detection-runtime';
@@ -88,15 +91,41 @@ function loopIdentity(sound: EditorAsset, plain: EditPlan, loop: LoopDefinition)
   return `${sound.content}\u0000${canonicalJson(writeEditPlan(plain))}\u0000${JSON.stringify(placed)}`;
 }
 
-/** The region `sound` is, looped, as an analysis reads it in `state`, or why it cannot be analysed. */
-export function regionLoopOf(sound: EditorAsset, state: ProjectState): RegionLoop | string {
+/**
+ * The loop of a region that has none, as Create Seamless Loop asks its loop
+ * analysis (`@audiogubbins/guided-workflows`): the whole region, joined hard,
+ * as the candidate loop whose points the analysis searches around.
+ */
+function wholeRegionLoop(length: SampleCount): LoopDefinition {
+  return {
+    loopStart: ZERO_SAMPLES,
+    loopEnd: length,
+    crossfadeLength: ZERO_SAMPLES,
+    crossfadeShape: FadeShape.EqualPower,
+  };
+}
+
+/**
+ * The region `sound` is, looped, as an analysis reads it in `state`, or why it
+ * cannot be analysed. A region that does not loop is refused, as the Loop
+ * panel and an audition read only a loop the region has, unless `unlooped` is
+ * `'whole'`, where it is read as its whole length looped (`wholeRegionLoop`).
+ */
+function loopOf(
+  sound: EditorAsset,
+  state: ProjectState,
+  unlooped: 'refuse' | 'whole',
+): RegionLoop | string {
   const { owner } = sound;
   if (owner.kind !== 'project' || owner.region === undefined) {
     return 'A loop is a region’s. Select one region, or open one in a view of its own.';
   }
   const { asset, region } = owner;
   const resolver = anchorResolver(asset);
-  const loop = placeRegion(resolver, region)?.loop;
+  const placed = placeRegion(resolver, region);
+  const loop =
+    placed?.loop ??
+    (unlooped === 'whole' && placed !== undefined ? wholeRegionLoop(placed.length) : undefined);
   if (loop === undefined) {
     return `${quoted(region.displayName)} does not loop. Loop part of it first, with “Loop the selection of the region”.`;
   }
@@ -117,6 +146,20 @@ export function regionLoopOf(sound: EditorAsset, state: ProjectState): RegionLoo
     identity: loopIdentity(sound, plain.value, loop),
     describedWith: (plan) => ({ ...base, plan }),
   };
+}
+
+/** The region `sound` is, looped, as an analysis reads it in `state`, or why it cannot be analysed. */
+export function regionLoopOf(sound: EditorAsset, state: ProjectState): RegionLoop | string {
+  return loopOf(sound, state, 'refuse');
+}
+
+/**
+ * The region `sound` is as a loop analysis a guided workflow asks reads it in
+ * `state`: its loop, or, where it has none, its whole length as the candidate
+ * loop; or why it cannot be analysed.
+ */
+export function workflowLoopOf(sound: EditorAsset, state: ProjectState): RegionLoop | string {
+  return loopOf(sound, state, 'whole');
 }
 
 /** The request that measures `loop` as it is placed, searching as `search` says where given. */

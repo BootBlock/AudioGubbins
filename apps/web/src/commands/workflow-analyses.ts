@@ -27,7 +27,7 @@ import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import { detectionIdentity, type Detection } from '../analysis/detection-control.js';
-import { regionLoopOf } from '../analysis/loop-analysing.js';
+import { workflowLoopOf } from '../analysis/loop-analysing.js';
 import type { WorkflowAnalysisJob } from '../analysis/workflow-analysing.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { assetEntryId, regionEntryId } from '../assets/project-entry.js';
@@ -160,7 +160,7 @@ function loopStatus(
   }
   const sound = soundOf(context, target);
   if (sound === undefined) return { kind: 'unreachable', need, reason: notOpen(target) };
-  const looped = regionLoopOf(sound, state);
+  const looped = workflowLoopOf(sound, state);
   if (typeof looped === 'string') return { kind: 'unreachable', need, reason: looped };
   const analysing = context.loopAnalysis;
   const record = analysing.analyses.of(target.region);
