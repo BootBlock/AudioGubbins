@@ -18,7 +18,7 @@ import { ProvenanceLevel, stripExportRecords } from './provenance-stripping.js';
 import { edited, withValue, without } from './testing/json-editing.js';
 import { contentIdOfDigit } from './testing/project-states.js';
 
-/** A WAV file exported into a trusted folder. */
+/** A WAV file exported into a folder below a trusted one, as a game export places it. */
 const FILE: ExportedAudioFile = {
   settings: {
     format: 'wav',
@@ -31,6 +31,7 @@ const FILE: ExportedAudioFile = {
     fileName: '{project}',
   },
   fileName: 'Forest steps.wav',
+  folder: { segments: ['audio', 'sfx'] },
   byteLength: 96_044,
   sha256: 'ab'.repeat(32),
   codec: { id: 'pcm', implementation: 'application', version: '0.1.0' },
@@ -90,7 +91,7 @@ describe('export records as JSON', () => {
     }
   });
 
-  it('keep an exported file’s settings, size, hash and codec below full, and drop its name', () => {
+  it('keep an exported file’s settings, size, hash and codec below full, and drop its name and folder', () => {
     const [minimal] = stripExportRecords(
       [
         {
@@ -100,9 +101,36 @@ describe('export records as JSON', () => {
       ],
       ProvenanceLevel.Minimal,
     );
-    const { fileName: _name, ...unnamed } = FILE;
+    const { fileName: _name, folder: _folder, ...unnamed } = FILE;
     expect(minimal?.file).toEqual(unnamed);
     expect(minimal?.destination).toEqual({ kind: ExportDestinationKind.TrustedDirectory });
+  });
+
+  it('read a file written into its destination itself, as every export before game exports was', () => {
+    const { folder: _folder, ...unplaced } = FILE;
+    const record: ExportRecord = { ...RECORD, file: unplaced };
+    expect(read(writeExportRecord(record))).toEqual(record);
+    expect(canonicalJson(writeExportRecord(record))).not.toContain('"folder"');
+  });
+
+  it('write a folder of no segments as none, the one form of the destination itself', () => {
+    const record: ExportRecord = { ...RECORD, file: { ...FILE, folder: { segments: [] } } };
+    const { folder: _folder, ...unplaced } = FILE;
+    expect(read(writeExportRecord(record))).toEqual({ ...RECORD, file: unplaced });
+  });
+
+  it('refuse a folder without quoting the names it holds', () => {
+    const value = withValue(
+      writeExportRecord(RECORD),
+      ['file', 'folder'],
+      ['private-person', '..'],
+    );
+    const reading = startReading();
+    const result = reading.outcome(readExportRecord(reading, value, 'exports', 0));
+    expect(result.ok ? [] : result.failures.map(({ code }) => code)).toEqual([
+      'game.destination-invalid',
+    ]);
+    expect(JSON.stringify(result)).not.toContain('private-person');
   });
 
   it('write maps as lists sorted by name, so equal records give equal text', () => {
@@ -176,6 +204,30 @@ describe('export records as JSON', () => {
       (value: JsonValue) => withValue(value, ['file', 'fileName'], 'Sounds/step.wav'),
       'schema.text-malformed',
       'exports[0].file.fileName',
+    ],
+    [
+      'a folder of no segments, which is written as none',
+      (value: JsonValue) => withValue(value, ['file', 'folder'], []),
+      'export-record.folder-empty',
+      'exports[0].file.folder',
+    ],
+    [
+      'a folder that steps out of the destination',
+      (value: JsonValue) => withValue(value, ['file', 'folder'], ['audio', '..']),
+      'game.destination-invalid',
+      'exports[0].file.folder',
+    ],
+    [
+      'a folder no file system takes as it is',
+      (value: JsonValue) => withValue(value, ['file', 'folder'], ['a:b']),
+      'game.destination-invalid',
+      'exports[0].file.folder',
+    ],
+    [
+      'a folder that is not a list of names',
+      (value: JsonValue) => withValue(value, ['file', 'folder'], 'audio/sfx'),
+      'schema.not-an-array',
+      'exports[0].file.folder',
     ],
     [
       'a codec the registry does not name',
