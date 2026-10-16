@@ -7,8 +7,10 @@
  * checked against the staged files at their largest (`staged-size.ts`).
  *
  * Each file is made ready with the audio its span is of, the asset's or its
- * region's as the editor opens it, the metadata it carries, and the most it
- * can stage.
+ * region's as the editor opens it, the metadata it carries, its settings, the
+ * folder inside the destination it goes into, and the most it can stage. The
+ * Export dialog's files are planned here from its one set of settings; a game
+ * export's come planned, each with its own (ADR-0102), and are checked alike.
  */
 
 import type { TrustedFolders } from '@audiogubbins/browser-storage';
@@ -26,11 +28,10 @@ import {
   planExport,
   type ExportClock,
   type ExportSettings,
-  type ExportTarget,
   type PlannedFile,
 } from '@audiogubbins/import-export';
-import type { KeptMetadata } from '@audiogubbins/project-format';
-import type { ProjectSnapshot } from '@audiogubbins/storage';
+import type { KeptMetadata, ProjectState } from '@audiogubbins/project-format';
+import type { ExportOrigin, ProjectSnapshot } from '@audiogubbins/storage';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { counted, quoted } from '@audiogubbins/text';
 
@@ -42,13 +43,23 @@ import { describeBytes } from '../wording.js';
 import { exportContextOf, servedCodecs } from './export-context.js';
 import { exportRefusal } from './export-refusals.js';
 import type { StagedRun } from './export-runner.js';
-import type { ExportDestinationChoice, ExportStart } from './export-types.js';
+import type {
+  ExportDestinationChoice,
+  ExportStart,
+  PlannedExportFile,
+  PlannedExportStart,
+  SettingsExportStart,
+} from './export-types.js';
 import { fileMetadata } from './file-metadata.js';
 import { stagedSizeBound } from './staged-size.js';
 
-/** A file of a batch, with everything it needs to be staged and delivered. */
-export interface JobParts {
+/** A file of a batch made ready, with everything it needs to be staged and delivered but its origin. */
+export interface PreparedJob {
   readonly file: PlannedFile;
+  readonly settings: ExportSettings;
+
+  /** The folders inside the destination it goes into, outermost first. */
+  readonly folder: readonly string[];
   readonly source: PcmDescription;
   readonly metadata: MetadataMap;
   readonly bound: number;
@@ -60,11 +71,15 @@ export interface JobParts {
   staged: StagedRun | undefined;
 }
 
-/** An export planned and checked, before its origin is taken and it begins. */
+/** A file of a running batch: made ready, with what it was made from and with. */
+export interface JobParts extends PreparedJob {
+  readonly origin: ExportOrigin;
+}
+
+/** An export planned and checked, before its origins are taken and it begins. */
 export interface Prepared {
-  readonly jobs: readonly JobParts[];
+  readonly jobs: readonly PreparedJob[];
   readonly snapshot: ProjectSnapshot;
-  readonly target: ExportTarget;
 }
 
 /** What an export is made ready with. */
@@ -101,15 +116,19 @@ function writable(parts: PreparationParts, codec: CodecId): DomainResult<void> {
   );
 }
 
+/** What one file of a batch is made ready from. */
+interface FileToPrepare {
+  readonly asset: EditorAsset;
+  readonly file: PlannedFile;
+  readonly settings: ExportSettings;
+  readonly folder: readonly string[];
+  readonly kept: KeptMetadata | undefined;
+  readonly destination: ExportDestinationChoice;
+}
+
 /** One file's parts: its audio, its metadata and the most it can stage. */
-function jobOf(
-  assets: AssetCatalogue,
-  asset: EditorAsset,
-  file: PlannedFile,
-  settings: ExportSettings,
-  kept: KeptMetadata | undefined,
-  destination: ExportDestinationChoice,
-): DomainResult<JobParts> {
+function jobOf(assets: AssetCatalogue, of: FileToPrepare): DomainResult<PreparedJob> {
+  const { asset, file, settings, kept, folder, destination } = of;
   const { region } = file.span;
   const heard =
     region === undefined
@@ -122,6 +141,8 @@ function jobOf(
   return flatMapResult(heard, (entry) =>
     mapResult(fileMetadata(file, settings, { asset, region: entry, kept }), (metadata) => ({
       file,
+      settings,
+      folder,
       source: (entry ?? asset).describe(),
       metadata,
       bound: stagedSizeBound(settings, file.render.range.length, file.render.layout, metadata),
@@ -131,15 +152,24 @@ function jobOf(
   );
 }
 
-/** Every file `start` makes, ready to stage, or every reason it cannot start. */
-export function prepareExport(
+/** Refused where a save dialog's one file is asked to take `files` files. */
+function fitsDestination(destination: ExportDestinationChoice, files: number): DomainResult<void> {
+  if (files <= 1 || destination.kind !== 'file') return succeed(undefined);
+  return fail(
+    exportRefusal(
+      'one-file-destination',
+      `The export makes ${counted(files, 'file', 'files')}, and a save dialog gives one; choose a folder for them.`,
+    ),
+  );
+}
+
+/** The files the Export dialog's one set of settings makes of its asset, made ready. */
+function preparedFromSettings(
   parts: PreparationParts,
-  session: RemoteProjectSession,
-  start: ExportStart,
-): DomainResult<Prepared> {
+  state: ProjectState,
+  start: SettingsExportStart,
+): DomainResult<readonly PreparedJob[]> {
   const { settings, destination } = start;
-  const snapshot = session.getSnapshot();
-  const { state } = snapshot.model;
   const kept = state.sources.get(start.asset)?.provenance?.metadata;
   const asset = opened(
     parts.assets,
@@ -154,25 +184,74 @@ export function prepareExport(
           const [first] = files;
           if (first === undefined)
             return fail(exportRefusal('nothing', 'The export makes no file.'));
-          if (files.length > 1 && destination.kind === 'file') {
-            return fail(
-              exportRefusal(
-                'one-file-destination',
-                `The export makes ${counted(files.length, 'file', 'files')}, and a save dialog gives one; choose a folder for them.`,
-              ),
-            );
-          }
-          return flatMapResult(writable(parts, first.target.codec), () =>
-            mapResult(
+          return flatMapResult(fitsDestination(destination, files.length), () =>
+            flatMapResult(writable(parts, first.target.codec), () =>
               combine(
-                files.map((file) => jobOf(parts.assets, editor, file, settings, kept, destination)),
+                files.map((file) =>
+                  jobOf(parts.assets, {
+                    asset: editor,
+                    file,
+                    settings,
+                    folder: [],
+                    kept,
+                    destination,
+                  }),
+                ),
               ),
-              (jobs) => ({ jobs, snapshot, target: first.target }),
             ),
           );
         }),
     ),
   );
+}
+
+/** One file planned with its own settings, made ready. */
+function preparedPlanned(
+  parts: PreparationParts,
+  state: ProjectState,
+  planned: PlannedExportFile,
+  destination: ExportDestinationChoice,
+): DomainResult<PreparedJob> {
+  const asset = opened(
+    parts.assets,
+    assetEntryId(planned.asset),
+    'That asset is not in the project open here.',
+  );
+  return flatMapResult(asset, (editor) =>
+    flatMapResult(writable(parts, planned.file.target.codec), () =>
+      jobOf(parts.assets, {
+        asset: editor,
+        file: planned.file,
+        settings: planned.settings,
+        folder: planned.folder,
+        kept: state.sources.get(planned.asset)?.provenance?.metadata,
+        destination,
+      }),
+    ),
+  );
+}
+
+/** Whether `start` asks for files planned each with its own settings. */
+function isPlanned(start: ExportStart): start is PlannedExportStart {
+  return 'files' in start;
+}
+
+/** Every file `start` makes, ready to stage, or every reason it cannot start. */
+export function prepareExport(
+  parts: PreparationParts,
+  session: RemoteProjectSession,
+  start: ExportStart,
+): DomainResult<Prepared> {
+  const snapshot = session.getSnapshot();
+  const { state } = snapshot.model;
+  const jobs = isPlanned(start)
+    ? flatMapResult(fitsDestination(start.destination, start.files.length), () =>
+        combine(
+          start.files.map((planned) => preparedPlanned(parts, state, planned, start.destination)),
+        ),
+      )
+    : preparedFromSettings(parts, state, start);
+  return mapResult(jobs, (ready) => ({ jobs: ready, snapshot }));
 }
 
 /**

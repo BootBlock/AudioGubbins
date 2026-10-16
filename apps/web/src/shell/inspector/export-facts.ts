@@ -79,11 +79,24 @@ function batchStateWords(state: ShownExport): string {
   }
 }
 
+/**
+ * The one set of settings every file of the batch is made by, where one is,
+ * as the Export dialog's files are; none where its files each have their own,
+ * as a game export's do.
+ */
+function sharedSettings(state: ShownExport): ExportSettings | undefined {
+  const [first, ...rest] = state.settings.values();
+  return rest.every((one) => one === first) ? first : undefined;
+}
+
 /** The facts of the page's export as a whole. */
 export function batchFacts(state: ShownExport, wording: ExportWording): readonly Fact[] {
+  const shared = sharedSettings(state);
   return [
     { term: 'Where it is', detail: batchStateWords(state) },
-    ...settingsFacts(state.settings, wording),
+    ...(shared === undefined
+      ? [{ term: 'Settings', detail: 'Each file has its own, from the policy of its group.' }]
+      : settingsFacts(shared, wording)),
   ];
 }
 
@@ -109,15 +122,19 @@ function describedJob(state: ShownExport, job: ExportJob, wording: ExportWording
   const destination = state.destinations.get(job.id);
   const region = file?.span.region;
   const bytes = stagedBytes(job);
+  const settings = state.settings.get(job.id);
   const facts: Fact[] = [{ term: 'Where it is', detail: stageWords(job) }];
-  if (file !== undefined) {
+  if (file !== undefined && (region !== undefined || settings !== undefined)) {
     facts.push({
       term: 'Of',
       detail:
         region === undefined
-          ? rangeWords(state.settings.range, wording.regionName)
+          ? rangeWords(settings?.range ?? { kind: 'project' }, wording.regionName)
           : rangeWords({ kind: 'region', region: region.id }, () => region.name),
     });
+  }
+  if (settings !== undefined && sharedSettings(state) === undefined) {
+    facts.push({ term: 'Made as', detail: settingsPhrase(settings) });
   }
   if (bytes !== undefined) facts.push({ term: 'Size', detail: describeBytes(bytes) });
   if (destination !== undefined) {

@@ -44,14 +44,19 @@ export interface DeliveryRules {
 
 /**
  * The destination `file` is delivered to, as the storage client takes it, or
- * why there is none: a trusted folder where this browser keeps none.
+ * why there is none: a trusted folder where this browser keeps none. A folder
+ * or trusted folder takes it into `folder` inside it, a game export's
+ * destination path (ADR-0102), made where it is not there; a save dialog's
+ * file and a download have no folder, and take the name alone.
  */
 export function pageDestination(
   destination: ExportDestinationChoice,
   file: PlannedFile,
+  folder: readonly string[],
   rules: DeliveryRules,
 ): DomainResult<PageDestination> {
   const folderRules = {
+    ...(folder.length === 0 ? {} : { path: folder }),
     wanted: file.name,
     remembered: rules.remembered,
     prompt: rules.prompt,

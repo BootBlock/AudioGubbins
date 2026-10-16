@@ -114,7 +114,8 @@ export function otherUsers(
     gameAudio === undefined
       ? []
       : users.groups.map(
-          (group) => `the processing of the group ${quoted(pathText(groupPath(gameAudio.groups, group)))}`,
+          (group) =>
+            `the processing of the group ${quoted(pathText(groupPath(gameAudio.groups, group)))}`,
         );
   return [
     ...groups,

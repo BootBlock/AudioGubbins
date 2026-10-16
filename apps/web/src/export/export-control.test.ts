@@ -301,7 +301,9 @@ describe('the page export (ADR-0092)', () => {
     const [job] = ended.batch.jobs;
     expect(running.length).toBeGreaterThan(0);
     for (const state of [...running, ended]) {
-      expect(state).toMatchObject({ settings: settings({ kind: 'project' }) });
+      expect(state.kind === 'idle' ? undefined : state.settings.get(job?.id ?? '')).toEqual(
+        settings({ kind: 'project' }),
+      );
       expect(state.kind === 'idle' ? undefined : state.destinations.get(job?.id ?? '')).toBe(
         destination,
       );
