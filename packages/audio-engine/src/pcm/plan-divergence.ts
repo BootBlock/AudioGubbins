@@ -18,11 +18,10 @@
  * motion is extended as it plays (ADR-0104): it differs just past the last
  * point its two lanes share, and from the first frame where its lanes are not
  * of the same parameters. Otherwise its segments are walked from the start, in
- * step: the first
- * pair that reads another source, from another frame, the other way or through
- * other stages differs where it begins; a pair that differs only in length
- * differs where the shorter ends, unless it is reversed, which moves every
- * frame it reads; and a pair that is the same differs where what it reads
+ * step: the first pair that reads another source, from another frame, the other
+ * way or through other stages differs where it begins; a pair that differs only
+ * in length differs where the shorter ends, unless it is reversed, which moves
+ * every frame it reads; and a pair that is the same differs where what it reads
  * differs, which, since a segment reads only later streams, is known from the
  * streams after it. What a stream makes differs where its segments do, less its
  * chain's latency, since a chain's output runs ahead of its input by it; from

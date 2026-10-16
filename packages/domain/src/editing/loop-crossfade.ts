@@ -62,9 +62,9 @@ function fadedSpan(
 }
 
 /**
- * `plan`, a region's sound, with `loop`'s crossfade made part of it: the
- * plan unchanged where the loop has none. `loop` is placed (`placeRegion`), so
- * its crossfade is at most its start and its length.
+ * `plan`, a region's sound, with `loop`'s crossfade made part of it: the plan
+ * unchanged where the loop has none. `loop` is placed (`placeRegion`), so its
+ * crossfade is at most its start and its length.
  */
 export function withLoopCrossfade(plan: EditPlan, loop: LoopDefinition): EditPlan {
   const fade = loop.crossfadeLength;

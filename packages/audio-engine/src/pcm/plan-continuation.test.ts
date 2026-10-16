@@ -643,8 +643,8 @@ const RATIO = 5_000;
 
 /**
  * A pitched programme to `horizon`: 0 the output, 1 an emitter's chain over 2,
- * its lane, which sounds 3, member A played at `ratio` through a varispeed, from
- * frame 256 to its end, and any `extra` voices; 4 member A's file.
+ * its lane, which sounds 3, member A played at `ratio` through a varispeed,
+ * from frame 256 to its end, and any `extra` voices; 4 member A's file.
  */
 function pitchedProgramme(
   horizon: number,

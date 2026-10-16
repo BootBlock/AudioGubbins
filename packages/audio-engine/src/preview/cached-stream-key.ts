@@ -8,15 +8,15 @@
  * versions, a model's identity among them (ADR-0062), but not the identifiers
  * of the chain and its slots, which a copy changes and the sound does not, so
  * the automation of its parameters names each processor by where it stands in
- * the chain; a varispeed's ratio; each
- * later stream a segment reads, alone or summed in a mix in the order the mix
- * states, written once and named by its index among them rather than by its
- * place in the plan, since a rack edit renumbers streams without changing what
- * they sound like; each file by what its content is known by, its rate,
- * channels and length, rather than by the asset that names it; the quality the
- * chains run at; and the version of the render itself, raised when the engine's
- * rendering changes. Nothing else is in it, so a change anywhere else in the
- * project finds the render again, and a change to any of these makes another.
+ * the chain; a varispeed's ratio; each later stream a segment reads, alone or
+ * summed in a mix in the order the mix states, written once and named by its
+ * index among them rather than by its place in the plan, since a rack edit
+ * renumbers streams without changing what they sound like; each file by what
+ * its content is known by, its rate, channels and length, rather than by the
+ * asset that names it; the quality the chains run at; and the version of the
+ * render itself, raised when the engine's rendering changes. Nothing else is in
+ * it, so a change anywhere else in the project finds the render again, and a
+ * change to any of these makes another.
  */
 
 import type {

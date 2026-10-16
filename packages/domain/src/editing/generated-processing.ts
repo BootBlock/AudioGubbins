@@ -25,8 +25,8 @@ function isFrame(value: number): boolean {
  * lane moves a processor the chain has, by points at whole frames from 0, each
  * after the one before, of finite values, and no parameter is moved by two
  * lanes. Whether the parameter is numeric, may move while the chain runs and
- * takes the values given is the processor's to say, and the rack that runs
- * the chain checks it against the processor's descriptor.
+ * takes the values given is the processor's to say, and the rack that runs the
+ * chain checks it against the processor's descriptor.
  */
 export function automationProblem(
   automation: readonly ParameterAutomation[],

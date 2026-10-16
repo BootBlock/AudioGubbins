@@ -140,13 +140,13 @@ export interface RegionPlanOptions {
 }
 
 /**
- * What a region sounds like (ADR-0060, ADR-0103): its asset's audio through
- * the region's own processing, each operation folded in on the timeline of
- * its basis (`plan-building.ts`), so it stays on the content it was put on and
- * a fade begun outside the region keeps its ramp inside it; then the asset's
- * rack over the whole asset; then the region's span of that, so its rack
- * reads exactly that span of its asset's processed audio; then its rack; then
- * its loop's crossfade, over what the rack made (`loop-crossfade.ts`).
+ * What a region sounds like (ADR-0060, ADR-0103): its asset's audio through the
+ * region's own processing, each operation folded in on the timeline of its
+ * basis (`plan-building.ts`), so it stays on the content it was put on and a
+ * fade begun outside the region keeps its ramp inside it; then the asset's rack
+ * over the whole asset; then the region's span of that, so its rack reads
+ * exactly that span of its asset's processed audio; then its rack; then its
+ * loop's crossfade, over what the rack made (`loop-crossfade.ts`).
  */
 export function regionPlan(
   asset: Asset,

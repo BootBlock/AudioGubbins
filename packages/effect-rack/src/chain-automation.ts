@@ -5,8 +5,8 @@
  *
  * A lane (the domain's `ParameterAutomation`) names one numeric parameter of
  * one processor and its value at frames of the stream, by the plan's one rule
- * (`automationValueAt`). The runner gives each lane's processor the lane's value
- * at the frame of the stream the processor hears, every `DESIGN_INTERVAL`
+ * (`automationValueAt`). The runner gives each lane's processor the lane's
+ * value at the frame of the stream the processor hears, every `DESIGN_INTERVAL`
  * frames counted from the run's start, as a running change it smooths in, so
  * the kernel designs from it at its own design interval, which is the same
  * count from the same first frame. A processor late behind others hears its
