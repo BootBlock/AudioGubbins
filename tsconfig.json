@@ -16,6 +16,7 @@
     "tools/build-wasm.mjs",
     "tools/check-build-output.mjs",
     "tools/check-record-titles.mjs",
+    "tools/compare-latency.mjs",
     "tools/inference-runtime-files.mjs",
     "tools/local-traces.mjs",
     "tools/read-pnpm-lockfile.mjs",

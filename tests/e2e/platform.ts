@@ -73,7 +73,7 @@ async function shippedProfile(page: Page): Promise<ShortcutProfile> {
 }
 
 /** One press, as Playwright names a key and its modifiers. */
-function asKeyboardArgument(press: KeyPress): string {
+export function asKeyboardArgument(press: KeyPress): string {
   return [
     ...(press.control ? ['Control'] : []),
     ...(press.alt ? ['Alt'] : []),
@@ -91,7 +91,7 @@ async function press(page: Page, value: Shortcut): Promise<void> {
 }
 
 /** What the shipped profile binds a command to, refusing to guess if it binds nothing. */
-async function shortcutFor(page: Page, id: string): Promise<Shortcut> {
+export async function shortcutFor(page: Page, id: string): Promise<Shortcut> {
   const [binding] = bindingsFor(await shippedProfile(page), commandId(id));
   if (binding === undefined) {
     throw new Error(`The shipped profile binds no shortcut to ${id} on this platform.`);

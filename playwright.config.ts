@@ -249,6 +249,14 @@ export default defineConfig<SuiteOptions>({
       testMatch: /renderer-webgpu\.spec\.ts/,
     },
     {
+      // Editing latency, pointer or key to paint, measured before and after the
+      // Phase 16 redesign and compared by tools/compare-latency.mjs. Run alone,
+      // one worker, so no other browser's load is in the samples.
+      name: 'chromium-latency',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /interaction-latency\.spec\.ts/,
+    },
+    {
       // A browser with WebGL switched off, where the editor draws with Canvas 2D.
       name: 'chromium-renderer-reduced',
       use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--disable-webgl'] } },
