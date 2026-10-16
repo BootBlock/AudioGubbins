@@ -714,6 +714,7 @@ Published paths
   function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
   function sineOfTurns(turns: number): number
+  function stftWindowWeights(window: StftWindow, size: number): Float64Array<ArrayBufferLike>
   function stretchWindow(rate: number): number
   function tangentOfTurns(turns: number): number
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
@@ -937,7 +938,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37939: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37945: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1232,7 +1233,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37939: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37945: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2693,21 +2694,29 @@ Published paths
   class DetectionHost
   new DetectionHost(options: { readonly createWorker: () => DetectionWorkerPort; }): DetectionHost
   readonly DetectionHost.#createWorker: () => DetectionWorkerPort
-  readonly DetectionHost.#kept: Map<string, DetectionResult>
+  readonly DetectionHost.#kept: Map<string, Answer>
   readonly DetectionHost.#waiting: Map<string, Waiting>
   DetectionHost.#worker: DetectionWorkerPort | undefined
   DetectionHost.#jobs: number
   DetectionHost.detect: (subject: DetectionSubject, watch?: DetectionWatch) => Promise<DetectionOutcome>
+  DetectionHost.analyseLoop: (subject: LoopSubject, watch?: DetectionWatch) => Promise<LoopOutcome>
+  DetectionHost.measureLoudness: (subject: LoudnessSubject, watch?: DetectionWatch) => Promise<LoudnessOutcome>
   DetectionHost.dispose: () => void
+  DetectionHost.#run: <TValue>(key: string, watch: DetectionWatch, take: (answer: Answer) => TValue | undefined, posting: (job: string) => Posting) => Promise<Outcome<TValue>>
   DetectionHost.#workerPort: () => DetectionWorkerPort
   DetectionHost.#receive: (value: unknown) => void
-  DetectionHost.#keep: (key: string, result: DetectionResult) => void
-  DetectionHost.#settle: (job: string, outcome: DetectionOutcome) => void
+  DetectionHost.#answer: (job: string, answer: Answer) => void
+  DetectionHost.#end: (job: string, ended: JobEnded) => void
+  DetectionHost.#take: (job: string) => Waiting | undefined
+  DetectionHost.#keep: (key: string, answer: Answer) => void
   DetectionHost.#failAll: (worker: DetectionWorkerPort, reason: string) => void
-  type DetectionOutcome = { readonly kind: "cancelled"; } | { readonly kind: "done"; readonly result: DetectionResult; readonly kept: boolean; } | { readonly kind: "failed"; readonly reason: string; }
+  type DetectionOutcome = JobEnded | { readonly kind: "done"; readonly result: DetectionResult; readonly kept: boolean; }
   interface DetectionResult
   readonly DetectionResult.frames: number
   readonly DetectionResult.reports: readonly AssistantReport[]
+  interface DetectionScope
+  readonly DetectionScope.range: EditRange
+  readonly DetectionScope.whole: boolean
   interface DetectionSubject
   readonly DetectionSubject.target: string
   readonly DetectionSubject.identity: string
@@ -2725,12 +2734,39 @@ Published paths
   DetectionWorkerPort.post: (message: ToDetectionWorker, transfer: readonly ArrayBuffer[]) => void
   DetectionWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
   DetectionWorkerPort.terminate: () => void
+  type JobEnded = { readonly kind: "cancelled"; } | { readonly kind: "failed"; readonly reason: string; }
   interface KindCount
   readonly KindCount.kind: FindingKind
   readonly KindCount.count: number
   type LearnedState = { readonly kind: "learned"; readonly state: ProcessorState; } | { readonly kind: "none"; } | { readonly kind: "refused"; readonly reason: string; }
-  type ToDetectionWorker = DetectRequest | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string; } | { readonly kind: typeof ToDetectionWorkerKind.Previews; readonly port: MessagePortLike; }
-  const ToDetectionWorkerKind: { readonly Detect: "detect"; readonly Cancel: "cancel"; readonly Previews: "previews"; }
+  type LoopOutcome = JobEnded | { readonly kind: "done"; readonly analysis: LoopAnalysis; readonly kept: boolean; }
+  interface LoopSubject
+  readonly LoopSubject.target: string
+  readonly LoopSubject.identity: string
+  readonly LoopSubject.channels: number
+  readonly LoopSubject.describe: () => { readonly heard: PcmDescription; readonly plain: PcmDescription; }
+  readonly LoopSubject.quality: QualityMode
+  readonly LoopSubject.request: LoopAnalysisRequest
+  interface LoudnessMeasurement
+  readonly LoudnessMeasurement.frames: number
+  readonly LoudnessMeasurement.integratedLufs: number | undefined
+  readonly LoudnessMeasurement.rangeLu: number
+  readonly LoudnessMeasurement.truePeakDbtp: number | undefined
+  type LoudnessOutcome = JobEnded | { readonly kind: "done"; readonly measurement: LoudnessMeasurement; readonly kept: boolean; }
+  interface LoudnessSubject
+  readonly LoudnessSubject.target: string
+  readonly LoudnessSubject.identity: string
+  readonly LoudnessSubject.channels: number
+  readonly LoudnessSubject.describe: () => PcmDescription
+  readonly LoudnessSubject.quality: QualityMode
+  readonly LoudnessSubject.range: EditRange
+  const SILENCE_PARTS: readonly ["edges", "within", "both"]
+  type SilencePart = "both" | "edges" | "within"
+  type ToDetectionWorker = WorkRequest | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string; } | { readonly kind: typeof ToDetectionWorkerKind.Previews; readonly port: MessagePortLike; }
+  const ToDetectionWorkerKind: { readonly Detect: "detect"; readonly AnalyseLoop: "analyse-loop"; readonly MeasureLoudness: "measure-loudness"; readonly Cancel: "cancel"; readonly Previews: "previews"; }
+  function learnedStates(report: AssistantReport): DomainResult<readonly (ProcessorState | undefined)[]>
+  function silenceRemovals(report: AssistantReport, scope: DetectionScope, part: "both" | "edges" | "within"): readonly EditRange[]
+  function treatmentPlacement(scope: DetectionScope): "rack" | "range"
 
 @audiogubbins/detection-runtime/testing
   const CLICKS: readonly [30000, 150000]
@@ -8955,13 +8991,28 @@ packages/design-system/src/primitives/value-slider.tsx
   type SliderTravel = { readonly scale: SliderScale; readonly step?: undefined; } | { readonly step: number; readonly scale?: undefined; }
 
 packages/detection-runtime/src/detection-host.ts
+  type Answer = { readonly kind: typeof FromDetectionWorkerKind.Done; readonly result: DetectionResult; } | { readonly kind: typeof FromDetectionWorkerKind.LoopAnalysed; readonly analysis: LoopAnalysis; } | { readonly kind: typeof FromDetectionWorkerKind.LoudnessMeasured; readonly measurement: LoudnessMeasurement; }
+  type Outcome<TValue> = JobEnded | { readonly kind: "done"; readonly value: TValue; readonly kept: boolean; }
+  interface Posting
+  readonly Posting.message: ToDetectionWorker
+  readonly Posting.transfer: readonly ArrayBuffer[]
   interface Waiting
   readonly Waiting.key: string
   readonly Waiting.watch: DetectionWatch
-  readonly Waiting.settle: (outcome: DetectionOutcome) => void
+  readonly Waiting.answer: (answer: Answer) => boolean
+  readonly Waiting.end: (ended: JobEnded) => void
   readonly Waiting.stopWatching: () => void
 
 packages/detection-runtime/src/detection-messages.ts
+  interface AnalyseLoopRequest
+  readonly AnalyseLoopRequest.kind: "analyse-loop"
+  readonly AnalyseLoopRequest.job: string
+  readonly AnalyseLoopRequest.target: string
+  readonly AnalyseLoopRequest.channels: number
+  readonly AnalyseLoopRequest.heard: PcmDescription
+  readonly AnalyseLoopRequest.plain: PcmDescription
+  readonly AnalyseLoopRequest.quality: QualityMode
+  readonly AnalyseLoopRequest.request: LoopAnalysisRequest
   interface DescribedAudio
   readonly DescribedAudio.channels: number
   readonly DescribedAudio.description: PcmDescription
@@ -8976,12 +9027,16 @@ packages/detection-runtime/src/detection-messages.ts
   readonly DetectRequest.range: EditRange
   readonly DetectRequest.assistants: readonly string[]
   readonly DetectRequest.detectors: Readonly<Record<string, Readonly<Record<string, number>>>>
-  type FromDetectionWorker = { readonly kind: typeof FromDetectionWorkerKind.Cancelled; readonly job: string; } | { readonly kind: typeof FromDetectionWorkerKind.Done; readonly job: string; readonly result: DetectionResult; } | { readonly kind: typeof FromDetectionWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromDetectionWorkerKind.Progress; readonly job: string; readonly framesRead: number; readonly framesTotal: number; } | { readonly kind: typeof FromDetectionWorkerKind.Refused; readonly reason: string; }
-
-packages/detection-runtime/src/detection-run.ts
-  interface DetectionAudio
-  readonly DetectionAudio.heard: PcmSource
-  readonly DetectionAudio.learning: PcmSource
+  type FromDetectionWorker = { readonly kind: typeof FromDetectionWorkerKind.Cancelled; readonly job: string; } | { readonly kind: typeof FromDetectionWorkerKind.Done; readonly job: string; readonly result: DetectionResult; } | { readonly kind: typeof FromDetectionWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromDetectionWorkerKind.LoopAnalysed; readonly job: string; readonly analysis: LoopAnalysis; } | { readonly kind: typeof FromDetectionWorkerKind.LoudnessMeasured; readonly job: string; readonly measurement: LoudnessMeasurement; } | { readonly kind: typeof FromDetectionWorkerKind.Progress; readonly job: string; readonly framesRead: number; readonly framesTotal: number; } | { readonly kind: typeof FromDetectionWorkerKind.Refused; readonly reason: string; }
+  interface MeasureLoudnessRequest
+  readonly MeasureLoudnessRequest.kind: "measure-loudness"
+  readonly MeasureLoudnessRequest.job: string
+  readonly MeasureLoudnessRequest.target: string
+  readonly MeasureLoudnessRequest.channels: number
+  readonly MeasureLoudnessRequest.description: PcmDescription
+  readonly MeasureLoudnessRequest.quality: QualityMode
+  readonly MeasureLoudnessRequest.range: EditRange
+  type WorkRequest = AnalyseLoopRequest | DetectRequest | MeasureLoudnessRequest
 
 packages/detection-runtime/src/detection-worker-core.ts
   class DetectionWorkerCore
@@ -8995,10 +9050,13 @@ packages/detection-runtime/src/detection-worker-core.ts
   DetectionWorkerCore.#cancel: (matches: (job: Job) => boolean) => void
   DetectionWorkerCore.#pump: () => Promise<void>
   DetectionWorkerCore.#run: (job: Job) => Promise<void>
+  DetectionWorkerCore.#detect: (job: Job, request: DetectRequest) => Promise<void>
+  DetectionWorkerCore.#analyseLoop: (job: Job, request: AnalyseLoopRequest) => Promise<void>
+  DetectionWorkerCore.#measureLoudness: (job: Job, request: MeasureLoudnessRequest) => Promise<void>
+  DetectionWorkerCore.#answer: <TAudio, TValue>(job: Job, opened: DomainResult<Opened<TAudio>>, work: (audio: TAudio, tools: WorkTools) => Promise<DomainResult<TValue>>, done: (value: TValue) => FromDetectionWorker) => Promise<void>
   DetectionWorkerCore.#postStopped: (job: Job, error: unknown) => void
-  DetectionWorkerCore.#post: (job: string, answer: DomainResult<DetectionResult>) => void
-  DetectionWorkerCore.#audioOf: (request: DetectRequest) => DomainResult<DetectionAudio>
-  DetectionWorkerCore.#sourceOf: (audio: DescribedAudio, quality: QualityMode) => DomainResult<PcmSource>
+  DetectionWorkerCore.#postFailed: (job: Job, reason: string) => void
+  DetectionWorkerCore.#opening: () => SourceOpening
   DetectionWorkerCore.#assistantsOf: (request: DetectRequest) => DomainResult<readonly Assistant[]>
   interface DetectionWorkerHost
   readonly DetectionWorkerHost.post: (message: FromDetectionWorker) => void
@@ -9009,9 +9067,22 @@ packages/detection-runtime/src/detection-worker-core.ts
   readonly DetectionWorkerHost.types: ReadonlyMap<string, ProcessorType>
   readonly DetectionWorkerHost.reportFault: (error: unknown) => void
   interface Job
-  readonly Job.request: DetectRequest
+  readonly Job.request: WorkRequest
   readonly Job.cancellation: CancellationSource
   Job.failedWith: string | undefined
+  interface WorkTools
+  readonly WorkTools.signal: import("packages/domain/src/cancellation").CancellationSignal
+  readonly WorkTools.yieldToHost: () => Promise<void>
+  readonly WorkTools.onProgress: (framesRead: number, framesTotal: number) => void
+
+packages/detection-runtime/src/job-audio.ts
+  interface Opened<TAudio>
+  readonly Opened.audio: TAudio
+  readonly Opened.sources: readonly PcmSource[]
+  interface SourceOpening
+  readonly SourceOpening.dsp: CanonicalDsp
+  readonly SourceOpening.processing: ChainProcessing
+  readonly SourceOpening.previews: PreviewClient | undefined
 
 packages/domain/src/editing/operations.ts
   type StreamChain = { readonly kind: "chain"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; } | { readonly kind: "process"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; }

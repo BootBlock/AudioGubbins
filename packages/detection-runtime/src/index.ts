@@ -1,8 +1,10 @@
 /**
  * The public contract of the AudioGubbins detection worker (ADR-0061,
- * ADR-0062): the page's end of the worker that reads a target's processed
- * audio once, runs the assistants' detectors over it and answers what they
- * found and recommend, with the results kept for the operation's life.
+ * ADR-0062, ADR-0103): the page's end of the worker that reads a target's
+ * processed audio once, runs the assistants' detectors over it and answers
+ * what they found and recommend, analyses a region's loop, or measures a
+ * target's loudness, with the answers kept for the operation's life; and the
+ * rules that read an assistant's report for applying it.
  *
  * The worker itself is a thread entry, `threads/detection-worker.ts`, which
  * the application's bundler builds on its own. Everything absent from this
@@ -13,10 +15,14 @@
 export {
   DetectionHost,
   type DetectionOutcome,
-  type DetectionSubject,
   type DetectionWatch,
   type DetectionWorkerPort,
+  type JobEnded,
+  type LoopOutcome,
+  type LoudnessOutcome,
 } from './detection-host.js';
+export { type DetectionSubject, type LoopSubject, type LoudnessSubject } from './job-subjects.js';
+export { type LoudnessMeasurement } from './loudness-run.js';
 export { ToDetectionWorkerKind, type ToDetectionWorker } from './detection-messages.js';
 export {
   type AssistantReport,
