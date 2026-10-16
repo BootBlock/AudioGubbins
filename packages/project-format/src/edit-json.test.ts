@@ -472,6 +472,30 @@ describe('an edit-model value read alone refuses', () => {
       'schema.unknown-member',
       'value.streams[1].processing',
     ],
+    [
+      'a stored plan that has forgotten frames, as only a game preview’s has',
+      readEditPlan,
+      {
+        streams: [
+          {
+            sampleRate: 48_000,
+            layout: { roles: ['mono'] },
+            segments: [
+              {
+                source: { kind: 'silence', channels: 1 },
+                start: 0,
+                length: 10,
+                reversed: false,
+                stages: [],
+              },
+            ],
+            forgottenBefore: 4,
+          },
+        ],
+      },
+      'schema.unknown-member',
+      'value.streams[0]',
+    ],
   ];
 
   it.each(cases)('%s', (_case, read, value, code, at) => {

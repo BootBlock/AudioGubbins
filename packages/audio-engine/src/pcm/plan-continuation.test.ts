@@ -487,6 +487,66 @@ describe('an edited source continued with a plan that changes what it has read',
   });
 });
 
+describe('an edited source continued with a plan that has forgotten what was played', () => {
+  /**
+   * The old plan with a short voice read from member A's file at the start of
+   * lane 3, before its voice of member A through its rack: all played by the
+   * frame the continuation is asked for at.
+   */
+  const early = (): EditPlan => {
+    const streams = [...OLD.streams];
+    streams[3] = lane(
+      [
+        { at: 0, segment: fileVoice(0, 400) },
+        { at: 512, segment: voice(5, 0, 4_000) },
+      ],
+      HORIZON,
+    );
+    const [first, ...rest] = streams;
+    if (first === undefined) throw new Error('A plan has its sound.');
+    return { streams: [first, ...rest] };
+  };
+
+  /** `plan` with lane 3's voice before 512 forgotten: silence in its place, stated or not. */
+  const forgetting = (plan: EditPlan, stated: boolean): EditPlan => {
+    const streams = [...plan.streams];
+    const was = streams[3];
+    if (was === undefined) throw new Error('The plan has lane 3.');
+    streams[3] = {
+      ...was,
+      segments: [silence(512), ...was.segments.slice(2)],
+      ...(stated ? { forgottenBefore: derivedSampleCount(512) } : {}),
+    };
+    const [first, ...rest] = streams;
+    if (first === undefined) throw new Error('A plan has its sound.');
+    return { streams: [first, ...rest] };
+  };
+
+  it('keeps every reader and sounds on bit for bit where the forgetting is stated', async () => {
+    const old = early();
+
+    const run = await continued(old, forgetting(old, true), HORIZON);
+
+    expect(run.preparedAfter).toEqual(run.preparedBefore);
+    expect(run.resamplersAfter).toBe(run.resamplersBefore);
+    expect(run.heard).toEqual((await uninterrupted(old, HORIZON)).slice(AT));
+  });
+
+  it('makes afresh the emitter over a lane whose past changed where it is not stated', async () => {
+    // The same silence unstated is a change to what the emitter's run has
+    // read, so the run, and the bus over it, are made again at the switch.
+    const old = early();
+
+    const run = await continued(old, forgetting(old, false), HORIZON);
+
+    expect(run.preparedAfter).toEqual([
+      ...run.preparedBefore,
+      `${CHAINS.bus.id}@${String(AT)}`,
+      `${CHAINS.emitter.id}@${String(AT)}`,
+    ]);
+  });
+});
+
 describe('a continuation held between two reads', () => {
   it('is held at the end of the read under way, and holds the next read until it is dropped', async () => {
     const playing = reading(OLD);

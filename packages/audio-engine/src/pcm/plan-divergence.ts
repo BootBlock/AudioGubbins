@@ -31,12 +31,19 @@
  * varispeed, differs from the first output frame whose filter reaches a frame
  * that differs.
  *
+ * A stream of the new plan that has forgotten its frames before some frame
+ * (`forgottenBefore`, ADR-0104) is compared only from that frame: what came
+ * before it was played, and the readers that played it hold what it made. Its
+ * segments are walked from the pair that holds that frame, and its automation
+ * from the last point at or before it.
+ *
  * Every answer errs early, never late: a frame answered too early only makes
  * a reader afresh that could have been kept.
  */
 
 import type {
   AssetId,
+  AutomationPoint,
   EditPlan,
   EffectChain,
   ParameterAutomation,
@@ -99,31 +106,46 @@ function definitionText(stream: PlanStream, running: EffectChain | undefined): s
 }
 
 /**
- * The first frame of a stream at which the automation `before` and `after`
- * may give a parameter another value: from the start where they move other
- * parameters, and otherwise just past the last point each pair of lanes
- * shares, since a lane is linear between its points and held after its last.
+ * `points` from the last one at or before `from`, which with those after it
+ * gives every value from `from` on.
+ */
+function pointsFrom(points: readonly AutomationPoint[], from: number): readonly AutomationPoint[] {
+  if (from === 0) return points;
+  let first = 0;
+  while ((points[first + 1]?.frame ?? NEVER) <= from) first += 1;
+  return points.slice(first);
+}
+
+/**
+ * The first frame of a stream from `from` at which the automation `before`
+ * and `after` may give a parameter another value: from `from` where they move
+ * other parameters, and otherwise just past the last point each pair of lanes
+ * shares from there, since a lane is linear between its points and held before
+ * its first and after its last.
  */
 function automationDivergence(
   before: readonly ParameterAutomation[] | undefined,
   after: readonly ParameterAutomation[] | undefined,
+  from: number,
 ): number {
   const was = before ?? [];
   const now = after ?? [];
-  if (was.length !== now.length) return 0;
+  if (was.length !== now.length) return from;
   let differs = NEVER;
   for (const [index, lane] of was.entries()) {
     const other = now[index];
-    if (other?.processor !== lane.processor || other.parameter !== lane.parameter) return 0;
+    if (other?.processor !== lane.processor || other.parameter !== lane.parameter) return from;
+    const wasPoints = pointsFrom(lane.points, from);
+    const nowPoints = pointsFrom(other.points, from);
     let shared = 0;
-    for (const point of lane.points) {
-      const same = other.points[shared];
+    for (const point of wasPoints) {
+      const same = nowPoints[shared];
       if (same?.frame !== point.frame || !Object.is(same.value, point.value)) break;
       shared += 1;
     }
-    if (shared === lane.points.length && shared === other.points.length) continue;
-    const last = lane.points[shared - 1];
-    differs = Math.min(differs, last === undefined ? 0 : last.frame + 1);
+    if (shared === wasPoints.length && shared === nowPoints.length) continue;
+    const last = wasPoints[shared - 1];
+    differs = Math.min(differs, last === undefined ? from : Math.max(from, last.frame + 1));
   }
   return differs;
 }
@@ -138,19 +160,40 @@ function sameReading(before: PlanSegment, after: PlanSegment): boolean {
   );
 }
 
+/** The index of the first of `segments` that ends after `from`, and where it starts. */
+function segmentAt(
+  segments: readonly PlanSegment[],
+  from: number,
+): { readonly index: number; readonly position: number } {
+  let index = 0;
+  let position = 0;
+  for (let segment = segments[0]; segment !== undefined; segment = segments[index]) {
+    if (position + segment.length > from) break;
+    position += segment.length;
+    index += 1;
+  }
+  return { index, position };
+}
+
 /**
- * The first frame of a stream that `before` and `after` read differently,
- * given the first frame of each source's own frames that may differ.
+ * The first frame of a stream from `from` that `before` and `after` read
+ * differently, given the first frame of each source's own frames that may
+ * differ.
  */
 function segmentsDivergence(
   before: readonly PlanSegment[],
   after: readonly PlanSegment[],
   reach: (source: PlanSource) => number,
+  from: number,
 ): number {
-  let position = 0;
-  for (let index = 0; ; index += 1) {
-    const was = before[index];
-    const now = after[index];
+  const first = segmentAt(before, from);
+  const other = segmentAt(after, from);
+  // Laid out alike from `from`, the pairs that hold it start together.
+  if (first.position !== other.position) return from;
+  let { position } = first;
+  for (let offset = 0; ; offset += 1) {
+    const was = before[first.index + offset];
+    const now = after[other.index + offset];
     if (was === undefined || now === undefined) {
       return was === undefined && now === undefined ? NEVER : position;
     }
@@ -247,12 +290,19 @@ export function planDivergence(
     if (was === undefined || now === undefined) continue;
     same[place] = definitionText(was, reading.chain(place)) === definitionText(now, undefined);
     if (same[place] !== true) continue;
-    const read = segmentsDivergence(was.segments, now.segments, (source) =>
-      reach(source, now.sampleRate),
+    const from = now.forgottenBefore ?? 0;
+    const read = segmentsDivergence(
+      was.segments,
+      now.segments,
+      (source) => reach(source, now.sampleRate),
+      from,
     );
     const differs =
       was.processing?.kind === 'chain' && now.processing?.kind === 'chain'
-        ? Math.min(read, automationDivergence(was.processing.automation, now.processing.automation))
+        ? Math.min(
+            read,
+            automationDivergence(was.processing.automation, now.processing.automation, from),
+          )
         : read;
     inputs[place] = differs;
     outputs[place] = outputDivergence(now, differs, reading.run(place), reading.varispeed(place));

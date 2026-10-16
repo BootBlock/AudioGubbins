@@ -145,6 +145,11 @@ function insertionProblem(
         'payload-automation',
         'The inserted audio moves a chain’s parameters, which only a game’s preview does.',
       );
+    case 'forgotten':
+      return refused(
+        'payload-forgotten',
+        'The inserted audio has forgotten some of its frames, which only a game’s preview does.',
+      );
     case undefined:
       break;
   }

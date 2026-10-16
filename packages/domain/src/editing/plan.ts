@@ -20,8 +20,10 @@
  * Two kinds of processing exist only in plans made for hearing a game's
  * preview (ADR-0104), never in a project's own plans: a stream played faster
  * or slower by a ratio (`varispeed`), and the automation of a chain's
- * parameters along its stream. A project keeps neither, and refuses either in
- * a plan it stores.
+ * parameters along its stream. A third thing belongs to such a plan alone: a
+ * stream's frames it no longer describes (`forgottenBefore`), so a preview that
+ * plays for a long time drops what has been heard. A project keeps none of
+ * them, and refuses any in a plan it stores.
  *
  * A stage is stated in the frames of its segment's content, never in the
  * output's, so cutting, moving or reversing a segment never rewrites a stage:
@@ -202,12 +204,31 @@ export type StreamProcessing =
 /**
  * A run of segments at one rate, and what processes them. Each segment ends
  * in the layout the stream's processing reads, `layout` where it has none.
+ *
+ * `forgottenBefore`, which only a game preview's plan states (ADR-0104), is
+ * the first frame of the stream it still describes: a plan that continues
+ * another, its playback already past that frame, has dropped what came before,
+ * its segments standing in for it at their lengths only, so a stream keeps its
+ * place and the frames of everything after. A continuation compares the
+ * stream with the one it continues only from that frame, and its chain's
+ * automation only from that frame on. A stream forgotten whole holds a place
+ * alone, kept where nothing reads it, so the streams after it keep theirs.
  */
 export interface PlanStream {
   readonly sampleRate: SampleRate;
   readonly layout: ChannelLayout;
   readonly segments: readonly PlanSegment[];
   readonly processing?: StreamProcessing;
+  readonly forgottenBefore?: SampleCount;
+}
+
+/** Whether `stream` is forgotten whole: a place kept for the streams after it. */
+export function forgottenWhole(stream: PlanStream): boolean {
+  return (
+    stream.forgottenBefore !== undefined &&
+    stream.forgottenBefore > 0 &&
+    stream.forgottenBefore === segmentsLength(stream)
+  );
 }
 
 /** An edited sound: its first stream, and the streams its segments read converted. */
