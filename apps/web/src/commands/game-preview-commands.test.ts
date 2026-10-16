@@ -129,6 +129,24 @@ describe('running the preview', () => {
     expect(audio.session.getSnapshot().model.state).toBe(state);
   });
 
+  it('triggers the emitter it names, or the first, and refuses one the run has not', async () => {
+    const audio = await footsteps();
+    audio.window.run(PreviewCommand.NewScenario);
+    audio.window.run(PreviewCommand.Run);
+    const [emitter] = audio.window.context.gamePreview.runner.playing()?.emitters ?? [];
+
+    expect(audio.window.run(PreviewCommand.Trigger).kind).toBe('applied');
+    expect(audio.window.run(PreviewCommand.Trigger, { emitter: emitter ?? '' }).kind).toBe(
+      'applied',
+    );
+    expect(audio.window.run(PreviewCommand.StopVoices, { emitter: emitter ?? '' }).kind).toBe(
+      'applied',
+    );
+    expect(audio.window.run(PreviewCommand.Trigger, { emitter: 'e0000000-0009' }).kind).toBe(
+      'refused',
+    );
+  });
+
   it('is unavailable with no scenario set up, saying so', async () => {
     const audio = await footsteps();
     const ran = audio.window.run(PreviewCommand.Run);

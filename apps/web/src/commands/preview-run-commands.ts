@@ -74,16 +74,20 @@ function playable(
   return scenarioProblem(state.gameAudio, scenario) ?? { state, scenario };
 }
 
-/** The emitter an invocation names, or the first of the scenario playing, or why there is none. */
+/**
+ * The emitter an invocation names, or the first of the scenario playing, or
+ * why there is none. An identifier is text, so it is answered inside an
+ * object, apart from the refusal's text.
+ */
 function emitterOf(
   context: ShellContext,
   invocation: CommandInvocation,
-): PreviewEmitterId | string {
+): { readonly emitter: PreviewEmitterId } | string {
   const run = context.gamePreview.runner.playing();
   if (run === undefined) return NOT_RUNNING;
   const named = textArgument(invocation, 'emitter');
   const emitter = named === undefined ? run.emitters[0] : run.emitters.find((one) => one === named);
-  return emitter ?? 'The preview playing has no such emitter.';
+  return emitter === undefined ? 'The preview playing has no such emitter.' : { emitter };
 }
 
 function runningAvailability(context: ShellContext): CommandAvailability {
@@ -130,9 +134,9 @@ function emitterCommand(
     label,
     CommandCategory.Transport,
     (context, invocation) => {
-      const emitter = emitterOf(context, invocation);
-      if (typeof emitter === 'string') return emitter;
-      act(context, emitter);
+      const named = emitterOf(context, invocation);
+      if (typeof named === 'string') return named;
+      act(context, named.emitter);
       return undefined;
     },
     { keywords, availability: runningAvailability, takesItsKeyOnlyWhenAvailable: true },
