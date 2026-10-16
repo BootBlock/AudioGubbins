@@ -37,6 +37,7 @@ export function longHistory(changes: number): History {
         markers: [],
         effectChains: [],
         takeStacks: [],
+        gameGroups: [],
         project: true,
       },
     });

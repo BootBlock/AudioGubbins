@@ -40,7 +40,7 @@ import type {
   CleanupSelection,
   ForkRequest,
   LeaseOwner,
-  ListedEntry,
+  LibraryListing,
   NewProject,
   OwnershipEvent,
   PressureRelief,
@@ -96,8 +96,8 @@ export type StorageOperations = ProjectOperations &
     'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>;
 
     /** Every saved chain and preset, usable or not, in the order of their identifiers. */
-    'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>;
-    'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>;
+    'processingLibrary.list': Operation<undefined, DomainResult<readonly LibraryListing[]>>;
+    'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<LibraryListing>>;
     'processingLibrary.save': Operation<
       { readonly name: string; readonly content: LibraryContent },
       DomainResult<LibraryEntry>

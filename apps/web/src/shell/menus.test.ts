@@ -54,9 +54,20 @@ describe('the menu bar', () => {
       'View',
       'Workspace',
       'Editor',
+      'Tools',
       'Help',
     ]);
-    expect(entries).toHaveLength(193);
+    expect(entries).toHaveLength(228);
+  });
+
+  it("offers the asset groups' commands in the Editor menu, under their own heading", () => {
+    const editor = shellMenus(sources()).find((menu) => menu.label === 'Editor');
+    const groups = editor?.groups.find((group) => group.key === 'asset-groups');
+
+    expect(groups?.label).toBe('Asset groups');
+    expect(groups?.items.map((item) => item.key)).toEqual(
+      expect.arrayContaining(['game.new-group', 'game.measure-loudness', 'game.export-group']),
+    );
   });
 
   it('offers import and export in the File menu, each of the pair opening on a chord', () => {

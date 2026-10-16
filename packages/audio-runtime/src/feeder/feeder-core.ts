@@ -20,6 +20,9 @@
  * chains an edited sound cannot run as it plays (ADR-0061), and a parameter
  * changed while a request plays goes to that request's sources, whose answer
  * it sends back.
+ *
+ * A request's edited sounds go on into plans that continue theirs without
+ * the feeds stopping (ADR-0104, `feeder-continuation.ts`).
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
@@ -44,6 +47,7 @@ import { readFromProcessorFeed } from '../protocol/feed-messages.js';
 import type { Schedule } from '../schedule.js';
 import type { DspChooser } from '../dsp/dsp-instance.js';
 import { BoundFeeds } from './feeder-binding.js';
+import { continueSources } from './feeder-continuation.js';
 import { sourcesFor, type RequestSources } from './feeder-sources.js';
 
 /** The worker's global scope and its channel to the processor, as the core uses them. */
@@ -150,7 +154,36 @@ export class FeederCore {
       case ToFeederKind.Parameters:
         this.#parameters(message);
         return;
+      case ToFeederKind.Continue:
+        this.#continue(message);
+        return;
     }
+  }
+
+  #continue(message: Message<typeof ToFeederKind.Continue>): void {
+    const request = this.#requests.get(message.request);
+    if (request === undefined) {
+      this.#host.post({
+        kind: FromFeederKind.ContinuationRefused,
+        continuation: message.continuation,
+        frame: undefined,
+        failures: [
+          {
+            code: 'playback.continuation-unloaded',
+            summary:
+              'The sound it continues is no longer loaded, so there is nothing to go on from.',
+          },
+        ],
+      });
+      return;
+    }
+    const current = (): boolean => this.#requests.get(message.request) === request;
+    continueSources(message, request, current).then(this.#host.post, (error: unknown) => {
+      // Taking a plan that validated cannot fail; if it did, what plays is in doubt.
+      this.#fault(
+        `A continued plan could not be taken: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
   }
 
   #parameters(message: Message<typeof ToFeederKind.Parameters>): void {

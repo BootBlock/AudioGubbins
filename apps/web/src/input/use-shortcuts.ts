@@ -8,13 +8,21 @@
  *
  * The listener sits on the document rather than on a container, because a
  * shortcut has to work wherever focus is, including on a panel the docking
- * engine has portalled elsewhere in the tree. The clipboard commands are the
- * exception: their shortcuts are the platform's own clipboard keys, so they are
- * the editor's only where an editor has the keyboard (see `runsHere`).
+ * engine has portalled elsewhere in the tree. A command that acts on one
+ * surface is the exception: its shortcut is that surface's only where the
+ * surface has the keyboard (see `runsHere`). The clipboard commands' are the
+ * platform's own clipboard keys, so they are the editor's only where an editor
+ * has the keyboard; the Loop panel's auditions act on the loop it shows; and a
+ * workflow dialog's own actions act on the plan it shows.
  */
 
 import { useEffect } from 'react';
-import type { ChordOutcome, ChordTracker, CommandId } from '@audiogubbins/commands';
+import {
+  commandId,
+  type ChordOutcome,
+  type ChordTracker,
+  type CommandId,
+} from '@audiogubbins/commands';
 import {
   isShortcutPress,
   isTypingPress,
@@ -27,6 +35,7 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 
 import { CLIPBOARD_COMMANDS } from '../commands/clipboard-commands.js';
+import { WorkflowCommand } from '../commands/workflow-command-ids.js';
 import type { Announce } from '../commands/voiced-execution.js';
 
 /** Whether the event is aimed at a field the user types into. */
@@ -56,6 +65,15 @@ export const EDITOR_PANEL = 'data-ag-editor-panel';
 
 /** Where an editor has the keyboard: on its surface, or in its panel. */
 const IN_AN_EDITOR = `${TAKES_NAVIGATION}, [${EDITOR_PANEL}]`;
+
+/** The attribute the Loop panel marks itself with, so its auditions' keys are its own. */
+export const LOOP_PANEL = 'data-ag-loop-panel';
+
+/** The attribute the Game preview panel marks itself with, so its hand trigger's key is its own. */
+export const PREVIEW_PANEL = 'data-ag-preview-panel';
+
+/** The attribute a guided workflow's dialog marks what it holds with, so its actions' keys are its own. */
+export const WORKFLOW_DIALOG = 'data-ag-workflow-dialog';
 
 /** Controls that also take a letter pressed alone, to find the entry it starts. */
 const TYPES_AHEAD = selectorOf(
@@ -163,21 +181,53 @@ export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading
   return target.closest(TYPES_AHEAD) !== null;
 }
 
+/** The Loop panel's auditions, which act on the loop the panel shows. */
+const LOOP_AUDITIONS: ReadonlySet<CommandId> = new Set(
+  ['loop.audition-cycles', 'loop.audition-seam', 'loop.stop-audition'].map(commandId),
+);
+
+/** The Game preview panel's hand trigger, which acts on the run the panel shows. */
+const PREVIEW_ACTIONS: ReadonlySet<CommandId> = new Set([commandId('preview.trigger')]);
+
+/** A workflow dialog's own actions, which act on the plan it shows. */
+const WORKFLOW_ACTIONS: ReadonlySet<CommandId> = new Set(
+  [WorkflowCommand.Apply, WorkflowCommand.LeaveOutRefused].map(commandId),
+);
+
+/** Whether `target` is in the modal dialogue that holds a workflow's dialog, its buttons included. */
+function inAWorkflowDialog(target: Element): boolean {
+  return target.closest(MODAL_DIALOGUE)?.querySelector(`[${WORKFLOW_DIALOG}]`) != null;
+}
+
 /**
  * Whether the command a shortcut completed runs where the press was aimed.
  *
- * Everywhere, but for a clipboard command, which runs only where an editor has
- * the keyboard and not in a text field there, which keeps its own clipboard
- * keys (`fieldEditsWith`). Anywhere else the platform's clipboard keys copy the
- * text a reader selected on the page, a diagnostic or a history entry, and
- * paste where the browser pastes, which a shortcut taking them would stop.
- * Decided by the command rather than by the keys, so a clipboard command bound
- * to other keys keeps the rule, and no other command bound to these keys is
- * given it.
+ * Everywhere, but for a command that acts on one surface, which runs only where
+ * that surface has the keyboard. A clipboard command runs only where an editor
+ * has it and not in a text field there, which keeps its own clipboard keys
+ * (`fieldEditsWith`): anywhere else the platform's clipboard keys copy the text
+ * a reader selected on the page, a diagnostic or a history entry, and paste
+ * where the browser pastes, which a shortcut taking them would stop. A loop
+ * audition runs only in the Loop panel, whose loop it hears, a hand trigger
+ * only in the Game preview panel, whose run it triggers, and a workflow's
+ * action only in its dialog, whose plan it runs. Decided by the command rather
+ * than by the keys, so a command bound to other keys keeps the rule, and no
+ * other command bound to these keys is given it.
  */
 function runsHere(id: CommandId, target: EventTarget | null): boolean {
-  if (!CLIPBOARD_COMMANDS.has(id)) return true;
-  return target instanceof Element && !isTextField(target) && target.closest(IN_AN_EDITOR) !== null;
+  if (CLIPBOARD_COMMANDS.has(id)) {
+    return (
+      target instanceof Element && !isTextField(target) && target.closest(IN_AN_EDITOR) !== null
+    );
+  }
+  if (LOOP_AUDITIONS.has(id)) {
+    return target instanceof Element && target.closest(`[${LOOP_PANEL}]`) !== null;
+  }
+  if (PREVIEW_ACTIONS.has(id)) {
+    return target instanceof Element && target.closest(`[${PREVIEW_PANEL}]`) !== null;
+  }
+  if (WORKFLOW_ACTIONS.has(id)) return target instanceof Element && inAWorkflowDialog(target);
+  return true;
 }
 
 /** What a shortcut press is, before the chord tracker reads it. */
@@ -311,8 +361,14 @@ function answer(
     case 'run':
       to.onPendingChange([]);
       // A modal dialogue's page is inert, so a chord that acts on it is
-      // answered with how to use it rather than run (see `ownerOf`).
-      if (to.modal && !to.runsInADialogue(outcome.commandId)) {
+      // answered with how to use it rather than run (see `ownerOf`); a
+      // workflow's action acts on the dialogue itself, where `runsHere` has
+      // found the press.
+      if (
+        to.modal &&
+        !to.runsInADialogue(outcome.commandId) &&
+        !WORKFLOW_ACTIONS.has(outcome.commandId)
+      ) {
         to.onAnnounce('Close the dialogue to use that shortcut.', false, { refusal: true });
         return;
       }

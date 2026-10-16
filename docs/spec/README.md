@@ -51,9 +51,8 @@ That file is generated from canonical modules and MUST NOT be edited directly.
 
 ## Current Readiness
 
-- Phases 00–09 — **PASS**
-- Phase 10 — **READY**, marked by the maintainer without a readiness review
-- Phases 11–15 — **NOT_READY** until hard dependencies pass and, for Phase 12, whose dependencies have passed, its readiness review
+- Phases 00–10 — **PASS**
+- Phases 11–15 — **NOT_READY** until hard dependencies pass and, for Phases 11 and 12, whose dependencies have passed, their readiness reviews
 
 See `traceability/implementation-ledger.md`.
 

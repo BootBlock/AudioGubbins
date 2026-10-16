@@ -49,6 +49,7 @@ function change(id: HistoryNodeId, parent: HistoryNodeId, step: number): ChangeN
       markers: [],
       effectChains: [],
       takeStacks: [],
+      gameGroups: [],
       project: true,
     },
   };

@@ -96,6 +96,18 @@
       "path": "./packages/import-export/scopes/any"
     },
     {
+      "path": "./packages/game-audio"
+    },
+    {
+      "path": "./packages/game-audio/scopes/any"
+    },
+    {
+      "path": "./packages/loop-analysis"
+    },
+    {
+      "path": "./packages/loop-analysis/scopes/any"
+    },
+    {
       "path": "./packages/waveform"
     },
     {
@@ -151,6 +163,9 @@
     },
     {
       "path": "./packages/project-commands"
+    },
+    {
+      "path": "./packages/guided-workflows"
     },
     {
       "path": "./packages/clipboard"

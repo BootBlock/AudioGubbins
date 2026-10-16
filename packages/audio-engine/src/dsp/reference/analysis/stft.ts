@@ -28,6 +28,19 @@ function weight(window: StftWindow, n: number, size: number): number {
   return a0 - a1 * cosineOf(1, n, size) + a2 * cosineOf(2, n, size) - a3 * cosineOf(3, n, size);
 }
 
+/**
+ * The `size` weights of the periodic `window` the canonical STFT weights its
+ * frames with, for a `size` of any length: the STFT takes only powers of two,
+ * and an analysis that weights a span of another length by the same window (a
+ * loop's DC means and phase projections) reads it here, so the window has one
+ * statement.
+ */
+export function stftWindowWeights(window: StftWindow, size: number): Float64Array {
+  const weights = new Float64Array(size);
+  for (let n = 0; n < size; n += 1) weights[n] = weight(window, n, size);
+  return weights;
+}
+
 /** A short-time Fourier transform, its settings already checked. */
 export class ReferenceStft {
   readonly size: number;
@@ -46,8 +59,7 @@ export class ReferenceStft {
     this.#framing = new ReferenceFraming(channels, size, hop);
     this.#fft = new ReferenceFft(size);
     this.bins = this.#fft.bins;
-    this.#window = new Float64Array(size);
-    for (let n = 0; n < size; n += 1) this.#window[n] = weight(window, n, size);
+    this.#window = stftWindowWeights(window, size);
     this.#signal = new Float64Array(size);
     this.#real = new Float64Array(this.bins);
     this.#imaginary = new Float64Array(this.bins);

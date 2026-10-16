@@ -225,7 +225,11 @@ export {
 
 export { type MeasuredPack, ModelPackStore } from './model-pack-store.js';
 export { type ListedEntry } from './library-entry-files.js';
-export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
+export {
+  type LibraryListing,
+  type LibraryServices,
+  ProcessingLibraryStore,
+} from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
 export {
@@ -254,7 +258,11 @@ export {
   type StagedExport,
   type StagingServices,
 } from './export-staging.js';
-export { type CollisionPrompt, type CollisionReply } from './export-collision.js';
+export {
+  type CollisionPrompt,
+  type CollisionReply,
+  trustedRecordName,
+} from './export-collision.js';
 export {
   type Delivery,
   type DeliveryDestination,

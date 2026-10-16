@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { openAudio } from '@audiogubbins/codecs';
-import { StandardLayouts, derivedSampleCount, type AssetId } from '@audiogubbins/domain';
+import {
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
+  StandardLayouts,
+  derivedSampleCount,
+  type AssetId,
+} from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import type { ImportFileEvent } from '@audiogubbins/import-export';
 import { SourceHandling, type ExternalFile, type ImportChoice } from '@audiogubbins/media-store';
@@ -193,7 +198,13 @@ describe('importing a compressed file as a decoded rendition (ADR-0090)', () => 
         displayName: 'Body',
         start: 0,
         end: 2_400,
-        loop: { basis: 0, start: 600, end: 1_800, crossfadeLength: 0 },
+        loop: {
+          basis: 0,
+          start: 600,
+          end: 1_800,
+          crossfadeLength: 0,
+          crossfadeShape: DEFAULT_LOOP_CROSSFADE_SHAPE,
+        },
       }),
     ]);
     expect([...project.markers.values()]).toEqual([

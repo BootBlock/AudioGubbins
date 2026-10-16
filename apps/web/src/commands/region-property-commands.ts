@@ -3,15 +3,28 @@
  * REQ-EDIT-014), each changed by one project command the history keeps.
  */
 
-import type { Command } from '@audiogubbins/commands';
-import { sampleCount, validateRegion, type Region } from '@audiogubbins/domain';
+import type { Command, CommandInvocation } from '@audiogubbins/commands';
+import {
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
+  FadeShape,
+  addSamples,
+  anchorResolver,
+  flatMapResult,
+  placeRegion,
+  sampleCount,
+  validateLoopLead,
+  validateRegion,
+  type DomainResult,
+  type Region,
+  type SampleCount,
+} from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 
 import { RANGE_OR_WHOLE, editScope } from './edit-target.js';
 import { changeProject } from './project-edits.js';
 import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
-import { oneRegion, regionCommand } from './region-target.js';
+import { oneRegion, regionCommand, type FoundRegion } from './region-target.js';
 import { quoted } from '@audiogubbins/text';
 
 function renameCommand(): Command<ShellContext> {
@@ -35,6 +48,83 @@ function renameCommand(): Command<ShellContext> {
   );
 }
 
+/** The crossfade's shape a loop command is given, the default where it names none, or `undefined` for no shape. */
+function loopShapeArgument(invocation: CommandInvocation): FadeShape | undefined {
+  const named = textArgument(invocation, 'shape');
+  if (named === undefined) return DEFAULT_LOOP_CROSSFADE_SHAPE;
+  return Object.values(FadeShape).find((shape) => shape === named);
+}
+
+/** A loop of a region, on its asset's edited timeline as the chain stands. */
+export interface LoopOnAsset {
+  readonly start: SampleCount;
+  readonly end: SampleCount;
+  readonly crossfadeLength: SampleCount;
+  readonly crossfadeShape: FadeShape;
+}
+
+/**
+ * A loop of `found`'s region given in the region's own frames, as an analysis
+ * of its sound states one, on its asset's timeline where the region is placed
+ * now; or why it cannot be.
+ */
+export function loopOnAsset(
+  found: FoundRegion,
+  loop: Omit<LoopOnAsset, 'start' | 'end' | 'crossfadeLength'> & {
+    readonly start: number;
+    readonly end: number;
+    readonly crossfadeLength: number;
+  },
+): LoopOnAsset | string {
+  const placed = placeRegion(anchorResolver(found.asset), found.region);
+  if (placed === undefined) return 'Nothing of the region is left to loop.';
+  const at = (frame: number): DomainResult<SampleCount> =>
+    flatMapResult(sampleCount(frame), (offset) => addSamples(placed.start, offset));
+  const start = at(loop.start);
+  if (!start.ok) return start.failures[0].summary;
+  const end = at(loop.end);
+  if (!end.ok) return end.failures[0].summary;
+  const crossfadeLength = sampleCount(loop.crossfadeLength);
+  if (!crossfadeLength.ok) return crossfadeLength.failures[0].summary;
+  return {
+    start: start.value,
+    end: end.value,
+    crossfadeLength: crossfadeLength.value,
+    crossfadeShape: loop.crossfadeShape,
+  };
+}
+
+/**
+ * `found`'s region looping over `loop`, anchored at its asset's chain as it
+ * stands, or why it cannot loop so: the one rule every command that loops a
+ * region keeps, a crossfade among it that must fit the loop and the audio
+ * before its start (ADR-0103).
+ */
+export function loopedRegion(found: FoundRegion, loop: LoopOnAsset): DomainResult<Region> {
+  const region: Region = {
+    ...found.region,
+    loop: { basis: found.asset.edits.length, ...loop },
+  };
+  return flatMapResult(
+    validateRegion(found.asset, region, found.project.state.project.effectChains),
+    (valid) => validateLoopLead(found.asset, valid),
+  );
+}
+
+/** Loops `found`'s region as `looped` has it, as one change the history keeps, saying `said` once made. */
+export function setLoop(
+  context: ShellContext,
+  found: FoundRegion,
+  looped: Region,
+  said: string,
+): void {
+  changeProject(context, found.project.session, {
+    description: `Loop ${found.region.displayName}`,
+    invocations: [setRegionInvocation(looped)],
+    said,
+  });
+}
+
 function loopCommand(): Command<ShellContext> {
   return regionCommand(
     'region.loop',
@@ -54,25 +144,21 @@ function loopCommand(): Command<ShellContext> {
         given === undefined ? 0 : typeof given === 'number' ? given : Number.NaN,
       );
       if (!crossfade.ok) return crossfade.failures[0].summary;
-      const looped = validateRegion(
-        found.asset,
-        {
-          ...found.region,
-          loop: {
-            basis: found.asset.edits.length,
-            start: scope.target.range.start,
-            end: scope.target.range.end,
-            crossfadeLength: crossfade.value,
-          },
-        },
-        found.project.state.project.effectChains,
-      );
-      if (!looped.ok) return looped.failures[0].summary;
-      changeProject(context, found.project.session, {
-        description: `Loop ${found.region.displayName}`,
-        invocations: [setRegionInvocation(looped.value)],
-        said: `${found.region.displayName} loops ${scope.whole ? 'whole' : 'over the selection'}.`,
+      const shape = loopShapeArgument(invocation);
+      if (shape === undefined) return `A crossfade is ${Object.values(FadeShape).join(', ')}.`;
+      const looped = loopedRegion(found, {
+        start: scope.target.range.start,
+        end: scope.target.range.end,
+        crossfadeLength: crossfade.value,
+        crossfadeShape: shape,
       });
+      if (!looped.ok) return looped.failures[0].summary;
+      setLoop(
+        context,
+        found,
+        looped.value,
+        `${found.region.displayName} loops ${scope.whole ? 'whole' : 'over the selection'}.`,
+      );
       return undefined;
     },
     ['region', 'loop', 'repeat', 'cycle'],

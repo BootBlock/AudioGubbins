@@ -9,22 +9,30 @@
  * recorded audio crosses to the feeder transferred, and the main thread holds
  * no copy to send again. The feeder's answer is waited for a bounded time, as
  * the processor's is, since a worker that never started never answers.
+ *
+ * The request they were made for may be followed by one that continues it
+ * (ADR-0104): its edited sounds' new plans go to the same sources, which go on
+ * into them without the feeds stopping, and the sources are then the new
+ * request's, as a load of it after a lost context finds them.
  */
 
 import {
   FailureKind,
   fail,
   failure,
+  sampleCount,
   succeed,
+  type DomainFailure,
   type DomainResult,
   type FailureSummary,
+  type SampleCount,
 } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { type ParameterChange, deliveredAs, type DspDelivery } from '@audiogubbins/audio-engine';
 
 import type { CompiledDspModule } from '../dsp/dsp-delivery.js';
 import { FromFeederKind, ToFeederKind, type FromFeeder } from '../protocol/feeder-messages.js';
-import { sourceTransferables } from '../protocol/source-descriptions.js';
+import { sourceTransferables, type SourceDescription } from '../protocol/source-descriptions.js';
 import type { Schedule } from '../schedule.js';
 import type { FeederLink } from './feeder-link.js';
 import type { PlaybackRequest } from './playback-preparation.js';
@@ -36,6 +44,39 @@ const SOURCES_ANSWER_MILLISECONDS = 10_000;
 /** What the person is told when the feeder never answers for a parameter change. */
 const PARAMETERS_UNANSWERED_PROBLEM =
   'The feeder that reads the audio for playback did not answer for the change, so it is not known to be heard.';
+
+/** What the person is told when the feeder never answers for a continued plan. */
+const CONTINUATION_UNANSWERED_PROBLEM =
+  'The feeder that reads the audio for playback did not answer for the new plan, so it is not known to be heard.';
+
+/** The refusal of a continuation asked for after the feeder read past where the new plan may differ. */
+const TOO_LATE = 'playback.continuation-too-late';
+
+/**
+ * How a continuation came out, where the feeder answered it: taken, its sounds
+ * going on into their new plans from `frame`, or too late, the feeder having
+ * read to `frame` already, from where a continuation may be made again.
+ */
+export type Continuation =
+  | { readonly kind: 'continued'; readonly frame: SampleCount }
+  | { readonly kind: 'too-late'; readonly frame: SampleCount };
+
+/** The failures a reply carries, as the domain's. */
+function failuresOf(
+  summaries: readonly [FailureSummary, ...FailureSummary[]],
+): readonly [DomainFailure, ...DomainFailure[]] {
+  const [first, ...rest] = summaries;
+  const rejected = (one: FailureSummary): DomainFailure =>
+    failure(one.code, FailureKind.Rejected, one.summary);
+  return [rejected(first), ...rest.map(rejected)];
+}
+
+/** A frame the feeder named, which its protocol reader has made a whole count. */
+function frameOf(frame: number): SampleCount {
+  const counted = sampleCount(frame);
+  if (!counted.ok) throw new Error(counted.failures[0].summary);
+  return counted.value;
+}
 
 /** How the making of a request's sources ended. */
 export type SourcesOutcome =
@@ -58,7 +99,6 @@ export interface RequestSourcesOptions {
 
 /** One request's sources in the feeder. */
 export class RequestSources {
-  readonly request: PlaybackRequest;
   readonly id: number;
   /** The feeder that holds them. */
   readonly feeder: FeederLink;
@@ -67,14 +107,16 @@ export class RequestSources {
   readonly #stopListening: () => void;
   readonly #cancelWait: () => void;
   readonly #schedule: Schedule;
+  #request: PlaybackRequest;
   #changes = 0;
+  #continuations = 0;
   #settle: (outcome: SourcesOutcome) => void = () => undefined;
   #settled = false;
 
   /** Sends the request's sources to the feeder to be made. */
   constructor(options: RequestSourcesOptions) {
     const { feeder, request, id, dsp, schedule, logger } = options;
-    this.request = request;
+    this.#request = request;
     this.id = id;
     this.feeder = feeder;
     this.#schedule = schedule;
@@ -139,6 +181,66 @@ export class RequestSources {
     });
   }
 
+  /** The request the sources play: the one they were made for, or the last that continued it. */
+  get request(): PlaybackRequest {
+    return this.#request;
+  }
+
+  /**
+   * Has the sources' edited sounds go on into the plans `sources` describes,
+   * which `request` holds, where they can at or before timeline frame `from`,
+   * and settles with how it came out; once taken, the sources are `request`'s.
+   */
+  continueWith(
+    request: PlaybackRequest,
+    sources: readonly SourceDescription[],
+    from: SampleCount,
+  ): Promise<DomainResult<Continuation>> {
+    this.#continuations += 1;
+    const continuation = this.#continuations;
+    const { feeder } = this;
+    return new Promise((resolve) => {
+      const settle = (outcome: DomainResult<Continuation>): void => {
+        stopListening();
+        cancelWait();
+        if (outcome.ok && outcome.value.kind === 'continued') this.#request = request;
+        resolve(outcome);
+      };
+      const stopListening = feeder.subscribe((reply) => {
+        if (reply.kind === FromFeederKind.Continued && reply.continuation === continuation) {
+          settle(succeed({ kind: 'continued', frame: frameOf(reply.frame) }));
+        } else if (
+          reply.kind === FromFeederKind.ContinuationRefused &&
+          reply.continuation === continuation
+        ) {
+          const { frame } = reply;
+          settle(
+            frame !== undefined && reply.failures.every((one) => one.code === TOO_LATE)
+              ? succeed({ kind: 'too-late', frame: frameOf(frame) })
+              : fail(...failuresOf(reply.failures)),
+          );
+        } else if (reply.kind === FromFeederKind.Fault) {
+          settle(fail(failure('playback.feeder-fault', FailureKind.Retryable, reply.message)));
+        }
+      });
+      const cancelWait = this.#schedule(() => {
+        settle(
+          fail(
+            failure(
+              'playback.continuation-unanswered',
+              FailureKind.Retryable,
+              CONTINUATION_UNANSWERED_PROBLEM,
+            ),
+          ),
+        );
+      }, SOURCES_ANSWER_MILLISECONDS);
+      feeder.send(
+        { kind: ToFeederKind.Continue, request: this.id, continuation, from, sources },
+        sourceTransferables(sources),
+      );
+    });
+  }
+
   /** Lets the feeder release the sources, which nothing will play again. */
   release(): void {
     this.#end({ kind: 'abandoned' });
@@ -176,6 +278,8 @@ export class RequestSources {
       case FromFeederKind.Primed:
       case FromFeederKind.FeedFailed:
       case FromFeederKind.ParametersTaken:
+      case FromFeederKind.Continued:
+      case FromFeederKind.ContinuationRefused:
         return;
     }
   };

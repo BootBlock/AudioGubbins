@@ -33,6 +33,11 @@ export {
 
 export { memorySource } from './pcm/memory-source.js';
 export {
+  type BoundarySamples,
+  ZeroCrossingEdges,
+  isZeroCrossingBoundary,
+} from './pcm/zero-crossing-boundary.js';
+export {
   type ChannelProgramme,
   type SignalRecipe,
   type SignalSegment,
@@ -48,6 +53,7 @@ export {
   pcmDescriptionOf,
 } from './pcm/pcm-description.js';
 export { type PlanProcessing, ProcessedStart } from './pcm/processed-content.js';
+export { EditedSource, type HeldContinuation } from './pcm/edited-source.js';
 export {
   type CachedStream,
   type CachedStreamRequest,
@@ -98,7 +104,11 @@ export {
   ResamplingQuality,
   SMALLEST_FFT_SIZE,
 } from './dsp/canonical-dsp.js';
-export { resamplingQualityOf } from './dsp/resampling-grade.js';
+export {
+  VARISPEED_MOST_TAPS,
+  resamplingQualityOf,
+  varispeedTableBytes,
+} from './dsp/resampling-grade.js';
 export { CANONICAL_RESAMPLER_VERSION, ENGINE_VERSIONS } from './dsp/algorithm-versions.js';
 export {
   type CanonicalDetectorFeatures,
@@ -129,6 +139,10 @@ export { ln, log10, log2 } from './dsp/reference/logarithm.js';
 export { pow } from './dsp/reference/power.js';
 export { sineOfTurns } from './dsp/reference/primitives.js';
 export { arctangentTurns, cosineOfTurns, tangentOfTurns } from './dsp/reference/trigonometry.js';
+
+// The canonical STFT's windows at any length, the one statement of their
+// weights, for an analysis that weights spans the STFT does not frame.
+export { stftWindowWeights } from './dsp/reference/analysis/stft.js';
 
 // The phases of the true-peak filter of ITU-R BS.1770-4 Annex 2, the one table
 // of dBTP, which the canonical peak meter and the limiter both read.

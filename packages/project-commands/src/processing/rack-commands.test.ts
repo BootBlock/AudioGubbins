@@ -40,6 +40,7 @@ import {
   projectBus,
   refusalCodeOf,
 } from '../testing/bus-runs.js';
+import { groupedState } from '../testing/grouped-state.js';
 import { referenceState } from '../testing/reference-state.js';
 import {
   extendedRackInvocation,
@@ -416,5 +417,46 @@ describe('a chain through the rack commands', () => {
     const { next } = appliedAndUndone(named, setEditChainInvocation(FOOTSTEP, edit.id, other));
     expect(next.project.effectChains.has(chain.id)).toBe(false);
     expect(next.project.effectChains.get(other.id)).toEqual(other);
+  });
+});
+
+describe('a rack given to a member of an asset group (ADR-0101)', () => {
+  const grouped = groupedState(state, assets, loop, ids);
+  const inGroup = (of: ProjectState) =>
+    of.gameAudio?.memberships.find(
+      (one) => one.member.kind === 'asset' && one.member.asset === footstep.id,
+    );
+
+  it('makes an inheriting member own its processing, and undo makes it inherit again', () => {
+    const chain = chainOf(filter());
+    const { next } = appliedAndUndone(grouped.state, setRackInvocation(FOOTSTEP, chain));
+    expect(next.project.assets.get(footstep.id)?.rack).toBe(chain.id);
+    expect(inGroup(next)?.processing).toBe('own');
+    // The group's chain stays, since the group and the walk loop still name it.
+    expect(next.project.effectChains.has(grouped.chains.a.id)).toBe(true);
+    const taken = appliedAndUndone(grouped.state, setRackInvocation(FOOTSTEP, undefined));
+    expect(inGroup(taken.next)?.processing).toBe('own');
+  });
+
+  it('refuses a rack given with inherit that is not the one inherited, naming the group', () => {
+    const result = bus.execute(
+      grouped.state,
+      setRackInvocation(FOOTSTEP, chainOf(filter()), 'inherit'),
+    );
+    expect(refusalCodeOf(result)).toBe('game.member-processing-mismatch');
+    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain('“Footsteps”');
+    expect(refusalCodeOf(bus.execute(state, setRackInvocation(FOOTSTEP, undefined, 'own')))).toBe(
+      'rack.not-a-member',
+    );
+  });
+
+  it('keeps a chain only a group names when the last rack naming it is taken away', () => {
+    const owned = after(
+      grouped.state,
+      setRackInvocation(FOOTSTEP, undefined),
+      setRackInvocation({ kind: 'region', region: loop, asset: footstep }, undefined),
+    );
+    expect(owned.project.effectChains.has(grouped.chains.a.id)).toBe(true);
+    assertReadsBack(owned);
   });
 });

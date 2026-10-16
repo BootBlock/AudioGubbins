@@ -4,6 +4,11 @@
  * where the loop lies within it; where no region is, the sound is cut into two
  * regions over all of it, which is how a long recording is cut into many
  * sounds. The razor's click runs it.
+ *
+ * A region in an asset group stays in it, and the part split off joins the
+ * same group in the same step, right after it in the assignment order, with
+ * its processing and overrides (ADR-0101), so both halves keep the policy the
+ * region had and one undo takes both back.
  */
 
 import type { Command, CommandInvocation } from '@audiogubbins/commands';
@@ -16,9 +21,11 @@ import {
   type Region,
   type SampleCount,
 } from '@audiogubbins/domain';
+import { memberKey, type GameAudioState } from '@audiogubbins/game-audio';
 import {
   addRegionInvocation,
   addRegionWithProcessing,
+  assignMemberInvocation,
   changeRegionInvocations,
 } from '@audiogubbins/project-commands';
 
@@ -36,8 +43,36 @@ interface SplitPlace {
 }
 
 /**
+ * Puts each part split off a region of a group in that group right after the
+ * region, as it belongs to it: the step for one split at a time, in the order
+ * the splits are made, each place counted past the parts put in before it.
+ */
+function groupJoining(
+  game: GameAudioState | undefined,
+): (region: Region, second: Region) => readonly CommandInvocation[] {
+  const placed: number[] = [];
+  return (region, second) => {
+    const key = memberKey({ kind: 'region', region: region.id });
+    const index = game?.memberships.findIndex((one) => memberKey(one.member) === key) ?? -1;
+    const membership = index < 0 ? undefined : game?.memberships[index];
+    if (membership === undefined) return [];
+    const before = placed.filter((one) => one <= index).length;
+    placed.push(index);
+    return [
+      assignMemberInvocation(
+        { kind: 'region', region: second.id },
+        membership.group,
+        membership.processing,
+        { overrides: membership.overrides, position: index + before + 1 },
+      ),
+    ];
+  };
+}
+
+/**
  * The steps that make `region` the pair it is split into: the first part is
- * the region changed, the second a region added, each with its processing.
+ * the region changed, the second a region added, each with its processing,
+ * and the second put in the first's group where it is in one.
  */
 function splitSteps(
   {
@@ -48,10 +83,12 @@ function splitSteps(
     readonly parts: readonly [Region, Region];
   },
   chains: Project['effectChains'],
+  joining: (region: Region, second: Region) => readonly CommandInvocation[],
 ): readonly [CommandInvocation, ...CommandInvocation[]] {
   return [
     ...changeRegionInvocations(region, first, chains),
     ...addRegionWithProcessing(second, chains),
+    ...joining(region, second),
   ];
 }
 
@@ -72,9 +109,13 @@ function splitRegions(context: ShellContext, project: ProjectTarget, place: Spli
   const [split, ...rest] = splits;
   if (split === undefined) return false;
   const chains = project.state.project.effectChains;
+  const joining = groupJoining(project.state.gameAudio);
   changeProject(context, project.session, {
     description: 'Split',
-    invocations: [...splitSteps(split, chains), ...rest.flatMap((one) => splitSteps(one, chains))],
+    invocations: [
+      ...splitSteps(split, chains, joining),
+      ...rest.flatMap((one) => splitSteps(one, chains, joining)),
+    ],
     said:
       rest.length === 0
         ? `Split ${split.region.displayName} in two.`

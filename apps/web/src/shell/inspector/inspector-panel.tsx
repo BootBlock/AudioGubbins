@@ -8,8 +8,13 @@
  * by the controls the Effects rack shows them with; otherwise what the rack of
  * the asset or region runs, and the command that shows the rack (REQ-EDIT-072).
  *
- * Recording, and an export the person asked to have described, are subjects
- * of their own, shown in place of the editor's (`own-subjects.tsx`).
+ * For a region or an asset of the project it shows its game policy too: the
+ * asset group it is in, and every field it resolves with where each value
+ * comes from, overridden and reset there (`../game/member-policy.tsx`).
+ *
+ * Recording, an export the person asked to have described, and an asset
+ * group chosen, are subjects of their own, shown in place of the editor's
+ * (`own-subjects.tsx`).
  *
  * It reads the stores and runs commands; it writes nothing itself (`CLAUDE.md`
  * G2), and it follows every change to them, an undo included.
@@ -42,6 +47,7 @@ import { OwnSubjectView, useOwnSubject, type OwnSubjectParts } from './own-subje
 import { RegionProperties } from './region-properties.js';
 import { AssetSourceFacts } from './asset-source.js';
 import { TimeControls } from './time-controls.js';
+import { MemberPolicy } from '../game/member-policy.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
@@ -313,7 +319,20 @@ export function InspectorPanel({
     <section className="ag-panel ag-inspector">
       <h2 className="ag-panel-title">{title}</h2>
       {own === undefined ? (
-        <EditorSubject subject={subject} state={state} parts={parts} commands={commands} />
+        <>
+          <EditorSubject subject={subject} state={state} parts={parts} commands={commands} />
+          {subject.kind === 'project' && state !== undefined && (
+            <MemberPolicy
+              member={
+                subject.region === undefined
+                  ? { kind: 'asset', asset: subject.asset.id }
+                  : { kind: 'region', region: subject.region.region.id }
+              }
+              state={state}
+              sources={{ projects, preferences: parts.preferences, commands }}
+            />
+          )}
+        </>
       ) : (
         <OwnSubjectView own={own} parts={parts} projects={projects} commands={commands} />
       )}

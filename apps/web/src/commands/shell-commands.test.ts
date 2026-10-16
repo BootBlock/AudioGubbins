@@ -44,11 +44,14 @@ import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { guidedWorkflowCommands } from './guided-workflow-commands.js';
 import { libraryApplyCommands } from './library-apply-commands.js';
 import { libraryCommands } from './library-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
+import { loopAnalysisCommands } from './loop-analysis-commands.js';
+import { loopAuditionCommands } from './loop-audition-commands.js';
 import { markerCommands } from './marker-commands.js';
 import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
@@ -67,7 +70,14 @@ import { exportCommands } from './export-commands.js';
 import { exportInspectionCommands } from './export-inspection-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
+import { gamePreviewCommands } from './game-preview-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
+import { gameExportCommands } from './game-export-commands.js';
+import { gameGroupCommands } from './game-group-commands.js';
+import { gameMemberCommands } from './game-member-commands.js';
+import { gameNamingCommands } from './game-naming-commands.js';
+import { gamePolicyCommands } from './game-policy-commands.js';
+import { loudnessCommands } from './loudness-commands.js';
 import { rackParameterCommands } from './rack-parameter-commands.js';
 import { rackSlotCommands } from './rack-slot-commands.js';
 import { recordingCommands } from './recording-commands.js';
@@ -681,6 +691,12 @@ describe('the default shortcut profile', () => {
       commandId('recording.arm-punch'),
       commandId('recording.record'),
       commandId('recording.stop'),
+      commandId('loop.audition-cycles'),
+      commandId('loop.audition-seam'),
+      commandId('loop.stop-audition'),
+      commandId('preview.trigger'),
+      commandId('workflow.apply'),
+      commandId('workflow.leave-out-refused'),
     ]);
   });
 
@@ -846,6 +862,10 @@ describe('finding the shell commands in the palette', () => {
     // Saying the spectral selection is what it does, so asked again it says
     // it again.
     'editor.describe-spectral-selection',
+    // Each press of a trigger is a trigger of its own, as a game's is, and
+    // each stop stops what the emitter sounds then.
+    'preview.trigger',
+    'preview.stop-voices',
   ]);
 
   /**
@@ -872,9 +892,19 @@ describe('finding the shell commands in the palette', () => {
       ...exportDialogCommands(),
       ...libraryCommands(),
       ...libraryApplyCommands(),
+      // Each needs a project with sounds, and analyses answered by the
+      // worker, which settle after it returns; each is run twice, its work
+      // awaited, in `guided-workflow-commands.test.ts`.
+      ...guidedWorkflowCommands(),
       // Each is a step of the storage worker's pack installer, run twice with
       // its work awaited in `pack-commands.test.ts`.
       ...packCommands(),
+      // Each needs a looped region, and its analysis answered by the worker or
+      // its loop changed in the project, both of which settle after it returns;
+      // each is run twice, its work awaited, in
+      // `loop-analysis-commands.test.ts` and `loop-audition-commands.test.ts`.
+      ...loopAnalysisCommands(),
+      ...loopAuditionCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),
@@ -898,6 +928,19 @@ describe('finding the shell commands in the palette', () => {
       ...rackSlotCommands(),
       ...rackParameterCommands(),
       ...rackComparisonCommands(),
+      // The game preview's need a project with asset groups, and keeping a
+      // scenario settles in the storage worker; each but the triggers is run
+      // twice, its work awaited, in `game-preview-commands.test.ts`.
+      ...gamePreviewCommands(),
+      // The asset groups' commands change the project, or measure in a
+      // worker, or export, each settling after it returns; each is run twice,
+      // its work awaited, in `game-commands.test.ts`.
+      ...gameGroupCommands(),
+      ...gamePolicyCommands(),
+      ...gameMemberCommands(),
+      ...gameNamingCommands(),
+      ...gameExportCommands(),
+      ...loudnessCommands(),
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')

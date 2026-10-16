@@ -83,7 +83,7 @@ function SharedNotice({
   readonly shown: ShownRack;
   readonly context: RackContext;
 }): ReactNode {
-  const others = otherUsers(shown.state.project, id, shown.target);
+  const others = otherUsers(shown.state, id, shown.target);
   if (others.length === 0) return undefined;
   const verb = others.length === 1 ? 'uses' : 'use';
   return (

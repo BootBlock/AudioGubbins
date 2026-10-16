@@ -3,7 +3,7 @@
  * (REQ-STOR-026), read back only through full runtime validation
  * (REQ-EXEC-136.12) and only at this build's schema version (REQ-STOR-052).
  *
- * The document is an object of four members, and a fifth where it has one:
+ * The document is an object of four members, and others where it has them:
  *
  * - `format`: always `audiogubbins.project`.
  * - `schemaVersion`: the `projectDocument` schema version that wrote it.
@@ -13,6 +13,9 @@
  *   kept, its provenance.
  * - `exportSettings`: the settings the project was last exported with, where
  *   it has been exported (ADR-0092).
+ * - `gameAudio`: the project's asset groups and their members, where it has
+ *   any (ADR-0106), read once the project is, so a chain, region or asset a
+ *   group or membership names is checked against it.
  *
  * Reading refuses a document whose version this build does not write before
  * reading anything else, then reads every member with the domain's own
@@ -37,6 +40,7 @@ import type { StateFingerprint } from './content-identity.js';
 import { objectOf, optional, required, startReading } from './document-reading.js';
 import { presentMembers } from './document-writing.js';
 import { readExportSettings, writeExportSettings } from './export-settings-json.js';
+import { readGameAudio, validatedGameAudio, writeGameAudio } from './game-audio-json.js';
 import { parseJson } from './json-parsing.js';
 import { asProject } from './project-reading.js';
 import type { ProjectState } from './project-state.js';
@@ -55,8 +59,9 @@ export const PROJECT_DOCUMENT_FORMAT = 'audiogubbins.project';
  * entities. The document nests deepest in an asset, three levels down (the
  * document, its project and the project's list of assets), at the chain a
  * paste in the asset's edits holds in its plan. The project's own chains are
- * three levels down too, so nest less, and nothing else nests as deep. A
- * hostile file is refused past that, before it can recurse.
+ * three levels down too, so nest less, and nothing else nests as deep: the
+ * game-audio member's deepest value, a profile's channel layout, is ten levels
+ * down. A hostile file is refused past that, before it can recurse.
  */
 export const PROJECT_DOCUMENT_LIMITS: JsonLimits = {
   maximumLength: LONGEST_PROJECT_DOCUMENT,
@@ -69,6 +74,7 @@ const DOCUMENT_MEMBERS: ReadonlySet<string> = new Set([
   'project',
   'sources',
   'exportSettings',
+  'gameAudio',
 ]);
 
 /** The document of a state, as a JSON value. */
@@ -80,6 +86,7 @@ export function writeProjectDocument(state: ProjectState): JsonObject {
     sources: writeSources(state.sources),
     exportSettings:
       state.exportSettings === undefined ? undefined : writeExportSettings(state.exportSettings),
+    gameAudio: state.gameAudio === undefined ? undefined : writeGameAudio(state.gameAudio),
   });
 }
 
@@ -100,10 +107,23 @@ export function readProjectDocument(value: JsonValue): DomainResult<ProjectState
   const project = required(reading, object, '', 'project', asProject);
   const sources = required(reading, object, '', 'sources', sourcesConverter(project?.assets));
   const exportSettings = optional(reading, object, '', 'exportSettings', readExportSettings);
+  const read = optional(reading, object, '', 'gameAudio', readGameAudio);
+  const gameAudio =
+    read === undefined || project === undefined
+      ? undefined
+      : validatedGameAudio(reading, project, read, 'gameAudio');
+  if (object['gameAudio'] !== undefined && gameAudio === undefined) {
+    return reading.outcome<ProjectState>(undefined);
+  }
   return reading.outcome(
     project === undefined || sources === undefined
       ? undefined
-      : { project, sources, ...(exportSettings === undefined ? {} : { exportSettings }) },
+      : {
+          project,
+          sources,
+          ...(exportSettings === undefined ? {} : { exportSettings }),
+          ...(gameAudio === undefined ? {} : { gameAudio }),
+        },
   );
 }
 

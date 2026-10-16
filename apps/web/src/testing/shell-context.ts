@@ -27,6 +27,13 @@ import { DetectionHost } from '@audiogubbins/detection-runtime';
 import { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 
 import { DetectionControl } from '../analysis/detection-control.js';
+import { LoudnessMeasuring } from '../analysis/loudness-measuring.js';
+import { followGroupFocus } from '../state/group-focus.js';
+import { createLoudnessStore } from '../state/loudness-store.js';
+import { LoopAnalysing } from '../analysis/loop-analysing.js';
+import { WorkflowAnalysing } from '../analysis/workflow-analysing.js';
+import { LoopAuditioning } from '../audio/loop-audition.js';
+import { createLoopAnalysisStore } from '../state/loop-analysis-store.js';
 import { PlaybackControl } from '../audio/playback-control.js';
 import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
@@ -57,6 +64,33 @@ import { noPackManager } from './pack-managers.js';
 import { fakeEditor } from './editor-fakes.js';
 import { fakeRecording, type RecordingFakes } from './recording-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
+import type { PreviewPlayback } from '../audio/preview-run.js';
+import { QualityLevel, namedQualityMode } from '@audiogubbins/domain';
+import { createGamePreviewStore } from '../state/game-preview-store.js';
+import { PreviewRunner, type GamePreviewParts } from '../audio/preview-runner.js';
+
+/**
+ * The Game preview played through `playback` on timers that never fire, for a
+ * test of anything else: a run started there plays once and lays no more, and
+ * no scenario asks for a render.
+ */
+function quietGamePreview(playback: PreviewPlayback): GamePreviewParts {
+  const store = createGamePreviewStore();
+  return {
+    store,
+    runner: new PreviewRunner(store, {
+      playback,
+      schedule: () => () => undefined,
+      now: () => 0,
+      quality: () => namedQualityMode(QualityLevel.Draft).settings,
+      renders: () => {
+        throw new Error('No scenario set up in this context asks for a render.');
+      },
+      setupOf: () => ({ ok: false, reasons: ['This test prepares no renders.'] }),
+      changes: [],
+    }),
+  };
+}
 
 /**
  * A browser that can do everything, so nothing is degraded by accident; a test
@@ -183,22 +217,46 @@ function fakeAudio(
  */
 function localDetection(interaction: InteractionStore): {
   readonly control: DetectionControl;
+  readonly loudness: LoudnessMeasuring;
+  readonly loops: LoopAnalysing;
   readonly workers: readonly LocalDetectionWorker[];
 } {
   const workers: LocalDetectionWorker[] = [];
-  const control = new DetectionControl({
-    host: new DetectionHost({
-      createWorker: () => {
-        const worker = new LocalDetectionWorker();
-        workers.push(worker);
-        return worker;
-      },
-    }),
-    announce: (text) => {
-      interaction.announce(text);
+  const host = new DetectionHost({
+    createWorker: () => {
+      const worker = new LocalDetectionWorker();
+      workers.push(worker);
+      return worker;
     },
   });
-  return { control, workers };
+  const announce = (text: string): void => {
+    interaction.announce(text);
+  };
+  const control = new DetectionControl({ host, announce });
+  const loudness = new LoudnessMeasuring({ host, store: createLoudnessStore(), announce });
+  const loops = new LoopAnalysing({ host, store: createLoopAnalysisStore(), announce });
+  return { control, loudness, loops, workers };
+}
+
+/**
+ * The timers a loop audition watches the feeder by, run when a test says,
+ * so no test waits on the clock.
+ */
+export class ManualSchedule {
+  readonly #due: (() => void)[] = [];
+
+  readonly schedule = (callback: () => void): (() => void) => {
+    this.#due.push(callback);
+    return () => {
+      const index = this.#due.indexOf(callback);
+      if (index >= 0) this.#due.splice(index, 1);
+    };
+  };
+
+  /** Runs every timer due now, once; those they set are due at the next call. */
+  runDue(): void {
+    for (const callback of this.#due.splice(0)) callback();
+  }
 }
 
 /**
@@ -222,6 +280,8 @@ export function buildShellContext(
   readonly detectionWorkers: readonly LocalDetectionWorker[];
   /** The recording part's fakes, for a test of the input, monitoring and the calibration. */
   readonly recording: RecordingFakes;
+  /** The timers a loop audition watches the feeder by, for a test to run. */
+  readonly timers: ManualSchedule;
 } {
   const logs = createLogStore();
   const diagnostics = createDiagnosticCentre(
@@ -243,6 +303,7 @@ export function buildShellContext(
 
   const { parts, fakes } = fakeAudio(interaction, storage, logger);
   const detection = localDetection(interaction);
+  const timers = new ManualSchedule();
   const workspace = createWorkspaceStore(DESCRIPTORS, storage, logger);
   const recording = fakeRecording({
     settings: parts.audioSettings,
@@ -255,6 +316,7 @@ export function buildShellContext(
     logger,
   });
 
+  const exportFocus = followExportFocus(workspace, recording.parts.claimed);
   return {
     logs,
     files,
@@ -262,6 +324,7 @@ export function buildShellContext(
     audio: fakes,
     detectionWorkers: detection.workers,
     recording: recording.fakes,
+    timers,
     context: {
       preferences: createPreferencesStore(storage, logger),
       workspace,
@@ -283,12 +346,22 @@ export function buildShellContext(
       projects: undefined,
       storageAbsences: [],
       exports: undefined,
-      exportFocus: followExportFocus(workspace, recording.parts.claimed),
+      exportFocus,
+      groups: followGroupFocus(workspace, recording.parts.claimed, exportFocus.subject),
       ...parts,
       ...fakeEditor(storage, logger),
       detection: detection.control,
+      loudness: detection.loudness,
+      loopAnalysis: detection.loops,
+      workflowAnalysis: new WorkflowAnalysing([detection.control, detection.loops.analyses]),
+      loopAudition: new LoopAuditioning({
+        playback: parts.playback,
+        audio: parts.audio,
+        schedule: timers.schedule,
+      }),
       packs: noPackManager(),
       recording: recording.parts,
+      gamePreview: quietGamePreview(parts.playback),
     },
   };
 }

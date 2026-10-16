@@ -107,6 +107,7 @@ async function setAside(tree: MemoryStorageTree, project: ProjectId): Promise<vo
       markers: [],
       effectChains: [],
       takeStacks: [],
+      gameGroups: [],
       project: true,
     },
     stateFingerprint: await files.states.fingerprint(model.state),

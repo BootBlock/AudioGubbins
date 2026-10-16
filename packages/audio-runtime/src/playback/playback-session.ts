@@ -18,12 +18,19 @@
  * Real-time playback is not canonical (ADR-0032): what the browser does after
  * the processor's output, its resampling and mixing to the device, is outside
  * it.
+ *
+ * What plays may also go on into a programme that continues it (ADR-0104):
+ * the transport is not touched, and the feeder goes on into the new plans at
+ * the first frame it has not read, which `readFrame` says where to expect.
  */
 
 import {
   FailureKind,
+  addSamples,
+  derivedSampleCount,
   fail,
   failure,
+  flatMapResult,
   succeed,
   type DomainResult,
   type SampleCount,
@@ -61,11 +68,13 @@ import {
   type MeterLevels,
   type PlaybackStatus,
 } from './playback-status.js';
+import { continueRequest } from './continued-request.js';
+import type { Continuation } from './request-sources.js';
 import { superseded } from './superseded.js';
 
-// The request a session loads and the listener it takes are part of its
-// contract, whichever module defines them.
-export type { PlaybackListener, PlaybackRequest };
+// The request a session loads, the listener it takes and what a continuation
+// comes to are part of its contract, whichever module defines them.
+export type { Continuation, PlaybackListener, PlaybackRequest };
 
 /** What the person is told when the audio context goes away under playback. */
 const LOST_PROBLEM =
@@ -139,6 +148,47 @@ export class PlaybackSession {
     this.#state.pauseTransport();
     this.#state.clearMeters();
     return await this.#graph.load(request);
+  }
+
+  /**
+   * Goes on from the loaded request into `request`, which continues it and
+   * differs from it at timeline frame `from` at the earliest, without pausing
+   * or starting playback again: every sound keeps playing, and the edited ones
+   * go on into their new plans at the first frame the feeder has not read.
+   * Settles with that frame; or, where the feeder had read past `from`, with
+   * the frame it had read to, from which a continuation may be made again; or
+   * with why `request` cannot go on from what is loaded and is loaded instead.
+   */
+  async continueWith(
+    request: PlaybackRequest,
+    from: SampleCount,
+  ): Promise<DomainResult<Continuation>> {
+    this.#assertLive();
+    if (this.status.phase !== PlaybackPhase.Ready) return this.#notReady();
+    const graph = this.#graph;
+    const loaded = graph.current;
+    const continued = await continueRequest(graph.request, request, graph.sources, from);
+    // Taken while the graph it went on from is still the one loaded, it is
+    // what a lost context loads again.
+    if (continued.ok && continued.value.kind === 'continued' && graph.current === loaded) {
+      graph.continued(request);
+    }
+    return continued;
+  }
+
+  /**
+   * The earliest timeline frame a continuation asked for now can expect to go
+   * on from: the position, plus all the audio the feeds keep queued ahead of it
+   * and one read more, which the feeder never reads past.
+   */
+  readFrame(): DomainResult<SampleCount> {
+    this.#assertLive();
+    const loaded = this.#graph.current;
+    if (loaded === undefined) return this.#notReady();
+    const { aheadFrames, chunkFrames } = loaded.prepared.feedPlan;
+    return flatMapResult(this.#state.position(), (position) =>
+      addSamples(position, derivedSampleCount(aheadFrames + chunkFrames)),
+    );
   }
 
   /**

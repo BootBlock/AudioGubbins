@@ -22,6 +22,7 @@ import type {
   RegionId,
   TrackId,
 } from '../identity/branded-id.js';
+import { FadeShape } from '../editing/fades.js';
 import type { RegionOperation } from '../editing/operations.js';
 import type { SampleCount } from '../time/sample-time.js';
 import type { AssetRange } from './asset.js';
@@ -128,10 +129,17 @@ export type RegionBoundary = (typeof RegionBoundary)[keyof typeof RegionBoundary
 
 /**
  * A region's loop as it is kept: a span inside the region, anchored like the
- * region's own boundaries, with the length of the crossfade at its join.
+ * region's own boundaries, with the length and shape of the crossfade at its
+ * join.
  *
  * Distinct from the region's start and end so that a sound can have an attack
  * that plays once followed by a sustaining body that repeats.
+ *
+ * The crossfade is part of the region's sound (ADR-0103): the region's plan
+ * realises it after the region's rack (`loop-crossfade.ts`), so a crossfade of
+ * C frames needs C frames of the region before the loop's start. A command that
+ * makes a loop refuses one without them; a later edit that moves the start
+ * shortens the crossfade where the loop is placed, and says so.
  */
 export interface AnchoredLoop {
   readonly basis: number;
@@ -140,7 +148,18 @@ export interface AnchoredLoop {
 
   /** Zero for a hard join, or how many frames cross-fade at it. */
   readonly crossfadeLength: SampleCount;
+
+  /** How the crossfade's two sides move, the loop's end out and the audio before its start in. */
+  readonly crossfadeShape: FadeShape;
 }
+
+/**
+ * The shape a loop's crossfade takes where the person or the source did not
+ * choose one: equal power, which keeps the level of material whose two sides
+ * are unlike, as a loop's end and the audio before its start usually are. A
+ * loop read from a file, which states no crossfade, takes it too.
+ */
+export const DEFAULT_LOOP_CROSSFADE_SHAPE: FadeShape = FadeShape.EqualPower;
 
 /**
  * A point of interest on one asset, anchored to its content like a region's
@@ -203,8 +222,23 @@ export interface LoopDefinition {
   /** Where playback loops from, as an offset from the region start. */
   readonly loopEnd: SampleCount;
 
-  /** Zero for a hard join, or how many frames cross-fade at it. */
+  /**
+   * Zero for a hard join, or how many frames cross-fade at it: at most the
+   * loop's start, since the crossfade reads that many frames before it, and at
+   * most the loop's length.
+   */
   readonly crossfadeLength: SampleCount;
+
+  /** How the crossfade's two sides move. */
+  readonly crossfadeShape: FadeShape;
+
+  /**
+   * The crossfade's length as the loop keeps it, where placing the loop
+   * shortened it to fit: an edit moved the loop's start nearer the region's,
+   * or its end nearer its start, after the crossfade was set. Absent where
+   * the crossfade is heard as set.
+   */
+  readonly crossfadeClampedFrom?: SampleCount;
 }
 
 /** Identifies the asset a clip reads from. */

@@ -234,6 +234,13 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/audio-engine',
     '@audiogubbins/codecs',
   ],
+  '@audiogubbins/game-audio': [
+    '@audiogubbins/domain',
+    '@audiogubbins/import-export',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/text',
+  ],
+  '@audiogubbins/loop-analysis': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
     '@audiogubbins/domain',
@@ -264,6 +271,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/effect-rack',
     '@audiogubbins/processors',
     '@audiogubbins/ml-runtime',
+    '@audiogubbins/loop-analysis',
   ],
   '@audiogubbins/audio-engine': [
     '@audiogubbins/domain',
@@ -319,17 +327,31 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/import-export',
     '@audiogubbins/text',
     '@audiogubbins/version',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/project-commands': [
     '@audiogubbins/domain',
     '@audiogubbins/commands',
     '@audiogubbins/project-format',
     '@audiogubbins/text',
+    '@audiogubbins/game-audio',
+  ],
+  '@audiogubbins/guided-workflows': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/game-audio',
+    '@audiogubbins/loop-analysis',
+    '@audiogubbins/processors',
+    '@audiogubbins/import-export',
+    '@audiogubbins/project-format',
+    '@audiogubbins/project-commands',
+    '@audiogubbins/detection-runtime',
   ],
   '@audiogubbins/history': [
     '@audiogubbins/domain',
     '@audiogubbins/commands',
     '@audiogubbins/project-format',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
   '@audiogubbins/model-packs': [
@@ -398,7 +420,10 @@ const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'clipboard',
   'codecs',
   'diagnostics',
+  'game-audio',
+  'guided-workflows',
   'history',
+  'loop-analysis',
   'media-store',
   'project-commands',
   'project-format',
@@ -881,9 +906,12 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'domain',
     'editor-view',
     'effect-rack',
+    'game-audio',
+    'guided-workflows',
     'history',
     'import-export',
     'input',
+    'loop-analysis',
     'media-store',
     'ml-runtime',
     'model-packs',
@@ -1551,6 +1579,90 @@ describe('test fixtures never reach production code (REQ-EXEC-181)', () => {
     }
 
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("a chain's users are read with the game-audio state (ADR-0101)", () => {
+  /**
+   * The modules that may take the domain's `chainUsers`: the game-audio
+   * module that answers for the project and its groups together, and its
+   * test, which holds the two answers equal where no group names a chain.
+   * The domain's own modules and tests are not read.
+   */
+  const READS_THE_PROJECT_ALONE = /^packages\/game-audio\/src\/policy\/chain-users(\.test)?\.ts$/u;
+
+  /**
+   * The modules that took it before a group could name a chain, each until it
+   * reads the answer that counts the groups. A module leaves this list when it
+   * changes; none joins it.
+   */
+  const NOT_YET_MOVED: readonly string[] = [];
+
+  /** Whether any identifier of a file's code, never its comments, is `chainUsers`. */
+  const namesChainUsers = (node: ts.Node): boolean =>
+    (ts.isIdentifier(node) && node.text === 'chainUsers') ||
+    (ts.forEachChild(node, namesChainUsers) ?? false);
+
+  /**
+   * Whether a file takes `chainUsers` from the domain: by name, or with the
+   * whole module, when its code then names the function on it.
+   */
+  const takesChainUsers = (file: ts.SourceFile): boolean =>
+    valuesTaken(file).some(
+      ({ module, name }) =>
+        module === '@audiogubbins/domain' &&
+        (name === 'chainUsers' || (name === '*' && namesChainUsers(file))),
+    );
+
+  /**
+   * Every file outside the domain that takes it, tests and test support
+   * included. Only a file whose code names the function can take it, so only
+   * those are parsed: parsing every source would take longer than a test may.
+   */
+  const takers = (): readonly string[] =>
+    EVERY_SOURCE.filter(
+      (path) =>
+        !path.startsWith('packages/domain/') &&
+        readCode(path).includes('chainUsers') &&
+        takesChainUsers(parse(path)),
+    );
+
+  it('is taken outside the domain by the game-audio module alone, and the modules still to move', () => {
+    // A group's processing names a chain, so a reader that asks the domain
+    // alone would miss a chain only a group uses: rename it as unused, or
+    // delete it from under the group.
+    expect(
+      takers().filter(
+        (path) => !READS_THE_PROJECT_ALONE.test(path) && !NOT_YET_MOVED.includes(path),
+      ),
+    ).toEqual([]);
+  });
+
+  it('lists only modules that still take it, so the list shrinks as each moves', () => {
+    const taking = new Set(takers());
+    expect(NOT_YET_MOVED.filter((path) => !taking.has(path))).toEqual([]);
+  });
+
+  it.each([
+    ['a named import', "import { chainUsers } from '@audiogubbins/domain';", true],
+    ['a renamed import', "import { chainUsers as users } from '@audiogubbins/domain';", true],
+    ['a re-export', "export { chainUsers } from '@audiogubbins/domain';", true],
+    [
+      'the whole module',
+      "import * as domain from '@audiogubbins/domain';\ndomain.chainUsers(project, chain);",
+      true,
+    ],
+    ['a dynamic import', "const { chainUsers } = await import('@audiogubbins/domain');", true],
+    [
+      'the whole module, for another value',
+      "import * as domain from '@audiogubbins/domain';\n// chainUsers\ndomain.chainUseCount(users);",
+      false,
+    ],
+    ['another value', "import { chainUseCount } from '@audiogubbins/domain';", false],
+    ['a type alone', "import type { ChainUsers } from '@audiogubbins/domain';", false],
+  ])('reads %s', (_form, code, taken) => {
+    const file = ts.createSourceFile('control.ts', code, ts.ScriptTarget.Latest, true);
+    expect(takesChainUsers(file)).toBe(taken);
   });
 });
 
@@ -2908,7 +3020,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     Record<string, readonly [lines: number, review: string]>
   > = {
     'packages/domain/src/index.ts': [
-      417,
+      431,
       "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",
     ],
   };
@@ -3013,20 +3125,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
     ],
     'apps/web/src/application.ts': [
-      378,
-      "The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts, the codecs and the export in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back. The export's lines are the render, codecs, assets, room and clock it is handed, which only the root holds together.",
+      395,
+      "The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts, the codecs and the export in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back. The export's lines are the render, codecs, assets, room and clock it is handed, which only the root holds together. Reviewed again when the asset groups joined (ADR-0101): the growth is the group chosen, made once beside the export the Inspector describes and stopped with it, still one line per part handed over. Reviewed again when the asset groups and the Game preview met: the growth is registration lines for the Phase 10 panels, the group chosen and the preview each handed over and stopped in one line, still one line per part handed over.",
     ],
     'apps/web/src/commands/recording-settings-commands.ts': [
       320,
       "Every command that changes the recording settings, as three tables, the profiles, the buffer and count-in, and the preferences and latency, each command a few lines over the store's revisions in `recording-settings.ts`; split by table, the shared `revised` and argument readers would move to a fourth file.",
     ],
     'apps/web/src/shell/menus.ts': [
-      328,
-      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table.",
-    ],
-    'apps/web/src/shell/panels.tsx': [
-      349,
-      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read.",
+      388,
+      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table. Reviewed again when the Editor menu gained the asset groups' commands (ADR-0101): the growth is that group's entries, still a table. Reviewed again when the asset groups' and the Loop panel's groups met: the growth is those two groups' entries, still a table. Reviewed again when the asset groups', the workflows' and the Game preview's entries met: the growth is registration lines for the Phase 10 panels and commands, still a table.",
     ],
     'apps/web/src/commands/panel-commands.ts': [
       314,
@@ -3061,12 +3169,20 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
     'packages/audio-engine/src/pcm/plan-readers.ts': [
-      353,
-      "The one owner of the readers an edited source makes of its plan: each stream's content and output, a file, silence, a conversion of rate, a mix, a chain's run, a stretch and a spectral edit's stream, each made once on the first read that needs it and released with the source. Every reader is a module of its own (`processed-content.ts`, `spectral-content.ts`, `mixed-content.ts`, `stretched-content.ts` and the rest), so what is left is the cache of each kind and the method that makes one; split by kind, a stream that reads another stream processed would need both halves' caches to find it.",
+      373,
+      "The one owner of the readers an edited source makes of its plan: each stream's content and output, a file, silence, a conversion of rate or a varispeed, a mix, a chain's run with its automation, a stretch and a spectral edit's stream, each made once on the first read that needs it and released with the source. Every reader is a module of its own (`processed-content.ts`, `spectral-content.ts`, `mixed-content.ts`, `stretched-content.ts`, `resampled-source.ts` and the rest), and a conversion and a varispeed share one maker of a resampler's reader, so what is left is the cache of each kind and the method that makes one; split by kind, a stream that reads another stream processed would need both halves' caches to find it. Reviewed again when the game preview's varispeed and automation joined it.",
     ],
     'packages/domain/src/editing/plan-building.ts': [
       300,
       "The fold of an asset's chain into a plan, operation by operation: a cut, a reversal, a level or channel stage, a conversion, an insertion, and the processing of a range by a rack, a punch or a spectral edit. Where a kind's work is more than a few lines it is a module of its own (`processed-streams.ts`, `punch-fold.ts`, `operation-validation.ts`), so what is left is the one switch that applies each operation to the folding and the reading of the chain a range is processed through; split, each half would need the folding the other leaves.",
+    ],
+    'apps/web/src/audio/preview-run.ts': [
+      305,
+      "A run of the game preview over the one playback control: its one lineage of simulation and plan, and each change that goes on from it in turn, a hand action, laying further ahead, forgetting what was heard and a running change, each a few lines over the simulation's and plan's own continuation, forgetting and the programme they make. What it lists of the log is `preview-log-progress.ts`, the programme `preview-programme.ts` and the running changes `preview-live-values.ts`; what is left is the order of the changes on the one lineage, which split would let two changes go on from one lineage at once. It entered the band when the run came to forget what was heard in place of laying its plan afresh at a silent moment.",
+    ],
+    'packages/game-audio/src/export/game-export-plan.ts': [
+      300,
+      "The game export plan: each member planned alone from its effective profile, naming and destination, each refusal re-stated with the owner of the value refused, and the planned items whose files would land on one another refused together. A member's policy, naming and export settings are modules of their own (`policy-resolution.ts`, `member-names.ts`, `member-export-settings.ts`); what is left is planning one member and settling the drafts against each other. The collision check is the one seam, and split out it would need this module's item and draft types and the words a refusal names a member by, which a collision and an unset value share. It entered the band when its refusals took the text package's quoting.",
     ],
   };
 
@@ -3206,6 +3322,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * go stale.
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'apps/web/src/commands/shell-commands.ts: shellCommands': [
+      55,
+      'A list of every command module of the shell, one spread a line in the order they are offered, whose one job is to put them in one list; what grows it is one line per module.',
+    ],
     'apps/web/src/state/project-stores.ts: createProjectStores': [
       51,
       "The project system's composition: each store made once over the storage client's part it asks and the ports the browser gives, and handed the stores it reads; what remains are the lines that hand each its collaborators, every store a class or factory of its own.",
@@ -3263,12 +3383,12 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The recording part's composition: the opening shared by arming and calibrating, the monitoring, input and calibration controls, the arming for a take and the recording flow, the Inspector's focus and the storage estimate, each made once with what it needs, and the dispose that ends them; the controls are classes of their own, so what remains is wiring.",
     ],
     'apps/web/src/shell/panels.tsx: editingPanel': [
-      52,
-      'An exhaustive switch over the editing panels, one arm per kind, each handing a panel only the parts it reads.',
+      58,
+      'An exhaustive switch over the editing panels, one arm per kind, each handing a panel only the parts it reads. Reviewed again when the Inspector came to read the asset group chosen and the preferences its policy reads (ADR-0101): two parts more in one arm.',
     ],
     'apps/web/src/shell/panels.tsx: renderPanel': [
-      61,
-      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own.',
+      70,
+      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own. Reviewed again when the Asset groups panel’s arm joined the Loop panel’s: one arm more. Reviewed again when the Asset groups and Game preview panels’ arms met: the growth is registration lines for the Phase 10 panels, one arm more each.',
     ],
     'apps/web/src/shell/recording/latency-section.tsx: Figures': [
       52,
@@ -3300,8 +3420,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      79,
-      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table.",
+      85,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table. Reviewed again when the Game preview's hand trigger gained its key: one line of the table and its comment.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
@@ -3332,8 +3452,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic. Reviewed again when the region and the marker were anchored to the footstep (ADR-0051): the growth is their basis and loop fields, still data.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
-      142,
-      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table.',
+      146,
+      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table. Reviewed again when the asset groups’, the workflows’ and the Game preview’s groups met: the growth is registration lines for the Phase 10 commands, still a declarative table.',
     ],
 
     // Factories: private state closed over, with each returned method a unit.
@@ -3374,8 +3494,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      179,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, and the export by `startExport` once the render, the codecs and the assets it renders exist, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
+      188,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, and the export by `startExport` once the render, the codecs and the assets it renders exist, so what is left here is the lines that hand each part its collaborators and gather what they give back. Reviewed again when the asset group chosen joined (ADR-0101): it is made once, beside the export the Inspector describes, and stopped with it. Reviewed again when the asset groups and the Game preview met: the growth is registration lines for the Phase 10 panels, the group chosen and the preview each handed over and stopped in one line.',
     ],
 
     // Components: hooks, then the tree they draw.

@@ -107,15 +107,60 @@ function encoded(): readonly EncodedStreamMessage[] {
   ];
 }
 
-/** A folder in memory whose files are replaced only when a sink closes. */
+/**
+ * A folder in memory whose files are replaced only when a sink closes, and
+ * whose folders are made as the port says: one asked for that is not there is
+ * made, with those above it still to be made, only when a file is created in
+ * it, and removed again, while empty, where that file is abandoned.
+ */
 class MemoryFolder implements DeliveryFolder {
-  readonly name = 'Game sounds';
+  readonly name: string;
   readonly files = new Map<string, Uint8Array>();
+  readonly folders = new Map<string, MemoryFolder>();
   access: () => Promise<'granted' | 'needs-permission'> = () => Promise.resolve('granted');
   refuseWrites = false;
 
+  /** Every folder name asked for, in order, from this folder down. */
+  readonly asked: string[];
+
+  /** Makes this folder where it is still to be made, answering how to take that back. */
+  readonly #make: () => () => void;
+
+  constructor(
+    name = 'Game sounds',
+    asked: string[] = [],
+    make: () => () => void = () => () => undefined,
+  ) {
+    this.name = name;
+    this.asked = asked;
+    this.#make = make;
+  }
+
   list(): Promise<readonly string[]> {
-    return Promise.resolve([...this.files.keys()]);
+    return Promise.resolve([...this.files.keys(), ...this.folders.keys()]);
+  }
+
+  folder(name: string): Promise<DeliveryFolder | undefined> {
+    this.asked.push(name);
+    if (this.files.has(name)) return Promise.resolve(undefined);
+    const there = this.folders.get(name);
+    if (there !== undefined) return Promise.resolve(there);
+    const made: MemoryFolder = new MemoryFolder(name, this.asked, () => {
+      const above = this.#make();
+      if (this.folders.has(name)) return above;
+      this.folders.set(name, made);
+      return () => {
+        if (made.files.size === 0 && made.folders.size === 0) this.folders.delete(name);
+        above();
+      };
+    });
+    made.refuseWrites = this.refuseWrites;
+    return Promise.resolve(made);
+  }
+
+  /** The folder at `path` from this one, where it is made. */
+  at(...path: string[]): MemoryFolder | undefined {
+    return path.reduce<MemoryFolder | undefined>((folder, name) => folder?.folders.get(name), this);
   }
 
   open(name: string): Promise<ByteSource | undefined> {
@@ -132,6 +177,7 @@ class MemoryFolder implements DeliveryFolder {
 
   create(name: string): Promise<ByteSink> {
     const parts: number[] = [];
+    const undo = this.#make();
     return Promise.resolve({
       write: (chunk) => {
         if (this.refuseWrites) {
@@ -144,7 +190,10 @@ class MemoryFolder implements DeliveryFolder {
         this.files.set(name, Uint8Array.from(parts));
         return Promise.resolve();
       },
-      abort: () => Promise.resolve(),
+      abort: () => {
+        undo();
+        return Promise.resolve();
+      },
     });
   }
 }
@@ -177,11 +226,13 @@ function intoFolder(
     readonly trusted?: readonly { name: string; size: number; hash: string }[];
     readonly reply?: CollisionReply;
     readonly asked?: string[];
+    readonly path?: readonly string[];
   } = {},
 ): DeliveryDestination {
   return {
     kind: 'folder',
     folder,
+    path: options.path ?? [],
     wanted: { stem: 'Footsteps', extension: 'wav' },
     policy: options.policy ?? 'prompt',
     remembered: undefined,
@@ -324,6 +375,8 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
       },
       status: 'succeeded',
     });
+    // Written into the folder chosen itself, so the record names no folder inside it.
+    expect(record?.file).not.toHaveProperty('folder');
   });
 
   it('asks about a taken name, renames by the answer, and remembers it for the batch', async () => {
@@ -529,5 +582,229 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
       ),
     ).toBe('export.staged-missing');
     expect(staging.staged(token)).toBeUndefined();
+  });
+});
+
+describe('delivering into a relative folder (ADR-0102)', () => {
+  /** The record of `bytes` exported to `name`, as a trusted folder keeps it. */
+  function recordOf(name: string, bytes: Uint8Array) {
+    return { name, size: bytes.length, hash: createHash('sha256').update(bytes).digest('hex') };
+  }
+
+  /** The code a delivery was refused with, or its kind where it was not. */
+  function refusal(delivery: Awaited<ReturnType<typeof deliverStaged>>): string {
+    const answer = expectSuccess(delivery);
+    return answer.kind === 'refused' ? answer.failure.code : answer.kind;
+  }
+
+  it('makes the folders the path names, writes into the last, and records the file by its name', async () => {
+    const { session, staging, services, staged, stagedFiles } = await setUp();
+    const folder = new MemoryFolder();
+    const delivery = expectSuccess(
+      await deliverStaged(
+        session,
+        staging,
+        (await staged()).token,
+        ENCODER,
+        intoFolder(folder, { path: ['sfx', 'Footsteps'] }),
+        services,
+      ),
+    );
+
+    expect(delivery).toMatchObject({ kind: 'delivered', name: 'Footsteps.wav', replaced: 'none' });
+    expect(folder.at('sfx', 'Footsteps')?.files.get('Footsteps.wav')).toEqual(WHOLE);
+    expect(folder.files.size).toBe(0);
+    expect(folder.asked).toEqual(['sfx', 'Footsteps']);
+    expect(stagedFiles()).toEqual([]);
+    expect(session.getSnapshot().model.exports[0]).toMatchObject({
+      destination: { kind: ExportDestinationKind.Directory, label: 'Game sounds' },
+      file: { fileName: 'Footsteps.wav', folder: { segments: ['sfx', 'Footsteps'] } },
+    });
+  });
+
+  it('decides a taken name from the listing of the folder written into, not the folder chosen', async () => {
+    const { session, staging, services, staged } = await setUp();
+    const folder = new MemoryFolder();
+    folder.files.set('Footsteps.wav', Uint8Array.from([7]));
+    const asked: string[] = [];
+    const first = expectSuccess(
+      await deliverStaged(
+        session,
+        staging,
+        (await staged()).token,
+        ENCODER,
+        intoFolder(folder, { path: ['sfx'], asked }),
+        services,
+      ),
+    );
+    expect(first).toMatchObject({ kind: 'delivered', replaced: 'none' });
+    expect(asked).toEqual([]);
+
+    // The folder is there now, holding the file: the next delivery into it asks.
+    const second = await deliverStaged(
+      session,
+      staging,
+      (await staged()).token,
+      ENCODER,
+      intoFolder(folder, { path: ['sfx'], asked }),
+      services,
+    );
+    expect(refusal(second)).toBe('export.collision-skipped');
+    expect(asked).toEqual(['Footsteps.wav']);
+    expect(folder.files.get('Footsteps.wav')).toEqual(Uint8Array.from([7]));
+  });
+
+  it('overwrites silently in a trusted folder only where the record of that path matches', async () => {
+    const { session, staging, services, staged } = await setUp();
+    const earlier = Uint8Array.from([5, 5, 5]);
+    const folder = new MemoryFolder();
+    const sfx = new MemoryFolder('sfx');
+    folder.folders.set('sfx', sfx);
+    sfx.files.set('Footsteps.wav', earlier);
+    folder.files.set('Footsteps.wav', earlier);
+    const asked: string[] = [];
+
+    // A record of the file in the trusted folder itself does not speak for one inside it.
+    const elsewhere = await deliverStaged(
+      session,
+      staging,
+      (await staged()).token,
+      ENCODER,
+      intoFolder(folder, { path: ['sfx'], trusted: [recordOf('Footsteps.wav', earlier)], asked }),
+      services,
+    );
+    expect(refusal(elsewhere)).toBe('export.collision-skipped');
+    expect(asked).toEqual(['Footsteps.wav']);
+
+    // Nor one of the file inside it for the one in the trusted folder itself.
+    const above = await deliverStaged(
+      session,
+      staging,
+      (await staged()).token,
+      ENCODER,
+      intoFolder(folder, { trusted: [recordOf('sfx/Footsteps.wav', earlier)], asked }),
+      services,
+    );
+    expect(refusal(above)).toBe('export.collision-skipped');
+    expect(asked).toEqual(['Footsteps.wav', 'Footsteps.wav']);
+
+    const trusted = expectSuccess(
+      await deliverStaged(
+        session,
+        staging,
+        (await staged()).token,
+        ENCODER,
+        intoFolder(folder, {
+          path: ['sfx'],
+          trusted: [recordOf('sfx/Footsteps.wav', earlier)],
+          asked,
+        }),
+        services,
+      ),
+    );
+    expect(trusted).toMatchObject({ kind: 'delivered', replaced: 'trusted' });
+    expect(asked).toHaveLength(2);
+    expect(sfx.files.get('Footsteps.wav')).toEqual(WHOLE);
+    expect(folder.files.get('Footsteps.wav')).toEqual(earlier);
+  });
+
+  it.each([
+    ['a step out', ['..']],
+    ['a step that stays', ['sfx', '.']],
+    ['an empty name, as an absolute path starts', ['', 'sfx']],
+    ['a separator inside a name', ['sfx/ui']],
+    ['a backslash inside a name', ['sfx\\ui']],
+    ['a drive', ['C:', 'sfx']],
+    ['a name a file system changes', ['sfx ']],
+  ])(
+    'refuses %s before it asks the folder anything, keeping the export staged',
+    async (_case, path) => {
+      const { session, staging, services, staged, stagedFiles } = await setUp();
+      const folder = new MemoryFolder();
+      const { token } = await staged();
+      expect(
+        refusal(
+          await deliverStaged(
+            session,
+            staging,
+            token,
+            ENCODER,
+            intoFolder(folder, { path }),
+            services,
+          ),
+        ),
+      ).toBe('export.destination-path-invalid');
+      expect(folder.asked).toEqual([]);
+      expect(folder.folders.size + folder.files.size).toBe(0);
+      expect(stagedFiles()).toHaveLength(3);
+      expect(session.getSnapshot().model.exports).toEqual([]);
+    },
+  );
+
+  it('refuses a path through a file, leaving the folder as it was and the export staged', async () => {
+    const { session, staging, services, staged, stagedFiles } = await setUp();
+    const folder = new MemoryFolder();
+    folder.files.set('sfx', Uint8Array.from([1]));
+    const delivery = expectSuccess(
+      await deliverStaged(
+        session,
+        staging,
+        (await staged()).token,
+        ENCODER,
+        intoFolder(folder, { path: ['sfx', 'ui'] }),
+        services,
+      ),
+    );
+    expect(delivery).toMatchObject({
+      kind: 'refused',
+      failure: { code: 'export.destination-folder-taken', details: { path: 'sfx' } },
+    });
+    expect([...folder.files.keys()]).toEqual(['sfx']);
+    expect(folder.folders.size).toBe(0);
+    expect(stagedFiles()).toHaveLength(3);
+  });
+
+  it('abandons the file where its write is refused, so the folders made are taken back, keeping the export staged', async () => {
+    const { session, staging, services, staged, stagedFiles } = await setUp();
+    const folder = new MemoryFolder();
+    folder.refuseWrites = true;
+    const delivery = await deliverStaged(
+      session,
+      staging,
+      (await staged()).token,
+      ENCODER,
+      intoFolder(folder, { path: ['sfx', 'ui'] }),
+      services,
+    );
+    expect(refusal(delivery)).toBe('export.destination-unavailable');
+    expect(folder.folders.size).toBe(0);
+    expect(stagedFiles()).toHaveLength(3);
+    expect(session.getSnapshot().model.exports).toEqual([]);
+  });
+
+  it('stops walking the path when cancelled, making nothing', async () => {
+    const { session, staging, services, staged, stagedFiles } = await setUp();
+    const folder = new MemoryFolder();
+    const controller = new AbortController();
+    const walked = folder.folder.bind(folder);
+    folder.folder = async (name) => {
+      const inner = await walked(name);
+      controller.abort(new Error('Called off.'));
+      return inner;
+    };
+    await expect(
+      deliverStaged(
+        session,
+        staging,
+        (await staged()).token,
+        ENCODER,
+        intoFolder(folder, { path: ['sfx', 'ui'] }),
+        services,
+        controller.signal,
+      ),
+    ).rejects.toThrow('Called off.');
+    expect(folder.asked).toEqual(['sfx']);
+    expect(folder.folders.size).toBe(0);
+    expect(stagedFiles()).toHaveLength(3);
   });
 });

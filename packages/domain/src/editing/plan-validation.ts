@@ -21,8 +21,10 @@ import {
   isSpectralResolution,
   type PlannedSpectralEdit,
 } from '../spectral/spectral-edit.js';
+import { automationProblem, varispeedProblem } from './generated-processing.js';
 import {
   convertedFrameCount,
+  forgottenWhole,
   segmentsLayout,
   segmentsLength,
   sourceStreams,
@@ -245,24 +247,33 @@ function spectralProblem(edit: PlannedSpectralEdit, stream: PlanStream): string 
 }
 
 /** Why a stream's processing does not hold, or `undefined` where it does. */
-function processingProblem(stream: PlanStream, place: number): string | undefined {
+function processingProblem(plan: EditPlan, stream: PlanStream, place: number): string | undefined {
   const { processing } = stream;
   if (processing === undefined) return undefined;
   // The first stream is what is heard; processing it would leave nothing to
   // hold the processed audio's place, so it is only ever done by a stream
   // the first reads.
   if (place === 0) return 'The first stream of a plan is processed only through a stream it reads.';
-  if (processing.kind === 'chain') {
-    return validateChainShape(processing.chain).ok ? undefined : 'A stream’s chain is malformed.';
+  switch (processing.kind) {
+    case 'chain':
+      if (!validateChainShape(processing.chain).ok) return 'A stream’s chain is malformed.';
+      return processing.automation === undefined
+        ? undefined
+        : automationProblem(processing.automation, processing.chain);
+    case 'spectral':
+      return spectralProblem(processing.edit, stream);
+    case 'varispeed':
+      return varispeedProblem(plan, stream, processing);
+    case 'stretch': {
+      const before = segmentsLength(stream);
+      return isFrame(processing.length) &&
+        processing.length > 0 &&
+        processing.length <= before * MAXIMUM_STRETCH_RATIO &&
+        processing.length * MAXIMUM_STRETCH_RATIO >= before
+        ? undefined
+        : 'A stretched stream’s length lies outside what a stretch can make.';
+    }
   }
-  if (processing.kind === 'spectral') return spectralProblem(processing.edit, stream);
-  const before = segmentsLength(stream);
-  return isFrame(processing.length) &&
-    processing.length > 0 &&
-    processing.length <= before * MAXIMUM_STRETCH_RATIO &&
-    processing.length * MAXIMUM_STRETCH_RATIO >= before
-    ? undefined
-    : 'A stretched stream’s length lies outside what a stretch can make.';
 }
 
 /** The plan, where every stream after the first is read and every segment holds. */
@@ -270,14 +281,29 @@ export function validatePlan(
   plan: EditPlan,
   assets: ReadonlyMap<AssetId, MediaShape>,
 ): DomainResult<EditPlan> {
-  const reached = new Set<number>([0]);
+  // Every stream's processing first, since a segment's reach is measured by
+  // the length a later stream's processing makes.
   for (const [place, stream] of plan.streams.entries()) {
-    if (!reached.has(place))
-      return malformed('A stream is read by no segment.', `streams/${String(place)}`);
     if (stream.segments.length === 0)
       return malformed('A stream holds no audio.', `streams/${String(place)}`);
-    const processing = processingProblem(stream, place);
+    const processing = processingProblem(plan, stream, place);
     if (processing !== undefined) return malformed(processing, `streams/${String(place)}`);
+    const { forgottenBefore } = stream;
+    if (
+      forgottenBefore !== undefined &&
+      (!isFrame(forgottenBefore) || forgottenBefore > segmentsLength(stream))
+    ) {
+      return malformed(
+        'A stream forgets a whole number of its frames, at most all of them.',
+        `streams/${String(place)}`,
+      );
+    }
+  }
+  const reached = new Set<number>([0]);
+  for (const [place, stream] of plan.streams.entries()) {
+    // A stream forgotten whole holds the place of the streams after it alone.
+    if (!reached.has(place) && !forgottenWhole(stream))
+      return malformed('A stream is read by no segment.', `streams/${String(place)}`);
     for (const [index, segment] of stream.segments.entries()) {
       const problem = segmentProblem(plan, place, segment, assets);
       if (problem !== undefined)

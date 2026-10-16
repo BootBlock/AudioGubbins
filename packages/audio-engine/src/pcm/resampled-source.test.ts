@@ -204,3 +204,72 @@ describe('a resampled source read by two readers at once', () => {
     expect(late).toEqual(alone.map((channel) => channel.subarray(20_000, 30_000)));
   });
 });
+
+describe('how far a resampled source’s state reaches into its source', () => {
+  /** A ramp source whose length is what `length` answers when asked. */
+  function growing(length: () => number): PcmSource {
+    const source: PcmSource = {
+      layout: STEREO,
+      sampleRate: rate(44_100),
+      get length() {
+        return frames(length());
+      },
+      read: (start, into) => {
+        const count = framesAvailable(source.length, start, into.frames);
+        into.channels.forEach((channel, index) => {
+          for (let frame = 0; frame < count; frame += 1)
+            channel[frame] = sampleAt(start + frame, index);
+        });
+        return Promise.resolve(count);
+      },
+      release: () => undefined,
+    };
+    return source;
+  }
+
+  it('has read whole chunks of its source, and its end once it was told of it', async () => {
+    const converted = expectSuccess(
+      resampledSource(
+        REFERENCE_DSP,
+        growing(() => 3 * INPUT_CHUNK),
+        rate(48_000),
+        ResamplingQuality.High,
+      ),
+    );
+    expect(converted.consumedTo).toBe(0);
+
+    await readRange(converted, 0, 1_000, 500);
+    expect(converted.consumedTo).toBe(INPUT_CHUNK);
+
+    await readRange(converted, 1_000, (converted.length ?? 0) - 1_000, 500);
+    expect(converted.consumedTo).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('converts a source lengthened before it reached the end as a conversion of the longer source does', async () => {
+    let length = 2 * INPUT_CHUNK;
+    const lengthened = expectSuccess(
+      resampledSource(
+        REFERENCE_DSP,
+        growing(() => length),
+        rate(48_000),
+        ResamplingQuality.High,
+      ),
+    );
+    await readRange(lengthened, 0, 1_000, 500);
+    length = 4 * INPUT_CHUNK;
+    const longer = expectSuccess(
+      resampledSource(
+        REFERENCE_DSP,
+        growing(() => 4 * INPUT_CHUNK),
+        rate(48_000),
+        ResamplingQuality.High,
+      ),
+    );
+    const total = longer.length ?? 0;
+
+    expect(lengthened.length).toBe(total);
+    expect(await readRange(lengthened, 1_000, total - 1_000, 500)).toEqual(
+      await readRange(longer, 1_000, total - 1_000, 500),
+    );
+  });
+});

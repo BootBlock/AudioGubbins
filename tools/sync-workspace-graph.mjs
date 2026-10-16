@@ -445,6 +445,53 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The game-audio domain as values (ADR-0100): asset groups, inherited
+    // policy resolved with its provenance (ADR-0101), naming templates, game
+    // export profiles and the game export plan (ADR-0102), and the game
+    // preview's rules, seeded selection, voices and plan (ADR-0104). It reads
+    // no clock, browser global or thread, and knows nothing of Godot.
+    dir: 'packages/game-audio',
+    name: '@audiogubbins/game-audio',
+    description:
+      'Game audio as values: asset groups, inherited policy and its provenance, naming templates, game export profiles and the game preview.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      // The export settings, presets and template grammar a game export
+      // profile and a naming template are made of.
+      '@audiogubbins/import-export',
+      // The canonical decibel conversion a preview voice's gain is heard by,
+      // and what a varispeed voice's filter costs, which bounds the preview's
+      // voice budget (ADR-0104).
+      '@audiogubbins/audio-engine',
+      // The quoting every refusal names what the person wrote with, as the
+      // commands that report it do.
+      '@audiogubbins/text',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // Seamless-loop analysis (ADR-0103): the seam metrics, the candidate
+    // search, the micro-crossfade suggestion and the loop audition plans,
+    // reading audio only through a `PcmSource` it is given, in bounded
+    // windows. The detection worker runs it; it knows no thread of its own.
+    dir: 'packages/loop-analysis',
+    name: '@audiogubbins/loop-analysis',
+    description:
+      'Seamless-loop analysis: seam metrics, the candidate search, the micro-crossfade suggestion and the loop audition plans.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The multi-resolution peak pyramid, made off the page by the peak worker
     // and shared among views by source identity and revision, with its
     // disposable cache format and the zero-crossing search (ADR-0040,
@@ -512,6 +559,7 @@ const PACKAGES = [
       '@audiogubbins/effect-rack',
       '@audiogubbins/processors',
       '@audiogubbins/ml-runtime',
+      '@audiogubbins/loop-analysis',
     ],
     devDeps: [],
     external: {},
@@ -661,6 +709,8 @@ const PACKAGES = [
       '@audiogubbins/import-export',
       '@audiogubbins/text',
       '@audiogubbins/version',
+      // The game-audio state it keeps and validates with the project (ADR-0106).
+      '@audiogubbins/game-audio',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
@@ -681,6 +731,36 @@ const PACKAGES = [
       '@audiogubbins/commands',
       '@audiogubbins/project-format',
       '@audiogubbins/text',
+      // The game-audio state its game commands change and every result is held to (ADR-0101).
+      '@audiogubbins/game-audio',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The guided workflows as deterministic planners (ADR-0105): each turns a
+    // subject, its options, the project and analysis results into ordinary
+    // project-command invocations, dispatched by the application as one
+    // history step. It dispatches nothing itself. Not portable: it plans over
+    // the project format and its commands, which are not.
+    dir: 'packages/guided-workflows',
+    name: '@audiogubbins/guided-workflows',
+    description:
+      'Guided workflows as deterministic planners: each turns a subject, its options and the project into ordinary project-command invocations.',
+    dom: false,
+    jsx: false,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/game-audio',
+      '@audiogubbins/loop-analysis',
+      '@audiogubbins/processors',
+      '@audiogubbins/import-export',
+      '@audiogubbins/project-format',
+      '@audiogubbins/project-commands',
+      // What a planner reads of an assistant's report.
+      '@audiogubbins/detection-runtime',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
@@ -710,7 +790,13 @@ const PACKAGES = [
       'The branching project history: its graph of changes, the current node, named snapshots, whole-project comparison and the planning of compaction.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/commands', '@audiogubbins/project-format'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/project-format',
+      // The groups its differences name, and the users of a chain a group names (ADR-0106).
+      '@audiogubbins/game-audio',
+    ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
@@ -898,6 +984,15 @@ const PACKAGES = [
       '@audiogubbins/clipboard',
       '@audiogubbins/processors',
       '@audiogubbins/detection-runtime',
+      // Asset groups, their inherited policy and the game export plan the Asset
+      // groups panel and the Inspector show and change (ADR-0101, ADR-0102),
+      // and the game preview's simulation and plan (ADR-0104).
+      '@audiogubbins/game-audio',
+      // The Loop panel's analyses, thresholds and audition plans (ADR-0103).
+      '@audiogubbins/loop-analysis',
+      // The guided workflows' planners, whose plans the workflow dialogs show
+      // and run as one history step (ADR-0105).
+      '@audiogubbins/guided-workflows',
       '@audiogubbins/ml-runtime',
       '@audiogubbins/model-packs',
       '@audiogubbins/recording',

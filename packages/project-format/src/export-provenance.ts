@@ -10,6 +10,7 @@
 
 import type { CodecId, CodecImplementation } from '@audiogubbins/codecs';
 import type { Branded } from '@audiogubbins/domain';
+import type { DestinationPath } from '@audiogubbins/game-audio';
 import type { ExportSettings } from '@audiogubbins/import-export';
 
 import type { ContentId, StateFingerprint } from './content-identity.js';
@@ -98,6 +99,16 @@ export interface ExportedAudioFile {
    * file names may say what they work on.
    */
   readonly fileName?: string;
+
+  /**
+   * The folders from the destination down to the one the file was written
+   * into, where that was not the destination itself (ADR-0102): a game
+   * export's relative destination, so the record says which folder its file
+   * is in. Stripped with the name, since folders a person names say what they
+   * work on as file names do; absent from an export that wrote into the
+   * destination itself, as every export before game exports did.
+   */
+  readonly folder?: DestinationPath;
   readonly byteLength: number;
 
   /** The SHA-256 of its bytes, in lower-case hexadecimal. */

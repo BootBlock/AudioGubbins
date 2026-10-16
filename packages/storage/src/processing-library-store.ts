@@ -8,6 +8,11 @@
  * unusable with the reason, never dropped. It can be removed, and renamed
  * where its document reads, its content kept as it is.
  *
+ * The build's own entries, the game processing presets (`REQ-GAME-023`), are
+ * given to it and listed first, marked built-in: usable, applicable and
+ * copyable as any other, never replaced, renamed or removed, and their names
+ * taken as a kept entry's are.
+ *
  * Names are unique within a kind, compared as a reader hears them
  * (`sameName`). Every change is made with the library's lock held, which one
  * window holds at a time, so two windows never both find a name free; where
@@ -18,6 +23,7 @@
 import type { Clock } from '@audiogubbins/diagnostics';
 import {
   FailureKind,
+  checkProcessors,
   fail,
   failure,
   succeed,
@@ -52,6 +58,9 @@ export interface LibraryServices {
   /** The processor types this build has, which say whether an entry can be used. */
   readonly catalogue: ProcessorCatalogue;
 
+  /** The build's own entries, listed before the person's in this order, each a chain or preset no one changes. */
+  readonly builtIn: readonly LibraryEntry[];
+
   /** The platform's coordination, whose library lock every change holds. */
   readonly coordinator?: LeaseCoordinator;
 }
@@ -72,6 +81,14 @@ function refused(
 
 const UNKNOWN_ENTRY = refused('entry-unknown', 'The library has no such saved chain or preset.');
 
+const BUILT_IN = refused(
+  'built-in',
+  'That chain comes with AudioGubbins, so it is not changed or removed: copy it into your library to make one of your own.',
+);
+
+/** An entry as the library lists it, and whether it is one of the build's own. */
+export type LibraryListing = ListedEntry & { readonly builtIn: boolean };
+
 /** An entry whose document reads, usable or not, and its pair. */
 type ReadableEntry = { readonly entry: LibraryEntry } & Pick<KeptEntry, 'pair'>;
 
@@ -80,21 +97,34 @@ export class ProcessingLibraryStore {
   private readonly files: LibraryEntryFiles;
   private readonly services: LibraryServices;
 
+  /** The build's own entries as listed, by identifier, in their order. */
+  private readonly builtIn: ReadonlyMap<LibraryEntryId, LibraryListing>;
+
   constructor(services: LibraryServices) {
     this.files = new LibraryEntryFiles(services.tree, services.digest, services.catalogue);
     this.services = services;
+    this.builtIn = new Map(
+      services.builtIn.map((entry) => [entry.id, builtInListing(entry, services.catalogue)]),
+    );
   }
 
-  /** Every entry kept, usable or not, in the order of their identifiers. */
-  async list(signal?: AbortSignal): Promise<DomainResult<readonly ListedEntry[]>> {
-    return await refusalsReported(async () => succeed(await this.files.every(signal)));
+  /**
+   * The build's own entries, in their order, then every entry kept, usable or
+   * not, in the order of their identifiers.
+   */
+  async list(signal?: AbortSignal): Promise<DomainResult<readonly LibraryListing[]>> {
+    return await refusalsReported(async () =>
+      succeed([...this.builtIn.values(), ...(await this.kept(signal))]),
+    );
   }
 
-  /** The entry kept as `id`, usable or not, or why there is none. */
-  async entry(id: LibraryEntryId, signal?: AbortSignal): Promise<DomainResult<ListedEntry>> {
+  /** The entry `id`, built-in or kept, usable or not, or why there is none. */
+  async entry(id: LibraryEntryId, signal?: AbortSignal): Promise<DomainResult<LibraryListing>> {
+    const builtIn = this.builtIn.get(id);
+    if (builtIn !== undefined) return succeed(builtIn);
     return await refusalsReported(async () => {
       const found = await this.files.read(id, signal);
-      return found === undefined ? fail(UNKNOWN_ENTRY) : succeed(found.listed);
+      return found === undefined ? fail(UNKNOWN_ENTRY) : succeed(keptListing(found.listed));
     });
   }
 
@@ -111,7 +141,7 @@ export class ProcessingLibraryStore {
     const given = this.givenName(name);
     if (!given.ok) return given;
     return await this.changing(async () => {
-      const taken = holder(await this.files.every(signal), content.kind, given.value);
+      const taken = holder(await this.listed(signal), content.kind, given.value);
       if (taken !== undefined) return fail(taken);
       const entry: LibraryEntry = {
         id: this.services.ids.next<'LibraryEntryId'>(),
@@ -129,6 +159,7 @@ export class ProcessingLibraryStore {
     content: LibraryContent,
     signal?: AbortSignal,
   ): Promise<DomainResult<LibraryEntry>> {
+    if (this.builtIn.has(id)) return fail(BUILT_IN);
     return await this.changing(async () => {
       const found = await this.readable(id, signal);
       if (!found.ok) return found;
@@ -152,6 +183,7 @@ export class ProcessingLibraryStore {
     name: string,
     signal?: AbortSignal,
   ): Promise<DomainResult<LibraryEntry>> {
+    if (this.builtIn.has(id)) return fail(BUILT_IN);
     const given = this.givenName(name);
     if (!given.ok) return given;
     return await this.changing(async () => {
@@ -161,7 +193,7 @@ export class ProcessingLibraryStore {
       if (entry.name === given.value) {
         return fail(refused('name-unchanged', `It is already called ${quoted(entry.name)}.`));
       }
-      const others = (await this.files.every(signal)).filter((one) => idOf(one) !== id);
+      const others = (await this.listed(signal)).filter((one) => idOf(one) !== id);
       const taken = holder(others, entry.content.kind, given.value);
       if (taken !== undefined) return fail(taken);
       // Written with its content as read, which the content's one persisted
@@ -172,11 +204,22 @@ export class ProcessingLibraryStore {
 
   /** Removes the entry `id`, usable or not. */
   async remove(id: LibraryEntryId, signal?: AbortSignal): Promise<DomainResult<void>> {
+    if (this.builtIn.has(id)) return fail(BUILT_IN);
     return await this.changing(
       async () =>
         (await this.files.remove(id, signal)) ? succeed(undefined) : fail(UNKNOWN_ENTRY),
       signal,
     );
+  }
+
+  /** Every entry kept, as listed. */
+  private async kept(signal: AbortSignal | undefined): Promise<LibraryListing[]> {
+    return (await this.files.every(signal)).map(keptListing);
+  }
+
+  /** Every entry listed, built-in and kept, whose names a new name must not take. */
+  private async listed(signal: AbortSignal | undefined): Promise<ListedEntry[]> {
+    return [...this.builtIn.values(), ...(await this.files.every(signal))];
   }
 
   /** Runs a change of the library with its lock held, or says why it cannot be had. */
@@ -232,6 +275,23 @@ export class ProcessingLibraryStore {
       ? fail(listed.reason)
       : succeed({ entry: listed.entry, pair });
   }
+}
+
+/** A built-in entry as listed: usable where the catalogue has every processor it names. */
+function builtInListing(entry: LibraryEntry, catalogue: ProcessorCatalogue): LibraryListing {
+  const { content } = entry;
+  const usable = checkProcessors(
+    content.kind === 'chain' ? content.chain.slots : [content.processor],
+    catalogue,
+  );
+  return usable.ok
+    ? { kind: 'usable', entry, builtIn: true }
+    : { kind: 'unusable', id: entry.id, reason: usable.failures[0], entry, builtIn: true };
+}
+
+/** A kept entry as listed. */
+function keptListing(listed: ListedEntry): LibraryListing {
+  return { ...listed, builtIn: false };
 }
 
 /** Why `name` is taken among `entries` for an entry of `kind`, or `undefined`. */

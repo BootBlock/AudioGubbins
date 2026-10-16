@@ -24,6 +24,13 @@
  * A numeric parameter changed while it plays reaches the run it has, which
  * smooths it in, and the chain it keeps, so a run made again after a seek
  * starts with the new value (`running-parameters.ts`).
+ *
+ * The stream's length is read as the run goes, not once: a plan continued with
+ * a longer stream keeps a run whose input before the change is the same
+ * (`reader-continuation.ts`), and the run says how far its state reaches so
+ * that can be judged. A game preview's chain may move its parameters along the
+ * stream (ADR-0104); a run kept into a continued plan takes the new plan's
+ * automation, the same as far as the run has gone.
  */
 
 import {
@@ -35,6 +42,7 @@ import {
   type ChannelLayout,
   type DomainResult,
   type EffectChain,
+  type ParameterAutomation,
   type PartWayStart,
   type QualitySettings,
   type SampleRate,
@@ -80,12 +88,27 @@ export interface ProcessedSettings extends PlanProcessing {
 /** Frames processed at a time, which bounds the scratch memory and changes no bit of the output. */
 const CHUNK = 4_096;
 
-/** A stream's segments, as its chain hears them. */
+/** A stream's segments, as its chain hears them; `length` is read as the run goes. */
 export interface StreamInput {
   readonly layout: ChannelLayout;
   readonly sampleRate: SampleRate;
   readonly length: number;
   readonly read: StreamReader;
+}
+
+/** How far a run's state reaches into its stream's input, which a continued plan must leave alone. */
+export interface RunReach {
+  /** The input frame the run has consumed up to, silence past the stream's end included. */
+  readonly consumedTo: number;
+  /** Frames its output lags its input. */
+  readonly latency: number;
+  /**
+   * The input frame a pass before the run read up to, as a processor that
+   * measures its whole input makes one, whose result every frame the run
+   * gives may carry: infinite where it read to the end, and the run's start
+   * where it made none.
+   */
+  readonly measuredTo: number;
 }
 
 /** The chain's run over the stream, and where it has got to. */
@@ -95,14 +118,19 @@ interface Running {
   raw: number;
   /** The next frame of output a reader is given: `raw` less the latency. */
   produced: number;
+  /**
+   * The input frame the chain has read up to through the reader it was
+   * prepared with, by a pass before the run or by the run itself (see
+   * {@link RunReach}), kept current by that reader.
+   */
+  readonly measured: { to: number };
 }
 
 /** A stream heard through its chain, read in order. */
 export class ProcessedContent implements ContentReader {
   readonly channels: number;
-  /** As many frames as the stream's segments hold: a chain keeps a stream's length. */
-  readonly length: number;
   #chain: EffectChain;
+  #automation: readonly ParameterAutomation[] | undefined;
   readonly #input: StreamInput;
   readonly #settings: ProcessedSettings;
   readonly #inputScratch: Float32Array[];
@@ -116,14 +144,31 @@ export class ProcessedContent implements ContentReader {
     input: StreamInput,
     output: ChannelLayout,
     settings: ProcessedSettings,
+    automation?: readonly ParameterAutomation[],
   ) {
     this.#chain = chain;
+    this.#automation = automation;
     this.#input = input;
     this.#settings = settings;
     this.channels = output.roles.length;
-    this.length = input.length;
     this.#inputScratch = input.layout.roles.map(() => new Float32Array(CHUNK));
     this.#outputScratch = output.roles.map(() => new Float32Array(CHUNK));
+  }
+
+  /** As many frames as the stream's segments hold: a chain keeps a stream's length. */
+  get length(): number {
+    return this.#input.length;
+  }
+
+  /** How far the run's state reaches, or `undefined` where it has no run and the next read makes one. */
+  get reach(): RunReach | undefined {
+    const running = this.#running;
+    if (running === undefined) return undefined;
+    return {
+      consumedTo: running.raw,
+      latency: running.run.latency,
+      measuredTo: running.measured.to,
+    };
   }
 
   async read(
@@ -144,6 +189,16 @@ export class ProcessedContent implements ContentReader {
   async #begin(start: number, signal: CancellationSignal | undefined): Promise<Running> {
     this.release();
     const from = this.#runStart(start);
+    // What the chain reads for itself, a pass before the run among it, which
+    // the run may carry. A pass that reads to the stream's end has measured
+    // where it ends, so a longer stream changes what it found.
+    const measured = { to: from };
+    const measuring: StreamReader = (at, frames, into, reading) => {
+      const end = at + frames;
+      measured.to =
+        end >= this.#input.length ? Number.POSITIVE_INFINITY : Math.max(measured.to, end);
+      return this.#input.read(at, frames, into, reading);
+    };
     const prepared = await this.#settings.processing.prepare(
       {
         chain: this.#chain,
@@ -154,8 +209,9 @@ export class ProcessedContent implements ContentReader {
         blockFrames: CHUNK,
         dsp: this.#settings.dsp,
         start: from,
+        ...(this.#automation === undefined ? {} : { automation: this.#automation }),
       },
-      this.#input.read,
+      measuring,
       signal,
     );
     if (!prepared.ok) throw new MediaReadFailure(prepared.failures[0]);
@@ -170,7 +226,7 @@ export class ProcessedContent implements ContentReader {
         ),
       );
     }
-    const running: Running = { run, raw: from, produced: from };
+    const running: Running = { run, raw: from, produced: from, measured };
     // Held only once its latency is run off: a run cancelled while it primes
     // would otherwise count the frames it ran off as frames it gave.
     let primed = false;
@@ -227,6 +283,17 @@ export class ProcessedContent implements ContentReader {
       this.#chain = chain;
       this.#partWay = undefined;
     }
+    return taken;
+  }
+
+  /**
+   * Takes the automation of a plan that continues this stream's, the same as
+   * far as the run has gone, into the run it has and every run it makes after
+   * a seek; or says why the run cannot take it, and keeps what it had.
+   */
+  automate(automation: readonly ParameterAutomation[] | undefined): DomainResult<void> {
+    const taken = this.#running?.run.automate(automation ?? []) ?? succeed(undefined);
+    if (taken.ok) this.#automation = automation;
     return taken;
   }
 

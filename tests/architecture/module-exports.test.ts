@@ -182,6 +182,22 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "How far ahead of the feeder a game preview's run lays its plan, and how often it forgets what was heard, which the run's tests advance playback by and hold the plan's size to; the run reads both itself.":
+    [
+      'apps/web/src/audio/preview-run.ts: AHEAD_SECONDS',
+      'apps/web/src/audio/preview-run.ts: FORGET_EVERY_SECONDS',
+    ],
+  "A folder's safe name, which the tests hold to a file stem's rules segment by segment; the package's own `folderSegmentProblem` reads it, which is what a destination and a delivery hold a folder path to.":
+    ['packages/import-export/src/file-name-safety.ts: safeFolderName'],
+  "The game preview's bound on a varispeed's taps, which its test holds to the canonical resampler's own filter at each grade, and the most voices any preview sounds, which a preview that varies no pitch is budgeted; the budget reads both through `previewVoiceBudget`.":
+    [
+      'packages/game-audio/src/preview/voice-budget.ts: MOST_PREVIEW_VOICES',
+      'packages/game-audio/src/preview/voice-budget.ts: varispeedTaps',
+    ],
+  "The pass the loop's own metrics read, which the bounds test holds the reads of the heard source to; the analysis makes it through `analyseLoop`.":
+    ['packages/loop-analysis/src/analyse-loop.ts: heardCapture'],
+  "The value an envelope histogram's bin stands for, which the envelope's tests hold a steady seam's median to; the cycle stability reads it through `histogramSpread`.":
+    ['packages/loop-analysis/src/envelope-histogram.ts: binValue'],
   "The codecs each container's reader reads in place, which the registry's test holds equal to the codecs whose descriptors name the application as their reader there; a reader reaches them through `openAudio`.":
     [
       'packages/codecs/src/aiff-common.ts: AIFC_IN_PLACE_CODECS',

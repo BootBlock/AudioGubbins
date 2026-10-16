@@ -23,7 +23,13 @@ import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
+import { gameExportCommands } from './game-export-commands.js';
+import { gameGroupCommands } from './game-group-commands.js';
+import { gameMemberCommands } from './game-member-commands.js';
+import { gameNamingCommands } from './game-naming-commands.js';
+import { gamePolicyCommands } from './game-policy-commands.js';
 import { historyCommands } from './history-commands.js';
+import { loudnessCommands } from './loudness-commands.js';
 import { libraryApplyCommands } from './library-apply-commands.js';
 import { libraryCommands } from './library-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
@@ -35,6 +41,8 @@ import { audioImportCommands } from './audio-import-commands.js';
 import { exportDialogCommands } from './export-dialog-commands.js';
 import { exportCommands } from './export-commands.js';
 import { exportInspectionCommands } from './export-inspection-commands.js';
+import { gamePreviewCommands } from './game-preview-commands.js';
+import { guidedWorkflowCommands } from './guided-workflow-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackClipboardCommands } from './rack-clipboard-commands.js';
@@ -59,6 +67,8 @@ import { editorPresentationCommands } from './editor-presentation-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
+import { loopAnalysisCommands } from './loop-analysis-commands.js';
+import { loopAuditionCommands } from './loop-audition-commands.js';
 import { markerCommands } from './marker-commands.js';
 import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
@@ -163,6 +173,16 @@ function preferenceCommands(): readonly Command<ShellContext>[] {
   return [...viewCommands(), ...pressureCommands()];
 }
 
+/** Every command of the audio engine: playback, its settings and quality, and the game preview. */
+function audioEngineCommands(): readonly Command<ShellContext>[] {
+  return [
+    ...audioCommands(),
+    ...audioSettingsCommands(),
+    ...qualityCommands(),
+    ...gamePreviewCommands(),
+  ];
+}
+
 /** Every command of the project system: its projects, their history and the storage. */
 function projectSystemCommands(): readonly Command<ShellContext>[] {
   return [
@@ -186,6 +206,19 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** Every command that analyses audio: the assistants', and a region's loop's and hearing it. */
+function analysingCommands(): readonly Command<ShellContext>[] {
+  return [...analysisCommands(), ...loopAnalysisCommands(), ...loopAuditionCommands()];
+}
+
+/**
+ * Every command that applies processing made ahead of time: the Library's
+ * saved chains and presets, and the guided workflows' plans (ADR-0105).
+ */
+function libraryAndWorkflowCommands(): readonly Command<ShellContext>[] {
+  return [...libraryCommands(), ...libraryApplyCommands(), ...guidedWorkflowCommands()];
+}
+
 /**
  * Builds every shell command.
  *
@@ -205,9 +238,7 @@ export function shellCommands(
     ...unreadTextCommands(),
     ...diagnosticCommands(),
     ...projectSystemCommands(),
-    ...audioCommands(),
-    ...audioSettingsCommands(),
-    ...qualityCommands(),
+    ...audioEngineCommands(),
     ...recordingCommands(),
     ...recordingSettingsCommands(),
     ...takeRecordingCommands(),
@@ -230,17 +261,22 @@ export function shellCommands(
     ...regionBoundaryCommands(),
     ...regionPropertyCommands(),
     ...splitCommands(),
-    ...analysisCommands(),
+    ...analysingCommands(),
     ...rackBuildingCommands(),
     ...rackSlotCommands(),
     ...rackParameterCommands(),
     ...rackClipboardCommands(),
     ...rackComparisonCommands(),
     ...rackHearingCommands(),
-    ...libraryCommands(),
-    ...libraryApplyCommands(),
+    ...libraryAndWorkflowCommands(),
     ...packCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
+    ...gameGroupCommands(),
+    ...gamePolicyCommands(),
+    ...gameMemberCommands(),
+    ...gameNamingCommands(),
+    ...gameExportCommands(),
+    ...loudnessCommands(),
   ];
 }

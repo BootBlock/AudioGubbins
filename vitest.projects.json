@@ -136,6 +136,22 @@
       ]
     },
     {
+      "name": "game-audio",
+      "root": "packages/game-audio",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "loop-analysis",
+      "root": "packages/loop-analysis",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "waveform",
       "root": "packages/waveform",
       "environment": "node",
@@ -241,6 +257,14 @@
     {
       "name": "project-commands",
       "root": "packages/project-commands",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "guided-workflows",
+      "root": "packages/guided-workflows",
       "environment": "node",
       "include": [
         "src/**/*.test.ts"

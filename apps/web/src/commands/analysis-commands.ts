@@ -26,18 +26,19 @@ import {
   type DetectorValues,
   type EditTarget,
   type EffectChain,
-  type ProcessorState,
 } from '@audiogubbins/domain';
 import { extendedRackInvocation, rackRangeInvocation } from '@audiogubbins/project-commands';
-import type { AssistantReport } from '@audiogubbins/detection-runtime';
+import {
+  learnedStates,
+  treatmentPlacement,
+  type DetectionScope,
+} from '@audiogubbins/detection-runtime';
 import { CANONICAL_ASSISTANTS, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 
 import {
   EVERY_ASSISTANT,
   detectionIdentity,
-  treatmentPlacement,
   type Detection,
-  type DetectionScope,
 } from '../analysis/detection-control.js';
 import { stepName } from '../analysis/detection-words.js';
 import { RANGE_OR_WHOLE, editedView } from './edit-target.js';
@@ -54,7 +55,7 @@ import { currentBasis, needsProjectAsset, onAsset, type ProjectTarget } from './
 import { changeRacks } from './rack-changes.js';
 import { analyseAgainCommand } from './reanalysis.js';
 import { removeSilenceCommand } from './silence-commands.js';
-import { rackTargetOf } from './rack-target.js';
+import { ownsItsProcessingNow, rackTargetOf } from './rack-target.js';
 import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -201,16 +202,6 @@ function cancelCommand(): Command<ShellContext> {
   );
 }
 
-/** The state each of `report`'s steps learned, or why one of them could not learn it. */
-function learnedStates(report: AssistantReport): readonly (ProcessorState | undefined)[] | string {
-  const states: (ProcessorState | undefined)[] = [];
-  for (const learned of report.learned) {
-    if (learned.kind === 'refused') return learned.reason;
-    states.push(learned.kind === 'learned' ? learned.state : undefined);
-  }
-  return states;
-}
-
 /** The invocation that processes the range analysed, on the asset's timeline, with `chain`. */
 function rangeInvocation(
   context: ShellContext,
@@ -250,23 +241,22 @@ function applyCommand(): Command<ShellContext> {
       const { steps } = report.recommendation;
       if (steps.length === 0) return `The ${report.label} assistant recommends nothing to apply.`;
       const states = learnedStates(report);
-      if (typeof states === 'string') return states;
-      const chain = treatmentChain(steps, states, PROCESSOR_CATALOGUE, context.ids);
+      if (!states.ok) return states.failures[0].summary;
+      const chain = treatmentChain(steps, states.value, PROCESSOR_CATALOGUE, context.ids);
       if (!chain.ok) return chain.failures[0].summary;
-      const change =
-        treatmentPlacement(detection.scope) === 'rack'
-          ? extendedRackInvocation(
-              project.state.project,
-              rackTargetOf(project.owner),
-              chain.value,
-              context.ids,
-            )
-          : rangeInvocation(context, project, detection.scope, chain.value);
+      const racked = treatmentPlacement(detection.scope) === 'rack';
+      const target = rackTargetOf(project.owner);
+      const change = racked
+        ? extendedRackInvocation(project.state.project, target, chain.value, context.ids)
+        : rangeInvocation(context, project, detection.scope, chain.value);
       const names = steps.map((step) => stepName(step).toLowerCase());
+      // A rack of its own given to a member that inherits its group's
+      // processing makes it own its processing in the same step (ADR-0101).
+      const owns = racked ? ownsItsProcessingNow(project.state, target) : '';
       return changeRacks(context, {
         description: `Apply the ${report.label} recommendation`,
         invocations: [change],
-        said: `Applied the ${report.label} recommendation to ${scopeWords(view, detection.scope)}: ${names.join(', ')}.`,
+        said: `Applied the ${report.label} recommendation to ${scopeWords(view, detection.scope)}: ${names.join(', ')}.${owns}`,
       });
     },
     {

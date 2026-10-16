@@ -20,7 +20,15 @@ import { keyPress } from '@audiogubbins/input';
 import { shellCommands } from '../commands/shell-commands.js';
 import { buildLayoutStore } from '../testing/layout-store.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
-import { EDITOR_PANEL, isTextField, ownsItsKeys, useShortcuts } from './use-shortcuts.js';
+import {
+  EDITOR_PANEL,
+  LOOP_PANEL,
+  PREVIEW_PANEL,
+  WORKFLOW_DIALOG,
+  isTextField,
+  ownsItsKeys,
+  useShortcuts,
+} from './use-shortcuts.js';
 
 /**
  * The edge that turns a key event into a command.
@@ -515,6 +523,82 @@ describe('useShortcuts over the default profile', () => {
     dialogue.remove();
     press(document.body, { code: 'KeyM', key: 'm' });
     expect(ran).toEqual(['view.brighten', 'editor.add-marker']);
+  });
+
+  it('hears the Loop panel’s loop only where the panel has the keyboard', () => {
+    // Bound globally, Y would start a loop audition of whatever region the
+    // Loop panel last showed from anywhere in the page.
+    const { ran } = listeningToDefaults(KeyboardConvention.Windows);
+    const panel = document.createElement('section');
+    panel.setAttribute(LOOP_PANEL, '');
+    const button = document.createElement('button');
+    panel.append(button);
+    const elsewhere = document.createElement('button');
+    document.body.append(panel, elsewhere);
+
+    const inside = ['KeyY', 'KeyE', 'KeyQ'].map((code) =>
+      press(button, { code, key: code.slice(3).toLowerCase() }),
+    );
+    const outside = press(elsewhere, { code: 'KeyY', key: 'y' });
+
+    expect(ran).toEqual(['loop.audition-cycles', 'loop.audition-seam', 'loop.stop-audition']);
+    expect(inside.map((event) => event.defaultPrevented)).toEqual([true, true, true]);
+    expect(outside.defaultPrevented).toBe(false);
+  });
+
+  it('triggers the Game preview by hand only where its panel has the keyboard', () => {
+    // Bound globally, T would trigger the preview playing from anywhere in the
+    // page, a text field's neighbours and the Loop panel among them.
+    const { ran } = listeningToDefaults(KeyboardConvention.Windows);
+    const panel = document.createElement('section');
+    panel.setAttribute(PREVIEW_PANEL, '');
+    const button = document.createElement('button');
+    panel.append(button);
+    const loop = document.createElement('section');
+    loop.setAttribute(LOOP_PANEL, '');
+    const inLoop = document.createElement('button');
+    loop.append(inLoop);
+    const elsewhere = document.createElement('button');
+    document.body.append(panel, loop, elsewhere);
+
+    const inside = press(button, { code: 'KeyT', key: 't' });
+    const outside = [inLoop, elsewhere].map((target) => press(target, { code: 'KeyT', key: 't' }));
+
+    expect(ran).toEqual(['preview.trigger']);
+    expect(inside.defaultPrevented).toBe(true);
+    expect(outside.map((event) => event.defaultPrevented)).toEqual([false, false]);
+  });
+
+  it('applies a workflow from anywhere in its dialogue, and from no other', () => {
+    // A modal dialogue's page is inert, so its own action is the one chord
+    // that runs there; in another dialogue it would apply a plan nobody sees.
+    const { ran, said } = listeningToDefaults(KeyboardConvention.Windows);
+    const dialogue = (marked: boolean) => {
+      const element = document.createElement('div');
+      element.setAttribute('role', 'dialog');
+      element.setAttribute('aria-modal', 'true');
+      const body = document.createElement('div');
+      if (marked) body.setAttribute(WORKFLOW_DIALOG, '');
+      const footer = document.createElement('button');
+      element.append(body, footer);
+      document.body.append(element);
+      return { element, footer };
+    };
+    const ctrlEnter = (target: Element, shiftKey = false) =>
+      press(target, { code: 'Enter', key: 'Enter', ctrlKey: true, shiftKey });
+
+    const workflow = dialogue(true);
+    expect(ctrlEnter(workflow.footer).defaultPrevented).toBe(true);
+    ctrlEnter(workflow.footer, true);
+    expect(ran).toEqual(['workflow.apply', 'workflow.leave-out-refused']);
+
+    workflow.element.remove();
+    const other = dialogue(false);
+    ctrlEnter(other.footer);
+    other.element.remove();
+    expect(ctrlEnter(document.body).defaultPrevented).toBe(false);
+    expect(ran).toEqual(['workflow.apply', 'workflow.leave-out-refused']);
+    expect(said).toEqual([]);
   });
 
   it('runs shortcuts beside a dialogue that is not modal', () => {

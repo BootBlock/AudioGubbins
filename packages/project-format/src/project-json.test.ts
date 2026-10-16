@@ -600,6 +600,12 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
     code: 'project.region-off-asset',
     at: 'project.regions[0]',
   },
+  'a loop whose crossfade has no shape a fade has': {
+    edit: (document) =>
+      withValue(document, ['project', 'regions', 0, 'loop', 'crossfadeShape'], 'cubic'),
+    code: 'schema.unknown-value',
+    at: 'project.regions[0].loop.crossfadeShape',
+  },
   'a region that ends past its asset': {
     edit: (document) =>
       withValue(document, ['project', 'regions', 0, 'end'], regionAssetLength + 1),
@@ -810,6 +816,20 @@ describe('readProjectDocument refuses', () => {
     },
   );
 
+  // Version 9 holds no asset groups; version 10 is the first that keeps them
+  // (ADR-0106), so a build that read 9 as its own would read a project whose
+  // groups it could not tell from none.
+  it('a document of version 9, from before asset groups, as version 10 reads', () => {
+    expect(SCHEMA_VERSIONS.projectDocument).toBe(10);
+    const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], 9));
+    expect(result.ok ? [] : result.failures).toMatchObject([
+      {
+        code: 'format.schema-incompatible',
+        details: { schema: 'projectDocument', found: 9, current: 10, direction: 'older' },
+      },
+    ]);
+  });
+
   it('every problem at once, up to the bound, as integrity violations', () => {
     const broken = withValue(
       withValue(
@@ -856,6 +876,14 @@ describe('readProjectDocument refuses', () => {
     expect(problemsOf(without(DOCUMENT, [...externalAt, 'identity', 'relativePath']))).toEqual([]);
     expect(problemsOf(without(DOCUMENT, ['sources', 0, 'provenance']))).toEqual([]);
     expect(problemsOf(withValue(DOCUMENT, ['project', 'regions', 0, 'tags'], []))).toEqual([]);
+    // An edit after a loop was set can leave less audio before its start than
+    // its crossfade reads; placing the region shortens the crossfade then, so a
+    // document holding one opens.
+    expect(
+      problemsOf(
+        withValue(DOCUMENT, ['project', 'regions', 0, 'loop', 'crossfadeLength'], loopStart + 1),
+      ),
+    ).toEqual([]);
   });
 });
 

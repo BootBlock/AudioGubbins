@@ -245,12 +245,13 @@ export function stripExportRecords(
         const stripped =
           godot === undefined &&
           file?.fileName === undefined &&
+          file?.folder === undefined &&
           record.destination.label === undefined &&
           record.problems.length === 0;
         if (stripped) return record;
         return {
           ...kept,
-          ...(file === undefined ? {} : { file: withoutFileName(file) }),
+          ...(file === undefined ? {} : { file: withoutWhere(file) }),
           destination: { kind: record.destination.kind },
           problems: [],
         };
@@ -258,8 +259,8 @@ export function stripExportRecords(
   }
 }
 
-/** An exported file's record without the name it was written under. */
-function withoutFileName(file: ExportedAudioFile): ExportedAudioFile {
-  const { fileName: _fileName, ...unnamed } = file;
+/** An exported file's record without the name it was written under or the folder it went to. */
+function withoutWhere(file: ExportedAudioFile): ExportedAudioFile {
+  const { fileName: _fileName, folder: _folder, ...unnamed } = file;
   return unnamed;
 }

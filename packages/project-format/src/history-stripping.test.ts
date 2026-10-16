@@ -58,6 +58,7 @@ const AFFECTS = {
   markers: [],
   effectChains: [],
   takeStacks: [],
+  gameGroups: [],
   project: false,
 };
 

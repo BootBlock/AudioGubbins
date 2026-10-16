@@ -187,6 +187,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
       [],
   },
+  '@audiogubbins/game-audio': {},
   '@audiogubbins/codec-runtime': {
     "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
       [
@@ -215,8 +216,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['NO_GESTURE'],
   },
   '@audiogubbins/domain': {
-    "The deterministic identity generator, which the fixtures package and every package's test support make reproducible identities with; the fixtures package may take no test support, so it is offered here. The application makes its identities with `createIdGenerator`.":
-      ['createDeterministicIdGenerator'],
     'The channel layout REQ-ARCH-157 asks for and ADR-0033 extends: the ambisonic sets, their conventions and components, and the labels of a custom map, which the channel-layout operations and the export recipes of later phases read.':
       ['ambisonicChannelCount', 'labelledLayout'],
     'The domain value model ADR-0015 gives Phase 01, for the phases that edit and play a project. Phase 02 keeps projects and edits their names, assets, sources and history, and reaches none of these: processors, clips, tracks and the arithmetic of time and ranges arrive with editing and mixing.':
@@ -244,7 +243,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'MAXIMUM_GROUP_BRANCHES',
         'checkStateVersion',
         'segmentsLayout',
-        'segmentsLength',
         'withRack',
       ],
     "How many frames of a take a punch reads, which the project commands' test support makes takes long enough with; that support may take no other package's test support, so it is offered here, as the identity generator is.":
@@ -260,14 +258,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The build of the inference runtime every model processor is pinned to (ADR-0062), which the application's tests state the runtime in use with, as the build states it from the bytes it serves.":
       ['PINNED_RUNTIME_SHA256'],
     "The canonical detectors one by one (ADR-0061, ADR-0062), each an `AudioDetector` the assistants run and the detection worker reaches through them, offered alone for a model pack's detector to join or replace, as ADR-0062 has it, once one is licensed for redistribution.":
-      [
-        'CLICK_DETECTOR',
-        'CLIPPING_DETECTOR',
-        'DC_OFFSET_DETECTOR',
-        'HUM_DETECTOR',
-        'NOISE_FLOOR_DETECTOR',
-        'TRANSIENT_DETECTOR',
-      ],
+      ['CLIPPING_DETECTOR', 'HUM_DETECTOR', 'NOISE_FLOOR_DETECTOR', 'TRANSIENT_DETECTOR'],
   },
   '@audiogubbins/ml-runtime': {
     "The runtime's WebAssembly file (ADR-0062), which the application's build configuration serves under the files base and takes the digest of; the build configuration is no package, so no import of a package reads it.":
@@ -314,6 +305,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
   },
+  '@audiogubbins/project-commands': {},
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
@@ -353,8 +345,12 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'settingsFor',
         'timelineFrameAt',
       ],
-    "The canonical scalar primitives ADR-0061 admits that no processor calls yet, and the bounds of the FFT's sizes, which Phase 06's spectral processors and Phase 08's spectral analysis are the first to size a transform by. The engine's own nodes need none of them.":
-      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'log2'],
+    "The canonical scalar primitive ADR-0061 admits that no processor calls yet, and the smallest of the FFT's sizes, the bound below the sizes a transform is made at. The engine's own nodes need neither.":
+      ['SMALLEST_FFT_SIZE', 'log2'],
+  },
+  '@audiogubbins/loop-analysis': {
+    'The shortest loop an analysis measures (ADR-0103), which the Create Seamless Loop workflow states as its bound before it asks; a later unit of this phase, built against this contract. The Loop panel needs no bound of its own: the analysis refuses a shorter loop and the panel shows the refusal.':
+      ['SHORTEST_LOOP_FRAMES'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

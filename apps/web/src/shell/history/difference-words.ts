@@ -1,7 +1,8 @@
 /**
  * What differs between the two sides of an A/B comparison, said entity by
- * entity: each track, bus, clip, region, marker, asset and take stack only
- * one side holds, each one both hold and what of it differs, and each effect
+ * entity: each track, bus, clip, region, marker, asset, take stack, asset
+ * group, group member and preview scenario only one side holds, each one both
+ * hold and what of it differs, a group's settings one by one, and each effect
  * chain processor by processor (REQ-STOR-195).
  *
  * Plain language and nothing of the data model: an entity is called by its
@@ -28,6 +29,9 @@ import type {
   DifferenceNames,
   EntityDifferences,
   FieldOf,
+  GameGroupEntity,
+  GameMemberEntity,
+  GameScenarioEntity,
   SlotDifference,
   SlotField,
   StateDifference,
@@ -131,6 +135,51 @@ const TAKE_STACK_WORDS: FieldWords<TakeStack> = {
   punch: 'punch',
 };
 
+/**
+ * A group's settings, each as the Inspector names it; a member joining,
+ * leaving or moving within it is a difference in its members.
+ */
+const GAME_GROUP_WORDS: FieldWords<GameGroupEntity> = {
+  id: 'identity',
+  name: 'name',
+  parent: 'place among the groups',
+  members: 'members',
+  processing: 'processing',
+  loudness: 'loudness target',
+  exportProfile: 'export profile',
+  naming: 'naming template',
+  destination: 'destination',
+  emitter: 'emitter rules',
+  variation: 'voice variation',
+  bus: 'bus',
+  tags: 'tags',
+};
+
+/** What a member sets over its group, each named as an override. */
+const GAME_MEMBER_WORDS: FieldWords<GameMemberEntity> = {
+  member: 'identity',
+  group: 'group',
+  processing: 'whether it inherits its processing',
+  loudness: 'loudness target override',
+  exportProfile: 'export profile override',
+  naming: 'naming template override',
+  destination: 'destination override',
+  variation: 'voice variation override',
+  bus: 'bus override',
+};
+
+const GAME_SCENARIO_WORDS: FieldWords<GameScenarioEntity> = {
+  id: 'identity',
+  name: 'name',
+  space: 'space',
+  panWidth: 'pan width',
+  panningStrength: 'panning strength',
+  listener: 'listener',
+  emitters: 'emitters',
+  seed: 'seed',
+  busLevels: 'bus levels',
+};
+
 /** The project's own fields, as a person calls them. */
 const PROJECT_WORDS: Readonly<Record<StateDifference['project'][number], string>> = {
   displayName: 'name',
@@ -224,6 +273,9 @@ function chainCalled(owner: ChainOwner | undefined): {
   readonly is: string;
 } {
   if (owner === undefined) return { called: 'An effect chain', is: 'is' };
+  if (owner.kind === 'game-group') {
+    return { called: `The processing of the group ${quoted(owner.name)}`, is: 'is' };
+  }
   const of = `the ${owner.kind} ${quoted(owner.name)}`;
   if (owner.naming === 'range') return { called: `The chain over a range of ${of}`, is: 'is' };
   return owner.kind === 'track' || owner.kind === 'bus'
@@ -261,6 +313,9 @@ export function differenceLines(
       names,
     ),
     ...entityLines(difference.takeStacks, 'take stack', TAKE_STACK_WORDS, names),
+    ...entityLines(difference.gameGroups, 'group', GAME_GROUP_WORDS, names),
+    ...entityLines(difference.gameMembers, 'group member', GAME_MEMBER_WORDS, names),
+    ...entityLines(difference.gameScenarios, 'preview scenario', GAME_SCENARIO_WORDS, names),
     ...difference.effectChains.map((chain) => chainLine(chain, names)),
   ];
   return lines.length === 0 ? ['The two states are the same.'] : lines;

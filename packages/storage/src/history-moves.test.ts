@@ -27,6 +27,7 @@ const PROJECT_AFFECTED: AffectedEntities = {
   markers: [],
   effectChains: [],
   takeStacks: [],
+  gameGroups: [],
 };
 
 /** A fingerprint for the state after `step` changes, which storage never holds. */

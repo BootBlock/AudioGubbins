@@ -16,12 +16,12 @@
 
 import {
   AVAILABLE,
+  CommandCategory,
   commandId,
   unavailable,
   type AppliedOutcome,
   type Command,
   type CommandAvailability,
-  type CommandCategory,
   type CommandId,
   type CommandInvocation,
   type CommandOutcome,
@@ -50,6 +50,7 @@ export const ProjectCommandId = {
   AddRegion: commandId('project.add-region'),
   RemoveRegion: commandId('project.remove-region'),
   SetRegion: commandId('project.set-region'),
+  RestoreRegion: commandId('project.restore-region'),
   ApplyRegionEdit: commandId('project.apply-region-edit'),
   WithdrawRegionEdit: commandId('project.withdraw-region-edit'),
   SetRack: commandId('project.set-rack'),
@@ -78,6 +79,19 @@ export const ProjectCommandId = {
   SetTakeCompensation: commandId('project.set-take-compensation'),
   AddPunch: commandId('project.add-punch'),
   RemovePunch: commandId('project.remove-punch'),
+  AddGroup: commandId('game.add-group'),
+  RemoveGroup: commandId('game.remove-group'),
+  RenameGroup: commandId('game.rename-group'),
+  MoveGroup: commandId('game.move-group'),
+  SetGroupPolicy: commandId('game.set-group-policy'),
+  AssignMember: commandId('game.assign-member'),
+  UnassignMember: commandId('game.unassign-member'),
+  SetMemberOverride: commandId('game.set-member-override'),
+  ResetMemberOverride: commandId('game.reset-member-override'),
+  SetMemberProcessing: commandId('game.set-member-processing'),
+  AddScenario: commandId('game.add-scenario'),
+  SetScenario: commandId('game.set-scenario'),
+  RemoveScenario: commandId('game.remove-scenario'),
 } as const;
 
 /** What a command declares where none of its arguments holds provenance. */
@@ -112,6 +126,26 @@ export function projectCommand(declaration: ProjectCommandDeclaration): ProjectC
     undoable: true,
     availability: declaration.availability ?? (() => AVAILABLE),
   };
+}
+
+/**
+ * A project command of the Edit category whose arguments hold no provenance,
+ * as most that change what a project holds are.
+ */
+export function editCommand(
+  id: CommandId,
+  label: string,
+  description: string,
+  run: ProjectCommandDeclaration['run'],
+): ProjectCommand {
+  return projectCommand({
+    id,
+    label,
+    category: CommandCategory.Edit,
+    description,
+    run,
+    provenance: NO_PROVENANCE,
+  });
 }
 
 /** Whether the project has an asset for a command that acts on one. */

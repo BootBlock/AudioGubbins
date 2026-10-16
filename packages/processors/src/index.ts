@@ -10,6 +10,8 @@ export {
   PROCESSOR_TYPES_BY_KEY,
   processorTypesWith,
 } from './catalogue.js';
+export { BUILT_IN_LIBRARY } from './library/game-chains.js';
+export { DESIGN_INTERVAL } from './filters/cascade-kernel.js';
 export { deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
 export { mossFormer2Se48k } from './ml/mossformer2/mossformer2.js';
 export { spleeter2Stems, spleeter4Stems } from './ml/spleeter/spleeter.js';

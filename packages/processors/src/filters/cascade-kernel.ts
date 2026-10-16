@@ -22,7 +22,12 @@ import {
 import type { BiquadCascade } from './biquad.js';
 import type { RampedParameter } from './ramped-parameter.js';
 
-/** Frames between the designs of a running filter: under a millisecond at 48 kHz. */
+/**
+ * Frames between the designs of every running processor of this build that
+ * designs from its ramped parameters, under a millisecond at 48 kHz: the one
+ * statement of it, which the effect rack also gives a plan's automation at, so
+ * each design reads the value given at its own frame (ADR-0104).
+ */
 export const DESIGN_INTERVAL = 32;
 
 /** Where a kernel is in the interval between designs, counted from its first frame. */

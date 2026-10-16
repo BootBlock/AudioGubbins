@@ -45,6 +45,14 @@ export const PanelKinds = {
 
   /** The spectral selection, the spectral tools' settings and the spectral edits (ADR-0082). */
   Spectral: 'spectral',
+
+  /** The asset groups, their members, their policy's sources, loudness and export plan (ADR-0101). */
+  GameGroups: 'game-groups',
+  /** A region's loop: its checks, candidate loop points, and hearing it cycle (ADR-0103). */
+  LoopEditor: 'loop-editor',
+
+  /** A game scenario's emitters triggered and heard as an engine would play them (ADR-0104). */
+  GamePreview: 'game-preview',
 } as const;
 
 /** One group of a preset, before the unavailable kinds are removed. */
@@ -116,11 +124,23 @@ const PRESETS: readonly Preset[] = [
     id: 'game-audio',
     displayName: 'Game Audio',
     groups: [
-      // Producing many named variations means living in the asset list.
-      { region: DockRegion.Left, proportion: 0.28, kinds: [PanelKinds.AssetBrowser] },
+      // Producing many named variations means living in the asset list, with
+      // the groups that give them their policy a tab away.
+      {
+        region: DockRegion.Left,
+        proportion: 0.28,
+        kinds: [PanelKinds.AssetBrowser, PanelKinds.GameGroups],
+      },
       { region: DockRegion.Centre, proportion: 1, kinds: [PanelKinds.Editor] },
       { region: DockRegion.Right, proportion: 0.24, kinds: [PanelKinds.Inspector] },
-      { region: DockRegion.Bottom, proportion: 0.16, kinds: [PanelKinds.Transport] },
+      // A loop is judged by ear and by its checks together, and the preview
+      // plays what it runs, so both are tabs beside the transport that plays
+      // them.
+      {
+        region: DockRegion.Bottom,
+        proportion: 0.16,
+        kinds: [PanelKinds.Transport, PanelKinds.LoopEditor, PanelKinds.GamePreview],
+      },
     ],
   },
   {

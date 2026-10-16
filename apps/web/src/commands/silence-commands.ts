@@ -14,11 +14,11 @@
  */
 
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
+import { SILENCE_PARTS, silenceRemovals, type SilencePart } from '@audiogubbins/detection-runtime';
 import { removalEdits, shapesOf, type EditRange } from '@audiogubbins/domain';
 import { SILENCE_ASSISTANT } from '@audiogubbins/processors';
 import { counted } from '@audiogubbins/text';
 
-import { SILENCE_PARTS, silenceRemovals, type SilencePart } from '../analysis/detection-control.js';
 import { currentResult, scopeWords } from './analysis-results.js';
 import { detectorValuesArgument, overlaid } from './detector-arguments.js';
 import { analysedAgain } from './reanalysis.js';

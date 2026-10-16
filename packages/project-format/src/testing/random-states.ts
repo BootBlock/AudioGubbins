@@ -7,7 +7,8 @@
  * with a source from `random-values.ts`, so the aggregate's invariants hold.
  * Assets carry small chains of edits, punches among them over take stacks of
  * the recorded assets, and regions and markers are anchored on them, from
- * `random-edits.ts` and `random-recordings.ts`.
+ * `random-edits.ts` and `random-recordings.ts`. Half the states have asset
+ * groups over their regions and assets (`random-game-audio.ts`).
  */
 
 import {
@@ -43,6 +44,7 @@ import { expectSuccess, TEST_CATALOGUE, TEST_ENGINE } from '@audiogubbins/domain
 
 import type { AssetSource, ProjectState } from '../project-state.js';
 import { randomMarker, randomRegion, withRandomEdits } from './random-edits.js';
+import { withRandomGameAudio } from './random-game-audio.js';
 import { randomTakeStacks } from './random-recordings.js';
 import {
   RATES,
@@ -123,7 +125,9 @@ class StateBuilder {
     };
     // Drawn last, so every other part of a seed's state is the one it always was.
     const exportSettings = maybe(this.random, () => randomExportSettings(this.random));
-    return { project, sources, ...(exportSettings === undefined ? {} : { exportSettings }) };
+    const state = { project, sources, ...(exportSettings === undefined ? {} : { exportSettings }) };
+    // Its groups after that, since inheriting members' racks are set by them.
+    return this.random.chance(0.5) ? withRandomGameAudio(this.random, state) : state;
   }
 
   /**

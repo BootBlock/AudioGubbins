@@ -13,7 +13,7 @@ import { useId, useState, type ReactNode } from 'react';
 
 import { Button, ToggleSwitch } from '@audiogubbins/design-system';
 import type { LibraryEntry } from '@audiogubbins/domain';
-import type { ListedEntry } from '@audiogubbins/storage';
+import type { LibraryListing } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
 
 import type { OpenProjectState } from '../../state/open-project-store.js';
@@ -154,12 +154,15 @@ function OpenPart({
 /** A saved chain or preset this version can use, and what can be done with it. */
 function UsableEntry({
   entry,
+  builtIn,
   shown,
   project,
   commands,
   onRemoving,
 }: {
   readonly entry: LibraryEntry;
+  /** Whether it comes with AudioGubbins, which is applied and never renamed or removed. */
+  readonly builtIn: boolean;
   readonly shown: Shown | undefined;
   readonly project: OpenProjectState;
   readonly commands: PanelCommands;
@@ -178,7 +181,11 @@ function UsableEntry({
       <h4 className="ag-library-entry-name" id={heading}>
         {entry.name}
       </h4>
-      <p className="ag-panel-note">{`Saved ${when(entry.savedAt)}. ${holds}`}</p>
+      <p className="ag-panel-note">
+        {builtIn
+          ? `Built in: it comes with AudioGubbins, so it is not renamed or removed. ${holds}`
+          : `Saved ${when(entry.savedAt)}. ${holds}`}
+      </p>
       <Applying
         entry={entry}
         shown={shown}
@@ -187,12 +194,16 @@ function UsableEntry({
         opening={opening}
         commands={commands}
       />
-      <Opener part="rename" opening={opening}>
-        Rename…
-      </Opener>
-      <Opener part="remove" opening={opening}>
-        Remove…
-      </Opener>
+      {!builtIn && (
+        <>
+          <Opener part="rename" opening={opening}>
+            Rename…
+          </Opener>
+          <Opener part="remove" opening={opening}>
+            Remove…
+          </Opener>
+        </>
+      )}
       <OpenPart
         entry={entry}
         share={share}
@@ -211,7 +222,7 @@ function UnusableEntry({
   commands,
   onRemoving,
 }: {
-  readonly listed: Extract<ListedEntry, { readonly kind: 'unusable' }>;
+  readonly listed: Extract<LibraryListing, { readonly kind: 'unusable' }>;
   readonly commands: PanelCommands;
   readonly onRemoving: () => void;
 }): ReactNode {
@@ -248,7 +259,7 @@ export function LibraryEntryRow({
   commands,
   onRemoving,
 }: {
-  readonly listed: ListedEntry;
+  readonly listed: LibraryListing;
   readonly shown: Shown | undefined;
   readonly project: OpenProjectState;
   readonly commands: PanelCommands;
@@ -258,6 +269,7 @@ export function LibraryEntryRow({
   return listed.kind === 'usable' ? (
     <UsableEntry
       entry={listed.entry}
+      builtIn={listed.builtIn}
       shown={shown}
       project={project}
       commands={commands}

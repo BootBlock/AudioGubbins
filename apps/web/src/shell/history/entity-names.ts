@@ -5,14 +5,17 @@
  *
  * A change can have affected an entity the project no longer holds, which is
  * said to be gone rather than named, since the panel names only what the
- * state it reads holds. An effect chain has no name of its own, and is called
- * by what names it (`chainOwner`): the track or bus it belongs to, the asset
- * or region whose rack it is, or the one a range of which it processes.
+ * state it reads holds. An asset group is called by its path from its root.
+ * An effect chain has no name of its own, and is called by what names it
+ * (`chainOwner`): the track or bus it belongs to, the group whose processing
+ * it is, the asset or region whose rack it is, or the one a range of which it
+ * processes.
  */
 
 import {
   affectedEntities,
   chainOwner,
+  gameGroupName,
   type EntityKind,
   type EntityReference,
   type HistoryNode,
@@ -33,10 +36,12 @@ const KINDS: Readonly<Record<EntityKind, { readonly one: string; readonly some: 
   marker: { one: 'marker', some: 'a marker' },
   'effect-chain': { one: 'effects of', some: 'effects' },
   'take-stack': { one: 'take stack', some: 'a take stack' },
+  'game-group': { one: 'group', some: 'a group' },
 };
 
 /** The names of the entities `state` holds, an effect chain by its owner's. */
-export function entityNamesOf({ project }: ProjectState): EntityNames {
+export function entityNamesOf(state: ProjectState): EntityNames {
+  const { project } = state;
   const names = new Map<string, string>();
   for (const held of [project.assets, project.tracks, project.buses, project.clips]) {
     for (const [id, entity] of held) names.set(id, entity.displayName);
@@ -45,8 +50,12 @@ export function entityNamesOf({ project }: ProjectState): EntityNames {
     for (const [id, entity] of held) names.set(id, entity.displayName);
   }
   for (const [id, stack] of project.takeStacks) names.set(id, stack.name);
+  for (const group of state.gameAudio?.groups.keys() ?? []) {
+    const name = gameGroupName(state, group);
+    if (name !== undefined) names.set(group, name);
+  }
   for (const chain of project.effectChains.keys()) {
-    const owner = chainOwner(project, chain);
+    const owner = chainOwner(state, chain);
     if (owner !== undefined) names.set(chain, owner.name);
   }
   return (entity) => names.get(entity.id);

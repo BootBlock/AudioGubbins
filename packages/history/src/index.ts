@@ -56,7 +56,13 @@ export {
   type DifferenceNames,
   chainOwner,
   differenceNames,
+  gameGroupName,
 } from './difference-names.js';
+export {
+  type GameGroupEntity,
+  type GameMemberEntity,
+  type GameScenarioEntity,
+} from './game-entities.js';
 
 export {
   type EntityChange,

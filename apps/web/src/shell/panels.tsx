@@ -12,8 +12,11 @@
  * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
  * latency in the Recording panel (`recording/recording-panel.tsx`), the
  * spectral selection, tools and edits in the Spectral panel
- * (`spectral/spectral-panel.tsx`), and the project system's History and Storage
- * panels (`project-panels.tsx`).
+ * (`spectral/spectral-panel.tsx`), a region's loop in the Loop panel
+ * (`loop/loop-panel.tsx`), the asset groups in the Asset groups panel
+ * (`game/groups-panel.tsx`), and the project system's History and Storage
+ * panels (`project-panels.tsx`). Each is handed the panel context
+ * (`panel-context.ts`), or only the parts of it it reads (`panel-parts.ts`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -25,45 +28,41 @@ import {
   type CapabilityRegistry,
   type StorageCapabilityAbsence,
 } from '@audiogubbins/capabilities';
-import type { LogStore } from '@audiogubbins/diagnostics';
 import { PanelKinds, type OpenPanel } from '@audiogubbins/workspace';
-import type { NodeId } from '@audiogubbins/audio-graph';
-import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
-import type { Detections } from '../analysis/detection-control.js';
-import type { ShellContext } from '../commands/shell-context.js';
-import type { PackManagerView } from '../ml/pack-manager.js';
 import type { RecordingParts } from '../recording/recording-part.js';
 import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
-import type { ModelGate } from '../assets/model-gate.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
-import type { Hearing } from '../state/hearing-store.js';
-import type { UserPreferences } from '../state/preferences-store.js';
-import type { AudioView } from '../state/audio-view-store.js';
-import type { ExportSubject } from '../export/export-focus.js';
-import type { ExportRunState } from '../export/export-types.js';
 import type { Observable } from '../state/observable.js';
-import type { RenderStrategyView } from '../state/render-strategy-store.js';
-import type { LogViewStore } from '../state/log-view-store.js';
-import { AnalysisPanel, type AnalysisParts } from './analysis/analysis-panel.js';
+import { AnalysisPanel } from './analysis/analysis-panel.js';
 import { AssetBrowserPanel } from './asset-browser.js';
 import type { PanelCommands } from './command-button.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
+import { GroupsPanel } from './game/groups-panel.js';
 import { InspectorPanel } from './inspector/inspector-panel.js';
-import { LibraryPanel, type LibraryParts } from './library/library-panel.js';
-import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-panel.js';
+import { LibraryPanel } from './library/library-panel.js';
+import { LoopPanel } from './loop/loop-panel.js';
+import { PackManagerPanel } from './packs/pack-manager-panel.js';
+import type { PanelContext } from './panel-context.js';
+import {
+  analysisPartsOf,
+  groupsPartsOf,
+  libraryPartsOf,
+  loopPartsOf,
+  packPartsOf,
+} from './panel-parts.js';
 import { PicturePanel } from './picture-panel.js';
-import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
+import { ProjectPanel } from './project-panels.js';
 import { RackPanel } from './rack/rack-panel.js';
 import { SpectralPanel } from './spectral/spectral-panel.js';
+import { GamePreviewPanel } from './preview/preview-panel.js';
 import { RecordingDiagnosticsList } from './recording/recording-diagnostics-list.js';
 import { RecordingPanel } from './recording/recording-panel.js';
 import { useRecordingDiagnostics, useWatchedInputs } from './recording/use-recording.js';
 import { RendererReportList } from './renderer-report-list.js';
 import { SpectrogramDspReading } from './spectrogram-dsp-reading.js';
-import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
 import { TransportPanel } from './transport-panel.js';
 
@@ -159,135 +158,6 @@ export function CapabilitiesPanel({
   );
 }
 
-/** What a panel needs to draw itself. */
-export interface PanelContext extends ProjectPanelContext {
-  readonly capabilities: CapabilityRegistry;
-  readonly logs: LogStore;
-  readonly logViews: LogViewStore;
-  readonly diagnosticModeActive: boolean;
-  readonly announcement?: { readonly text: string; readonly urgent: boolean };
-
-  /** What this browser lacks for keeping projects. */
-  readonly storageAbsences: readonly StorageCapabilityAbsence[];
-
-  /**
-   * What the audio engine is doing, which the Transport panel shows. Read
-   * alone, as the next two are: a panel changes them only through the commands
-   * it runs, never by writing a store (`CLAUDE.md` G2).
-   */
-  readonly audio: Observable<AudioView>;
-
-  /** The person's audio settings, and how the latest render was planned, which it shows too. */
-  readonly audioSettings: Observable<AudioSettings>;
-  readonly renderStrategy: Observable<RenderStrategyView>;
-
-  /** The frame the listener hears now, at the context's rate. */
-  readonly playhead: () => number | undefined;
-
-  /** Each meter's latest levels, which the Transport panel reads once a display frame. */
-  readonly meters: () => ReadonlyMap<NodeId, MeterLevels>;
-
-  /** The frames the running render has reached, which the Transport panel reads likewise. */
-  readonly framesRendered: () => number;
-
-  /** What the Editor and Picture panels are given. */
-  readonly editor: EditorPanelParts;
-
-  /** What the assistants found this session, which the Analysis panel shows. */
-  readonly detection: Observable<Detections>;
-
-  /** The model packs kept here and offered, which the Model packs panel shows. */
-  readonly packs: PackManagerView;
-
-  /** Why a processor cannot run for want of its model, which the Effects rack shows. */
-  readonly modelGate: Observable<ModelGate>;
-
-  /** Whether an asset is heard processed or as its original, which the rack and transport show. */
-  readonly hearing: Observable<Hearing>;
-
-  /** The input, monitoring and latency calibration, which the Recording panel shows. */
-  readonly recording: RecordingParts;
-
-  /** The page's export, absent where this browser keeps no projects, which the Inspector describes. */
-  readonly exports: Observable<ExportRunState> | undefined;
-
-  /** The export the Inspector describes, while one is its subject. */
-  readonly exportSubject: Observable<ExportSubject | undefined>;
-
-  /** The person's preferences, whose pressure choice the Spectral panel shows. */
-  readonly preferences: Observable<UserPreferences>;
-}
-
-/**
- * What a panel reads, from the shell's context, and how its controls run a
- * command and ask why one cannot run: as every other surface does, so a panel's
- * button and the palette entry of the same name are one action.
- */
-export function panelContextOf(
-  {
-    context,
-    editorPanels,
-  }: { readonly context: ShellContext; readonly editorPanels: EditorPanelParts },
-  run: RunCommand,
-  unavailableReason: (id: string) => string | undefined,
-): PanelContext {
-  return {
-    editor: editorPanels,
-    capabilities: context.capabilities,
-    logs: context.logs,
-    logViews: context.logViews,
-    diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
-    storageAbsences: context.storageAbsences,
-    projects: context.projects,
-    projectsUnavailable: unavailableReason('file.projects'),
-    audio: context.audio,
-    audioSettings: context.audioSettings,
-    renderStrategy: context.renderStrategy,
-    playhead: () => context.playback.audiblePosition(),
-    meters: () => context.playback.meters(),
-    framesRendered: () => context.rendering.framesRendered(),
-    detection: context.detection,
-    packs: context.packs,
-    modelGate: context.modelGate,
-    hearing: context.hearing,
-    recording: context.recording,
-    exports: context.exports,
-    exportSubject: context.exportFocus.subject,
-    preferences: context.preferences,
-    run,
-    unavailableReason,
-    labelFor: editorPanels.labelFor,
-  };
-}
-
-/** What the Analysis panel reads of a panel's context. */
-function analysisPartsOf(context: PanelContext): AnalysisParts {
-  return {
-    editorViews: context.editor.stores.editorViews,
-    assets: context.editor.assets,
-    detection: context.detection,
-    audioSettings: context.audioSettings,
-  };
-}
-
-/** What the Library panel reads of a panel's context. */
-function libraryPartsOf({ projects, ...context }: PanelContext): LibraryParts {
-  return {
-    library:
-      projects === undefined
-        ? undefined
-        : { savedProcessing: projects.savedProcessing, project: projects.project },
-    unavailable: context.projectsUnavailable,
-    editorViews: context.editor.stores.editorViews,
-    assets: context.editor.assets,
-  };
-}
-
-/** What the Model packs panel reads of a panel's context. */
-function packPartsOf(context: PanelContext): PackManagerParts {
-  return { packs: context.packs, project: context.projects?.project };
-}
-
 /** The capability surface and the editing panels, or `undefined` for another kind. */
 function editingPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
   switch (panel.kind) {
@@ -337,6 +207,8 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
             exports: context.exports,
             exportSubject: context.exportSubject,
             modelGate: context.modelGate,
+            groups: context.groups,
+            preferences: context.preferences,
           }}
           commands={context}
         />
@@ -385,6 +257,15 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case PanelKinds.Spectral:
       return <SpectralPanel title={title} context={context} />;
+
+    case PanelKinds.GameGroups:
+      return <GroupsPanel title={title} parts={groupsPartsOf(context)} commands={context} />;
+
+    case PanelKinds.LoopEditor:
+      return <LoopPanel title={title} parts={loopPartsOf(context)} commands={context} />;
+
+    case PanelKinds.GamePreview:
+      return <GamePreviewPanel title={title} context={context} />;
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;

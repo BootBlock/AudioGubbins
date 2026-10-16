@@ -41,7 +41,7 @@ export function shownRun(
   return {
     batch,
     files,
-    settings: more.settings ?? SHOWN_SETTINGS,
+    settings: new Map([...files.keys()].map((id) => [id, more.settings ?? SHOWN_SETTINGS])),
     destinations: more.destinations ?? new Map(),
     names: more.names ?? new Map(),
   };

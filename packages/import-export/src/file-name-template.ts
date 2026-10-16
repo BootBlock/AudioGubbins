@@ -6,66 +6,32 @@
  * batch's count so the files sort in order, `{date}` the day the export was
  * asked for, `yyyy-mm-dd`, from the clock and the offset from UTC the caller
  * gives, so nothing here reads a clock or a time zone, and `{format}` the
- * file's extension. `{{` and `}}` are a brace. The filled template is the
- * stem the file is named by, made safe by `safeFileName`.
+ * file's extension. `{{` and `}}` are a brace; the grammar is
+ * `template-grammar.ts`'s, and no token here takes a modifier. The filled
+ * template is the stem the file is named by, made safe by `safeFileName`.
  */
 
-import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
+import type { DomainResult } from '@audiogubbins/domain';
 
-import { refusal } from './refusal.js';
+import { readTemplate, type TemplatePart, type TemplateVocabulary } from './template-grammar.js';
 
 /** The tokens a template may hold. */
 export type FileNameToken = 'project' | 'region' | 'index' | 'date' | 'format';
 
-const TOKENS: ReadonlySet<string> = new Set<FileNameToken>([
-  'project',
-  'region',
-  'index',
-  'date',
-  'format',
-]);
-
-function isToken(name: string): name is FileNameToken {
-  return TOKENS.has(name);
-}
+/** The file name's vocabulary: its tokens, none of which takes a modifier. */
+const FILE_NAME_VOCABULARY: TemplateVocabulary<FileNameToken> = {
+  tokens: new Set<FileNameToken>(['project', 'region', 'index', 'date', 'format']),
+  modifiers: new Map(),
+  noun: 'file name template',
+  refusalCode: 'import-export.file-name-template-invalid',
+};
 
 /** A template read into its parts. */
-export type FileNameTemplate = readonly (
-  | { readonly kind: 'text'; readonly text: string }
-  | { readonly kind: 'token'; readonly token: FileNameToken }
-)[];
-
-/** Escapes, tokens, and a brace standing alone, in the order a template is read. */
-const PARTS = /\{\{|\}\}|\{([^{}]*)\}|[{}]|[^{}]+/gu;
-
-function invalid(sentence: string): DomainResult<never> {
-  return fail(refusal('file-name-template-invalid', sentence));
-}
+export type FileNameTemplate = readonly TemplatePart<FileNameToken>[];
 
 /** A template's parts, or why it is not one. */
 export function readFileNameTemplate(template: string): DomainResult<FileNameTemplate> {
-  if (template.trim() === '') return invalid('A file name template cannot be empty.');
-  const parts: FileNameTemplate[number][] = [];
-  for (const match of template.matchAll(PARTS)) {
-    const [whole, name] = match;
-    if (whole === '{{' || whole === '}}') {
-      parts.push({ kind: 'text', text: whole[0] ?? '' });
-    } else if (name !== undefined) {
-      if (!isToken(name)) {
-        return invalid(
-          `The file name template names {${name}}, which is not one of {project}, {region}, {index}, {date} and {format}.`,
-        );
-      }
-      parts.push({ kind: 'token', token: name });
-    } else if (whole === '{' || whole === '}') {
-      return invalid(
-        'A brace in a file name template opens or closes a token; write {{ or }} for the brace itself.',
-      );
-    } else {
-      parts.push({ kind: 'text', text: whole });
-    }
-  }
-  return succeed(parts);
+  return readTemplate(template, FILE_NAME_VOCABULARY);
 }
 
 /** Whether a template names a token. */
@@ -93,7 +59,8 @@ export interface FileNameValues {
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
-function dateOf(clock: ExportClock): string {
+/** The day `clock` falls on at its offset from UTC, `yyyy-mm-dd`. */
+export function dateOf(clock: ExportClock): string {
   const local = new Date(
     clock.epochMilliseconds + clock.utcOffsetMinutes * MILLISECONDS_PER_MINUTE,
   );

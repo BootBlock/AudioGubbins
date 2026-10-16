@@ -50,6 +50,7 @@ const HOLDING: ChainProcessing = {
         }
       },
       setParameter: () => succeed(undefined),
+      automate: () => succeed(undefined),
       release: () => undefined,
     };
     return Promise.resolve(succeed(run));
@@ -120,6 +121,7 @@ const DELAYING: ChainProcessing = {
         }
       },
       setParameter: () => succeed(undefined),
+      automate: () => succeed(undefined),
       release: () => undefined,
     };
     return Promise.resolve(succeed(run));
@@ -161,5 +163,70 @@ describe('a processed stream whose read fails while its run is primed', () => {
     await processed.read(4_500, 500, after);
 
     expect(after[0]).toEqual(LONG.subarray(4_500, 5_000));
+  });
+});
+
+describe('how far a processed stream’s run reaches into its input', () => {
+  /** A delaying stream over {@link LONG}, its length what `length` answers when asked. */
+  function delaying(processing: ChainProcessing, length: () => number): ProcessedContent {
+    return new ProcessedContent(
+      { id: unsafeBrandId<'EffectChainId'>('00000000-4ea0'), slots: [] },
+      {
+        layout: StandardLayouts.mono,
+        sampleRate: RATE,
+        get length() {
+          return length();
+        },
+        read: (at, frames, into) => {
+          into[0]?.set(LONG.subarray(at, at + frames));
+          return Promise.resolve();
+        },
+      },
+      StandardLayouts.mono,
+      {
+        processing,
+        quality: MAXIMUM_QUALITY.settings,
+        start: ProcessedStart.Preview,
+        dsp: REFERENCE_DSP,
+      },
+    );
+  }
+
+  it('has read its latency past the last frame it gave, and nothing before it starts', async () => {
+    const processed = delaying(DELAYING, () => LONG.length);
+    expect(processed.reach).toBeUndefined();
+
+    await processed.read(100, 500, [new Float32Array(500)]);
+
+    expect(processed.reach).toEqual({ consumedTo: 600 + DELAY, latency: DELAY, measuredTo: 100 });
+  });
+
+  it('has measured to the end, wherever it plays, when a pass before the run read the whole stream', async () => {
+    const measuring: ChainProcessing = {
+      ...DELAYING,
+      prepare: async (request, read) => {
+        await read(0, request.length, [new Float32Array(request.length)]);
+        return await DELAYING.prepare(request, read);
+      },
+    };
+    const processed = delaying(measuring, () => LONG.length);
+
+    await processed.read(100, 500, [new Float32Array(500)]);
+
+    expect(processed.reach?.measuredTo).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('reads its input as long as it is when read, which a continued plan may lengthen', async () => {
+    // Long enough that the run, reading its latency ahead, has not reached the end.
+    let length = DELAY + 200;
+    const processed = delaying(DELAYING, () => length);
+    await processed.read(0, 100, [new Float32Array(100)]);
+
+    length = 3 * DELAY;
+    const then = [new Float32Array(2 * DELAY - 100)];
+    await processed.read(100, 2 * DELAY - 100, then);
+
+    expect(processed.length).toBe(3 * DELAY);
+    expect(then[0]).toEqual(LONG.subarray(100, 2 * DELAY));
   });
 });

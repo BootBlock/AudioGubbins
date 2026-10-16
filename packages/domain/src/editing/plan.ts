@@ -17,13 +17,21 @@
  * stream that an earlier stream reads, and the plan stays the only
  * description of an edited sound.
  *
+ * Two kinds of processing exist only in plans made for hearing a game's preview
+ * (ADR-0104), never in a project's own plans: a stream played faster or slower
+ * by a ratio (`varispeed`), and the automation of a chain's parameters along
+ * its stream. A third thing belongs to such a plan alone: a stream's frames it
+ * no longer describes (`forgottenBefore`), so a preview that plays for a long
+ * time drops what has been heard. A project keeps none of them, and refuses any
+ * in a plan it stores.
+ *
  * A stage is stated in the frames of its segment's content, never in the
  * output's, so cutting, moving or reversing a segment never rewrites a stage:
  * a fade stays on the audio it was put on.
  */
 
 import { channelCount, type ChannelLayout } from '../audio/channel-layout.js';
-import type { AssetId } from '../identity/branded-id.js';
+import type { AssetId, ParameterId, ProcessorId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { PlannedSpectralEdit } from '../spectral/spectral-edit.js';
 import { ZERO_SAMPLES, type SampleCount, type SampleRate } from '../time/sample-time.js';
@@ -121,6 +129,36 @@ export interface PlanSegment {
   readonly stages: readonly PlanStage[];
 }
 
+/** A parameter's value at a frame of its stream. */
+export interface AutomationPoint {
+  readonly frame: number;
+  readonly value: number;
+}
+
+/**
+ * One numeric parameter of one processor of a stream's chain, moved along the
+ * stream: at least one point, at whole frames from 0, each after the one
+ * before. Its value at a frame is {@link automationValueAt}'s.
+ */
+export interface ParameterAutomation {
+  readonly processor: ProcessorId;
+  readonly parameter: ParameterId;
+  readonly points: readonly AutomationPoint[];
+}
+
+/**
+ * The fixed denominator of a varispeed ratio: a ratio is a whole number of
+ * 4,096ths, 0.42 cents apart at unison, so the canonical resampler that plays
+ * it has at most 4,096 phases, whatever the ratio.
+ */
+export const VARISPEED_DENOMINATOR = 4_096;
+
+/**
+ * The least and the most numerator of a varispeed ratio: two octaves down and
+ * two up (±2,400 cents), as far as a game engine's pitch scale is asked to go.
+ */
+export const VARISPEED_NUMERATORS = { least: 1_024, most: 16_384 } as const;
+
 /**
  * What a stream's segments pass through as a whole.
  *
@@ -134,21 +172,63 @@ export interface PlanSegment {
  *   each frame (ADR-0081), keeping their length and layout; a frame's place
  *   is counted from the stream's first frame, so any part of the stream is
  *   the same whichever is read first.
+ * - `varispeed`: the stream's one segment, which reads one later stream of
+ *   its rate and layout, played at `numerator / denominator` of its speed, so
+ *   its pitch and its speed change together, as a game engine's pitch scale
+ *   does (ADR-0104). The canonical resampler plays it with `denominator`
+ *   output frames for each `numerator` input frames, the ratio reduced, so no
+ *   rate is declared for it; it makes {@link convertedFrameCount} of the
+ *   segment's frames by those steps.
+ *
+ * A chain's `automation` moves its processors' numeric parameters along the
+ * stream, each lane linear between its points and held before the first and
+ * after the last, given to its processor at the processor's design interval
+ * (`DESIGN_INTERVAL` of `@audiogubbins/processors`) from the stream's first
+ * frame, so a motion renders the same offline as it plays.
  */
 export type StreamProcessing =
-  | { readonly kind: 'chain'; readonly chain: EffectChain; readonly input: ChannelLayout }
+  | {
+      readonly kind: 'chain';
+      readonly chain: EffectChain;
+      readonly input: ChannelLayout;
+      readonly automation?: readonly ParameterAutomation[];
+    }
   | { readonly kind: 'stretch'; readonly length: SampleCount }
-  | { readonly kind: 'spectral'; readonly edit: PlannedSpectralEdit };
+  | { readonly kind: 'spectral'; readonly edit: PlannedSpectralEdit }
+  | {
+      readonly kind: 'varispeed';
+      readonly numerator: number;
+      readonly denominator: typeof VARISPEED_DENOMINATOR;
+    };
 
 /**
  * A run of segments at one rate, and what processes them. Each segment ends
  * in the layout the stream's processing reads, `layout` where it has none.
+ *
+ * `forgottenBefore`, which only a game preview's plan states (ADR-0104), is the
+ * first frame of the stream it still describes: a plan that continues another,
+ * its playback already past that frame, has dropped what came before, its
+ * segments standing in for it at their lengths only, so a stream keeps its
+ * place and the frames of everything after. A continuation compares the stream
+ * with the one it continues only from that frame, and its chain's automation
+ * only from that frame on. A stream forgotten whole holds a place alone, kept
+ * where nothing reads it, so the streams after it keep theirs.
  */
 export interface PlanStream {
   readonly sampleRate: SampleRate;
   readonly layout: ChannelLayout;
   readonly segments: readonly PlanSegment[];
   readonly processing?: StreamProcessing;
+  readonly forgottenBefore?: SampleCount;
+}
+
+/** Whether `stream` is forgotten whole: a place kept for the streams after it. */
+export function forgottenWhole(stream: PlanStream): boolean {
+  return (
+    stream.forgottenBefore !== undefined &&
+    stream.forgottenBefore > 0 &&
+    stream.forgottenBefore === segmentsLength(stream)
+  );
 }
 
 /** An edited sound: its first stream, and the streams its segments read converted. */
@@ -208,9 +288,21 @@ export function segmentsLength(stream: Pick<PlanStream, 'segments'>): number {
   return length;
 }
 
-/** How many frames a stream makes: its segments', or the length a stretch makes them. */
+/**
+ * How many frames a stream makes: its segments', the length a stretch makes
+ * them, or as many as a varispeed plays them in.
+ */
 export function streamLength(stream: PlanStream): number {
-  return stream.processing?.kind === 'stretch' ? stream.processing.length : segmentsLength(stream);
+  const { processing } = stream;
+  if (processing?.kind === 'stretch') return processing.length;
+  if (processing?.kind === 'varispeed') {
+    return convertedFrameCount(
+      segmentsLength(stream),
+      processing.numerator,
+      processing.denominator,
+    );
+  }
+  return segmentsLength(stream);
 }
 
 /** The layout a stream's segments end in: what its chain reads, or the stream's own. */
@@ -255,4 +347,28 @@ export function gainAt(curve: GainCurve, frame: number): number {
   const k = curve.step === 1 ? frame - curve.origin : curve.origin - frame;
   const t = curve.length > 1 ? k / (curve.length - 1) : 1;
   return fadeShapeAt(curve.shape, curve.rising ? t : 1 - t);
+}
+
+/**
+ * An automation lane's value at `frame`: its first point's before it, its last
+ * point's after it, and between two, `v₀ + (v₁ − v₀)·(f − f₀)/(f₁ − f₀)`, in
+ * that order of operations.
+ */
+export function automationValueAt(points: readonly AutomationPoint[], frame: number): number {
+  // The first point after `frame`, found by halving, since a lane may hold many.
+  let low = 0;
+  let high = points.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if ((points[middle]?.frame ?? 0) <= frame) low = middle + 1;
+    else high = middle;
+  }
+  const next = points[low];
+  const previous = points[low - 1];
+  if (previous === undefined) return next?.value ?? 0;
+  if (next === undefined) return previous.value;
+  return (
+    previous.value +
+    ((next.value - previous.value) * (frame - previous.frame)) / (next.frame - previous.frame)
+  );
 }

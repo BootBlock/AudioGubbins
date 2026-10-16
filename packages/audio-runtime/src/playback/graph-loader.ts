@@ -13,7 +13,9 @@
  * and lives as long as the loader. A request's sources are made in it once and
  * kept until another request replaces it, so the same request loaded again on
  * a new context after a loss plays them without the main thread sending
- * recorded audio it no longer holds.
+ * recorded audio it no longer holds. A request that continues the loaded one
+ * replaces it without a load (ADR-0104): its edited sounds' new plans go to
+ * the sources the feeder holds, which go on into them, and the graph stays.
  */
 
 import {
@@ -183,6 +185,16 @@ export class GraphLoader {
     if (!sourced.ok) return sourced;
     const loaded = this.#attach(port, request, prepared.value, stability, sources);
     return this.#answered(loaded, await loaded.outcome, sourced.value);
+  }
+
+  /** The request of the graph in the processor, or on its way there. */
+  get request(): PlaybackRequest | undefined {
+    return this.#loaded === undefined ? undefined : this.#request;
+  }
+
+  /** Holds `request`, which the feeder went on into from the one loaded, as loaded. */
+  continued(request: PlaybackRequest): void {
+    this.#request = request;
   }
 
   /** The sources of the request loaded or loading, in the feeder, where it has any to feed. */

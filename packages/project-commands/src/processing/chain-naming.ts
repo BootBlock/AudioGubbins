@@ -1,7 +1,8 @@
 /**
  * The life of a chain of processors in a project (ADR-0060): it enters with
- * what first names it and leaves with what last names it, so no chain stays
- * in the project that nothing processes audio with.
+ * what first names it and leaves with what last names it, so no chain stays in
+ * the project that nothing processes audio with. A group's processing names a
+ * chain as a rack does (ADR-0101), so a chain only a group names stays.
  *
  * A command that names a chain names one something in the project names
  * already, by `chainId`, or gives the chain whole, as `chain`, which it adds
@@ -16,9 +17,7 @@
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
   FailureKind,
-  chainUseCount,
   editChain,
-  chainUsers,
   fail,
   failure,
   isWellFormedId,
@@ -30,6 +29,7 @@ import {
   type EffectChainId,
   type RegionOperation,
 } from '@audiogubbins/domain';
+import { projectChainUsers, stateChainUseCount } from '@audiogubbins/game-audio';
 import {
   canonicalJson,
   readEffectChain,
@@ -57,9 +57,12 @@ export function withChain(state: ProjectState, chain: EffectChain): ProjectState
   return withChains(state, new Map([...state.project.effectChains, [chain.id, chain]]));
 }
 
-/** Whether anything in the project names the chain `id`. */
+/**
+ * Whether anything in the project names the chain `id`: an operation, a rack,
+ * or a group's processing, which its members inherit as their rack (ADR-0101).
+ */
 function isNamed(state: ProjectState, id: EffectChainId): boolean {
-  return chainUseCount(chainUsers(state.project, id)) > 0;
+  return stateChainUseCount(projectChainUsers(state.project, state.gameAudio, id)) > 0;
 }
 
 /** The text of `chain` as the project document writes it. */

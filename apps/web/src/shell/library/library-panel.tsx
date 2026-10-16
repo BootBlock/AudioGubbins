@@ -19,7 +19,7 @@ import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'r
 
 import { TextField } from '@audiogubbins/design-system';
 import type { LibraryEntry } from '@audiogubbins/domain';
-import type { ListedEntry } from '@audiogubbins/storage';
+import type { LibraryListing } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
 
 import type { EditorPanelParts } from '../../editor/panel-parts.js';
@@ -98,7 +98,7 @@ function EntryList({
   commands,
 }: {
   readonly heading: string;
-  readonly entries: readonly ListedEntry[];
+  readonly entries: readonly LibraryListing[];
   readonly shown: Shown | undefined;
   readonly project: OpenProjectState;
   readonly commands: PanelCommands;
@@ -127,9 +127,16 @@ function EntryList({
   );
 }
 
-/** The usable entries whose content is of `kind`. */
-function ofKind(entries: readonly ListedEntry[], kind: LibraryEntry['content']['kind']) {
-  return entries.filter((listed) => listed.kind === 'usable' && listed.entry.content.kind === kind);
+/** The usable entries whose content is of `kind`, the build's own or the person's as `builtIn` asks. */
+function ofKind(
+  entries: readonly LibraryListing[],
+  kind: LibraryEntry['content']['kind'],
+  builtIn: boolean,
+) {
+  return entries.filter(
+    (listed) =>
+      listed.kind === 'usable' && listed.entry.content.kind === kind && listed.builtIn === builtIn,
+  );
 }
 
 /** What the library holds, and what can be done with it. */
@@ -149,9 +156,10 @@ function LibraryContents({
   const project = useSyncExternalStore(library.project.subscribe, library.project.get);
   const shown = useShown(parts);
   const { entries } = saved;
-  const lists: readonly (readonly [string, readonly ListedEntry[]])[] = [
-    ['Saved chains', ofKind(entries, 'chain')],
-    ['Presets', ofKind(entries, 'preset')],
+  const lists: readonly (readonly [string, readonly LibraryListing[]])[] = [
+    ['Built-in chains', ofKind(entries, 'chain', true)],
+    ['Saved chains', ofKind(entries, 'chain', false)],
+    ['Presets', ofKind(entries, 'preset', false)],
     ['Cannot be used in this version', entries.filter((listed) => listed.kind === 'unusable')],
   ];
   return (
@@ -165,7 +173,7 @@ function LibraryContents({
       )}
       <SaveRack shown={shown} commands={commands} />
       {saved.problem !== undefined && <p role="status">{saved.problem}</p>}
-      {saved.loaded && entries.length === 0 && (
+      {saved.loaded && entries.every((listed) => listed.builtIn) && (
         <p>Nothing is saved yet. Save a rack here, or a processor’s settings from the rack.</p>
       )}
       {lists.map(([heading, listed]) => (

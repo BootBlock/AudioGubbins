@@ -16,12 +16,16 @@ import {
 import { PanelKinds } from '@audiogubbins/workspace';
 
 import type { Detections } from '../analysis/detection-control.js';
+import type { Auditioning } from '../audio/loop-audition.js';
 import type { SpectrogramDsp } from '../editor/spectrogram-reports.js';
 import type { PackManagerState } from '../ml/pack-manager.js';
 import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
+import type { GroupChoice } from '../state/group-focus.js';
+import type { LoudnessReadings } from '../state/loudness-store.js';
+import type { LoopAnalyses } from '../state/loop-analysis-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import {
   createRenderStrategyStore,
@@ -35,7 +39,8 @@ import type { RecordingFakes } from '../testing/recording-fakes.js';
 import { buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { DiagnosticsPanel, recordsPassing } from './diagnostics-panel.js';
-import { CapabilitiesPanel, renderPanel, type PanelContext } from './panels.js';
+import type { PanelContext } from './panel-context.js';
+import { CapabilitiesPanel, renderPanel } from './panels.js';
 
 /**
  * The diagnostic log panel.
@@ -121,6 +126,13 @@ describe('what a panel is given', () => {
     expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
     expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
     expectTypeOf<PanelContext['detection']>().toEqualTypeOf<Observable<Detections>>();
+    // The group chosen and the loudness readings alone, and no step that changes either.
+    expectTypeOf<PanelContext['groups']>().toEqualTypeOf<Observable<GroupChoice | undefined>>();
+    expectTypeOf<PanelContext['loudness']>().toEqualTypeOf<Observable<LoudnessReadings>>();
+    expectTypeOf<PanelContext['loopAnalyses']>().toEqualTypeOf<Observable<LoopAnalyses>>();
+    expectTypeOf<PanelContext['loopAudition']>().toEqualTypeOf<
+      Observable<Auditioning | undefined>
+    >();
     // The manager's state alone, and no step that changes a pack.
     expectTypeOf<Omit<PanelContext['packs'], 'unavailable' | 'availability'>>().toEqualTypeOf<
       Observable<PackManagerState>
@@ -165,6 +177,8 @@ describe('every panel', () => {
           labelFor: (id) => id,
           editor: fakePanelParts(shell, logger),
           detection: shell.detection,
+          loopAnalyses: shell.loopAnalysis.analyses,
+          loopAudition: shell.loopAudition,
           packs: shell.packs,
           modelGate: shell.modelGate,
           hearing: shell.hearing,
@@ -172,6 +186,11 @@ describe('every panel', () => {
           exports: shell.exports,
           exportSubject: shell.exportFocus.subject,
           preferences: shell.preferences,
+          gamePreview: shell.gamePreview,
+          ids: shell.ids,
+          groups: shell.groups.chosen,
+          loudness: shell.loudness.readings,
+          codecs: shell.codecs.environment,
         })}
       </>,
     );

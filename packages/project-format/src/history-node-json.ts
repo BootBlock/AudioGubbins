@@ -81,6 +81,7 @@ const AFFECTED_MEMBERS: ReadonlySet<string> = new Set([
   'markers',
   'effectChains',
   'takeStacks',
+  'gameGroups',
   'project',
 ]);
 
@@ -136,6 +137,7 @@ function writeAffected(affects: AffectedEntities): JsonObject {
     markers: listed(affects.markers),
     effectChains: listed(affects.effectChains),
     takeStacks: listed(affects.takeStacks),
+    gameGroups: listed(affects.gameGroups),
     project: affects.project ? true : undefined,
   });
 }
@@ -246,6 +248,7 @@ const asRegionIds = listConverter(MAXIMUM_ENTITIES, asId<'RegionId'>);
 const asMarkerIds = listConverter(MAXIMUM_ENTITIES, asId<'MarkerId'>);
 const asChainIds = listConverter(MAXIMUM_ENTITIES, asId<'EffectChainId'>);
 const asStackIds = listConverter(MAXIMUM_ENTITIES, asId<'TakeStackId'>);
+const asGroupIds = listConverter(MAXIMUM_ENTITIES, asId<'GameAssetGroupId'>);
 
 const asAffected: Converter<AffectedEntities> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, AFFECTED_MEMBERS);
@@ -259,6 +262,7 @@ const asAffected: Converter<AffectedEntities> = (reading, value, parent, key) =>
   const markers = optional(reading, object, at, 'markers', asMarkerIds);
   const effectChains = optional(reading, object, at, 'effectChains', asChainIds);
   const takeStacks = optional(reading, object, at, 'takeStacks', asStackIds);
+  const gameGroups = optional(reading, object, at, 'gameGroups', asGroupIds);
   const project = optional(reading, object, at, 'project', asBoolean);
   return {
     assets: assets ?? [],
@@ -269,6 +273,7 @@ const asAffected: Converter<AffectedEntities> = (reading, value, parent, key) =>
     markers: markers ?? [],
     effectChains: effectChains ?? [],
     takeStacks: takeStacks ?? [],
+    gameGroups: gameGroups ?? [],
     project: project ?? false,
   };
 };

@@ -53,6 +53,7 @@ import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 import { startAnalysis } from './analysis/analysis-part.js';
 import { browserCodecs } from './codecs/browser-codecs.js';
 import { followExportFocus } from './export/export-focus.js';
+import { followGroupFocus } from './state/group-focus.js';
 import { exportClockAt, startExport, storageRoom } from './export/page-export.js';
 import {
   browserCapture,
@@ -100,6 +101,7 @@ import { browserStorage, createStateStorage, type StateStorage } from './state/s
 import { createVerbosityStore, readStoredVerbosity } from './state/verbosity-store.js';
 import { keyboardConventionFor } from './state/keyboard-convention.js';
 import { createWorkspaceStore } from './state/workspace-store.js';
+import { startGamePreview } from './audio/preview-runner.js';
 
 /**
  * What the user's keyboard layout types: known whole where the browser gives a
@@ -253,8 +255,8 @@ function panelControls(
     run: (id, args, options) => {
       run(commandId(id), args, options);
     },
-    unavailableReason: (id) => {
-      const availability = bus.availability(context, commandId(id));
+    unavailableReason: (id, args) => {
+      const availability = bus.availability(context, commandId(id), args);
       return availability.available ? undefined : availability.reason;
     },
     labelFor: (id) => registry.get(commandId(id))?.label ?? id,
@@ -355,7 +357,7 @@ export function createApplication() {
   const audioLogger = diagnostics.loggerFor('audio');
   const models = startModels(capabilities, projectSystem.storage, audioLogger);
   const audioPart = startAudio(capabilities, interaction, storage, audioLogger, models);
-  const analysisPart = startAnalysis(interaction, audioPart.previews, models);
+  const analysisPart = startAnalysis(interaction, audioPart.previews, models, audioPart.parts);
   const editorPart = startEditor(
     capabilities,
     storage,
@@ -411,6 +413,8 @@ export function createApplication() {
 
   // After recording, whose claims on the Inspector an export's description gives way to.
   const exportFocus = followExportFocus(workspace, recordingPart.parts.claimed);
+  // After them both, whose claims on the Inspector a group's description gives way to.
+  const groups = followGroupFocus(workspace, recordingPart.parts.claimed, exportFocus.subject);
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
@@ -438,6 +442,8 @@ export function createApplication() {
     codecs,
     exports,
     exportFocus,
+    gamePreview: startGamePreview(audioPart, editorPart.parts.assets, projectSystem.projects),
+    groups,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -499,7 +505,9 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
+      context.gamePreview.runner.dispose();
       exportFocus.stop();
+      groups.stop();
       recordingPart.dispose();
       analysisPart.dispose();
       packsPart.dispose();

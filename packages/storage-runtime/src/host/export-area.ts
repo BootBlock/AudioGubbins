@@ -150,6 +150,7 @@ function destinationOf(
   return {
     kind: 'folder',
     folder: folderDestination(destination.handle),
+    path: destination.path,
     wanted: destination.wanted,
     policy: destination.policy,
     remembered: destination.remembered,

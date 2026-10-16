@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createDeterministicIdGenerator,
   instantiateProcessor,
+  unsafeBrandId,
   type IdGenerator,
   type LibraryContent,
   type LibraryEntry,
@@ -55,6 +56,7 @@ function libraryOver(
   tree: StorageTree = new MemoryStorageTree(),
   coordinator = new MemoryLeaseCoordinator(),
   seed = 1,
+  builtIn: readonly LibraryEntry[] = [],
 ): Library {
   return {
     tree,
@@ -65,6 +67,7 @@ function libraryOver(
       clock: steppingClock(),
       ids: createDeterministicIdGenerator(seed),
       catalogue: CHAIN_SHAPES_CATALOGUE,
+      builtIn,
       coordinator,
     }),
   };
@@ -347,3 +350,110 @@ describe('a change of the library cut short by a crash', () => {
     });
   });
 });
+
+describe('the library’s built-in entries', () => {
+  const BUILT_IN_AT = 1_790_000_000;
+  const builtIn: readonly LibraryEntry[] = [
+    {
+      id: unsafeBrandId<'LibraryEntryId'>('9a3e0001-0000'),
+      name: 'Game SFX, −16 LUFS',
+      savedAt: BUILT_IN_AT,
+      content: content.chain(),
+    },
+    {
+      id: unsafeBrandId<'LibraryEntryId'>('9a3e0002-0000'),
+      name: 'Gentle limiter',
+      savedAt: BUILT_IN_AT,
+      content: content.preset(),
+    },
+  ];
+  const [chainEntry, presetEntry] = builtIn;
+  if (chainEntry === undefined || presetEntry === undefined) throw new Error('Two built-ins.');
+
+  const withBuiltIns = (tree?: StorageTree) =>
+    libraryOver(tree, new MemoryLeaseCoordinator(), 1, builtIn);
+
+  it('lists them first, in their order and marked built-in, before the person’s own', async () => {
+    const { store } = withBuiltIns();
+    const own = expectSuccess(await store.save('Warm vocal', content.chain()));
+
+    const listed = expectSuccess(await store.list());
+
+    expect(listed).toEqual([
+      { kind: 'usable', entry: chainEntry, builtIn: true },
+      { kind: 'usable', entry: presetEntry, builtIn: true },
+      { kind: 'usable', entry: own, builtIn: false },
+    ]);
+    expect(expectSuccess(await store.entry(chainEntry.id))).toEqual(listed[0]);
+    expect(expectSuccess(await store.entry(own.id))).toEqual(listed[2]);
+  });
+
+  it('never replaces, renames or removes one, and keeps nothing of it in storage', async () => {
+    const { store, tree } = withBuiltIns();
+
+    expect(expectFailureCode(await store.rename(chainEntry.id, 'Mine now'))).toBe(
+      'library.built-in',
+    );
+    expect(expectFailureCode(await store.replace(chainEntry.id, content.chain()))).toBe(
+      'library.built-in',
+    );
+    expect(expectFailureCode(await store.remove(presetEntry.id))).toBe('library.built-in');
+
+    expect(usable(expectSuccess(await store.entry(chainEntry.id)))).toEqual(chainEntry);
+    expect(await tree.list('library')).toEqual([]);
+  });
+
+  it('takes its name as a kept entry’s is, for its own kind only', async () => {
+    const { store } = withBuiltIns();
+    const kept = expectSuccess(await store.save('Kept', content.chain()));
+
+    expect(expectFailureCode(await store.save('game sfx,  −16 LUFS', content.chain()))).toBe(
+      'library.name-taken',
+    );
+    expect(expectFailureCode(await store.rename(kept.id, 'GAME SFX, −16 LUFS'))).toBe(
+      'library.name-taken',
+    );
+    expectSuccess(await store.save('Game SFX, −16 LUFS', content.preset()));
+  });
+
+  it('is copied into the person’s library as an entry of their own', async () => {
+    const { store } = withBuiltIns();
+
+    const copy = expectSuccess(await store.save('My game SFX', chainEntry.content));
+
+    expect(copy.id).not.toBe(chainEntry.id);
+    expect(copy.content).toEqual(chainEntry.content);
+    const listed = expectSuccess(await store.list()).find((one) => idOfListed(one) === copy.id);
+    expect(listed).toMatchObject({ kind: 'usable', builtIn: false });
+    expectSuccess(await store.rename(copy.id, 'My louder game SFX'));
+  });
+
+  it('is listed as unusable, with the reason, where it names a processor this build lacks', async () => {
+    const stranger = {
+      ...instantiateProcessor(ids.next<'ProcessorId'>(), TEST_LIMITER),
+      typeKey: 'tape-saturator',
+    };
+    const odd: LibraryEntry = {
+      id: unsafeBrandId<'LibraryEntryId'>('9a3e0009-0000'),
+      name: 'Tape',
+      savedAt: BUILT_IN_AT,
+      content: { kind: 'preset', processor: stranger },
+    };
+    const { store } = libraryOver(undefined, new MemoryLeaseCoordinator(), 1, [odd]);
+
+    expect(expectSuccess(await store.list())).toEqual([
+      {
+        kind: 'unusable',
+        id: odd.id,
+        reason: expect.objectContaining({ code: 'effect-chain.unknown-processor-type' }),
+        entry: odd,
+        builtIn: true,
+      },
+    ]);
+  });
+});
+
+/** The identifier of a listed entry, usable or not. */
+function idOfListed(listed: ListedEntry): string {
+  return listed.kind === 'usable' ? listed.entry.id : listed.id;
+}

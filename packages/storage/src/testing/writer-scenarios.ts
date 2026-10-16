@@ -40,6 +40,7 @@ const PROJECT_AFFECTED: AffectedEntities = {
   markers: [],
   effectChains: [],
   takeStacks: [],
+  gameGroups: [],
   project: true,
 };
 

@@ -1,19 +1,22 @@
 /**
  * Delivering a staged export to where the person chose (ADR-0092,
  * REQ-ARCH-054, REQ-STOR-197): a file a save dialog gave, or a folder, kept
- * trusted or chosen for this export.
+ * trusted or chosen for this export, or a relative folder inside it
+ * (ADR-0102), walked down before anything is decided (`delivery-folders.ts`).
  *
- * A folder's collision is decided from its listing at delivery, never assumed
- * (`export-collision.ts`), the person asked where the rules ask. Each
- * destination writes through a sink that replaces the file only when it closes
- * (`createWritable` in the browser), so no destination is ever half written:
- * head, body and tail are streamed from the staging, never held whole.
+ * A folder's collision is decided from the listing of the folder written into
+ * at delivery, never assumed (`export-collision.ts`), the person asked where
+ * the rules ask; a folder not there yet lists nothing. Each destination writes
+ * through a sink that replaces the file only when it closes (`createWritable`
+ * in the browser), so no destination is ever half written: head, body and tail
+ * are streamed from the staging, never held whole.
  *
- * A delivery refused (permission lost, the name skipped or left unanswered, a
- * write the destination refused) leaves the destination as it was and the
- * export staged, so a retry or another destination needs no new render. A
- * delivered export is recorded in the project's history as an export record,
- * never as a change undo reverses (REQ-STOR-198), and its staging given up.
+ * A delivery refused (permission lost, a folder path that is not one inside the
+ * folder, the name skipped or left unanswered, a folder or a write the
+ * destination refused) leaves the destination as it was and the export staged,
+ * so a retry or another destination needs no new render. A delivered export is
+ * recorded in the project's history as an export record, never as a change undo
+ * reverses (REQ-STOR-198), and its staging given up.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';
@@ -43,7 +46,8 @@ import {
   type ExportRecord,
 } from '@audiogubbins/project-format';
 
-import { decidedIn, type CollisionPrompt, type Decided } from './export-collision.js';
+import { folderReached } from './delivery-folders.js';
+import { decidedIn, recordsIn, type CollisionPrompt, type Decided } from './export-collision.js';
 import {
   deliveryRefused,
   destinationNeedsPermission,
@@ -75,8 +79,22 @@ export interface DeliveryFolder {
   /** The file of that name, where there is one. */
   open(name: string): Promise<ByteSource | undefined>;
 
-  /** A sink for the file of that name, replacing any only once it closes. */
-  create(name: string): Promise<ByteSink>;
+  /**
+   * The folder of that name inside this one: the one there, or, where nothing
+   * has the name, one still to be made, which lists nothing and is made, with
+   * every folder above it still to be made, only when a file is created in it,
+   * and removed again where that file's writing is abandoned. `undefined`
+   * where a file has the name.
+   */
+  folder(name: string, signal?: AbortSignal): Promise<DeliveryFolder | undefined>;
+
+  /**
+   * A sink for the file of that name, replacing any only once it closes,
+   * making the folder first where it is still to be made: a refusal or
+   * `signal` part-way removes the folders made, and the file is then written
+   * only where nothing has taken its name since the folder listed nothing.
+   */
+  create(name: string, signal?: AbortSignal): Promise<ByteSink>;
 }
 
 /** Where a staged export is delivered. */
@@ -85,13 +103,23 @@ export type DeliveryDestination =
   | {
       readonly kind: 'folder';
       readonly folder: DeliveryFolder;
+
+      /**
+       * The folders from `folder` down to the one written into, outermost
+       * first; none is `folder` itself (ADR-0102).
+       */
+      readonly path: readonly string[];
       readonly wanted: ExportFileName;
       readonly policy: CollisionPolicy;
 
       /** The answer given for the rest of the batch, if one was. */
       readonly remembered: CollisionAnswer | undefined;
 
-      /** The records of what was exported to the folder before, where it is trusted. */
+      /**
+       * The records of what was exported to the folder before, where it is
+       * trusted, each naming its file by its path from `folder`
+       * (`trustedRecordName`).
+       */
       readonly trusted: readonly ExportedFileRecord[] | undefined;
       readonly prompt: CollisionPrompt;
     };
@@ -149,22 +177,25 @@ export async function deliverStaged(
     return fail(stagedExportMissing(token));
   }
   const remembered = destination.kind === 'folder' ? destination.remembered : undefined;
-  const target = destination.kind === 'file' ? destination.file : destination.folder;
-  if ((await target.access()) !== 'granted') {
+  const chosen = destination.kind === 'file' ? destination.file : destination.folder;
+  if ((await chosen.access()) !== 'granted') {
     return succeed({ kind: 'refused', failure: destinationNeedsPermission(), remembered });
   }
   try {
-    const decided =
+    const target =
       destination.kind === 'file'
-        ? ({ kind: 'write', name: destination.file.name, replaced: 'none', remembered } as const)
-        : await decidedIn(destination, services.sha256, signal);
-    if (decided.kind === 'refused') return succeed(decided);
-    const sink =
-      destination.kind === 'file'
-        ? await destination.file.open()
-        : await destination.folder.create(decided.name);
-    await written(parts, sink, signal);
-    const delivered = await recorded(session, staged, encoder, destination, decided, services);
+        ? fileTarget(destination.file, remembered)
+        : await folderTarget(destination, services.sha256, signal);
+    if (target.kind === 'refused') return succeed(target);
+    await written(parts, await target.open(signal), signal);
+    const delivered = await recorded(
+      session,
+      staged,
+      encoder,
+      destination,
+      target.decided,
+      services,
+    );
     await staging.discard(token);
     return succeed(delivered);
   } catch (error) {
@@ -175,10 +206,50 @@ export async function deliverStaged(
   }
 }
 
+/** A file a delivery decided to write, and how it is opened; or why it writes nothing. */
+type Target =
+  | Extract<Decided, { readonly kind: 'refused' }>
+  | {
+      readonly kind: 'write';
+      readonly decided: Extract<Decided, { readonly kind: 'write' }>;
+      open(signal?: AbortSignal): Promise<ByteSink>;
+    };
+
+/** A save dialog's file: written under its own name, which it holds whatever is there. */
+function fileTarget(file: DeliveryFile, remembered: CollisionAnswer | undefined): Target {
+  return {
+    kind: 'write',
+    decided: { kind: 'write', name: file.name, replaced: 'none', remembered },
+    open: () => file.open(),
+  };
+}
+
+/**
+ * The folder the destination's path leads to, and the name its listing, the
+ * rules and the person decide, against the trusted records of that folder.
+ */
+async function folderTarget(
+  destination: Extract<DeliveryDestination, { readonly kind: 'folder' }>,
+  sha256: Sha256,
+  signal?: AbortSignal,
+): Promise<Target> {
+  const reached = await folderReached(destination.folder, destination.path, signal);
+  if (reached.kind === 'refused') return { ...reached, remembered: destination.remembered };
+  const { folder } = reached;
+  const trusted =
+    destination.trusted === undefined
+      ? undefined
+      : recordsIn(destination.trusted, destination.path);
+  const decided = await decidedIn({ ...destination, folder, trusted }, sha256, signal);
+  if (decided.kind === 'refused') return decided;
+  return { kind: 'write', decided, open: (cancel) => folder.create(decided.name, cancel) };
+}
+
 /**
  * The record of a delivered export, as the project's history keeps it: what
  * was rendered and how, the encoder that wrote it, where it went, and the
- * file written.
+ * file written, with the folders inside the destination it was written into
+ * where it went into one (ADR-0102).
  */
 export function exportRecordOf(
   staged: StagedExport,
@@ -186,6 +257,7 @@ export function exportRecordOf(
   destination: { readonly kind: ExportDestinationKind; readonly label?: string },
   fileName: string,
   services: Pick<DeliveryServices, 'ids' | 'clock'>,
+  folder: readonly string[] = [],
 ): ExportRecord {
   const { origin } = staged;
   return {
@@ -199,6 +271,7 @@ export function exportRecordOf(
     file: {
       settings: origin.settings,
       fileName,
+      ...(folder.length === 0 ? {} : { folder: { segments: folder } }),
       byteLength: staged.bytes,
       sha256: staged.sha256,
       codec: encoder,
@@ -257,7 +330,8 @@ async function recorded(
               : ExportDestinationKind.TrustedDirectory,
           label: destination.folder.name,
         };
-  const record = exportRecordOf(staged, encoder, where, decided.name, services);
+  const folder = destination.kind === 'file' ? [] : destination.path;
+  const record = exportRecordOf(staged, encoder, where, decided.name, services, folder);
   const kept = await session.recordExport(record);
   return {
     kind: 'delivered',

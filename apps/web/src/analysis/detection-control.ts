@@ -16,60 +16,20 @@ import {
   createCancellationSource,
   type CancellationSource,
   type DetectorValues,
-  type EditRange,
   type QualityMode,
 } from '@audiogubbins/domain';
-import type {
-  AssistantReport,
-  DetectionHost,
-  DetectionOutcome,
-  DetectionResult,
-  DetectionSubject,
+import {
+  treatmentPlacement,
+  type DetectionHost,
+  type DetectionOutcome,
+  type DetectionResult,
+  type DetectionScope,
+  type DetectionSubject,
 } from '@audiogubbins/detection-runtime';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { observable, type Observable } from '../state/observable.js';
 import { detectionSummary } from './detection-words.js';
-
-/** What a detection reads of a view's audio: a range of it, and whether that is all of it. */
-export interface DetectionScope {
-  /** On the view's timeline, as the selection states it. */
-  readonly range: EditRange;
-  readonly whole: boolean;
-}
-
-/**
- * How a recommendation found over `scope` is applied, the one rule both what
- * its steps learn from and how it is applied follow: over a range, as a rack
- * edit, which reads the target before its racks; over the whole target, as
- * its rack, after a copy of the rack it has, so it hears the audio heard.
- */
-export function treatmentPlacement(scope: DetectionScope): 'range' | 'rack' {
-  return scope.whole ? 'rack' : 'range';
-}
-
-/** Which of the silence found is taken out: at the edges of what was analysed, within it, or both. */
-export const SILENCE_PARTS = ['edges', 'within', 'both'] as const;
-
-/** Which of the silence found is taken out. */
-export type SilencePart = (typeof SILENCE_PARTS)[number];
-
-/**
- * The stretches `report` would take out over `scope` that are `part` of the
- * silence: one at the start or end of what was analysed is at an edge, and
- * any other within, the one rule the panel and the command both follow.
- */
-export function silenceRemovals(
-  report: AssistantReport,
-  scope: DetectionScope,
-  part: SilencePart,
-): readonly EditRange[] {
-  const atAnEdge = (range: EditRange): boolean =>
-    range.start === scope.range.start || range.end === scope.range.end;
-  return report.recommendation.removals.filter(
-    (range) => part === 'both' || atAnEdge(range) === (part === 'edges'),
-  );
-}
 
 /** What a detection is of: the asset or region, its name, its scope and its audio's identity. */
 interface Asked {

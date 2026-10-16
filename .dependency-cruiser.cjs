@@ -80,12 +80,14 @@
  *
  * - project-format: the authoritative, versioned project and the forms it is
  *   written in; depends on domain + text + version, on the codecs' names and
- *   metadata map a compressed source's provenance records, and on the export
- *   settings a project and an export record keep (ADR-0090, ADR-0092).
+ *   metadata map a compressed source's provenance records, on the export
+ *   settings a project and an export record keep (ADR-0090, ADR-0092), and on
+ *   the game-audio state it keeps (ADR-0106).
  * - project-commands: the commands that change a project; depends on domain +
- *   commands + project-format + text.
+ *   commands + project-format + text, and on game-audio for the groups and
+ *   memberships its game commands change (ADR-0101).
  * - history: branching history as values; depends on domain + commands +
- *   project-format.
+ *   project-format, and on game-audio for the groups its differences name.
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
  * - model-packs: model packs (ADR-0062): the manifest, the install state
@@ -106,6 +108,16 @@
  *   commands, diagnostics, domain, history, import-export, media-store,
  *   project-commands, project-format, recording and storage, and on
  *   audio-runtime's capture channel reader alone (ADR-0070).
+ *
+ * Phase 10's packages (ADR-0100), none of which imports anything of Godot:
+ *
+ * - game-audio: groups, inherited policy, naming, game export profiles and the
+ *   preview as values; depends on domain, import-export, audio-engine and text.
+ * - loop-analysis: seamless-loop analysis over a given source; depends on
+ *   domain + audio-engine.
+ * - guided-workflows: planners of project-command invocations; depends on
+ *   domain, commands, game-audio, loop-analysis, processors, import-export,
+ *   project-format, project-commands and detection-runtime.
  *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,
  * may take the fixtures package, which their own rules below leave out of what
@@ -185,7 +197,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|import-export|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|game-audio|guided-workflows|history|import-export|input|loop-analysis|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -430,6 +442,52 @@ module.exports = {
       to: { path: '^packages/(?!(import-export|domain|audio-graph|audio-engine|codecs)/)' },
     },
     {
+      name: 'game-audio-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Game audio as values: groups, inherited policy, naming, game export profiles and the ' +
+        'preview (ADR-0100). It depends on the domain, the export settings a profile resolves to, ' +
+        "the engine's canonical primitives and the text package's quoting, and knows no browser, " +
+        'storage, command or interface package: the project format and the commands keep and ' +
+        'change its state from ' +
+        'above. Its tests may take the fixtures package.',
+      from: { path: '^packages/game-audio/' },
+      to: {
+        path: '^packages/(?!(game-audio|audio-engine|domain|import-export|text)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'loop-analysis-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Seamless-loop analysis reads audio through a source it is given, with the canonical ' +
+        'primitives and transform of the engine (ADR-0100, ADR-0103). It depends on the domain and ' +
+        'the engine alone, and the detection worker that runs it sits above it. Its tests may ' +
+        'take the fixtures package.',
+      from: { path: '^packages/loop-analysis/' },
+      to: {
+        path: '^packages/(?!(loop-analysis|audio-engine|domain)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'game-audio-knows-no-godot',
+      severity: 'error',
+      comment:
+        'The game-audio packages are the contracts an engine integration is written against, so ' +
+        'they import nothing of one (ADR-0100, REQ-GODOT-107): a Godot package depends on them, ' +
+        'never the reverse. Matched on any path naming Godot, in any case, so a package of the ' +
+        'workspace, a third-party library and a relative path into either are all refused. ' +
+        "The three packages' own modules are not: the Export for Godot workflow plans ordinary " +
+        'export profiles and is named for what it prepares, not for anything it imports.',
+      from: { path: '^packages/(game-audio|guided-workflows|loop-analysis)/' },
+      to: {
+        path: '[Gg][Oo][Dd][Oo][Tt]',
+        pathNot: '^packages/(game-audio|guided-workflows|loop-analysis)/',
+      },
+    },
+    {
       name: 'waveform-owns-nothing-else',
       severity: 'error',
       comment:
@@ -466,11 +524,11 @@ module.exports = {
         'detectors and assistants over it (ADR-0061, ADR-0062). It depends on the domain, the ' +
         'engine and the processors whose detectors and learners it runs, and its thread entry ' +
         'and test support on the effect rack an edited sound is read with, and the entry on the ' +
-        'model channel its models run through (ADR-0062); it knows no interface, storage or ' +
-        'command package.',
+        'model channel its models run through (ADR-0062); it runs the loop analysis (ADR-0103); ' +
+        'it knows no interface, storage or command package.',
       from: { path: '^packages/detection-runtime/' },
       to: {
-        path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+        path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|loop-analysis|ml-runtime|processors)/)',
       },
     },
     {
@@ -568,10 +626,11 @@ module.exports = {
         'can read it and it can read none of them (ADR-0020); it reads the text leaf for the ' +
         'rule a given name is held to, and the codecs and the export settings, portable values ' +
         'below every Phase 02 package, for the provenance and the export settings it keeps ' +
-        '(ADR-0090, ADR-0092). Its tests may take the fixtures package.',
+        '(ADR-0090, ADR-0092), and the game-audio state it keeps and validates with the project ' +
+        '(ADR-0106). Its tests may take the fixtures package.',
       from: { path: '^packages/project-format/' },
       to: {
-        path: '^packages/(?!(codecs|domain|import-export|project-format|text|version)/)',
+        path: '^packages/(?!(codecs|domain|game-audio|import-export|project-format|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -581,10 +640,26 @@ module.exports = {
       comment:
         'A project command reads the project it changes and the command contract, and nothing ' +
         'that keeps or shows a project: replay stays deterministic (ADR-0020). It reads the text ' +
-        'leaf for the count a description says (ADR-0018).',
+        'leaf for the count a description says (ADR-0018), and the game-audio state its game ' +
+        'commands change and validate (ADR-0101).',
       from: { path: '^packages/project-commands/' },
       to: {
-        path: '^packages/(?!(commands|domain|project-commands|project-format|text)/)',
+        path: '^packages/(?!(commands|domain|game-audio|project-commands|project-format|text)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'guided-workflows-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'A guided workflow plans ordinary project-command invocations from a subject, its ' +
+        'options, the project and the analyses (ADR-0100, ADR-0105). It reads what it plans ' +
+        'over and dispatches nothing, so it knows no storage, browser host or interface: the ' +
+        'application dispatches its plan as one history step. Its tests may take the fixtures ' +
+        'package.',
+      from: { path: '^packages/guided-workflows/' },
+      to: {
+        path: '^packages/(?!(guided-workflows|commands|detection-runtime|domain|game-audio|import-export|loop-analysis|processors|project-commands|project-format)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -593,10 +668,11 @@ module.exports = {
       severity: 'error',
       comment:
         'History may reference command and domain identifiers but not renderer or interface ' +
-        'internals, nor storage: it is the model the journal persists (Phase 02 packet).',
+        'internals, nor storage: it is the model the journal persists (Phase 02 packet). It ' +
+        'reads the game-audio state for the groups a difference names (ADR-0106).',
       from: { path: '^packages/history/' },
       to: {
-        path: '^packages/(?!(commands|domain|history|project-format)/)',
+        path: '^packages/(?!(commands|domain|game-audio|history|project-format)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

@@ -36,6 +36,7 @@ import { AMBISONIC_ENCODER } from './space/ambisonic-encode.js';
 import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
 import { DELAY } from './space/delay.js';
 import { REVERB } from './space/reverb.js';
+import { SPATIAL_PANNER } from './space/spatial-panner.js';
 import { DEEPFILTERNET_3_DESCRIPTOR, deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
 import type { ModelServices } from './ml/model-sessions.js';
 import { MOSSFORMER2_SE_48K_DESCRIPTOR, mossFormer2Se48k } from './ml/mossformer2/mossformer2.js';
@@ -67,6 +68,7 @@ export const PROCESSOR_TYPES: readonly ProcessorType[] = [
   AMBISONIC_ENCODER,
   AMBISONIC_ROTATION,
   AMBISONIC_DECODER,
+  SPATIAL_PANNER,
   DC_OFFSET_REMOVAL,
   DE_HUM,
   DE_CLICK,

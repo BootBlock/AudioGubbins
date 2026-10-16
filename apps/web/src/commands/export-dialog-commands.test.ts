@@ -151,9 +151,11 @@ describe('starting the export', () => {
     expect(audio.session.getSnapshot().model.state.exportSettings).toEqual(dialog.settings);
     expect(exporting.started).toHaveLength(1);
     const [started] = exporting.started;
-    expect(started?.start.asset).toBe(audio.assetId);
-    expect(started?.start.settings).toEqual(dialog.settings);
-    expect(started?.start.destination).toEqual({ kind: 'file', handle: chosen });
+    expect(started?.start).toEqual({
+      asset: audio.assetId,
+      settings: dialog.settings,
+      destination: { kind: 'file', handle: chosen },
+    });
     expect(audio.window.projects.exportDialog.get()).toEqual({ kind: 'closed' });
 
     audio.window.run(ExportCommand.Audio);

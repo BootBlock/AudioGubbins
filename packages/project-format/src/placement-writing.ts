@@ -16,6 +16,7 @@ export function writeAnchoredLoop(loop: AnchoredLoop): JsonObject {
     start: loop.start,
     end: loop.end,
     crossfadeLength: loop.crossfadeLength,
+    crossfadeShape: loop.crossfadeShape,
   };
 }
 

@@ -1505,6 +1505,124 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Amended:** on 2026-10-10, by Phase 09's build, in four clauses. Reading: RIFF and IFF text, whose formats state no coding, is read as UTF-8 where all of it is valid and as Latin-1 otherwise, and every other value in the coding its format states; a value ends at its first NUL and loses its C0 and C1 control characters and DEL, long text keeping tab, line feed and carriage return; the bounds are 1 MiB an item, 32 MiB a picture, 8 MiB of RIFF or IFF metadata chunks and 64 MiB of tags a file, 4,096 fields, 4,096 cue points, 1,024 loops and 4,096 markers; and metadata a reader refuses is `unread` and does not refuse the audio. `METADATA_READERS` maps WAV, RF64, BW64, AIFF, AIFF-C, FLAC, Ogg (FLAC in Ogg included), MP4, MP3 and ADTS; WebM and Matroska have no mapping and no reader. The mappings: RIFF `ISRC`, which means the source, is not mapped; `bext` is written as version 1; an `iXML` chunk read from a file is not carried into an export; loops are read from `LOOPSTART` and `LOOPLENGTH`, `LOOP_START` and `LOOP_LENGTH`, and `LOOPEND` or `LOOP_END` as the first frame after the loop, and one forward endless loop is written, any other loop reported dropped; FLAC writes its loops as comments and, where the person keeps them, a `smpl` in `APPLICATION` `riff` blocks, whose loops win on read; a field the target names no key for goes in its free-form field; the Vorbis comment rewriter keeps the encoder's vendor string and refuses chained or multiplexed streams; tuning is in whole cents, as AIFF holds it, and a fractional tuning is reported dropped; and a writer drops, and reports, any value that would not read back unchanged. Loops and art on import: each loop becomes a region over the whole asset with a forward endless loop at the file's span, the file's play count and direction staying in provenance; a loop or cue outside the asset is left out and counted; and embedded cover art is described in provenance by its type, description and size, its bytes staying in the source file. Layouts: WAV writes the mask's speakers in bit order and then the rest, and states what no mask holds, an ambisonic order and normalisation among it, in the `iXML` element `AUDIOGUBBINS_CHANNEL_LAYOUT`, which a reader honours only where it agrees with the mask; and MP4 holds only AAC-LC with a stated channel configuration. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-010`, `REQ-ARCH-157`, `REQ-STOR-166`, `REQ-GAME-121`, `REQ-GODOT-133`, `REQ-EXEC-136`.
 
+<!-- adr/ADR-0100-game-audio-package-topology.md -->
+
+# ADR-0100 — Game-Audio Tooling Is Three Packages Over The Editing, DSP And Export Contracts, And Godot Knows Nothing Of Them Yet
+
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
+- **Decision:** Phase 10's code is three new packages, each with one responsibility and one direction between them, and additions to existing packages at the seams those packages already own. No package named `export-recipes` is made: export recipes as project objects are Phase 11's (`REQ-GODOT-119`), and the game layer of export is a module of `packages/game-audio` (`ADR-0102`).
+  - `packages/game-audio` (`@audiogubbins/game-audio`, portable) is the game-audio domain as values: asset groups, membership, inherited policy and its resolution with provenance (`ADR-0101`), naming templates, game export profiles, destination paths and the game export plan (`ADR-0102`), and the game preview's rules, scenarios, seeded selection, voice model, attenuation and the preview plan (`ADR-0104`). It depends on `packages/domain`, `packages/import-export` and `packages/audio-engine` (the canonical primitives, `pow` for a pitch's ratio), reads no clock, browser global or thread, and is given the processor catalogue it builds a preview chain from as an argument. It states `projectChainUsers`, the one answer to what names a chain once groups can (`ADR-0101`).
+  - `packages/loop-analysis` (`@audiogubbins/loop-analysis`, portable) is seamless-loop analysis: the metrics, the candidate search, the micro-crossfade suggestion and the loop audition plans (`ADR-0103`). It depends on `packages/domain` and `packages/audio-engine` (the canonical primitives, the STFT and `PcmSource`), and reads audio only through a `PcmSource` it is given, in bounded windows.
+  - `packages/guided-workflows` (`@audiogubbins/guided-workflows`, portable) is the guided workflows as deterministic planners: each turns a subject, its options, the project state and analysis results into a list of ordinary project-command invocations dispatched as one history step (`ADR-0105`). It depends on `packages/domain`, `packages/commands`, `packages/game-audio`, `packages/loop-analysis`, `packages/processors`, `packages/import-export`, `packages/project-format`, `packages/project-commands` and `packages/detection-runtime`, and dispatches nothing itself. What a planner reads of an assistant's report (`silenceRemovals`, `treatmentPlacement`, `learnedStates`) moves from `apps/web` to `packages/detection-runtime`, which defines the report, so the interface and the planners follow one rule.
+  - **Seams in existing packages.** `packages/project-format` keeps the game-audio state in `ProjectState.gameAudio` (`ADR-0106`) and depends on `packages/game-audio`; `packages/project-commands` gains the game commands in `src/game/` and depends on `packages/game-audio`; `packages/history` diffs the game-audio state; `packages/detection-runtime` runs a loop analysis and a loudness measurement as requests of the detection worker it already is, depending on `packages/loop-analysis` (amending `ADR-0061`); `packages/domain` gains the loop crossfade and its shape in a region's plan, the varispeed stream and a plan chain's parameter automation (`ADR-0103`, `ADR-0104`), and the counter-based draw moved from `packages/import-export` so the dither and the preview share one generator; `packages/audio-engine` gains the zero-crossing boundary moved from `packages/waveform`, which keeps its search over it; `packages/processors` gains the `spatial-panner` processor type and the built-in game chains of the processing library, which `packages/storage`'s library lists; `packages/effect-rack` evaluates parameter automation in a plan's chain; `packages/audio-runtime` and `apps/web/src/audio` gain the continued programme (`ADR-0104`); `packages/storage`, `packages/storage-runtime` and `packages/browser-storage` deliver into a relative folder of a chosen or trusted folder (`ADR-0102`); `apps/web` gains the game-audio panels and commands; `packages/workspace` places them in the Game Audio preset.
+  - **Direction.** `domain`, `audio-engine` ← `import-export` ← `game-audio` ← `project-format` ← `project-commands` ← `guided-workflows` ← `apps/web`; `domain`, `audio-engine` ← `loop-analysis` ← `detection-runtime`, `guided-workflows`, `apps/web`. Nothing below `apps/web` imports a Godot package, and the dependency cruise holds `packages/game-audio`, `packages/loop-analysis` and `packages/guided-workflows` to that, so Phase 11's packages depend on these and never the reverse (`REQ-GODOT-107`, the packet's dependency rule).
+- **Drivers:** the packet's owned modules and its dependency rules ("game-audio domain depends on generic editing/DSP/export contracts"; "must not import Godot-specific runtime/editor types"); `REQ-EXEC-136.3` cohesive boundaries; the working agreement's G1 (one responsibility per module, a domain package takes its I/O through an injected port) and G2. The project format already depends on the export package for `ProjectState.exportSettings` (`ADR-0092` amended), so game state kept beside it follows the same direction. The workflows compose project-command invocations, so they cannot live below `packages/project-commands`, and `packages/project-commands` cannot depend on them without a cycle through the project format.
+- **Constraints:** the three packages know no React, browser global or storage; analysis runs in the detection worker, never on the page; the game commands are project commands with inverses, and the interface invokes commands only (`REQ-EDIT-073`). A package added here is registered in `tools/sync-workspace-graph.mjs`, the layering of `tests/architecture/dependency-rules.test.ts`, an owns-nothing-else rule of `.dependency-cruiser.cjs` and the public-contract record.
+- **Change record:** affected requirements `REQ-GAME-023`, `REQ-GAME-075`, `REQ-GAME-120`, `REQ-GAME-121`, `REQ-GAME-122`, `REQ-EXEC-136`, `REQ-EXEC-184`; affected phases 10, and 11 and 13, which build on these packages (Phase 13's packet also lists `packages/game-audio`, which it extends). The packet's owned module "packages/export-recipes game layer" is realised as `packages/game-audio/src/export/` and its owned modules gain `packages/guided-workflows` and the seams above, by the specification change `CHG-0001`. Compatibility impact: none by itself (`ADR-0106` raises the document). Public API: the three packages' entry points. Godot interchange and runtime: none; Phase 11 consumes these contracts. PWA and browser: none. Verification: the layering and the dependency cruise, `pnpm test:architecture`, the scope projects.
+- **Amends:** `ADR-0061`, whose detection worker also runs a loop analysis and a loudness measurement of a target's processed audio; `ADR-0040` amended, whose `packages/waveform` keeps its zero-crossing search over the boundary `packages/audio-engine` now states. Their other clauses stand.
+- **Related requirements:** `REQ-GAME-023`, `REQ-GAME-075`, `REQ-GAME-120`, `REQ-GAME-121`, `REQ-GAME-122`, `REQ-GODOT-107`, `REQ-GODOT-119`, `REQ-EDIT-073`, `REQ-EXEC-136`, `REQ-EXEC-184`.
+
+<!-- adr/ADR-0101-asset-groups-and-inherited-policy.md -->
+
+# ADR-0101 — An Asset Group Is A Node Of One Tree, Its Policy Is Resolved Field By Field With The Owner Named, And Its Processing Is Heard Through The Member's Shared Rack
+
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
+- **Decision:** `REQ-GAME-120`'s hierarchical groups are values of `packages/game-audio`, kept in the project and changed only by project commands with inverses.
+  - **The tree.** A `GameAssetGroup` has an identifier, a name, an optional parent and the policy it sets. The groups form one forest: a parent exists, no group is its own ancestor, and siblings' names differ in NFC lower case. A name is one path segment, 1 to 128 characters, with no `/`, control character or surrounding space, so `Footsteps/Grass` is the path of the group `Grass` under `Footsteps`, never a name.
+  - **Members.** A member is a region or an asset (`GroupMember`), each in at most one group, so its effective policy has one answer. A group's members are held in the order they were assigned, which is the order the preview chooses among and `{number}` counts by (`ADR-0102`); reordering and weights are Phase 13's (`REQ-GAME-112`). A variation set and an event join the member union when Phases 13 and 11 make them; no arm is made before them. A region or asset in a group cannot be removed by the project's remove command until it leaves the group, as a chain something names cannot (`ADR-0060`); the interface's delete and split commands leave and rejoin in the same step.
+  - **The policy.** `InheritedPolicy` is a record of optional fields, one per default `REQ-GAME-120` names: `processing` (an `EffectChainId`, or `none`), `loudness` (an integrated target in LUFS, a tolerance in LU and an optional true-peak ceiling in dBTP), `exportProfile` (`ADR-0102`), `naming` (a naming template), `destination` (a relative folder path), `emitter` (how a player of the group selects, limits, steals, cools down and attenuates, `ADR-0104`), `variation` (how each voice of a member varies in pitch, gain and start), `bus` (the runtime bus a member plays on, by name) and `tags`. A field a group does not set is inherited; a field it sets is set there, never copied into its descendants.
+  - **Overrides.** A member's overrides are a record of the same fields but `processing`, `tags` and `emitter`, which belongs to whoever plays the group, not to one sound in it. An override is a value set on the member; resetting it to inherited removes it. No field holds a hidden default: an unset field with no ancestor that sets it is `unset`, and what consumes it says what it does without one.
+  - **Resolution.** `resolvePolicy(project, state, member)` answers, for every field, the value, its source (the member's override, the nearest group that sets it, or `unset`) with that group's identifier and path, and the values of the ancestors it shadows. It walks the member's group to the root once, field by field, so the answer depends only on the state and is the same in any order of evaluation; `resolveAll` answers every member in one pass. Tags are the one additive field: the union, in sorted order, of every ancestor's tags and a region's own `Region.tags`, each tag with the groups and member that give it. An invalid value (a template that does not read, a path segment refused, a profile a member's audio cannot take) is a failure that names the field and its owner, group or member, as the packet's failure rule requires.
+  - **Processing is heard through the rack.** The plan is the only description of an edited sound (`ADR-0051`), and the domain's plan knows no group, so an inherited processing chain is realised as the member's rack naming the group's chain: a shared chain (`ADR-0060`). Each membership records `processing`, `inherit` or `own`, the one authority on whether the member inherits, and the state is valid only where every `inherit` member's rack is exactly its inherited processing: the chain the nearest setting group names, and no rack where that is `none` or no group sets it. A member can therefore inherit `none`; `own` keeps any rack, even one equal to the group's. Assigning with `inherit` sets the rack to the inherited processing; every game command that changes what an `inherit` member inherits (setting a group's `processing`, moving a group, assigning) sets every `inherit` member's rack in the same command, so one undo restores both, and a chain set to none and then to another takes every inheritor with it. `project.set-rack` on an `inherit` member makes it `own` in the same command; resetting to inherited is a command that sets `inherit` and the rack. A chain a group names enters and leaves the project with it, and is not removed while a group or a member names it: `projectChainUsers` answers what names a chain, groups included, and is the one function every reader of chain users reads, the chain naming, the history's difference names and the rack commands of the interface among them.
+  - **Loudness is a target, not a hidden processor.** The `loudness` field states what a member should measure at. A conformance report measures members in the detection worker against their effective target and tolerance, and the Normalise Game SFX workflow realises the target as a loudness-normalisation slot at the end of the group's chain or a member's own rack (`ADR-0105`). Nothing is normalised because a field says so.
+  - **Bus and playback rules are authored rules.** `bus` names a runtime bus as a game engine knows it, not one of the editor's buses, which no phase has built; the preview routes each voice by its member's bus (`ADR-0104`) and Phase 11 maps it. `emitter` and `variation` hold the rules the preview runs and that Phase 11's runtime resources are generated from.
+  - **Game processing presets.** `REQ-GAME-023`'s game-oriented processing presets are built-in entries of the person's processing library (`ADR-0060`'s saved chains), stated in `packages/processors` with fixed identifiers and listed by the library store beside the person's own, never renamed or removed; applying one to a group copies it into the project and sets the group's `processing` to it, one step.
+- **Drivers:** `REQ-GAME-120` (explicit, inspectable inheritance; overrides distinguishable and resettable; no hidden state), the packet's invariants ("inheritance is explicit and overridable; no hidden magic settings") and failure rule ("invalid inherited settings must identify the owning group/override"), `ADR-0051` and `ADR-0060` (the plan is the only description of a sound; sharing is naming one chain), `REQ-EDIT-073`. A group processing stage added to the plan would make the domain know games, against the packet's dependency rule, and a flag beside the rack would be a second record that could disagree with what is heard.
+- **Constraints:** resolution is pure and total over a valid state, and the project format refuses a document whose groups break the tree, membership or chain rules. Every group change is a project command with an inverse (`ADR-0106`). A member's tags stay `Region.tags`, the region's own; assets have no tags of their own in this phase.
+- **Change record:** affected requirements `REQ-GAME-120`, `REQ-GAME-023` (naming templates, loudness matching, game-oriented presets), `REQ-EDIT-014` (shared processing chains); affected phases 10, 11 (which generates runtime resources from groups, rules and buses) and 13 (whose variation sets join the member union and inherit the same policy). Compatibility impact: the project document gains the game-audio state (`ADR-0106`). Public API: `GameAssetGroup`, `GroupMember`, `GroupMembership`, `MemberProcessing`, `InheritedPolicy`, `PolicyOverrides`, `EffectivePolicy`, `GroupEffectivePolicy`, `resolvePolicy`, `resolveGroupPolicy`, `resolveAll`, `projectChainUsers`; the built-in library entries in `@audiogubbins/processors`. Godot interchange and runtime: buses and playback rules are what Phase 11 maps. PWA and browser: none. Verification: resolution tested directly over generated forests, deterministic and order-independent; every invalid field's failure naming its owner; an `inherit` member with another rack refused; inheriting `none`, A to none to B, and `own` with an equal rack; the rack re-pointing of every game command and its inverse; no reader of chain users but `projectChainUsers`; the project round trip.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its members clause. The project's remove commands do not refuse a region or an asset in a group: removing one takes its membership with it, and the inverse that adds it back restores the membership at its place in the assignment order with its processing and overrides, so one undo restores the member and how it belonged, and the interface's delete composes no leaving step. A group, a membership or a member's region or asset that a preview scenario plays is not removed: the command is refused, naming the scenario (`ADR-0104` amended). The fields a member may override are one list in `packages/game-audio`, read by the commands and the project format.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its validation. A profile's shape is held by its type and the project format's reader, so the state's validation has no profile to refuse; that a member's audio cannot take its profile is the one profile refusal, `game.policy-profile-invalid`, raised for that member when its export is planned (`ADR-0102`) with the group or override that owns the profile named.
+- **Related requirements:** `REQ-GAME-120`, `REQ-GAME-023`, `REQ-GAME-112`, `REQ-EDIT-014`, `REQ-EDIT-073`, `REQ-ARCH-153`.
+
+<!-- adr/ADR-0102-naming-templates-export-profiles-and-destinations.md -->
+
+# ADR-0102 — A Game Export Profile Resolves To Phase 09's Settings, Names Come From One Template Grammar, And Many Members Export As One Itemised Plan
+
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
+- **Decision:** The game layer of export is `packages/game-audio/src/export/`. It adds no second settings model, preset list or file-name grammar: it resolves inherited policy into Phase 09's `ExportSettings`, one record per member, and hands them to Phase 09's planning, jobs and delivery (`ADR-0092`).
+  - **`GameExportProfile`.** A format and the choices of a preset for it, without the range and the file name, which the member and its naming give: `{ format: F; choices: Omit<PresetChoices<F>, 'range' | 'fileName'> }`. Resolving it for a member is `resolvePreset` over that member's `ExportContext`, then the range of the member (the region, or the asset as the project), then the file name its naming gives. A built-in preset applied to a group copies its choices into the profile, so the profile stays readable when presets change; the person's own presets are copied the same way, since a project never reads the person's preferences.
+  - **One grammar, two vocabularies.** `packages/import-export` keeps the template grammar (`{token}`, `{{` and `}}`, a brace alone refused) and gains an optional modifier, `{token:modifier}`, read by the same reader against a vocabulary the caller states. Phase 09's file-name vocabulary is unchanged. A `NamingTemplate`'s vocabulary is Phase 09's tokens with the region's and project's names, and `{group}` (the member's group's name), `{group-path}` (its path, joined by `_`), `{asset}` (the asset's name) and `{number}` (the member's place in its group from 1, padded by `{number:N}` to N digits, 1 to 6, else to the width of the group's member count). The case modifiers `lower`, `upper`, `snake`, `kebab` and `pascal` apply to any text token, word boundaries being Unicode letter-and-digit runs. `{number}` counts within the group, not the batch, so a member's name does not change with what else is exported.
+  - **Expansion and collisions.** Expansion is pure over the state, the member, the clock and offset the caller gives and the target's extension; its result is a literal stem, escaped into the settings' `fileName`, so `planExport` fills nothing further and `safeFileName` makes it safe as it does every name. Two items of one plan whose safe names are equal in NFC lower case in the same destination folder are a naming conflict, reported before anything renders with both members and the owner of each template; files already at the destination stay the collision policy's (`ADR-0092`).
+  - **Destination paths.** A `DestinationPath` is a relative folder path of 0 to 16 segments; each segment is refused, never repaired, where `safeFolderName` (beside `safeFileName`, the same forbidden characters, device names, NFC and 255-byte rule) would change it, or where it is `.` or `..`. Delivery to a chosen or trusted folder writes into that relative folder, made where absent; a trusted folder's records name a file by its relative path, so a trusted overwrite still needs the last record of that path to match. A save dialog's file and a download have no folder, and the plan says the path is not used there. A path with tokens is a folder template, Phase 11's (`REQ-GODOT-119`).
+  - **The game export plan.** `planGameExport` answers, for a list of members, one item each: the member, its resolved settings with the provenance of every field that made them, its planned file and destination path, or the failures that refuse it, each naming its owner. A refused item does not refuse the others; the person exports the planned ones as one Phase 09 batch, one job each, after seeing the refused ones. This list is the batch-ready hook: Phase 13's batch job takes the same items, adding scheduling, retry and resume (`REQ-GAME-074`, its packet's `BatchJob`).
+  - **Region naming.** Naming members' regions from a template is the same expansion written into `displayName` by the project's own region command, one step for all of them, for the person to read and change.
+- **Drivers:** `REQ-GAME-120` (export recipes, naming templates and destination paths as inherited defaults), `REQ-GAME-023` (naming templates, region naming, export presets, batch export, sample-rate, bit-depth and channel conversion), `REQ-EDIT-014` (many exports from one recording), `ADR-0092` (one settings model, presets over it, no export silently overwrites), `REQ-GODOT-119` and the Phase 09 handoff, which give persistent export recipes to Phase 11 on Phase 09's settings.
+- **Constraints:** no game code writes a file, reads a clock or decides a collision; `validateExportSettings` judges each item, and a profile a member's audio cannot take is refused for that member with the group that owns the profile named. A batch's index token, `{index}`, keeps its Phase 09 meaning.
+- **Change record:** affected requirements `REQ-GAME-023`, `REQ-GAME-120`, `REQ-EDIT-014`, `REQ-AUDIO-050`, `REQ-ARCH-054`; affected phases 09 (whose grammar gains modifiers and whose delivery gains a relative folder), 11 (whose recipes replace or reference the profile field, and whose folder templates extend the destination) and 13 (whose batch takes the plan's items). Compatibility impact: trusted-folder records keyed by a relative path, in the browser's handle database, which no shipped build has filled. Public API: `GameExportProfile`, `NamingTemplate`, `DestinationPath`, `GameExportPlan`, `planGameExport` in `@audiogubbins/game-audio`; the vocabulary-taking template reader and `folderSegmentProblem`, the one folder-segment rule delivery and destination paths both read, in `@audiogubbins/import-export`; the folder port's relative folder in `@audiogubbins/storage`. Godot interchange and runtime: none. PWA and browser: a relative folder needs a folder handle, so a download gives a flat name and says so. Verification: every token and modifier expanded over generated names; collisions found before rendering; every profile resolving to the settings `resolvePreset` gives; a refused item named with its owner; delivery into a new and an existing relative folder, trusted and not.
+- **Amends:** `ADR-0092`, in its naming clause (modifiers and vocabularies) and its destinations (a relative folder). Its other clauses stand.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its destination paths, the game export plan, region naming and the export record. A folder the path names is made only when a file is created in it, and the folders made are taken back where the file is abandoned, refused or cancelled, keeping one in which something else was put meanwhile. An export record's file keeps the relative folder it went to, so the history names where each file went (`ADR-0106` amended). A member asked for more than once in a request is planned at its first place and refused at each repeat (`game.export-member-repeated`). Naming regions refuses a template naming `{format}`, a file's extension, which no region's name has. The folder-segment rule is stated once and published as `folderSegmentProblem`, which says why a segment is refused; `safeFolderName` is not public.
+- **Related requirements:** `REQ-GAME-023`, `REQ-GAME-120`, `REQ-EDIT-014`, `REQ-AUDIO-050`, `REQ-ARCH-054`, `REQ-GODOT-046`, `REQ-GODOT-119`.
+
+<!-- adr/ADR-0103-loop-analysis-suggestions-and-loop-crossfades.md -->
+
+# ADR-0103 — Loop Analysis Measures The Seam Canonically And Suggests Ranked Candidates, A Loop's Crossfade Is Part Of Its Region's Sound, And Only The Person Moves A Loop
+
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
+- **Decision:** `REQ-GAME-121` is `packages/loop-analysis`, run by the detection worker over a region's processed audio, with the loop's crossfade realised in the region's plan.
+  - **The loop is the region's.** The loop being analysed is `Region.loop` (`AnchoredLoop`, Phase 05), placed as the domain's `LoopDefinition`; the packet's contract names them, and no second loop value is made. A region holds at most one loop, which export writes as one forward endless loop (`ADR-0093`).
+  - **What a seam is compared with.** A seam metric compares what an engine plays after the loop's end E with what should follow it: the loop's head against the audio after E, or its tail against the audio before its start S, where the region has that audio, and the tail against the head only for a whole-sound loop, which has nothing else; each metric reports which reference it used, so a drum loop's hit after its decay, or a drone's steady DC, is not mistaken for a discontinuity.
+  - **The metrics.** Over each channel, with W the analysis window (50 ms, between 256 and 32,768 frames and at most a quarter of the loop; a loop under 256 frames is read cyclically and has no spectral or phase metric): the discontinuity, the click detector's Burg residual (`clicks.ts`) at the seam of the virtual stream of tail then head, in median absolute deviations, so it does not scale with the sample rate; the DC mismatch between Blackman–Harris-weighted means over at least 200 ms each side, and the loop's net DC; the level mismatch in dB; the phase mismatch at the dominant partial, from Blackman–Harris-weighted projections, where one stands 20 dB above the median of a Welch spectrum; the spectral mismatch, the log-spectral distance over third-octave bands holding at least four bins, low bands merged and powers floored; the distance of each boundary from the nearest zero crossing inside the region, by the snapping definition now stated once in `packages/audio-engine` with the region's outside not counted as silence, and whether the signs match across the seam; the crossfade's suitability, from the energy-weighted multichannel correlation of the two spans in the audio without the crossfade and the largest level change of each domain fade shape; and the cycle's stability, the seam's 10 ms dB envelope against the loop's own by median absolute deviation, floored at 0.05 dB, and the drift between the loop's first and last eighth. A denominator is floored at 2⁻²⁴, and audio that is not finite is refused. Each has a unit, a value, the worst channel and a verdict, pass, warn, fail or not applicable with the reason, against thresholds the plan's table states. Every value is computed with the basic operations and the canonical primitives of `ADR-0032` in a stated order, so an analysis is the same on every machine and a golden test pins it.
+  - **Candidates.** Asked to search, the analysis looks within a radius of each boundary (20 ms by default, at most 2 s), keeping the loop's length where asked, in one streamed pass that keeps the two search windows, prefix sums and a fixed-resolution dB envelope histogram, so no candidate reads audio again: start anchors are each channel's sign changes nearest S; ends are ranked by the multichannel normalised cross-correlation of each anchor's neighbourhood over the end's window, by the canonical FFT in overlap-save blocks of 65,536, its largest size; the best 512 pairs are measured and ordered by one cost over the metrics, a metric not applicable adding nothing, and the distance moved. Ties fall to the smaller move, then the earlier start, then the earlier end, so the same audio, settings and algorithm version give the same list. A candidate whose seam does not pass is offered with the shortest micro-crossfade (2, 5, 10, 20 or 50 ms, and at least two periods of a dominant partial) and the fade shape whose crossfaded audio passes, scored over the fade and a window either side: the residual including the fade's start, the level change, and the faded span's spectral mismatch. A loop with too little audio before its start for any crossfade, a whole-sound loop or one imported from a file, is also offered the candidate that moves its start forward by the crossfade's length, keeping the rest as an intro.
+  - **Only the person moves a loop.** The analysis returns a value. Applying a candidate or a crossfade is the project's region command, one step the person asks for, which undoes; a failed, cancelled or refused analysis changes nothing, and a result is never applied because it arrived (the packet's invariant and failure rule). A result is kept for its session against the fingerprint of the plan it measured, and is shown as stale once the region's sound changes.
+  - **The crossfade is part of the region's sound.** A loop gains its crossfade's shape, `crossfadeShape`, one of the domain's fade shapes, beside its `crossfadeLength` C, so the shape the analysis suggests is the shape written and heard. The region's plan realises both after the region's rack: the last C frames of the loop become the loop's end faded out summed with the C frames before its start faded in, by the domain's mix source as a punch's boundary is (`ADR-0072`); and where the region goes on past E, the first frames after E become the audio after S faded out summed with the audio after E faded in, so a playthrough that does not loop leaves E without a jump either. Playback, export, the peaks and analysis therefore hear what a game engine plays when it jumps from E to S, and a file's loop points are exact without a crossfade the format cannot state. A loop's crossfade needs C frames of the region before S; a longer one is refused when a command makes it, and, since the loop's start is anchored and a later edit can move it, placing the region clamps the crossfade to the audio there and says it was shortened. Analysing for candidates reads the region without its loop's crossfade, since the crossfade belongs to the points being moved.
+  - **Audition by cycling.** Repeated-cycle audition and the seam stress test are plans of segments of the region's stream: cycles of S to E after a lead-in, or the half-second either side of the seam, repeated; played as a programme, extended by the continued programme of `ADR-0104` before it runs out, so cycling is gapless and lasts until stopped, and either is rendered offline the same way for a test.
+- **Drivers:** `REQ-GAME-121` (boundary, DC, level, phase, click, zero-crossing, spectral, crossfade and repeated-cycle checks; candidate boundaries and micro-crossfades under the person's control; repeated cycling and stress-testing; loop semantics preserved in export), `REQ-GAME-023` (seamless-loop creation, loop-point editing, zero-crossing assistance, loop auditioning), the packet's acceptance criterion of reproducible suggestions on known discontinuity fixtures, `ADR-0032`, `ADR-0051`. No transport loops today, the loop's crossfade was recorded and never heard, and an export writes loop points alone, so a crossfade only the editor applied would be lost in every file.
+- **Constraints:** analysis reads bounded windows and one streamed pass over the loop, never the whole region at once (G4); it runs in the detection worker with the reference DSP, takes a cancellation signal and reports progress. A change to a metric, threshold or the search is a change of the analysis's version and of its golden values (`REQ-EXEC-180`).
+- **Change record:** affected requirements `REQ-GAME-121`, `REQ-GAME-023`, `REQ-EDIT-014` (loop settings), `REQ-AUDIO-010` (loop metadata); affected phases 05 (whose loop's crossfade becomes audible, `ADR-0051` amended), 09 (whose export writes the crossfaded audio under unchanged loop points) and 11 (whose loop metadata handling reads the same loops). Compatibility impact: a loop gains its crossfade's shape, its crossfade is now heard, and one longer than the audio before its start is refused, within the document raise of `ADR-0106`. Public API: `LoopAnalysis`, `LoopMetrics`, `LoopCandidate`, `LoopAnalysisRequest`, `analyseLoop`, the audition plans in `@audiogubbins/loop-analysis`; the loop request of the detection worker; the zero-crossing boundary in `@audiogubbins/audio-engine`. Godot interchange and runtime: the exported loop points and crossfaded audio are what an engine loops. PWA and browser: none. Verification: `pnpm test:loop-golden` over the discontinuity fixtures, whole-sound, drum, drone, anti-phase and single-cycle loops among them; property tests of the crossfade in the plan against the domain's oracle; a failed and a cancelled analysis leaving the loop unchanged.
+- **Amends:** `ADR-0051`, whose region's plan realises its loop's crossfade after its rack; `ADR-0061`, whose detection worker runs the loop analysis. Their other clauses stand.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its metrics. Every seam metric compares what the engine plays with what the region's own audio does there, by its reference: the discontinuity is the played seam's residual less the smaller residual of the region's natural joins (the tail then the audio after E, the audio before S then the head), so a hit after a decay that the region also has is no discontinuity while a click only one join has still is; the residual's median absolute deviation is floored also at the stream's RMS 60 dB down, and each spectral band's power at the louder window's total power 60 dB down, so a pure tone's rounding noise is not read as a scale; the drift compares the loop's first part with the audio after E, or the audio before S with its last part, and its first with its last only for a whole-sound loop; and the zero-crossing signs compare the sign played across the seam with the region's own there. The DC means and the dB envelope span the same time at every rate, and the Blackman–Harris window is the engine's one function.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its crossfade clause. The refusal of a crossfade longer than the audio before the loop's start is the domain's `editing.loop-crossfade-without-lead`. A region's change asks for the lead only where its loop changes, or its start moves while the loop had its lead, so a loop read back without it may keep it missing until the person changes the loop; undo sets a region back by `project.restore-region`, which asks nothing, so it restores the region as it was.
+- **Related requirements:** `REQ-GAME-121`, `REQ-GAME-023`, `REQ-EDIT-013`, `REQ-EDIT-014`, `REQ-AUDIO-010`, `REQ-ARCH-049`, `REQ-ARCH-081`.
+
+<!-- adr/ADR-0104-game-preview-simulator.md -->
+
+# ADR-0104 — The Game Preview Is A Seeded Simulation Of Authored Rules, Played As A Generated Plan, And Its Algorithms Are The Reference The Godot Runtime Reproduces
+
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
+- **Decision:** `REQ-GAME-122`'s preview is a deterministic simulation in `packages/game-audio/src/preview/` whose result is played by the existing engine as a plan. It never changes the project.
+  - **Rules and scenarios.** The rules are two policy fields (`ADR-0101`): `emitter`, which a player holds for everything it plays (the selection rule, the voice limit and stealing policy, the cooldown, the attenuation and the distance filter), and `variation`, with `bus`, which each chosen member brings to its own voice (pitch, gain and start-offset ranges), so a member's override is heard when its group is played. A `GamePreviewScenario` is the test bench: the space (2D or 3D), the listener, up to sixteen emitters, each with a subject (a group, whose members are its pool, or one member), a trigger pattern (by hand, or every interval with jitter for a count) and a motion (still, or along timed waypoints), and a seed. Scenarios are project objects; what the person drags or types while listening is the session's until they keep it.
+  - **One generator.** Every random choice is a draw of the counter-based generator the dither uses (`lowbias32` over a key, a stream and an index, a multiple of 2⁻³²), moved to `packages/domain` so there is one: the key is the scenario's seed mixed with the CRC-32 of the emitter's stable identifier, the stream names the decision (selection, pitch, gain, offset, jitter), and the index is the trigger's ordinal. A decision therefore does not depend on what was drawn before, a trigger the cooldown suppresses changes no later choice, and the same scenario and triggers give the same choices.
+  - **Selection.** `uniform` takes member ⌊u·n⌋ of the pool in its order; `avoid-recent` with a depth d from 1 to 16 removes the last min(d, n − 1) chosen and takes ⌊u·m⌋ of the m left in pool order. These are the strategies the preview needs; weighted, sequential, ping-pong and shuffle-bag strategies and custom hooks are Phase 13's (`REQ-GAME-113`), added to the same rule union over the same generator.
+  - **Voices.** Each emitter plays at most its limit of voices (1 to 64), as a game engine's player does. A trigger within the cooldown of the last accepted one is suppressed; one past the limit steals the oldest voice, or the quietest (ties to the oldest), or is rejected, as the rule says; a stolen or stopped voice fades out over 5 ms, in a lane of its own: an emitter has one lane more than its limit. Across all emitters the preview sounds at most a measured budget of voices, past which the stealing rule applies across emitters and the log says so. A member with a loop plays to its loop's end and cycles until it is stopped or stolen; a one-shot plays to its end. The simulation writes an event log: each trigger and voice, started, suppressed, rejected, stolen, stopped or ended, at a frame, with the member, pitch in cents, gain in dB and offset, which is what tests pin and the panel lists.
+  - **Space.** A new canonical `spatial-panner` processor is one emitter heard by one listener: its parameters are the emitter's position in the listener's frame, the space, the attenuation and the distance filter, and it designs its gains and filter every 32 frames. Attenuation: none; inverse, inverse square or logarithmic of distance over a unit size with Godot 4's ε of 10⁻⁵, capped at a ceiling and silent past a maximum distance; or `(1 − d / max)` to an exponent; Godot 4's distance filter, a high shelf whose gain grows with attenuation. Panning is equal-power for a mono source and a balance for a stereo one; another layout is not panned and says so; the output follows the project's layout. Coordinates are Godot's (3D +y up, facing −z; 2D +y down). Parity is Phase 11's to prove against Godot's source.
+  - **Played as a plan.** The event log over a horizon becomes an `EditPlan`: each pitched voice a varispeed stream, a new kind of the domain's stream played at a ratio of n/4,096 by the canonical resampler run with integer steps, so pitch and speed change together as an engine's pitch scale does, the phase table stays within its budget, and no sample rate below the domain's least is ever declared; voices laid in lanes of silence and voice segments with their gain and fade stages; each emitter a mix of its lanes through the `spatial-panner`, whose position carries the scenario's motion as parameter automation, a new value of a plan's chain, so motion renders the same offline as live; each bus a mix of the voices that name it through a gain. Dragging an emitter, the listener or a bus fader is a running parameter change, heard at once. A member whose sound needs a whole pass (a loudness normaliser) is heard from the engine's cached render, prepared before the run. The programme is extended without a break by a *continued* programme: a new plan whose streams before a frame F, at or after the one the feeder reads next, are the old plan's at the same indices replaces the old from F, and every stream unchanged keeps its live reader with its processor and resampler state, so nothing sounding clicks; a trigger by hand is heard within the feed-ahead time plus one chunk, built incrementally from the simulation's state, and a cycling loop never ends. The continued programme is the first unit of the audio path and gates the rest: a continuation is bit-identical to the uninterrupted old plan up to the first new event; if the feeder cannot do that, the phase is blocked, with no fallback of restarting playback. The preview reuses the engine through `PlaybackControl` and makes no second playback system.
+  - **The reference for the Godot runtime.** The generator, the selection rules, the voice and cooldown rules and the attenuation curves are specified exactly and pinned by test vectors (seed, rules, triggers to event log) in `packages/game-audio`. Phase 11's runtime addon, which does not yet exist, reproduces them and is held to the same vectors in GUT, which is how "equivalent runtime-selection logic" is met when the authoring tool comes first (`REQ-GAME-122`, `REQ-GAME-113`'s deterministic seeded selection).
+  - **Not the runtime.** The preview is audition. It runs no project command, writes no history and holds its programme as audio runtime state; event parameters are the built-in ones (distance and position, volume and pitch offsets, bus levels); authored runtime parameters with curves, layered events and conditions are Phase 11's (`REQ-GODOT-114`, `REQ-GODOT-128`, `REQ-GODOT-129`).
+- **Drivers:** `REQ-GAME-122` (rapid triggering, variation selection, pitch and gain randomisation, repetition avoidance, concurrency, stealing, cooldowns, 2D and 3D attenuation, distance, panning and movement, buses, seeded determinism, event parameters, the same rules as the runtime), the packet's invariant that preview is audition and its acceptance criterion of repeated one-shot and loop scenarios without changing authoritative edits, `ADR-0051` (the plan is what the engine plays), `ADR-0032` (real-time playback is not canonical, offline renders are). The engine has no triggered voices, no loop and no varispeed; a voice bank beside the plan would be a second description of what is heard.
+- **Constraints:** the simulation is pure and bounded: at most 64 voices an emitter, sixteen emitters, the measured voice budget, a 30-second horizon a plan, 50 triggers a second. A continued programme is refused where the feeder has already read past its frame, and the preview tries again at the new frame. The `spatial-panner` processor is canonical, with its golden test. A varispeed stream and plan automation are never persisted: an insertion's payload holding one is refused.
+- **Change record:** affected requirements `REQ-GAME-122`, `REQ-GAME-113`, `REQ-GAME-023` (controlled random variation, as far as the preview), `REQ-ARCH-049`; affected phases 10, 11 (whose runtime reproduces these algorithms and maps these rules), 13 (whose selection strategies and variation sets extend them) and 03 (whose engine gains the continued programme). Compatibility impact: scenarios in the project document (`ADR-0106`). Public API: `GamePreviewScenario`, `PlaybackRules`, `SelectionRule`, `Attenuation`, `simulatePreview`, `PreviewEventLog`, `previewPlan` in `@audiogubbins/game-audio`; the counter draw in `@audiogubbins/domain`; the varispeed stream and chain automation in the plan; the `spatial-panner` processor type; the continued programme of `@audiogubbins/audio-runtime`. Godot interchange and runtime: the test vectors. PWA and browser: none. Verification: determinism and rule properties over generated scenarios; the vectors; the plan rendered offline against the log; the continuation's bit-identity tests; a browser test triggering a scenario repeatedly with the project's history unchanged.
+- **Amends:** `ADR-0051`, whose plan gains the varispeed stream; `ADR-0030`, whose transport gains the continued programme. Their other clauses stand.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its space clause, from Godot 4's source (`audio_stream_player_3d.cpp`, `audio_stream_player_2d.cpp`, `audio_filter_sw.cpp`). The inverse, inverse-square and logarithmic models' decibels are capped at the ceiling and then, where a maximum distance is set, faded by `1 − d / max` to silence at it; a maximum distance of 0 is no limit, and every distance keeps to the panner's ranges, so a valid scenario always becomes a plan. In 3D the pan is the cosine of the emitter's angle from the listener's right in the horizontal plane, narrowed by a panning strength and spread by the equal-power law; in 2D it is the emitter's offset over the pan width, scaled by half the strength and spread linearly; the panning strength, Godot's project and player strengths multiplied, is a parameter of the panner and a value of the scenario. A stereo source has each channel scaled by its own side's gain, with no cross-feed. The distance filter is Godot's high shelf with the cookbook's `A` taken as the linear gain itself, floored at −60 dB. Two differences from Godot remain for the post-specification review and Phase 11's parity tests: the ceiling caps the attenuation alone where Godot caps it with the player's `volume_db`, and the panner filters before its gain where Godot filters after, which differ only while the gain moves.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its generator, voices and played-as-a-plan clauses. A whole choice among n is the draw's 32-bit word times n shifted down by 32, exactly, not the double fraction times n, which can round across a boundary a runtime would not reproduce; milliseconds become frames rounded half up. The voice budget is computed from the preview's resampling grade and the pitch ranges a scenario's members may draw, not one number: a voice at its member's own pitch costs little, and a varispeed voice costs taps in proportion to its faster step, so at High two to seven voices sound where pitch varies; the preview plays at the person's preview quality (`ADR-0061`), not the render's. A hand trigger's simulation is held to 1 ms and its simulation and plan extension together to 5 ms, a tenth of the shortest feed-ahead, where this record's plan asked 1 ms of both. An insertion's payload holding a varispeed stream or plan automation is refused by the domain's `editing.payload-varispeed` and `editing.payload-automation`. Removing a group, a membership or a member's region or asset that a scenario plays is refused, naming the scenario (`game.subject-played`), so a scenario never falls silent through a step that did not touch it.
+- **Amended:** on 2026-10-16, by Phase 10's build, in its played-as-a-plan clause. A preview forgets what it has heard rather than laying its plan afresh, which a loop never stopped would never allow: a plan stream may state `forgottenBefore`, the first frame it still describes, and a continuation compares it only from there, so every reader of what still sounds keeps its state; `forgetPreviewBefore` and `forgetPreviewPlanBefore` drop from the simulation and the plan what was heard before a frame; the panel's run forgets, every 5 s of playback, what was heard more than 1 s behind the listener. Only a preview's plan states `forgottenBefore`: an insertion's payload is refused with it and the project format never writes it.
+- **Related requirements:** `REQ-GAME-122`, `REQ-GAME-112`, `REQ-GAME-113`, `REQ-GODOT-114`, `REQ-GODOT-128`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-153`.
+
+<!-- adr/ADR-0105-guided-workflows-as-command-plans.md -->
+
+# ADR-0105 — A Guided Workflow Is A Deterministic Planner Of Ordinary Project Commands, Dispatched As One Step After The Person Has Seen Every Item
+
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
+- **Decision:** `REQ-GAME-075`'s workflows are planners in `packages/guided-workflows`, not a mode, a model or an executor of their own.
+  - **A planner.** A workflow states its key, its label, the options it asks for with their defaults (taken from the subject's effective policy where one applies, and shown), the analyses it needs, and `plan(input)`: from the subject (members, or groups expanded to their members, subgroups where asked), the options, the project state, the analysis results, the processor catalogue and an identifier generator, a `WorkflowPlan`, or why none can be made. A plan is the invocations of the project's existing commands (region, marker, edit, rack, slot, processor, export-settings and game commands), the description of the step and one item per target, planned with the sentences that say what will change, skipped with the reason (already done, nothing found), or refused with its failures. The same input gives the same plan.
+  - **One step, atomic.** The interface shows every item before anything changes. Applying runs the planned items' invocations as one group of the command bus, one history step that one undo reverses, which applies all or nothing (`executeGroup`); refused items are never dispatched, and the person removes them or cancels. Analyses run first, in the detection worker, cancellable, and change nothing.
+  - **What an expert could make.** The result is regions, edits, chains, racks, loops, group policy and export settings the Inspector, the History panel and the rack already show and change; nothing records that a workflow made them beyond the step's description. A workflow run again plans only what is not already there.
+  - **The workflows.** *Cut Into Sounds*: regions over the spans the silence detector leaves, with a lead-in and tail, named by the naming template and assigned to a group. *Prepare One-Shot*: region boundaries trimmed to the sound (asset edits for an asset), fades at both ends, DC removal where the detector finds an offset, and level to the effective loudness target or a stated peak. *Create Seamless Loop*: the loop analysis, then the candidate and crossfade the person chooses written into the region's loop, never a candidate the person did not choose. *Normalise Game SFX*: the effective loudness target set where asked and realised as a loudness-normalisation slot ending the group's shared chain, or the matching built-in game chain where the group has none, or an own member's rack, measured after for conformance. *Clean Dialogue*: the restoration and repair assistants' recommendations, a high-pass filter, a de-esser, a local denoising model where its pack is installed and the noise-reduction processor learned from the noise floor otherwise, and the dialogue loudness target. *Export for Godot*: export profiles, naming and destinations set on groups to the formats and loop metadata Godot 4's importer reads, with a visible profile override to WAV on each looping member of a group whose profile cannot hold its loop, and a member in no group refused; the export itself follows as its own action once the step has applied, never inside it, because an export is an external side effect and is never undone (`ADR-0092`). Godot's import files and resources are Phase 11's.
+  - **Where processing goes.** Trims, fades and loops are the region's (its boundaries, its own processing and its loop); level and treatment chains are racks, so normalisation runs last. A member that inherits its group's chain keeps inheriting unless the person chooses to change the group's chain (for every member that inherits it, the count shown) or to give the member its own.
+- **Drivers:** `REQ-GAME-075` (no separate beginner mode; the same editable operations; regions, parameters, chains, loop metadata and export settings inspectable and changeable afterwards), the packet's invariant that guided workflows create what an expert could and its failure rule that batch and guided operations fail atomically or record per-item failure, `REQ-EDIT-073`, `REQ-GAME-074` (macros, Phase 13, will run the same typed commands). Phase 06 already applies an assistant's recommendation through the project's commands as one step; a workflow is that, for several steps and several targets.
+- **Constraints:** a planner reads no audio, clock or global and dispatches nothing; what it reads of an assistant's report it reads through `packages/detection-runtime`, as the interface does; the interface dispatches through the session's group. A workflow adds no command the expert controls cannot invoke.
+- **Change record:** affected requirements `REQ-GAME-075`, `REQ-GAME-023` (one-shot preparation, silence trimming, loudness matching, game-oriented processing presets, seamless-loop creation), `REQ-EDIT-073`; affected phases 10, 11 (which adds Godot's own files to Export for Godot) and 13 (whose macros record and replay the same invocations). Compatibility impact: none. Public API: `GuidedWorkflow`, `WorkflowPlan`, `WorkflowItem` and the six workflows in `@audiogubbins/guided-workflows`. Godot interchange and runtime: none in this phase. PWA and browser: none. Verification: each planner's plans over fixture states; a plan with a refused item dispatching nothing until removed; each workflow's result undone in one step; a browser test running Prepare One-Shot and Create Seamless Loop and finding their results in the Inspector and History.
+- **Related requirements:** `REQ-GAME-075`, `REQ-GAME-023`, `REQ-GAME-074`, `REQ-EDIT-073`, `REQ-AUDIO-017`.
+
 # Passed Dependency Handoffs
 
 <!-- traceability/handoffs/phase-05.md -->
@@ -2214,6 +2332,275 @@ Only items explicitly authorised by the specification:
   readiness review decides it.
 - Phase 11 still waits on Phase 10; Phase 13 on Phases 10 and 11; Phase 14 on
   Phases 10 to 13; Phase 15 on Phase 14.
+
+<!-- traceability/handoffs/phase-10.md -->
+
+# Phase Handoff Capsule — Phase 10
+
+## Capability Delivered
+
+AudioGubbins authors game audio. The person organises sounds and regions into
+hierarchical asset groups such as `Footsteps/Grass`, and every member resolves
+nine policy fields (processing, loudness, export profile, naming, destination,
+playback rules, bus, voice variation and tags) field by field from its own
+override or the nearest group that sets it, each answer naming its owner and
+what it shadows (`ADR-0101`); a member's processing is heard through its own
+rack, `inherit` or `own` the one record of where it comes from. Naming
+templates in one grammar with modifiers, game export profiles and relative
+destination paths resolve to Phase 09's export settings, and many members
+export as one itemised plan, each item planned or refused with its owner,
+into a relative folder made where absent (`ADR-0102`). Loop analysis measures
+every seam check `REQ-GAME-121` lists against the region's own audio by a
+stated reference, ranks candidates from one bounded streamed pass and
+suggests micro-crossfades, and a loop's crossfade is heard in its region's
+plan, so export writes what is heard (`ADR-0103`). A seeded game-preview
+simulation triggers groups as a game would, with selection, variation, voice
+limits, stealing, cooldowns, Godot 4's attenuation, panning and distance
+filter by a canonical `spatial-panner`, and moving emitters, played as a plan
+the engine continues without a break and forgets behind the listener
+(`ADR-0104`). Six guided workflows (Cut Into Sounds, Prepare One-Shot, Create
+Seamless Loop, Normalise Game SFX, Clean Dialogue, Export for Godot) plan
+ordinary project commands, shown item by item before they run and applied as
+one undoable step (`ADR-0105`). The game-audio state is one member of the
+project document (`ADR-0106`). The Asset groups panel, the Inspector's Game
+policy section, the Loop panel, the Game preview panel and the workflow
+dialogs show it all in the Game Audio workspace.
+
+## Requirements Satisfied
+
+The owned requirements are mapped to their implementation and their evidence
+in `reviews/phase-10-evidence.md`, under "Requirement-to-evidence mapping",
+`REQ-GAME-023` item by item with the deliverer `CHG-0001` names for each.
+
+- `REQ-GAME-023`
+- `REQ-GAME-075`
+- `REQ-GAME-120`
+- `REQ-GAME-121`
+- `REQ-GAME-122`
+
+## Public Contracts Introduced or Changed
+
+Every entry point's exported names and members are recorded in
+`tests/architecture/public-contracts.txt`, which
+`tests/architecture/public-contracts.test.ts` holds to the code. The evidence
+maps the packet's contract names to them. By package:
+
+- `@audiogubbins/game-audio` (new, portable): groups and membership
+  (`GameAssetGroup`, `GameAssetGroupId`, `GroupMember`, `GroupMembership`,
+  `MemberProcessing`, `GameAudioState` with its `scenarios`); policy
+  (`InheritedPolicy`, `PolicyOverrides`, `OverridableField`, `POLICY_FIELDS`,
+  `PolicyValues`, `EffectivePolicy`, `GroupEffectivePolicy`, `Resolved`,
+  `PolicySource`, `resolvePolicy`, `resolveGroupPolicy`, `resolveAll`,
+  `validateGameAudioState`, `inheritedProcessing`, `inheritingRacks`,
+  `projectChainUsers`); export (`NamingTemplate`, `namingTemplate`,
+  `memberNames`, `GameExportProfile`, `profileFromPreset`,
+  `memberExportSettings`, `DestinationPath`, `GameExportPlan`,
+  `GameExportItem`, `planGameExport`); the preview (`GamePreviewScenario`,
+  `PreviewEmitter`, `Listener`, `Motion`, `TriggerPattern`, `EmitterRules`,
+  `VoiceVariation`, `PreviewInput`, `PreviewSimulation`, `PreviewEventLog`,
+  `simulatePreview`, `forgetPreviewBefore`, `previewPlan`,
+  `extendPreviewPlan`, `forgetPreviewPlanBefore`, `previewVoiceBudget`); its
+  `./testing` entry (`randomGameWorld`, `randomScenario`, `seededRandom`,
+  `PREVIEW_TEST_CATALOGUE`).
+- `@audiogubbins/loop-analysis` (new, portable): `LoopAnalysisRequest`,
+  `LoopAnalysis`, `LoopMetrics`, `LoopMetric` with its verdict and threshold,
+  `LoopCandidate`, `analyseLoop`, `loopAuditionPlan`, `extendedAuditionPlan`,
+  and the loop fixtures.
+- `@audiogubbins/guided-workflows` (new, portable): `GuidedWorkflow`,
+  `WorkflowInput`, `WorkflowOptions`, `WorkflowTarget`, `WorkflowPlan`,
+  `WorkflowItem`, `WorkflowDispatch`, `workflowDispatch`, `itemKey`,
+  `targetMembers`, and `CUT_INTO_SOUNDS`, `PREPARE_ONE_SHOT`,
+  `CREATE_SEAMLESS_LOOP`, `NORMALISE_GAME_SFX`, `CLEAN_DIALOGUE`,
+  `EXPORT_FOR_GODOT` with their options.
+- `@audiogubbins/domain`: the counter draw (`lowbias32`, `uniformDraw`); a
+  loop's `crossfadeShape` and the placed `crossfadeClampedFrom`; the plan's
+  varispeed stream (`numerator / 4096`), plan-chain automation and a stream's
+  `forgottenBefore`, each refused in a persisted payload
+  (`editing.payload-varispeed`, `editing.payload-automation`).
+- `@audiogubbins/audio-engine`: the zero-crossing boundary; plan divergence
+  and reader continuation, comparing a stream only from its
+  `forgottenBefore`; varispeed reading; the preview stream key.
+- `@audiogubbins/audio-runtime`: the continued programme
+  (`PlaybackSessionPort.continueWith`, `readFrame`, the feeder's
+  continuation, `playback.continuation-too-late`).
+- `@audiogubbins/processors`: the `spatial-panner` type with Godot 4's laws;
+  `BUILT_IN_LIBRARY`, the five built-in game chains.
+- `@audiogubbins/effect-rack`: plan-chain automation evaluated at the
+  processor's design interval.
+- `@audiogubbins/import-export`: the template grammar's modifiers and
+  vocabularies (`readTemplate`, `escapeTemplateText`); `folderSegmentProblem`,
+  the one folder-segment rule.
+- `@audiogubbins/storage`, `@audiogubbins/storage-runtime`,
+  `@audiogubbins/browser-storage`: delivery into a relative folder, trusted
+  records by relative path, the processing library's built-in entries.
+- `@audiogubbins/project-format`: the `gameAudio` member and
+  `project/game-audio.json`, scenarios among it; a loop's crossfade shape; an
+  export record's folder; a history node's `gameGroups`.
+- `@audiogubbins/history`: group, membership, override and scenario
+  differences; the `game-group` entity kind.
+- `@audiogubbins/project-commands`: the `game.*` commands with inverses
+  (groups, membership, policy, overrides, processing, scenarios);
+  `project.restore-region`; region and asset removal taking membership with
+  them, refused while a scenario plays the subject (`game.subject-played`);
+  `project.set-rack` making an inheriting member own its processing.
+- `@audiogubbins/detection-runtime`: the `analyse-loop` and
+  `measure-loudness` requests and replies; the report helpers
+  (`report-reading.ts`).
+- `@audiogubbins/commands`: a command's availability given the invocation it
+  would run with.
+- `apps/web`: the `game.*`, `loop.*`, `preview.*` and `workflow.*` shell
+  commands; the Game Audio workspace's panels; default keys scoped to a
+  panel's focus (`data-ag-loop-panel`, `data-ag-preview-panel`).
+
+## Persisted / Interchange Formats
+
+- The project document, `projectDocument` version 10: the member `gameAudio`
+  and the tree file `project/game-audio.json` (groups, memberships with
+  their processing and overrides, scenarios, written sorted by identifier);
+  a loop's `crossfadeShape`; an export record's file's folder; a history
+  node's affected `gameGroups`, read as optional. `projectStorage` and
+  `userPreferences` are unchanged.
+- Loop-analysis results are derived and never persisted (`CHG-0001`, C15).
+- A plan's varispeed stream, plan-chain automation and `forgottenBefore` are
+  plan values only: the project format never writes them.
+- Trusted-folder records keyed by a relative path, in the browser's handle
+  database.
+- Before 1.0 nothing migrates (`REQ-STOR-052`): a document or tree of version
+  9 is refused with the reason.
+
+## Invariants Downstream Agents Must Preserve
+
+- Inheritance is explicit: every resolved field carries its source and what
+  it shadows; defaults are never written into a group; an invalid inherited
+  setting is refused naming the group by its path or the member by its name.
+- A membership's `processing` (`inherit` or `own`) is the one record of where
+  a member's processing comes from, validated against its rack; every
+  command that changes what an inheriting member inherits re-points its rack
+  in the same step. `projectChainUsers` is the one reader of a chain's
+  users, groups included (an architecture rule refuses a new import of the
+  domain's `chainUsers`).
+- The game layer adds no second settings model, preset list or name grammar:
+  a profile resolves through Phase 09's `resolvePreset`, and a folder segment
+  is held by `folderSegmentProblem` alone.
+- Loop suggestions never move a loop: the analysis returns a value and runs
+  no command; only `loop.apply-candidate` and `loop.apply-crossfade`, run by
+  the person, change a loop.
+- Guided workflows are planners of ordinary project command invocations: a
+  plan runs only with no item refused, as one undoable step; exports and
+  loudness checks follow the step and are never inside it.
+- The preview is audition tooling and runs no command. `packages/game-audio`
+  holds no clock, global or thread. The same seed gives the same event log; a
+  continuation equals the whole; a hand trigger adds events from its frame
+  only; selection is `⌊h·n / 2³²⌋` of the draw's 32-bit word and milliseconds
+  become frames rounded half up.
+- **The preview vectors are the reference Phase 11's Godot runtime must
+  reproduce.** `PREVIEW_VECTORS` (`packages/game-audio/src/testing/preview-vectors.ts`,
+  seven vectors at 48 kHz, each a scenario, its emitters' rules and pools,
+  its hand actions and voice budget, and the event log it makes) are pinned
+  by `preview-vectors.test.ts`. A GDScript runtime given a vector's input must
+  give its log event for event; a change to a vector is a change to the
+  contract both sides keep. The spatial panner's laws are Godot 4's as its
+  source states them, with two differences recorded for Phase 11's parity
+  tests: the ceiling caps the attenuation alone, where Godot caps it with the
+  player's `volume_db`; and the panner filters before its gain, where Godot
+  filters after.
+- A continued programme keeps every live reader whose stream is unchanged up
+  to the switch frame (WU-10.D3's gate, tests (a) to (c)); there is no
+  fallback of restarting playback. A stream's `forgottenBefore` is stated
+  only by a preview's plan, and a continuation never goes on from a frame it
+  has forgotten.
+- A subject a scenario plays is kept from removal (`game.subject-played`).
+
+## ADRs
+
+- `ADR-0100` — the game-audio package topology; accepted 2026-10-16.
+- `ADR-0101` — asset groups and inherited policy; amended and accepted
+  2026-10-16.
+- `ADR-0102` — naming templates, export profiles and destinations; amended
+  and accepted 2026-10-16 (the public `folderSegmentProblem`).
+- `ADR-0103` — loop analysis, suggestions and loop crossfades; amended and
+  accepted 2026-10-16.
+- `ADR-0104` — the game preview simulator; amended three times and accepted
+  2026-10-16 (Godot 4's laws; the draws, voice budget and hand trigger's
+  cost; forgetting what was heard).
+- `ADR-0105` — guided workflows as command plans; accepted 2026-10-16.
+- `ADR-0106` — game-audio persistence and state ownership; amended and
+  accepted 2026-10-16.
+- `CHG-0001` — Phase 10's scope and ownership against Phases 05, 09, 11 and
+  13; accepted 2026-10-16.
+- `ADR-0051` and `ADR-0060` — amended by `ADR-0103` and `ADR-0104` (the heard
+  crossfade, the varispeed stream, plan-chain automation).
+
+## Verification Baselines
+
+- `pnpm run test:game-audio`: the Vitest projects of `game-audio`,
+  `loop-analysis` and `guided-workflows`; the packet's
+  `pnpm test --filter game-audio --filter loop-analysis`.
+- `pnpm run test:loop-golden`: every loop fixture's analysis pinned to the
+  reference's bits, at its pinned version.
+- The preview vectors (`preview-vectors.test.ts`) and the spatial panner's
+  goldens (`spatial-panner.golden.test.ts`).
+- The continued programme's bit-identity tests (`plan-continuation.test.ts`,
+  `feeder-continuation.test.ts`), the forgetting's
+  (`preview-forgetting.test.ts`) and the hand trigger's cost in processor time
+  (`hand-trigger.performance.test.ts`).
+- `pnpm run test:project-roundtrip` and `pnpm run test:architecture`.
+- `pnpm run test:e2e:game-workflows` in Chromium: a recording cut into a
+  group, the inherited profile, naming and folder, Prepare One-Shot as one
+  step, a loop applied only by hand, a seeded preview run twice alike with
+  the History unchanged, the group exported, everything found after a
+  reload.
+- The final counts are in the evidence.
+
+## Intentionally Deferred Items
+
+Only items explicitly authorised by the specification (`CHG-0001`):
+
+- Phase 11: export recipes as first-class project objects (`REQ-GODOT-119`),
+  folder templates, Godot import files, resources and project folders
+  (`REQ-GODOT-024`), and the Godot runtime's selection, which reproduces
+  this phase's preview vectors.
+- Phase 13: variation sets and their export (`REQ-GAME-022`), weighted and
+  sequential selection, and batch jobs with scheduling, retry and resume,
+  extending `packages/game-audio` through the selection union, the member
+  union and the game export plan's items.
+- Elevation of a preview emitter on surround or binaural output (the plan's
+  Q4), a later decision.
+
+## Accepted Non-Blocking Debt
+
+- `LOW`: the browser test does not apply the built-in "Game SFX, −16 LUFS"
+  chain through the page; the chain and the conformance report are held by
+  unit tests. Owner: the review after the whole specification.
+- `LOW`: `packages/guided-workflows`' refusals quote names with straight
+  quotes, where command text and `packages/game-audio`'s refusals use
+  `@audiogubbins/text`'s `quoted`. Owner: the review after the whole
+  specification.
+- `LOW`: the preview's simulation and plan building run on the page, 2 to
+  3 ms a hand trigger. Owner: Phase 14's performance hardening.
+- `LOW`: tests that time out at 5 s under the whole suite's load and pass
+  alone (`model-packs` `integrity.test.ts`'s hand-over test,
+  `browser-floor.test.ts`, the architecture test "calls what the library
+  declares above the floor only where it is guarded", `project-format`'s zip
+  interoperability test, `storage`'s project-transfer round trip's seeds).
+  Owner: Phase 14.
+- `test:e2e:game-workflows` runs in Chromium only. Owed to Phase 14.
+- Q7, open for the maintainer: a looping region with a stateful rack renders
+  the loop's head after the intro; rendering it wrapped would change
+  `ADR-0060`'s rule. The analysis measures and reports such a seam.
+- The review lenses and the adversarial review the packet names are deferred
+  to the review after the whole specification is implemented
+  (`reviews/phase-10-review.md`).
+
+## Downstream Readiness
+
+- Phase 11 — Godot Integration becomes eligible for `READY`: its hard
+  dependencies, Phases 02, 03, 06, 09 and 10, have passed; its readiness
+  review decides it.
+- Phase 12 — PWA, Offline, and Installation Hardening stays eligible for
+  `READY` since Phase 09 passed; its readiness review decides it.
+- Phase 13 still waits on Phase 11; Phase 14 on Phases 11 to 13; Phase 15 on
+  Phase 14.
 
 # Current Ledger Entry
 
