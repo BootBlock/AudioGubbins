@@ -3885,15 +3885,113 @@ Published paths
   function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing
 
 @audiogubbins/game-audio
+  type Attenuation = { readonly kind: "exponent"; readonly maxDistance: number; readonly exponent: number; } | { readonly kind: "inverse" | "inverse-square" | "logarithmic"; readonly unitSize: number; readonly maxDistance: number; readonly ceilingDecibels: number; } | { readonly kind: "none"; }
+  type BusName = string & { readonly [BrandTag]: "BusName"; }
+  const DEFAULT_EMITTER_RULES: EmitterRules
+  const DEFAULT_VOICE_VARIATION: VoiceVariation
   interface DestinationPath
   readonly DestinationPath.segments: readonly string[]
+  interface DistanceFilter
+  readonly DistanceFilter.cutoffHertz: number
+  readonly DistanceFilter.decibels: number
+  interface EffectivePolicy
+  readonly EffectivePolicy.member: GroupMember
+  readonly EffectivePolicy.group: GameAssetGroupId | undefined
+  readonly EffectivePolicy.processing: Resolved<"none" | EffectChainId> & { readonly membership: MemberProcessing | undefined; readonly rack: EffectChainId | undefined; }
+  readonly EffectivePolicy.loudness: Resolved<import("packages/game-audio/src/index").LoudnessTarget>
+  readonly EffectivePolicy.exportProfile: Resolved<import("packages/game-audio/src/index").GameExportProfile>
+  readonly EffectivePolicy.naming: Resolved<import("packages/game-audio/src/index").NamingTemplate>
+  readonly EffectivePolicy.destination: Resolved<import("packages/game-audio/src/index").DestinationPath>
+  readonly EffectivePolicy.emitter: Resolved<import("packages/game-audio/src/index").EmitterRules>
+  readonly EffectivePolicy.variation: Resolved<import("packages/game-audio/src/index").VoiceVariation>
+  readonly EffectivePolicy.bus: Resolved<import("packages/game-audio/src/index").BusName>
+  readonly EffectivePolicy.tags: readonly ResolvedTag[]
+  interface EmitterRules
+  readonly EmitterRules.selection: SelectionRule
+  readonly EmitterRules.voices: { readonly limit: number; readonly stealing: VoiceStealing; }
+  readonly EmitterRules.cooldownMilliseconds: number
+  readonly EmitterRules.attenuation: Attenuation
+  readonly EmitterRules.filter?: DistanceFilter
+  interface GameAssetGroup
+  readonly GameAssetGroup.id: GameAssetGroupId
+  readonly GameAssetGroup.name: string
+  readonly GameAssetGroup.parent?: GameAssetGroupId
+  readonly GameAssetGroup.policy: InheritedPolicy
+  type GameAssetGroupId = string & { readonly [BrandTag]: "GameAssetGroupId"; }
+  interface GameAudioState
+  readonly GameAudioState.groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>
+  readonly GameAudioState.memberships: readonly GroupMembership[]
   type GameExportProfile = { readonly format: "aac"; readonly choices: ProfileChoices<"aac">; } | { readonly format: "aifc"; readonly choices: ProfileChoices<"aifc">; } | { readonly format: "aiff"; readonly choices: ProfileChoices<"aiff">; } | { readonly format: "flac"; readonly choices: ProfileChoices<"flac">; } | { readonly format: "mp3"; readonly choices: ProfileChoices<"mp3">; } | { readonly format: "ogg-vorbis"; readonly choices: ProfileChoices<"ogg-vorbis">; } | { readonly format: "opus"; readonly choices: ProfileChoices<"opus">; } | { readonly format: "wav"; readonly choices: ProfileChoices<"wav">; }
+  interface GroupEffectivePolicy
+  readonly GroupEffectivePolicy.group: GameAssetGroupId
+  readonly GroupEffectivePolicy.fields: ResolvedFields
+  readonly GroupEffectivePolicy.tags: readonly ResolvedTag[]
+  type GroupMember = { readonly kind: "asset"; readonly asset: AssetId; } | { readonly kind: "region"; readonly region: RegionId; }
+  interface GroupMembership
+  readonly GroupMembership.member: GroupMember
+  readonly GroupMembership.group: GameAssetGroupId
+  readonly GroupMembership.processing: MemberProcessing
+  readonly GroupMembership.overrides: PolicyOverrides
+  type InheritedPolicy = { readonly processing?: "none" | import("packages/domain/src/index").EffectChainId; readonly bus?: import("packages/game-audio/src/index").BusName; readonly tags?: readonly string[]; readonly naming?: import("packages/game-audio/src/index").NamingTemplate; readonly destination?: import("packages/game-audio/src/index").DestinationPath; readonly loudness?: import("packages/game-audio/src/index").LoudnessTarget; readonly exportProfile?: import("packages/game-audio/src/index").GameExportProfile; readonly emitter?: import("packages/game-audio/src/index").EmitterRules; readonly variation?: import("packages/game-audio/src/index").VoiceVariation; }
+  interface LoudnessTarget
+  readonly LoudnessTarget.integratedLufs: number
+  readonly LoudnessTarget.toleranceLu: number
+  readonly LoudnessTarget.truePeakCeilingDbtp?: number
+  type MemberProcessing = "inherit" | "own"
   interface NamingTemplate
   readonly NamingTemplate.source: string
   readonly NamingTemplate.parts: readonly TemplatePart<"asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region">[]
+  type OverridableField = "bus" | "destination" | "exportProfile" | "loudness" | "naming" | "variation"
+  const POLICY_FIELDS: readonly ["processing", "loudness", "exportProfile", "naming", "destination", "emitter", "variation", "bus", "tags"]
+  type PolicyField = "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation"
+  type PolicyOverrides = { readonly bus?: import("packages/game-audio/src/index").BusName; readonly naming?: import("packages/game-audio/src/index").NamingTemplate; readonly destination?: import("packages/game-audio/src/index").DestinationPath; readonly loudness?: import("packages/game-audio/src/index").LoudnessTarget; readonly exportProfile?: import("packages/game-audio/src/index").GameExportProfile; readonly variation?: import("packages/game-audio/src/index").VoiceVariation; }
+  type PolicySource = { readonly kind: "group"; readonly group: GameAssetGroupId; readonly path: readonly string[]; } | { readonly kind: "override"; readonly member: GroupMember; } | { readonly kind: "unset"; }
+  interface PolicyValues
+  readonly PolicyValues.processing: "none" | EffectChainId
+  readonly PolicyValues.loudness: LoudnessTarget
+  readonly PolicyValues.exportProfile: GameExportProfile
+  readonly PolicyValues.naming: NamingTemplate
+  readonly PolicyValues.destination: DestinationPath
+  readonly PolicyValues.emitter: EmitterRules
+  readonly PolicyValues.variation: VoiceVariation
+  readonly PolicyValues.bus: BusName
+  readonly PolicyValues.tags: readonly string[]
+  interface Resolved<T>
+  readonly Resolved.value: T | undefined
+  readonly Resolved.source: PolicySource
+  readonly Resolved.shadowed: readonly Shadowed<T>[]
+  interface ResolvedTag
+  readonly ResolvedTag.tag: string
+  readonly ResolvedTag.from: readonly TagSource[]
+  type SelectionRule = { readonly kind: "avoid-recent"; readonly depth: number; } | { readonly kind: "uniform"; }
+  interface StateChainUsers extends ChainUsers
+  readonly StateChainUsers.groups: readonly GameAssetGroupId[]
+  readonly StateChainUsers.assetEdits: readonly import("packages/domain/src/index").AssetId[]
+  readonly StateChainUsers.regionEdits: readonly import("packages/domain/src/index").RegionId[]
+  readonly StateChainUsers.assetRacks: readonly import("packages/domain/src/index").AssetId[]
+  readonly StateChainUsers.regionRacks: readonly import("packages/domain/src/index").RegionId[]
+  readonly StateChainUsers.tracks: readonly import("packages/domain/src/index").TrackId[]
+  readonly StateChainUsers.buses: readonly import("packages/domain/src/index").BusId[]
+  type VoiceStealing = "oldest" | "quietest" | "reject"
+  interface VoiceVariation
+  readonly VoiceVariation.pitchCents: { readonly min: number; readonly max: number; }
+  readonly VoiceVariation.gainDecibels: { readonly min: number; readonly max: number; }
+  readonly VoiceVariation.startOffsetMilliseconds: { readonly max: number; }
+  function busName(text: string): DomainResult<BusName>
   function destinationPath(segments: readonly string[]): DomainResult<DestinationPath>
+  function inheritedProcessing(state: GameAudioState, member: GroupMember): EffectChainId | undefined
+  function inheritingRacks(state: GameAudioState): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined; }[]
+  function memberKey(member: GroupMember): string
   function namingTemplate(source: string): DomainResult<NamingTemplate>
   function profileFromPreset(preset: ExportPreset): GameExportProfile
+  function projectChainUsers(project: Project, game: GameAudioState | undefined, chain: EffectChainId): StateChainUsers
+  function resolveAll(project: Project, state: GameAudioState): ReadonlyMap<string, EffectivePolicy>
+  function resolveGroupPolicy(state: GameAudioState, group: GameAssetGroupId): GroupEffectivePolicy
+  function resolvePolicy(project: Project, state: GameAudioState, member: GroupMember): EffectivePolicy
+  function stateChainUseCount(users: StateChainUsers): number
+  function validateGameAudioState(project: Project, state: GameAudioState): DomainResult<GameAudioState>
+  function withOverride<F extends OverridableField>(overrides: PolicyOverrides, field: F, value: PolicyValues[F] | undefined): PolicyOverrides
+  function withPolicyField<F extends "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation">(policy: InheritedPolicy, field: F, value: PolicyValues[F] | undefined): InheritedPolicy
 
 @audiogubbins/history
   interface ChainDifference
@@ -8793,6 +8891,13 @@ packages/effect-rack/src/chain-graph.ts
 
 packages/game-audio/src/export/game-export-profile.ts
   type ProfileChoices<F extends ExportFormat> = { [P in Exclude<Exclude<keyof import("packages/import-export/src/export-settings").SettingsByFormat[F], "format">, "fileName" | "range">]: Partial<Omit<import("packages/import-export/src/export-settings").SettingsByFormat[F], "format">>[P]; }
+
+packages/game-audio/src/policy/policy-resolution.ts
+  type ResolvedFields = { readonly processing: Resolved<"none" | EffectChainId>; readonly bus: Resolved<import("packages/game-audio/src/index").BusName>; readonly naming: Resolved<import("packages/game-audio/src/index").NamingTemplate>; readonly destination: Resolved<import("packages/game-audio/src/index").DestinationPath>; readonly loudness: Resolved<import("packages/game-audio/src/index").LoudnessTarget>; readonly exportProfile: Resolved<import("packages/game-audio/src/index").GameExportProfile>; readonly emitter: Resolved<import("packages/game-audio/src/index").EmitterRules>; readonly variation: Resolved<import("packages/game-audio/src/index").VoiceVariation>; }
+  interface Shadowed<T>
+  readonly Shadowed.group: GameAssetGroupId
+  readonly Shadowed.value: T
+  type TagSource = { readonly kind: "group"; readonly group: GameAssetGroupId; } | { readonly kind: "member"; }
 
 packages/import-export/src/export-settings.ts
   type FormatEncodingByFormat = { readonly flac: { readonly format: "flac"; readonly encoding: FlacEncoding; }; readonly mp3: { readonly format: "mp3"; readonly encoding: Mp3Encoding; }; readonly opus: { readonly format: "opus"; readonly encoding: OpusEncoding; }; readonly wav: { readonly format: "wav"; readonly encoding: WavEncoding; }; readonly aiff: { readonly format: "aiff"; readonly encoding: IntegerPcm; }; readonly aifc: { readonly format: "aifc"; readonly encoding: AifcEncoding; }; readonly aac: { readonly format: "aac"; readonly encoding: AacEncoding; }; readonly "ogg-vorbis": { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; }; }
