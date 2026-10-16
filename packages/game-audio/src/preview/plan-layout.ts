@@ -7,12 +7,12 @@
  * its buses folded from stereo by the domain's conversion where the project is
  * not stereo. Then each bus, sorted by name: the mix of the emitter streams
  * that play on it, through its gain. Then each emitter's stream for each bus
- * its pool plays on, in the scenario's order: the mix of its lanes of that
- * bus through its spatial panner, whose position carries the emitter's
- * motion. Then each emitter's first `limit + 1` lanes, one stream for each of
- * its buses. A voice's bus is its member's, or Godot's `Master` where it sets
- * none, so a pool of members on two buses plays through two emitter streams,
- * each panned alike.
+ * its pool plays on, in the scenario's order: the mix of its lanes of that bus
+ * through its spatial panner, whose position carries the emitter's motion. Then
+ * each emitter's first `limit + 1` lanes, one stream for each of its buses. A
+ * voice's bus is its member's, or Godot's `Master` where it sets none, so a
+ * pool of members on two buses plays through two emitter streams, each panned
+ * alike.
  */
 
 import {

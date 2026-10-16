@@ -188,34 +188,39 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [],
   },
   '@audiogubbins/game-audio': {
-    "The game preview (ADR-0104), built ahead of the project format and the game commands that keep and change its scenarios, and of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario and its validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
+    "A preset's choices as a game export profile (ADR-0102), built ahead of the application's group policy editor, which applies a preset to a group as a profile.":
+      ['profileFromPreset'],
+    "The game export plan (ADR-0102), built ahead of the application's group export, which runs the planned items as one export batch after showing the refused ones, as the Export for Godot workflow's export follows its step: each member planned or refused with its owner named.":
       [
-        'BusLevel',
-        'GamePreviewScenario',
-        'GamePreviewScenarioId',
+        'GameExportItem',
+        'GameExportPlan',
+        'GameExportProvenance',
+        'GameExportRequest',
+        'planGameExport',
+      ],
+    "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
+      ['resolveAll'],
+    "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
+      ['inheritedProcessing'],
+    "The game preview (ADR-0104), built ahead of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario's validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
+      [
+        'DEFAULT_EMITTER_RULES',
+        'DEFAULT_VOICE_VARIATION',
         'HandAction',
-        'Listener',
         'MemberSound',
-        'Motion',
         'PoolMember',
-        'Position',
         'PreviewControls',
-        'PreviewEmitter',
-        'PreviewEmitterId',
         'PreviewEvent',
         'PreviewEventLog',
         'PreviewInput',
         'PreviewPlan',
         'PreviewPlanBuild',
         'PreviewSimulation',
-        'PreviewSubject',
         'PreviewSubjects',
         'RefusedEvent',
         'SimulationState',
         'StartedEvent',
-        'TriggerPattern',
         'VoiceEndEvent',
-        'Waypoint',
         'extendPreviewPlan',
         'previewPlan',
         'previewScenarioProblems',
@@ -297,14 +302,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The build of the inference runtime every model processor is pinned to (ADR-0062), which the application's tests state the runtime in use with, as the build states it from the bytes it serves.":
       ['PINNED_RUNTIME_SHA256'],
     "The canonical detectors one by one (ADR-0061, ADR-0062), each an `AudioDetector` the assistants run and the detection worker reaches through them, offered alone for a model pack's detector to join or replace, as ADR-0062 has it, once one is licensed for redistribution.":
-      [
-        'CLICK_DETECTOR',
-        'CLIPPING_DETECTOR',
-        'DC_OFFSET_DETECTOR',
-        'HUM_DETECTOR',
-        'NOISE_FLOOR_DETECTOR',
-        'TRANSIENT_DETECTOR',
-      ],
+      ['CLIPPING_DETECTOR', 'HUM_DETECTOR', 'NOISE_FLOOR_DETECTOR', 'TRANSIENT_DETECTOR'],
   },
   '@audiogubbins/ml-runtime': {
     "The runtime's WebAssembly file (ADR-0062), which the application's build configuration serves under the files base and takes the digest of; the build configuration is no package, so no import of a package reads it.":
@@ -352,8 +350,17 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readEditPlan'],
   },
   '@audiogubbins/project-commands': {
-    "The invocation that sets a member's override from a typed value (ADR-0101), built ahead of the guided workflows, whose plans are invocations; the application's override command is given its value as the document's canonical JSON, which the project command reads, so it builds the invocation of that text.":
-      ['setMemberOverrideInvocation'],
+    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) which the guided workflows' plans are made of too: adding, removing, renaming and moving a group, resetting an override, taking a member out of its group, and choosing whether a member inherits its group's processing.":
+      [
+        'moveGroupInvocation',
+        'removeGroupInvocation',
+        'renameGroupInvocation',
+        'resetMemberOverrideInvocation',
+        'setMemberProcessingInvocation',
+        'unassignMemberInvocation',
+      ],
+    "The invocations of the preview scenario commands (ADR-0104, ADR-0106), built ahead of the application's preview panel, which keeps, changes and deletes a scenario through them: adding a scenario, replacing one whole, and removing one.":
+      ['addScenarioInvocation', 'removeScenarioInvocation', 'setScenarioInvocation'],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
@@ -398,17 +405,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['SMALLEST_FFT_SIZE', 'log2'],
   },
   '@audiogubbins/loop-analysis': {
-    "The loop analysis's version, its bounds and defaults, and the audition plans (ADR-0103). The Loop panel shows an analysis against its version and plays the auditions, and the Create Seamless Loop workflow asks with the default search; each is a later unit of this phase, built against this contract.":
-      [
-        'LOOP_ANALYSIS_VERSION',
-        'LoopAudition',
-        'LoopAuditionMode',
-        'SHORTEST_LOOP_FRAMES',
-        'defaultLoopSearch',
-        'extendedAuditionPlan',
-        'loopAuditionPlan',
-        'widestRadiusFrames',
-      ],
+    'The shortest loop an analysis measures (ADR-0103), which the Create Seamless Loop workflow states as its bound before it asks; a later unit of this phase, built against this contract. The Loop panel needs no bound of its own: the analysis refuses a shorter loop and the panel shows the refusal.':
+      ['SHORTEST_LOOP_FRAMES'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

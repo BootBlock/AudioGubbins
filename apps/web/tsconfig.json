@@ -119,6 +119,12 @@
       "path": "../../packages/game-audio"
     },
     {
+      "path": "../../packages/loop-analysis"
+    },
+    {
+      "path": "../../packages/guided-workflows"
+    },
+    {
       "path": "../../packages/ml-runtime"
     },
     {

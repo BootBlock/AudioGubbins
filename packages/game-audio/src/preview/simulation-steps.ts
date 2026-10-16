@@ -9,12 +9,13 @@
  *    (`cooldown.ts`).
  * 2. Selection: a member of `e`'s pool by its rule (`selection.ts`).
  * 3. Variation, by the chosen member's own: pitch `min + ⌊u·(max − min + 1)⌋`
- *    cents, gain `min + u·(max − min)` dB, offset `⌊u·(min(M, S − 1) + 1)⌋`
- *    of the member's frames, `M` the most offset in its frames and `S` its
- *    length, or its loop's end where it loops.
+ *    cents, gain `min + u·(max − min)` dB, offset `⌊u·(min(M, S − 1) + 1)⌋` of
+ *    the member's frames, `M` the most offset in its frames and `S` its length,
+ *    or its loop's end where it loops.
  * 4. Voices: with `e` at its limit, its stealing rule steals or rejects;
  *    otherwise, with the preview at its budget, the same rule across every
- *    emitter, logged `budget-stolen` or `budget-rejected` (`voice-allocation.ts`).
+ *    emitter, logged `budget-stolen` or `budget-rejected`
+ *    (`voice-allocation.ts`).
  * 5. The voice starts in the lowest lane free.
  *
  * A voice played to its end lasts its member's frames from its offset, played

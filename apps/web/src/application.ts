@@ -356,7 +356,7 @@ export function createApplication() {
   const audioLogger = diagnostics.loggerFor('audio');
   const models = startModels(capabilities, projectSystem.storage, audioLogger);
   const audioPart = startAudio(capabilities, interaction, storage, audioLogger, models);
-  const analysisPart = startAnalysis(interaction, audioPart.previews, models);
+  const analysisPart = startAnalysis(interaction, audioPart.previews, models, audioPart.parts);
   const editorPart = startEditor(
     capabilities,
     storage,

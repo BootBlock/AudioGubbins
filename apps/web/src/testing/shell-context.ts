@@ -30,6 +30,10 @@ import { DetectionControl } from '../analysis/detection-control.js';
 import { LoudnessMeasuring } from '../analysis/loudness-measuring.js';
 import { followGroupFocus } from '../state/group-focus.js';
 import { createLoudnessStore } from '../state/loudness-store.js';
+import { LoopAnalysing } from '../analysis/loop-analysing.js';
+import { WorkflowAnalysing } from '../analysis/workflow-analysing.js';
+import { LoopAuditioning } from '../audio/loop-audition.js';
+import { createLoopAnalysisStore } from '../state/loop-analysis-store.js';
 import { PlaybackControl } from '../audio/playback-control.js';
 import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
@@ -187,6 +191,7 @@ function fakeAudio(
 function localDetection(interaction: InteractionStore): {
   readonly control: DetectionControl;
   readonly loudness: LoudnessMeasuring;
+  readonly loops: LoopAnalysing;
   readonly workers: readonly LocalDetectionWorker[];
 } {
   const workers: LocalDetectionWorker[] = [];
@@ -202,7 +207,29 @@ function localDetection(interaction: InteractionStore): {
   };
   const control = new DetectionControl({ host, announce });
   const loudness = new LoudnessMeasuring({ host, store: createLoudnessStore(), announce });
-  return { control, loudness, workers };
+  const loops = new LoopAnalysing({ host, store: createLoopAnalysisStore(), announce });
+  return { control, loudness, loops, workers };
+}
+
+/**
+ * The timers a loop audition watches the feeder by, run when a test says,
+ * so no test waits on the clock.
+ */
+export class ManualSchedule {
+  readonly #due: (() => void)[] = [];
+
+  readonly schedule = (callback: () => void): (() => void) => {
+    this.#due.push(callback);
+    return () => {
+      const index = this.#due.indexOf(callback);
+      if (index >= 0) this.#due.splice(index, 1);
+    };
+  };
+
+  /** Runs every timer due now, once; those they set are due at the next call. */
+  runDue(): void {
+    for (const callback of this.#due.splice(0)) callback();
+  }
 }
 
 /**
@@ -226,6 +253,8 @@ export function buildShellContext(
   readonly detectionWorkers: readonly LocalDetectionWorker[];
   /** The recording part's fakes, for a test of the input, monitoring and the calibration. */
   readonly recording: RecordingFakes;
+  /** The timers a loop audition watches the feeder by, for a test to run. */
+  readonly timers: ManualSchedule;
 } {
   const logs = createLogStore();
   const diagnostics = createDiagnosticCentre(
@@ -247,6 +276,7 @@ export function buildShellContext(
 
   const { parts, fakes } = fakeAudio(interaction, storage, logger);
   const detection = localDetection(interaction);
+  const timers = new ManualSchedule();
   const workspace = createWorkspaceStore(DESCRIPTORS, storage, logger);
   const recording = fakeRecording({
     settings: parts.audioSettings,
@@ -267,6 +297,7 @@ export function buildShellContext(
     audio: fakes,
     detectionWorkers: detection.workers,
     recording: recording.fakes,
+    timers,
     context: {
       preferences: createPreferencesStore(storage, logger),
       workspace,
@@ -294,6 +325,13 @@ export function buildShellContext(
       ...fakeEditor(storage, logger),
       detection: detection.control,
       loudness: detection.loudness,
+      loopAnalysis: detection.loops,
+      workflowAnalysis: new WorkflowAnalysing([detection.control, detection.loops.analyses]),
+      loopAudition: new LoopAuditioning({
+        playback: parts.playback,
+        audio: parts.audio,
+        schedule: timers.schedule,
+      }),
       packs: noPackManager(),
       recording: recording.parts,
     },

@@ -323,6 +323,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
             />
 
             <ProjectSurfaces
+              context={context}
               root={context.storageRoot}
               projects={context.projects}
               exports={context.exports}

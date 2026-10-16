@@ -79,12 +79,12 @@ export { writeKeptMetadata } from './kept-metadata-json.js';
 export { readExportSettings, writeExportSettings } from './export-settings-json.js';
 export {
   readGameAssetGroup,
-  readGroupMember,
   readPolicyOverrides,
   writeGameAssetGroup,
-  writeGroupMember,
   writePolicyOverrides,
 } from './game-audio-json.js';
+export { readGroupMember, writeGroupMember } from './game-member-json.js';
+export { readPreviewScenario, writePreviewScenario } from './game-scenario-json.js';
 export { readPolicyField, writePolicyValue } from './game-policy-json.js';
 
 export {

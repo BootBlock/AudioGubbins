@@ -22,6 +22,7 @@ import { exportSettingsCommands } from './export-settings-commands.js';
 import { groupCommands } from './game/group-commands.js';
 import { memberSettingCommands } from './game/member-setting-commands.js';
 import { membershipCommands } from './game/membership-commands.js';
+import { scenarioCommands } from './game/scenario-commands.js';
 import { markerCommands } from './editing/marker-commands.js';
 import { regionCommands } from './editing/region-commands.js';
 import { processorCommands } from './processing/processor-commands.js';
@@ -58,6 +59,7 @@ export function projectCommands(catalogue: ProcessorCatalogue): readonly Project
     ...groupCommands(),
     ...membershipCommands(),
     ...memberSettingCommands(),
+    ...scenarioCommands(),
   ];
 }
 

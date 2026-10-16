@@ -54,9 +54,10 @@ describe('the menu bar', () => {
       'View',
       'Workspace',
       'Editor',
+      'Tools',
       'Help',
     ]);
-    expect(entries).toHaveLength(206);
+    expect(entries).toHaveLength(221);
   });
 
   it("offers the asset groups' commands in the Editor menu, under their own heading", () => {

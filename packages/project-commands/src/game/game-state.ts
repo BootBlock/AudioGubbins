@@ -23,6 +23,7 @@ import {
   type Region,
 } from '@audiogubbins/domain';
 import {
+  NO_GAME_AUDIO,
   inheritingRacks,
   memberKey,
   validateGameAudioState,
@@ -32,13 +33,10 @@ import {
 } from '@audiogubbins/game-audio';
 import { withGameAudio, type ProjectState } from '@audiogubbins/project-format';
 
-/** What a project with no groups holds. */
-const NO_GAME_AUDIO: GameAudioState = { groups: new Map(), memberships: [] };
-
 /** The code a rack that is not what its member inherits is refused under. */
 const PROCESSING_MISMATCH = 'game.member-processing-mismatch';
 
-/** The project's game-audio state, or one with no groups where it has none. */
+/** The project's game-audio state, or one holding nothing where it has none. */
 export function gameOf(state: ProjectState): GameAudioState {
   return state.gameAudio ?? NO_GAME_AUDIO;
 }
@@ -87,9 +85,9 @@ export function projectWithRack(
  * `state` holding `game` with every `inherit` member's rack the one it
  * inherits there, or every reason the project cannot hold `game`.
  *
- * Racks follow only a forest that reads: a member's inheritance is not
- * defined in a cycle or under a group that is not there. So the state is first
- * held to every rule but the racks', which are the ones this sets.
+ * Racks follow only a forest that reads: a member's inheritance is not defined
+ * in a cycle or under a group that is not there. So the state is first held to
+ * every rule but the racks', which are the ones this sets.
  */
 export function withGame(state: ProjectState, game: GameAudioState): DomainResult<ProjectState> {
   const shape = validateGameAudioState(state.project, game);

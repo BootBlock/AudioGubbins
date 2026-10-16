@@ -17,10 +17,10 @@
  * whatever the grade, so {@link REAL_TIME_TAPS} taps of voices take half of
  * every second, the half the preview leaves for reading, panning and mixing:
  *
- * | Grade | Taps near unison | Taps two octaves up | Voices near unison | Two octaves up |
- * | ----- | ---------------- | ------------------- | ------------------ | -------------- |
- * | Draft | 79               | 309                 | 26 (tables)        | 8              |
- * | High  | 267              | 1,061               | 7 (tables)         | 2              |
+ * | Grade | Taps, unison | Taps, +2 oct. | Voices, unison | Voices, +2 oct. |
+ * | ----- | ------------ | ------------- | -------------- | --------------- |
+ * | Draft | 79           | 309           | 26 (tables)    | 8               |
+ * | High  | 267          | 1,061         | 7 (tables)     | 2               |
  */
 
 import { VARISPEED_DENOMINATOR, type ResamplingGrade } from '@audiogubbins/domain';

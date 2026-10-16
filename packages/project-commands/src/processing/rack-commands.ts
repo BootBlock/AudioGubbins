@@ -5,11 +5,11 @@
  * one of the things that name it.
  *
  * Each names a chain by its identifier or gives it whole, and removes a chain
- * it leaves nothing naming, as `chain-naming.ts` says, so one undo restores
- * the chain with the naming. A rack given to a member of an asset group that
- * inherits its group's processing makes it own its processing (ADR-0101). A rack edit changes no time, so pointing it at
- * another chain moves nothing placed on the asset, and the edit stays where it
- * is in the chain of edits.
+ * it leaves nothing naming, as `chain-naming.ts` says, so one undo restores the
+ * chain with the naming. A rack given to a member of an asset group that
+ * inherits its group's processing makes it own its processing (ADR-0101). A
+ * rack edit changes no time, so pointing it at another chain moves nothing
+ * placed on the asset, and the edit stays where it is in the chain of edits.
  */
 
 import {

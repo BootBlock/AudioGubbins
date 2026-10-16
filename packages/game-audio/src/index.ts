@@ -13,12 +13,14 @@
  * preview (ADR-0104) simulates a scenario's emitters by the authored rules
  * over the one counter-based generator, as an event log that is the reference
  * an engine's runtime reproduces, and makes the log a plan the engine plays,
- * continued as hand triggers arrive without changing what was heard.
+ * continued as hand triggers arrive without changing what was heard; its
+ * scenarios are project state beside the groups they play.
  *
  * Portable: no clock, browser global or thread. Nothing here imports anything
  * of an engine integration, which depends on these contracts instead.
  */
 
+export { type CaseModifier, inCase } from './export/case-modifiers.js';
 export { type DestinationPath, destinationPath } from './export/destination-path.js';
 export { type GameExportProfile, profileFromPreset } from './export/game-export-profile.js';
 export { type NamingTemplate, namingTemplate } from './export/naming-template.js';
@@ -33,7 +35,7 @@ export { type RegionMember, type RegionName, memberNames } from './export/member
 
 export { type GameAssetGroupId } from './groups/group-ids.js';
 export { type GameAssetGroup } from './groups/game-asset-group.js';
-export { type GameAudioState } from './groups/game-audio-state.js';
+export { type GameAudioState, NO_GAME_AUDIO, holdsNoGameAudio } from './groups/game-audio-state.js';
 export { groupPath } from './groups/group-forest.js';
 export { pathText } from './groups/group-names.js';
 export {
@@ -47,8 +49,10 @@ export { validateGameAudioState } from './groups/state-validation.js';
 export { POLICY_FIELDS, type PolicyField, type PolicyValues } from './policy/policy-fields.js';
 export {
   type InheritedPolicy,
+  OVERRIDABLE_FIELDS,
   type OverridableField,
   type PolicyOverrides,
+  isOverridableField,
   withOverride,
   withPolicyField,
 } from './policy/inherited-policy.js';

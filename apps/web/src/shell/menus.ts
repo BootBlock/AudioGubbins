@@ -34,6 +34,7 @@ import {
 } from '@audiogubbins/workspace';
 
 import { showPanelCommandId } from '../commands/panel-commands.js';
+import { WORKFLOW_KEYS, WORKFLOW_OPENING } from '../commands/workflow-command-ids.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import type { WorkspaceState } from '../state/workspace-store.js';
 import { projectMenus } from './project-menus.js';
@@ -70,6 +71,22 @@ export interface MenuSources {
   /** Runs a command, optionally naming what it should act on. */
   readonly run: (id: CommandId, args?: Readonly<Record<string, string>>) => void;
 }
+
+/**
+ * The Tools menu: the guided workflows (ADR-0105), each opening its dialog
+ * over the sound the editor shows, with the project's groups to choose from.
+ */
+const TOOL_GROUPS: readonly {
+  readonly key: string;
+  readonly label: string;
+  readonly ids: readonly string[];
+}[] = [
+  {
+    key: 'workflows',
+    label: 'Guided workflows',
+    ids: WORKFLOW_KEYS.map((key) => WORKFLOW_OPENING[key]),
+  },
+];
 
 /**
  * The Editor menu: the editor's commands, grouped by what they act on. A table,
@@ -236,6 +253,21 @@ const EDITOR_GROUPS: readonly {
       'game.cancel-loudness',
       'game.export-group',
       'game.export-members',
+    ],
+  },
+  {
+    key: 'loop',
+    label: 'Loop',
+    ids: [
+      'loop.analyse',
+      'loop.find-candidates',
+      'loop.cancel-analysis',
+      'loop.apply-candidate',
+      'loop.apply-crossfade',
+      'loop.audition-cycles',
+      'loop.audition-seam',
+      'loop.audition-candidate',
+      'loop.stop-audition',
     ],
   },
   {
@@ -433,6 +465,10 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
     {
       label: 'Editor',
       groups: EDITOR_GROUPS.map((each) => labelled(each.key, each.label, each.ids)),
+    },
+    {
+      label: 'Tools',
+      groups: TOOL_GROUPS.map((each) => labelled(each.key, each.label, each.ids)),
     },
     {
       label: 'Help',

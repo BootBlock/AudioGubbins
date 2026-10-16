@@ -27,7 +27,8 @@ function settled<TId extends string>(ids: readonly TId[]): readonly TId[] {
  * What a change from `before` to `after` affected. An asset whose source
  * changed is affected, and so is a chain any of whose processors changed; a
  * change of a membership affects its region or asset and the groups it left
- * and joined, whose members it changed (ADR-0106).
+ * and joined, whose members it changed, and a change of a preview scenario
+ * affects the project, whose test bench it is (ADR-0106).
  */
 export function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities {
   const difference = diffStates(before, after);
@@ -55,6 +56,6 @@ export function affectedBy(before: ProjectState, after: ProjectState): AffectedE
     effectChains: settled(difference.effectChains.map(({ id }) => id)),
     takeStacks: settled(touched(difference.takeStacks)),
     gameGroups: settled(touched(difference.gameGroups)),
-    project: difference.project.length > 0,
+    project: difference.project.length > 0 || touched(difference.gameScenarios).length > 0,
   };
 }

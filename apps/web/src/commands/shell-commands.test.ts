@@ -44,11 +44,14 @@ import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { guidedWorkflowCommands } from './guided-workflow-commands.js';
 import { libraryApplyCommands } from './library-apply-commands.js';
 import { libraryCommands } from './library-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
+import { loopAnalysisCommands } from './loop-analysis-commands.js';
+import { loopAuditionCommands } from './loop-audition-commands.js';
 import { markerCommands } from './marker-commands.js';
 import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
@@ -687,6 +690,11 @@ describe('the default shortcut profile', () => {
       commandId('recording.arm-punch'),
       commandId('recording.record'),
       commandId('recording.stop'),
+      commandId('loop.audition-cycles'),
+      commandId('loop.audition-seam'),
+      commandId('loop.stop-audition'),
+      commandId('workflow.apply'),
+      commandId('workflow.leave-out-refused'),
     ]);
   });
 
@@ -878,9 +886,19 @@ describe('finding the shell commands in the palette', () => {
       ...exportDialogCommands(),
       ...libraryCommands(),
       ...libraryApplyCommands(),
+      // Each needs a project with sounds, and analyses answered by the
+      // worker, which settle after it returns; each is run twice, its work
+      // awaited, in `guided-workflow-commands.test.ts`.
+      ...guidedWorkflowCommands(),
       // Each is a step of the storage worker's pack installer, run twice with
       // its work awaited in `pack-commands.test.ts`.
       ...packCommands(),
+      // Each needs a looped region, and its analysis answered by the worker or
+      // its loop changed in the project, both of which settle after it returns;
+      // each is run twice, its work awaited, in
+      // `loop-analysis-commands.test.ts` and `loop-audition-commands.test.ts`.
+      ...loopAnalysisCommands(),
+      ...loopAuditionCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),

@@ -36,5 +36,6 @@ export function useProjectState(root: StorageRootStore, projects: ProjectStores 
     usage: useMaybe(projects?.usage),
     sources: useMaybe(projects?.sources),
     transfer: useMaybe(projects?.transfer),
+    workflow: useMaybe(projects?.workflowDraft),
   };
 }

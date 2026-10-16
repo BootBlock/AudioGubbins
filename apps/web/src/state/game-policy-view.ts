@@ -13,6 +13,7 @@
 
 import type { Project } from '@audiogubbins/domain';
 import {
+  NO_GAME_AUDIO,
   groupPath,
   memberKey,
   resolveAll,
@@ -27,9 +28,6 @@ import {
   type GroupMembership,
 } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
-
-/** The game-audio state of a project with no groups. */
-const NO_GROUPS: GameAudioState = { groups: new Map(), memberships: [] };
 
 /** Names compared as a person reads a list, the same on every machine. */
 const BY_NAME = new Intl.Collator('en-GB', { sensitivity: 'base', numeric: true });
@@ -104,7 +102,7 @@ const VIEWS = new WeakMap<ProjectState, GamePolicyView>();
 export function gamePolicyView(state: ProjectState): GamePolicyView {
   const known = VIEWS.get(state);
   if (known !== undefined) return known;
-  const view = viewOf(state.project, state.gameAudio ?? NO_GROUPS);
+  const view = viewOf(state.project, state.gameAudio ?? NO_GAME_AUDIO);
   VIEWS.set(state, view);
   return view;
 }

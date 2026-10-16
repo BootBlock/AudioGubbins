@@ -177,6 +177,7 @@ function stateOf(
     validateGameAudioState(project, {
       groups: new Map(groups.map((one) => [one.id, one])),
       memberships,
+      scenarios: new Map(),
     }),
   );
 }

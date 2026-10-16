@@ -48,6 +48,8 @@ export const PanelKinds = {
 
   /** The asset groups, their members, their policy's sources, loudness and export plan (ADR-0101). */
   GameGroups: 'game-groups',
+  /** A region's loop: its checks, candidate loop points, and hearing it cycle (ADR-0103). */
+  LoopEditor: 'loop-editor',
 } as const;
 
 /** One group of a preset, before the unavailable kinds are removed. */
@@ -128,7 +130,13 @@ const PRESETS: readonly Preset[] = [
       },
       { region: DockRegion.Centre, proportion: 1, kinds: [PanelKinds.Editor] },
       { region: DockRegion.Right, proportion: 0.24, kinds: [PanelKinds.Inspector] },
-      { region: DockRegion.Bottom, proportion: 0.16, kinds: [PanelKinds.Transport] },
+      // A loop is judged by ear and by its checks together, so the Loop panel
+      // is a tab beside the transport that plays it.
+      {
+        region: DockRegion.Bottom,
+        proportion: 0.16,
+        kinds: [PanelKinds.Transport, PanelKinds.LoopEditor],
+      },
     ],
   },
   {

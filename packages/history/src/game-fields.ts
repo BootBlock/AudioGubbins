@@ -1,9 +1,8 @@
 /**
- * How a difference compares an asset group and a membership field by field
- * (ADR-0106, REQ-STOR-195), as `entity-fields.ts` compares every other
- * entity: a table whose type names every field, so a field the game-audio
- * state gains fails to compile here until a difference says how it is
- * compared.
+ * How a difference compares an asset group, a membership and a preview scenario
+ * field by field (ADR-0106, REQ-STOR-195), as `entity-fields.ts` compares every
+ * other entity: a table whose type names every field, so a field the game-audio
+ * state gains fails to compile here until a difference says how it is compared.
  */
 
 import { memberKey, type PolicyField, type PolicyValues } from '@audiogubbins/game-audio';
@@ -16,7 +15,7 @@ import {
   type Comparison,
   type FieldComparisons,
 } from './entity-fields.js';
-import type { GameGroupEntity, GameMemberEntity } from './game-entities.js';
+import type { GameGroupEntity, GameMemberEntity, GameScenarioEntity } from './game-entities.js';
 
 /**
  * A policy field's values compared as the project format writes them, the one
@@ -60,4 +59,17 @@ export const GAME_MEMBER_FIELDS: FieldComparisons<GameMemberEntity> = {
   destination: samePolicy('destination'),
   variation: samePolicy('variation'),
   bus: samePolicy('bus'),
+};
+
+/** A scenario's parts, each already its canonical text. */
+export const GAME_SCENARIO_FIELDS: FieldComparisons<GameScenarioEntity> = {
+  id: same,
+  name: same,
+  space: same,
+  panWidth: same,
+  panningStrength: same,
+  listener: same,
+  emitters: same,
+  seed: same,
+  busLevels: same,
 };

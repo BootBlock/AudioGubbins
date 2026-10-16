@@ -57,6 +57,7 @@ function stateOf(
       { member: one, group: steps, processing: 'inherit', overrides: {} },
       { member: two, group: steps, processing: 'own', overrides: {} },
     ],
+    scenarios: new Map(),
   };
 }
 

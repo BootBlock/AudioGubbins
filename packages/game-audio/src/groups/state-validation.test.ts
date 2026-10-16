@@ -15,6 +15,8 @@ import type { NamingTemplate } from '../export/naming-template.js';
 import type { BusName } from '../policy/bus-name.js';
 import type { InheritedPolicy, PolicyOverrides } from '../policy/inherited-policy.js';
 import { DEFAULT_EMITTER_RULES, DEFAULT_VOICE_VARIATION } from '../policy/playback-rules.js';
+import type { GamePreviewScenario, PreviewSubject } from '../preview/preview-scenario.js';
+import { repeatEmitter, vectorScenario } from '../testing/preview-vectors.js';
 import { worldAsset, worldProject, worldRegion } from '../testing/random-game-state.js';
 import type { GameAssetGroup } from './game-asset-group.js';
 import type { GameAudioState } from './game-audio-state.js';
@@ -57,6 +59,7 @@ function stateOf(
       [steps, group(steps, 'Steps', { parent: sfx, policy: policies.steps ?? {} })],
     ]),
     memberships,
+    scenarios: new Map(),
   };
 }
 
@@ -103,6 +106,7 @@ describe('a game-audio state’s forest (ADR-0101)', () => {
     const state: GameAudioState = {
       groups: new Map([[steps, group(steps, 'Steps', { parent: 'gone' as GameAssetGroupId })]]),
       memberships: [],
+      scenarios: new Map(),
     };
     const refusal = only(validateGameAudioState(BASE, state), 'game.group-parent-unknown');
 
@@ -124,6 +128,7 @@ describe('a game-audio state’s forest (ADR-0101)', () => {
         [steps, group(steps, 'Steps', { parent: sfx })],
       ]),
       memberships: [],
+      scenarios: new Map(),
     };
     const result = validateGameAudioState(BASE, state);
 
@@ -135,6 +140,7 @@ describe('a game-audio state’s forest (ADR-0101)', () => {
     const state: GameAudioState = {
       groups: new Map([[sfx, group(sfx, 'SFX/Steps')]]),
       memberships: [],
+      scenarios: new Map(),
     };
     const refusal = only(validateGameAudioState(BASE, state), 'game.group-name-invalid');
 
@@ -146,10 +152,12 @@ describe('a game-audio state’s forest (ADR-0101)', () => {
     const siblings: GameAudioState = {
       groups: new Map([...stateOf().groups, [other, group(other, 'STEPS', { parent: sfx })]]),
       memberships: [],
+      scenarios: new Map(),
     };
     const roots: GameAudioState = {
       groups: new Map([...stateOf().groups, [other, group(other, 'sfx')]]),
       memberships: [],
+      scenarios: new Map(),
     };
 
     const refusal = only(validateGameAudioState(BASE, siblings), 'game.group-name-taken');
@@ -167,6 +175,7 @@ describe('a game-audio state’s forest (ADR-0101)', () => {
     const state: GameAudioState = {
       groups: new Map([...stateOf().groups, [other, group(other, 'Steps')]]),
       memberships: [],
+      scenarios: new Map(),
     };
     expectSuccess(validateGameAudioState(BASE, state));
   });
@@ -365,5 +374,75 @@ describe('a policy’s values, each refusal naming its owner', () => {
       'game.policy-destination-invalid',
       'game.policy-naming-invalid',
     ]);
+  });
+});
+
+describe('a game-audio state’s preview scenarios (ADR-0104, ADR-0106)', () => {
+  const BY_HAND = { kind: 'by-hand' } as const;
+
+  /** A scenario whose emitters play `subjects`, one each. */
+  function playing(...subjects: readonly PreviewSubject[]): GamePreviewScenario {
+    return vectorScenario(
+      subjects.map((subject, index) => repeatEmitter(index + 1, BY_HAND, { subject })),
+      7,
+    );
+  }
+
+  function withScenarios(state: GameAudioState, ...scenarios: GamePreviewScenario[]) {
+    return { ...state, scenarios: new Map(scenarios.map((one) => [one.id, one])) };
+  }
+
+  // A scenario holds well-formed identifiers, which the forest's named ones are not.
+  const played = 'abcd0000-0001' as GameAssetGroupId;
+  const GROUPED: GameAudioState = {
+    ...stateOf([inRegion('own')]),
+    groups: new Map([...stateOf().groups, [played, group(played, 'Played')]]),
+  };
+
+  it('passes a scenario playing a group of the state and a member of one of its groups', () => {
+    const state = withScenarios(
+      GROUPED,
+      playing({ kind: 'group', group: played }, { kind: 'member', member: region }),
+    );
+    expect(expectSuccess(validateGameAudioState(BASE, state))).toBe(state);
+  });
+
+  it('refuses an emitter playing a group the state lacks, naming the scenario and the emitter', () => {
+    const scenario = playing({ kind: 'group', group: 'abcd0000-0099' as GameAssetGroupId });
+    const refusal = only(
+      validateGameAudioState(BASE, withScenarios(GROUPED, scenario)),
+      'game.scenario-subject-unknown',
+    );
+    expect(refusal.details).toEqual({ scenario: scenario.id, part: 'emitters.0.subject' });
+    expect(refusal.summary).toBe(
+      'The emitter "Emitter 1" of the preview scenario "Vector" plays a group the project does not have.',
+    );
+  });
+
+  it('refuses an emitter playing a sound of the project that is in no group', () => {
+    const scenario = playing({ kind: 'member', member: asset });
+    const refusal = only(
+      validateGameAudioState(BASE, withScenarios(GROUPED, scenario)),
+      'game.scenario-subject-unknown',
+    );
+    expect(refusal.summary).toContain('plays an asset that is in no group');
+  });
+
+  it('refuses a scenario held under an identifier not its own', () => {
+    const scenario = playing({ kind: 'group', group: played });
+    const other = vectorScenario(scenario.emitters, 7, {
+      id: 'aaaa0000-0002' as GamePreviewScenario['id'],
+    });
+    const state = { ...GROUPED, scenarios: new Map([[other.id, scenario]]) };
+    expect(codes(validateGameAudioState(BASE, state))).toEqual(['game.scenario-id-mismatch']);
+  });
+
+  it('refuses a scenario its own rules refuse, naming it', () => {
+    const scenario = { ...playing({ kind: 'group', group: played }), seed: -1 };
+    const refusal = only(
+      validateGameAudioState(BASE, withScenarios(GROUPED, scenario)),
+      'game.scenario-invalid',
+    );
+    expect(refusal.details).toEqual({ scenario: scenario.id, part: 'seed' });
   });
 });

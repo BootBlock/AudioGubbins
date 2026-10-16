@@ -55,3 +55,17 @@ describe('the Spectral Repair preset (REQ-UX-058)', () => {
     expect(right?.activePanelId).toBe('spectral-repair:spectral');
   });
 });
+
+describe('the Game Audio preset (REQ-UX-058)', () => {
+  it('puts the Loop panel in a tab beside the transport, the transport in front', () => {
+    const game = buildPresets(new Set(Object.values(PanelKinds))).find(
+      (layout) => layout.id === 'game-audio',
+    );
+    const bottom = game?.groups.find((group) => group.region === DockRegion.Bottom);
+    expect(bottom?.panels.map((panel) => panel.kind)).toEqual([
+      PanelKinds.Transport,
+      PanelKinds.LoopEditor,
+    ]);
+    expect(bottom?.activePanelId).toBe('game-audio:transport');
+  });
+});

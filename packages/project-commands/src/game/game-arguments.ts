@@ -18,6 +18,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   POLICY_FIELDS,
+  isOverridableField,
   type GameAssetGroup,
   type GameAssetGroupId,
   type GameAudioState,
@@ -109,19 +110,16 @@ export function fieldArgument(invocation: CommandInvocation): DomainResult<Polic
 }
 
 /**
- * Why a member sets none of the fields it may not set over its group: typed
- * over the fields `OverridableField` leaves out, so a field that joins or
- * leaves it fails to compile here.
+ * Why a member sets none of the fields it may not set over its group (which
+ * they are is the game-audio package's `isOverridableField`): typed over the
+ * fields `OverridableField` leaves out, so a field that joins or leaves it
+ * fails to compile here until its reason is given.
  */
 const NOT_OVERRIDDEN: Readonly<Record<Exclude<PolicyField, OverridableField>, string>> = {
   processing: 'its rack is its group’s processing while it inherits, and its own once it owns it',
   tags: 'a group’s tags add to its own and replace none',
   emitter: 'how the group is played belongs to whoever plays it, not to one sound in it',
 };
-
-function isOverridable(field: PolicyField): field is OverridableField {
-  return !(field in NOT_OVERRIDDEN);
-}
 
 /**
  * The field the argument `field` names, where a member of `group` may set it
@@ -137,7 +135,7 @@ export function overridableFieldArgument(
   const field = fieldArgument(invocation);
   if (!field.ok) return field;
   const name = field.value;
-  if (isOverridable(name)) return succeed(name);
+  if (isOverridableField(name)) return succeed(name);
   return rejected(
     'game.field-not-overridable',
     `${quoted(target.name)} sets no ${FIELD_WORDS[name]} over its group, since ${NOT_OVERRIDDEN[name]}: it is set on ${groupWords(game, group)}.`,

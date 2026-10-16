@@ -32,6 +32,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import {
+  NO_GAME_AUDIO,
   planGameExport,
   type GameExportItem,
   type GameExportPlan,
@@ -85,7 +86,7 @@ export function gameExportPlan(
   const codecs = servedCodecs(sources.codecs);
   return planGameExport(
     state.project,
-    state.gameAudio ?? { groups: new Map(), memberships: [] },
+    state.gameAudio ?? NO_GAME_AUDIO,
     { members, clock },
     (member) => {
       const asset = memberAsset(state, member);

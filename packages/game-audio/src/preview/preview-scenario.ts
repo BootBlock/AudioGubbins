@@ -97,11 +97,11 @@ export interface PreviewEmitter {
 }
 
 /**
- * The one listener: where it stands, and which way it faces about the
- * vertical axis in turns from 0 (inclusive) to 1, as Godot's rotation: 0 faces
- * −z in 3D and −y in 2D; a quarter turn faces −x in 3D (turned left, as a
- * positive rotation about +y turns) and +x in 2D (turned clockwise, as a
- * positive 2D rotation turns with +y down).
+ * The one listener: where it stands, and which way it faces about the vertical
+ * axis in turns from 0 (inclusive) to 1, as Godot's rotation: 0 faces −z in 3D
+ * and −y in 2D; a quarter turn faces −x in 3D (turned left, as a positive
+ * rotation about +y turns) and +x in 2D (turned clockwise, as a positive 2D
+ * rotation turns with +y down).
  */
 export interface Listener {
   readonly at: Position;
@@ -357,8 +357,12 @@ export function previewScenarioProblems(scenario: GamePreviewScenario): readonly
 }
 
 /**
- * Every subject of `scenario` that names nothing: a group `hasGroup` does not
- * know, or a member `hasMember` does not, each coded `game.scenario-subject-unknown`.
+ * Every subject of `scenario` that plays nothing: a group `hasGroup` does not
+ * know, or a sound `hasMember` does not know as a member of a group, whose
+ * group's rules a member subject plays by. Each is coded
+ * `game.scenario-subject-unknown` and names the scenario and the emitter, so a
+ * change that would leave an emitter playing nothing is refused saying which
+ * scenario plays it.
  */
 export function scenarioSubjectProblems(
   scenario: GamePreviewScenario,
@@ -369,11 +373,15 @@ export function scenarioSubjectProblems(
   for (const [index, { subject, name }] of scenario.emitters.entries()) {
     const known = subject.kind === 'group' ? hasGroup(subject.group) : hasMember(subject.member);
     if (known) continue;
+    const plays =
+      subject.kind === 'group'
+        ? 'a group the project does not have'
+        : `${subject.member.kind === 'region' ? 'a region' : 'an asset'} that is in no group`;
     problems.push(
       failure(
         'game.scenario-subject-unknown',
         FailureKind.Rejected,
-        `The emitter "${name}" plays a ${subject.kind} the project does not have.`,
+        `The emitter "${name}" of the preview scenario "${scenario.name}" plays ${plays}.`,
         { details: { scenario: scenario.id, part: `emitters.${String(index)}.subject` } },
       ),
     );

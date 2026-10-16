@@ -9,7 +9,8 @@
  * processing names enters with the group or the setting, given whole where
  * the project lacks it, and leaves with the last thing that names it
  * (`chain-naming.ts`). A group is removed only once it holds no group and no
- * member, so its inverse carries the group alone.
+ * member and no preview scenario plays it, so its inverse carries the group
+ * alone.
  */
 
 import {
@@ -52,6 +53,7 @@ import {
 } from './game-invocations.js';
 import { gameOf, withGame } from './game-state.js';
 import { FIELD_WORDS, groupWords } from './game-words.js';
+import { unplayed } from './scenario-players.js';
 
 /** The chain a processing setting names, where it names one. */
 function chainOf(processing: EffectChainId | 'none' | undefined): EffectChainId | undefined {
@@ -121,6 +123,8 @@ function removeGroup(
       `${words} still has ${counted(members, 'member', 'members')}; take them out of it first.`,
     );
   }
+  const played = unplayed(game, { kind: 'group', group: group.id }, words, 'removed');
+  if (!played.ok) return refusedBy(played);
   const groups = new Map(game.groups);
   groups.delete(group.id);
   const next = withGame(state, { ...game, groups });
