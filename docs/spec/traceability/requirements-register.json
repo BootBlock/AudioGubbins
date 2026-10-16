@@ -3948,6 +3948,44 @@
       ],
       "legacy_source_section": null,
       "evidence": []
+    },
+    {
+      "id": "REQ-UX-221",
+      "title": "Visual Design Language and Verified Visual Quality",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 16,
+      "owner_phase_name": "Visual Design and Interaction",
+      "phase_file": "phases/phase-16-visual-design-and-interaction.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DESIGN-SIGNOFF",
+        "VISUAL-E2E",
+        "MOTION-E2E",
+        "APP-ARCH",
+        "INTERACTION-LATENCY"
+      ],
+      "legacy_source_section": null,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-222",
+      "title": "Motion System and Shell Animation",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 16,
+      "owner_phase_name": "Visual Design and Interaction",
+      "phase_file": "phases/phase-16-visual-design-and-interaction.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DESIGN-SIGNOFF",
+        "VISUAL-E2E",
+        "MOTION-E2E",
+        "APP-ARCH",
+        "INTERACTION-LATENCY"
+      ],
+      "legacy_source_section": null,
+      "evidence": []
     }
   ]
 }

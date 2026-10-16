@@ -2,7 +2,7 @@
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 16 reaching `PASS`. Phase 16 was added before this phase by `CHG-0002`, so this phase hardens the interface in its final visual design.
 
 ## Objective
 
@@ -27,6 +27,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - Phase 11 — Godot Integration
 - Phase 12 — PWA, Offline, and Installation Hardening
 - Phase 13 — Advanced Batch and Variation Workflows
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -63,6 +64,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - [ ] Offline/update/recovery stress
 - [ ] N-channel/surround/ambisonic end-to-end validation
 - [ ] Video-reference synchronisation validation
+- [ ] The visual comparison and motion suites of Phase 16 across the browser/OS/device matrix, and every web surface present at this phase's start held to an approved, signed-off reference (`REQ-UX-221`, `CHG-0002`)
 
 ## Explicitly Out of Scope
 
@@ -150,6 +152,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - [ ] Performance regressions outside documented statistical tolerances are investigated and fixed/justified without deleting required capability.
 - [ ] Long-duration/N-channel/stress projects remain recoverable under memory/storage pressure.
 - [ ] Compatibility/degradation matrix is complete and user-facing explanations match actual runtime behaviour.
+- [ ] Every web surface has an approved visual reference and a design-review sign-off, and Phase 16's visual comparison and motion suites pass; a remediation that changes a surface's appearance carries a new sign-off (`REQ-UX-221`, `REQ-UX-222`).
 
 ## Forbidden Shortcuts
 
@@ -171,6 +174,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - Audio / DSP Correctness
 - Architecture
 - Adversarial Agent-Quality
+- Visual Design (`CHG-0002`), for every remediation that changes a surface's appearance
 
 ## Evidence Package
 

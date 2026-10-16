@@ -2,7 +2,7 @@
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 02, 03, 06, 09, 10 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 02, 03, 06, 09, 10, 16 reaching `PASS`. Phase 16 was placed before this phase by `CHG-0002`.
 
 ## Objective
 
@@ -19,6 +19,7 @@ A Godot 4 project can install AudioGubbins addons, receive deterministic game-re
 - Phase 06 — Effect Rack and Core DSP
 - Phase 09 — Import, Export, and Codec System
 - Phase 10 — Game-Audio Tooling
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -141,6 +142,7 @@ A Godot 4 project can install AudioGubbins addons, receive deterministic game-re
 - Generated text resources are deterministic/Git-friendly.
 - No broad/opaque Godot project rewrite.
 - Godot editor-only APIs do not leak into runtime addon.
+- CHG-0002: every web surface this phase adds or changes (a panel, a dialogue, a menu, a notice) follows Phase 16's design language (`REQ-UX-221`, `REQ-UX-222`): it is built from the control set and the panel composition, and this phase delivers its approved reference, its design-review sign-off and its screenshot comparison.
 
 ## Internal Work Units
 
@@ -218,6 +220,7 @@ A Godot 4 project can install AudioGubbins addons, receive deterministic game-re
 - Testing / GUT
 - Security / Permissions
 - Adversarial Agent-Quality
+- Visual Design (CHG-0002), for every web surface this phase adds or changes
 
 ## Evidence Package
 

@@ -76,7 +76,10 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--phase", type=int, action="append")
     args=ap.parse_args()
-    phases=args.phase if args.phase else list(range(16))
+    # Every phase the ledger holds, so a phase added later is built without
+    # editing this file. A phase's number names it; its place in the order of
+    # work is the dependency graph's.
+    phases=args.phase if args.phase else sorted(int(k) for k in ledger)
     OUTDIR.mkdir(parents=True,exist_ok=True)
     errors=[]
     for p in phases:

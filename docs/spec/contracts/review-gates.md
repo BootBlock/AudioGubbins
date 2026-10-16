@@ -29,8 +29,20 @@ Conditionally required:
 - Browser / PWA Compatibility
 - Godot Editor / Runtime Integration
 - Codec / Interchange Correctness
+- Visual Design (see below)
 
 The Phase Packet identifies the applicable set.
+
+## Visual Design Review
+
+The other lenses cannot judge appearance: a reviewer agent can check that a token is used and a contrast ratio holds, and not that a surface looks right. The Visual Design lens is therefore a sign-off by the product owner (`REQ-UX-221`, `CHG-0002`). It is required for every surface a phase designs or whose appearance it changes, from Phase 16 onwards.
+
+1. **Before implementation** — the implementer presents mock-ups or variants of each surface, in both themes and both densities, to the product owner. The approved version is recorded as the surface's visual reference, with the date and the decision, in the phase's evidence.
+2. **After implementation** — the implementer presents each rendered surface beside its approved reference, in each theme and density, together with the component states it uses and, for motion, a recording at each motion level. The product owner signs off the surface or returns it with marked findings.
+3. **Findings** — a returned surface is a finding of the Visual Design lens. It is fixed and presented again; it is not dismissed, and a reviewer agent does not overrule it. The product owner's preference is the criterion here, which is the one exception to "Reviewers must distinguish product preference from specification violation".
+4. **Baseline** — the signed-off rendering becomes the baseline of the automated screenshot comparison. A later change that moves a surface beyond the comparison's tolerance fails until the product owner signs off the new rendering, and the new baseline is committed with that sign-off recorded.
+
+The implementer may not sign off its own surface, and a reviewer agent may not sign off for the product owner. When other lens reviews are deferred, this sign-off is not deferred: a phase that requires it does not pass without it.
 
 ## Severity
 

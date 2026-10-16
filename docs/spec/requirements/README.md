@@ -6,7 +6,7 @@
 >
 > **Requirement groups:** Each `REQ-*` identifier owns the complete requirement block beneath it. Every bullet and invariant in the block is part of that requirement group unless explicitly marked otherwise.
 
-Canonical requirement groups: **216**.
+Canonical requirement groups: **218**.
 
 ## Modules
 
@@ -19,7 +19,7 @@ Canonical requirement groups: **216**.
 - [Game-Audio Authoring Requirements](./game.md) — prefix `GAME` — 9 requirement groups
 - [Godot Editor and Runtime Integration Requirements](./godot.md) — prefix `GODOT` — 28 requirement groups
 - [PWA, Browser, Platform, and Deployment Requirements](./pwa.md) — prefix `PWA` — 9 requirement groups
-- [UX, Workspace, Touch, Theme, and Accessibility Requirements](./ux.md) — prefix `UX` — 13 requirement groups
+- [UX, Workspace, Touch, Theme, and Accessibility Requirements](./ux.md) — prefix `UX` — 15 requirement groups
 - [Privacy, Diagnostics, and Provenance Requirements](./privacy.md) — prefix `PRIV` — 5 requirement groups
 - [Repository, Tooling, Testing, and Release Engineering Requirements](./repository.md) — prefix `REPO` — 12 requirement groups
 - [Agent and Specification Execution Requirements](./execution.md) — prefix `EXEC` — 42 requirement groups

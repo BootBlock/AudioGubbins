@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 16 reaching `PASS`. Phase 16 was added before this phase by `CHG-0002`, so this phase hardens the interface in its final visual design.
 
 ## Objective
 
@@ -137,6 +137,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - Phase 11 — Godot Integration
 - Phase 12 — PWA, Offline, and Installation Hardening
 - Phase 13 — Advanced Batch and Variation Workflows
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -173,6 +174,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - [ ] Offline/update/recovery stress
 - [ ] N-channel/surround/ambisonic end-to-end validation
 - [ ] Video-reference synchronisation validation
+- [ ] The visual comparison and motion suites of Phase 16 across the browser/OS/device matrix, and every web surface present at this phase's start held to an approved, signed-off reference (`REQ-UX-221`, `CHG-0002`)
 
 ## Explicitly Out of Scope
 
@@ -260,6 +262,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - [ ] Performance regressions outside documented statistical tolerances are investigated and fixed/justified without deleting required capability.
 - [ ] Long-duration/N-channel/stress projects remain recoverable under memory/storage pressure.
 - [ ] Compatibility/degradation matrix is complete and user-facing explanations match actual runtime behaviour.
+- [ ] Every web surface has an approved visual reference and a design-review sign-off, and Phase 16's visual comparison and motion suites pass; a remediation that changes a surface's appearance carries a new sign-off (`REQ-UX-221`, `REQ-UX-222`).
 
 ## Forbidden Shortcuts
 
@@ -281,6 +284,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - Audio / DSP Correctness
 - Architecture
 - Adversarial Agent-Quality
+- Visual Design (`CHG-0002`), for every remediation that changes a surface's appearance
 
 ## Evidence Package
 
@@ -1011,6 +1015,78 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 ---
 
+## REQ-UX-221 — Visual Design Language and Verified Visual Quality
+
+- **Owner:** Phase 16 — Visual Design and Interaction
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-UX-005`, `REQ-UX-070`, `REQ-UX-071` and `REQ-UX-155` by `CHG-0002`
+
+`REQ-UX-005` asks for "a modern, sleek, visually rich multimedia application rather than a conventional form-based web application". This requirement makes that goal a stated design language and a check that can fail. A requirement group has one owning phase, and Phase 01, which owns those four, verified their structure and not their appearance.
+
+AudioGubbins shall have one written design language, and every visible surface shall follow it. The language shall state:
+
+- A layout grid: the base unit every size is a multiple of, and the alignment of panel content to it
+- A type scale: families, sizes, weights and line heights for each role (display, heading, body, label, caption, numeric readout), with tabular figures for every time, level and frequency readout
+- A spacing scale and a radius scale, each for both densities
+- One icon set under a licence the repository accepts, used for every icon, at stated sizes and one stroke weight, with no icon drawn ad hoc in a component
+- Colour use within the semantic tokens of `ADR-0012`: which surfaces, borders, text and accents each role takes in both themes, where the accent appears and where it does not, and the semantic colours of state (error, warning, success, recording, clipping, selection)
+- Elevation and panel chrome: the surface levels, how a panel, a panel header, a tab, a toolbar, a menu, a popover and a dialogue are separated, and which of them cast a shadow in each theme
+- Focus and selection styling: one visible focus indicator for keyboard focus, distinct from the selection of an item, of a region of audio and of a tool
+- The presentation of audio: waveform, spectrogram, meters, the ruler, markers and regions, each with its semantic palette (`REQ-UX-070`)
+- Empty, loading and error states for each panel
+- The control set: the shared controls every surface is built from (for example icon buttons and grouped toolbars, segmented controls, toggles, sliders, knobs, faders, meters, property grids, lists and tables, tabs, panel headers), each designed once for the language
+- Panel composition: the patterns every panel follows (a header with its title, icon and actions, a toolbar, sections, a property grid, an empty state), so that two panels showing the same kind of thing look alike
+- Visual richness: the depth and effects the language uses (for example layered surfaces, gradients, translucency and blur behind overlays, glows and highlights on active, selected and live elements, and animated feedback on hover, press and state changes), stated per theme and per motion level
+- Text economy: a control is labelled in a word or two, or by an icon with an accessible name; an explanation is a hint, a popover, an empty state or progressive disclosure, never a paragraph standing in a panel
+
+The product owner's direction for the language, recorded in `CHG-0002`, is that AudioGubbins shall look like a current, well-designed modern application: consistent across every surface, built from well-designed controls, with icons, visual effects and animation, and without walls of text. The language shall meet that direction, and the product owner's sign-off judges it.
+
+Every surface shall follow the panel composition and be built from the control set. A surface that needs a control the set lacks shall add it to the set, designed in the language, rather than build its own.
+
+Text economy shall not remove what a reader needs: the reason an action is unavailable (`ADR-0013`), an accessible name for every control, and every announcement stay, reached through the hint, the popover or the live region rather than shown as standing text.
+
+Before a surface is built or changed, the design of that surface shall be shown to the product owner as mock-ups or variants, in both themes and both densities, and the version the product owner approves shall be recorded as its visual reference, with the date and the decision. Work shall not continue on a surface whose reference is not approved.
+
+A surface shall be accepted only when:
+
+1. The product owner has signed off the rendered surface against its approved reference, in each theme and density, through the design review of `contracts/review-gates.md`.
+2. An automated screenshot comparison holds the rendered surface, in each theme and density, to the signed-off rendering. A difference beyond the stated tolerance fails, and a new rendering is accepted only by a new sign-off.
+3. Every shared component in `packages/design-system` renders in every state it has (default, hover, focus-visible, active, pressed, disabled, error and loading where each applies), in both themes and both densities, and the screenshot comparison covers each.
+
+Structural evidence (tokens exist, contrast is computed, landmarks are named) is necessary and does not verify this requirement.
+
+The design language shall not reduce accessibility. Contrast shall be computed through the token system as `ADR-0012` requires, keyboard focus shall stay visible on every surface, and every control shall stay keyboard-operable.
+
+The language changes appearance and presentation only. The UI shall still change authoritative project state only through typed commands (`REQ-EDIT-073`), and the command-first shell (`ADR-0013`), the workspace layout ownership (`ADR-0010`) and the design-system boundary (`ADR-0009`) stand.
+
+---
+
+## REQ-UX-222 — Motion System and Shell Animation
+
+- **Owner:** Phase 16 — Visual Design and Interaction
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-UX-069` by `CHG-0002`, taking up the shell animation `ADR-0014` deferred
+
+The motion `REQ-UX-069` lists shall be designed and built as one motion system, not as transitions each component chooses.
+
+The motion system shall state, for each kind of motion `REQ-UX-069` lists (dock and panel transitions, menu and context transitions, zoom transitions, drag-and-drop targets, meter movement, selection feedback, processor state changes, loading and progress, workspace transitions):
+
+- Whether it animates, and what (position, size, opacity, colour)
+- Its duration and easing, from the motion tokens
+- What it does at each motion level: full, reduced and off
+
+The shell shall animate at the full level: a panel opening, closing, docking and floating, a menu and a popover opening, a dialogue entering and leaving, a workspace switching, and a notice appearing.
+
+At the full level, the application shall also give animated feedback: a control's hover, press and state change, a selection appearing, a list item added or removed, progress and loading, and a live element (a meter, a recording indicator, the playhead) drawn with the effects the design language states. The motion system states each effect, its tokens and what it becomes at the reduced and off levels.
+
+Motion shall never delay input. Direct manipulation of an audio-editing control (a drag of a selection, a fader, a knob, a zoom gesture, a scrub) shall follow the pointer in the next frame with no easing, and a meter shall show the level the audio engine reports, with its stated ballistics rather than an animation's.
+
+At the reduced level, motion shall keep only what helps a reader follow a change, without movement across the screen. At the off level, nothing shall animate. The system preference `prefers-reduced-motion` shall select the reduced level until the user chooses another, as `REQ-UX-069` states. The levels shall reach third-party animation, the docking engine's included.
+
+Each kind of motion shall be verified at each level in a real browser, by its duration and properties as the browser reports them, not by reading a stylesheet.
+
+---
+
 # Relevant Accepted ADRs
 
 <!-- adr/ADR-0009-design-system-boundary.md -->
@@ -1042,6 +1118,18 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** state partitioned by ownership; a store testable without React; a composition root that is the only place knowing what the real clock, storage and capability probes are.
 - **Constraints:** a store exposes its members as properties rather than methods, so a reader cannot capture an unbound method. Authoritative project and audio state does not live here, and React never owns high-frequency state.
 - **Related requirements:** `REQ-ARCH-153`, `REQ-EXEC-136.4`, `REQ-EDIT-073`.
+
+<!-- adr/ADR-0014-shell-animation-deferred.md -->
+
+# ADR-0014 — Shell Animation Deferred Until a Consumer Exists
+
+- **Status:** Accepted
+- **Supersedes:** the animation clause of `ADR-0001`, which names Motion for React for application-shell animation. Everything else in `ADR-0001` stands.
+- **Decision:** AudioGubbins does not declare or install an animation library until a component imports one. The motion levels `REQ-UX-069` requires are carried by CSS transitions over the design system's motion tokens, which is sufficient for the shell's transitions and reaches the docking engine's own animation through the minimal-motion guard. Motion for React remains the chosen library for the first requirement that CSS cannot meet.
+- **Drivers:** a dependency nothing imports is an install cost, a supply-chain surface and a licence obligation for no return; the reduced-motion policy must apply to third-party animation as well as to AudioGubbins' own, which a stylesheet rule does and a library call does not.
+- **Constraints:** the decision is recorded rather than left implicit, because `ADR-0001` is the architecture record a later agent reads, and a library named there and absent from the manifests reads as an oversight. When an animation requirement arrives, it arrives with this ADR superseded rather than with a library added quietly.
+- **Amended:** by `CHG-0002` (2026-10-16). The shell animation this ADR left without a consumer is taken up: `REQ-UX-222` requires it, and Phase 16 delivers it. The rule that no animation library is installed before a component imports one stands. Phase 16 decides, against the motion system it designs, whether CSS transitions over the motion tokens meet `REQ-UX-222`. If they do, it records that in its evidence and this ADR stands. If they do not, it supersedes this ADR with a new one that names the library, its licence and how the motion levels reach it, as the Constraints clause requires.
+- **Related requirements:** `REQ-UX-069`, `REQ-UX-222`, `REQ-ARCH-034`, `REQ-ARCH-151`, `REQ-EXEC-169`.
 
 <!-- adr/ADR-0016-version-registry-package.md -->
 
@@ -3836,7 +3924,8 @@ Only items explicitly authorised by the specification (`CHG-0001`):
     10,
     11,
     12,
-    13
+    13,
+    16
   ],
   "phase_file": "phases/phase-14-performance-compatibility-and-accessibility-hardening.md",
   "requirements": [

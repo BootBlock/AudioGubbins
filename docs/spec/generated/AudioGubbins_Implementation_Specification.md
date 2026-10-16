@@ -4262,6 +4262,8 @@ Native enhancements must remain optional unless a future requirement explicitly 
 - `REQ-UX-070` — Theme System — owner Phase 01 — scope `CURRENT`
 - `REQ-UX-071` — Information Density and UI Customisation — owner Phase 01 — scope `CURRENT`
 - `REQ-UX-155` — Styling and Design-System Architecture — owner Phase 01 — scope `CURRENT`
+- `REQ-UX-221` — Visual Design Language and Verified Visual Quality — owner Phase 16 — scope `CURRENT`
+- `REQ-UX-222` — Motion System and Shell Animation — owner Phase 16 — scope `CURRENT`
 
 ---
 
@@ -4304,6 +4306,14 @@ The interface should support professional desktop-style interaction patterns whe
 Accessibility must remain a first-class requirement.
 
 Highly visual editing modes may use specialised interactions, but keyboard-operable and semantic alternatives should be provided wherever realistically possible.
+
+#### 5.1 Verifying the Visual Goal
+
+The first sentence of this requirement is a visual outcome, and it shall be verified as one. Evidence that the shell is keyboard-first, names its landmarks, shows focus and sizes its touch targets verifies the rest of this block and does not verify that sentence.
+
+The sentence is verified when `REQ-UX-221` is: every surface follows the written design language, matches the reference the product owner approved, and is signed off by the product owner in the design review, in both themes and both densities. "Smooth animations and transitions" is verified by `REQ-UX-222`.
+
+Phase 01's evidence verified the structure of this block (`CHG-0002`). Until Phase 16 passes, the visual outcome is unmet, and no evidence package may claim it.
 
 ---
 
@@ -4561,6 +4571,12 @@ At minimum the system should support:
 
 The application must also respect the operating system/browser `prefers-reduced-motion` preference, while allowing an explicit user override where accessibility guidance permits.
 
+#### 69.1 Verifying Motion
+
+The kinds of motion listed above shall be designed as one motion system and verified at each motion level in a real browser, as `REQ-UX-222` states. A test that the motion preference is stored and honoured verifies the levels' plumbing and does not verify that anything moves well, or that "the full intended animation richness" exists.
+
+The shell animation `ADR-0014` deferred is part of this requirement and is delivered under `REQ-UX-222` (`CHG-0002`).
+
 ---
 
 ## REQ-UX-070 — Theme System
@@ -4584,6 +4600,12 @@ Theme brightness must not be implemented as a simple visual filter over the whol
 Instead, the design system should expose semantic colour and luminance tokens so that contrast, accessibility, readability, and component hierarchy remain correct across the user-selectable brightness range.
 
 The theme engine should be designed to permit future custom themes without requiring component-specific hard-coded colour overrides.
+
+#### 70.1 Verifying a Theme by Its Appearance
+
+Each theme shall be verified by its rendered appearance as well as by its computed contrast. Every surface shall have an approved visual reference in the dark theme and in the light theme, and the screenshot comparison of `REQ-UX-221` shall hold each to it.
+
+The independent semantic palettes this block lists (waveform, spectrogram, selections, meters, markers and analysis overlays) shall be designed as part of the design language of `REQ-UX-221`, stated per theme, and derived through the tokens of `ADR-0012`, so their contrast against the surface beneath them is computed rather than chosen.
 
 ---
 
@@ -4609,6 +4631,10 @@ Users should be able to configure, where appropriate:
 - Status information
 
 Advanced controls should use progressive disclosure rather than being removed from approachable layouts.
+
+#### 71.1 Verifying Each Density by Its Appearance
+
+Each density shall be a designed layout, not the other scaled. Every surface shall have an approved visual reference at the comfortable density and at the compact density, and the screenshot comparison of `REQ-UX-221` shall hold each to it. The touch target stays the same size at both densities, as Phase 01 verified.
 
 ---
 
@@ -4636,6 +4662,84 @@ The styling architecture shall support:
 CSS custom properties should form the runtime theme contract. Build-time type-safe styling may be used where it improves correctness, but runtime theme changes must not require rebuilding stylesheets.
 
 Tailwind-style utility usage must not become a substitute for semantic design tokens or component ownership. Any styling tool introduced must preserve the ability to reason about themes, accessibility, density, and component states at the design-system level.
+
+#### 155.1 What the Token System Covers
+
+The semantic token system shall cover every value the design language of `REQ-UX-221` states: the layout grid unit, the type scale and its families, spacing, radii, elevation and shadow, icon sizes and stroke, the focus and selection indicators, and the motion durations and easings of `REQ-UX-222`, each for both densities and both themes where it varies with them.
+
+A component stylesheet shall take each such value from a token. An automated architecture check shall refuse a literal colour, length, duration or shadow in a component's styles outside the token definitions, and shall name each exception it allows with its reason.
+
+---
+
+## REQ-UX-221 — Visual Design Language and Verified Visual Quality
+
+- **Owner:** Phase 16 — Visual Design and Interaction
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-UX-005`, `REQ-UX-070`, `REQ-UX-071` and `REQ-UX-155` by `CHG-0002`
+
+`REQ-UX-005` asks for "a modern, sleek, visually rich multimedia application rather than a conventional form-based web application". This requirement makes that goal a stated design language and a check that can fail. A requirement group has one owning phase, and Phase 01, which owns those four, verified their structure and not their appearance.
+
+AudioGubbins shall have one written design language, and every visible surface shall follow it. The language shall state:
+
+- A layout grid: the base unit every size is a multiple of, and the alignment of panel content to it
+- A type scale: families, sizes, weights and line heights for each role (display, heading, body, label, caption, numeric readout), with tabular figures for every time, level and frequency readout
+- A spacing scale and a radius scale, each for both densities
+- One icon set under a licence the repository accepts, used for every icon, at stated sizes and one stroke weight, with no icon drawn ad hoc in a component
+- Colour use within the semantic tokens of `ADR-0012`: which surfaces, borders, text and accents each role takes in both themes, where the accent appears and where it does not, and the semantic colours of state (error, warning, success, recording, clipping, selection)
+- Elevation and panel chrome: the surface levels, how a panel, a panel header, a tab, a toolbar, a menu, a popover and a dialogue are separated, and which of them cast a shadow in each theme
+- Focus and selection styling: one visible focus indicator for keyboard focus, distinct from the selection of an item, of a region of audio and of a tool
+- The presentation of audio: waveform, spectrogram, meters, the ruler, markers and regions, each with its semantic palette (`REQ-UX-070`)
+- Empty, loading and error states for each panel
+- The control set: the shared controls every surface is built from (for example icon buttons and grouped toolbars, segmented controls, toggles, sliders, knobs, faders, meters, property grids, lists and tables, tabs, panel headers), each designed once for the language
+- Panel composition: the patterns every panel follows (a header with its title, icon and actions, a toolbar, sections, a property grid, an empty state), so that two panels showing the same kind of thing look alike
+- Visual richness: the depth and effects the language uses (for example layered surfaces, gradients, translucency and blur behind overlays, glows and highlights on active, selected and live elements, and animated feedback on hover, press and state changes), stated per theme and per motion level
+- Text economy: a control is labelled in a word or two, or by an icon with an accessible name; an explanation is a hint, a popover, an empty state or progressive disclosure, never a paragraph standing in a panel
+
+The product owner's direction for the language, recorded in `CHG-0002`, is that AudioGubbins shall look like a current, well-designed modern application: consistent across every surface, built from well-designed controls, with icons, visual effects and animation, and without walls of text. The language shall meet that direction, and the product owner's sign-off judges it.
+
+Every surface shall follow the panel composition and be built from the control set. A surface that needs a control the set lacks shall add it to the set, designed in the language, rather than build its own.
+
+Text economy shall not remove what a reader needs: the reason an action is unavailable (`ADR-0013`), an accessible name for every control, and every announcement stay, reached through the hint, the popover or the live region rather than shown as standing text.
+
+Before a surface is built or changed, the design of that surface shall be shown to the product owner as mock-ups or variants, in both themes and both densities, and the version the product owner approves shall be recorded as its visual reference, with the date and the decision. Work shall not continue on a surface whose reference is not approved.
+
+A surface shall be accepted only when:
+
+1. The product owner has signed off the rendered surface against its approved reference, in each theme and density, through the design review of `contracts/review-gates.md`.
+2. An automated screenshot comparison holds the rendered surface, in each theme and density, to the signed-off rendering. A difference beyond the stated tolerance fails, and a new rendering is accepted only by a new sign-off.
+3. Every shared component in `packages/design-system` renders in every state it has (default, hover, focus-visible, active, pressed, disabled, error and loading where each applies), in both themes and both densities, and the screenshot comparison covers each.
+
+Structural evidence (tokens exist, contrast is computed, landmarks are named) is necessary and does not verify this requirement.
+
+The design language shall not reduce accessibility. Contrast shall be computed through the token system as `ADR-0012` requires, keyboard focus shall stay visible on every surface, and every control shall stay keyboard-operable.
+
+The language changes appearance and presentation only. The UI shall still change authoritative project state only through typed commands (`REQ-EDIT-073`), and the command-first shell (`ADR-0013`), the workspace layout ownership (`ADR-0010`) and the design-system boundary (`ADR-0009`) stand.
+
+---
+
+## REQ-UX-222 — Motion System and Shell Animation
+
+- **Owner:** Phase 16 — Visual Design and Interaction
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-UX-069` by `CHG-0002`, taking up the shell animation `ADR-0014` deferred
+
+The motion `REQ-UX-069` lists shall be designed and built as one motion system, not as transitions each component chooses.
+
+The motion system shall state, for each kind of motion `REQ-UX-069` lists (dock and panel transitions, menu and context transitions, zoom transitions, drag-and-drop targets, meter movement, selection feedback, processor state changes, loading and progress, workspace transitions):
+
+- Whether it animates, and what (position, size, opacity, colour)
+- Its duration and easing, from the motion tokens
+- What it does at each motion level: full, reduced and off
+
+The shell shall animate at the full level: a panel opening, closing, docking and floating, a menu and a popover opening, a dialogue entering and leaving, a workspace switching, and a notice appearing.
+
+At the full level, the application shall also give animated feedback: a control's hover, press and state change, a selection appearing, a list item added or removed, progress and loading, and a live element (a meter, a recording indicator, the playhead) drawn with the effects the design language states. The motion system states each effect, its tokens and what it becomes at the reduced and off levels.
+
+Motion shall never delay input. Direct manipulation of an audio-editing control (a drag of a selection, a fader, a knob, a zoom gesture, a scrub) shall follow the pointer in the next frame with no easing, and a meter shall show the level the audio engine reports, with its stated ballistics rather than an animation's.
+
+At the reduced level, motion shall keep only what helps a reader follow a change, without movement across the screen. At the off level, nothing shall animate. The system preference `prefers-reduced-motion` shall select the reduced level until the user chooses another, as `REQ-UX-069` states. The levels shall reach third-party animation, the docking engine's included.
+
+Each kind of motion shall be verified at each level in a real browser, by its duration and properties as the browser reports them, not by reading a stylesheet.
 
 ---
 
@@ -7013,8 +7117,20 @@ Conditionally required:
 - Browser / PWA Compatibility
 - Godot Editor / Runtime Integration
 - Codec / Interchange Correctness
+- Visual Design (see below)
 
 The Phase Packet identifies the applicable set.
+
+## Visual Design Review
+
+The other lenses cannot judge appearance: a reviewer agent can check that a token is used and a contrast ratio holds, and not that a surface looks right. The Visual Design lens is therefore a sign-off by the product owner (`REQ-UX-221`, `CHG-0002`). It is required for every surface a phase designs or whose appearance it changes, from Phase 16 onwards.
+
+1. **Before implementation** — the implementer presents mock-ups or variants of each surface, in both themes and both densities, to the product owner. The approved version is recorded as the surface's visual reference, with the date and the decision, in the phase's evidence.
+2. **After implementation** — the implementer presents each rendered surface beside its approved reference, in each theme and density, together with the component states it uses and, for motion, a recording at each motion level. The product owner signs off the surface or returns it with marked findings.
+3. **Findings** — a returned surface is a finding of the Visual Design lens. It is fixed and presented again; it is not dismissed, and a reviewer agent does not overrule it. The product owner's preference is the criterion here, which is the one exception to "Reviewers must distinguish product preference from specification violation".
+4. **Baseline** — the signed-off rendering becomes the baseline of the automated screenshot comparison. A later change that moves a surface beyond the comparison's tolerance fails until the product owner signs off the new rendering, and the new baseline is committed with that sign-off recorded.
+
+The implementer may not sign off its own surface, and a reviewer agent may not sign off for the product owner. When other lens reviews are deferred, this sign-off is not deferred: a phase that requires it does not pass without it.
 
 ## Severity
 
@@ -7266,7 +7382,8 @@ Material changes after implementation begins require a change record identifying
 - **Decision:** AudioGubbins does not declare or install an animation library until a component imports one. The motion levels `REQ-UX-069` requires are carried by CSS transitions over the design system's motion tokens, which is sufficient for the shell's transitions and reaches the docking engine's own animation through the minimal-motion guard. Motion for React remains the chosen library for the first requirement that CSS cannot meet.
 - **Drivers:** a dependency nothing imports is an install cost, a supply-chain surface and a licence obligation for no return; the reduced-motion policy must apply to third-party animation as well as to AudioGubbins' own, which a stylesheet rule does and a library call does not.
 - **Constraints:** the decision is recorded rather than left implicit, because `ADR-0001` is the architecture record a later agent reads, and a library named there and absent from the manifests reads as an oversight. When an animation requirement arrives, it arrives with this ADR superseded rather than with a library added quietly.
-- **Related requirements:** `REQ-UX-069`, `REQ-ARCH-034`, `REQ-ARCH-151`, `REQ-EXEC-169`.
+- **Amended:** by `CHG-0002` (2026-10-16). The shell animation this ADR left without a consumer is taken up: `REQ-UX-222` requires it, and Phase 16 delivers it. The rule that no animation library is installed before a component imports one stands. Phase 16 decides, against the motion system it designs, whether CSS transitions over the motion tokens meet `REQ-UX-222`. If they do, it records that in its evidence and this ADR stands. If they do not, it supersedes this ADR with a new one that names the library, its licence and how the motion levels reach it, as the Constraints clause requires.
+- **Related requirements:** `REQ-UX-069`, `REQ-UX-222`, `REQ-ARCH-034`, `REQ-ARCH-151`, `REQ-EXEC-169`.
 
 
 <!-- SOURCE: adr/ADR-0015-phase-01-owns-domain-value-model.md -->
@@ -10712,7 +10829,7 @@ Create `traceability/handoffs/phase-10.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 02, 03, 06, 09, 10 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 02, 03, 06, 09, 10, 16 reaching `PASS`. Phase 16 was placed before this phase by `CHG-0002`.
 
 ## Objective
 
@@ -10729,6 +10846,7 @@ A Godot 4 project can install AudioGubbins addons, receive deterministic game-re
 - Phase 06 — Effect Rack and Core DSP
 - Phase 09 — Import, Export, and Codec System
 - Phase 10 — Game-Audio Tooling
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -10851,6 +10969,7 @@ A Godot 4 project can install AudioGubbins addons, receive deterministic game-re
 - Generated text resources are deterministic/Git-friendly.
 - No broad/opaque Godot project rewrite.
 - Godot editor-only APIs do not leak into runtime addon.
+- CHG-0002: every web surface this phase adds or changes (a panel, a dialogue, a menu, a notice) follows Phase 16's design language (`REQ-UX-221`, `REQ-UX-222`): it is built from the control set and the panel composition, and this phase delivers its approved reference, its design-review sign-off and its screenshot comparison.
 
 ## Internal Work Units
 
@@ -10928,6 +11047,7 @@ A Godot 4 project can install AudioGubbins addons, receive deterministic game-re
 - Testing / GUT
 - Security / Permissions
 - Adversarial Agent-Quality
+- Visual Design (CHG-0002), for every web surface this phase adds or changes
 
 ## Evidence Package
 
@@ -10949,7 +11069,7 @@ Create `traceability/handoffs/phase-11.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01, 02, 09 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 01, 02, 09, 16 reaching `PASS`. Phase 16 was placed before this phase by `CHG-0002`.
 
 ## Objective
 
@@ -10964,6 +11084,7 @@ The complete editor can launch/use existing projects offline, install as a PWA w
 - Phase 01 — Application Foundation
 - Phase 02 — Project and Storage System
 - Phase 09 — Import, Export, and Codec System
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -11053,6 +11174,7 @@ The complete editor can launch/use existing projects offline, install as a PWA w
 - Enhanced runtime may use shared memory/threaded WASM only when headers/capabilities permit.
 - Degradation normally affects performance or integration convenience, not core editing functionality.
 - Install status is not treated as a universal storage-quota guarantee.
+- CHG-0002: every web surface this phase adds or changes (a panel, a dialogue, a menu, a notice) follows Phase 16's design language (`REQ-UX-221`, `REQ-UX-222`): it is built from the control set and the panel composition, and this phase delivers its approved reference, its design-review sign-off and its screenshot comparison.
 
 ## Internal Work Units
 
@@ -11120,6 +11242,7 @@ The complete editor can launch/use existing projects offline, install as a PWA w
 - Testing / Regression
 - Performance
 - Adversarial Agent-Quality
+- Visual Design (CHG-0002), for every web surface this phase adds or changes
 
 ## Evidence Package
 
@@ -11141,7 +11264,7 @@ Create `traceability/handoffs/phase-12.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 05, 06, 09, 10, 11 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 05, 06, 09, 10, 11, 16 reaching `PASS`. Phase 16 was placed before this phase by `CHG-0002`.
 
 ## Objective
 
@@ -11158,6 +11281,7 @@ Users can define rich variation families and processing/export automation, gener
 - Phase 09 — Import, Export, and Codec System
 - Phase 10 — Game-Audio Tooling
 - Phase 11 — Godot Integration
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -11239,6 +11363,7 @@ Users can define rich variation families and processing/export automation, gener
 - Same source/rules/seed/version yields reproducible generation where processors are deterministic.
 - Batch failures are itemised and never silently skipped.
 - Macros use the same typed commands as interactive UI.
+- CHG-0002: every web surface this phase adds or changes (a panel, a dialogue, a menu, a notice) follows Phase 16's design language (`REQ-UX-221`, `REQ-UX-222`): it is built from the control set and the panel composition, and this phase delivers its approved reference, its design-review sign-off and its screenshot comparison.
 
 ## Internal Work Units
 
@@ -11303,6 +11428,7 @@ Users can define rich variation families and processing/export automation, gener
 - Godot Integration
 - UX / Accessibility
 - Adversarial Agent-Quality
+- Visual Design (CHG-0002), for every web surface this phase adds or changes
 
 ## Evidence Package
 
@@ -11324,7 +11450,7 @@ Create `traceability/handoffs/phase-13.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 16 reaching `PASS`. Phase 16 was added before this phase by `CHG-0002`, so this phase hardens the interface in its final visual design.
 
 ## Objective
 
@@ -11349,6 +11475,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - Phase 11 — Godot Integration
 - Phase 12 — PWA, Offline, and Installation Hardening
 - Phase 13 — Advanced Batch and Variation Workflows
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -11385,6 +11512,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - [ ] Offline/update/recovery stress
 - [ ] N-channel/surround/ambisonic end-to-end validation
 - [ ] Video-reference synchronisation validation
+- [ ] The visual comparison and motion suites of Phase 16 across the browser/OS/device matrix, and every web surface present at this phase's start held to an approved, signed-off reference (`REQ-UX-221`, `CHG-0002`)
 
 ## Explicitly Out of Scope
 
@@ -11472,6 +11600,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - [ ] Performance regressions outside documented statistical tolerances are investigated and fixed/justified without deleting required capability.
 - [ ] Long-duration/N-channel/stress projects remain recoverable under memory/storage pressure.
 - [ ] Compatibility/degradation matrix is complete and user-facing explanations match actual runtime behaviour.
+- [ ] Every web surface has an approved visual reference and a design-review sign-off, and Phase 16's visual comparison and motion suites pass; a remediation that changes a surface's appearance carries a new sign-off (`REQ-UX-221`, `REQ-UX-222`).
 
 ## Forbidden Shortcuts
 
@@ -11493,6 +11622,7 @@ AudioGubbins is robust across the supported browser/OS/device matrix, including 
 - Audio / DSP Correctness
 - Architecture
 - Adversarial Agent-Quality
+- Visual Design (`CHG-0002`), for every remediation that changes a surface's appearance
 
 ## Evidence Package
 
@@ -11690,6 +11820,282 @@ AudioGubbins can be tagged/released from a known verified state, but the specifi
 Create `traceability/handoffs/phase-15.md` from `contracts/handoff-capsule-template.md` only after this phase reaches `PASS`.
 
 
+<!-- SOURCE: phases/phase-16-visual-design-and-interaction.md -->
+
+# Phase 16 — Visual Design and Interaction
+
+## Status
+
+`READY` — its hard dependencies (Phases 01 to 10) have passed, and the maintainer waived its readiness review when approving `CHG-0002` on 2026-10-16. Added by the specification change `CHG-0002` (`traceability/changes/CHG-0002-visual-design-phase.md`). Its number names it and does not order it: Phases 11, 12, 13 and 14 depend on it, so it is the next phase, every later surface is built in its design language, and the hardening phases measure the interface it delivers.
+
+## Objective
+
+Give AudioGubbins a written visual design language and a motion system, and redesign the shell and every existing panel and dialogue against them, so that `REQ-UX-005`'s "modern, sleek, visually rich multimedia application" is met and verified by the product owner's sign-off and by automated screenshot comparison, not inferred from the token architecture.
+
+## User-Visible Outcome
+
+AudioGubbins looks and moves like a professional audio tool: a calm dark workspace whose panels, tabs, toolbars and dialogues share one chrome, one type scale, one icon set and one spacing rhythm; a waveform, spectrogram and meters drawn as their own presentation rather than as form controls; clear selection and keyboard focus; and transitions that help the eye follow a change without ever delaying a hand on a control. The light theme and the compact density are designed layouts, not afterthoughts.
+
+## Hard Dependencies
+
+- Phase 01 — Application Foundation
+- Phase 02 — Project and Storage System
+- Phase 03 — Audio Engine Foundation
+- Phase 04 — Waveform and Timeline Foundation
+- Phase 05 — Core Non-Destructive Editing
+- Phase 06 — Effect Rack and Core DSP
+- Phase 07 — Recording
+- Phase 08 — Spectral Editing
+- Phase 09 — Import, Export, and Codec System
+- Phase 10 — Game-Audio Tooling
+
+## Owned Requirements
+
+- `REQ-UX-221` — Visual Design Language and Verified Visual Quality (`CURRENT`)
+- `REQ-UX-222` — Motion System and Shell Animation (`CURRENT`)
+
+Constraint requirements, owned by Phase 01, whose `CHG-0002` verification clauses this phase satisfies:
+
+- `REQ-UX-005` — User Experience Goals, clause 5.1
+- `REQ-UX-069` — Motion and Animation, clause 69.1
+- `REQ-UX-070` — Theme System, clause 70.1
+- `REQ-UX-071` — Information Density and UI Customisation, clause 71.1
+- `REQ-UX-155` — Styling and Design-System Architecture, clause 155.1
+
+Requirements whose behaviour this phase must keep while it changes their appearance: `REQ-UX-057`, `REQ-UX-060`, `REQ-UX-066`, `REQ-UX-067`, `REQ-EDIT-072`, `REQ-EDIT-073`, `REQ-EDIT-012`, `REQ-AUDIO-016`.
+
+## Referenced Global Execution Requirements
+
+- `REQ-EXEC-136`
+- `REQ-EXEC-167`
+- `REQ-EXEC-170`
+- `REQ-EXEC-171`
+- `REQ-EXEC-172`
+- `REQ-EXEC-173`
+- `REQ-EXEC-174`
+- `REQ-EXEC-180`
+- `REQ-EXEC-181`
+- `REQ-EXEC-183`
+- `REQ-EXEC-184`
+- `REQ-EXEC-204`
+- `REQ-EXEC-215`
+- `REQ-EXEC-216`
+
+## In Scope
+
+- [ ] A written design language (`REQ-UX-221`): layout grid, type scale, spacing and radius scales, one licensed icon set, colour use within the `ADR-0012` tokens, elevation and panel chrome, focus and selection styling, the presentation of waveform, spectrogram, meters, ruler, markers and regions, and empty, loading and error states
+- [ ] The control set, the panel composition patterns, the visual effects and the text-economy rule of `REQ-UX-221`, which answer the product owner's direction recorded in `CHG-0002`: consistent, modern, well-designed controls, icons, visual effects and animation, and no walls of text
+- [ ] A motion system (`REQ-UX-222`), including the shell animation `ADR-0014` deferred, at the full, reduced and off levels and under `prefers-reduced-motion`
+- [ ] The token system extended to every value the language states (`REQ-UX-155` clause 155.1), for both themes and both densities
+- [ ] A component inventory: every shared component in `packages/design-system`, and every shared component this phase adds, in every state it has (default, hover, focus-visible, active, pressed, disabled, error, loading), at both densities and in both themes
+- [ ] Mock-ups or variants of every surface, approved by the product owner before that surface is built, recorded as its visual reference
+- [ ] A redesign of the shell: menu bar, toolbars and transport, status bar, dock chrome and tabs, command palette, context menus, popovers, notices, settings and the narrow-viewport message of `REQ-UX-057` clause 57.1
+- [ ] A redesign of every existing panel: Assets, Editor (waveform, ruler, selection, markers, regions, video reference), Inspector, History, Effect rack (with its meters and controls), Library, Recording (with its meters and take lanes), Spectral, Export, Asset groups, Loop, Game preview, Capabilities and Diagnostics
+- [ ] A redesign of every existing dialogue: the guided workflows, project open and save, import, export, the effect editors, recovery and the confirmations
+- [ ] An automated screenshot comparison of every surface and every component state against its signed-off rendering, in each theme and density
+- [ ] Automated motion checks at each motion level, read from the browser
+- [ ] An editing-latency measurement before and after the redesign
+- [ ] The product owner's design-review sign-off of every surface (`contracts/review-gates.md`, Visual Design)
+
+## Explicitly Out of Scope
+
+- New editing, audio or game-audio behaviour: this phase changes appearance, presentation and motion only
+- A change to the semantics of the command layer, the workspace layout model or the stored workspace format (`ADR-0010`, `ADR-0013`)
+- Responsive narrow-viewport workspaces and phone layouts (`REQ-UX-029`, Phase 14)
+- The matrix of browsers, operating systems and devices (Phase 14); this phase compares screenshots in one pinned Chromium environment
+- User-authored custom themes; the token system keeps them possible (`REQ-UX-070`)
+- Surfaces Phases 11, 12 and 13 add: they run after this phase and deliver them to this language (`CHG-0002`)
+- The open Phase 10 question Q7 (a looping region with an effect rack restarts the rack once per cycle, and a wrapped render changes `ADR-0060`), which stays with the product owner
+
+## Owned Modules / Packages
+
+- `packages/design-system` — the tokens, the type, spacing, radius, elevation and motion scales, the icon component over the chosen set, the shared primitives and their states, and the design language's reference document
+- `apps/web` — the shell and every panel and dialogue, restyled through the design system
+- `packages/workspace` — the dock chrome and its transitions, through the Dockview adapter alone (`ADR-0010`)
+- `packages/editor-view` and `packages/renderer` — the presentation palettes and drawing styles of waveform, spectrogram, ruler, markers, regions and selection in the frames the editor draws, read from tokens; no change to the peak pyramid (`packages/waveform`) or the spectrogram tiles (`packages/spectral-analysis`)
+- `tests/e2e/visual` — the screenshot comparison suite, its signed-off baselines and the component-inventory harness page
+- `tests/e2e/motion` — the motion checks
+- `tests/architecture` — the rule that refuses a literal value in a component's styles (`REQ-UX-155` clause 155.1)
+- `docs/design` — the design language, the approved references and the sign-off record
+
+## Cross-Package Dependency Rules
+
+- The icon set and any font are reached only through `@audiogubbins/design-system`, as Radix is (`ADR-0009`). No feature imports an icon package or a font file.
+- A panel takes every colour, size, radius, shadow, duration and easing from a token. A canvas renderer (waveform, spectrogram, meters) reads the resolved token values through the design system, never a literal.
+- The design system depends on no domain package. A presentation component that needs domain knowledge (a meter's scale, a waveform's channel layout) receives it as plain values from the panel that owns it.
+- The docking engine's appearance changes only through the workspace adapter and the engine's own theming hooks (`ADR-0010`).
+- The UI still changes authoritative project state only through typed commands (`REQ-EDIT-073`, `ADR-0013`); a redesign that moves a control keeps it a view onto the same command.
+
+## Required Public Contracts
+
+- `DesignLanguage` — the written language in `docs/design/design-language.md`, with each value named by the token that carries it
+- Extended token contract: grid unit, type roles, spacing, radius, elevation and shadow, icon size and stroke, focus and selection indicators, and motion durations and easings per level, as CSS custom properties and typed scales
+- `Icon` — one design-system component over the icon set, naming icons by AudioGubbins' own vocabulary; glyphs the set lacks (fades, knob, meter, spectrogram) are drawn to the set's own grid and stroke rules
+- An ADR for the icon set and the fonts, with their licences, and for OFL-1.1 if a font needs it
+- Audio presentation palettes — waveform, spectrogram, meter, selection, marker, region and analysis-overlay roles per theme, derived through `ADR-0012`
+- `MotionSpec` — each kind of motion of `REQ-UX-069` with its properties, duration, easing and behaviour at each level
+- Visual reference record — for each surface and component, the approved mock-up, the signed-off rendering, the date and the decision
+
+## Data / Schema Changes
+
+- None to the project document or project storage.
+- The user preferences keep their theme, density, accent, brightness, contrast and motion settings. A new preference, if the language needs one, follows the preferences schema's change policy and is versioned.
+
+## Browser / Platform Considerations
+
+- Every font is self-hosted with the application and cached for offline use (`REQ-PWA-031`); none is fetched from a third-party host, and none relies on a font the operating system may lack.
+- Screenshot baselines are captured in one pinned environment (one Chromium build, one operating system image, the vendored fonts, a fixed viewport and device pixel ratio, deterministic fixtures, motion off), stated in the suite. A comparison on another platform is Phase 14's.
+- Motion is read from the browser (`getAnimations()`, computed transition values), and the levels reach the docking engine's own animation.
+- Forced-colours mode and high contrast keep working: the language states their appearance, and the existing checks stand.
+
+## Architectural Invariants
+
+- One design language, one icon set, one type scale: no surface keeps a private style.
+- Every visual value is a token; a literal in a component's styles fails the architecture check unless the check names the exception and its reason.
+- Contrast is computed by the token system, never chosen (`ADR-0012`).
+- Motion never delays input: direct manipulation follows the pointer in the next frame, and a meter shows the engine's level with its own ballistics.
+- The redesign changes no command, no stored layout format and no project data.
+- Keyboard operation and visible focus hold on every surface.
+- A surface is built only from an approved reference, and accepted only with the product owner's sign-off.
+- Every panel follows the panel composition and is built from the control set; a control the set lacks is added to the set, not built in the panel.
+- Text economy never removes an accessible name, an unavailable command's reason (`ADR-0013`) or an announcement; each moves to a hint, a popover or the live region.
+
+## Internal Work Units
+
+Each unit owns the files it names. Units B to E start only after WU-16.A's language and the references for their surfaces are approved. Units C, D and E may run in parallel in separate worktrees once WU-16.B has merged.
+
+### WU-16.A — Design language, references and approvals
+
+Owns `docs/design/`.
+
+- [ ] Study the reference applications (`CHG-0002` summarises the principles) and write the design language of `REQ-UX-221` and the motion system of `REQ-UX-222`
+- [ ] Choose the icon set and the fonts, checked against the repository's licence and dependency rules (`REQ-REPO-033`, `REQ-REPO-142`), and record the choice and licences in `THIRD-PARTY-NOTICES.md` through its tool. `CHG-0002` records the research's recommendation (Lucide; Inter and JetBrains Mono). OFL-1.1 is not on the allow-list of `tools/sync-third-party-notices.mjs`: a font under it needs an ADR that decides the licence, as `ADR-0091` decided MPL-2.0, before the allow-list changes. A package whose shipped licence differs from its manifest's is refused
+- [ ] Present variants of the language (palette roles, chrome, type, density) to the product owner and record the choice
+- [ ] Present mock-ups of the shell and of every panel and dialogue in both themes and both densities, and record the approved references with the date and decision
+- [ ] Record the editing-latency baseline before any change (WU-16.F)
+
+### WU-16.B — Tokens, icons and the component inventory
+
+Owns `packages/design-system/src` and `tests/e2e/visual/inventory`.
+
+- [ ] Extend the tokens and scales to every value of the language, for both themes and both densities
+- [ ] Add the `Icon` component over the chosen icon set, and replace every existing glyph or text stand-in
+- [ ] Bring every shared component to the language in every state, and add the shared components the redesign needs (for example a panel header, a meter, a transport button, a segmented control, a knob, an empty state)
+- [ ] Build the inventory harness page that renders every component in every state, theme and density
+- [ ] Add the architecture check of `REQ-UX-155` clause 155.1
+
+### WU-16.C — Shell and motion
+
+Owns `apps/web/src/shell`, the workspace adapter's chrome and `tests/e2e/motion`.
+
+- [ ] Redesign the menu bar, toolbars, transport, status bar, dock chrome and tabs, command palette, context menus, popovers, notices and settings to their references
+- [ ] Build the motion system and the shell animation; decide CSS or a library and record it against `ADR-0014`
+- [ ] Verify each kind of motion at each level in the browser
+
+### WU-16.D — Editing panels
+
+Owns the Assets, Editor, Inspector, History, Spectral and Recording panels and the waveform and spectrogram presentation.
+
+- [ ] Redesign each panel and its audio presentation to its references, keeping every behaviour and test of Phases 04 to 08
+
+### WU-16.E — Processing, export and game-audio panels and dialogues
+
+Owns the Effect rack, Library, Export, Asset groups, Loop, Game preview, Capabilities and Diagnostics panels and every dialogue.
+
+- [ ] Redesign each panel and dialogue to its references, keeping every behaviour and test of Phases 06, 09 and 10
+
+### WU-16.F — Verification and sign-off
+
+Owns `tests/e2e/visual` (outside the inventory) and the evidence.
+
+- [ ] Build the screenshot comparison of every surface in each theme and density, with its pinned environment
+- [ ] Present each rendered surface beside its reference for the product owner's sign-off, fix what is returned, and commit the signed-off baselines
+- [ ] Measure editing latency against the WU-16.A baseline
+- [ ] Assemble the evidence and the handoff
+
+## Failure and Recovery Behaviour
+
+- A font that fails to load falls back to a stated fallback stack with the same metrics class, and the layout does not shift beyond the type scale's tolerance; the fallback is tested.
+- An icon name with no glyph is a type error, not a blank square at runtime.
+- A motion level that cannot reach a third-party animation disables that animation rather than leaving it at full motion.
+- A canvas presentation whose token cannot be resolved draws with the theme's default role and logs a structured record, never with a hard-coded colour.
+
+## Required Verification Commands / Suites
+
+- `pnpm run verify:commit`
+- `pnpm test:architecture`
+- `pnpm test --filter design-system`
+- `pnpm test:e2e:visual` — the screenshot comparison, new in this phase
+- `pnpm test:e2e:motion` — the motion checks, new in this phase
+- `pnpm test:e2e:accessibility`
+- `pnpm test:e2e:smoke`, and the end-to-end suites of Phases 04 to 10 for the panels this phase changes
+- The editing-latency measurement of WU-16.F, before and after
+- `pnpm run spec:verify`
+
+## Acceptance Criteria
+
+- [ ] `docs/design/design-language.md` states every item `REQ-UX-221` lists, and each value it states is carried by a named token.
+- [ ] Every surface has an approved mock-up recorded before it was built, and a design-review sign-off by the product owner of its rendering in the dark and light themes at the comfortable and compact densities.
+- [ ] The screenshot comparison covers every surface and every component state in each theme and density, passes against the signed-off baselines, and fails for a one-token change to a surface (proved by a deliberate change).
+- [ ] Every shared component renders every state it has, in both themes and both densities, in the inventory harness.
+- [ ] Every panel follows the panel composition and uses only controls of the set; an architecture or component check finds no panel-local control that duplicates one of the set.
+- [ ] No panel shows an explanation as standing text where the text-economy rule moves it to a hint, popover, empty state or disclosure, and every reason, name and announcement is still reachable (tested).
+- [ ] At the full motion level, each effect and animated feedback the motion system states is present, read from the browser; at the reduced and off levels each becomes what it states.
+- [ ] One icon set, under a licence the repository accepts, draws every icon; no component draws its own.
+- [ ] The architecture check refuses a literal colour, length, duration or shadow in a component's styles, and lists each allowed exception with its reason.
+- [ ] Each kind of motion of `REQ-UX-069` behaves as `MotionSpec` states at the full, reduced and off levels, read from the browser; `prefers-reduced-motion` selects reduced until the user chooses; the docking engine follows the level.
+- [ ] Contrast holds across the whole theme, accent, brightness and contrast matrix of `ADR-0012` with the new tokens, and the axe checks pass on every redesigned surface.
+- [ ] Every control stays keyboard-operable, and keyboard focus is visible on every surface in every theme and density.
+- [ ] Editing latency (pointer to paint for a selection drag, a zoom and a fader drag; key to paint for the command palette) shows no regression beyond the measurement's stated statistical tolerance against the WU-16.A baseline (`REQ-REPO-189`).
+- [ ] Every end-to-end suite of Phases 01 to 10 still passes; no test was weakened to reach green.
+- [ ] No command, stored layout format or project data changed.
+
+## Forbidden Shortcuts
+
+- No stubs, placeholder behaviour, fake success paths, or silent scope deferral.
+- No weakening or deleting tests/golden evidence to make the phase pass.
+- No god object, catch-all manager/service, giant global store, or hidden mutable singleton.
+- No UI bypass of typed command/domain ownership.
+- No undocumented dependency or public-contract change.
+- No surface built before its reference is approved, and no surface accepted without the product owner's sign-off; an agent may not sign off for the product owner.
+- No baseline captured from the implementation and committed as the reference without that sign-off.
+- No screenshot tolerance widened, no region masked and no surface left out of the comparison to make it pass; a mask for a genuinely varying region (a live meter, a clock) states its reason.
+- No literal colour, size, radius, shadow or duration in a component's styles, and no per-component theme override.
+- No second icon set, no icon drawn ad hoc, no font fetched from a third-party host.
+- No global CSS filter or opacity over the application to make a theme or a density (`REQ-UX-070`).
+- No animation on direct manipulation, and no motion that ignores the motion level.
+- No restyling of the docking engine outside the workspace adapter.
+- No removal or hiding of a control to make a surface look simpler; advanced controls use progressive disclosure (`REQ-UX-071`).
+- No visual effect that costs editing latency or ignores the motion level, and no effect used in place of the design language's consistency.
+- No shortening of text that drops a reason, an accessible name or an announcement.
+
+## Required Review Lenses
+
+- Visual Design — the product owner's sign-off, required and not deferred (`contracts/review-gates.md`)
+- UX / Accessibility / Input
+- Architecture
+- Code Quality / Maintainability
+- Testing / Regression
+- Performance / Scalability
+- Adversarial Agent-Quality
+
+The product owner deferred the lens and adversarial reviews of each phase to the review after the whole specification is implemented. That decision covers the lenses above except Visual Design, whose sign-off this phase needs to pass.
+
+## Evidence Package
+
+- Atomic commit list and final integration commit.
+- Requirement-to-test/evidence mapping for every owned `CURRENT`/`PLANNED` requirement, and for each `CHG-0002` clause of `REQ-UX-005`, `REQ-UX-069`, `REQ-UX-070`, `REQ-UX-071` and `REQ-UX-155`.
+- The design language, the approved references and the sign-off record, each with its date and decision.
+- Screenshot comparison, motion, accessibility, architecture and latency reports.
+- The icon and font licences, and the `THIRD-PARTY-NOTICES.md` entries.
+- ADRs created or changed, including the outcome against `ADR-0014`.
+- Verified review findings, remediation commits, and re-review disposition.
+
+## Handoff Capsule
+
+Create `traceability/handoffs/phase-16.md` from `contracts/handoff-capsule-template.md` only after this phase reaches `PASS`.
+
+
 ---
 
 # Part V — Traceability and Readiness
@@ -11719,6 +12125,7 @@ flowchart LR
   P13["13 Advanced Batch and Variation Workflows"]
   P14["14 Performance, Compatibility, and Accessibility Hardening"]
   P15["15 Release Readiness"]
+  P16["16 Visual Design and Interaction"]
   P00 --> P01
   P01 --> P02
   P01 --> P03
@@ -11771,6 +12178,20 @@ flowchart LR
   P12 --> P14
   P13 --> P14
   P14 --> P15
+  P01 --> P16
+  P02 --> P16
+  P03 --> P16
+  P04 --> P16
+  P05 --> P16
+  P06 --> P16
+  P07 --> P16
+  P08 --> P16
+  P09 --> P16
+  P10 --> P16
+  P16 --> P11
+  P16 --> P12
+  P16 --> P13
+  P16 --> P14
 ```
 
 ## Hard Dependencies
@@ -11786,18 +12207,19 @@ flowchart LR
 - Phase 08: Phase 03, Phase 04, Phase 05, Phase 06
 - Phase 09: Phase 02, Phase 03, Phase 05, Phase 06
 - Phase 10: Phase 05, Phase 06, Phase 09
-- Phase 11: Phase 02, Phase 03, Phase 06, Phase 09, Phase 10
-- Phase 12: Phase 01, Phase 02, Phase 09
-- Phase 13: Phase 05, Phase 06, Phase 09, Phase 10, Phase 11
-- Phase 14: Phase 01, Phase 02, Phase 03, Phase 04, Phase 05, Phase 06, Phase 07, Phase 08, Phase 09, Phase 10, Phase 11, Phase 12, Phase 13
+- Phase 11: Phase 02, Phase 03, Phase 06, Phase 09, Phase 10, Phase 16
+- Phase 12: Phase 01, Phase 02, Phase 09, Phase 16
+- Phase 13: Phase 05, Phase 06, Phase 09, Phase 10, Phase 11, Phase 16
+- Phase 14: Phase 01, Phase 02, Phase 03, Phase 04, Phase 05, Phase 06, Phase 07, Phase 08, Phase 09, Phase 10, Phase 11, Phase 12, Phase 13, Phase 16
 - Phase 15: Phase 14
+- Phase 16: Phase 01, Phase 02, Phase 03, Phase 04, Phase 05, Phase 06, Phase 07, Phase 08, Phase 09, Phase 10
 
 
 <!-- SOURCE: traceability/requirements-register.md -->
 
 # Requirements Traceability Register
 
-Canonical requirement groups: **216**.
+Canonical requirement groups: **218**.
 
 > Machine-readable source: `requirements-register.json`. This Markdown table is generated for human review.
 
@@ -12019,6 +12441,8 @@ Canonical requirement groups: **216**.
 | `REQ-EXEC-218` — Adversarial Specification Review | `CURRENT` | Phase 00 | `SATISFIED_BASELINE` | `SPEC-LINT`, `SPEC-BUILD`, `SPEC-ADVERSARIAL` |
 | `REQ-EXEC-219` — Compiled Specification Generation | `CURRENT` | Phase 00 | `SATISFIED_BASELINE` | `SPEC-LINT`, `SPEC-BUILD`, `SPEC-ADVERSARIAL` |
 | `REQ-AUDIO-220` — Native-Rate Reading of Uncompressed Audio | `CURRENT` | Phase 05 | `PENDING` | `CODEC-UNIT`, `CODEC-FIXTURES`, `CODEC-MALFORMED`, `DATA-ROUNDTRIP`, `EDIT-E2E` |
+| `REQ-UX-221` — Visual Design Language and Verified Visual Quality | `CURRENT` | Phase 16 | `PENDING` | `DESIGN-SIGNOFF`, `VISUAL-E2E`, `MOTION-E2E`, `APP-ARCH`, `INTERACTION-LATENCY` |
+| `REQ-UX-222` — Motion System and Shell Animation | `CURRENT` | Phase 16 | `PENDING` | `DESIGN-SIGNOFF`, `VISUAL-E2E`, `MOTION-E2E`, `APP-ARCH`, `INTERACTION-LATENCY` |
 
 
 <!-- SOURCE: traceability/verification-catalogue.md -->
@@ -12149,6 +12573,14 @@ These identifiers are planning-level verification suites. Implementation phases 
 - `REALWORLD-VALIDATION` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 - `SPEC-LINT` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 
+## Phase 16 — Visual Design and Interaction
+
+- `DESIGN-SIGNOFF` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `VISUAL-E2E` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `MOTION-E2E` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `APP-ARCH` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `INTERACTION-LATENCY` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+
 
 <!-- SOURCE: traceability/implementation-ledger.md -->
 
@@ -12169,11 +12601,12 @@ These identifiers are planning-level verification suites. Implementation phases 
 | 08 — Spectral Editing | `PASS` | 03, 04, 05, 06 | 1 | traceability/handoffs/phase-08.md |
 | 09 — Import, Export, and Codec System | `PASS` | 02, 03, 05, 06 | 3 | traceability/handoffs/phase-09.md |
 | 10 — Game-Audio Tooling | `PASS` | 05, 06, 09 | 5 | traceability/handoffs/phase-10.md |
-| 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10 | 29 | — |
-| 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09 | 8 | — |
-| 13 — Advanced Batch and Variation Workflows | `NOT_READY` | 05, 06, 09, 10, 11 | 4 | — |
-| 14 — Performance, Compatibility, and Accessibility Hardening | `NOT_READY` | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 | 2 | — |
+| 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10, 16 | 29 | — |
+| 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09, 16 | 8 | — |
+| 13 — Advanced Batch and Variation Workflows | `NOT_READY` | 05, 06, 09, 10, 11, 16 | 4 | — |
+| 14 — Performance, Compatibility, and Accessibility Hardening | `NOT_READY` | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 16 | 2 | — |
 | 15 — Release Readiness | `NOT_READY` | 14 | 7 | — |
+| 16 — Visual Design and Interaction | `READY` | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10 | 7 | — |
 
 
 <!-- SOURCE: traceability/handoffs/phase-00.md -->
@@ -12223,4 +12656,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:1e31bc9fe442e7f37939d778cdbd17d147b903a5d4a3ee5118458dc459267e00`
+`sha256:72f5733c19bf1a4b7b48be6956120eb8e4b2551f2dbefd669999d73bd5536529`

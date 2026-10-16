@@ -15,8 +15,9 @@
 | 08 — Spectral Editing | `PASS` | 03, 04, 05, 06 | 1 | traceability/handoffs/phase-08.md |
 | 09 — Import, Export, and Codec System | `PASS` | 02, 03, 05, 06 | 3 | traceability/handoffs/phase-09.md |
 | 10 — Game-Audio Tooling | `PASS` | 05, 06, 09 | 5 | traceability/handoffs/phase-10.md |
-| 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10 | 29 | — |
-| 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09 | 8 | — |
-| 13 — Advanced Batch and Variation Workflows | `NOT_READY` | 05, 06, 09, 10, 11 | 4 | — |
-| 14 — Performance, Compatibility, and Accessibility Hardening | `NOT_READY` | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13 | 2 | — |
+| 11 — Godot Integration | `NOT_READY` | 02, 03, 06, 09, 10, 16 | 29 | — |
+| 12 — PWA, Offline, and Installation Hardening | `NOT_READY` | 01, 02, 09, 16 | 8 | — |
+| 13 — Advanced Batch and Variation Workflows | `NOT_READY` | 05, 06, 09, 10, 11, 16 | 4 | — |
+| 14 — Performance, Compatibility, and Accessibility Hardening | `NOT_READY` | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 16 | 2 | — |
 | 15 — Release Readiness | `NOT_READY` | 14 | 7 | — |
+| 16 — Visual Design and Interaction | `READY` | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10 | 7 | — |
