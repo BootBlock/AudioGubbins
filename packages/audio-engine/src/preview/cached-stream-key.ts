@@ -6,7 +6,9 @@
  * decided by the stream and everything it reads: its segments and stages; its
  * chain with every parameter value, its learned state and each processor's
  * versions, a model's identity among them (ADR-0062), but not the identifiers
- * of the chain and its slots, which a copy changes and the sound does not; each
+ * of the chain and its slots, which a copy changes and the sound does not, so
+ * the automation of its parameters names each processor by where it stands in
+ * the chain; a varispeed's ratio; each
  * later stream a segment reads, alone or summed in a mix in the order the mix
  * states, written once and named by its index among them rather than by its
  * place in the plan, since a rack edit renumbers streams without changing what
@@ -21,6 +23,8 @@ import type {
   AssetId,
   ChainSlot,
   EditPlan,
+  EffectChain,
+  ParameterAutomation,
   PlanSegment,
   PlanStream,
   StreamProcessing,
@@ -106,15 +110,50 @@ class StreamValues {
 }
 
 /**
+ * Where each processor of `slots` stands, as the indices that reach it: its
+ * slot's, and in a group its branch's and its slot's there, so a copy of the
+ * chain, whose identifiers differ, places each alike.
+ */
+function processorPlaces(
+  slots: readonly ChainSlot[],
+  places = new Map<string, string>(),
+  within = '',
+): ReadonlyMap<string, string> {
+  slots.forEach((slot, index) => {
+    const place = `${within}${String(index)}`;
+    if (slot.kind === 'processor') places.set(slot.id, place);
+    else
+      slot.branches.forEach((branch, at) =>
+        processorPlaces(branch.slots, places, `${place}.${String(at)}.`),
+      );
+  });
+  return places;
+}
+
+/** A chain's automation as its sound is decided: each lane's processor by its place in the chain. */
+function automationValue(chain: EffectChain, automation: readonly ParameterAutomation[]): unknown {
+  const places = processorPlaces(chain.slots);
+  return automation.map((lane) => ({
+    processor: places.get(lane.processor),
+    parameter: lane.parameter,
+    points: lane.points,
+  }));
+}
+
+/**
  * A stream's processing as its sound is decided: a chain without its
  * identifiers, and a spectral edit's chain likewise.
  */
 function processingValue(processing: StreamProcessing | undefined): unknown {
   if (processing?.kind === 'chain') {
+    const { automation } = processing;
     return {
       kind: processing.kind,
       input: processing.input,
       slots: processing.chain.slots.map(slotValue),
+      // Absent where the chain has none, so a key made before automation existed is the same.
+      automation:
+        automation === undefined ? undefined : automationValue(processing.chain, automation),
     };
   }
   if (processing?.kind === 'spectral') {

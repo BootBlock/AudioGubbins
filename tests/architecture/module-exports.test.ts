@@ -365,6 +365,11 @@ const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
     ],
   "A group's names from its root, read from a validated forest (ADR-0101), built ahead of the game export plan and the region naming that fill a member's {group-path} with it.":
     ['packages/game-audio/src/groups/group-forest.ts: groupPath'],
+  "What a varispeed voice's filter costs at each grade (ADR-0104), stated with the varispeed ahead of the preview's voice budget (WU-10.D4), which is measured against it.":
+    [
+      'packages/audio-engine/src/dsp/resampling-grade.ts: VARISPEED_MOST_TAPS',
+      'packages/audio-engine/src/dsp/resampling-grade.ts: varispeedTableBytes',
+    ],
 };
 
 /**

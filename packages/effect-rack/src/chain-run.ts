@@ -26,8 +26,9 @@
  *
  * A run may be given automation of its chain's parameters
  * (`chain-automation.ts`): each automated processor starts at its lane's value
- * and is given the lane's next value every 32 frames of the run, in a run and
- * in every pass alike, so what a pass measures is what the run plays.
+ * and is given the lane's next value every `DESIGN_INTERVAL` frames of the run,
+ * in a run and in every pass alike, so what a pass measures is what the run
+ * plays; a run kept into a continued plan takes the new plan's lanes.
  *
  * The rack's live form runs a chain over an input with no end, as monitoring
  * hears a microphone through one (ADR-0070): made at once, with no pass, and
@@ -43,6 +44,7 @@ import {
   type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
+  type ParameterAutomation,
   type ParameterId,
   type ProcessorDescriptor,
   type ProcessorId,
@@ -60,12 +62,7 @@ import {
 } from '@audiogubbins/audio-engine';
 import type { Measurement, ProcessorType } from '@audiogubbins/processors';
 
-import {
-  automationOf,
-  checkedAutomation,
-  type AutomatedChainRequest,
-  type AutomationLane,
-} from './chain-automation.js';
+import { checkedAutomation, type AutomationLane } from './chain-automation.js';
 import { chainGraph, type ChainGraph, type ChainGraphRun } from './chain-graph.js';
 import {
   automatedRun,
@@ -135,6 +132,19 @@ class RunningChain implements ChainRun {
       : this.#running.executor.setParameter(node, key, value);
   }
 
+  automate(automation: readonly ParameterAutomation[]): DomainResult<void> {
+    const lanes = checkedAutomation(automation, this.#running.built.processors, this.#descriptors);
+    if (!lanes.ok) return lanes;
+    const driver = this.#running.automation;
+    if (driver !== undefined) return driver.replace(lanes.value);
+    return lanes.value.length === 0
+      ? succeed(undefined)
+      : refused(
+          'automation-lanes-changed',
+          'A running chain takes new points for the parameters it moves, not lanes for others; a run made afresh takes those.',
+        );
+  }
+
   release(): void {
     this.#running.executor.release();
   }
@@ -164,8 +174,7 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
       mapResult(graphBeforePasses(request, types), (built) =>
         measurementBytesOf(built, request, types, request.length),
       ),
-    prepare: (request: AutomatedChainRequest, read, signal) =>
-      prepare(request, read, signal, types, implementations),
+    prepare: (request, read, signal) => prepare(request, read, signal, types, implementations),
     prepareLive: (request) => prepareLive(request, types, implementations, descriptors),
   };
 }
@@ -176,7 +185,7 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
  * why it cannot run.
  */
 async function prepare(
-  request: AutomatedChainRequest,
+  request: ChainRequest,
   read: StreamReader,
   signal: CancellationSignal | undefined,
   types: ReadonlyMap<string, ProcessorType>,
@@ -194,7 +203,7 @@ async function prepare(
   const first = build();
   if (!first.ok) return first;
   const descriptors = descriptorsOf(request, types);
-  const lanes = checkedAutomation(automationOf(request), first.value.processors, descriptors);
+  const lanes = checkedAutomation(request.automation ?? [], first.value.processors, descriptors);
   if (!lanes.ok) return lanes;
   const pass: PassSettings = { request, read, types, implementations, lanes: lanes.value, signal };
   for (const processor of measuredProcessors(first.value, request, types)) {

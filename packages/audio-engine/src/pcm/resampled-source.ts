@@ -21,12 +21,19 @@
  * continued with a longer one (`reader-continuation.ts`) is still converted by
  * the resampler that was running, which is why the conversion says how far into
  * its source the state it holds reaches.
+ *
+ * The same converter plays a source faster or slower, as a game preview's
+ * varispeed stream does (ADR-0104): run with whole steps, `denominator` output
+ * frames for each `numerator` input frames, it changes pitch and speed together
+ * and its output stays at the source's own rate, since no rate is converted.
  */
 
 import {
+  VARISPEED_DENOMINATOR,
   convertedFrameCount,
   mapResult,
   sampleCount,
+  sampleRate,
   throwIfCancelled,
   type CancellationSignal,
   type ChannelLayout,
@@ -62,6 +69,12 @@ export interface ResampledSource extends PcmSource {
   readonly consumedTo: number | undefined;
 }
 
+/** Input frames for each `output` output frames, as whole numbers: a conversion's rates, or a varispeed's ratio. */
+interface Steps {
+  readonly input: number;
+  readonly output: number;
+}
+
 /**
  * The source's audio at `to`, converted at `quality`, its resampler given
  * `coefficientBudgetBytes` for its filter's table where the caller measured
@@ -74,7 +87,8 @@ export function resampledSource(
   quality: ResamplingQuality,
   coefficientBudgetBytes?: number,
 ): DomainResult<ResampledSource> {
-  const length = convertedLength(source, to);
+  const steps = { input: source.sampleRate, output: to };
+  const length = convertedLength(source, steps);
   if (length !== undefined && !length.ok) return length;
   const made = dsp.createResampler({
     from: source.sampleRate,
@@ -83,14 +97,55 @@ export function resampledSource(
     quality,
     ...(coefficientBudgetBytes === undefined ? {} : { coefficientBudgetBytes }),
   });
-  return mapResult(made, (resampler) => new Conversion(source, to, resampler));
+  return mapResult(made, (resampler) => new Conversion(source, steps, to, resampler));
 }
 
-/** The frames `source` holds at `to`, or `undefined` for a source without an end. */
-function convertedLength(source: PcmSource, to: SampleRate): DomainResult<SampleCount> | undefined {
+/**
+ * The factor a varispeed's steps are given to the resampler multiplied by. The
+ * resampler is told two rates and designs its filter from their ratio reduced,
+ * so any common factor makes the same bits; 8 is the least that lifts the
+ * slowest step, 1,024, to a rate the resampler takes (8,192 Hz), and the
+ * fastest, 16,384, stays within the most (131,072 Hz). No rate of the source is
+ * declared: it stays at its own.
+ */
+const VARISPEED_STEP_SCALE = 8;
+
+/**
+ * The source played at `numerator / 4,096` of its speed, its pitch moved with
+ * it, at `quality` (ADR-0104): `4,096` output frames for each `numerator` input
+ * frames, the ratio reduced, so the filter has at most 4,096 phases, and the
+ * frames it makes are `convertedFrameCount` of the source's by those steps.
+ */
+export function varispeedSource(
+  dsp: CanonicalDsp,
+  source: PcmSource,
+  numerator: number,
+  quality: ResamplingQuality,
+): DomainResult<ResampledSource> {
+  const steps = { input: numerator, output: VARISPEED_DENOMINATOR };
+  const length = convertedLength(source, steps);
+  if (length !== undefined && !length.ok) return length;
+  const from = sampleRate(numerator * VARISPEED_STEP_SCALE);
+  const to = sampleRate(VARISPEED_DENOMINATOR * VARISPEED_STEP_SCALE);
+  if (!from.ok) return from;
+  if (!to.ok) return to;
+  const made = dsp.createResampler({
+    from: from.value,
+    to: to.value,
+    channels: source.layout.roles.length,
+    quality,
+  });
+  return mapResult(
+    made,
+    (resampler) => new Conversion(source, steps, source.sampleRate, resampler),
+  );
+}
+
+/** The frames `source` holds by `steps`, or `undefined` for a source without an end. */
+function convertedLength(source: PcmSource, steps: Steps): DomainResult<SampleCount> | undefined {
   return source.length === undefined
     ? undefined
-    : sampleCount(convertedFrameCount(source.length, source.sampleRate, to));
+    : sampleCount(convertedFrameCount(source.length, steps.input, steps.output));
 }
 
 /** The running conversion behind a resampled source. */
@@ -100,6 +155,7 @@ class Conversion implements ResampledSource {
   readonly layout: ChannelLayout;
   readonly sampleRate: SampleRate;
   readonly #source: PcmSource;
+  readonly #steps: Steps;
   readonly #resampler: CanonicalResampler;
   /** The source frame the next push starts at. */
   #read = 0;
@@ -110,19 +166,21 @@ class Conversion implements ResampledSource {
   readonly #input: AudioFrameBlock;
   readonly #turns = new ReadTurns();
 
-  constructor(source: PcmSource, to: SampleRate, resampler: CanonicalResampler) {
+  /** `source` by `steps`, made at `rate`, by `resampler`, which was made for those steps. */
+  constructor(source: PcmSource, steps: Steps, rate: SampleRate, resampler: CanonicalResampler) {
     this.#source = source;
+    this.#steps = steps;
     this.#resampler = resampler;
     this.coefficients = resampler.coefficients;
     this.lookahead = resampler.lookahead;
     this.layout = source.layout;
-    this.sampleRate = to;
+    this.sampleRate = rate;
     this.#input = allocateBlock(source.layout, source.sampleRate, INPUT_CHUNK);
   }
 
   /** The frames the source holds now, converted; the length was validated when it was converted. */
   get length(): SampleCount | undefined {
-    const length = convertedLength(this.#source, this.sampleRate);
+    const length = convertedLength(this.#source, this.#steps);
     if (length !== undefined && !length.ok) throw new Error(length.failures[0].summary);
     return length?.value;
   }

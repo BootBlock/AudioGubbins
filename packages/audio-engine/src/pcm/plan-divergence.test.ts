@@ -67,6 +67,7 @@ const STATELESS: ReadingState = {
   chain: () => undefined,
   run: () => undefined,
   conversion: () => undefined,
+  varispeed: () => undefined,
   sameFile: () => true,
 };
 
@@ -80,7 +81,7 @@ describe('where a continuing plan may first differ', () => {
     const divergence = planDivergence(before, before, STATELESS);
 
     expect([0, 1].map((place) => divergence.sameDefinition(place))).toEqual([true, true]);
-    expect([0, 1].map((place) => divergence.segments(place))).toEqual([NEVER, NEVER]);
+    expect([0, 1].map((place) => divergence.input(place))).toEqual([NEVER, NEVER]);
     expect(divergence.output(1)).toBe(NEVER);
   });
 
@@ -96,9 +97,9 @@ describe('where a continuing plan may first differ', () => {
 
     const divergence = planDivergence(before, after, STATELESS);
 
-    expect(divergence.segments(1)).toBe(100);
+    expect(divergence.input(1)).toBe(100);
     // Stream 0 reads stream 1 from its frame 10, so frame 100 of it is frame 90 of stream 0: past its end.
-    expect(divergence.segments(0)).toBe(NEVER);
+    expect(divergence.input(0)).toBe(NEVER);
   });
 
   it('finds a reversed segment different from its first frame where its length changes or its end does', () => {
@@ -106,8 +107,8 @@ describe('where a continuing plan may first differ', () => {
     const lengthened = plan(stream([segment(SILENCE, 0, 20), segment(FILE, 0, 50, true)]));
     const fileChanged = { ...STATELESS, sameFile: () => false };
 
-    expect(planDivergence(before, lengthened, STATELESS).segments(0)).toBe(20);
-    expect(planDivergence(before, before, fileChanged).segments(0)).toBe(20);
+    expect(planDivergence(before, lengthened, STATELESS).input(0)).toBe(20);
+    expect(planDivergence(before, before, fileChanged).input(0)).toBe(20);
   });
 
   it('finds a segment through other stages, or from another frame, different from where it begins', () => {
@@ -118,18 +119,16 @@ describe('where a continuing plan may first differ', () => {
     const before = plan(stream([segment(SILENCE, 0, 20), faded(0.5)]));
 
     expect(
-      planDivergence(
-        before,
-        plan(stream([segment(SILENCE, 0, 20), faded(0.25)])),
-        STATELESS,
-      ).segments(0),
+      planDivergence(before, plan(stream([segment(SILENCE, 0, 20), faded(0.25)])), STATELESS).input(
+        0,
+      ),
     ).toBe(20);
     expect(
       planDivergence(
         before,
         plan(stream([segment(SILENCE, 0, 20), { ...faded(0.5), start: derivedSampleCount(1) }])),
         STATELESS,
-      ).segments(0),
+      ).input(0),
     ).toBe(20);
   });
 
@@ -149,9 +148,9 @@ describe('where a continuing plan may first differ', () => {
     });
 
     expect(changed.sameDefinition(1)).toBe(false);
-    expect([changed.segments(1), changed.output(1), changed.segments(0)]).toEqual([0, 0, 0]);
+    expect([changed.input(1), changed.output(1), changed.input(0)]).toEqual([0, 0, 0]);
     expect(runningAlready.sameDefinition(1)).toBe(true);
-    expect(runningAlready.segments(0)).toBe(NEVER);
+    expect(runningAlready.input(0)).toBe(NEVER);
   });
 
   it('finds a chain’s output different its latency before its input, and throughout where a pass measured past the change', () => {
@@ -181,7 +180,7 @@ describe('where a continuing plan may first differ', () => {
         stream([segment(SILENCE, 0, second), segment(FILE, 0, 100 - second)]),
       );
 
-    expect(planDivergence(lanes(80), lanes(60), STATELESS).segments(0)).toBe(60);
+    expect(planDivergence(lanes(80), lanes(60), STATELESS).input(0)).toBe(60);
   });
 
   it('finds a converted stream different from the first frame whose filter reaches the change', () => {
@@ -194,9 +193,9 @@ describe('where a continuing plan may first differ', () => {
 
     // At 24 kHz frame 100 changes; with 8 frames of lookahead the output from
     // (100 − 8 − 2) × 2 = 180 at 48 kHz may hear it.
-    expect(planDivergence(converted(SILENCE), converted(FILE), resampling).segments(0)).toBe(180);
+    expect(planDivergence(converted(SILENCE), converted(FILE), resampling).input(0)).toBe(180);
     // With no conversion made to say its filter's reach, from its first frame.
-    expect(planDivergence(converted(SILENCE), converted(FILE), STATELESS).segments(0)).toBe(0);
+    expect(planDivergence(converted(SILENCE), converted(FILE), STATELESS).input(0)).toBe(0);
   });
 
   it('finds a stream the new plan does not have, or has at another rate, different throughout', () => {
@@ -212,6 +211,6 @@ describe('where a continuing plan may first differ', () => {
     expect(
       planDivergence(before, plan(stream([segment(FILE, 0, 10)])), STATELESS).sameDefinition(1),
     ).toBe(false);
-    expect(planDivergence(before, slower, STATELESS).segments(0)).toBe(0);
+    expect(planDivergence(before, slower, STATELESS).input(0)).toBe(0);
   });
 });

@@ -28,7 +28,9 @@
  * The stream's length is read as the run goes, not once: a plan continued with
  * a longer stream keeps a run whose input before the change is the same
  * (`reader-continuation.ts`), and the run says how far its state reaches so
- * that can be judged.
+ * that can be judged. A game preview's chain may move its parameters along the
+ * stream (ADR-0104); a run kept into a continued plan takes the new plan's
+ * automation, the same as far as the run has gone.
  */
 
 import {
@@ -40,6 +42,7 @@ import {
   type ChannelLayout,
   type DomainResult,
   type EffectChain,
+  type ParameterAutomation,
   type PartWayStart,
   type QualitySettings,
   type SampleRate,
@@ -127,6 +130,7 @@ interface Running {
 export class ProcessedContent implements ContentReader {
   readonly channels: number;
   #chain: EffectChain;
+  #automation: readonly ParameterAutomation[] | undefined;
   readonly #input: StreamInput;
   readonly #settings: ProcessedSettings;
   readonly #inputScratch: Float32Array[];
@@ -140,8 +144,10 @@ export class ProcessedContent implements ContentReader {
     input: StreamInput,
     output: ChannelLayout,
     settings: ProcessedSettings,
+    automation?: readonly ParameterAutomation[],
   ) {
     this.#chain = chain;
+    this.#automation = automation;
     this.#input = input;
     this.#settings = settings;
     this.channels = output.roles.length;
@@ -203,6 +209,7 @@ export class ProcessedContent implements ContentReader {
         blockFrames: CHUNK,
         dsp: this.#settings.dsp,
         start: from,
+        ...(this.#automation === undefined ? {} : { automation: this.#automation }),
       },
       measuring,
       signal,
@@ -276,6 +283,17 @@ export class ProcessedContent implements ContentReader {
       this.#chain = chain;
       this.#partWay = undefined;
     }
+    return taken;
+  }
+
+  /**
+   * Takes the automation of a plan that continues this stream's, the same as
+   * far as the run has gone, into the run it has and every run it makes after
+   * a seek; or says why the run cannot take it, and keeps what it had.
+   */
+  automate(automation: readonly ParameterAutomation[] | undefined): DomainResult<void> {
+    const taken = this.#running?.run.automate(automation ?? []) ?? succeed(undefined);
+    if (taken.ok) this.#automation = automation;
     return taken;
   }
 

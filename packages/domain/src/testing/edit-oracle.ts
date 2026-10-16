@@ -27,7 +27,7 @@ import type { EditOperation, LevelEdit } from '../editing/operations.js';
 import type { AssetId, EffectChainId, TakeStackId } from '../identity/branded-id.js';
 import type { TakeStack } from '../project/take-stack.js';
 import type { SpectralEdit } from '../spectral/spectral-edit.js';
-import { convertedFrameCount } from '../editing/plan.js';
+import { convertedFrameCount, type ParameterAutomation } from '../editing/plan.js';
 
 /** Audio as one array per channel. */
 export type Samples = readonly Float32Array[];
@@ -36,8 +36,15 @@ export type Samples = readonly Float32Array[];
 export interface OracleWorld {
   /** What an insertion inserts: what was copied. */
   readonly inserted?: Samples;
-  /** What a chain makes of audio, the same length. */
-  readonly chain?: (chain: EffectChainId, samples: Samples) => Samples;
+  /**
+   * What a chain makes of audio, the same length; a plan's chain may move its
+   * parameters along the stream by `automation` (ADR-0104).
+   */
+  readonly chain?: (
+    chain: EffectChainId,
+    samples: Samples,
+    automation?: readonly ParameterAutomation[],
+  ) => Samples;
   /**
    * What a spectral edit makes of the range it processes, every channel
    * given, the same length; `channels` are those it acts on, every one where
@@ -52,6 +59,13 @@ export interface OracleWorld {
   readonly stretch?: (samples: Samples, length: number) => Samples;
   /** What a conversion makes of audio at `from`, at `to`. */
   readonly convert?: (samples: Samples, from: number, to: number, length: number) => Samples;
+  /** What a varispeed makes of audio played at `numerator / denominator` of its speed, `length` frames. */
+  readonly varispeed?: (
+    samples: Samples,
+    numerator: number,
+    denominator: number,
+    length: number,
+  ) => Samples;
   /** The take stacks a punch names, and each recording a take is, at its rate. */
   readonly takes?: {
     readonly stacks: ReadonlyMap<TakeStackId, TakeStack>;

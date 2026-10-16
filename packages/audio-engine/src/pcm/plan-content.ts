@@ -301,14 +301,22 @@ export class StreamContent {
   }
 }
 
-/** A stream heard at another rate: a later stream of the plan, converted. */
-export class ConvertedContent implements ContentReader {
+/**
+ * A stream heard at another rate, a later stream of the plan converted, or
+ * played at a ratio by a varispeed, which is what that stream makes.
+ */
+export class ConvertedContent implements ProcessedOutput {
   readonly channels: number;
   readonly #source: ResampledSource;
 
   constructor(source: ResampledSource) {
     this.#source = source;
     this.channels = channelCount(source.layout);
+  }
+
+  /** The frames it makes, as the stream it reads holds now. */
+  get length(): number {
+    return this.#source.length ?? 0;
   }
 
   /** Frames of the stream the resampler needs past an output frame's position. */

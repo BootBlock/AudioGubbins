@@ -162,11 +162,13 @@ Published paths
   readonly ChainRequest.blockFrames: number
   readonly ChainRequest.dsp: CanonicalDsp
   readonly ChainRequest.start: number
+  readonly ChainRequest.automation?: readonly ParameterAutomation[]
   interface ChainRun
   readonly ChainRun.latency: number
   readonly ChainRun.layout: ChannelLayout
   ChainRun.process: (input: readonly Float32Array[], output: readonly Float32Array[], frames: number) => void
   ChainRun.setParameter: (processor: ProcessorId, parameter: ParameterId, value: number) => DomainResult<void>
+  ChainRun.automate: (automation: readonly ParameterAutomation[]) => DomainResult<void>
   ChainRun.release: () => void
   interface ChannelProgramme
   readonly ChannelProgramme.segments: readonly SignalSegment[]
@@ -928,7 +930,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38040: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38268: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1223,7 +1225,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38040: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38268: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2930,6 +2932,9 @@ Published paths
   readonly AssetUsers.markers: number
   readonly AssetUsers.pastes: number
   readonly AssetUsers.takes: number
+  interface AutomationPoint
+  readonly AutomationPoint.frame: number
+  readonly AutomationPoint.value: number
   interface BlockPlace
   readonly BlockPlace.first: number
   readonly BlockPlace.step: -1 | 1
@@ -3169,6 +3174,10 @@ Published paths
   readonly ParallelGroup.enabled: boolean
   readonly ParallelGroup.soloed: boolean
   readonly ParallelGroup.mix: number
+  interface ParameterAutomation
+  readonly ParameterAutomation.processor: ProcessorId
+  readonly ParameterAutomation.parameter: ParameterId
+  readonly ParameterAutomation.points: readonly AutomationPoint[]
   type ParameterDescriptor = ChoiceParameterDescriptor | NumericParameterDescriptor | ToggleParameterDescriptor
   type ParameterId = string & { readonly [BrandTag]: "ParameterId"; }
   const ParameterTaper: { readonly Linear: "linear"; readonly Logarithmic: "logarithmic"; readonly Decibel: "decibel"; }
@@ -3382,7 +3391,7 @@ Published paths
   readonly StateRequirement.kind: string
   readonly StateRequirement.missing: string
   StateRequirement.check: (state: ProcessorState, input: ChannelLayout, sampleRate: SampleRate, values: ParameterValues) => DomainResult<void>
-  type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "spectral"; readonly edit: PlannedSpectralEdit; } | { readonly kind: "stretch"; readonly length: SampleCount; }
+  type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; readonly automation?: readonly ParameterAutomation[]; } | { readonly kind: "spectral"; readonly edit: PlannedSpectralEdit; } | { readonly kind: "stretch"; readonly length: SampleCount; } | { readonly kind: "varispeed"; readonly numerator: number; readonly denominator: typeof VARISPEED_DENOMINATOR; }
   interface StrokePoint extends SpectralPoint
   readonly StrokePoint.strength: number
   readonly StrokePoint.radius: BrushRadius
@@ -3434,6 +3443,7 @@ Published paths
   readonly TreatmentStep.typeKey: string
   readonly TreatmentStep.values: Readonly<Record<string, ParameterValue>>
   readonly TreatmentStep.learnFrom?: EditRange
+  const VARISPEED_DENOMINATOR: 4096
   const ZERO_SAMPLES: SampleCount
   function addSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function ambisonicChannelCount(order: number): number
@@ -3448,6 +3458,7 @@ Published paths
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
+  function automationValueAt(points: readonly AutomationPoint[], frame: number): number
   function binFrequency(bin: number, sampleRate: number, size: number): number
   function boundedItemsOf<TItem>(value: unknown, field: string, most: number, read: (item: unknown, name: string) => TItem): readonly TItem[]
   function bypassedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
@@ -3643,10 +3654,11 @@ Published paths
   const LOOK_AHEAD: ParameterId
   interface OracleWorld
   readonly OracleWorld.inserted?: Samples
-  readonly OracleWorld.chain?: (chain: EffectChainId, samples: Samples) => Samples
+  readonly OracleWorld.chain?: (chain: EffectChainId, samples: Samples, automation?: readonly ParameterAutomation[]) => Samples
   readonly OracleWorld.spectral?: (edit: Omit<SpectralEdit, "kind">, channels: readonly number[] | undefined, samples: Samples) => Samples
   readonly OracleWorld.stretch?: (samples: Samples, length: number) => Samples
   readonly OracleWorld.convert?: (samples: Samples, from: number, to: number, length: number) => Samples
+  readonly OracleWorld.varispeed?: (samples: Samples, numerator: number, denominator: number, length: number) => Samples
   readonly OracleWorld.takes?: { readonly stacks: ReadonlyMap<TakeStackId, TakeStack>; readonly recordings: ReadonlyMap<AssetId, { readonly samples: Samples; readonly rate: number; }>; }
   const PLAN_WITHOUT_CHAINS: PlanContext
   type Samples = readonly Float32Array<ArrayBufferLike>[]
@@ -5111,6 +5123,7 @@ Published paths
   const CLICK_DETECTOR: AudioDetector
   const CLIPPING_DETECTOR: AudioDetector
   const DC_OFFSET_DETECTOR: AudioDetector
+  const DESIGN_INTERVAL: 32
   type Detection = WholePass<readonly DetectorFinding[]>
   interface DetectionSettings
   readonly DetectionSettings.input: ChannelLayout
@@ -8024,6 +8037,7 @@ packages/audio-engine/src/pcm/plan-content.ts
   new ConvertedContent(source: ResampledSource): ConvertedContent
   readonly ConvertedContent.channels: number
   readonly ConvertedContent.#source: ResampledSource
+  ConvertedContent.length: number
   ConvertedContent.lookahead: number
   ConvertedContent.consumedTo: number | undefined
   ConvertedContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
@@ -8072,6 +8086,7 @@ packages/audio-engine/src/pcm/plan-readers.ts
   PlanReaders.#entries: ReadonlyMap<AssetId, MediaEntry>
   readonly PlanReaders.#dsp: CanonicalDsp
   readonly PlanReaders.#processing: PlanProcessing
+  readonly PlanReaders.#resampling: ResamplingQuality
   readonly PlanReaders.#readers: MadeReaders
   PlanReaders.#chains: Map<number, EffectChain>
   readonly PlanReaders.#silences: Map<number, SilentContent>
@@ -8081,6 +8096,7 @@ packages/audio-engine/src/pcm/plan-readers.ts
   PlanReaders.output: (place: number) => StreamOutput
   PlanReaders.setParameter: (change: ParameterChange) => DomainResult<boolean>
   PlanReaders.release: () => void
+  PlanReaders.#automationAt: (place: number) => readonly ParameterAutomation[] | undefined
   PlanReaders.#streamAt: (place: number) => PlanStream
   PlanReaders.#reader: (source: PlanSource, rate: SampleRate) => ReadableContent
   PlanReaders.#rendered: (place: number, chain: EffectChain) => { readonly kind: "rendered"; readonly reason?: string; } | { readonly kind: "run"; }
@@ -8091,13 +8107,15 @@ packages/audio-engine/src/pcm/plan-readers.ts
   PlanReaders.#spectral: (place: number, stream: PlanStream, edit: PlannedSpectralEdit, content: StreamContent) => ProcessedOutput
   PlanReaders.#spectralHeard: (stream: PlanStream, edit: PlannedSpectralEdit) => { readonly kind: "rendered"; readonly reason?: string; } | { readonly kind: "run"; }
   PlanReaders.#stretched: (content: StreamContent, stream: PlanStream, length: number) => ProcessedOutput
+  PlanReaders.#resampled: (made: DomainResult<ResampledSource>) => ConvertedContent
   PlanReaders.#convert: (place: number, rate: SampleRate) => ConvertedContent
 
 packages/audio-engine/src/pcm/processed-content.ts
   class ProcessedContent
-  new ProcessedContent(chain: EffectChain, input: StreamInput, output: ChannelLayout, settings: ProcessedSettings): ProcessedContent
+  new ProcessedContent(chain: EffectChain, input: StreamInput, output: ChannelLayout, settings: ProcessedSettings, automation?: readonly ParameterAutomation[] | undefined): ProcessedContent
   readonly ProcessedContent.channels: number
   ProcessedContent.#chain: EffectChain
+  ProcessedContent.#automation: readonly ParameterAutomation[] | undefined
   readonly ProcessedContent.#input: StreamInput
   readonly ProcessedContent.#settings: ProcessedSettings
   readonly ProcessedContent.#inputScratch: Float32Array<ArrayBufferLike>[]
@@ -8111,6 +8129,7 @@ packages/audio-engine/src/pcm/processed-content.ts
   ProcessedContent.#runStart: (start: number) => number
   ProcessedContent.#partWayStart: () => PartWayStart
   ProcessedContent.setParameter: (chain: EffectChain, change: ParameterChange) => DomainResult<void>
+  ProcessedContent.automate: (automation: readonly ParameterAutomation[] | undefined) => DomainResult<void>
   ProcessedContent.#advance: (running: Running, count: number, into: readonly Float32Array[] | undefined, signal: CancellationSignal | undefined) => Promise<void>
   ProcessedContent.#consume: (running: Running, count: number, into: readonly Float32Array[] | undefined, offset: number, signal: CancellationSignal | undefined) => Promise<void>
   ProcessedContent.release: () => void
@@ -8907,7 +8926,7 @@ packages/detection-runtime/src/detection-worker-core.ts
   Job.failedWith: string | undefined
 
 packages/domain/src/editing/operations.ts
-  type StreamChain = { readonly kind: "chain"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; } | { readonly kind: "process"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; }
+  type StreamChain = { readonly kind: "chain"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; readonly automation?: readonly import("packages/domain/src/index").ParameterAutomation[]; } | { readonly kind: "process"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; }
 
 packages/domain/src/editing/placement.ts
   interface RegionPlanOptions

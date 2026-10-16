@@ -3004,7 +3004,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     Record<string, readonly [lines: number, review: string]>
   > = {
     'packages/domain/src/index.ts': [
-      417,
+      431,
       "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",
     ],
   };
@@ -3157,8 +3157,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
     'packages/audio-engine/src/pcm/plan-readers.ts': [
-      353,
-      "The one owner of the readers an edited source makes of its plan: each stream's content and output, a file, silence, a conversion of rate, a mix, a chain's run, a stretch and a spectral edit's stream, each made once on the first read that needs it and released with the source. Every reader is a module of its own (`processed-content.ts`, `spectral-content.ts`, `mixed-content.ts`, `stretched-content.ts` and the rest), so what is left is the cache of each kind and the method that makes one; split by kind, a stream that reads another stream processed would need both halves' caches to find it.",
+      373,
+      "The one owner of the readers an edited source makes of its plan: each stream's content and output, a file, silence, a conversion of rate or a varispeed, a mix, a chain's run with its automation, a stretch and a spectral edit's stream, each made once on the first read that needs it and released with the source. Every reader is a module of its own (`processed-content.ts`, `spectral-content.ts`, `mixed-content.ts`, `stretched-content.ts`, `resampled-source.ts` and the rest), and a conversion and a varispeed share one maker of a resampler's reader, so what is left is the cache of each kind and the method that makes one; split by kind, a stream that reads another stream processed would need both halves' caches to find it. Reviewed again when the game preview's varispeed and automation joined it.",
     ],
     'packages/domain/src/editing/plan-building.ts': [
       300,

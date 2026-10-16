@@ -14,7 +14,11 @@
  * Streams are matched by place, as a plan that continues another keeps its
  * streams at their places. A stream whose rate, layout or processing changed,
  * every processor's identifier and value among it, differs from its first
- * frame. Otherwise its segments are walked from the start, in step: the first
+ * frame; a chain's automation is not part of that, since a game preview's
+ * motion is extended as it plays (ADR-0104): it differs just past the last
+ * point its two lanes share, and from the first frame where its lanes are not
+ * of the same parameters. Otherwise its segments are walked from the start, in
+ * step: the first
  * pair that reads another source, from another frame, the other way or through
  * other stages differs where it begins; a pair that differs only in length
  * differs where the shorter ends, unless it is reversed, which moves every
@@ -24,8 +28,9 @@
  * chain's latency, since a chain's output runs ahead of its input by it; from
  * the start where a pass over the input made something every frame carries, and
  * where a stretch or a spectral edit, which read around every frame, is given
- * anything different. A stream read converted differs from the first output
- * frame whose filter reaches a frame that differs.
+ * anything different. A stream read converted, or played at a ratio by a
+ * varispeed, differs from the first output frame whose filter reaches a frame
+ * that differs.
  *
  * Every answer errs early, never late: a frame answered too early only makes
  * a reader afresh that could have been kept.
@@ -35,6 +40,7 @@ import type {
   AssetId,
   EditPlan,
   EffectChain,
+  ParameterAutomation,
   PlanSegment,
   PlanSource,
   PlanStream,
@@ -55,6 +61,8 @@ export interface ReadingState {
   readonly run: (place: number) => RunReach | undefined;
   /** The lookahead of the conversion of the stream at `place` to `rate`, where one is made. */
   readonly conversion: (place: number, rate: SampleRate) => number | undefined;
+  /** The lookahead of the varispeed of the stream at `place`, where one is made. */
+  readonly varispeed: (place: number) => number | undefined;
   /** Whether the new plan's file for `asset` holds what the old plan's did. */
   readonly sameFile: (asset: AssetId) => boolean;
 }
@@ -63,23 +71,62 @@ export interface ReadingState {
 export interface PlanDivergence {
   /** Whether the stream at `place` keeps its rate, layout and processing; false where either plan has none. */
   sameDefinition(place: number): boolean;
-  /** The first frame of the stream's segments that may read differently. */
-  segments(place: number): number;
+  /**
+   * The first frame of what the stream's processing is given that may differ:
+   * its segments, and its chain's automation, in the stream's frames.
+   */
+  input(place: number): number;
   /** The first frame of what the stream makes, its processing run over its segments, that may differ. */
   output(place: number): number;
 }
 
-/** A stream's rate, layout and processing as one text, its chain the one given where it runs one. */
+/**
+ * A stream's rate, layout and processing as one text, its chain the one given
+ * where it runs one, and without its chain's automation, which
+ * {@link automationDivergence} compares frame by frame.
+ */
 function definitionText(stream: PlanStream, running: EffectChain | undefined): string {
   const { processing } = stream;
+  let defined: unknown = processing;
+  if (processing?.kind === 'chain') {
+    const { automation: _automation, ...chain } = processing;
+    defined = running === undefined ? chain : { ...chain, chain: running };
+  }
   return canonicalText({
     sampleRate: stream.sampleRate,
     layout: stream.layout,
-    processing:
-      processing?.kind === 'chain' && running !== undefined
-        ? { ...processing, chain: running }
-        : processing,
+    processing: defined,
   });
+}
+
+/**
+ * The first frame of a stream at which the automation `before` and `after`
+ * may give a parameter another value: from the start where they move other
+ * parameters, and otherwise just past the last point each pair of lanes
+ * shares, since a lane is linear between its points and held after its last.
+ */
+function automationDivergence(
+  before: readonly ParameterAutomation[] | undefined,
+  after: readonly ParameterAutomation[] | undefined,
+): number {
+  const was = before ?? [];
+  const now = after ?? [];
+  if (was.length !== now.length) return 0;
+  let differs = NEVER;
+  for (const [index, lane] of was.entries()) {
+    const other = now[index];
+    if (other?.processor !== lane.processor || other.parameter !== lane.parameter) return 0;
+    let shared = 0;
+    for (const point of lane.points) {
+      const same = other.points[shared];
+      if (same?.frame !== point.frame || !Object.is(same.value, point.value)) break;
+      shared += 1;
+    }
+    if (shared === lane.points.length && shared === other.points.length) continue;
+    const last = lane.points[shared - 1];
+    differs = Math.min(differs, last === undefined ? 0 : last.frame + 1);
+  }
+  return differs;
 }
 
 /** Whether two segments read one source from one frame, one way, through one set of stages. */
@@ -123,14 +170,39 @@ function segmentsDivergence(
   }
 }
 
-/** Where what a stream makes may first differ, given where its segments may. */
-function outputDivergence(stream: PlanStream, segments: number, run: RunReach | undefined): number {
+/**
+ * The first output frame of a resampler making `output` frames of each `input`
+ * whose filter, centred on its input position and reaching `lookahead` frames
+ * ahead, may reach the input frame `differs`; one frame earlier still for
+ * rounding.
+ */
+function resampledDivergence(
+  differs: number,
+  lookahead: number,
+  input: number,
+  output: number,
+): number {
+  return Math.max(0, Math.floor(((differs - lookahead - 2) * output) / input));
+}
+
+/** Where what a stream makes may first differ, given where its input may. */
+function outputDivergence(
+  stream: PlanStream,
+  input: number,
+  run: RunReach | undefined,
+  varispeed: number | undefined,
+): number {
   const { processing } = stream;
-  if (processing === undefined || segments === NEVER) return segments;
+  if (processing === undefined || input === NEVER) return input;
+  if (processing.kind === 'varispeed') {
+    return varispeed === undefined
+      ? 0
+      : resampledDivergence(input, varispeed, processing.numerator, processing.denominator);
+  }
   if (processing.kind !== 'chain' || run === undefined) return 0;
   // A pass that read past the change measured it, and every frame carries what it measured.
-  if (run.measuredTo > segments) return 0;
-  return Math.max(0, segments - run.latency);
+  if (run.measuredTo > input) return 0;
+  return Math.max(0, input - run.latency);
 }
 
 /**
@@ -144,7 +216,7 @@ export function planDivergence(
 ): PlanDivergence {
   const places = Math.min(before.streams.length, after.streams.length);
   const same: boolean[] = [];
-  const segments: number[] = [];
+  const inputs: number[] = [];
   const outputs: number[] = [];
   const outputAt = (place: number): number => outputs[place] ?? 0;
 
@@ -162,10 +234,9 @@ export function planDivergence(
         const differs = outputAt(source.stream);
         if (read === undefined || read.sampleRate === rate || differs === NEVER) return differs;
         const lookahead = reading.conversion(source.stream, rate);
-        if (lookahead === undefined) return 0;
-        // The first output frame whose filter, centred on its input position,
-        // may reach the changed frame; one frame earlier still for rounding.
-        return Math.max(0, Math.floor(((differs - lookahead - 2) * rate) / read.sampleRate));
+        return lookahead === undefined
+          ? 0
+          : resampledDivergence(differs, lookahead, read.sampleRate, rate);
       }
     }
   };
@@ -177,16 +248,20 @@ export function planDivergence(
     if (was === undefined || now === undefined) continue;
     same[place] = definitionText(was, reading.chain(place)) === definitionText(now, undefined);
     if (same[place] !== true) continue;
-    const differs = segmentsDivergence(was.segments, now.segments, (source) =>
+    const read = segmentsDivergence(was.segments, now.segments, (source) =>
       reach(source, now.sampleRate),
     );
-    segments[place] = differs;
-    outputs[place] = outputDivergence(now, differs, reading.run(place));
+    const differs =
+      was.processing?.kind === 'chain' && now.processing?.kind === 'chain'
+        ? Math.min(read, automationDivergence(was.processing.automation, now.processing.automation))
+        : read;
+    inputs[place] = differs;
+    outputs[place] = outputDivergence(now, differs, reading.run(place), reading.varispeed(place));
   }
 
   return {
     sameDefinition: (place) => same[place] ?? false,
-    segments: (place) => segments[place] ?? 0,
+    input: (place) => inputs[place] ?? 0,
     output: outputAt,
   };
 }

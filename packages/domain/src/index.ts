@@ -244,14 +244,18 @@ export {
 } from './spectral/spectral-edit.js';
 
 export {
+  type AutomationPoint,
   type EditPlan,
   type FadeCurve,
   type GainCurve,
+  type ParameterAutomation,
   type PlanSegment,
   type PlanSource,
   type PlanStage,
   type PlanStream,
   type StreamProcessing,
+  VARISPEED_DENOMINATOR,
+  automationValueAt,
   convertedFrameCount,
   planIsSilence,
   planReadsAsset,
