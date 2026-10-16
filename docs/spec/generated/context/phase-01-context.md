@@ -478,6 +478,14 @@ Accessibility must remain a first-class requirement.
 
 Highly visual editing modes may use specialised interactions, but keyboard-operable and semantic alternatives should be provided wherever realistically possible.
 
+#### 5.1 Verifying the Visual Goal
+
+The first sentence of this requirement is a visual outcome, and it shall be verified as one. Evidence that the shell is keyboard-first, names its landmarks, shows focus and sizes its touch targets verifies the rest of this block and does not verify that sentence.
+
+The sentence is verified when `REQ-UX-221` is: every surface follows the written design language, matches the reference the product owner approved, and is signed off by the product owner in the design review, in both themes and both densities. "Smooth animations and transitions" is verified by `REQ-UX-222`.
+
+Phase 01's evidence verified the structure of this block (`CHG-0002`). Until Phase 16 passes, the visual outcome is unmet, and no evidence package may claim it.
+
 ---
 
 ## REQ-PROD-006 — Primary Users
@@ -818,6 +826,12 @@ At minimum the system should support:
 
 The application must also respect the operating system/browser `prefers-reduced-motion` preference, while allowing an explicit user override where accessibility guidance permits.
 
+#### 69.1 Verifying Motion
+
+The kinds of motion listed above shall be designed as one motion system and verified at each motion level in a real browser, as `REQ-UX-222` states. A test that the motion preference is stored and honoured verifies the levels' plumbing and does not verify that anything moves well, or that "the full intended animation richness" exists.
+
+The shell animation `ADR-0014` deferred is part of this requirement and is delivered under `REQ-UX-222` (`CHG-0002`).
+
 ---
 
 ## REQ-UX-070 — Theme System
@@ -841,6 +855,12 @@ Theme brightness must not be implemented as a simple visual filter over the whol
 Instead, the design system should expose semantic colour and luminance tokens so that contrast, accessibility, readability, and component hierarchy remain correct across the user-selectable brightness range.
 
 The theme engine should be designed to permit future custom themes without requiring component-specific hard-coded colour overrides.
+
+#### 70.1 Verifying a Theme by Its Appearance
+
+Each theme shall be verified by its rendered appearance as well as by its computed contrast. Every surface shall have an approved visual reference in the dark theme and in the light theme, and the screenshot comparison of `REQ-UX-221` shall hold each to it.
+
+The independent semantic palettes this block lists (waveform, spectrogram, selections, meters, markers and analysis overlays) shall be designed as part of the design language of `REQ-UX-221`, stated per theme, and derived through the tokens of `ADR-0012`, so their contrast against the surface beneath them is computed rather than chosen.
 
 ---
 
@@ -866,6 +886,10 @@ Users should be able to configure, where appropriate:
 - Status information
 
 Advanced controls should use progressive disclosure rather than being removed from approachable layouts.
+
+#### 71.1 Verifying Each Density by Its Appearance
+
+Each density shall be a designed layout, not the other scaled. Every surface shall have an approved visual reference at the comfortable density and at the compact density, and the screenshot comparison of `REQ-UX-221` shall hold each to it. The touch target stays the same size at both densities, as Phase 01 verified.
 
 ---
 
@@ -1078,6 +1102,12 @@ The styling architecture shall support:
 CSS custom properties should form the runtime theme contract. Build-time type-safe styling may be used where it improves correctness, but runtime theme changes must not require rebuilding stylesheets.
 
 Tailwind-style utility usage must not become a substitute for semantic design tokens or component ownership. Any styling tool introduced must preserve the ability to reason about themes, accessibility, density, and component states at the design-system level.
+
+#### 155.1 What the Token System Covers
+
+The semantic token system shall cover every value the design language of `REQ-UX-221` states: the layout grid unit, the type scale and its families, spacing, radii, elevation and shadow, icon sizes and stroke, the focus and selection indicators, and the motion durations and easings of `REQ-UX-222`, each for both densities and both themes where it varies with them.
+
+A component stylesheet shall take each such value from a token. An automated architecture check shall refuse a literal colour, length, duration or shadow in a component's styles outside the token definitions, and shall name each exception it allows with its reason.
 
 ---
 
@@ -2085,7 +2115,8 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Decision:** AudioGubbins does not declare or install an animation library until a component imports one. The motion levels `REQ-UX-069` requires are carried by CSS transitions over the design system's motion tokens, which is sufficient for the shell's transitions and reaches the docking engine's own animation through the minimal-motion guard. Motion for React remains the chosen library for the first requirement that CSS cannot meet.
 - **Drivers:** a dependency nothing imports is an install cost, a supply-chain surface and a licence obligation for no return; the reduced-motion policy must apply to third-party animation as well as to AudioGubbins' own, which a stylesheet rule does and a library call does not.
 - **Constraints:** the decision is recorded rather than left implicit, because `ADR-0001` is the architecture record a later agent reads, and a library named there and absent from the manifests reads as an oversight. When an animation requirement arrives, it arrives with this ADR superseded rather than with a library added quietly.
-- **Related requirements:** `REQ-UX-069`, `REQ-ARCH-034`, `REQ-ARCH-151`, `REQ-EXEC-169`.
+- **Amended:** by `CHG-0002` (2026-10-16). The shell animation this ADR left without a consumer is taken up: `REQ-UX-222` requires it, and Phase 16 delivers it. The rule that no animation library is installed before a component imports one stands. Phase 16 decides, against the motion system it designs, whether CSS transitions over the motion tokens meet `REQ-UX-222`. If they do, it records that in its evidence and this ADR stands. If they do not, it supersedes this ADR with a new one that names the library, its licence and how the motion levels reach it, as the Constraints clause requires.
+- **Related requirements:** `REQ-UX-069`, `REQ-UX-222`, `REQ-ARCH-034`, `REQ-ARCH-151`, `REQ-EXEC-169`.
 
 <!-- adr/ADR-0015-phase-01-owns-domain-value-model.md -->
 

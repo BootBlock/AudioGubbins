@@ -20,6 +20,7 @@ flowchart LR
   P13["13 Advanced Batch and Variation Workflows"]
   P14["14 Performance, Compatibility, and Accessibility Hardening"]
   P15["15 Release Readiness"]
+  P16["16 Visual Design and Interaction"]
   P00 --> P01
   P01 --> P02
   P01 --> P03
@@ -72,6 +73,20 @@ flowchart LR
   P12 --> P14
   P13 --> P14
   P14 --> P15
+  P01 --> P16
+  P02 --> P16
+  P03 --> P16
+  P04 --> P16
+  P05 --> P16
+  P06 --> P16
+  P07 --> P16
+  P08 --> P16
+  P09 --> P16
+  P10 --> P16
+  P16 --> P11
+  P16 --> P12
+  P16 --> P13
+  P16 --> P14
 ```
 
 ## Hard Dependencies
@@ -87,8 +102,9 @@ flowchart LR
 - Phase 08: Phase 03, Phase 04, Phase 05, Phase 06
 - Phase 09: Phase 02, Phase 03, Phase 05, Phase 06
 - Phase 10: Phase 05, Phase 06, Phase 09
-- Phase 11: Phase 02, Phase 03, Phase 06, Phase 09, Phase 10
-- Phase 12: Phase 01, Phase 02, Phase 09
-- Phase 13: Phase 05, Phase 06, Phase 09, Phase 10, Phase 11
-- Phase 14: Phase 01, Phase 02, Phase 03, Phase 04, Phase 05, Phase 06, Phase 07, Phase 08, Phase 09, Phase 10, Phase 11, Phase 12, Phase 13
+- Phase 11: Phase 02, Phase 03, Phase 06, Phase 09, Phase 10, Phase 16
+- Phase 12: Phase 01, Phase 02, Phase 09, Phase 16
+- Phase 13: Phase 05, Phase 06, Phase 09, Phase 10, Phase 11, Phase 16
+- Phase 14: Phase 01, Phase 02, Phase 03, Phase 04, Phase 05, Phase 06, Phase 07, Phase 08, Phase 09, Phase 10, Phase 11, Phase 12, Phase 13, Phase 16
 - Phase 15: Phase 14
+- Phase 16: Phase 01, Phase 02, Phase 03, Phase 04, Phase 05, Phase 06, Phase 07, Phase 08, Phase 09, Phase 10

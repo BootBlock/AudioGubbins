@@ -101,7 +101,8 @@
       "phases/phase-12-pwa-offline-and-installation-hardening.md",
       "phases/phase-13-advanced-batch-and-variation-workflows.md",
       "phases/phase-14-performance-compatibility-and-accessibility-hardening.md",
-      "phases/phase-15-release-readiness.md"
+      "phases/phase-15-release-readiness.md",
+      "phases/phase-16-visual-design-and-interaction.md"
     ],
     "traceability": [
       "traceability/phase-dependency-graph.md",

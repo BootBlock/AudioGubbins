@@ -2,7 +2,7 @@
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 05, 06, 09, 10, 11 reaching `PASS`.
+`NOT_READY` — blocked by Phase(s) 05, 06, 09, 10, 11, 16 reaching `PASS`. Phase 16 was placed before this phase by `CHG-0002`.
 
 ## Objective
 
@@ -19,6 +19,7 @@ Users can define rich variation families and processing/export automation, gener
 - Phase 09 — Import, Export, and Codec System
 - Phase 10 — Game-Audio Tooling
 - Phase 11 — Godot Integration
+- Phase 16 — Visual Design and Interaction (`CHG-0002`)
 
 ## Owned Requirements
 
@@ -100,6 +101,7 @@ Users can define rich variation families and processing/export automation, gener
 - Same source/rules/seed/version yields reproducible generation where processors are deterministic.
 - Batch failures are itemised and never silently skipped.
 - Macros use the same typed commands as interactive UI.
+- CHG-0002: every web surface this phase adds or changes (a panel, a dialogue, a menu, a notice) follows Phase 16's design language (`REQ-UX-221`, `REQ-UX-222`): it is built from the control set and the panel composition, and this phase delivers its approved reference, its design-review sign-off and its screenshot comparison.
 
 ## Internal Work Units
 
@@ -164,6 +166,7 @@ Users can define rich variation families and processing/export automation, gener
 - Godot Integration
 - UX / Accessibility
 - Adversarial Agent-Quality
+- Visual Design (CHG-0002), for every web surface this phase adds or changes
 
 ## Evidence Package
 

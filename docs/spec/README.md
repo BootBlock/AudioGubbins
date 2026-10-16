@@ -52,7 +52,9 @@ That file is generated from canonical modules and MUST NOT be edited directly.
 ## Current Readiness
 
 - Phases 00–10 — **PASS**
-- Phases 11–15 — **NOT_READY** until hard dependencies pass and, for Phases 11 and 12, whose dependencies have passed, their readiness reviews
+- Phase 16 — **READY**: its hard dependencies have passed, and the maintainer waived its readiness review on 2026-10-16
+- Phases 11–15 — **NOT_READY** until hard dependencies pass, Phase 16 among them, and their readiness reviews
+- Phase 16 (Visual Design and Interaction) was added by `traceability/changes/CHG-0002-visual-design-phase.md`. Phase numbers name phases and do not order them: Phases 11 to 14 depend on Phase 16, so the redesign comes first, every later surface is built in its design language, and the hardening phases measure the final interface
 
 See `traceability/implementation-ledger.md`.
 
@@ -90,7 +92,7 @@ AudioGubbins_Specification_Pack_Hardened/
 │   ├── phase-packet-template.md
 │   └── handoff-capsule-template.md
 ├── phases/
-│   └── phase-00 ... phase-15
+│   └── phase-00 ... phase-16
 ├── adr/
 │   └── ADR-0001 ... ADR-0008
 ├── traceability/

@@ -1343,6 +1343,14 @@ Accessibility must remain a first-class requirement.
 
 Highly visual editing modes may use specialised interactions, but keyboard-operable and semantic alternatives should be provided wherever realistically possible.
 
+#### 5.1 Verifying the Visual Goal
+
+The first sentence of this requirement is a visual outcome, and it shall be verified as one. Evidence that the shell is keyboard-first, names its landmarks, shows focus and sizes its touch targets verifies the rest of this block and does not verify that sentence.
+
+The sentence is verified when `REQ-UX-221` is: every surface follows the written design language, matches the reference the product owner approved, and is signed off by the product owner in the design review, in both themes and both densities. "Smooth animations and transitions" is verified by `REQ-UX-222`.
+
+Phase 01's evidence verified the structure of this block (`CHG-0002`). Until Phase 16 passes, the visual outcome is unmet, and no evidence package may claim it.
+
 ---
 
 ## REQ-EXEC-136 — AudioGubbins Agent Implementation Guardrails

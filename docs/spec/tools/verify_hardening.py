@@ -15,8 +15,10 @@ for cmd in commands:
         raise SystemExit(cp.returncode)
 
 # Additional hardening assertions
-phase_files=list((ROOT/"phases").glob("phase-*.md"))
-assert len(phase_files)==16, f"expected 16 phase packets, got {len(phase_files)}"
+phase_files=sorted(p.relative_to(ROOT).as_posix() for p in (ROOT/"phases").glob("phase-*.md"))
+ledger=json.loads((ROOT/"traceability/implementation-ledger.json").read_text(encoding="utf-8"))["phases"]
+ledger_files=sorted(entry["phase_file"] for entry in ledger.values())
+assert phase_files==ledger_files, f"phase packets {phase_files} differ from the ledger's {ledger_files}"
 legacy=(ROOT/"generated/LEGACY_Requirements_Baseline.md")
 assert legacy.exists(), "legacy baseline must be archived for auditability"
 report=(ROOT/"reviews/hardening-review.md")

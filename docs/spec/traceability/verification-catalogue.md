@@ -123,3 +123,11 @@ These identifiers are planning-level verification suites. Implementation phases 
 - `FULL-SUITE` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 - `REALWORLD-VALIDATION` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 - `SPEC-LINT` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+
+## Phase 16 — Visual Design and Interaction
+
+- `DESIGN-SIGNOFF` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `VISUAL-E2E` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `MOTION-E2E` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `APP-ARCH` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `INTERACTION-LATENCY` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
