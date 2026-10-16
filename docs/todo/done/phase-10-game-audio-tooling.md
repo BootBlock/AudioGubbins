@@ -1,8 +1,10 @@
-> **Status:** In progress. 2026-10-16: the domain, engine, worker,
-> persistence and command units are merged (WU-10.0, A1–A6, C1, C2, D1–D4,
-> P); WU-10.B, E1a, E1b, E2, E3 and F remain, then the evidence. The design
-> below is amended where the build deviated from it (marked "Amended
-> 2026-10-16"). Phase 10 is `READY` in the implementation ledger.
+> **Status:** Done. 2026-10-16: every work unit is built and merged, the
+> build's findings are fixed and written into
+> `docs/spec/reviews/phase-10-review.md`, with the review lenses and the
+> adversarial review deferred by the maintainer's decision of 2026-10-16.
+> The design below is amended where the build deviated from it (marked
+> "Amended 2026-10-16"). Phase 10 is closed at `PASS` in the implementation
+> ledger; Q7 is open for the maintainer.
 
 # Phase 10 — Game-Audio Tooling
 
@@ -24,6 +26,7 @@ maintainer's acceptance before the unit that builds on it lands.
 | 2026-10-16 | Integrated on the phase branch: WU-10.0 (chain-users rule, game workflows run), WU-10.D1, WU-10.A1 (with the `game-audio` scaffold), WU-10.D2. Each new package lands its scaffold with its first unit. Running: D3, C1, A2, A6. Integration follow-ups owed before review: the effect rack's local automation types move to the domain plan (P), the library's built-in flag reaches the page, the 32-frame design interval gets one authority, `lowbias32` is exported when D4 uses it, and the "ahead of use" export entries are removed by their consumers. |
 | 2026-10-16 | Merged: D3 (gate passed: bit-identical continuation), A2, A6, C1, A3, C2, P; `projectDocument` raised to 10. Running: A4 (persistence, history, export record sub-folder path) and D4 part 1 (simulation and plan; scenarios join the state, format and commands in part 2 after A5). Then A5, B, E1–E3, F, reviews, evidence. Integration follow-ups are tracked outside the repository and closed in the units named for them.                                                                                                                                |
 | 2026-10-16 | The maintainer deferred this phase's lens reviews and adversarial review to the review after the whole specification is implemented, as Phase 09's were (section 16, Gates). Merged: A4, D4, A5, D4 part 2 (scenarios in the state, format and commands). The design and `ADR-0101` to `ADR-0104` and `ADR-0106` amended where the build deviated; the evidence and review record drafted (`docs/spec/reviews/phase-10-evidence.md`, `phase-10-review.md`).                                                                                                     |
+| 2026-10-16 | Merged: E2, B, E1b, E3, E1a, F and the final integration fixes FX (the browser test's three defects, the preview's forgetting, owners named in refusals, quoting, default keys). Q1 settled. Evidence, review record and handoff completed; `ADR-0100` to `ADR-0106` and `CHG-0001` accepted; Phase 10 `PASS`; the plan moved to `docs/todo/done/`.                                                                                                                                                                                                             |
 
 ## Where the work is
 
@@ -1318,11 +1321,44 @@ simulation takes 0.5 to 0.7 ms and the extension 1.3 to 2.5 ms, most of it
 laying again every lane sounding across the trigger. The test holds the
 simulation to 1 ms and the two together to 5 ms, a tenth of the shortest
 feed-ahead (50 ms). The test reads the wall clock and has exceeded 1 ms on a
-shared machine; it is to measure processor time before the phase closes.
+shared machine; it measures the thread's processor time since `2d7f613f`.
+As the Game preview panel runs them, a hand trigger's simulation and plan
+building cost 2 to 3 ms in all on the page, accepted.
 
 **Bounds.** 16 emitters, 64 voices an emitter, `PREVIEW_VOICE_BUDGET`
 voices in all (`previewVoiceBudget`, amended above), 50 triggers a second an emitter, a 30-second horizon, extended
 when the playhead is within 5 s of it.
+
+**Forgetting what was heard.** Amended 2026-10-16 (WU-10.FX): a run that
+plays for long, a loop never stopped or triggers overlapping without a
+break, has no silent moment at which its plan could be laid afresh, and
+laying it afresh would make every reader again, a break in the sound. So a
+preview forgets what it has heard instead:
+
+- A plan stream may state `forgottenBefore`, the first frame it still
+  describes (`packages/domain/src/editing/plan.ts`). A continuation compares
+  its segments and its chain's automation only from there
+  (`plan-divergence.ts`), so the readers that played the past keep their
+  state; a stream forgotten whole may hold its place unread, so the streams
+  after it keep theirs. Only a preview's plan holds it: an insertion's
+  payload is refused with it and the project format never writes it.
+- `forgetPreviewBefore(simulation, frame)` keeps the log's events from
+  `frame`, counting those dropped, and the state's run at that frame with the
+  snapshots and hand actions after it; it goes on from `frame` or later
+  alone.
+- `forgetPreviewPlanBefore(plan, frame)` drops every voice whose sound ended
+  by `frame`, letting its places hold a stream forgotten whole until a later
+  voice takes them; makes each lane's past, and the cycles a loop's readers
+  have read past, one silence; lays each emitter's motion from `frame`; and
+  states `forgottenBefore` on each stream so changed. A voice's streams take
+  places the plan gives rather than the end of the list.
+- The run (`apps/web/src/audio/preview-run.ts`) forgets every 5 s of
+  playback what was heard more than 1 s behind the listener and already
+  listed, going on into the plan that forgets it as into any other
+  continuation; the panel's list counts events from the run's first.
+
+This replaces laying the plan afresh at a silent moment past 256 voices,
+which is removed.
 
 ## 7. Guided workflows (WU-10.B)
 
@@ -1823,6 +1859,9 @@ Open questions, to settle in the unit named:
   from `smpl`, and whether its Ogg Vorbis importer reads `LOOPSTART`
   comments or only its import settings, to be confirmed against the Godot 4
   documentation before the workflow's text says what Godot will do.
+  Settled 2026-10-16 (WU-10.E1b) from Godot 4's documentation: Godot reads a
+  WAV file's loop when its import loop mode is "Detect From WAV"; an Ogg
+  file loops only from its import settings.
 - **Q2 (D3, the gate).** Whether the feeder can switch at its next read frame
   in every profile; this is what the gate's tests decide, and a failure
   blocks the phase rather than degrading it. Answered 2026-10-16: the
@@ -1849,7 +1888,8 @@ Open questions, to settle in the unit named:
   "wrapped" (the loop processed twice, the second cycle kept) would make the
   seam exact; it changes `ADR-0060`'s rule that a rack runs from its target's
   start, so it is the maintainer's to decide. Until then the analysis
-  measures and reports such a seam.
+  measures and reports such a seam. Still open for the maintainer at the
+  phase's close (2026-10-16).
 
 ## 16. Reviews and evidence the phase owes
 

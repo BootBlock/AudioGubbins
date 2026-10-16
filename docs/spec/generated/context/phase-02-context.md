@@ -2223,7 +2223,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 # ADR-0100 — Game-Audio Tooling Is Three Packages Over The Editing, DSP And Export Contracts, And Godot Knows Nothing Of Them Yet
 
-- **Status:** Proposed
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
 - **Decision:** Phase 10's code is three new packages, each with one responsibility and one direction between them, and additions to existing packages at the seams those packages already own. No package named `export-recipes` is made: export recipes as project objects are Phase 11's (`REQ-GODOT-119`), and the game layer of export is a module of `packages/game-audio` (`ADR-0102`).
   - `packages/game-audio` (`@audiogubbins/game-audio`, portable) is the game-audio domain as values: asset groups, membership, inherited policy and its resolution with provenance (`ADR-0101`), naming templates, game export profiles, destination paths and the game export plan (`ADR-0102`), and the game preview's rules, scenarios, seeded selection, voice model, attenuation and the preview plan (`ADR-0104`). It depends on `packages/domain`, `packages/import-export` and `packages/audio-engine` (the canonical primitives, `pow` for a pitch's ratio), reads no clock, browser global or thread, and is given the processor catalogue it builds a preview chain from as an argument. It states `projectChainUsers`, the one answer to what names a chain once groups can (`ADR-0101`).
   - `packages/loop-analysis` (`@audiogubbins/loop-analysis`, portable) is seamless-loop analysis: the metrics, the candidate search, the micro-crossfade suggestion and the loop audition plans (`ADR-0103`). It depends on `packages/domain` and `packages/audio-engine` (the canonical primitives, the STFT and `PcmSource`), and reads audio only through a `PcmSource` it is given, in bounded windows.
@@ -2240,7 +2240,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 # ADR-0103 — Loop Analysis Measures The Seam Canonically And Suggests Ranked Candidates, A Loop's Crossfade Is Part Of Its Region's Sound, And Only The Person Moves A Loop
 
-- **Status:** Proposed
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
 - **Decision:** `REQ-GAME-121` is `packages/loop-analysis`, run by the detection worker over a region's processed audio, with the loop's crossfade realised in the region's plan.
   - **The loop is the region's.** The loop being analysed is `Region.loop` (`AnchoredLoop`, Phase 05), placed as the domain's `LoopDefinition`; the packet's contract names them, and no second loop value is made. A region holds at most one loop, which export writes as one forward endless loop (`ADR-0093`).
   - **What a seam is compared with.** A seam metric compares what an engine plays after the loop's end E with what should follow it: the loop's head against the audio after E, or its tail against the audio before its start S, where the region has that audio, and the tail against the head only for a whole-sound loop, which has nothing else; each metric reports which reference it used, so a drum loop's hit after its decay, or a drone's steady DC, is not mistaken for a discontinuity.
@@ -2261,7 +2261,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 # ADR-0106 — Groups, Policy And Scenarios Are Project State In One Document Member; Analyses, Resolutions And The Preview Are Derived Or Session State
 
-- **Status:** Proposed
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
 - **Decision:** Phase 10 adds one member to the project document and nothing to the person's preferences.
   - **The member.** `ProjectState.gameAudio`, absent where a project has no game-audio state, holds the groups with their policy, the memberships with their processing (`inherit` or `own`) and overrides in assignment order, and the preview scenarios. It is written as the document member `gameAudio` and, in the project tree, as `project/game-audio.json`; its reader refuses a group forest, membership, chain reference, template, path or rule that is not valid, with the reason, as every member of the document is read. Raising it makes `projectDocument` version 10, or the next version free when this phase merges, and `projectStorage` stays, as it did when the export settings joined the tree; before 1.0 nothing migrates and a document of another version is refused with the reason (`REQ-STOR-052`).
   - **Changed by commands.** The game commands (add, rename, move and remove a group; set or unset a group's policy field; assign and unassign a member; set and reset a member's override; set a member's processing to `inherit` or `own`; add, change and remove a scenario) are project commands with inverses in `packages/project-commands/src/game/`. A history entry's affected entities gain the groups it changes, read as optional so a node written before them reads, and the History panel finds a change by its group as it finds one by its region.

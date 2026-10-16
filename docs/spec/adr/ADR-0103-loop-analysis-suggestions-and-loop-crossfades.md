@@ -1,6 +1,6 @@
 # ADR-0103 — Loop Analysis Measures The Seam Canonically And Suggests Ranked Candidates, A Loop's Crossfade Is Part Of Its Region's Sound, And Only The Person Moves A Loop
 
-- **Status:** Proposed
+- **Status:** Accepted. Approved by the maintainer on 2026-10-16, as Phase 10 closed.
 - **Decision:** `REQ-GAME-121` is `packages/loop-analysis`, run by the detection worker over a region's processed audio, with the loop's crossfade realised in the region's plan.
   - **The loop is the region's.** The loop being analysed is `Region.loop` (`AnchoredLoop`, Phase 05), placed as the domain's `LoopDefinition`; the packet's contract names them, and no second loop value is made. A region holds at most one loop, which export writes as one forward endless loop (`ADR-0093`).
   - **What a seam is compared with.** A seam metric compares what an engine plays after the loop's end E with what should follow it: the loop's head against the audio after E, or its tail against the audio before its start S, where the region has that audio, and the tail against the head only for a whole-sound loop, which has nothing else; each metric reports which reference it used, so a drum loop's hit after its decay, or a drone's steady DC, is not mistaken for a discontinuity.
