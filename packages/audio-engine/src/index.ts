@@ -136,6 +136,10 @@ export { pow } from './dsp/reference/power.js';
 export { sineOfTurns } from './dsp/reference/primitives.js';
 export { arctangentTurns, cosineOfTurns, tangentOfTurns } from './dsp/reference/trigonometry.js';
 
+// The canonical STFT's windows at any length, the one statement of their
+// weights, for an analysis that weights spans the STFT does not frame.
+export { stftWindowWeights } from './dsp/reference/analysis/stft.js';
+
 // The phases of the true-peak filter of ITU-R BS.1770-4 Annex 2, the one table
 // of dBTP, which the canonical peak meter and the limiter both read.
 export { TRUE_PEAK_TAPS, truePeakPhases } from './dsp/reference/analysis/peak-meter.js';
