@@ -1351,10 +1351,13 @@ Published paths
   new FakeDirectoryHandle(name: string, children: readonly (FakeDirectoryHandle | FakeFileHandle)[]): FakeDirectoryHandle
   readonly FakeDirectoryHandle.kind: "directory"
   readonly FakeDirectoryHandle.#children: (FakeDirectoryHandle | FakeFileHandle)[]
+  FakeDirectoryHandle.refuseMaking: ((name: string) => DOMException | undefined) | undefined
+  FakeDirectoryHandle.add: (child: FakeDirectoryHandle | FakeFileHandle) => void
   FakeDirectoryHandle.values: () => AsyncGenerator<FakeDirectoryHandle | FakeFileHandle>
   FakeDirectoryHandle.getDirectoryHandle: (name: string, options?: { readonly create?: boolean; }) => Promise<FileSystemDirectoryHandle>
   FakeDirectoryHandle.getFileHandle: (name: string, options?: { readonly create?: boolean; }) => Promise<FileSystemFileHandle>
-  FakeDirectoryHandle.removeEntry: (name: string) => Promise<void>
+  FakeDirectoryHandle.removeEntry: (name: string, options?: { readonly recursive?: boolean; }) => Promise<void>
+  FakeDirectoryHandle.#empty: () => boolean
   FakeDirectoryHandle.resolve: () => Promise<null | string[]>
   readonly FakeDirectoryHandle.name: string
   readonly FakeDirectoryHandle.permission: { state: "denied" | "granted" | "prompt"; answer: "denied" | "granted"; activated: boolean; }
@@ -6566,7 +6569,7 @@ Published paths
   DecodedStream.refuse: (failure: DomainFailure) => void
   DecodedStream.close: () => void
   type Delivery = { readonly kind: "delivered"; readonly name: string; readonly replaced: "chosen" | "none" | "trusted"; readonly record: ExportRecord; readonly unrecorded?: DomainFailure; readonly remembered: CollisionAnswer | undefined; } | { readonly kind: "refused"; readonly failure: DomainFailure; readonly remembered: CollisionAnswer | undefined; }
-  type DeliveryDestination = { readonly kind: "file"; readonly file: DeliveryFile; } | { readonly kind: "folder"; readonly folder: DeliveryFolder; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; readonly prompt: CollisionPrompt; }
+  type DeliveryDestination = { readonly kind: "file"; readonly file: DeliveryFile; } | { readonly kind: "folder"; readonly folder: DeliveryFolder; readonly path: readonly string[]; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; readonly prompt: CollisionPrompt; }
   interface DeliveryFile
   readonly DeliveryFile.name: string
   DeliveryFile.access: () => Promise<DestinationAccess>
@@ -6576,7 +6579,8 @@ Published paths
   DeliveryFolder.access: () => Promise<DestinationAccess>
   DeliveryFolder.list: (signal?: AbortSignal) => Promise<readonly string[]>
   DeliveryFolder.open: (name: string) => Promise<ByteSource | undefined>
-  DeliveryFolder.create: (name: string) => Promise<ByteSink>
+  DeliveryFolder.folder: (name: string, signal?: AbortSignal) => Promise<DeliveryFolder | undefined>
+  DeliveryFolder.create: (name: string, signal?: AbortSignal) => Promise<ByteSink>
   interface DeliveryServices
   readonly DeliveryServices.sha256: Sha256
   readonly DeliveryServices.ids: IdGenerator
@@ -7173,6 +7177,7 @@ Published paths
   function startRecording(session: ProjectSession, id: RecordingSessionId, setUp: RecordingSetUp, services: RecordingServices, signal?: AbortSignal | undefined): Promise<DomainResult<RecordingFiles>>
   function storageRefusalOf(cause: DomainFailure): StorageRefusal | undefined
   function takeSourceVersion(session: ProjectSession, version: SourceVersion, services: SourceVersionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
+  function trustedRecordName(path: readonly string[], name: string): string
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, services: BundleServices, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
   function unreadableStateOf(cause: DomainFailure): undefined | { readonly snapshot?: string; }
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
@@ -9316,6 +9321,7 @@ packages/spectral-analysis/src/tile-wants.ts
 
 packages/storage-runtime/src/client/exports-client.ts
   interface FolderRules
+  readonly FolderRules.path?: readonly string[]
   readonly FolderRules.wanted: ExportFileName
   readonly FolderRules.policy: CollisionPolicy
   readonly FolderRules.remembered: CollisionAnswer | undefined
@@ -9372,7 +9378,7 @@ packages/storage-runtime/src/protocol/backup-operations.ts
   type Tick = Operation<{ readonly handle: ProjectHandle; readonly folder?: PagePort; }, DomainResult<BackupTick>>
 
 packages/storage-runtime/src/protocol/export-operations.ts
-  type CrossingDestination = { readonly kind: "download"; readonly name: string; readonly mediaType: string; } | { readonly kind: "file"; readonly handle: FileSystemFileHandle; } | { readonly kind: "folder"; readonly handle: FileSystemDirectoryHandle; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; }
+  type CrossingDestination = { readonly kind: "download"; readonly name: string; readonly mediaType: string; } | { readonly kind: "file"; readonly handle: FileSystemFileHandle; } | { readonly kind: "folder"; readonly handle: FileSystemDirectoryHandle; readonly path: readonly string[]; readonly wanted: ExportFileName; readonly policy: CollisionPolicy; readonly remembered: CollisionAnswer | undefined; readonly trusted: readonly ExportedFileRecord[] | undefined; }
   type ExportOperations = { 'exports.stage': Operation<{ readonly handle: ProjectHandle; readonly stream: MessagePort; readonly origin: ExportOrigin; readonly report: string; }, DomainResult<StagedFile>>; 'exports.deliver': Operation<{ readonly handle: ProjectHandle; readonly token: string; readonly encoder: ExportCodec; readonly destination: CrossingDestination; readonly prompt?: PagePort; }, DomainResult<DeliveryAnswer>>; 'exports.discard': Operation<{ readonly token: string; }, undefined>; }
   interface StagingReport
   readonly StagingReport.bytesStaged: number

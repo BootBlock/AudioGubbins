@@ -6,9 +6,11 @@
  * The page holds the destinations: a save dialog's file, a folder it chose,
  * and the folders kept trusted, whose records of what was exported into each
  * it keeps (`TrustedFolders` in `@audiogubbins/browser-storage`). A delivery
+ * into a folder may go into a relative folder inside it (ADR-0102). A delivery
  * into a trusted folder crosses with its records, and the record of the file
- * written is kept once it is delivered, so the next export of the same name
- * overwrites it without asking while it stays as written.
+ * written is kept once it is delivered, under its path from the trusted folder
+ * (`trustedRecordName`), so the next export to the same path overwrites it
+ * without asking while it stays as written.
  */
 
 import { FailureKind, fail, failure, type DomainResult } from '@audiogubbins/domain';
@@ -20,7 +22,7 @@ import type {
   ExportedFileRecord,
 } from '@audiogubbins/import-export';
 import type { ExportCodec } from '@audiogubbins/project-format';
-import type { CollisionPrompt, ExportOrigin } from '@audiogubbins/storage';
+import { trustedRecordName, type CollisionPrompt, type ExportOrigin } from '@audiogubbins/storage';
 
 import {
   stagingStream,
@@ -32,8 +34,14 @@ import type { ClientChannel } from '../protocol/storage-operations.js';
 import type { LendingCall } from './page-ports.js';
 import type { RemoteProjectSession } from './remote-project.js';
 
-/** What every folder delivery decides a taken name by. */
+/** What every folder delivery decides a taken name by, and the folder inside it the file goes into. */
 interface FolderRules {
+  /**
+   * The folders inside the one chosen or trusted that the file goes into,
+   * outermost first, made where they are not there; absent, the file goes
+   * into that folder itself, as an export from the Export dialog does.
+   */
+  readonly path?: readonly string[];
   readonly wanted: ExportFileName;
   readonly policy: CollisionPolicy;
 
@@ -43,6 +51,9 @@ interface FolderRules {
   /** Asks the person what to do with a taken name, from the control they used. */
   readonly prompt: CollisionPrompt;
 }
+
+/** The path of a delivery into the folder chosen or trusted itself. */
+const THE_FOLDER_ITSELF: readonly string[] = [];
 
 /** Where the page delivers a staged export. */
 export type PageDestination =
@@ -191,7 +202,11 @@ async function deliveredTrusted(
     const file = record.file;
     if (file !== undefined) {
       await destination.folders.record(destination.key, [
-        { name, size: file.byteLength, hash: file.sha256 },
+        {
+          name: trustedRecordName(destination.path ?? THE_FOLDER_ITSELF, name),
+          size: file.byteLength,
+          hash: file.sha256,
+        },
       ]);
     }
   }
@@ -220,6 +235,7 @@ function crossingOf(
         crossing: {
           kind: 'folder',
           handle: destination.handle,
+          path: destination.path ?? THE_FOLDER_ITSELF,
           wanted: destination.wanted,
           policy: destination.policy,
           remembered: destination.remembered,

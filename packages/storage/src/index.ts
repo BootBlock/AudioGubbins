@@ -254,7 +254,11 @@ export {
   type StagedExport,
   type StagingServices,
 } from './export-staging.js';
-export { type CollisionPrompt, type CollisionReply } from './export-collision.js';
+export {
+  type CollisionPrompt,
+  type CollisionReply,
+  trustedRecordName,
+} from './export-collision.js';
 export {
   type Delivery,
   type DeliveryDestination,
