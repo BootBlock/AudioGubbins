@@ -35,6 +35,7 @@ import { audioImportCommands } from './audio-import-commands.js';
 import { exportDialogCommands } from './export-dialog-commands.js';
 import { exportCommands } from './export-commands.js';
 import { exportInspectionCommands } from './export-inspection-commands.js';
+import { gamePreviewCommands } from './game-preview-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackClipboardCommands } from './rack-clipboard-commands.js';
@@ -163,6 +164,16 @@ function preferenceCommands(): readonly Command<ShellContext>[] {
   return [...viewCommands(), ...pressureCommands()];
 }
 
+/** Every command of the audio engine: playback, its settings and quality, and the game preview. */
+function audioEngineCommands(): readonly Command<ShellContext>[] {
+  return [
+    ...audioCommands(),
+    ...audioSettingsCommands(),
+    ...qualityCommands(),
+    ...gamePreviewCommands(),
+  ];
+}
+
 /** Every command of the project system: its projects, their history and the storage. */
 function projectSystemCommands(): readonly Command<ShellContext>[] {
   return [
@@ -205,9 +216,7 @@ export function shellCommands(
     ...unreadTextCommands(),
     ...diagnosticCommands(),
     ...projectSystemCommands(),
-    ...audioCommands(),
-    ...audioSettingsCommands(),
-    ...qualityCommands(),
+    ...audioEngineCommands(),
     ...recordingCommands(),
     ...recordingSettingsCommands(),
     ...takeRecordingCommands(),

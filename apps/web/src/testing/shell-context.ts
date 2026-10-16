@@ -57,6 +57,21 @@ import { noPackManager } from './pack-managers.js';
 import { fakeEditor } from './editor-fakes.js';
 import { fakeRecording, type RecordingFakes } from './recording-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
+import type { PreviewPlayback } from '../audio/preview-run.js';
+import { createGamePreviewStore } from '../state/game-preview-store.js';
+import { PreviewRunner, type GamePreviewParts } from '../audio/preview-runner.js';
+
+/**
+ * The Game preview played through `playback` on timers that never fire, for a
+ * test of anything else: a run started there plays once and lays no more.
+ */
+function quietGamePreview(playback: PreviewPlayback): GamePreviewParts {
+  const store = createGamePreviewStore();
+  return {
+    store,
+    runner: new PreviewRunner(store, { playback, schedule: () => () => undefined, now: () => 0 }),
+  };
+}
 
 /**
  * A browser that can do everything, so nothing is degraded by accident; a test
@@ -289,6 +304,7 @@ export function buildShellContext(
       detection: detection.control,
       packs: noPackManager(),
       recording: recording.parts,
+      gamePreview: quietGamePreview(parts.playback),
     },
   };
 }

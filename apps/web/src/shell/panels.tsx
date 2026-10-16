@@ -26,6 +26,7 @@ import {
   type StorageCapabilityAbsence,
 } from '@audiogubbins/capabilities';
 import type { LogStore } from '@audiogubbins/diagnostics';
+import type { IdGenerator } from '@audiogubbins/domain';
 import { PanelKinds, type OpenPanel } from '@audiogubbins/workspace';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
@@ -58,6 +59,8 @@ import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
 import { RackPanel } from './rack/rack-panel.js';
 import { SpectralPanel } from './spectral/spectral-panel.js';
+import { GamePreviewPanel } from './preview/preview-panel.js';
+import type { GamePreviewParts } from '../audio/preview-runner.js';
 import { RecordingDiagnosticsList } from './recording/recording-diagnostics-list.js';
 import { RecordingPanel } from './recording/recording-panel.js';
 import { useRecordingDiagnostics, useWatchedInputs } from './recording/use-recording.js';
@@ -216,6 +219,12 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** The person's preferences, whose pressure choice the Spectral panel shows. */
   readonly preferences: Observable<UserPreferences>;
+
+  /** The Game preview's scenario set up and its run, which the Game preview panel shows. */
+  readonly gamePreview: GamePreviewParts;
+
+  /** New identities, for the emitters the Game preview panel adds. */
+  readonly ids: IdGenerator;
 }
 
 /**
@@ -254,6 +263,8 @@ export function panelContextOf(
     exports: context.exports,
     exportSubject: context.exportFocus.subject,
     preferences: context.preferences,
+    gamePreview: context.gamePreview,
+    ids: context.ids,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
@@ -385,6 +396,9 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case PanelKinds.Spectral:
       return <SpectralPanel title={title} context={context} />;
+
+    case PanelKinds.GamePreview:
+      return <GamePreviewPanel title={title} context={context} />;
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;

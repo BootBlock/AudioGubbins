@@ -39,6 +39,7 @@ export const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [EditingPanelKinds.Library, 'Library', DockRegion.Left],
       [EditingPanelKinds.Rack, 'Effects rack', DockRegion.Right],
       [ModelPanelKinds.ModelPacks, 'Model packs', DockRegion.Bottom],
+      [PanelKinds.GamePreview, 'Game preview', DockRegion.Bottom],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,

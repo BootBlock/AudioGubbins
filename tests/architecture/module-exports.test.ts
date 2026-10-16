@@ -182,6 +182,11 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "How far ahead of the feeder a game preview's run lays its plan, and how many voices its plan holds before it is laid afresh at a silent moment, which the run's tests advance playback by and hold the plan's size to; the run reads both itself.":
+    [
+      'apps/web/src/audio/preview-run.ts: AHEAD_SECONDS',
+      'apps/web/src/audio/preview-run.ts: REBASE_AFTER_VOICES',
+    ],
   "The game preview's bound on a varispeed's taps, which its test holds to the canonical resampler's own filter at each grade, and the most voices any preview sounds, which a preview that varies no pitch is budgeted; the budget reads both through `previewVoiceBudget`.":
     [
       'packages/game-audio/src/preview/voice-budget.ts: MOST_PREVIEW_VOICES',

@@ -39,6 +39,7 @@ import type { DetectionControl } from '../analysis/detection-control.js';
 import type { CodecServices } from '../codecs/codec-services.js';
 import type { ExportFocus } from '../export/export-focus.js';
 import type { ExportControl } from '../export/export-types.js';
+import type { GamePreviewParts } from '../audio/preview-runner.js';
 import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { PackManager } from '../ml/pack-manager.js';
@@ -211,4 +212,11 @@ export interface ShellContext {
    * project state; a take reaches a project only through its commands.
    */
   readonly recording: RecordingParts;
+
+  /**
+   * The Game preview's scenario set up and its run (ADR-0104): session state
+   * and audio runtime state, which reach the project only through the
+   * scenario commands.
+   */
+  readonly gamePreview: GamePreviewParts;
 }

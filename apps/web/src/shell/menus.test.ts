@@ -56,7 +56,7 @@ describe('the menu bar', () => {
       'Editor',
       'Help',
     ]);
-    expect(entries).toHaveLength(193);
+    expect(entries).toHaveLength(200);
   });
 
   it('offers import and export in the File menu, each of the pair opening on a chord', () => {

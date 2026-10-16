@@ -100,6 +100,7 @@ import { browserStorage, createStateStorage, type StateStorage } from './state/s
 import { createVerbosityStore, readStoredVerbosity } from './state/verbosity-store.js';
 import { keyboardConventionFor } from './state/keyboard-convention.js';
 import { createWorkspaceStore } from './state/workspace-store.js';
+import { startGamePreview } from './audio/preview-runner.js';
 
 /**
  * What the user's keyboard layout types: known whole where the browser gives a
@@ -438,6 +439,7 @@ export function createApplication() {
     codecs,
     exports,
     exportFocus,
+    gamePreview: startGamePreview(audioPart.parts.playback),
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -499,6 +501,7 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
+      context.gamePreview.runner.stop();
       exportFocus.stop();
       recordingPart.dispose();
       analysisPart.dispose();

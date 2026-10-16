@@ -67,6 +67,7 @@ import { exportCommands } from './export-commands.js';
 import { exportInspectionCommands } from './export-inspection-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
+import { gamePreviewCommands } from './game-preview-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
 import { rackParameterCommands } from './rack-parameter-commands.js';
 import { rackSlotCommands } from './rack-slot-commands.js';
@@ -846,6 +847,10 @@ describe('finding the shell commands in the palette', () => {
     // Saying the spectral selection is what it does, so asked again it says
     // it again.
     'editor.describe-spectral-selection',
+    // Each press of a trigger is a trigger of its own, as a game's is, and
+    // each stop stops what the emitter sounds then.
+    'preview.trigger',
+    'preview.stop-voices',
   ]);
 
   /**
@@ -898,6 +903,10 @@ describe('finding the shell commands in the palette', () => {
       ...rackSlotCommands(),
       ...rackParameterCommands(),
       ...rackComparisonCommands(),
+      // The game preview's need a project with asset groups, and keeping a
+      // scenario settles in the storage worker; each but the triggers is run
+      // twice, its work awaited, in `game-preview-commands.test.ts`.
+      ...gamePreviewCommands(),
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')

@@ -34,6 +34,7 @@ import {
 } from '@audiogubbins/workspace';
 
 import { showPanelCommandId } from '../commands/panel-commands.js';
+import { PREVIEW_MENU_IDS } from '../commands/preview-run-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import type { WorkspaceState } from '../state/workspace-store.js';
 import { projectMenus } from './project-menus.js';
@@ -219,6 +220,7 @@ const EDITOR_GROUPS: readonly {
     label: 'Analysis',
     ids: ['analysis.detect', 'analysis.cancel'],
   },
+  { key: 'game-preview', label: 'Game preview', ids: PREVIEW_MENU_IDS },
   {
     key: 'picture',
     label: 'Reference picture',

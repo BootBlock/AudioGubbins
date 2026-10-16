@@ -4224,6 +4224,7 @@ Published paths
   interface GameWorld
   readonly GameWorld.project: Project
   readonly GameWorld.state: GameAudioState
+  const PREVIEW_TEST_CATALOGUE: ProcessorCatalogue
   interface Random
   Random.next: () => number
   Random.below: (bound: number) => number
@@ -8309,7 +8310,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; readonly GamePreview: "game-preview"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]
