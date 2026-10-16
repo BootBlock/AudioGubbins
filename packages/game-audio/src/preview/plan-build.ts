@@ -139,11 +139,6 @@ export class VoiceList {
     else this.#records.splice(at, 0, record);
   }
 
-  delete(voice: number): void {
-    const at = this.#at(voice);
-    if (this.#records[at]?.voice === voice) this.#records.splice(at, 1);
-  }
-
   /** Takes out, and answers, every voice that started at `frame` or later. */
   takeFrom(frame: number): readonly VoiceRecord[] {
     return this.#records.splice(firstFrom(this.#records, (record) => record.start, frame));

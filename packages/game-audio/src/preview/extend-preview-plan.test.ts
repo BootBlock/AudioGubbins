@@ -187,6 +187,47 @@ describe('a preview plan continued by hand', () => {
     expect(continued.plan).toEqual(planned(stopped, after).plan);
   });
 
+  it('lays a looping voice cut past the plan’s old end as far as it sounds', () => {
+    // One voice at a time, the oldest stolen, every 450 ms: the voice of
+    // 9.9 s starts a tenth of a second before the plan's end at 10 s, so its run
+    // is laid that far and a margin, and the next trigger at 10.35 s cuts it
+    // once the end has moved on, 0.45 s into its sound.
+    const spec: VectorSpec = {
+      scenario: vectorScenario(
+        [
+          repeatEmitter(1, {
+            kind: 'repeat',
+            intervalMilliseconds: 450,
+            jitterMilliseconds: 0,
+            count: 30,
+          }),
+        ],
+        5,
+      ),
+      emitters: [
+        {
+          rules: { ...DEFAULT_EMITTER_RULES, voices: { limit: 1, stealing: 'oldest' } },
+          pool: [poolMember(1, 4_800, { loop: { start: 0, end: 4_800 } })],
+        },
+      ],
+      hand: [],
+      voiceBudget: 4,
+      horizonFrame: 477_600,
+    };
+    const before = expectSuccess(simulatePreview(vectorInput(spec)));
+    const plan = planned(spec, before);
+    const after = expectSuccess(
+      simulatePreview(vectorInput({ ...spec, horizonFrame: 504_000 }), before),
+    );
+
+    const continued = expectSuccess(extendPreviewPlan(plan, after, 477_600));
+
+    expect(
+      after.log.events.some((event) => event.kind === 'stolen' && event.frame === 496_800),
+    ).toBe(true);
+    expectSuccess(validatePlan(continued.plan, ASSETS));
+  });
+
   it(
     'sounds the same before the frame it continues from, and the hand trigger from it',
     { timeout: 60_000 },

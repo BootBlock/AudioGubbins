@@ -194,17 +194,24 @@ export function relayLanes(working: Working, frame: number, moved: boolean): voi
   }
 }
 
-/** Every loop still sounding lengthened to the plan's end. */
+/**
+ * Every looping voice's run lengthened as far as it sounds within the plan's
+ * end: to the end where it is not cut, and to its fade's end where it is, which
+ * may lie past the end it was laid to when it started.
+ */
 export function lengthenLoops(working: Working): void {
+  const { fade, rate } = working.fixed;
   for (const record of working.voices.values()) {
-    if (record.member.loop === undefined || record.cut !== undefined) continue;
+    if (record.member.loop === undefined) continue;
+    const sounds =
+      record.cut === undefined ? working.end : Math.min(working.end, record.cut + fade);
     lengthenLoop(
       working.streams,
       record.streams,
       record.member,
       record,
-      working.fixed.rate,
-      working.end - record.start,
+      rate,
+      sounds - record.start,
     );
   }
 }
