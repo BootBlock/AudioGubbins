@@ -104,6 +104,37 @@ Decision: **approved**. The findings returned on the way, each now a rule of the
   explanation becomes a hint behind an (i).
 - **A notice's time bar** runs along its bottom edge inside the notice, clipped by its corners.
 
+### 2026-10-17: Settings and the dock chrome, approved as references
+
+Shown: two boards in direction C. The Settings board holds four of its ten pages (Appearance,
+Accessibility, Shortcuts and Audio); the other pages are built from the same controls. The dock
+board holds a floating panel, a splitter under the pointer, a tab dragged over a group with its drop
+targets and landing area, an empty group, and the splitter and tab states. From this decision on,
+the owner reviews the comfortable density only; the compact renderings are stored beside them.
+
+| Theme and density  | Settings                                                                          | Dock chrome                                                               |
+| ------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Dark, comfortable  | [settings-dark-comfortable.png](references/shell/settings-dark-comfortable.png)   | [dock-dark-comfortable.png](references/shell/dock-dark-comfortable.png)   |
+| Light, comfortable | [settings-light-comfortable.png](references/shell/settings-light-comfortable.png) | [dock-light-comfortable.png](references/shell/dock-light-comfortable.png) |
+| Dark, compact      | [settings-dark-compact.png](references/shell/settings-dark-compact.png)           | [dock-dark-compact.png](references/shell/dock-dark-compact.png)           |
+| Light, compact     | [settings-light-compact.png](references/shell/settings-light-compact.png)         | [dock-light-compact.png](references/shell/dock-light-compact.png)         |
+
+Decision: **approved**. The findings returned on the way, each now a rule of the language:
+
+- **The lit edge.** A highlighted or chosen row (a menu or palette row, a navigation page, a list
+  row, the history's chosen point) has no separate mark: its own outline is lit, bright at the
+  leading side and fading round the row, over a wash that fades the same way. Chosen from four
+  variants (pooled light, an indicator LED, the lit edge, raised glass); it replaces the leading
+  line the menus board was first approved with, and the shell references are rendered with it.
+- **A chosen segment is a translucent accent wash** with a faint accent edge, never a solid grey.
+- **An accent swatch is a glass bead** of its colour with a subtle highlight; the chosen one gains a
+  ring and a halo.
+- **A drop target is drawn as the group it would make**: the group's outline with the part the
+  panel would take filled, the lit one in the call-to-action gradient with a white diagram.
+- **Nothing appears or leaves at once.** At the full motion level the drop-target compass springs
+  in and out, the landing area grows out of its target and glows, a dragged tab floats in, a
+  floating panel's halo breathes and a splitter under the pointer pulses.
+
 ## Editing-latency baseline
 
 Recorded on 2026-10-16 from the unchanged application, before any Phase 16 change to a surface:
