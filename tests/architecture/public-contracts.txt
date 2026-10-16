@@ -4854,6 +4854,11 @@ Published paths
   readonly LoopTools.yieldToHost: () => Promise<void>
   readonly LoopTools.onProgress: (done: number, total: number) => void
   const MOST_CANDIDATES: 16
+  type MetricName = "crossfade" | "cycleDrift" | "cycleSeam" | "dcMismatch" | "discontinuity" | "levelMismatch" | "netDc" | "phaseMismatch" | "spectralMismatch" | "zeroCrossing" | "zeroCrossingSigns"
+  interface MetricThreshold
+  readonly MetricThreshold.unit: MetricUnit
+  readonly MetricThreshold.pass: number
+  readonly MetricThreshold.warn: number
   type MetricUnit = "dB" | "dBFS" | "degrees" | "deviations" | "frames" | "ratio"
   const SHORTEST_LOOP_FRAMES: 16
   type SeamReference = "adjacent" | "post-end" | "pre-start"
@@ -4865,6 +4870,7 @@ Published paths
   function defaultLoopSearch(sampleRate: SampleRate): LoopSearch
   function extendedAuditionPlan(audition: LoopAudition, cycles: number): LoopAudition
   function loopAuditionPlan(regionPlan: EditPlan, loop: LoopDefinition, mode: LoopAuditionMode, cycles: number): DomainResult<LoopAudition>
+  function metricThreshold(name: MetricName): MetricThreshold
   function widestRadiusFrames(sampleRate: SampleRate): number
 
 @audiogubbins/loop-analysis/testing
@@ -8309,7 +8315,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; readonly LoopEditor: "loop-editor"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]

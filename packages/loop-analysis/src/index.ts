@@ -27,7 +27,15 @@ export { type LoopCandidate } from './candidate-search.js';
 export { type SuggestedCrossfade } from './micro-crossfade.js';
 export { type CrossfadeSuitability } from './crossfade-suitability.js';
 export { type LoopMetrics } from './seam-metrics.js';
-export { type LoopMetric, type MetricUnit, type SeamReference, type Verdict } from './verdicts.js';
+export {
+  type LoopMetric,
+  type MetricName,
+  type MetricThreshold,
+  type MetricUnit,
+  type SeamReference,
+  type Verdict,
+  metricThreshold,
+} from './verdicts.js';
 export {
   type LoopAudition,
   type LoopAuditionMode,

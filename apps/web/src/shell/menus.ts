@@ -220,6 +220,21 @@ const EDITOR_GROUPS: readonly {
     ids: ['analysis.detect', 'analysis.cancel'],
   },
   {
+    key: 'loop',
+    label: 'Loop',
+    ids: [
+      'loop.analyse',
+      'loop.find-candidates',
+      'loop.cancel-analysis',
+      'loop.apply-candidate',
+      'loop.apply-crossfade',
+      'loop.audition-cycles',
+      'loop.audition-seam',
+      'loop.audition-candidate',
+      'loop.stop-audition',
+    ],
+  },
+  {
     key: 'picture',
     label: 'Reference picture',
     ids: [

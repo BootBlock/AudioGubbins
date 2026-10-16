@@ -44,7 +44,8 @@ export type MetricName =
   | 'cycleSeam'
   | 'cycleDrift';
 
-interface Threshold {
+/** Where a metric's verdict changes, in its unit. */
+export interface MetricThreshold {
   readonly unit: MetricUnit;
   /** The largest value that passes. */
   readonly pass: number;
@@ -53,7 +54,7 @@ interface Threshold {
 }
 
 /** The plan's table of thresholds, one row per metric. */
-const THRESHOLDS: Readonly<Record<MetricName, Threshold>> = {
+const THRESHOLDS: Readonly<Record<MetricName, MetricThreshold>> = {
   discontinuity: { unit: 'deviations', pass: 4, warn: 8 },
   dcMismatch: { unit: 'dBFS', pass: -60, warn: -40 },
   netDc: { unit: 'dBFS', pass: -60, warn: -40 },
@@ -66,6 +67,11 @@ const THRESHOLDS: Readonly<Record<MetricName, Threshold>> = {
   cycleSeam: { unit: 'deviations', pass: 3, warn: 6 },
   cycleDrift: { unit: 'dB', pass: 1, warn: 3 },
 };
+
+/** Where metric `name`'s verdict changes, as a reader is shown it beside the value. */
+export function metricThreshold(name: MetricName): MetricThreshold {
+  return THRESHOLDS[name];
+}
 
 /** The verdict of `value` for metric `name`. */
 export function verdictOf(name: MetricName, value: number): Exclude<Verdict, 'not-applicable'> {

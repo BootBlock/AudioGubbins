@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { verdictOf, worstChannel, worstVerdict, type MetricName } from './verdicts.js';
+import {
+  metricThreshold,
+  verdictOf,
+  worstChannel,
+  worstVerdict,
+  type MetricName,
+} from './verdicts.js';
 
 describe('the metric thresholds', () => {
   // Each row: the largest value that passes, and the largest that warns, or
@@ -28,6 +34,13 @@ describe('the metric thresholds', () => {
       expect(verdictOf(name, warn)).toBe('warn');
       expect(verdictOf(name, warn + 1e-9)).toBe('fail');
     }
+  });
+
+  it.each(ROWS)('shows a reader the threshold %s is judged by', (name, pass, warn) => {
+    expect(metricThreshold(name)).toMatchObject({
+      pass,
+      warn: warn ?? Number.POSITIVE_INFINITY,
+    });
   });
 });
 

@@ -36,6 +36,8 @@ import type {
 import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
+import type { LoopAnalysing } from '../analysis/loop-analysing.js';
+import type { LoopAuditioning } from '../audio/loop-audition.js';
 import type { CodecServices } from '../codecs/codec-services.js';
 import type { ExportFocus } from '../export/export-focus.js';
 import type { ExportControl } from '../export/export-types.js';
@@ -198,6 +200,15 @@ export interface ShellContext {
    * commands acts on.
    */
   readonly detection: DetectionControl;
+
+  /**
+   * The loop analyses of the session, on the detection worker (ADR-0103):
+   * values only, which a region's loop takes only by a command the person runs.
+   */
+  readonly loopAnalysis: LoopAnalysing;
+
+  /** The loop audition playing, cycled on the transport until stopped (ADR-0103). */
+  readonly loopAudition: LoopAuditioning;
 
   /**
    * The model packs kept here and what the catalogue offers, which the

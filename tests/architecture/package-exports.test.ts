@@ -430,17 +430,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['SMALLEST_FFT_SIZE', 'log2'],
   },
   '@audiogubbins/loop-analysis': {
-    "The loop analysis's version, its bounds and defaults, and the audition plans (ADR-0103). The Loop panel shows an analysis against its version and plays the auditions, and the Create Seamless Loop workflow asks with the default search; each is a later unit of this phase, built against this contract.":
-      [
-        'LOOP_ANALYSIS_VERSION',
-        'LoopAudition',
-        'LoopAuditionMode',
-        'SHORTEST_LOOP_FRAMES',
-        'defaultLoopSearch',
-        'extendedAuditionPlan',
-        'loopAuditionPlan',
-        'widestRadiusFrames',
-      ],
+    'The shortest loop an analysis measures (ADR-0103), which the Create Seamless Loop workflow states as its bound before it asks; a later unit of this phase, built against this contract. The Loop panel needs no bound of its own: the analysis refuses a shorter loop and the panel shows the refusal.':
+      ['SHORTEST_LOOP_FRAMES'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

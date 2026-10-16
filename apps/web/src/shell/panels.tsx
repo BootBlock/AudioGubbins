@@ -12,8 +12,9 @@
  * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
  * latency in the Recording panel (`recording/recording-panel.tsx`), the
  * spectral selection, tools and edits in the Spectral panel
- * (`spectral/spectral-panel.tsx`), and the project system's History and Storage
- * panels (`project-panels.tsx`).
+ * (`spectral/spectral-panel.tsx`), a region's loop in the Loop panel
+ * (`loop/loop-panel.tsx`), and the project system's History and Storage panels
+ * (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -31,6 +32,7 @@ import type { NodeId } from '@audiogubbins/audio-graph';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { Detections } from '../analysis/detection-control.js';
+import type { Auditioning } from '../audio/loop-audition.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import type { PackManagerView } from '../ml/pack-manager.js';
 import type { RecordingParts } from '../recording/recording-part.js';
@@ -45,6 +47,7 @@ import type { ExportRunState } from '../export/export-types.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
+import type { LoopAnalyses } from '../state/loop-analysis-store.js';
 import { AnalysisPanel, type AnalysisParts } from './analysis/analysis-panel.js';
 import { AssetBrowserPanel } from './asset-browser.js';
 import type { PanelCommands } from './command-button.js';
@@ -53,6 +56,7 @@ import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
 import { InspectorPanel } from './inspector/inspector-panel.js';
 import { LibraryPanel, type LibraryParts } from './library/library-panel.js';
+import { LoopPanel, type LoopParts } from './loop/loop-panel.js';
 import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-panel.js';
 import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
@@ -196,6 +200,10 @@ export interface PanelContext extends ProjectPanelContext {
   /** What the assistants found this session, which the Analysis panel shows. */
   readonly detection: Observable<Detections>;
 
+  /** The loop analyses of the session, and the loop audition playing, which the Loop panel shows. */
+  readonly loopAnalyses: Observable<LoopAnalyses>;
+  readonly loopAudition: Observable<Auditioning | undefined>;
+
   /** The model packs kept here and offered, which the Model packs panel shows. */
   readonly packs: PackManagerView;
 
@@ -247,6 +255,8 @@ export function panelContextOf(
     meters: () => context.playback.meters(),
     framesRendered: () => context.rendering.framesRendered(),
     detection: context.detection,
+    loopAnalyses: context.loopAnalysis.analyses,
+    loopAudition: context.loopAudition,
     packs: context.packs,
     modelGate: context.modelGate,
     hearing: context.hearing,
@@ -267,6 +277,18 @@ function analysisPartsOf(context: PanelContext): AnalysisParts {
     assets: context.editor.assets,
     detection: context.detection,
     audioSettings: context.audioSettings,
+  };
+}
+
+/** What the Loop panel reads of a panel's context. */
+function loopPartsOf(context: PanelContext): LoopParts {
+  return {
+    editorViews: context.editor.stores.editorViews,
+    selections: context.editor.stores.selections,
+    assets: context.editor.assets,
+    project: context.projects?.project,
+    analyses: context.loopAnalyses,
+    audition: context.loopAudition,
   };
 }
 
@@ -385,6 +407,9 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
 
     case PanelKinds.Spectral:
       return <SpectralPanel title={title} context={context} />;
+
+    case PanelKinds.LoopEditor:
+      return <LoopPanel title={title} parts={loopPartsOf(context)} commands={context} />;
 
     case ModelPanelKinds.ModelPacks:
       return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;
