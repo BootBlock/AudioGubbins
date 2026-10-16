@@ -17,7 +17,7 @@ import {
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
-import { safeFolderName } from '@audiogubbins/import-export';
+import { folderSegmentProblem } from '@audiogubbins/import-export';
 
 export interface DestinationPath {
   /** The folders from the export's folder down, outermost first; none is that folder itself. */
@@ -27,8 +27,6 @@ export interface DestinationPath {
 /** The most folders a destination descends. */
 const LONGEST_DESTINATION = 16;
 
-const RELATIVE_STEPS: ReadonlySet<string> = new Set(['.', '..']);
-
 function invalid(
   sentence: string,
   details: Readonly<Record<string, string | number>>,
@@ -37,17 +35,17 @@ function invalid(
 }
 
 function segmentProblem(segment: string, index: number): DomainFailure | undefined {
-  if (RELATIVE_STEPS.has(segment)) {
+  const problem = folderSegmentProblem(segment);
+  if (problem === undefined) return undefined;
+  if (problem.kind === 'steps-out') {
     return invalid(
       `The destination's folder "${segment}" would step out of the folder it is in; name a folder.`,
       { index },
     );
   }
-  const safe = safeFolderName(segment);
-  if (safe === segment) return undefined;
   return invalid(
-    `The destination's folder "${segment}" is not a name every file system takes; "${safe}" is.`,
-    { index, safe },
+    `The destination's folder "${segment}" is not a name every file system takes; "${problem.safe}" is.`,
+    { index, safe: problem.safe },
   );
 }
 

@@ -94,3 +94,23 @@ export function safeFileName(name: ExportFileName, copy?: number): string {
 export function safeFolderName(segment: string): string {
   return safeStem(segment, LONGEST_NAME_BYTES);
 }
+
+/** The names that step out of a folder rather than into one. */
+const STEPS_OUT: ReadonlySet<string> = new Set(['.', '..']);
+
+/**
+ * Why `segment` is not a folder's name inside another, where it is not: it
+ * steps out of the folder it is in (`.` or `..`), or `safeFolderName` would
+ * change it, answered with the name it would give. A folder path is refused,
+ * never repaired, by this one rule wherever one is planned or walked down
+ * (ADR-0102), so nothing is written outside the folder chosen.
+ */
+export type FolderSegmentProblem =
+  { readonly kind: 'steps-out' } | { readonly kind: 'unsafe'; readonly safe: string };
+
+/** Why `segment` is not a folder's name inside another, or `undefined` where it is one. */
+export function folderSegmentProblem(segment: string): FolderSegmentProblem | undefined {
+  if (STEPS_OUT.has(segment)) return { kind: 'steps-out' };
+  const safe = safeFolderName(segment);
+  return safe === segment ? undefined : { kind: 'unsafe', safe };
+}
