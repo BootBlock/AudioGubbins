@@ -190,28 +190,16 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/game-audio': {
     "A preset's choices as a game export profile (ADR-0102), built ahead of the application's group policy editor, which applies a preset to a group as a profile.":
       ['profileFromPreset'],
-    "The game export plan and region naming (ADR-0102), built ahead of the guided workflows that export and name a group's members, and of the application's group export, which runs the planned items as one export batch after showing the refused ones, and its naming command, which writes each region's new name in one step: each member planned or refused with its owner named, and each region's name from a template.":
+    "The game export plan (ADR-0102), built ahead of the application's group export, which runs the planned items as one export batch after showing the refused ones, as the Export for Godot workflow's export follows its step: each member planned or refused with its owner named.":
       [
         'GameExportItem',
         'GameExportPlan',
         'GameExportProvenance',
         'GameExportRequest',
-        'RegionMember',
-        'RegionName',
-        'memberNames',
         'planGameExport',
       ],
     "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
-      [
-        'EffectivePolicy',
-        'GroupEffectivePolicy',
-        'PolicySource',
-        'Resolved',
-        'ResolvedTag',
-        'resolveAll',
-        'resolveGroupPolicy',
-        'resolvePolicy',
-      ],
+      ['resolveAll'],
     "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
       ['inheritedProcessing'],
     "The game preview (ADR-0104), built ahead of the project format and the game commands that keep and change its scenarios, and of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario and its validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
@@ -251,6 +239,47 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'previewVoiceBudget',
         'scenarioSubjectProblems',
         'simulatePreview',
+      ],
+  },
+  '@audiogubbins/guided-workflows': {
+    "The guided workflows as planners (ADR-0105), built ahead of the application's workflow commands and dialog, which ask each workflow for its options and analyses, show its plan's items with their changes, skips and refusals, offer to leave the refused out, and run the plan as one step whose export or measurement follows it: the six workflows with their options and analyses, the plan and its items, whether it may run, and the members a target list covers.":
+      [
+        'AnalysisNeed',
+        'AssistantAnalyses',
+        'AssistantAnalysis',
+        'CLEAN_DIALOGUE',
+        'CREATE_SEAMLESS_LOOP',
+        'CUT_INTO_SOUNDS',
+        'CleanDialogueAnalyses',
+        'CleanDialogueOptions',
+        'CreateSeamlessLoopOptions',
+        'CutIntoSoundsOptions',
+        'EXPORT_FOR_GODOT',
+        'ExportForGodotOptions',
+        'GodotFormat',
+        'GuidedWorkflow',
+        'LoopAnalyses',
+        'LoopAnswer',
+        'LoopChoice',
+        'NORMALISE_GAME_SFX',
+        'NoAnalyses',
+        'NormaliseGameSfxOptions',
+        'OptionSource',
+        'PREPARE_ONE_SHOT',
+        'Placement',
+        'PrepareOneShotOptions',
+        'WorkflowDispatch',
+        'WorkflowInput',
+        'WorkflowItem',
+        'WorkflowItemTarget',
+        'WorkflowKey',
+        'WorkflowOption',
+        'WorkflowOptions',
+        'WorkflowPlan',
+        'WorkflowTarget',
+        'itemKey',
+        'targetMembers',
+        'workflowDispatch',
       ],
   },
   '@audiogubbins/codec-runtime': {
@@ -325,14 +354,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The build of the inference runtime every model processor is pinned to (ADR-0062), which the application's tests state the runtime in use with, as the build states it from the bytes it serves.":
       ['PINNED_RUNTIME_SHA256'],
     "The canonical detectors one by one (ADR-0061, ADR-0062), each an `AudioDetector` the assistants run and the detection worker reaches through them, offered alone for a model pack's detector to join or replace, as ADR-0062 has it, once one is licensed for redistribution.":
-      [
-        'CLICK_DETECTOR',
-        'CLIPPING_DETECTOR',
-        'DC_OFFSET_DETECTOR',
-        'HUM_DETECTOR',
-        'NOISE_FLOOR_DETECTOR',
-        'TRANSIENT_DETECTOR',
-      ],
+      ['CLIPPING_DETECTOR', 'HUM_DETECTOR', 'NOISE_FLOOR_DETECTOR', 'TRANSIENT_DETECTOR'],
   },
   '@audiogubbins/ml-runtime': {
     "The runtime's WebAssembly file (ADR-0062), which the application's build configuration serves under the files base and takes the digest of; the build configuration is no package, so no import of a package reads it.":
@@ -380,18 +402,13 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readEditPlan'],
   },
   '@audiogubbins/project-commands': {
-    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) and of the guided workflows, whose plans are these invocations: adding, removing, renaming and moving a group, setting or resetting a field of its policy, putting a member in a group or taking it out, setting or resetting an override, and choosing whether a member inherits its group's processing.":
+    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) which the guided workflows' plans are made of too: adding, removing, renaming and moving a group, resetting an override, taking a member out of its group, and choosing whether a member inherits its group's processing.":
       [
-        'GivenRack',
-        'Joined',
         'addGroupInvocation',
-        'assignMemberInvocation',
         'moveGroupInvocation',
         'removeGroupInvocation',
         'renameGroupInvocation',
         'resetMemberOverrideInvocation',
-        'setGroupPolicyInvocation',
-        'setMemberOverrideInvocation',
         'setMemberProcessingInvocation',
         'unassignMemberInvocation',
       ],
@@ -445,7 +462,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'LoopAudition',
         'LoopAuditionMode',
         'SHORTEST_LOOP_FRAMES',
-        'defaultLoopSearch',
         'extendedAuditionPlan',
         'loopAuditionPlan',
         'widestRadiusFrames',

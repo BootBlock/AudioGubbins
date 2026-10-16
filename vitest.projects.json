@@ -263,6 +263,14 @@
       ]
     },
     {
+      "name": "guided-workflows",
+      "root": "packages/guided-workflows",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "clipboard",
       "root": "packages/clipboard",
       "environment": "node",
