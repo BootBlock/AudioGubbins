@@ -3416,8 +3416,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      79,
-      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table.",
+      85,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table. Reviewed again when the Game preview's hand trigger gained its key: one line of the table and its comment.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
