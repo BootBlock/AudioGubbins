@@ -187,22 +187,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The readers of the codec worker's streams the storage worker receives (ADR-0090, ADR-0092), written with the codec worker before the storage worker that reads the decoded import and the encoded export with them.":
       [],
   },
-  '@audiogubbins/game-audio': {
-    "A preset's choices as a game export profile (ADR-0102), built ahead of the application's group policy editor, which applies a preset to a group as a profile.":
-      ['profileFromPreset'],
-    "The game export plan (ADR-0102), built ahead of the application's group export, which runs the planned items as one export batch after showing the refused ones, as the Export for Godot workflow's export follows its step: each member planned or refused with its owner named.":
-      [
-        'GameExportItem',
-        'GameExportPlan',
-        'GameExportProvenance',
-        'GameExportRequest',
-        'planGameExport',
-      ],
-    "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
-      ['inheritedProcessing'],
-    "The variation a member's voices are played with where its policy sets none (ADR-0104), which the preview applies inside the package, offered for a view of a member's effective variation to name beside the field it resolves unset, as the preview panel names the default emitter rules.":
-      ['DEFAULT_VOICE_VARIATION'],
-  },
+  '@audiogubbins/game-audio': {},
   '@audiogubbins/codec-runtime': {
     "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
       [
@@ -320,17 +305,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
   },
-  '@audiogubbins/project-commands': {
-    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) which the guided workflows' plans are made of too: adding, removing, renaming and moving a group, resetting an override, taking a member out of its group, and choosing whether a member inherits its group's processing.":
-      [
-        'moveGroupInvocation',
-        'removeGroupInvocation',
-        'renameGroupInvocation',
-        'resetMemberOverrideInvocation',
-        'setMemberProcessingInvocation',
-        'unassignMemberInvocation',
-      ],
-  },
+  '@audiogubbins/project-commands': {},
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],

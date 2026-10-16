@@ -10,17 +10,17 @@ import type {
   LibraryEntry,
   LibraryEntryId,
 } from '@audiogubbins/domain';
-import type { ListedEntry } from '@audiogubbins/storage';
+import type { LibraryListing } from '@audiogubbins/storage';
 
 import type { ClientChannel } from '../protocol/storage-operations.js';
 
 /** The saved chains and presets, and the changes to them. */
 export interface ProcessingLibraryClient {
   /** Every entry, those this build cannot use among them with the reason. */
-  list(signal?: AbortSignal): Promise<DomainResult<readonly ListedEntry[]>>;
+  list(signal?: AbortSignal): Promise<DomainResult<readonly LibraryListing[]>>;
 
   /** One entry as it is kept now, or why there is none. */
-  entry(id: LibraryEntryId, signal?: AbortSignal): Promise<DomainResult<ListedEntry>>;
+  entry(id: LibraryEntryId, signal?: AbortSignal): Promise<DomainResult<LibraryListing>>;
 
   /** Saves `content` as a new entry, refused where its kind has `name` already. */
   save(

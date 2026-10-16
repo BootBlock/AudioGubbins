@@ -61,6 +61,19 @@ describe('what the History panel says of an export (REQ-STOR-197, REQ-AUDIO-145)
     );
   });
 
+  it('names the folder inside the destination a game export wrote its file into', () => {
+    const file = FLAC.file;
+    if (file === undefined) throw new Error('The record names its file.');
+    const into: ExportRecord = {
+      ...FLAC,
+      file: { ...file, folder: { segments: ['sfx', 'Steps'] } },
+    };
+
+    expect(describeExport(into)).toBe(
+      `Exported as “Loop.flac” to “sfx/Steps” in “Game sounds” on ${when(AT)}, encoded as FLAC by flacenc 0.5.1 in the codec module, the same bytes on every machine`,
+    );
+  });
+
   it("says a browser's encoding may not be repeated elsewhere", () => {
     const file = FLAC.file;
     if (file === undefined) throw new Error('The record names its file.');

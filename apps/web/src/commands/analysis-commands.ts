@@ -55,7 +55,7 @@ import { currentBasis, needsProjectAsset, onAsset, type ProjectTarget } from './
 import { changeRacks } from './rack-changes.js';
 import { analyseAgainCommand } from './reanalysis.js';
 import { removeSilenceCommand } from './silence-commands.js';
-import { rackTargetOf } from './rack-target.js';
+import { ownsItsProcessingNow, rackTargetOf } from './rack-target.js';
 import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -244,20 +244,19 @@ function applyCommand(): Command<ShellContext> {
       if (!states.ok) return states.failures[0].summary;
       const chain = treatmentChain(steps, states.value, PROCESSOR_CATALOGUE, context.ids);
       if (!chain.ok) return chain.failures[0].summary;
-      const change =
-        treatmentPlacement(detection.scope) === 'rack'
-          ? extendedRackInvocation(
-              project.state.project,
-              rackTargetOf(project.owner),
-              chain.value,
-              context.ids,
-            )
-          : rangeInvocation(context, project, detection.scope, chain.value);
+      const racked = treatmentPlacement(detection.scope) === 'rack';
+      const target = rackTargetOf(project.owner);
+      const change = racked
+        ? extendedRackInvocation(project.state.project, target, chain.value, context.ids)
+        : rangeInvocation(context, project, detection.scope, chain.value);
       const names = steps.map((step) => stepName(step).toLowerCase());
+      // A rack of its own given to a member that inherits its group's
+      // processing makes it own its processing in the same step (ADR-0101).
+      const owns = racked ? ownsItsProcessingNow(project.state, target) : '';
       return changeRacks(context, {
         description: `Apply the ${report.label} recommendation`,
         invocations: [change],
-        said: `Applied the ${report.label} recommendation to ${scopeWords(view, detection.scope)}: ${names.join(', ')}.`,
+        said: `Applied the ${report.label} recommendation to ${scopeWords(view, detection.scope)}: ${names.join(', ')}.${owns}`,
       });
     },
     {

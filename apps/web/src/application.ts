@@ -53,6 +53,7 @@ import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 import { startAnalysis } from './analysis/analysis-part.js';
 import { browserCodecs } from './codecs/browser-codecs.js';
 import { followExportFocus } from './export/export-focus.js';
+import { followGroupFocus } from './state/group-focus.js';
 import { exportClockAt, startExport, storageRoom } from './export/page-export.js';
 import {
   browserCapture,
@@ -412,6 +413,8 @@ export function createApplication() {
 
   // After recording, whose claims on the Inspector an export's description gives way to.
   const exportFocus = followExportFocus(workspace, recordingPart.parts.claimed);
+  // After them both, whose claims on the Inspector a group's description gives way to.
+  const groups = followGroupFocus(workspace, recordingPart.parts.claimed, exportFocus.subject);
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
@@ -440,6 +443,7 @@ export function createApplication() {
     exports,
     exportFocus,
     gamePreview: startGamePreview(audioPart, editorPart.parts.assets, projectSystem.projects),
+    groups,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -503,6 +507,7 @@ export function createApplication() {
       stopWatching();
       context.gamePreview.runner.dispose();
       exportFocus.stop();
+      groups.stop();
       recordingPart.dispose();
       analysisPart.dispose();
       packsPart.dispose();

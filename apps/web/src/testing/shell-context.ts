@@ -27,6 +27,9 @@ import { DetectionHost } from '@audiogubbins/detection-runtime';
 import { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 
 import { DetectionControl } from '../analysis/detection-control.js';
+import { LoudnessMeasuring } from '../analysis/loudness-measuring.js';
+import { followGroupFocus } from '../state/group-focus.js';
+import { createLoudnessStore } from '../state/loudness-store.js';
 import { LoopAnalysing } from '../analysis/loop-analysing.js';
 import { WorkflowAnalysing } from '../analysis/workflow-analysing.js';
 import { LoopAuditioning } from '../audio/loop-audition.js';
@@ -214,6 +217,7 @@ function fakeAudio(
  */
 function localDetection(interaction: InteractionStore): {
   readonly control: DetectionControl;
+  readonly loudness: LoudnessMeasuring;
   readonly loops: LoopAnalysing;
   readonly workers: readonly LocalDetectionWorker[];
 } {
@@ -229,8 +233,9 @@ function localDetection(interaction: InteractionStore): {
     interaction.announce(text);
   };
   const control = new DetectionControl({ host, announce });
+  const loudness = new LoudnessMeasuring({ host, store: createLoudnessStore(), announce });
   const loops = new LoopAnalysing({ host, store: createLoopAnalysisStore(), announce });
-  return { control, loops, workers };
+  return { control, loudness, loops, workers };
 }
 
 /**
@@ -311,6 +316,7 @@ export function buildShellContext(
     logger,
   });
 
+  const exportFocus = followExportFocus(workspace, recording.parts.claimed);
   return {
     logs,
     files,
@@ -340,10 +346,12 @@ export function buildShellContext(
       projects: undefined,
       storageAbsences: [],
       exports: undefined,
-      exportFocus: followExportFocus(workspace, recording.parts.claimed),
+      exportFocus,
+      groups: followGroupFocus(workspace, recording.parts.claimed, exportFocus.subject),
       ...parts,
       ...fakeEditor(storage, logger),
       detection: detection.control,
+      loudness: detection.loudness,
       loopAnalysis: detection.loops,
       workflowAnalysis: new WorkflowAnalysing([detection.control, detection.loops.analyses]),
       loopAudition: new LoopAuditioning({

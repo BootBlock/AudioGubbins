@@ -14,7 +14,6 @@
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
   chainIdsOf,
-  chainUsers,
   findSlot,
   isWellFormedId,
   unsafeBrandId,
@@ -25,6 +24,7 @@ import {
   type Project,
   type Region,
 } from '@audiogubbins/domain';
+import { groupPath, memberKey, pathText, projectChainUsers } from '@audiogubbins/game-audio';
 import { targetChains, type RackTarget } from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { quoted } from '@audiogubbins/text';
@@ -91,15 +91,18 @@ export function rackTargetIn(
 
 /**
  * What else uses the chain `chain` besides `target`, each named as a reader
- * is told: the assets and regions whose rack it is, or a range of which it
- * processes. A chain is shared where this holds anything.
+ * is told: the asset groups whose processing it is, and the assets and
+ * regions whose rack it is, or a range of which it processes. A chain is
+ * shared where this holds anything, so a group's chain is shared even where
+ * no other member inherits it yet (ADR-0101).
  */
 export function otherUsers(
-  project: Project,
+  state: ProjectState,
   chain: EffectChainId,
   target: RackTarget,
 ): readonly string[] {
-  const users = chainUsers(project, chain);
+  const { project, gameAudio } = state;
+  const users = projectChainUsers(project, gameAudio, chain);
   const own = target.kind === 'asset' ? target.asset.id : target.region.id;
   const assetName = (id: string): string =>
     quoted(project.assets.get(unsafeBrandId<'AssetId'>(id))?.displayName ?? 'an asset');
@@ -107,12 +110,41 @@ export function otherUsers(
     quoted(project.regions.get(unsafeBrandId<'RegionId'>(id))?.displayName ?? 'a region');
   const named = (ids: readonly string[], name: (id: string) => string, what: string) =>
     ids.filter((id) => id !== own).map((id) => `${what} of ${name(id)}`);
+  const groups =
+    gameAudio === undefined
+      ? []
+      : users.groups.map(
+          (group) =>
+            `the processing of the group ${quoted(pathText(groupPath(gameAudio.groups, group)))}`,
+        );
   return [
+    ...groups,
     ...named(users.assetRacks, assetName, 'the rack'),
     ...named(users.regionRacks, regionName, 'the rack'),
     ...named(users.assetEdits, assetName, 'a range'),
     ...named(users.regionEdits, regionName, 'a range'),
   ];
+}
+
+/**
+ * What is said where a change gives `target` a rack of its own while it
+ * inherits its asset group's processing: the project's rack command makes it
+ * own its processing in the same step (ADR-0101), so the group's chain no
+ * longer reaches it until its processing is reset to inherited. Nothing
+ * where it is in no group or owns its processing already.
+ */
+export function ownsItsProcessingNow(state: ProjectState, target: RackTarget): string {
+  const game = state.gameAudio;
+  if (game === undefined) return '';
+  const key = memberKey(
+    target.kind === 'asset'
+      ? { kind: 'asset', asset: target.asset.id }
+      : { kind: 'region', region: target.region.id },
+  );
+  const membership = game.memberships.find((one) => memberKey(one.member) === key);
+  if (membership?.processing !== 'inherit') return '';
+  const group = quoted(pathText(groupPath(game.groups, membership.group)));
+  return ` It has processing of its own now, so the processing of the group ${group} no longer reaches it; reset its processing to inherited to follow the group again.`;
 }
 
 /** What a target is called in a sentence, quoted. */

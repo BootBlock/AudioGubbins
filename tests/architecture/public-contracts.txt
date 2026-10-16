@@ -4686,6 +4686,7 @@ Published paths
   interface FloatPcm
   readonly FloatPcm.kind: "float"
   readonly FloatPcm.bits: 32 | 64
+  type FolderSegmentProblem = { readonly kind: "steps-out"; } | { readonly kind: "unsafe"; readonly safe: string; }
   type FormatEncoding = { readonly format: "aac"; readonly encoding: AacEncoding; } | { readonly format: "aifc"; readonly encoding: AifcEncoding; } | { readonly format: "aiff"; readonly encoding: IntegerPcm; } | { readonly format: "flac"; readonly encoding: FlacEncoding; } | { readonly format: "mp3"; readonly encoding: Mp3Encoding; } | { readonly format: "ogg-vorbis"; readonly encoding: VorbisEncoding; } | { readonly format: "opus"; readonly encoding: OpusEncoding; } | { readonly format: "wav"; readonly encoding: WavEncoding; }
   type FormatEncodingOf<F extends ExportFormat> = FormatEncodingByFormat[F]
   interface FormatEncodings
@@ -4794,6 +4795,7 @@ Published paths
   function exportBatch(jobs: readonly ExportJob[]): ExportBatch
   function exportMetadata(project: MetadataMap, region: MetadataMap | undefined, settings: MetadataSettings, rates: MetadataRates): DomainResult<MetadataMap>
   function exportTarget(settings: FormatEncoding): ExportTarget
+  function folderSegmentProblem(segment: string): FolderSegmentProblem | undefined
   function formatName(format: ExportFormat): string
   function importJob(files: readonly ImportFile[]): ImportJob
   function importProgress(job: ImportJob): ImportProgress
@@ -4812,7 +4814,6 @@ Published paths
   function rememberCollisionAnswer(batch: ExportBatch, answer: CollisionAnswer, applyToAll: boolean): ExportBatch
   function resolvePreset(preset: ExportPreset, context: ExportContext): (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aac"; readonly encoding: import("packages/import-export/src/export-settings").AacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aifc"; readonly encoding: import("packages/import-export/src/export-settings").AifcEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "aiff"; readonly encoding: import("packages/import-export/src/export-settings").IntegerPcm; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "flac"; readonly encoding: import("packages/import-export/src/export-settings").FlacEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "mp3"; readonly encoding: import("packages/import-export/src/export-settings").Mp3Encoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "ogg-vorbis"; readonly encoding: import("packages/import-export/src/export-settings").VorbisEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "opus"; readonly encoding: import("packages/import-export/src/export-settings").OpusEncoding; }) | (import("packages/import-export/src/export-settings").CommonExportSettings & { readonly format: "wav"; readonly encoding: import("packages/import-export/src/export-settings").WavEncoding; })
   function safeFileName(name: ExportFileName, copy?: number | undefined): string
-  function safeFolderName(segment: string): string
   function validateExportSettings(settings: ExportSettings, context: ExportContext): DomainResult<ExportSettings>
 
 @audiogubbins/input
@@ -7275,6 +7276,7 @@ Published paths
   interface LeaseOwner
   readonly LeaseOwner.instance: string
   readonly LeaseOwner.label: string
+  type LibraryListing = ListedEntry & { readonly builtIn: boolean; }
   interface LibraryServices
   readonly LibraryServices.tree: StorageTree
   readonly LibraryServices.digest: Digest
@@ -7663,7 +7665,7 @@ Published paths
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
-  function exportRecordOf(staged: StagedExport, encoder: ExportCodec, destination: { readonly kind: ExportDestinationKind; readonly label?: string; }, fileName: string, services: Pick<DeliveryServices, "clock" | "ids">): ExportRecord
+  function exportRecordOf(staged: StagedExport, encoder: ExportCodec, destination: { readonly kind: ExportDestinationKind; readonly label?: string; }, fileName: string, services: Pick<DeliveryServices, "clock" | "ids">, folder?: readonly string[]): ExportRecord
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
@@ -7788,8 +7790,8 @@ Published paths
   PortEndpoint.postMessage: (message: unknown, options: StructuredSerializeOptions) => void
   PortEndpoint.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "error" | "messageerror", listener: (event: Event) => void): void; }
   interface ProcessingLibraryClient
-  ProcessingLibraryClient.list: (signal?: AbortSignal) => Promise<DomainResult<readonly ListedEntry[]>>
-  ProcessingLibraryClient.entry: (id: LibraryEntryId, signal?: AbortSignal) => Promise<DomainResult<ListedEntry>>
+  ProcessingLibraryClient.list: (signal?: AbortSignal) => Promise<DomainResult<readonly LibraryListing[]>>
+  ProcessingLibraryClient.entry: (id: LibraryEntryId, signal?: AbortSignal) => Promise<DomainResult<LibraryListing>>
   ProcessingLibraryClient.save: (name: string, content: LibraryContent, signal?: AbortSignal) => Promise<DomainResult<LibraryEntry>>
   ProcessingLibraryClient.replace: (id: LibraryEntryId, content: LibraryContent, signal?: AbortSignal) => Promise<DomainResult<LibraryEntry>>
   ProcessingLibraryClient.rename: (id: LibraryEntryId, name: string, signal?: AbortSignal) => Promise<DomainResult<LibraryEntry>>
@@ -8433,7 +8435,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; readonly LoopEditor: "loop-editor"; readonly GamePreview: "game-preview"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; readonly Recording: "recording"; readonly Spectral: "spectral"; readonly GameGroups: "game-groups"; readonly LoopEditor: "loop-editor"; readonly GamePreview: "game-preview"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]
@@ -10214,7 +10216,7 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & ImportOperations & ExportOperations & RecordingOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & ImportOperations & ExportOperations & RecordingOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly LibraryListing[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<LibraryListing>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
   type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly packs: Stream<PackChange>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; readonly [session: RecordingStream]: Stream<RecordingStatus>; readonly [report: ImportStream]: Stream<ImportReport>; readonly [report: StagingStream]: Stream<StagingReport>; }; }
 
@@ -10387,7 +10389,6 @@ packages/storage/src/pack-runs.ts
   readonly Runs.stranded: readonly string[]
 
 packages/storage/src/processing-library-store.ts
-  type LibraryListing = ListedEntry & { readonly builtIn: boolean; }
   type ReadableEntry = { readonly entry: LibraryEntry; } & Pick<KeptEntry, "pair">
 
 packages/storage/src/project-copy.ts

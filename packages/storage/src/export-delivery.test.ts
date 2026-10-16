@@ -375,6 +375,8 @@ describe('delivering a staged export (ADR-0092, REQ-ARCH-054)', () => {
       },
       status: 'succeeded',
     });
+    // Written into the folder chosen itself, so the record names no folder inside it.
+    expect(record?.file).not.toHaveProperty('folder');
   });
 
   it('asks about a taken name, renames by the answer, and remembers it for the batch', async () => {
@@ -616,7 +618,7 @@ describe('delivering into a relative folder (ADR-0102)', () => {
     expect(stagedFiles()).toEqual([]);
     expect(session.getSnapshot().model.exports[0]).toMatchObject({
       destination: { kind: ExportDestinationKind.Directory, label: 'Game sounds' },
-      file: { fileName: 'Footsteps.wav' },
+      file: { fileName: 'Footsteps.wav', folder: { segments: ['sfx', 'Footsteps'] } },
     });
   });
 

@@ -45,8 +45,11 @@ export type ExportDestinationChoice =
   | { readonly kind: 'trusted-folder'; readonly key: string; readonly policy: CollisionPolicy }
   | { readonly kind: 'download' };
 
-/** An export the person asked for: the asset it renders, as the settings set it, and where it goes. */
-export interface ExportStart {
+/**
+ * An export the Export dialog asks for: the asset it renders, as one set of
+ * settings plans its files, and where they go.
+ */
+export interface SettingsExportStart {
   readonly asset: AssetId;
 
   /** The settings, the range among them, which the project keeps as its last before the export starts. */
@@ -54,13 +57,40 @@ export interface ExportStart {
   readonly destination: ExportDestinationChoice;
 }
 
+/**
+ * One file planned with settings of its own, as a game export plans each
+ * member's (ADR-0102): the asset whose audio it renders, its settings, the
+ * file they plan, and the folders inside the destination it goes into.
+ */
+export interface PlannedExportFile {
+  readonly asset: AssetId;
+  readonly settings: ExportSettings;
+  readonly file: PlannedFile;
+
+  /** The folders from the destination down to the one it is written into, outermost first; none for the destination itself. */
+  readonly folder: readonly string[];
+}
+
+/**
+ * An export of files already planned, each with its own settings, as one
+ * batch: a game export's planned items. The project's last settings are not
+ * changed by it, since no one set of settings made it.
+ */
+export interface PlannedExportStart {
+  readonly files: readonly [PlannedExportFile, ...PlannedExportFile[]];
+  readonly destination: ExportDestinationChoice;
+}
+
+/** An export the person asked for: one set of settings over an asset, or files planned each with its own. */
+export type ExportStart = SettingsExportStart | PlannedExportStart;
+
 /** A batch under way or done, and the file each of its jobs writes, by the job's id. */
 interface ExportRun {
   readonly batch: ExportBatch;
   readonly files: ReadonlyMap<string, PlannedFile>;
 
-  /** The settings every file of the batch is made by. */
-  readonly settings: ExportSettings;
+  /** The settings each file of the batch is made by, by its job's id. */
+  readonly settings: ReadonlyMap<string, ExportSettings>;
 
   /** Where each job's file goes, by its id: where the person chose, or where they asked it delivered instead. */
   readonly destinations: ReadonlyMap<string, ExportDestinationChoice>;

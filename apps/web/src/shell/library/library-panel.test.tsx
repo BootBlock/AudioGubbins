@@ -13,7 +13,7 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
-import type { ListedEntry } from '@audiogubbins/storage';
+import type { LibraryListing } from '@audiogubbins/storage';
 import { sine } from '@audiogubbins/test-fixtures';
 
 import type { ShellContext } from '../../commands/shell-context.js';
@@ -52,9 +52,10 @@ function warmVocal(): LibraryEntry['content'] {
   };
 }
 
-function usable(name: string, content: LibraryEntry['content']): ListedEntry {
+function usable(name: string, content: LibraryEntry['content'], builtIn = false): LibraryListing {
   return {
     kind: 'usable',
+    builtIn,
     entry: {
       id: IDS.next<'LibraryEntryId'>(),
       name,
@@ -64,8 +65,9 @@ function usable(name: string, content: LibraryEntry['content']): ListedEntry {
   };
 }
 
-const UNREADABLE: ListedEntry = {
+const UNREADABLE: LibraryListing = {
   kind: 'unusable',
+  builtIn: false,
   id: IDS.next<'LibraryEntryId'>(),
   reason: failure(
     'library.entry-schema',
@@ -142,6 +144,32 @@ describe('the Library panel', { timeout: 30_000 }, () => {
     >();
     expectTypeOf<LibraryStores['project']>().toEqualTypeOf<Observable<OpenProjectState>>();
     expectTypeOf<LibraryParts['library']>().toEqualTypeOf<LibraryStores | undefined>();
+  });
+
+  it('lists the chains that come with AudioGubbins apart, applicable and never renamed or removed', () => {
+    const { context } = buildShellContext();
+    panelOver(context, {
+      savedProcessing: observable<SavedProcessingState>({
+        entries: [
+          usable('Game SFX, −16 LUFS', warmVocal(), true),
+          usable('Warm vocal', warmVocal()),
+        ],
+        loaded: true,
+      }),
+    });
+
+    expect(screen.getByRole('heading', { name: 'Built-in chains (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Saved chains (1)' })).toBeInTheDocument();
+    const builtIn = within(entryNamed('Game SFX, −16 LUFS'));
+    expect(entryNamed('Game SFX, −16 LUFS')).toHaveTextContent(
+      /Built in: it comes with AudioGubbins, so it is not renamed or removed\./u,
+    );
+    expect(builtIn.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+    expect(builtIn.queryByRole('button', { name: 'Rename…' })).toBeNull();
+    expect(builtIn.queryByRole('button', { name: 'Remove…' })).toBeNull();
+    expect(
+      within(entryNamed('Warm vocal')).getByRole('button', { name: 'Rename…' }),
+    ).toBeInTheDocument();
   });
 
   it('lists chains and presets by kind, with when each was saved and what it holds, and an entry it cannot use with the reason', () => {
@@ -231,9 +259,11 @@ describe('the Library panel', { timeout: 30_000 }, () => {
     await userEvent.click(within(warm).getByRole('button', { name: 'Remove for good' }));
 
     expect(ran).toEqual([['library.remove', { entry: chain.id }]]);
-    // The person's one chain, after the chains every library lists first.
-    const chains = String(BUILT_IN_LIBRARY.length + 1);
-    expect(screen.getByRole('heading', { name: `Saved chains (${chains})` })).toHaveFocus();
+    // The person's one chain; the chains every library comes with are listed apart.
+    expect(screen.getByRole('heading', { name: 'Saved chains (1)' })).toHaveFocus();
+    expect(
+      screen.getByRole('heading', { name: `Built-in chains (${String(BUILT_IN_LIBRARY.length)})` }),
+    ).toBeInTheDocument();
   });
 
   it('renames an entry to the name typed, giving the focus back to what opened it', async () => {

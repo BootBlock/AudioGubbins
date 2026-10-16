@@ -20,28 +20,27 @@ import {
   type ExportSettings,
   type PlannedFile,
 } from '@audiogubbins/import-export';
-import type { CollisionReply, ExportOrigin } from '@audiogubbins/storage';
+import type { CollisionReply } from '@audiogubbins/storage';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import type { JobParts } from './export-preparation.js';
 import { endedSentence, heldSentence } from './export-sentences.js';
 import type { ExportDestinationChoice, ExportRunState } from './export-types.js';
 
-/** What a batch was made from: the project, the settings, the origin and the jobs by their ids. */
+/** What a batch was made from: the project, and the jobs by their ids, each with its settings and origin. */
 export interface RunOf {
   readonly session: RemoteProjectSession;
-  readonly settings: ExportSettings;
-  readonly origin: ExportOrigin;
   readonly jobs: ReadonlyMap<string, JobParts>;
 }
 
 /** A batch running or held (see the module comment). */
 export class ExportRun {
   readonly session: RemoteProjectSession;
-  readonly settings: ExportSettings;
-  readonly origin: ExportOrigin;
   readonly jobs: ReadonlyMap<string, JobParts>;
   readonly files: ReadonlyMap<string, PlannedFile>;
+
+  /** The settings each job's file is made by. */
+  readonly settings: ReadonlyMap<string, ExportSettings>;
 
   /** Where each job's file goes, made afresh only when a delivery elsewhere changes one. */
   #destinations: ReadonlyMap<string, ExportDestinationChoice>;
@@ -60,10 +59,9 @@ export class ExportRun {
   /** A batch of `of`'s jobs, shown through `shown` from its first `show`. */
   constructor(of: RunOf, shown: (state: ExportRunState) => void) {
     this.session = of.session;
-    this.settings = of.settings;
-    this.origin = of.origin;
     this.jobs = of.jobs;
     this.files = new Map([...of.jobs].map(([id, job]) => [id, job.file]));
+    this.settings = new Map([...of.jobs].map(([id, job]) => [id, job.settings]));
     this.#destinations = new Map([...of.jobs].map(([id, job]) => [id, job.destination]));
     this.#batch = exportBatch(
       [...of.jobs].map(([id, job]) => plannedExport(id, job.file.render.range.length)),

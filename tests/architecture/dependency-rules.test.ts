@@ -1595,10 +1595,7 @@ describe("a chain's users are read with the game-audio state (ADR-0101)", () => 
    * reads the answer that counts the groups. A module leaves this list when it
    * changes; none joins it.
    */
-  const NOT_YET_MOVED: readonly string[] = [
-    'apps/web/src/commands/rack-building-commands.ts',
-    'apps/web/src/commands/rack-target.ts',
-  ];
+  const NOT_YET_MOVED: readonly string[] = [];
 
   /** Whether any identifier of a file's code, never its comments, is `chainUsers`. */
   const namesChainUsers = (node: ts.Node): boolean =>
@@ -3021,6 +3018,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
   const REVIEWED_PAST_THRESHOLD: Readonly<
     Record<string, readonly [lines: number, review: string]>
   > = {
+    'apps/web/src/shell/panels.tsx': [
+      402,
+      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read. Reviewed again when the Asset groups panel joined (ADR-0101): the growth is its arm, the parts it reads, and the context members it and the Inspector read, the group chosen, the loudness readings and the codecs served, still one arm per kind and one member per part read. Reviewed again when the Asset groups and Loop panels met: the growth is their two arms and the parts each reads, still one arm per kind. Reviewed again past the threshold when the Asset groups and Game preview panels met: the growth is registration lines for the Phase 10 panels, an arm, a parts function and the context members each reads, still one arm per kind and one member per part read; every panel already lives in a module of its own, so a split would separate the context from the switch that hands it out.",
+    ],
     'packages/domain/src/index.ts': [
       431,
       "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",
@@ -3127,20 +3128,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
     ],
     'apps/web/src/application.ts': [
-      378,
-      "The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts, the codecs and the export in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back. The export's lines are the render, codecs, assets, room and clock it is handed, which only the root holds together.",
+      395,
+      "The composition root: each part is started by a function of its own, the audio part here and the editor, project, analysis, packs and recording parts, the codecs and the export in their own modules, so what is left is the lines that hand each part its collaborators and gather what they give back. The export's lines are the render, codecs, assets, room and clock it is handed, which only the root holds together. Reviewed again when the asset groups joined (ADR-0101): the growth is the group chosen, made once beside the export the Inspector describes and stopped with it, still one line per part handed over. Reviewed again when the asset groups and the Game preview met: the growth is registration lines for the Phase 10 panels, the group chosen and the preview each handed over and stopped in one line, still one line per part handed over.",
     ],
     'apps/web/src/commands/recording-settings-commands.ts': [
       320,
       "Every command that changes the recording settings, as three tables, the profiles, the buffer and count-in, and the preferences and latency, each command a few lines over the store's revisions in `recording-settings.ts`; split by table, the shared `revised` and argument readers would move to a fourth file.",
     ],
     'apps/web/src/shell/menus.ts': [
-      328,
-      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table.",
-    ],
-    'apps/web/src/shell/panels.tsx': [
-      349,
-      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read.",
+      388,
+      "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command. Reviewed again when the Editor menu gained the spectral tools and the spectral selection's group (ADR-0082): the growth is those entries, still a table. Reviewed again when the Editor menu gained the asset groups' commands (ADR-0101): the growth is that group's entries, still a table. Reviewed again when the asset groups' and the Loop panel's groups met: the growth is those two groups' entries, still a table. Reviewed again when the asset groups', the workflows' and the Game preview's entries met: the growth is registration lines for the Phase 10 panels and commands, still a table.",
     ],
     'apps/web/src/commands/panel-commands.ts': [
       314,
@@ -3320,6 +3317,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    * go stale.
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
+    'apps/web/src/commands/shell-commands.ts: shellCommands': [
+      55,
+      'A list of every command module of the shell, one spread a line in the order they are offered, whose one job is to put them in one list; what grows it is one line per module.',
+    ],
     'apps/web/src/state/project-stores.ts: createProjectStores': [
       51,
       "The project system's composition: each store made once over the storage client's part it asks and the ports the browser gives, and handed the stores it reads; what remains are the lines that hand each its collaborators, every store a class or factory of its own.",
@@ -3377,12 +3378,12 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The recording part's composition: the opening shared by arming and calibrating, the monitoring, input and calibration controls, the arming for a take and the recording flow, the Inspector's focus and the storage estimate, each made once with what it needs, and the dispose that ends them; the controls are classes of their own, so what remains is wiring.",
     ],
     'apps/web/src/shell/panels.tsx: editingPanel': [
-      52,
-      'An exhaustive switch over the editing panels, one arm per kind, each handing a panel only the parts it reads.',
+      58,
+      'An exhaustive switch over the editing panels, one arm per kind, each handing a panel only the parts it reads. Reviewed again when the Inspector came to read the asset group chosen and the preferences its policy reads (ADR-0101): two parts more in one arm.',
     ],
     'apps/web/src/shell/panels.tsx: renderPanel': [
-      61,
-      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own.',
+      70,
+      'An exhaustive switch over the panels it draws first, one arm per kind, each handing a panel only the parts it reads, with the editing panels in a function of their own. Reviewed again when the Asset groups panel’s arm joined the Loop panel’s: one arm more. Reviewed again when the Asset groups and Game preview panels’ arms met: the growth is registration lines for the Phase 10 panels, one arm more each.',
     ],
     'apps/web/src/shell/recording/latency-section.tsx: Figures': [
       52,
@@ -3446,8 +3447,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic. Reviewed again when the region and the marker were anchored to the footstep (ADR-0051): the growth is their basis and loop fields, still data.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
-      142,
-      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table.',
+      146,
+      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table. Reviewed again when the asset groups’, the workflows’ and the Game preview’s groups met: the growth is registration lines for the Phase 10 commands, still a declarative table.',
     ],
 
     // Factories: private state closed over, with each returned method a unit.
@@ -3488,8 +3489,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      179,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, and the export by `startExport` once the render, the codecs and the assets it renders exist, so what is left here is the lines that hand each part its collaborators and gather what they give back.',
+      188,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), local inference by `startModels` before the parts whose threads run chains, the codecs by `browserCodecs` before the editor part that weighs a picture’s sound through them, and the export by `startExport` once the render, the codecs and the assets it renders exist, so what is left here is the lines that hand each part its collaborators and gather what they give back. Reviewed again when the asset group chosen joined (ADR-0101): it is made once, beside the export the Inspector describes, and stopped with it. Reviewed again when the asset groups and the Game preview met: the growth is registration lines for the Phase 10 panels, the group chosen and the preview each handed over and stopped in one line.',
     ],
 
     // Components: hooks, then the tree they draw.

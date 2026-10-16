@@ -18,8 +18,10 @@ import type { PlaybackControl } from '../audio/playback-control.js';
 import type { ModelServices } from '../ml/model-services.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import type { InteractionStore } from '../state/interaction-store.js';
+import { createLoudnessStore } from '../state/loudness-store.js';
 import { createLoopAnalysisStore } from '../state/loop-analysis-store.js';
 import { DetectionControl } from './detection-control.js';
+import { LoudnessMeasuring } from './loudness-measuring.js';
 import { browserDetectionWorker } from './detection-threads.js';
 import { LoopAnalysing } from './loop-analysing.js';
 import { WorkflowAnalysing } from './workflow-analysing.js';
@@ -39,20 +41,22 @@ export function startAnalysis(
   const announce = (text: string): void => {
     interaction.announce(text);
   };
-  // One worker for the detections and the loop analyses, its host stopped
-  // with the detections.
+  // One worker for the detections, the loop analyses and the loudness
+  // measurements, its host stopped with the detections.
   const host = new DetectionHost({ createWorker: () => browserDetectionWorker(previews, models) });
   const detection = new DetectionControl({ host, announce });
   const loopAnalysis = new LoopAnalysing({ host, store: createLoopAnalysisStore(), announce });
+  const loudness = new LoudnessMeasuring({ host, store: createLoudnessStore(), announce });
   // A workflow's analyses run in turn through the two above, each started
   // once the one before it is no longer running.
   const workflowAnalysis = new WorkflowAnalysing([detection, loopAnalysis.analyses]);
   // A loop is heard on the transport, cycled by the page's timers.
   const loopAudition = new LoopAuditioning({ ...transport, schedule: browserSchedule });
   return {
-    parts: { detection, loopAnalysis, workflowAnalysis, loopAudition },
+    parts: { detection, loopAnalysis, workflowAnalysis, loopAudition, loudness },
     dispose: () => {
       workflowAnalysis.cancel();
+      loudness.cancel();
       loopAudition.dispose();
       loopAnalysis.dispose();
       detection.dispose();

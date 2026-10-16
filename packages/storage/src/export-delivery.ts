@@ -248,7 +248,8 @@ async function folderTarget(
 /**
  * The record of a delivered export, as the project's history keeps it: what
  * was rendered and how, the encoder that wrote it, where it went, and the
- * file written.
+ * file written, with the folders inside the destination it was written into
+ * where it went into one (ADR-0102).
  */
 export function exportRecordOf(
   staged: StagedExport,
@@ -256,6 +257,7 @@ export function exportRecordOf(
   destination: { readonly kind: ExportDestinationKind; readonly label?: string },
   fileName: string,
   services: Pick<DeliveryServices, 'ids' | 'clock'>,
+  folder: readonly string[] = [],
 ): ExportRecord {
   const { origin } = staged;
   return {
@@ -269,6 +271,7 @@ export function exportRecordOf(
     file: {
       settings: origin.settings,
       fileName,
+      ...(folder.length === 0 ? {} : { folder: { segments: folder } }),
       byteLength: staged.bytes,
       sha256: staged.sha256,
       codec: encoder,
@@ -327,7 +330,8 @@ async function recorded(
               : ExportDestinationKind.TrustedDirectory,
           label: destination.folder.name,
         };
-  const record = exportRecordOf(staged, encoder, where, decided.name, services);
+  const folder = destination.kind === 'file' ? [] : destination.path;
+  const record = exportRecordOf(staged, encoder, where, decided.name, services, folder);
   const kept = await session.recordExport(record);
   return {
     kind: 'delivered',

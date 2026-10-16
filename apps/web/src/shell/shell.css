@@ -1549,3 +1549,49 @@
   padding-inline-start: var(--ag-space-medium);
   color: var(--ag-chrome-text-secondary);
 }
+
+/* The Asset groups panel (ADR-0101). */
+
+.ag-group-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-group-tree [role='treeitem'] {
+  /* Each level indented by its depth, which the item sets as a number. */
+  padding-block: var(--ag-space-tiny);
+  padding-inline-start: calc(
+    var(--ag-space-small) + var(--ag-group-depth, 0) * var(--ag-space-large)
+  );
+  cursor: pointer;
+}
+
+.ag-group-tree [role='treeitem'][aria-selected='true'] {
+  background-color: var(--ag-chrome-surface-sunken);
+  box-shadow: inset 3px 0 0 var(--ag-chrome-accent);
+}
+
+.ag-group-tree [role='treeitem']:focus-visible {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: var(--ag-chrome-border-focus);
+  outline-offset: calc(-1 * var(--ag-focus-ring-width));
+}
+
+/* A table wider than the panel scrolls rather than crushing its columns. */
+.ag-group-members {
+  overflow-x: auto;
+}
+
+.ag-group-members table {
+  border-collapse: collapse;
+  min-inline-size: 36rem;
+}
+
+.ag-group-members th,
+.ag-group-members td {
+  padding: var(--ag-space-tiny) var(--ag-space-small);
+  text-align: start;
+  vertical-align: top;
+}

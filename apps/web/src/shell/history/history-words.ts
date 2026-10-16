@@ -59,20 +59,35 @@ function writtenFile(file: ExportedAudioFile): string {
 }
 
 /**
+ * Where an audio file went: the destination's name, and the folder inside it
+ * it was written into, where it went into one (ADR-0102).
+ */
+function placeWords(label: string | undefined, folder: readonly string[]): string | undefined {
+  if (folder.length === 0) return label === undefined ? undefined : quoted(label);
+  const path = quoted(folder.join('/'));
+  return label === undefined ? `the folder ${path}` : `${path} in ${quoted(label)}`;
+}
+
+/**
  * What an export made from a point was, in a phrase: the file it wrote and
- * where, and for an audio file its codec, its version and whether the same
- * project gives the same bytes (REQ-STOR-197, REQ-AUDIO-145).
+ * where, the folder inside its destination among it, and for an audio file
+ * its codec, its version and whether the same project gives the same bytes
+ * (REQ-STOR-197, REQ-AUDIO-145).
  */
 export function describeExport(record: ExportRecord): string {
   const { file } = record;
   const label = record.destination.label;
   const written = file?.fileName === undefined ? undefined : quoted(file.fileName);
+  const place = placeWords(
+    label === file?.fileName ? undefined : label,
+    file?.folder?.segments ?? [],
+  );
   const where =
     written === undefined
       ? (label ?? record.output.container)
-      : label === undefined || label === file?.fileName
+      : place === undefined
         ? written
-        : `${written} to ${quoted(label)}`;
+        : `${written} to ${place}`;
   const status =
     record.status === 'succeeded' ? '' : record.status === 'partial' ? ', in part' : ', and failed';
   return `Exported as ${where} on ${when(record.at)}${file === undefined ? '' : writtenFile(file)}${status}`;

@@ -238,6 +238,25 @@ const EDITOR_GROUPS: readonly {
     ids: ['analysis.detect', 'analysis.cancel'],
   },
   {
+    key: 'asset-groups',
+    label: 'Asset groups',
+    ids: [
+      'game.new-group',
+      'game.rename-group',
+      'game.delete-group',
+      'game.assign-selection',
+      'game.remove-from-group',
+      'game.inherit-processing',
+      'game.own-processing',
+      'game.reset-all-overrides',
+      'game.name-members',
+      'game.measure-loudness',
+      'game.cancel-loudness',
+      'game.export-group',
+      'game.export-members',
+    ],
+  },
+  {
     key: 'loop',
     label: 'Loop',
     ids: [

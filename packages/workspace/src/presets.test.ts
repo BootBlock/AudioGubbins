@@ -27,6 +27,21 @@ describe('the Recording preset', () => {
   });
 });
 
+describe('the Game Audio preset (REQ-UX-058)', () => {
+  it('puts the Asset groups panel a tab beside the Asset Browser, which is in front', () => {
+    const layout = buildPresets(new Set(Object.values(PanelKinds))).find(
+      (one) => one.id === 'game-audio',
+    );
+    const left = layout?.groups.find((group) => group.region === DockRegion.Left);
+
+    expect(left?.panels.map((panel) => panel.kind)).toEqual([
+      PanelKinds.AssetBrowser,
+      PanelKinds.GameGroups,
+    ]);
+    expect(left?.activePanelId).toBe('game-audio:asset-browser');
+  });
+});
+
 describe('the Spectral Repair preset (REQ-UX-058)', () => {
   it('puts the Spectral panel in front of the Inspector, beside the editor', () => {
     const repair = buildPresets(new Set(Object.values(PanelKinds))).find(

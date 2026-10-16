@@ -23,6 +23,8 @@ import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
+import type { GroupChoice } from '../state/group-focus.js';
+import type { LoudnessReadings } from '../state/loudness-store.js';
 import type { LoopAnalyses } from '../state/loop-analysis-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import {
@@ -123,6 +125,9 @@ describe('what a panel is given', () => {
     expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
     expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
     expectTypeOf<PanelContext['detection']>().toEqualTypeOf<Observable<Detections>>();
+    // The group chosen and the loudness readings alone, and no step that changes either.
+    expectTypeOf<PanelContext['groups']>().toEqualTypeOf<Observable<GroupChoice | undefined>>();
+    expectTypeOf<PanelContext['loudness']>().toEqualTypeOf<Observable<LoudnessReadings>>();
     expectTypeOf<PanelContext['loopAnalyses']>().toEqualTypeOf<Observable<LoopAnalyses>>();
     expectTypeOf<PanelContext['loopAudition']>().toEqualTypeOf<
       Observable<Auditioning | undefined>
@@ -182,6 +187,9 @@ describe('every panel', () => {
           preferences: shell.preferences,
           gamePreview: shell.gamePreview,
           ids: shell.ids,
+          groups: shell.groups.chosen,
+          loudness: shell.loudness.readings,
+          codecs: shell.codecs.environment,
         })}
       </>,
     );

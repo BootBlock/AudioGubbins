@@ -20,14 +20,9 @@
 
 import type { TrustedFolders } from '@audiogubbins/browser-storage';
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
-import {
-  nextJobToStart,
-  safeFileName,
-  type ExportClock,
-  type ExportSettings,
-} from '@audiogubbins/import-export';
+import { nextJobToStart, safeFileName, type ExportClock } from '@audiogubbins/import-export';
 import type { Digest } from '@audiogubbins/project-format';
-import type { CollisionReply, ExportOrigin } from '@audiogubbins/storage';
+import type { CollisionReply } from '@audiogubbins/storage';
 import type {
   DeliveryAnswer,
   ExportsClient,
@@ -37,7 +32,7 @@ import type {
 import type { CodecServices } from '../codecs/codec-services.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import { observable } from '../state/observable.js';
-import { exportOrigin } from './export-origin.js';
+import { exportOrigins } from './export-origin.js';
 import {
   prepareExport,
   roomFor,
@@ -126,13 +121,17 @@ export class PageExportControl implements ExportControl {
     if (!prepared.ok) return prepared;
     const roomy = await roomFor(prepared.value, this.#parts.room);
     if (!roomy.ok) return roomy;
-    const { snapshot, target, jobs } = prepared.value;
-    const origin = await exportOrigin(snapshot, start.settings, target, this.#parts.digest);
+    const { snapshot } = prepared.value;
+    const originOf = await exportOrigins(snapshot, this.#parts.digest);
+    const jobs = prepared.value.jobs.map((job): JobParts => ({
+      ...job,
+      origin: originOf(job.settings, job.file.target),
+    }));
     await this.#forgetDownloads();
     // Asked again after the last await before it begins, so a second start
     // asked for meanwhile cannot run beside this one.
     if (this.#busy()) return fail(RUNNING);
-    const run = this.#begin(session, start.settings, jobs, origin);
+    const run = this.#begin(session, jobs);
     await this.#runJobs(run);
     return succeed(this.#settle(run));
   }
@@ -168,18 +167,13 @@ export class PageExportControl implements ExportControl {
   }
 
   /** The batch of `jobs`, running. */
-  #begin(
-    session: RemoteProjectSession,
-    settings: ExportSettings,
-    jobs: readonly JobParts[],
-    origin: ExportOrigin,
-  ): ExportRun {
+  #begin(session: RemoteProjectSession, jobs: readonly JobParts[]): ExportRun {
     const byId = new Map<string, JobParts>();
     for (const job of jobs) {
       this.#jobs += 1;
       byId.set(`export-${String(this.#jobs)}`, job);
     }
-    const run: ExportRun = new ExportRun({ session, settings, origin, jobs: byId }, (state) => {
+    const run: ExportRun = new ExportRun({ session, jobs: byId }, (state) => {
       // A batch is shown only while it is the page's, never after it ended.
       if (this.#run === run) this.#state.set(state);
     });
@@ -215,13 +209,13 @@ export class PageExportControl implements ExportControl {
         source: parts.source,
         encode: {
           target: file.target,
-          encoding: run.settings,
+          encoding: parts.settings,
           sampleRate: file.render.sampleRate,
           layout: file.render.layout,
           metadata: parts.metadata,
-          dither: { settings: run.settings.dither, key: file.ditherKey },
+          dither: { settings: parts.settings.dither, key: file.ditherKey },
         },
-        origin: run.origin,
+        origin: parts.origin,
       },
       (framesRendered, bytesStaged) => {
         run.report(id, { kind: 'progress', framesRendered, bytesStaged });
@@ -247,7 +241,7 @@ export class PageExportControl implements ExportControl {
       kind: 'delivery-started',
       target: { kind: parts.destination.kind, name: safeFileName(file.name) },
     });
-    const destination = pageDestination(parts.destination, file, {
+    const destination = pageDestination(parts.destination, file, parts.folder, {
       remembered: run.batch.remembered,
       prompt: (name, signal) => run.ask(name, signal),
       trusted: this.#parts.trusted,

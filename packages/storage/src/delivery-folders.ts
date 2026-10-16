@@ -4,21 +4,19 @@
  * walked down before anything is decided or written.
  *
  * The path crosses from the page, so it is held here to the rule a game
- * export's destination is planned by: each name one `safeFolderName` leaves as
- * it is, and neither `.` nor `..`. That refuses an empty name, a separator or a
- * drive's colon inside a name, and every step out, so nothing is written
- * outside the folder chosen. A folder the path names that is not there yet is
- * made only once a file is created in it (`DeliveryFolder.folder`), so a
- * delivery refused, skipped or cancelled leaves the destination as it was.
+ * export's destination is planned by (`folderSegmentProblem`): each name one
+ * `safeFolderName` leaves as it is, and neither `.` nor `..`. That refuses an
+ * empty name, a separator or a drive's colon inside a name, and every step out,
+ * so nothing is written outside the folder chosen. A folder the path names that
+ * is not there yet is made only once a file is created in it
+ * (`DeliveryFolder.folder`), so a delivery refused, skipped or cancelled leaves
+ * the destination as it was.
  */
 
 import type { DomainFailure } from '@audiogubbins/domain';
-import { safeFolderName } from '@audiogubbins/import-export';
+import { folderSegmentProblem } from '@audiogubbins/import-export';
 
 import { deliveryPathInvalid, destinationFolderTaken } from './export-failures.js';
-
-/** The names that step out of a folder rather than into one. */
-const STEPS_OUT: ReadonlySet<string> = new Set(['.', '..']);
 
 /** A folder a path is walked down: each folder inside it, by name. */
 interface WalkedFolder<Folder> {
@@ -33,9 +31,7 @@ type ReachedFolder<Folder> =
 /** Why `path` is not a path of folders inside the one it starts from, where it is not. */
 function deliveryPathProblem(path: readonly string[]): DomainFailure | undefined {
   for (const [index, segment] of path.entries()) {
-    if (STEPS_OUT.has(segment) || safeFolderName(segment) !== segment) {
-      return deliveryPathInvalid(segment, index);
-    }
+    if (folderSegmentProblem(segment) !== undefined) return deliveryPathInvalid(segment, index);
   }
   return undefined;
 }

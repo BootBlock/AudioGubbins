@@ -27,19 +27,22 @@ const ENGINE_VERSION_NAMES: ReadonlyMap<string, string> = new Map([
   ['stretch', String(ENGINE_VERSIONS.stretch)],
 ]);
 
-/** The origin of an export of `target` as `settings` set it, from the project `snapshot` holds. */
-export async function exportOrigin(
+/**
+ * The origin of each file of an export from the project `snapshot` holds, as
+ * its settings and target make it: the state is fingerprinted once, here, and
+ * every file of the batch is of that state, whatever settings each has.
+ */
+export async function exportOrigins(
   snapshot: ProjectSnapshot,
-  settings: ExportSettings,
-  target: ExportTarget,
   digest: Digest,
-): Promise<ExportOrigin> {
+): Promise<(settings: ExportSettings, target: ExportTarget) => ExportOrigin> {
   const { state, history } = snapshot.model;
-  return {
+  const stateFingerprint = await stateFingerprintOf(state, digest);
+  return (settings, target) => ({
     settings,
     reproducible: codecDescriptor(target.codec).write?.reproducible ?? false,
-    stateFingerprint: await stateFingerprintOf(state, digest),
+    stateFingerprint,
     historyNodeId: history.cursor,
     engineVersions: ENGINE_VERSION_NAMES,
-  };
+  });
 }
