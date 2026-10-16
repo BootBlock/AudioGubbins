@@ -11,7 +11,7 @@ import { StandardLayouts, type ChannelLayout } from '../audio/channel-layout.js'
 import { unsafeBrandId, type EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import { AssetOrigin, type Asset } from '../project/asset.js';
-import type { Region } from '../project/timeline.js';
+import { ProcessingAcrossLoop, type Region } from '../project/timeline.js';
 import { derivedSampleCount, sampleRate } from '../time/sample-time.js';
 import type { OracleWorld, Samples } from '../testing/edit-oracle.js';
 import { editingEntities } from '../testing/editing-fixtures.js';
@@ -136,6 +136,7 @@ function loopingRegion(next: () => number, asset: Asset): Region | undefined {
       end: derivedSampleCount(loop.end),
       crossfadeLength: derivedSampleCount(Math.min(whole(next, 48), loop.end - loop.start)),
       crossfadeShape: SHAPES[whole(next, SHAPES.length)] ?? FadeShape.Linear,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
     },
     tags: [],
     operations: [],

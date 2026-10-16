@@ -606,6 +606,18 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
     code: 'schema.unknown-value',
     at: 'project.regions[0].loop.crossfadeShape',
   },
+  'a loop that does not say how it renders its processing': {
+    edit: (document) =>
+      without(document, ['project', 'regions', 0, 'loop', 'processingAcrossLoop']),
+    code: 'schema.missing-member',
+    at: 'project.regions[0].loop.processingAcrossLoop',
+  },
+  'a loop that renders its processing in no way a loop has': {
+    edit: (document) =>
+      withValue(document, ['project', 'regions', 0, 'loop', 'processingAcrossLoop'], 'twice'),
+    code: 'schema.unknown-value',
+    at: 'project.regions[0].loop.processingAcrossLoop',
+  },
   'a region that ends past its asset': {
     edit: (document) =>
       withValue(document, ['project', 'regions', 0, 'end'], regionAssetLength + 1),
@@ -816,18 +828,20 @@ describe('readProjectDocument refuses', () => {
     },
   );
 
-  // Version 9 holds no asset groups; version 10 is the first that keeps them
-  // (ADR-0106), so a build that read 9 as its own would read a project whose
-  // groups it could not tell from none.
-  it('a document of version 9, from before asset groups, as version 10 reads', () => {
-    expect(SCHEMA_VERSIONS.projectDocument).toBe(10);
-    const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], 9));
-    expect(result.ok ? [] : result.failures).toMatchObject([
-      {
-        code: 'format.schema-incompatible',
-        details: { schema: 'projectDocument', found: 9, current: 10, direction: 'older' },
-      },
-    ]);
+  // Version 10 holds no loop's rendering of its processing; version 11 is the
+  // first that keeps it (ADR-0107), so a build that read 10 as its own would
+  // read every loop as rendering a way no one chose.
+  it('a document of version 10, from before a loop said how it renders its processing, as version 11 reads', () => {
+    expect(SCHEMA_VERSIONS.projectDocument).toBe(11);
+    for (const older of [9, 10]) {
+      const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], older));
+      expect(result.ok ? [] : result.failures).toMatchObject([
+        {
+          code: 'format.schema-incompatible',
+          details: { schema: 'projectDocument', found: older, current: 11, direction: 'older' },
+        },
+      ]);
+    }
   });
 
   it('every problem at once, up to the bound, as integrity violations', () => {

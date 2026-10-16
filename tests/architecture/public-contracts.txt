@@ -945,7 +945,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38353: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38363: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1240,7 +1240,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38353: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38363: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2959,6 +2959,7 @@ Published paths
   readonly AnchoredLoop.end: SampleCount
   readonly AnchoredLoop.crossfadeLength: SampleCount
   readonly AnchoredLoop.crossfadeShape: FadeShape
+  readonly AnchoredLoop.processingAcrossLoop: ProcessingAcrossLoop
   interface Asset
   readonly Asset.id: AssetId
   readonly Asset.displayName: string
@@ -3056,6 +3057,7 @@ Published paths
   readonly Clip.muted: boolean
   type ClipId = string & { readonly [BrandTag]: "ClipId"; }
   const DEFAULT_LOOP_CROSSFADE_SHAPE: FadeShape
+  const DEFAULT_PROCESSING_ACROSS_LOOP: ProcessingAcrossLoop
   const DEFAULT_SPECTRAL_RESOLUTION: 2048
   interface DetectorFinding
   readonly DetectorFinding.kind: FindingKind
@@ -3156,6 +3158,7 @@ Published paths
   readonly LoopDefinition.loopEnd: SampleCount
   readonly LoopDefinition.crossfadeLength: SampleCount
   readonly LoopDefinition.crossfadeShape: FadeShape
+  readonly LoopDefinition.processingAcrossLoop: ProcessingAcrossLoop
   readonly LoopDefinition.crossfadeClampedFrom?: SampleCount
   const MAIN_OUTPUT: RoutingTarget
   const MAXIMUM_CHAIN_SLOTS: 256
@@ -3275,6 +3278,8 @@ Published paths
   readonly PlannedSpectralEdit.operation: PlannedSpectralOperation
   readonly PlannedSpectralEdit.channels?: readonly number[]
   type PlannedSpectralOperation = { readonly kind: "attenuate"; readonly gain: number; } | { readonly kind: "heal"; } | { readonly kind: "isolate"; readonly gain: number; } | { readonly kind: "process"; readonly chain: EffectChain; readonly input: ChannelLayout; }
+  const ProcessingAcrossLoop: { readonly Wrapped: "wrapped"; readonly FromStart: "from-start"; }
+  type ProcessingAcrossLoop = "from-start" | "wrapped"
   type ProcessorCatalogue = ReadonlyMap<string, ProcessorDescriptor>
   const ProcessorCategory: { readonly Level: "level"; readonly Equalisation: "equalisation"; readonly Dynamics: "dynamics"; readonly Time: "time"; readonly Pitch: "pitch"; readonly Space: "space"; readonly Restoration: "restoration"; readonly Separation: "separation"; }
   type ProcessorCategory = "dynamics" | "equalisation" | "level" | "pitch" | "restoration" | "separation" | "space" | "time"
@@ -3619,6 +3624,7 @@ Published paths
   function placeRegions(asset: Asset, regions: Iterable<Region>, resolver?: AnchorResolver): readonly PlacedRegion[]
   function planIsSilence(plan: EditPlan): boolean
   function planReadsAsset(plan: EditPlan, asset: AssetId): boolean
+  function processingOfNewLoop(region: Pick<Region, "loop">): ProcessingAcrossLoop
   function processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function projectChains(project: Project): Generator<EffectChain, void, undefined>
   function projectLength(project: Project): number
@@ -4060,7 +4066,7 @@ Published paths
   readonly HandAction.kind: "stop" | "trigger"
   readonly HandAction.emitter: PreviewEmitterId
   readonly HandAction.frame: number
-  type InheritedPolicy = { readonly processing?: "none" | import("packages/domain/src/index").EffectChainId; readonly bus?: import("packages/game-audio/src/index").BusName; readonly tags?: readonly string[]; readonly naming?: import("packages/game-audio/src/index").NamingTemplate; readonly destination?: import("packages/game-audio/src/index").DestinationPath; readonly loudness?: import("packages/game-audio/src/index").LoudnessTarget; readonly exportProfile?: import("packages/game-audio/src/index").GameExportProfile; readonly emitter?: import("packages/game-audio/src/index").EmitterRules; readonly variation?: import("packages/game-audio/src/index").VoiceVariation; }
+  type InheritedPolicy = { readonly processing?: "none" | import("packages/domain/src/index").EffectChainId; readonly tags?: readonly string[]; readonly bus?: import("packages/game-audio/src/index").BusName; readonly naming?: import("packages/game-audio/src/index").NamingTemplate; readonly destination?: import("packages/game-audio/src/index").DestinationPath; readonly loudness?: import("packages/game-audio/src/index").LoudnessTarget; readonly exportProfile?: import("packages/game-audio/src/index").GameExportProfile; readonly emitter?: import("packages/game-audio/src/index").EmitterRules; readonly variation?: import("packages/game-audio/src/index").VoiceVariation; }
   interface Listener
   readonly Listener.at: Position
   readonly Listener.facingTurns: number
@@ -8212,7 +8218,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 10; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 11; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference

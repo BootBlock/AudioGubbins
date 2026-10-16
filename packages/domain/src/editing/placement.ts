@@ -82,6 +82,7 @@ function placeLoop(
       loopEnd: derivedSampleCount(loopEnd),
       crossfadeLength: derivedSampleCount(fits),
       crossfadeShape: kept.crossfadeShape,
+      processingAcrossLoop: kept.processingAcrossLoop,
       ...(fits < kept.crossfadeLength ? { crossfadeClampedFrom: kept.crossfadeLength } : {}),
     },
   };

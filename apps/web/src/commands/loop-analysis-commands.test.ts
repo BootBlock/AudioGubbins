@@ -178,6 +178,7 @@ describe('applying a candidate the search found', () => {
         end: room.end,
         crossfadeLength: room.crossfade.lengthFrames,
         crossfadeShape: room.crossfade.shape,
+        processingAcrossLoop: 'wrapped',
       });
       // The loop moved, so the analysis is of the loop as it was.
       expect(audio.window.run('loop.apply-crossfade', { rank: room.rank })).toMatchObject({

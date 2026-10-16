@@ -10,7 +10,12 @@
  * the domain's validation once the value is read, never here.
  */
 
-import { FadeShape, MAXIMUM_CHANNEL_COUNT, MAXIMUM_EDIT_GAIN } from '@audiogubbins/domain';
+import {
+  FadeShape,
+  MAXIMUM_CHANNEL_COUNT,
+  MAXIMUM_EDIT_GAIN,
+  ProcessingAcrossLoop,
+} from '@audiogubbins/domain';
 
 import { listConverter } from './document-reading.js';
 import { integerConverter, numberConverter, oneOfConverter } from './scalar-reading.js';
@@ -55,3 +60,6 @@ export const asBasis = integerConverter(0, MAXIMUM_CHAIN_LENGTH);
 
 /** How a fade's gain moves, for a fade an operation makes and a fade a stage applies. */
 export const asFadeShape = oneOfConverter(Object.values(FadeShape));
+
+/** How a loop renders the processing upstream of it (ADR-0107). */
+export const asProcessingAcrossLoop = oneOfConverter(Object.values(ProcessingAcrossLoop));

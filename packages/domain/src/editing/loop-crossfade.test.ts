@@ -4,7 +4,7 @@ import { StandardLayouts } from '../audio/channel-layout.js';
 import { unsafeBrandId, type EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
-import type { AnchoredLoop, Region } from '../project/timeline.js';
+import { ProcessingAcrossLoop, type AnchoredLoop, type Region } from '../project/timeline.js';
 import type { OracleWorld, Samples } from '../testing/edit-oracle.js';
 import { assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
 import { loopCrossfaded } from '../testing/loop-oracle.js';
@@ -33,6 +33,7 @@ function loopOf(start: number, end: number, crossfade: number, shape: FadeShape)
     end: frames(end),
     crossfadeLength: frames(crossfade),
     crossfadeShape: shape,
+    processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
   };
 }
 

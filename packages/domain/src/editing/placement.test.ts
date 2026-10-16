@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts } from '../audio/channel-layout.js';
 import { unsafeBrandId } from '../identity/branded-id.js';
 import type { Asset } from '../project/asset.js';
-import type { Marker, Region } from '../project/timeline.js';
+import { ProcessingAcrossLoop, type Marker, type Region } from '../project/timeline.js';
 import { FadeShape } from './fades.js';
 import { assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
 import { renderPlan } from '../testing/plan-render.js';
@@ -81,6 +81,7 @@ describe('placing regions', () => {
           end: frames(450),
           crossfadeLength: frames(80),
           crossfadeShape: FadeShape.SCurve,
+          processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
         },
       }),
     ]);
@@ -89,6 +90,7 @@ describe('placing regions', () => {
       loopEnd: 100,
       crossfadeLength: 50,
       crossfadeShape: FadeShape.SCurve,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
       crossfadeClampedFrom: 80,
     });
   });
@@ -102,6 +104,7 @@ describe('placing regions', () => {
           end: frames(390),
           crossfadeLength: frames(crossfade),
           crossfadeShape: FadeShape.Linear,
+          processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
         },
       });
 
@@ -113,6 +116,7 @@ describe('placing regions', () => {
       loopEnd: 90,
       crossfadeLength: 30,
       crossfadeShape: FadeShape.Linear,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
       crossfadeClampedFrom: 45,
     });
     expect(whole?.loop).toEqual({
@@ -120,6 +124,7 @@ describe('placing regions', () => {
       loopEnd: 90,
       crossfadeLength: 30,
       crossfadeShape: FadeShape.Linear,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
     });
   });
 
@@ -138,6 +143,7 @@ describe('placing regions', () => {
           end: frames(390),
           crossfadeLength: frames(0),
           crossfadeShape: FadeShape.Linear,
+          processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
         },
       },
     ]);

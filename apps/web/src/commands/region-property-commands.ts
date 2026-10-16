@@ -11,6 +11,7 @@ import {
   anchorResolver,
   flatMapResult,
   placeRegion,
+  processingOfNewLoop,
   sampleCount,
   validateLoopLead,
   validateRegion,
@@ -98,12 +99,17 @@ export function loopOnAsset(
  * `found`'s region looping over `loop`, anchored at its asset's chain as it
  * stands, or why it cannot loop so: the one rule every command that loops a
  * region keeps, a crossfade among it that must fit the loop and the audio
- * before its start (ADR-0103).
+ * before its start (ADR-0103), and the rendering of its processing the loop
+ * it replaces chose, wrapped for a region that did not loop (ADR-0107).
  */
 export function loopedRegion(found: FoundRegion, loop: LoopOnAsset): DomainResult<Region> {
   const region: Region = {
     ...found.region,
-    loop: { basis: found.asset.edits.length, ...loop },
+    loop: {
+      basis: found.asset.edits.length,
+      ...loop,
+      processingAcrossLoop: processingOfNewLoop(found.region),
+    },
   };
   return flatMapResult(
     validateRegion(found.asset, region, found.project.state.project.effectChains),

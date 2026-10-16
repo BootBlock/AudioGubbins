@@ -118,6 +118,7 @@ const sameLoop = whole<AnchoredLoop>({
   end: same,
   crossfadeLength: same,
   crossfadeShape: same,
+  processingAcrossLoop: same,
 });
 
 /** Two lists the same item by item, each pair of items compared with `compare`. */

@@ -120,19 +120,21 @@ describe('reading a project tree (REQ-STOR-103)', () => {
   });
 
   // Version 9 holds no asset groups, which version 10 keeps in their own file.
-  it('refuses a tree of version 9, from before asset groups, as version 10 reads', async () => {
-    expect(SCHEMA_VERSIONS.projectDocument).toBe(10);
-    const files = edited(await sampleTree(), 'audiogubbins-project.json', (header) => ({
-      ...header,
-      projectDocumentSchemaVersion: 9,
-    }));
-    const read = await readProjectTree(listingOf(files), TREE_READING);
-    expect(read.ok ? [] : read.failures).toMatchObject([
-      {
-        code: 'format.schema-incompatible',
-        details: { schema: 'projectDocument', found: 9, current: 10, direction: 'older' },
-      },
-    ]);
+  it('refuses a tree of version 10, from before a loop said how it renders its processing, as version 11 reads', async () => {
+    expect(SCHEMA_VERSIONS.projectDocument).toBe(11);
+    for (const older of [9, 10]) {
+      const files = edited(await sampleTree(), 'audiogubbins-project.json', (header) => ({
+        ...header,
+        projectDocumentSchemaVersion: older,
+      }));
+      const read = await readProjectTree(listingOf(files), TREE_READING);
+      expect(read.ok ? [] : read.failures).toMatchObject([
+        {
+          code: 'format.schema-incompatible',
+          details: { schema: 'projectDocument', found: older, current: 11, direction: 'older' },
+        },
+      ]);
+    }
   });
 
   it('keeps the asset groups in their own file, and refuses one there that breaks their rules', async () => {

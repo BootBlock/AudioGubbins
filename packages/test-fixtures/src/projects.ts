@@ -13,6 +13,7 @@
 import {
   AssetOrigin,
   FadeShape,
+  ProcessingAcrossLoop,
   MAIN_OUTPUT,
   StandardLayouts,
   createDeterministicIdGenerator,
@@ -129,6 +130,7 @@ export function sampleProject(seed = 20_260_918): ProjectFixture {
       end: fixtureSampleCount(21_600),
       crossfadeLength: fixtureSampleCount(480),
       crossfadeShape: FadeShape.EqualPower,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
     },
     tags: ['footstep', 'gravel'],
     operations: [],

@@ -17,6 +17,7 @@
  */
 
 import {
+  DEFAULT_PROCESSING_ACROSS_LOOP,
   FadeShape,
   ZERO_SAMPLES,
   anchorResolver,
@@ -102,6 +103,7 @@ function wholeRegionLoop(length: SampleCount): LoopDefinition {
     loopEnd: length,
     crossfadeLength: ZERO_SAMPLES,
     crossfadeShape: FadeShape.EqualPower,
+    processingAcrossLoop: DEFAULT_PROCESSING_ACROSS_LOOP,
   };
 }
 
