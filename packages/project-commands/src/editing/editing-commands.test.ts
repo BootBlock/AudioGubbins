@@ -30,7 +30,9 @@ import {
   refusalCodeOf,
   unchangedCodeOf,
 } from '../testing/bus-runs.js';
+import { groupedState } from '../testing/grouped-state.js';
 import { referenceState } from '../testing/reference-state.js';
+import { assignMemberInvocation } from '../game/game-invocations.js';
 import { applyInvocation, withdrawInvocation } from './edit-commands.js';
 import {
   addMarkerInvocation,
@@ -491,6 +493,44 @@ describe('project.set-region', () => {
     expect(refusalCodeOf(bus.execute(state, setRegionInvocation(regionOn(footstep, 0, 10))))).toBe(
       'region.unknown',
     );
+  });
+});
+
+describe('a region in an asset group (ADR-0101)', () => {
+  const grouped = groupedState(state, assets, loop, ids);
+  const forestMember = { kind: 'asset', asset: forest.id } as const;
+  const joined = after(
+    grouped.state,
+    assignMemberInvocation(forestMember, grouped.groups.ambience.id, 'own'),
+  );
+
+  it('leaves its group as it is removed, and rejoins at its place as it is added back', () => {
+    const { next, entry } = appliedAndUndone(joined, removeRegionInvocation(loop));
+    expect(
+      next.gameAudio?.memberships.some(
+        (one) => one.member.kind === 'region' && one.member.region === loop.id,
+      ),
+    ).toBe(false);
+    // The group's chain stays: its group and the footstep asset still name it.
+    expect(next.project.effectChains.has(grouped.chains.a.id)).toBe(true);
+    expect(entry.inverse[0].arguments).toMatchObject({
+      group: grouped.groups.gravel.id,
+      processing: 'inherit',
+      position: 2,
+    });
+  });
+
+  it('refuses a membership it is added with that names no processing', () => {
+    const removed = after(joined, removeRegionInvocation(loop));
+    const add = addRegionInvocation(loop);
+    expect(
+      refusalCodeOf(
+        bus.execute(removed, {
+          ...add,
+          arguments: { ...add.arguments, group: grouped.groups.gravel.id },
+        }),
+      ),
+    ).toBe('game.membership-partial');
   });
 });
 

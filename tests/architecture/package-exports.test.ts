@@ -201,8 +201,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'memberNames',
         'planGameExport',
       ],
-    "Setting or resetting one field of a group's policy or of a member's overrides (ADR-0101), built ahead of the game commands that change them with their inverses.":
-      ['withOverride', 'withPolicyField'],
     "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
       [
         'EffectivePolicy',
@@ -214,8 +212,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'resolveGroupPolicy',
         'resolvePolicy',
       ],
-    "The racks inheriting members are heard through, and how many users a chain has with the groups that name it (ADR-0101), built ahead of the game commands that re-point every inheriting member's rack in the command that moves it, and of the chain naming and the application's rack commands, which count a chain's users through it.":
-      ['inheritedProcessing', 'inheritingRacks', 'stateChainUseCount'],
+    "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
+      ['inheritedProcessing'],
     'The rules the game preview plays where a field resolves unset (ADR-0104), built ahead of the preview simulation and its panel, which says so beside the rules it shows.':
       ['DEFAULT_EMITTER_RULES', 'DEFAULT_VOICE_VARIATION'],
   },
@@ -345,16 +343,22 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['stripAssetProvenance', 'stripExportRecords'],
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
-    "The readers and writers of a group, a member, a policy field and a member's overrides, and the one way a state's game-audio member is set (ADR-0106), built ahead of the game commands, whose arguments are canonical JSON these read and write, and whose results drop the member where the last group goes.":
+  },
+  '@audiogubbins/project-commands': {
+    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) and of the guided workflows, whose plans are these invocations: adding, removing, renaming and moving a group, setting or resetting a field of its policy, putting a member in a group or taking it out, setting or resetting an override, and choosing whether a member inherits its group's processing.":
       [
-        'readGameAssetGroup',
-        'readGroupMember',
-        'readPolicyField',
-        'readPolicyOverrides',
-        'withGameAudio',
-        'writeGameAssetGroup',
-        'writeGroupMember',
-        'writePolicyOverrides',
+        'GivenRack',
+        'Joined',
+        'addGroupInvocation',
+        'assignMemberInvocation',
+        'moveGroupInvocation',
+        'removeGroupInvocation',
+        'renameGroupInvocation',
+        'resetMemberOverrideInvocation',
+        'setGroupPolicyInvocation',
+        'setMemberOverrideInvocation',
+        'setMemberProcessingInvocation',
+        'unassignMemberInvocation',
       ],
   },
   '@audiogubbins/history': {

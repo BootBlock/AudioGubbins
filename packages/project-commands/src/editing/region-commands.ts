@@ -3,21 +3,21 @@
  * region's own processing (REQ-EDIT-014, ADR-0051).
  *
  * A region's properties (its name, boundaries, loop and tags) are set whole by
- * one command whose inverse sets them back; its rack is set by the rack command
- * alone (`rack-commands.ts`); its processing is a chain like an asset's,
- * applied at the end and withdrawn from the end. Every command keeps an inverse
- * short enough to journal whatever the region holds: a region is removed only
- * once its processing is withdrawn, which the interface does in the same
- * change, so no inverse carries more than one chain, which the domain bounds. A
- * chain a region names enters and leaves with it as `chain-naming.ts` says. A
- * change to a region's processing anywhere but at its end, such as a split's,
- * is made the same way, as one change of those steps (`region-invocations.ts`),
- * each re-applied step giving its chain whole, since withdrawing it may have
- * removed the chain.
+ * one command whose inverse sets them back; its rack is set by the rack
+ * command alone (`rack-commands.ts`); a region in an asset group leaves it as
+ * the region is removed, and rejoins it at its place as it is added back; its
+ * processing is a chain like an asset's, applied at the end and withdrawn from
+ * the end. Every command keeps an inverse short enough to journal whatever the
+ * region holds: a region is removed only once its processing is withdrawn,
+ * which the interface does in the same change, so no inverse carries more than
+ * one chain, which the domain bounds. A chain a region names enters and leaves
+ * with it as `chain-naming.ts` says. A change to a region's processing anywhere
+ * but at its end, such as a split's, is made the same way, as one change of
+ * those steps (`region-invocations.ts`), each re-applied step giving its chain
+ * whole, since withdrawing it may have removed the chain.
  */
 
 import {
-  CommandCategory,
   refusal,
   unchanged,
   type CommandInvocation,
@@ -42,13 +42,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { jsonArgument, readNested, refusedBy } from '../invocation-arguments.js';
-import {
-  NO_PROVENANCE,
-  ProjectCommandId,
-  applied,
-  projectCommand,
-  type ProjectCommand,
-} from '../project-command.js';
+import { ProjectCommandId, applied, editCommand, type ProjectCommand } from '../project-command.js';
 import { operationChain, stateNaming, withoutUnnamed } from '../processing/chain-naming.js';
 import { idArgument, targetRegion } from './editing-arguments.js';
 import {
@@ -61,50 +55,37 @@ import {
 } from './region-invocations.js';
 import { regionEditDescription } from './edit-descriptions.js';
 import { withRegion, withoutRegion } from './editing-state.js';
+import { rejoined, withoutMember } from '../game/member-removal.js';
 import { quoted } from '@audiogubbins/text';
 
 /** The commands that change regions and their processing. */
 export function regionCommands(): readonly ProjectCommand[] {
-  const declare = (
-    id: ProjectCommand['id'],
-    label: string,
-    description: string,
-    run: (state: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>,
-  ): ProjectCommand =>
-    projectCommand({
-      id,
-      label,
-      category: CommandCategory.Edit,
-      description,
-      run,
-      provenance: NO_PROVENANCE,
-    });
   return [
-    declare(
+    editCommand(
       ProjectCommandId.AddRegion,
       'Add a region',
       'Adds a region to one of the project’s assets.',
       addRegion,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.SetRegion,
       'Change a region',
       'Sets a region’s name, boundaries, loop and tags.',
       setRegion,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.RemoveRegion,
       'Remove a region',
-      'Removes a region whose processing is withdrawn.',
+      'Removes a region whose processing is withdrawn, and takes it out of its asset group.',
       removeRegion,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.ApplyRegionEdit,
       'Process a region',
       'Adds processing to the end of a region’s own chain.',
       applyRegionEdit,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.WithdrawRegionEdit,
       'Withdraw a region’s processing',
       'Removes the last processing of a region’s chain.',
@@ -149,8 +130,13 @@ function addRegion(
       'A region is added without processing, and its processing is applied after it.',
     );
   }
+  const joined = rejoined(withRegion(naming.value, region.value), invocation, {
+    kind: 'region',
+    region: region.value.id,
+  });
+  if (!joined.ok) return refusedBy(joined);
   return applied(
-    withRegion(naming.value, region.value),
+    joined.value,
     removeRegionInvocation(region.value),
     `Add region ${quoted(region.value.displayName)}`,
   );
@@ -205,10 +191,16 @@ function removeRegion(
       `Region ${quoted(region.value.displayName)} still has processing; withdraw it before removing the region.`,
     );
   }
-  const next = withoutUnnamed(withoutRegion(state, region.value.id), region.value.rack);
+  const left = withoutMember(withoutRegion(state, region.value.id), {
+    kind: 'region',
+    region: region.value.id,
+  });
+  if (!left.ok) return refusedBy(left);
+  const next = withoutUnnamed(left.value.state, region.value.rack);
+  const restoring = addRegionInvocation(region.value, next.removed);
   return applied(
     next.state,
-    addRegionInvocation(region.value, next.removed),
+    { ...restoring, arguments: { ...restoring.arguments, ...left.value.rejoining } },
     `Remove region ${quoted(region.value.displayName)}`,
   );
 }

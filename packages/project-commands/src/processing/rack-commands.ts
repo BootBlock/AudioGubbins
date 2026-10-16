@@ -6,7 +6,8 @@
  *
  * Each names a chain by its identifier or gives it whole, and removes a chain
  * it leaves nothing naming, as `chain-naming.ts` says, so one undo restores
- * the chain with the naming. A rack edit changes no time, so pointing it at
+ * the chain with the naming. A rack given to a member of an asset group that
+ * inherits its group's processing makes it own its processing (ADR-0101). A rack edit changes no time, so pointing it at
  * another chain moves nothing placed on the asset, and the edit stays where it
  * is in the chain of edits.
  */
@@ -35,6 +36,7 @@ import {
   type RegionOperation,
   type TargetChains,
 } from '@audiogubbins/domain';
+import type { GroupMember, MemberProcessing } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { quoted } from '@audiogubbins/text';
 
@@ -47,6 +49,14 @@ import {
   type ProjectCommand,
 } from '../project-command.js';
 import { withAssetEdits, withRegion } from '../editing/editing-state.js';
+import { optionalProcessingArgument } from '../game/game-arguments.js';
+import {
+  gameOf,
+  heldValid,
+  membershipIndex,
+  projectWithRack,
+  withMembership,
+} from '../game/game-state.js';
 import { chainToName, namingArguments, operationChain, withoutUnnamed } from './chain-naming.js';
 
 /** What a rack command acts on: an asset, or a region and its asset. */
@@ -96,15 +106,21 @@ function targetArguments(target: RackTarget): Readonly<Record<string, string>> {
 /**
  * The invocation that gives `target` the rack `chain`, named by its
  * identifier or given whole to be added with it, or takes its rack away where
- * it is absent.
+ * it is absent; where `target` is a member of a group, `processing` says
+ * whether it then inherits its group's processing or owns its own.
  */
 export function setRackInvocation(
   target: RackTarget,
   chain: EffectChainId | EffectChain | undefined,
+  processing?: MemberProcessing,
 ): CommandInvocation {
   return {
     commandId: ProjectCommandId.SetRack,
-    arguments: { ...targetArguments(target), ...namingArguments(chain) },
+    arguments: {
+      ...targetArguments(target),
+      ...namingArguments(chain),
+      ...(processing === undefined ? {} : { processing }),
+    },
   };
 }
 
@@ -184,45 +200,61 @@ export function extendedRackInvocation(
   return setRackInvocation(target, { id: chain.id, slots: [...before, ...chain.slots] });
 }
 
-/** The state with `asset` given the rack `rack`, or none where it is absent. */
-function withAssetRack(
-  state: ProjectState,
-  asset: Asset,
-  rack: EffectChainId | undefined,
-): ProjectState {
-  const { rack: _previous, ...rest } = asset;
-  const next: Asset = rack === undefined ? rest : { ...rest, rack };
-  return {
-    ...state,
-    project: { ...state.project, assets: new Map([...state.project.assets, [asset.id, next]]) },
-  };
+/** The member `target` is, where it is in a group. */
+function memberOf(target: RackTarget): GroupMember {
+  return target.kind === 'asset'
+    ? { kind: 'asset', asset: target.asset.id }
+    : { kind: 'region', region: target.region.id };
 }
 
-/** The region with the rack `rack`, or none where it is absent. */
-function regionWithRack(region: Region, rack: EffectChainId | undefined): Region {
-  const { rack: _previous, ...rest } = region;
-  return rack === undefined ? rest : { ...rest, rack };
-}
-
+/**
+ * Gives the target the rack the arguments name, or takes it away. A member of
+ * a group that inherits its processing owns it from then on, since the person
+ * chose its rack (ADR-0101); `processing` says how it stands instead where it
+ * is given, which is how the inverse puts back a member that inherited. The
+ * result is held to the game-audio state as it is, never re-pointed to what a
+ * member inherits, so a rack given against `inherit` is refused.
+ */
 function setRack(state: ProjectState, invocation: CommandInvocation) {
   const target = rackTarget(state, invocation);
   if (typeof target === 'string') return refusal('rack.target-unknown', target);
   const named = chainToName(state, invocation);
   if (!named.ok) return refusedBy(named);
+  const asked = optionalProcessingArgument(invocation);
+  if (!asked.ok) return refusedBy(asked);
   const chain = named.value?.chain;
+  const member = memberOf(target);
+  const game = gameOf(state);
+  const index = membershipIndex(game, member);
+  const membership = index === undefined ? undefined : game.memberships[index];
+  if (membership === undefined && asked.value !== undefined) {
+    return refusal(
+      'rack.not-a-member',
+      `${targetName(target)} is in no group, so it neither inherits nor owns a group’s processing.`,
+    );
+  }
   const before = target.kind === 'asset' ? target.asset.rack : target.region.rack;
-  if (before === chain) return unchanged('rack.unchanged', 'The rack is already as asked.');
+  const processing =
+    asked.value ?? (membership?.processing === 'inherit' && chain !== before ? 'own' : undefined);
+  const turned =
+    membership !== undefined && processing !== undefined && processing !== membership.processing;
+  if (before === chain && !turned) {
+    return unchanged('rack.unchanged', 'The rack is already as asked.');
+  }
   const naming = named.value?.state ?? state;
-  const next = withoutUnnamed(
-    target.kind === 'asset'
-      ? withAssetRack(naming, target.asset, chain)
-      : withRegion(naming, regionWithRack(target.region, chain)),
-    before,
+  const racked = { ...naming, project: projectWithRack(naming.project, member, chain) };
+  const held = heldValid(
+    racked,
+    membership === undefined || processing === undefined
+      ? game
+      : withMembership(game, { ...membership, processing }, undefined),
   );
+  if (!held.ok) return refusedBy(held);
+  const next = withoutUnnamed(held.value, before);
   const name = targetName(target);
   return applied(
     next.state,
-    setRackInvocation(target, next.removed ?? before),
+    setRackInvocation(target, next.removed ?? before, turned ? membership.processing : undefined),
     chain === undefined ? `Take away the rack of ${name}` : `Give ${name} a rack`,
   );
 }

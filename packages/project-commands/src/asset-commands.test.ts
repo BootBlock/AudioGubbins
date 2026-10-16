@@ -24,10 +24,12 @@ import {
   refusalCodeOf,
   unchangedCodeOf,
 } from './testing/bus-runs.js';
+import { groupedState } from './testing/grouped-state.js';
 import { referenceState } from './testing/reference-state.js';
 
 const bus = projectBus();
-const { state, assets } = referenceState(sampleProject());
+const fixture = sampleProject();
+const { state, assets } = referenceState(fixture);
 
 /** A new asset and source, not yet in the reference state. */
 function newRecord(seed: number) {
@@ -235,5 +237,24 @@ describe('project.rename-asset and project.set-asset-name', () => {
 
     expect(next.project.assets.get(assets.rain.id)?.displayName).toBe(' Rain\n');
     assertReadsBack(next);
+  });
+});
+
+describe('an asset in an asset group (ADR-0101)', () => {
+  const grouped = groupedState(state, assets, fixture.regions.loop, fixture.ids);
+
+  it('leaves its group as it is removed, and rejoins at its place as it is added back', () => {
+    const result = bus.execute(grouped.state, removeAsset(assets.rain.id));
+    const { next } = appliedOf(result);
+    assertReadsBack(next);
+    expect(
+      next.gameAudio?.memberships.some(
+        (one) => one.member.kind === 'asset' && one.member.asset === assets.rain.id,
+      ),
+    ).toBe(false);
+    const undone = appliedOf(bus.execute(next, entryOf(result).inverse[0])).next;
+    // In the middle of the assignment order, which is the order a group's sounds are chosen in.
+    expect(undone.gameAudio?.memberships).toEqual(grouped.state.gameAudio?.memberships);
+    expect(undone).toEqual(grouped.state);
   });
 });
