@@ -30,6 +30,8 @@ export { type RegionMember, type RegionName, memberNames } from './export/member
 export { type GameAssetGroupId } from './groups/group-ids.js';
 export { type GameAssetGroup } from './groups/game-asset-group.js';
 export { type GameAudioState } from './groups/game-audio-state.js';
+export { groupPath } from './groups/group-forest.js';
+export { pathText } from './groups/group-names.js';
 export {
   type GroupMember,
   type GroupMembership,

@@ -702,6 +702,8 @@ const PACKAGES = [
       '@audiogubbins/import-export',
       '@audiogubbins/text',
       '@audiogubbins/version',
+      // The game-audio state it keeps and validates with the project (ADR-0106).
+      '@audiogubbins/game-audio',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
@@ -751,7 +753,13 @@ const PACKAGES = [
       'The branching project history: its graph of changes, the current node, named snapshots, whole-project comparison and the planning of compaction.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/commands', '@audiogubbins/project-format'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/project-format',
+      // The groups its differences name, and the users of a chain a group names (ADR-0106).
+      '@audiogubbins/game-audio',
+    ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},

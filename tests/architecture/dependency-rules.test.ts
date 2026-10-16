@@ -326,6 +326,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/import-export',
     '@audiogubbins/text',
     '@audiogubbins/version',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/project-commands': [
     '@audiogubbins/domain',
@@ -337,6 +338,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/commands',
     '@audiogubbins/project-format',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
   '@audiogubbins/model-packs': [
