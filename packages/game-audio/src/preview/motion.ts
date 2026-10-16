@@ -63,10 +63,17 @@ function* traversal(points: readonly Waypoint[], backwards: boolean): Generator<
   }
 }
 
-/** Every waypoint the path passes, in time, each traversal after the first without its first point, which the last one ended on. */
-function* passage(motion: Extract<Motion, { readonly kind: 'waypoints' }>): Generator<Waypoint> {
+/**
+ * Every waypoint the path passes, in time, from its traversal `first` on, each
+ * traversal after the first without its first point, which the last one ended
+ * on.
+ */
+function* passage(
+  motion: Extract<Motion, { readonly kind: 'waypoints' }>,
+  first: number,
+): Generator<Waypoint> {
   const length = motion.points.at(-1)?.milliseconds ?? 0;
-  for (let cycle = 0; ; cycle += 1) {
+  for (let cycle = first; ; cycle += 1) {
     const backwards = motion.repeat === 'back-and-forth' && cycle % 2 === 1;
     let first = true;
     for (const point of traversal(motion.points, backwards)) {
@@ -82,27 +89,39 @@ function* passage(motion: Extract<Motion, { readonly kind: 'waypoints' }>): Gene
 }
 
 /**
- * The path of `motion` as heard by `listener` at `rate`, through the first
- * waypoint at or after frame `through`, so the lanes are whole to `through`;
- * extending them to a later frame only adds points.
+ * The path of `motion` as heard by `listener` at `rate`, from the last
+ * waypoint at or before frame `from` through the first at or after frame
+ * `through`, so the lanes are whole from `from` to `through`: the same points
+ * there whatever `from`, and extending them to a later frame only adds points.
  */
 export function motionLanes(
   motion: Extract<Motion, { readonly kind: 'waypoints' }>,
   listener: Listener,
   space: GamePreviewScenario['space'],
   rate: number,
-  through: number,
+  span: { readonly from: number; readonly through: number },
 ): MotionLanes {
   const x: AutomationPoint[] = [];
   const y: AutomationPoint[] = [];
   const z: AutomationPoint[] = [];
-  for (const point of passage(motion)) {
+  // The traversal before the one `from` falls in ends on that one's first point.
+  const length = motion.points.at(-1)?.milliseconds ?? 0;
+  const first =
+    motion.repeat === 'once' || length === 0
+      ? 0
+      : Math.max(0, Math.floor((span.from * 1000) / rate / length) - 1);
+  for (const point of passage(motion, first)) {
     const frame = framesOf(point.milliseconds, rate);
+    if (frame <= span.from) {
+      x.length = 0;
+      y.length = 0;
+      z.length = 0;
+    }
     const heard = inListenerFrame(point.at, listener, space);
     x.push({ frame, value: heard.x });
     y.push({ frame, value: heard.y });
     z.push({ frame, value: heard.z });
-    if (frame >= through) break;
+    if (frame >= span.through) break;
   }
   return { x, y, z };
 }

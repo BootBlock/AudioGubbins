@@ -59,7 +59,12 @@ export interface VoiceEndEvent {
 export type PreviewEvent = StartedEvent | RefusedEvent | VoiceEndEvent;
 
 export interface PreviewEventLog {
-  /** Every event before `horizonFrame`, in the order made. */
+  /**
+   * Every event before `horizonFrame`, in the order made, but for those a
+   * simulation that plays for long has forgotten (`forgetPreviewBefore`).
+   */
   readonly events: readonly PreviewEvent[];
   readonly horizonFrame: number;
+  /** How many events were made before the first of `events`, and forgotten. */
+  readonly forgotten: number;
 }

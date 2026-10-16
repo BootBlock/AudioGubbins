@@ -29,7 +29,13 @@ import {
 import { pitchNumerator } from './preview-draws.js';
 import type { PreviewEvent, StartedEvent } from './preview-event-log.js';
 import { voiceFrames } from './simulation-steps.js';
-import { appendVoiceStreams, lengthenLoop } from './voice-streams.js';
+import { takePlaces } from './stream-places.js';
+import {
+  NOTHING_FORGOTTEN,
+  lengthenLoop,
+  placeVoiceStreams,
+  voicePlaces,
+} from './voice-streams.js';
 
 /** Where `record` sits in its lane, against the plan's `end`. */
 function placementOf(record: VoiceRecord, fade: number, end: number): Placement {
@@ -94,11 +100,12 @@ function startVoice(working: Working, event: StartedEvent): DomainResult<void> {
   const stages = voiceStages(found.toStereo, event.gainDecibels);
   const numerator = pitchNumerator(event.pitchCents);
   const natural = voiceFrames(member, event.offsetFrames, event.pitchCents, fixed.rate);
-  working.marks.push({ frame: event.frame, first: working.streams.length });
   const heard = Math.min(natural, working.end - event.frame);
   const voice = { offset: event.offsetFrames, numerator, heard };
-  const streams = appendVoiceStreams(working.streams, plan, member, voice, fixed.rate);
-  working.voices[event.voice] = {
+  const lane = working.lanes[emitter]?.[event.lane]?.[bus] ?? 0;
+  const at = takePlaces(working.streams, working.free, voicePlaces(plan, numerator), lane);
+  const streams = placeVoiceStreams(working.streams, at, plan, member, voice, fixed.rate);
+  working.voices.set({
     voice: event.voice,
     emitter,
     lane: event.lane,
@@ -111,7 +118,8 @@ function startVoice(working: Working, event: StartedEvent): DomainResult<void> {
     stages,
     streams,
     cut: undefined,
-  };
+    runForgotten: NOTHING_FORGOTTEN,
+  });
   noteAdded(working, working.lanes[emitter]?.[event.lane]?.[bus], event.voice);
   return succeed(undefined);
 }
@@ -133,8 +141,8 @@ export function applyEvents(
       event.kind === 'budget-stolen' ||
       event.kind === 'stopped'
     ) {
-      const record = working.voices[event.voice];
-      if (record !== undefined) working.voices[event.voice] = { ...record, cut: event.frame };
+      const record = working.voices.get(event.voice);
+      if (record !== undefined) working.voices.set({ ...record, cut: event.frame });
     }
   }
   return succeed(undefined);
@@ -151,9 +159,9 @@ export function uncutFrom(working: Working, frame: number): void {
   for (const lane of working.laneStates.values()) {
     const last = lastBefore(lane, frame);
     if (last === undefined) continue;
-    const record = working.voices[last.voice];
+    const record = working.voices.get(last.voice);
     if (record?.cut !== undefined && record.cut >= frame) {
-      working.voices[last.voice] = { ...record, cut: undefined };
+      working.voices.set({ ...record, cut: undefined });
     }
   }
 }
@@ -164,7 +172,7 @@ export function relayLanes(working: Working, frame: number, moved: boolean): voi
   const { fade } = working.fixed;
   for (const [stream, lane] of working.laneStates) {
     const before = lastBefore(lane, frame);
-    const record = before === undefined ? undefined : working.voices[before.voice];
+    const record = before === undefined ? undefined : working.voices.get(before.voice);
     const across =
       before !== undefined &&
       record !== undefined &&
@@ -177,7 +185,7 @@ export function relayLanes(working: Working, frame: number, moved: boolean): voi
     const placements: Placement[] = [];
     if (across !== undefined) placements.push(placementOf(across, fade, end));
     for (const voice of added) {
-      const one = working.voices[voice];
+      const one = working.voices.get(voice);
       if (one !== undefined) placements.push(placementOf(one, fade, end));
     }
     const relaid = relaidLane(lane, frame, placements, end);
@@ -188,7 +196,7 @@ export function relayLanes(working: Working, frame: number, moved: boolean): voi
 
 /** Every loop still sounding lengthened to the plan's end. */
 export function lengthenLoops(working: Working): void {
-  for (const record of working.voices) {
+  for (const record of working.voices.values()) {
     if (record.member.loop === undefined || record.cut !== undefined) continue;
     lengthenLoop(
       working.streams,

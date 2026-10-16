@@ -44,7 +44,7 @@ const PATH: Extract<Motion, { readonly kind: 'waypoints' }> = {
 
 describe("a moving emitter's lanes", () => {
   it('put each waypoint at its frame, each cycle after the first without the point the last ended on', () => {
-    const lanes = motionLanes(PATH, AT_ORIGIN, '3d', 1_000, 700);
+    const lanes = motionLanes(PATH, AT_ORIGIN, '3d', 1_000, { from: 0, through: 700 });
     expect(lanes.x).toEqual([
       { frame: 0, value: 0 },
       { frame: 100, value: 10 },
@@ -62,7 +62,7 @@ describe("a moving emitter's lanes", () => {
       AT_ORIGIN,
       '3d',
       1_000,
-      300,
+      { from: 0, through: 300 },
     );
     expect(lanes.x).toEqual([
       { frame: 0, value: 0 },
@@ -73,19 +73,37 @@ describe("a moving emitter's lanes", () => {
   });
 
   it('end at the last point of a path played once', () => {
-    const lanes = motionLanes({ ...PATH, repeat: 'once' }, AT_ORIGIN, '3d', 1_000, 10_000);
+    const lanes = motionLanes({ ...PATH, repeat: 'once' }, AT_ORIGIN, '3d', 1_000, {
+      from: 0,
+      through: 10_000,
+    });
     expect(lanes.x.map((point) => point.frame)).toEqual([0, 100, 300]);
   });
 
+  it('are the same from a later frame on, laid from it, on a path looped many times', () => {
+    // A plan that has forgotten its past lays an emitter's motion from there,
+    // which must give every value from there that the whole path gives.
+    const from = 4_000_123;
+    const whole = motionLanes(PATH, AT_ORIGIN, '3d', 1_000, { from: 0, through: 4_100_000 });
+    const later = motionLanes(PATH, AT_ORIGIN, '3d', 1_000, { from, through: 4_100_000 });
+    const firstKept = whole.x.findLastIndex((point) => point.frame <= from);
+    expect(later.x).toEqual(whole.x.slice(firstKept));
+    expect(later.x[0]?.frame).toBeLessThanOrEqual(from);
+    expect(later.x.length).toBeLessThan(whole.x.length / 10);
+  });
+
   it('only gain points when laid through a later frame', () => {
-    const shorter = motionLanes(PATH, AT_ORIGIN, '3d', 48_000, 48_000);
-    const longer = motionLanes(PATH, AT_ORIGIN, '3d', 48_000, 96_000);
+    const shorter = motionLanes(PATH, AT_ORIGIN, '3d', 48_000, { from: 0, through: 48_000 });
+    const longer = motionLanes(PATH, AT_ORIGIN, '3d', 48_000, { from: 0, through: 96_000 });
     expect(longer.x.slice(0, shorter.x.length)).toEqual(shorter.x);
     expect(longer.x.length).toBeGreaterThan(shorter.x.length);
   });
 
   it('are in the listener’s frame', () => {
-    const lanes = motionLanes(PATH, { at: { x: 5, y: 0, z: 0 }, facingTurns: 0 }, '3d', 1_000, 100);
+    const lanes = motionLanes(PATH, { at: { x: 5, y: 0, z: 0 }, facingTurns: 0 }, '3d', 1_000, {
+      from: 0,
+      through: 100,
+    });
     expect(lanes.x.map((point) => point.value)).toEqual([-5, 5]);
   });
 });

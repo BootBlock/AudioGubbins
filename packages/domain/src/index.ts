@@ -257,7 +257,6 @@ export {
   VARISPEED_DENOMINATOR,
   automationValueAt,
   convertedFrameCount,
-  forgottenWhole,
   gainAt,
   planIsSilence,
   planReadsAsset,

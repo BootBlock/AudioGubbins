@@ -4,7 +4,8 @@
  * horizon, folded to the project's layout; each bus the mix of its emitters'
  * streams through its gain; each emitter's stream of a bus the mix of its
  * lanes of the bus through its panner, one segment for each set of lanes it
- * had, its motion laid as automation through the end.
+ * had, its motion laid as automation through the end, from the last waypoint
+ * at or before the frame the plan has forgotten up to.
  */
 
 import {
@@ -103,9 +104,14 @@ export function writeEmitters(working: Working, lay: boolean): void {
             ? pannerAutomation(
                 panner.processor,
                 fixed.panner,
-                motionLanes(path, fixed.scenario.listener, fixed.scenario.space, fixed.rate, end),
+                motionLanes(path, fixed.scenario.listener, fixed.scenario.space, fixed.rate, {
+                  from: working.forgotten,
+                  through: end,
+                }),
               )
             : kept;
+      // Points before the one at or before the frame forgotten are dropped.
+      const remembered = automation?.[0]?.points[0]?.frame ?? 0;
       working.streams[stream] = {
         sampleRate: fixed.rate,
         layout: STEREO,
@@ -116,6 +122,7 @@ export function writeEmitters(working: Working, lay: boolean): void {
           input: STEREO,
           ...(automation === undefined ? {} : { automation }),
         },
+        ...(remembered === 0 ? {} : { forgottenBefore: derivedSampleCount(remembered) }),
       };
     }
   }

@@ -248,6 +248,25 @@ function outputDivergence(
 }
 
 /**
+ * The first frame of what the stream `now` continuing `was` is given that may
+ * differ, its segments and its chain's automation, from where `now` remembers.
+ */
+function inputDivergence(
+  was: PlanStream,
+  now: PlanStream,
+  reach: (source: PlanSource) => number,
+): number {
+  const from = now.forgottenBefore ?? 0;
+  const read = segmentsDivergence(was.segments, now.segments, reach, from);
+  return was.processing?.kind === 'chain' && now.processing?.kind === 'chain'
+    ? Math.min(
+        read,
+        automationDivergence(was.processing.automation, now.processing.automation, from),
+      )
+    : read;
+}
+
+/**
  * Where the old plan `before` and the new plan `after` may first differ, stream
  * by stream, as the readers of `before` report their state in `reading`.
  */
@@ -290,20 +309,7 @@ export function planDivergence(
     if (was === undefined || now === undefined) continue;
     same[place] = definitionText(was, reading.chain(place)) === definitionText(now, undefined);
     if (same[place] !== true) continue;
-    const from = now.forgottenBefore ?? 0;
-    const read = segmentsDivergence(
-      was.segments,
-      now.segments,
-      (source) => reach(source, now.sampleRate),
-      from,
-    );
-    const differs =
-      was.processing?.kind === 'chain' && now.processing?.kind === 'chain'
-        ? Math.min(
-            read,
-            automationDivergence(was.processing.automation, now.processing.automation, from),
-          )
-        : read;
+    const differs = inputDivergence(was, now, (source) => reach(source, now.sampleRate));
     inputs[place] = differs;
     outputs[place] = outputDivergence(now, differs, reading.run(place), reading.varispeed(place));
   }

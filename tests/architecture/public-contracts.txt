@@ -945,7 +945,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38315: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38353: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1240,7 +1240,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38315: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38353: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3268,6 +3268,7 @@ Published paths
   readonly PlanStream.layout: ChannelLayout
   readonly PlanStream.segments: readonly PlanSegment[]
   readonly PlanStream.processing?: StreamProcessing
+  readonly PlanStream.forgottenBefore?: SampleCount
   interface PlannedSpectralEdit
   readonly PlannedSpectralEdit.mask: SpectralMask
   readonly PlannedSpectralEdit.resolution: number
@@ -4118,6 +4119,7 @@ Published paths
   interface PreviewEventLog
   readonly PreviewEventLog.events: readonly PreviewEvent[]
   readonly PreviewEventLog.horizonFrame: number
+  readonly PreviewEventLog.forgotten: number
   interface PreviewInput
   readonly PreviewInput.scenario: GamePreviewScenario
   readonly PreviewInput.emitterRules: (subject: PreviewSubject) => EmitterRules
@@ -4160,6 +4162,7 @@ Published paths
   type SelectionRule = { readonly kind: "avoid-recent"; readonly depth: number; } | { readonly kind: "uniform"; }
   interface SimulationState
   readonly SimulationState.horizonFrame: number
+  readonly SimulationState.hand: readonly HandAction[]
   interface StartedEvent
   readonly StartedEvent.kind: "started"
   readonly StartedEvent.frame: number
@@ -4197,6 +4200,8 @@ Published paths
   function busName(text: string): DomainResult<BusName>
   function destinationPath(segments: readonly string[]): DomainResult<DestinationPath>
   function extendPreviewPlan(previous: PreviewPlan, simulation: PreviewSimulation, from: number): DomainResult<PreviewPlan>
+  function forgetPreviewBefore(simulation: PreviewSimulation, frame: number): DomainResult<PreviewSimulation>
+  function forgetPreviewPlanBefore(previous: PreviewPlan, frame: number): DomainResult<PreviewPlan>
   function groupPath(groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>, id: GameAssetGroupId): readonly string[]
   function holdsNoGameAudio(state: GameAudioState): boolean
   function inCase(text: string, modifier: "kebab" | "lower" | "pascal" | "snake" | "upper"): string
