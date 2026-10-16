@@ -544,6 +544,32 @@ describe('a refused member', () => {
       ['game.member-unknown'],
     ]);
   });
+
+  it('refuses a member asked for again where it is repeated, planning it once and the rest as asked', () => {
+    const world = footsteps();
+    const state = stateOf(
+      world.project,
+      [world.outer, world.grass],
+      world.members.map((member) => membership(member, world.grass)),
+    );
+    const [left, right] = world.members;
+    if (left === undefined || right === undefined) throw new Error('The fixture has steps.');
+    const plan = planGameExport(
+      world.project,
+      state,
+      { members: [left, right, left, left], clock: CLOCK },
+      contextsOf(world.project),
+    );
+    expect(stems(plan)).toEqual(['grass_1', 'grass_2', undefined, undefined]);
+    const [again] = refusals(plan.items[2]);
+    expect(again?.code).toBe('game.export-member-repeated');
+    expect(again?.details).toEqual({
+      member: `region:${String(world.steps[0]?.id)}`,
+      position: 2,
+      first: 0,
+    });
+    expect(refusals(plan.items[3]).map((one) => one.details?.['position'])).toEqual([3]);
+  });
 });
 
 describe('names that collide', () => {

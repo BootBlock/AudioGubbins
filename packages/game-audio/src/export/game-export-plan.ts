@@ -344,10 +344,31 @@ function settled(drafts: readonly (Drafted | RefusedItem)[]): readonly GameExpor
 }
 
 /**
+ * A member asked for again at `position`, first asked for at `first`: a
+ * malformed request, refused before it is planned, so it is never taken for a
+ * second file colliding with the first.
+ */
+function repeated(member: GroupMember, position: number, first: number): RefusedItem {
+  return {
+    kind: 'refused',
+    member,
+    failures: [
+      failure(
+        'game.export-member-repeated',
+        FailureKind.Rejected,
+        `The ${member.kind} ${memberKey(member)} is asked for at position ${String(position + 1)} of the export and already at position ${String(first + 1)}; it is exported once, as asked first.`,
+        { details: { member: memberKey(member), position, first } },
+      ),
+    ],
+  };
+}
+
+/**
  * The plan of exporting `request`'s members of `project` under its validated
  * game-audio `state`: one item for each, in the request's order. `contextOf`
  * describes each member's audio, the asset it is or the asset its region is
- * of, and its refusal refuses that member alone.
+ * of, and its refusal refuses that member alone. A member asked for more than
+ * once is planned where it is first asked for and refused everywhere after.
  */
 export function planGameExport(
   project: Project,
@@ -367,5 +388,13 @@ export function planGameExport(
     contextOf,
     clock: request.clock,
   };
-  return { items: settled(request.members.map((member) => planMember(member, planning))) };
+  const firstAsked = new Map<string, number>();
+  const drafts = request.members.map((member, position) => {
+    const key = memberKey(member);
+    const first = firstAsked.get(key);
+    if (first !== undefined) return repeated(member, position, first);
+    firstAsked.set(key, position);
+    return planMember(member, planning);
+  });
+  return { items: settled(drafts) };
 }
