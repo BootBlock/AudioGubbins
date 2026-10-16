@@ -32,7 +32,7 @@ import type { ProjectStores } from '../../state/project-stores.js';
 import type { PanelCommands } from '../command-button.js';
 import { RecordingConfiguration } from '../recording/recording-configuration.js';
 import { TakeInspector } from '../recording/take-inspector.js';
-import { GroupPolicySection } from '../game/policy-section.js';
+import { GroupPolicySection } from '../game/group-policy.js';
 import { usePolicyParts } from '../game/policy-parts.js';
 import { ExportDescription } from './export-description.js';
 

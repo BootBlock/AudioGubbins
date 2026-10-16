@@ -67,6 +67,199 @@ function RenameField({
   );
 }
 
+/** What a key on a tree item may do: move the focus, open or close a group, or run a command on it. */
+interface TreeMoves {
+  readonly focus: (group: GameAssetGroupId | undefined) => void;
+  readonly toggled: (group: GameAssetGroupId, open: boolean) => void;
+  readonly isOpen: (row: TreeRow) => boolean;
+  readonly rename: (group: GameAssetGroupId) => void;
+  readonly run: PanelCommands['run'];
+}
+
+/** What each key does on the item `row`, the `index`th of `rows` (see the module comment). */
+function keyActions(
+  rows: readonly TreeRow[],
+  row: TreeRow,
+  index: number,
+  moves: TreeMoves,
+): Readonly<Record<string, () => void>> {
+  const { focus, toggled } = moves;
+  const open = moves.isOpen(row);
+  const group = row.group.id;
+  return {
+    ArrowDown: () => {
+      focus(rows[index + 1]?.group.id);
+    },
+    ArrowUp: () => {
+      focus(rows[index - 1]?.group.id);
+    },
+    Home: () => {
+      focus(rows[0]?.group.id);
+    },
+    End: () => {
+      focus(rows.at(-1)?.group.id);
+    },
+    ArrowRight: () => {
+      if (!row.hasChildren) return;
+      if (open) focus(rows[index + 1]?.group.id);
+      else toggled(group, true);
+    },
+    ArrowLeft: () => {
+      if (open) toggled(group, false);
+      else focus(row.parent);
+    },
+    Enter: () => {
+      moves.run('game.choose-group', { group });
+    },
+    F2: () => {
+      moves.rename(group);
+    },
+    Delete: () => {
+      moves.run('game.delete-group', { group });
+    },
+  };
+}
+
+/** What a group's item says: that it is chosen, its name, and how many members it has. */
+function itemWords(view: GamePolicyView, group: GameAssetGroup, chosen: boolean): string {
+  const members = view.membersOf(group.id).length;
+  return `${chosen ? '▸ ' : ''}${group.name} (${String(members)} ${members === 1 ? 'member' : 'members'})`;
+}
+
+/** What every item of the tree reads: the tree's state, and how it moves and runs commands. */
+interface TreeParts {
+  readonly view: GamePolicyView;
+  readonly rows: readonly TreeRow[];
+  readonly chosen: GameAssetGroupId | undefined;
+  /** The item that takes the tab stop. */
+  readonly stop: GameAssetGroupId | undefined;
+  readonly closed: ReadonlySet<GameAssetGroupId>;
+  readonly renaming: GameAssetGroupId | undefined;
+  readonly moves: TreeMoves;
+  /** Each item shown, which the focus is moved to; read only in an event or a ref's callback. */
+  readonly items: { readonly current: Map<GameAssetGroupId, HTMLLIElement> };
+  readonly focused: (group: GameAssetGroupId) => void;
+  readonly renamed: (group: GameAssetGroupId) => void;
+  readonly commands: PanelCommands;
+}
+
+/** What a key does on the item `row`, the `index`th of the tree's rows. */
+function onItemKey(event: KeyboardEvent, row: TreeRow, index: number, tree: TreeParts): void {
+  if (event.target !== event.currentTarget) {
+    // Escape in the name field puts the name back as it was.
+    if (event.key === 'Escape' && tree.renaming === row.group.id) {
+      event.preventDefault();
+      tree.renamed(row.group.id);
+    }
+    return;
+  }
+  const act = keyActions(tree.rows, row, index, tree.moves)[event.key];
+  if (act === undefined) return;
+  event.preventDefault();
+  act();
+}
+
+/** One group's item of the tree, at its depth, and what its keys and a press do. */
+function TreeItem({
+  row,
+  index,
+  tree,
+}: {
+  readonly row: TreeRow;
+  readonly index: number;
+  readonly tree: TreeParts;
+}): ReactNode {
+  const { group } = row;
+  return (
+    <li
+      ref={(element) => {
+        if (element === null) tree.items.current.delete(group.id);
+        else tree.items.current.set(group.id, element);
+      }}
+      role="treeitem"
+      aria-level={row.level}
+      aria-selected={group.id === tree.chosen}
+      {...(row.hasChildren ? { 'aria-expanded': !tree.closed.has(group.id) } : {})}
+      tabIndex={tree.stop === group.id ? 0 : -1}
+      style={{ paddingInlineStart: `${String(row.level - 1)}rem` }}
+      onFocus={(event) => {
+        if (event.target === event.currentTarget) tree.focused(group.id);
+      }}
+      onKeyDown={(event) => {
+        onItemKey(event, row, index, tree);
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          tree.commands.run('game.choose-group', { group: group.id });
+        }
+      }}
+    >
+      {tree.renaming === group.id ? (
+        <RenameField
+          group={group}
+          commands={tree.commands}
+          onDone={() => {
+            tree.renamed(group.id);
+          }}
+        />
+      ) : (
+        itemWords(tree.view, group, group.id === tree.chosen)
+      )}
+    </li>
+  );
+}
+
+/** The tree's state, which groups are closed, focused and being renamed, and how it moves. */
+function useTree(
+  view: GamePolicyView,
+  chosen: GameAssetGroupId | undefined,
+  commands: PanelCommands,
+): TreeParts {
+  const [closed, setClosed] = useState<ReadonlySet<GameAssetGroupId>>(new Set());
+  const [focused, setFocused] = useState<GameAssetGroupId | undefined>(undefined);
+  const [renaming, setRenaming] = useState<GameAssetGroupId | undefined>(undefined);
+  const items = useRef(new Map<GameAssetGroupId, HTMLLIElement>());
+  const rows = rowsOf(view, closed);
+  // The item that takes the tab stop: the one last focused, else the one
+  // chosen, else the first, while it is shown.
+  const stop =
+    rows.find((row) => row.group.id === focused) ??
+    rows.find((row) => row.group.id === chosen) ??
+    rows[0];
+  const moves: TreeMoves = {
+    focus: (group) => {
+      if (group === undefined) return;
+      setFocused(group);
+      items.current.get(group)?.focus();
+    },
+    toggled: (group, open) => {
+      const next = new Set(closed);
+      if (open) next.delete(group);
+      else next.add(group);
+      setClosed(next);
+    },
+    isOpen: (row) => row.hasChildren && !closed.has(row.group.id),
+    rename: setRenaming,
+    run: commands.run,
+  };
+  return {
+    view,
+    rows,
+    chosen,
+    stop: stop?.group.id,
+    closed,
+    renaming,
+    moves,
+    items,
+    focused: setFocused,
+    renamed: (group) => {
+      setRenaming(undefined);
+      moves.focus(group);
+    },
+    commands,
+  };
+}
+
 /** The asset groups' tree (see the module comment). */
 export function GroupTree({
   view,
@@ -79,123 +272,15 @@ export function GroupTree({
   readonly commands: PanelCommands;
   readonly label: string;
 }): ReactNode {
-  const [closed, setClosed] = useState<ReadonlySet<GameAssetGroupId>>(new Set());
-  const [focused, setFocused] = useState<GameAssetGroupId | undefined>(undefined);
-  const [renaming, setRenaming] = useState<GameAssetGroupId | undefined>(undefined);
-  const items = useRef(new Map<GameAssetGroupId, HTMLLIElement>());
-  const rows = rowsOf(view, closed);
-  // The item that takes the tab stop: the one last focused, else the one
-  // chosen, else the first, while it is shown.
-  const stop =
-    rows.find((row) => row.group.id === focused) ??
-    rows.find((row) => row.group.id === chosen) ??
-    rows[0];
-
-  const focus = (group: GameAssetGroupId | undefined): void => {
-    if (group === undefined) return;
-    setFocused(group);
-    items.current.get(group)?.focus();
-  };
-  const toggled = (group: GameAssetGroupId, open: boolean): void => {
-    const next = new Set(closed);
-    if (open) next.delete(group);
-    else next.add(group);
-    setClosed(next);
-  };
-
-  const onKeyDown = (event: KeyboardEvent, row: TreeRow, index: number): void => {
-    const open = row.hasChildren && !closed.has(row.group.id);
-    const keys: Readonly<Record<string, () => void>> = {
-      ArrowDown: () => {
-        focus(rows[index + 1]?.group.id);
-      },
-      ArrowUp: () => {
-        focus(rows[index - 1]?.group.id);
-      },
-      Home: () => {
-        focus(rows[0]?.group.id);
-      },
-      End: () => {
-        focus(rows.at(-1)?.group.id);
-      },
-      ArrowRight: () => {
-        if (!row.hasChildren) return;
-        if (open) focus(rows[index + 1]?.group.id);
-        else toggled(row.group.id, true);
-      },
-      ArrowLeft: () => {
-        if (open) toggled(row.group.id, false);
-        else focus(row.parent);
-      },
-      Enter: () => {
-        commands.run('game.choose-group', { group: row.group.id });
-      },
-      F2: () => {
-        setRenaming(row.group.id);
-      },
-      Delete: () => {
-        commands.run('game.delete-group', { group: row.group.id });
-      },
-    };
-    const act = keys[event.key];
-    if (act === undefined) return;
-    event.preventDefault();
-    act();
-  };
-
-  if (rows.length === 0)
+  const tree = useTree(view, chosen, commands);
+  if (tree.rows.length === 0) {
     return <p>No asset groups yet. Make one to give sounds a shared policy.</p>;
+  }
   return (
     <ul role="tree" aria-label={label} className="ag-group-tree">
-      {rows.map((row, index) => {
-        const { group } = row;
-        const isChosen = group.id === chosen;
-        const members = view.membersOf(group.id).length;
-        return (
-          <li
-            key={group.id}
-            ref={(element) => {
-              if (element === null) items.current.delete(group.id);
-              else items.current.set(group.id, element);
-            }}
-            role="treeitem"
-            aria-level={row.level}
-            aria-selected={isChosen}
-            {...(row.hasChildren ? { 'aria-expanded': !closed.has(group.id) } : {})}
-            tabIndex={stop?.group.id === group.id ? 0 : -1}
-            style={{ paddingInlineStart: `${String(row.level - 1)}rem` }}
-            onFocus={(event) => {
-              if (event.target === event.currentTarget) setFocused(group.id);
-            }}
-            onKeyDown={(event) => {
-              if (event.target === event.currentTarget) onKeyDown(event, row, index);
-              else if (event.key === 'Escape' && renaming === group.id) {
-                // Escape in the name field puts the name back as it was.
-                event.preventDefault();
-                setRenaming(undefined);
-                focus(group.id);
-              }
-            }}
-            onClick={(event) => {
-              if (event.target !== event.currentTarget) return;
-              commands.run('game.choose-group', { group: group.id });
-            }}
-          >
-            {renaming === group.id ? (
-              <RenameField
-                group={group}
-                commands={commands}
-                onDone={() => {
-                  setRenaming(undefined);
-                  focus(group.id);
-                }}
-              />
-            ) : (
-              `${isChosen ? '▸ ' : ''}${group.name} (${String(members)} ${members === 1 ? 'member' : 'members'})`
-            )}
-          </li>
-        );
-      })}
+      {tree.rows.map((row, index) => (
+        <TreeItem key={row.group.id} row={row} index={index} tree={tree} />
+      ))}
     </ul>
   );
 }

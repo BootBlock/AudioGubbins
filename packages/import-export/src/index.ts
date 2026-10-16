@@ -72,7 +72,6 @@ export {
   type FolderSegmentProblem,
   folderSegmentProblem,
   safeFileName,
-  safeFolderName,
 } from './file-name-safety.js';
 export {
   type TemplatePart,

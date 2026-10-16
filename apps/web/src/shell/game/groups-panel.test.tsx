@@ -8,7 +8,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { namingTemplate } from '@audiogubbins/game-audio';
 import { sine } from '@audiogubbins/test-fixtures';
 
-import { policyValueArgument } from '../../commands/game-group-commands.js';
+import { policyValueArgument } from '../../commands/game-changes.js';
 import {
   holdPlatformFiles,
   windowWithAudio,

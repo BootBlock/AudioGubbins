@@ -58,7 +58,7 @@ function profileWords(profile: GameExportProfile): string {
 }
 
 /** A destination folder in words. */
-export function destinationWords(destination: DestinationPath): string {
+function destinationWords(destination: DestinationPath): string {
   return destination.segments.length === 0
     ? 'the folder exported to itself'
     : quoted(destination.segments.join('/'));
@@ -76,7 +76,7 @@ function attenuationWords(attenuation: Attenuation): string {
 }
 
 /** Emitter rules in words. */
-export function emitterWords(rules: EmitterRules): string {
+function emitterWords(rules: EmitterRules): string {
   const selection =
     rules.selection.kind === 'uniform'
       ? 'chooses at random'
@@ -93,7 +93,7 @@ export function emitterWords(rules: EmitterRules): string {
 }
 
 /** Voice variation in words. */
-export function variationWords(variation: VoiceVariation): string {
+function variationWords(variation: VoiceVariation): string {
   const { pitchCents, gainDecibels, startOffsetMilliseconds } = variation;
   return `Pitch ${signed(pitchCents.min, 0)} to ${signed(pitchCents.max, 0)} cents, gain ${signed(gainDecibels.min)} to ${signed(gainDecibels.max)} dB, start up to ${String(startOffsetMilliseconds.max)} ms in`;
 }

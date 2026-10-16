@@ -71,6 +71,8 @@ import { rackComparisonCommands } from './rack-comparison-commands.js';
 import { gameExportCommands } from './game-export-commands.js';
 import { gameGroupCommands } from './game-group-commands.js';
 import { gameMemberCommands } from './game-member-commands.js';
+import { gameNamingCommands } from './game-naming-commands.js';
+import { gamePolicyCommands } from './game-policy-commands.js';
 import { loudnessCommands } from './loudness-commands.js';
 import { rackParameterCommands } from './rack-parameter-commands.js';
 import { rackSlotCommands } from './rack-slot-commands.js';
@@ -906,7 +908,11 @@ describe('finding the shell commands in the palette', () => {
       // worker, or export, each settling after it returns; each is run twice,
       // its work awaited, in `game-commands.test.ts`.
       ...gameGroupCommands(),
+      ...gamePolicyCommands(),
+      ...gamePolicyCommands(),
       ...gameMemberCommands(),
+      ...gameNamingCommands(),
+      ...gameNamingCommands(),
       ...gameExportCommands(),
       ...loudnessCommands(),
     ]

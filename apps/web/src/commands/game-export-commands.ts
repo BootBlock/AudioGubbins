@@ -68,7 +68,7 @@ export interface GameExportSources {
 }
 
 /** The asset whose audio `member` is of in `state`, or `undefined` where it is not in the project. */
-export function memberAsset(state: ProjectState, member: GroupMember): AssetId | undefined {
+function memberAsset(state: ProjectState, member: GroupMember): AssetId | undefined {
   return member.kind === 'asset' ? member.asset : state.project.regions.get(member.region)?.assetId;
 }
 
@@ -121,7 +121,7 @@ function plannedFiles(state: ProjectState, plan: GameExportPlan): readonly Plann
 }
 
 /** Why each refused member of `plan` is refused, a sentence each, naming it. */
-export function refusedSentences(state: ProjectState, plan: GameExportPlan): readonly string[] {
+function refusedSentences(state: ProjectState, plan: GameExportPlan): readonly string[] {
   return plan.items.flatMap((item: GameExportItem) =>
     item.kind === 'refused'
       ? [

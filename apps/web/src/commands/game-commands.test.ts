@@ -15,7 +15,7 @@ import { sine } from '@audiogubbins/test-fixtures';
 
 import { gamePolicyView } from '../state/game-policy-view.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
-import { policyValueArgument } from './game-group-commands.js';
+import { policyValueArgument } from './game-changes.js';
 
 holdPlatformFiles();
 beforeEach(() => {

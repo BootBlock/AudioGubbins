@@ -7,10 +7,11 @@ import type { Region } from '@audiogubbins/domain';
 import type { GameAssetGroup } from '@audiogubbins/game-audio';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { namingTemplate } from '@audiogubbins/game-audio';
+import { BUILT_IN_LIBRARY } from '@audiogubbins/processors';
 import { sine } from '@audiogubbins/test-fixtures';
 import { PanelKinds } from '@audiogubbins/workspace';
 
-import { policyValueArgument } from '../../commands/game-group-commands.js';
+import { policyValueArgument } from '../../commands/game-changes.js';
 import {
   holdPlatformFiles,
   windowWithAudio,
@@ -193,5 +194,34 @@ describe("the Inspector's game policy (ADR-0101)", { timeout: 30_000 }, () => {
     );
 
     expect(ran).toEqual([]);
+  });
+
+  it('says of a member that owns its processing what a reset to inherited would give it', async () => {
+    const audio = await nested();
+    const region = onlyRegion(audio);
+    const [entry] = BUILT_IN_LIBRARY;
+    if (entry === undefined) throw new Error('The build comes with game chains.');
+    await audio.window.runAndHear('game.set-policy', {
+      group: groupNamed(audio, 'Footsteps').id,
+      field: 'processing',
+      entry: entry.id,
+    });
+    await audio.window.runAndHear('game.own-processing', { member: `region:${region.id}` });
+    await audio.window.runAndHear('rack.remove-rack', { target: `region:${region.id}` });
+    const { workspace } = audio.window.context;
+    expect(workspace.openPanel(PanelKinds.AssetBrowser)).toBeUndefined();
+    expect(workspace.openPanel(PanelKinds.Editor)).toBeUndefined();
+    audio.window.context.selections.change(audio.entry, () => ({
+      objects: { kind: 'regions', ids: [region.id] },
+      recency: ['objects'],
+    }));
+    inspectorOver(audio);
+
+    expect(field('Processing')).toHaveTextContent(
+      /It owns its processing\. It has no rack\. Inheriting, its rack would run .+\./u,
+    );
+    expect(
+      within(field('Processing')).getByRole('button', { name: 'Reset to inherited' }),
+    ).toBeInTheDocument();
   });
 });

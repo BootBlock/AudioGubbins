@@ -188,37 +188,9 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [],
   },
   '@audiogubbins/game-audio': {
-    "A preset's choices as a game export profile (ADR-0102), built ahead of the application's group policy editor, which applies a preset to a group as a profile.":
-      ['profileFromPreset'],
-    "The game export plan and region naming (ADR-0102), built ahead of the guided workflows that export and name a group's members, and of the application's group export, which runs the planned items as one export batch after showing the refused ones, and its naming command, which writes each region's new name in one step: each member planned or refused with its owner named, and each region's name from a template.":
-      [
-        'GameExportItem',
-        'GameExportPlan',
-        'GameExportProvenance',
-        'GameExportRequest',
-        'RegionMember',
-        'RegionName',
-        'memberNames',
-        'planGameExport',
-      ],
-    "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
-      [
-        'EffectivePolicy',
-        'GroupEffectivePolicy',
-        'PolicySource',
-        'Resolved',
-        'ResolvedTag',
-        'resolveAll',
-        'resolveGroupPolicy',
-        'resolvePolicy',
-      ],
-    "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
-      ['inheritedProcessing'],
     "The game preview (ADR-0104), built ahead of the project format and the game commands that keep and change its scenarios, and of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario and its validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
       [
         'BusLevel',
-        'DEFAULT_EMITTER_RULES',
-        'DEFAULT_VOICE_VARIATION',
         'GamePreviewScenario',
         'GamePreviewScenarioId',
         'HandAction',
@@ -380,21 +352,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readEditPlan'],
   },
   '@audiogubbins/project-commands': {
-    "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) and of the guided workflows, whose plans are these invocations: adding, removing, renaming and moving a group, setting or resetting a field of its policy, putting a member in a group or taking it out, setting or resetting an override, and choosing whether a member inherits its group's processing.":
-      [
-        'GivenRack',
-        'Joined',
-        'addGroupInvocation',
-        'assignMemberInvocation',
-        'moveGroupInvocation',
-        'removeGroupInvocation',
-        'renameGroupInvocation',
-        'resetMemberOverrideInvocation',
-        'setGroupPolicyInvocation',
-        'setMemberOverrideInvocation',
-        'setMemberProcessingInvocation',
-        'unassignMemberInvocation',
-      ],
+    "The invocation that sets a member's override from a typed value (ADR-0101), built ahead of the guided workflows, whose plans are invocations; the application's override command is given its value as the document's canonical JSON, which the project command reads, so it builds the invocation of that text.":
+      ['setMemberOverrideInvocation'],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':

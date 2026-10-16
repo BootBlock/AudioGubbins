@@ -27,7 +27,7 @@ import {
 } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
-import { quoted } from '@audiogubbins/text';
+import { counted, quoted } from '@audiogubbins/text';
 
 import { gamePolicyView, type GamePolicyView } from '../state/game-policy-view.js';
 import { focusedEditor } from './editor-target.js';
@@ -57,10 +57,7 @@ export function groupName(view: GamePolicyView, group: GameAssetGroupId): string
 }
 
 /** The group chosen in the Asset groups panel, where it is still in the project. */
-export function chosenGroup(
-  context: ShellContext,
-  view: GamePolicyView,
-): GameAssetGroup | undefined {
+function chosenGroup(context: ShellContext, view: GamePolicyView): GameAssetGroup | undefined {
   const chosen = context.groups.chosen.get();
   return chosen === undefined ? undefined : view.game.groups.get(chosen.group);
 }
@@ -119,6 +116,13 @@ export function memberName(project: Project, member: GroupMember): string {
       ? project.regions.get(member.region)?.displayName
       : project.assets.get(member.asset)?.displayName;
   return name === undefined ? `a ${member.kind} no longer in the project` : quoted(name);
+}
+
+/** The names of `members`, as a list a sentence reads. */
+export function namesOf(project: Project, members: readonly GroupMember[]): string {
+  const [only, ...rest] = members;
+  if (only !== undefined && rest.length === 0) return memberName(project, only);
+  return counted(members.length, 'member', 'members');
 }
 
 /** The region or asset the editor in use shows, or the regions selected there; or why none. */

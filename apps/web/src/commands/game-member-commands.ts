@@ -1,14 +1,14 @@
 /**
  * The commands of an asset group's members (ADR-0101, ADR-0013): putting the
  * regions or assets of the editor in use in a group and taking them out,
- * setting and resetting what a member sets over its group, choosing whether it
- * inherits its group's processing, and naming the regions of a group by the
- * naming template each resolves to.
+ * setting and resetting what a member sets over its group, and choosing
+ * whether it inherits its group's processing.
  *
  * A member joins inheriting its group's processing where it has no rack of
  * its own, and owning its processing where it has one, so joining never takes
  * away processing the person made; either is changed after by the command of
- * its name. Each change is the project's own game commands as one step.
+ * its name. Each change is the project's own game commands as one step. Naming
+ * a group's regions by its template is `game-naming-commands.ts`.
  */
 
 import {
@@ -18,33 +18,25 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import type { Project } from '@audiogubbins/domain';
-import {
-  memberNames,
-  type GroupMember,
-  type MemberProcessing,
-  type NamingTemplate,
-  type OverridableField,
-  type RegionMember,
-} from '@audiogubbins/game-audio';
+import type { GroupMember, MemberProcessing, OverridableField } from '@audiogubbins/game-audio';
 import {
   ProjectCommandId,
   assignMemberInvocation,
   resetMemberOverrideInvocation,
   setMemberProcessingInvocation,
-  setRegionInvocation,
   unassignMemberInvocation,
 } from '@audiogubbins/project-commands';
 import { canonicalJson, writeGroupMember } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
-import { exportClockAt } from '../export/page-export.js';
 import { OVERRIDABLE_FIELDS, POLICY_FIELD_WORDS } from './game-field-words.js';
-import { changeGame } from './game-group-commands.js';
+import { changeGame } from './game-changes.js';
 import {
   gameScope,
   groupAvailability,
   groupName,
   memberName,
+  namesOf,
   targetGroup,
   targetMember,
   targetMembers,
@@ -70,13 +62,6 @@ function processingArgument(
   return named === 'inherit' || named === 'own'
     ? { processing: named }
     : 'A member inherits its group’s processing, or owns its own.';
-}
-
-/** The names of `members`, as a list a sentence reads. */
-function namesOf(project: Project, members: readonly GroupMember[]): string {
-  const [only, ...rest] = members;
-  if (only !== undefined && rest.length === 0) return memberName(project, only);
-  return counted(members.length, 'member', 'members');
 }
 
 function assignCommand(): Command<ShellContext> {
@@ -314,78 +299,6 @@ function processingCommand(processing: MemberProcessing): Command<ShellContext> 
   );
 }
 
-/** The template each region of `members` is named by, and the regions it names. */
-function byTemplate(
-  scope: GameScope,
-  members: readonly GroupMember[],
-): {
-  readonly named: ReadonlyMap<NamingTemplate, readonly RegionMember[]>;
-  readonly unnamed: readonly GroupMember[];
-} {
-  const named = new Map<NamingTemplate, RegionMember[]>();
-  const unnamed: GroupMember[] = [];
-  for (const member of members) {
-    if (member.kind !== 'region') continue;
-    const template = scope.view.member(member).naming.value;
-    if (template === undefined) {
-      unnamed.push(member);
-      continue;
-    }
-    named.set(template, [...(named.get(template) ?? []), member]);
-  }
-  return { named, unnamed };
-}
-
-function nameMembersCommand(): Command<ShellContext> {
-  return shellCommand(
-    'game.name-members',
-    'Name the group’s regions by its naming template',
-    CommandCategory.Edit,
-    (context, invocation) => {
-      const scope = gameScope(context);
-      if (typeof scope === 'string') return scope;
-      const group = targetGroup(context, invocation, scope.view);
-      if (typeof group === 'string') return group;
-      const { project } = scope.state;
-      const members = scope.view.membersOf(group.id).map((one) => one.member);
-      const { named, unnamed } = byTemplate(scope, members);
-      if (unnamed.length > 0) {
-        return `${namesOf(project, unnamed)} resolves no naming template; set one on the group or the member.`;
-      }
-      const clock = exportClockAt(context.clock.now());
-      const names = [...named].flatMap(([template, regions]) =>
-        memberNames(project, scope.view.game, regions, template, clock),
-      );
-      const refused = names.flatMap((one) =>
-        one.kind === 'refused' ? one.failures.map((failure) => failure.summary) : [],
-      );
-      const [problem, ...problems] = refused;
-      if (problem !== undefined) return [problem, ...problems];
-      const [first, ...rest] = names.flatMap((one) => {
-        const region = one.kind === 'named' ? project.regions.get(one.member.region) : undefined;
-        return region === undefined || one.kind !== 'named' || region.displayName === one.name
-          ? []
-          : [setRegionInvocation({ ...region, displayName: one.name })];
-      });
-      if (first === undefined) {
-        return unchanged('game.named-already', 'Every region of the group has its name already.');
-      }
-      changeGame(context, scope, {
-        description: `Name the regions of ${quoted(group.name)}`,
-        invocations: [first, ...rest],
-        said: `Named ${counted(rest.length + 1, 'region', 'regions')} of the group ${groupName(scope.view, group.id)} by its naming template.`,
-      });
-      return undefined;
-    },
-    {
-      availability: groupAvailability,
-      keywords: ['name', 'rename', 'template', 'regions', 'group', 'batch'],
-      description:
-        "Names each region of the asset group chosen by the naming template it resolves to, as one step; an asset's name is left as it is.",
-    },
-  );
-}
-
 /** The commands of an asset group's members. */
 export function gameMemberCommands(): readonly Command<ShellContext>[] {
   return [
@@ -396,6 +309,5 @@ export function gameMemberCommands(): readonly Command<ShellContext>[] {
     resetAllOverridesCommand(),
     processingCommand('inherit'),
     processingCommand('own'),
-    nameMembersCommand(),
   ];
 }

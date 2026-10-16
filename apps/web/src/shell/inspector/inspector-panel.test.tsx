@@ -48,8 +48,8 @@ function inspectorOver(
         audioSettings: context.audioSettings,
         exports: context.exports,
         exportSubject: context.exportFocus.subject,
-groups: context.groups.chosen,
-preferences: context.preferences,
+        groups: context.groups.chosen,
+        preferences: context.preferences,
         modelGate: context.modelGate,
       }}
       commands={{

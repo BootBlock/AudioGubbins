@@ -182,6 +182,8 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "A folder's safe name, which the tests hold to a file stem's rules segment by segment; the package's own `folderSegmentProblem` reads it, which is what a destination and a delivery hold a folder path to.":
+    ['packages/import-export/src/file-name-safety.ts: safeFolderName'],
   "The game preview's bound on a varispeed's taps, which its test holds to the canonical resampler's own filter at each grade, and the most voices any preview sounds, which a preview that varies no pitch is budgeted; the budget reads both through `previewVoiceBudget`.":
     [
       'packages/game-audio/src/preview/voice-budget.ts: MOST_PREVIEW_VOICES',

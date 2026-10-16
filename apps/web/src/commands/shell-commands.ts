@@ -26,6 +26,8 @@ import { comparisonCommands } from './comparison-commands.js';
 import { gameExportCommands } from './game-export-commands.js';
 import { gameGroupCommands } from './game-group-commands.js';
 import { gameMemberCommands } from './game-member-commands.js';
+import { gameNamingCommands } from './game-naming-commands.js';
+import { gamePolicyCommands } from './game-policy-commands.js';
 import { historyCommands } from './history-commands.js';
 import { loudnessCommands } from './loudness-commands.js';
 import { libraryApplyCommands } from './library-apply-commands.js';
@@ -247,7 +249,9 @@ export function shellCommands(
     ...playheadCommands(),
     ...pictureCommands(),
     ...gameGroupCommands(),
+    ...gamePolicyCommands(),
     ...gameMemberCommands(),
+    ...gameNamingCommands(),
     ...gameExportCommands(),
     ...loudnessCommands(),
   ];

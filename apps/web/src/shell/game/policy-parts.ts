@@ -16,7 +16,7 @@ import type { UserPreferences } from '../../state/preferences-store.js';
 import type { ProjectStores } from '../../state/project-stores.js';
 import type { SavedProcessingState } from '../../state/saved-processing-store.js';
 import type { PanelCommands } from '../command-button.js';
-import type { PolicyParts } from './policy-section.js';
+import type { PolicyParts } from './policy-facts.js';
 
 /** The stores the section's parts are read from. */
 export interface PolicySources {
