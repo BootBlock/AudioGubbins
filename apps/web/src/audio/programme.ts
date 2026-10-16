@@ -13,8 +13,8 @@
  * and works out from its plan whether a change can be heard running instead.
  *
  * A programme may continue another (ADR-0104), as a game preview's next stretch
- * continues the one playing: it says which, and the first frame at which it
- * may sound different, and the transport goes on into it without stopping.
+ * continues the one playing: it says which, and the first frame at which it may
+ * sound different, and the transport goes on into it without stopping.
  */
 
 import type { DomainResult, EditPlan, QualityMode, SampleCount } from '@audiogubbins/domain';

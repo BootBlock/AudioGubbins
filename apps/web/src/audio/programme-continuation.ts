@@ -3,15 +3,15 @@
  * as the playback control asks the session to: a game preview's next stretch
  * going on from the one playing, without pausing or starting again.
  *
- * The request is made at the preview quality what plays was loaded at, which
- * a continuation keeps. The feeder takes it at the first frame it has not
- * read; where it had already read past the frame the programme may first
- * differ at, the programme is made again from a later frame, the one the
- * feeder had reached or the one it may have reached by now, and tried once
- * more. Each try after the first starts from a fresh bound on where the feeder
- * can have read, so one more is enough unless the page was held up between
- * the answer and the try; past a few, the page cannot keep ahead of the
- * feeder, which is said rather than tried for ever. A refusal is said once.
+ * The request is made at the preview quality what plays was loaded at, which a
+ * continuation keeps. The feeder takes it at the first frame it has not read;
+ * where it had already read past the frame the programme may first differ at,
+ * the programme is made again from a later frame, the one the feeder had
+ * reached or the one it may have reached by now, and tried once more. Each try
+ * after the first starts from a fresh bound on where the feeder can have read,
+ * so one more is enough unless the page was held up between the answer and the
+ * try; past a few, the page cannot keep ahead of the feeder, which is said
+ * rather than tried for ever. A refusal is said once.
  */
 
 import { flatMapResult, type QualityMode, type SampleCount } from '@audiogubbins/domain';

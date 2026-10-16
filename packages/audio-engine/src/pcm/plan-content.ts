@@ -98,7 +98,8 @@ export function framesOf(frames: number): SampleCount {
 
 /**
  * What `stream` makes, `output`, as a source at its rate and in its layout,
- * found at each read, so the output a continued plan has for it is the one read.
+ * found at each read, so the output a continued plan has for it is the one
+ * read.
  */
 export function streamAsSource(output: () => StreamOutput, stream: PlanStream): PcmSource {
   return {
@@ -212,10 +213,10 @@ export class SilentContent implements ReadableContent {
 }
 
 /**
- * One stream of a plan, read segment by segment. It keeps nothing between
- * reads but scratch, so a plan continued with new segments for the stream
- * (`reader-continuation.ts`) gives them to it in place, and whatever reads it reads
- * them from then on.
+ * One stream of a plan, read segment by segment. It keeps nothing between reads
+ * but scratch, so a plan continued with new segments for the stream
+ * (`reader-continuation.ts`) gives them to it in place, and whatever reads it
+ * reads them from then on.
  */
 export class StreamContent {
   readonly channels: number;

@@ -319,13 +319,13 @@ export class PlaybackControl {
   }
 
   /**
-   * Follows the sound of the programme the transport holds, which the
-   * project changed: `programme` is the same programme as it now stands.
-   * Numeric parameters changed while it plays reach its running chains; any
-   * other change, or one a chain cannot take running, loads it again, going
-   * on from where it plays if it is playing and otherwise at the next Play.
-   * A programme that continues the one held is gone on into, once, from where
-   * it says it may first differ.
+   * Follows the sound of the programme the transport holds, which the project
+   * changed: `programme` is the same programme as it now stands. Numeric
+   * parameters changed while it plays reach its running chains; any other
+   * change, or one a chain cannot take running, loads it again, going on from
+   * where it plays if it is playing and otherwise at the next Play. A programme
+   * that continues the one held is gone on into, once, from where it says it
+   * may first differ.
    */
   follow(programme: Programme): void {
     const current = this.#opened;

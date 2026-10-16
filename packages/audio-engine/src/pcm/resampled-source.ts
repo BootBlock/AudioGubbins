@@ -18,8 +18,8 @@
  * the position unknown, so the read after it seeks.
  *
  * The source's length is read at each read, not once: a stream of a plan
- * continued with a longer one (`reader-continuation.ts`) is still converted by the
- * resampler that was running, which is why the conversion says how far into
+ * continued with a longer one (`reader-continuation.ts`) is still converted by
+ * the resampler that was running, which is why the conversion says how far into
  * its source the state it holds reaches.
  */
 

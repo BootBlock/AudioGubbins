@@ -25,8 +25,8 @@
  *
  * An edited sound playing goes on into a plan that continues its own without
  * stopping (ADR-0104): the new plan is taken between two reads, at the first
- * frame the source has not yet read, and from there each reader whose state
- * the new plan leaves as it was goes on with it (`reader-continuation.ts`). The
+ * frame the source has not yet read, and from there each reader whose state the
+ * new plan leaves as it was goes on with it (`reader-continuation.ts`). The
  * continuation is held at that frame before it is taken, so whoever asked for
  * it can see where it would be heard, and drop it, before any read goes on.
  */

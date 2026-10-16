@@ -85,7 +85,8 @@ function segment(source: PlanSource, start: number, length: number): PlanSegment
 
 /**
  * The output reading a bus, a filter over a lane: silence, the member from
- * frame 1,000 to 5,000, and a voice of it at each frame of `voices`, to `horizon`.
+ * frame 1,000 to 5,000, and a voice of it at each frame of `voices`, to
+ * `horizon`.
  */
 function programme(horizon: number, voices: readonly number[] = []): EditPlan {
   const lane: PlanSegment[] = [];

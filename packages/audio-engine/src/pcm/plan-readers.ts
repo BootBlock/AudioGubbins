@@ -14,12 +14,12 @@
  * it names, and every run made after it (`running-parameters.ts`).
  *
  * A reading goes on with a plan that continues its own (ADR-0104): each reader
- * whose state was made from nothing the new plan reads differently keeps it,
- * a chain's run and a conversion's resampler among them, and reads the new
- * segments from then on; every other reader is let go, to be made afresh by
- * the next read that needs it (`reader-continuation.ts` says which). So a
- * stream that sounds as it did until a change goes on through the change
- * without a seam, its filters, delays and resamplers carried over.
+ * whose state was made from nothing the new plan reads differently keeps it, a
+ * chain's run and a conversion's resampler among them, and reads the new
+ * segments from then on; every other reader is let go, to be made afresh by the
+ * next read that needs it (`reader-continuation.ts` says which). So a stream
+ * that sounds as it did until a change goes on through the change without a
+ * seam, its filters, delays and resamplers carried over.
  */
 
 import {
@@ -111,8 +111,8 @@ export class PlanReaders implements ParameterTarget {
   /**
    * The readers made, by what they read: each stream's content and output, the
    * runs of the chains this reading runs itself, each conversion by place and
-   * rate, each file, and each distinct mix by the places it sums in their order,
-   * which holds only the streams' outputs, so nothing releases it.
+   * rate, each file, and each distinct mix by the places it sums in their
+   * order, which holds only the streams' outputs, so nothing releases it.
    */
   readonly #readers: MadeReaders = {
     streams: new Map(),

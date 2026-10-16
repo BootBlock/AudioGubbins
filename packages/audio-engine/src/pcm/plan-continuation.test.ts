@@ -3,9 +3,9 @@
  * phase 10 plan's section 6 gate), read by the reference renderer: the source
  * read in order, as the feeder reads it, through the reference DSP.
  *
- * The plan has the shape a game preview's has: an output reading a bus, the
- * bus a chain over an emitter, the emitter a chain over a mix of two lanes,
- * each lane silence around its voices, one voice a member heard through its own
+ * The plan has the shape a game preview's has: an output reading a bus, the bus
+ * a chain over an emitter, the emitter a chain over a mix of two lanes, each
+ * lane silence around its voices, one voice a member heard through its own
  * chain and the other a member at 44.1 kHz heard converted. Every chain is a
  * one-pole smoother, whose every output frame carries its whole history, so a
  * run made again anywhere is heard; a test sees each run prepared, and each
@@ -219,11 +219,11 @@ const CHAINS: Chains = {
 };
 
 /**
- * The preview-shaped plan to `horizon`: 0 the output, 1 the bus, 2 the
- * emitter, 3 and 4 its lanes, 5 member A through its rack, 6 member B at
- * 44.1 kHz, which lane 4 hears converted. Lane 3 sounds member A from frame
- * 512 to 4,512, lane 4 member B from 1,024 to 4,024, and each lane sounds the
- * extra voices given it too.
+ * The preview-shaped plan to `horizon`: 0 the output, 1 the bus, 2 the emitter,
+ * 3 and 4 its lanes, 5 member A through its rack, 6 member B at 44.1 kHz, which
+ * lane 4 hears converted. Lane 3 sounds member A from frame 512 to 4,512, lane
+ * 4 member B from 1,024 to 4,024, and each lane sounds the extra voices given
+ * it too.
  */
 function programme(
   horizon: number,
@@ -384,8 +384,8 @@ describe('an edited source continued with a plan that changes what it has read',
 
     const run = await continued(OLD, louder, HORIZON);
 
-    // The bus over it has played what the old value made, so its run is made again too;
-    // the voices under it keep theirs.
+    // The bus over it has played what the old value made, so its run is made
+    // again too; the voices under it keep theirs.
     expect(run.preparedAfter).toEqual([
       ...run.preparedBefore,
       `${CHAINS.bus.id}@${String(AT)}`,

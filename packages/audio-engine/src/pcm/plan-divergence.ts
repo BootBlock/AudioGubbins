@@ -5,27 +5,27 @@
  * A reading of a plan keeps state between reads: a chain's run, a resampler's
  * filter. When playback goes on with a new plan, a reader may keep its state
  * only where everything that state was made from reads the same in the new
- * plan, and is made afresh otherwise (`reader-continuation.ts`). This module works out
- * the part that depends on the two plans: for each stream, the first frame of
- * its segments, and the first frame of what it makes, that the new plan may
- * give differently; infinite where it gives the same throughout, its end
- * included.
+ * plan, and is made afresh otherwise (`reader-continuation.ts`). This module
+ * works out the part that depends on the two plans: for each stream, the first
+ * frame of its segments, and the first frame of what it makes, that the new
+ * plan may give differently; infinite where it gives the same throughout, its
+ * end included.
  *
  * Streams are matched by place, as a plan that continues another keeps its
  * streams at their places. A stream whose rate, layout or processing changed,
  * every processor's identifier and value among it, differs from its first
  * frame. Otherwise its segments are walked from the start, in step: the first
- * pair that reads another source, from another frame, the other way or
- * through other stages differs where it begins; a pair that differs only in
- * length differs where the shorter ends, unless it is reversed, which moves
- * every frame it reads; and a pair that is the same differs where what it
- * reads differs, which, since a segment reads only later streams, is known
- * from the streams after it. What a stream makes differs where its segments
- * do, less its chain's latency, since a chain's output runs ahead of its input
- * by it; from the start where a pass over the input made something every
- * frame carries, and where a stretch or a spectral edit, which read around
- * every frame, is given anything different. A stream read converted differs
- * from the first output frame whose filter reaches a frame that differs.
+ * pair that reads another source, from another frame, the other way or through
+ * other stages differs where it begins; a pair that differs only in length
+ * differs where the shorter ends, unless it is reversed, which moves every
+ * frame it reads; and a pair that is the same differs where what it reads
+ * differs, which, since a segment reads only later streams, is known from the
+ * streams after it. What a stream makes differs where its segments do, less its
+ * chain's latency, since a chain's output runs ahead of its input by it; from
+ * the start where a pass over the input made something every frame carries, and
+ * where a stretch or a spectral edit, which read around every frame, is given
+ * anything different. A stream read converted differs from the first output
+ * frame whose filter reaches a frame that differs.
  *
  * Every answer errs early, never late: a frame answered too early only makes
  * a reader afresh that could have been kept.

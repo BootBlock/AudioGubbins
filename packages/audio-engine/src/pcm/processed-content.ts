@@ -25,10 +25,10 @@
  * smooths it in, and the chain it keeps, so a run made again after a seek
  * starts with the new value (`running-parameters.ts`).
  *
- * The stream's length is read as the run goes, not once: a plan continued
- * with a longer stream keeps a run whose input before the change is the same
- * (`reader-continuation.ts`), and the run says how far its state reaches so that
- * can be judged.
+ * The stream's length is read as the run goes, not once: a plan continued with
+ * a longer stream keeps a run whose input before the change is the same
+ * (`reader-continuation.ts`), and the run says how far its state reaches so
+ * that can be judged.
  */
 
 import {

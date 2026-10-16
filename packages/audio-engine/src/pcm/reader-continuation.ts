@@ -3,16 +3,16 @@
  * continues it (ADR-0104), and letting go of the rest.
  *
  * A reader may go on only where nothing its state was made from reads
- * differently in the new plan (`plan-divergence.ts` says where each stream
- * may first differ): a stream's segments hold no state, so their reader takes
- * the new segments and goes on; a chain's run goes on where its input is the
- * same as far as the run has read it or measured it; a conversion goes on
- * where its stream's output is the same as far as its resampler has read; a
- * render, a stretch and a spectral edit read around every frame they give, so
- * they go on only where nothing they read changes at all; and a file goes on
- * where the new plan's record of it names the same audio. A mix holds only the
- * outputs it sums, so every mix is made again. Whatever is let go is made
- * again, from the new plan, by the next read that needs it.
+ * differently in the new plan (`plan-divergence.ts` says where each stream may
+ * first differ): a stream's segments hold no state, so their reader takes the
+ * new segments and goes on; a chain's run goes on where its input is the same
+ * as far as the run has read it or measured it; a conversion goes on where its
+ * stream's output is the same as far as its resampler has read; a render, a
+ * stretch and a spectral edit read around every frame they give, so they go on
+ * only where nothing they read changes at all; and a file goes on where the new
+ * plan's record of it names the same audio. A mix holds only the outputs it
+ * sums, so every mix is made again. Whatever is let go is made again, from the
+ * new plan, by the next read that needs it.
  */
 
 import type { AssetId, EditPlan, EffectChain, SampleRate } from '@audiogubbins/domain';
