@@ -3180,6 +3180,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       300,
       "The fold of an asset's chain into a plan, operation by operation: a cut, a reversal, a level or channel stage, a conversion, an insertion, and the processing of a range by a rack, a punch or a spectral edit. Where a kind's work is more than a few lines it is a module of its own (`processed-streams.ts`, `punch-fold.ts`, `operation-validation.ts`), so what is left is the one switch that applies each operation to the folding and the reading of the chain a range is processed through; split, each half would need the folding the other leaves.",
     ],
+    'packages/game-audio/src/export/game-export-plan.ts': [
+      300,
+      "The game export plan: each member planned alone from its effective profile, naming and destination, each refusal re-stated with the owner of the value refused, and the planned items whose files would land on one another refused together. A member's policy, naming and export settings are modules of their own (`policy-resolution.ts`, `member-names.ts`, `member-export-settings.ts`); what is left is planning one member and settling the drafts against each other. The collision check is the one seam, and split out it would need this module's item and draft types and the words a refusal names a member by, which a collision and an unset value share. It entered the band when its refusals took the text package's quoting.",
+    ],
   };
 
   /**
