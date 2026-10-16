@@ -530,6 +530,8 @@ describe('a region’s loop and the frames its crossfade reads (ADR-0103)', () =
       short,
       setRegionInvocation({ ...crossfading(3_000), displayName: 'Run loop' }),
     );
+    // Its start moved, it is still without them, and no worse off for the change than before.
+    appliedAndUndone(short, setRegionInvocation({ ...crossfading(3_000), start: at(100) }));
     const { entry } = appliedAndUndone(short, setRegionInvocation(crossfading(480)));
     expect(entry.inverse).toEqual([
       { ...setRegionInvocation(crossfading(3_000)), commandId: ProjectCommandId.RestoreRegion },
