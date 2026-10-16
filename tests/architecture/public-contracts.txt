@@ -3958,7 +3958,17 @@ Published paths
   interface GameAudioState
   readonly GameAudioState.groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>
   readonly GameAudioState.memberships: readonly GroupMembership[]
+  type GameExportItem = { readonly kind: "planned"; readonly member: GroupMember; readonly settings: ExportSettings; readonly file: PlannedFile; readonly destination: DestinationPath; readonly provenance: GameExportProvenance; } | { readonly kind: "refused"; readonly member: GroupMember; readonly failures: readonly [DomainFailure, ...DomainFailure[]]; }
+  interface GameExportPlan
+  readonly GameExportPlan.items: readonly GameExportItem[]
   type GameExportProfile = { readonly format: "aac"; readonly choices: ProfileChoices<"aac">; } | { readonly format: "aifc"; readonly choices: ProfileChoices<"aifc">; } | { readonly format: "aiff"; readonly choices: ProfileChoices<"aiff">; } | { readonly format: "flac"; readonly choices: ProfileChoices<"flac">; } | { readonly format: "mp3"; readonly choices: ProfileChoices<"mp3">; } | { readonly format: "ogg-vorbis"; readonly choices: ProfileChoices<"ogg-vorbis">; } | { readonly format: "opus"; readonly choices: ProfileChoices<"opus">; } | { readonly format: "wav"; readonly choices: ProfileChoices<"wav">; }
+  interface GameExportProvenance
+  readonly GameExportProvenance.exportProfile: PolicySource
+  readonly GameExportProvenance.naming: PolicySource
+  readonly GameExportProvenance.destination: PolicySource
+  interface GameExportRequest
+  readonly GameExportRequest.members: readonly GroupMember[]
+  readonly GameExportRequest.clock: ExportClock
   interface GroupEffectivePolicy
   readonly GroupEffectivePolicy.group: GameAssetGroupId
   readonly GroupEffectivePolicy.fields: ResolvedFields
@@ -3993,6 +4003,10 @@ Published paths
   readonly PolicyValues.variation: VoiceVariation
   readonly PolicyValues.bus: BusName
   readonly PolicyValues.tags: readonly string[]
+  interface RegionMember
+  readonly RegionMember.kind: "region"
+  readonly RegionMember.region: RegionId
+  type RegionName = { readonly kind: "named"; readonly member: RegionMember; readonly name: string; } | { readonly kind: "refused"; readonly member: RegionMember; readonly failures: readonly [DomainFailure, ...DomainFailure[]]; }
   interface Resolved<T>
   readonly Resolved.value: T | undefined
   readonly Resolved.source: PolicySource
@@ -4019,7 +4033,9 @@ Published paths
   function inheritedProcessing(state: GameAudioState, member: GroupMember): EffectChainId | undefined
   function inheritingRacks(state: GameAudioState): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined; }[]
   function memberKey(member: GroupMember): string
+  function memberNames(project: Project, state: GameAudioState, members: readonly RegionMember[], template: NamingTemplate, clock: ExportClock): readonly RegionName[]
   function namingTemplate(source: string): DomainResult<NamingTemplate>
+  function planGameExport(project: Project, state: GameAudioState, request: GameExportRequest, contextOf: (member: GroupMember) => DomainResult<ExportContext>): GameExportPlan
   function profileFromPreset(preset: ExportPreset): GameExportProfile
   function projectChainUsers(project: Project, game: GameAudioState | undefined, chain: EffectChainId): StateChainUsers
   function resolveAll(project: Project, state: GameAudioState): ReadonlyMap<string, EffectivePolicy>

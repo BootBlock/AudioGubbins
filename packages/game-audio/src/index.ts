@@ -8,7 +8,8 @@
  * name it. Its export layer (ADR-0102) names a group's members by a template
  * read by the export's own grammar, places their files in a relative
  * destination folder, and resolves a game export profile to the export
- * settings Phase 09 plans, renders and delivers.
+ * settings Phase 09 plans, renders and delivers: many members planned as one
+ * itemised plan, each item planned or refused with its owner named.
  *
  * Portable: no clock, browser global or thread. Nothing here imports anything
  * of an engine integration, which depends on these contracts instead.
@@ -17,6 +18,14 @@
 export { type DestinationPath, destinationPath } from './export/destination-path.js';
 export { type GameExportProfile, profileFromPreset } from './export/game-export-profile.js';
 export { type NamingTemplate, namingTemplate } from './export/naming-template.js';
+export {
+  type GameExportItem,
+  type GameExportPlan,
+  type GameExportProvenance,
+  type GameExportRequest,
+  planGameExport,
+} from './export/game-export-plan.js';
+export { type RegionMember, type RegionName, memberNames } from './export/member-names.js';
 
 export { type GameAssetGroupId } from './groups/group-ids.js';
 export { type GameAssetGroup } from './groups/game-asset-group.js';
