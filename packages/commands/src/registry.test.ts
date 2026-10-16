@@ -232,7 +232,7 @@ describe('availability', () => {
     const registry = createCommandRegistry<CounterContext>();
     registry.register({
       ...incrementCommand,
-      availability: (context, invocation) => {
+      availability: (_context, invocation) => {
         seen.push(invocation?.arguments);
         return invocation?.arguments?.['by'] === undefined
           ? { available: false, reason: 'Say by how much.' }
