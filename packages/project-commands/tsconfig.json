@@ -29,6 +29,9 @@
       "path": "../../packages/text"
     },
     {
+      "path": "../../packages/game-audio"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]
