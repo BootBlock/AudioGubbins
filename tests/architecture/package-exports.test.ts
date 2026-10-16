@@ -197,6 +197,17 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'namingTemplate',
         'profileFromPreset',
       ],
+    "The game export plan and region naming (ADR-0102), built ahead of the guided workflows that export and name a group's members, and of the application's group export, which runs the planned items as one export batch after showing the refused ones, and its naming command, which writes each region's new name in one step: each member planned or refused with its owner named, and each region's name from a template.":
+      [
+        'GameExportItem',
+        'GameExportPlan',
+        'GameExportProvenance',
+        'GameExportRequest',
+        'RegionMember',
+        'RegionName',
+        'memberNames',
+        'planGameExport',
+      ],
     "The game-audio state as values (ADR-0101, ADR-0106), built ahead of the project format that reads, writes and validates it with the project, the history that tells its changes apart, and the game commands that change it with their inverses: the groups and their memberships, the policy's fields and the values each holds, and setting or resetting one.":
       [
         'Attenuation',
