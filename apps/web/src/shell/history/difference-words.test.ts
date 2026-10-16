@@ -18,6 +18,8 @@ const SAME: StateDifference = {
   markers: NONE,
   effectChains: [],
   takeStacks: NONE,
+  gameGroups: NONE,
+  gameMembers: NONE,
 };
 
 const DRUMS = unsafeBrandId<'TrackId'>('00000000-0000-4000-8000-000000000001');
@@ -151,6 +153,41 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
     expect(differenceLines(difference, names)).toEqual([
       'The take stack “Verse” is in B only.',
       'The take stack “Footstep punch” differs in its takes, chosen take and punch.',
+    ]);
+  });
+
+  it('says a group by its path and each setting of it, a member’s group and overrides, and a group’s processing', () => {
+    const grass = unsafeBrandId<'GameAssetGroupId'>('00000000-0000-4000-8000-00000000000d');
+    const ui = unsafeBrandId<'GameAssetGroupId'>('00000000-0000-4000-8000-00000000000e');
+    const step = 'region:00000000-0000-4000-8000-00000000000f';
+    const difference: StateDifference = {
+      ...SAME,
+      gameGroups: {
+        added: [ui],
+        removed: [],
+        changed: [{ id: grass, fields: ['members', 'loudness', 'bus'] }],
+      },
+      gameMembers: {
+        added: [],
+        removed: [],
+        changed: [{ id: step, fields: ['group', 'naming'] }],
+      },
+      effectChains: [{ id: CHAIN, change: 'added', slots: [] }],
+    };
+    const names: DifferenceNames = {
+      entities: new Map<string, string>([
+        [grass, 'Footsteps/Grass'],
+        [ui, 'UI'],
+        [step, 'Step 1'],
+      ]),
+      chains: new Map([[CHAIN, { kind: 'game-group', naming: 'whole', name: 'Footsteps' }]]),
+    };
+
+    expect(differenceLines(difference, names)).toEqual([
+      'The group “UI” is in B only.',
+      'The group “Footsteps/Grass” differs in its members, loudness target and bus.',
+      'The group member “Step 1” differs in its group and naming template override.',
+      'The processing of the group “Footsteps” is in B only.',
     ]);
   });
 

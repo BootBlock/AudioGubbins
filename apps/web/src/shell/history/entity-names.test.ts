@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { instantiateProcessor, type EffectChain } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ProjectState } from '@audiogubbins/project-format';
+import { groupedReferenceState } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { describeEntity, entityNamesOf } from './entity-names.js';
@@ -37,6 +38,19 @@ describe('what the History panel calls the entities a change affected (REQ-STOR-
     const gone = fixture.ids.next<'EffectChainId'>();
     expect(describeEntity({ kind: 'effect-chain', id: gone }, names)).toBe(
       'effects no longer in the project',
+    );
+  });
+
+  it('calls an asset group by its path from its root, and one the project no longer holds gone', () => {
+    const { state, inner } = groupedReferenceState(sampleProject());
+    const names = entityNamesOf(state);
+
+    expect(describeEntity({ kind: 'game-group', id: inner.id }, names)).toBe(
+      'group “Footsteps/Grass”',
+    );
+    const gone = sampleProject(99).ids.next<'GameAssetGroupId'>();
+    expect(describeEntity({ kind: 'game-group', id: gone }, names)).toBe(
+      'a group no longer in the project',
     );
   });
 });
