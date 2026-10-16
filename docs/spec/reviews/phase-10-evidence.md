@@ -378,9 +378,9 @@ on it:
 
 | Check | Result |
 | --- | --- |
-| `pnpm run verify:commit` | {{FULL_SUITE}} |
-| `pnpm test:e2e:game-workflows` | {{E2E}} |
-| The packet's commands: `pnpm test --filter game-audio --filter loop-analysis`, `pnpm test:loop-golden`, beside `pnpm run test:game-audio` | {{PACKET_COMMANDS}} |
+| `pnpm run verify:commit` | Passed over the phase branch with every unit merged (its steps run in order, Vitest at four workers): lint, `typecheck:full`, 951 test files and 13,941 tests, `record:check`, and no dependency violations in 3,253 modules. |
+| `pnpm test:e2e:game-workflows` | Passed in Chromium: 1 test, 46.9 s, against the production build (`pnpm run build`: 43 files, free of local paths and analytics hosts). |
+| The packet's commands: `pnpm test --filter game-audio --filter loop-analysis`, `pnpm test:loop-golden`, beside `pnpm run test:game-audio` | Passed. `pnpm test --filter game-audio --filter loop-analysis` ran 2 of 41 workspace projects: game-audio 34 files, 415 tests; loop-analysis 14 files, 130 tests. `pnpm test:loop-golden`: 1 file, 23 tests. `pnpm run test:game-audio`: 57 files, 587 tests. |
 
 Tests known to fail now and then under the whole suite's load, each at its
 time limit, and to pass when run again alone (accepted as `LOW`, below):
@@ -411,7 +411,7 @@ being found, and a candidate applied only by hand; the Game preview
 triggering the group twenty times beside the looped hum, twice alike under
 its seed, with the History unchanged; the group exported into a folder; and
 everything found again after a reload. Its run's counts are under "Final
-counts" ({{E2E}}).
+counts" (1 test passed in Chromium, 46.9 s).
 
 Running it found three defects, each fixed on the phase branch before the
 close (B-01 to B-03 in `reviews/phase-10-review.md`):
