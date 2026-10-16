@@ -35,6 +35,7 @@ import { audioImportCommands } from './audio-import-commands.js';
 import { exportDialogCommands } from './export-dialog-commands.js';
 import { exportCommands } from './export-commands.js';
 import { exportInspectionCommands } from './export-inspection-commands.js';
+import { guidedWorkflowCommands } from './guided-workflow-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackClipboardCommands } from './rack-clipboard-commands.js';
@@ -194,6 +195,14 @@ function analysingCommands(): readonly Command<ShellContext>[] {
 }
 
 /**
+ * Every command that applies processing made ahead of time: the Library's
+ * saved chains and presets, and the guided workflows' plans (ADR-0105).
+ */
+function libraryAndWorkflowCommands(): readonly Command<ShellContext>[] {
+  return [...libraryCommands(), ...libraryApplyCommands(), ...guidedWorkflowCommands()];
+}
+
+/**
  * Builds every shell command.
  *
  * The panel descriptors are passed rather than imported, because they are the
@@ -244,8 +253,7 @@ export function shellCommands(
     ...rackClipboardCommands(),
     ...rackComparisonCommands(),
     ...rackHearingCommands(),
-    ...libraryCommands(),
-    ...libraryApplyCommands(),
+    ...libraryAndWorkflowCommands(),
     ...packCommands(),
     ...playheadCommands(),
     ...pictureCommands(),

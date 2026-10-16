@@ -45,6 +45,7 @@ import type { StateStorage } from './state-storage.js';
 import type { StorageRootStore } from './storage-root-store.js';
 import { StorageUsageStore } from './storage-usage-store.js';
 import { TrustedFoldersStore } from './trusted-folders-store.js';
+import { WorkflowDraftStore } from './workflow-draft-store.js';
 
 /** Every store of the project system, and the files it passes to and from the person. */
 export interface ProjectStores {
@@ -56,6 +57,8 @@ export interface ProjectStores {
   readonly quickEdit: QuickEditStore;
   /** The Export dialog, while it is open over an asset of the open project. */
   readonly exportDialog: ExportDialogStore;
+  /** A guided workflow's dialog, while it is open over the open project (ADR-0105). */
+  readonly workflowDraft: WorkflowDraftStore;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
   readonly rowOrders: HistoryRowOrders;
@@ -137,6 +140,7 @@ export function createProjectStores(
     imports: new ImportBatches(client.imports, files, project, preferences),
     quickEdit: new QuickEditStore(project),
     exportDialog: new ExportDialogStore(project),
+    workflowDraft: new WorkflowDraftStore(project),
     project,
     review: new HistoryReviewStore(project, logger),
     rowOrders: new HistoryRowOrders(project),

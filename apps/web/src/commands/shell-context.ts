@@ -37,6 +37,7 @@ import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
 import type { LoopAnalysing } from '../analysis/loop-analysing.js';
+import type { WorkflowAnalysing } from '../analysis/workflow-analysing.js';
 import type { LoopAuditioning } from '../audio/loop-audition.js';
 import type { CodecServices } from '../codecs/codec-services.js';
 import type { ExportFocus } from '../export/export-focus.js';
@@ -206,6 +207,12 @@ export interface ShellContext {
    * values only, which a region's loop takes only by a command the person runs.
    */
   readonly loopAnalysis: LoopAnalysing;
+
+  /**
+   * The analyses a guided workflow asked for, run one after another by the
+   * detections and the loop analyses above (ADR-0105).
+   */
+  readonly workflowAnalysis: WorkflowAnalysing;
 
   /** The loop audition playing, cycled on the transport until stopped (ADR-0103). */
   readonly loopAudition: LoopAuditioning;

@@ -286,6 +286,12 @@ importers:
       '@audiogubbins/editor-view':
         specifier: workspace:*
         version: link:../../packages/editor-view
+      '@audiogubbins/game-audio':
+        specifier: workspace:*
+        version: link:../../packages/game-audio
+      '@audiogubbins/guided-workflows':
+        specifier: workspace:*
+        version: link:../../packages/guided-workflows
       '@audiogubbins/history':
         specifier: workspace:*
         version: link:../../packages/history

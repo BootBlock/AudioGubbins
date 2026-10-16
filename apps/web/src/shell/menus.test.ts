@@ -54,9 +54,10 @@ describe('the menu bar', () => {
       'View',
       'Workspace',
       'Editor',
+      'Tools',
       'Help',
     ]);
-    expect(entries).toHaveLength(202);
+    expect(entries).toHaveLength(208);
   });
 
   it('offers import and export in the File menu, each of the pair opening on a chord', () => {
