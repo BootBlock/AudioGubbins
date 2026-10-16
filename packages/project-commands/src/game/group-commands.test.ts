@@ -264,10 +264,7 @@ describe('game.set-group-policy', () => {
       commandId: ProjectCommandId.SetGroupPolicy,
       arguments: { group: gravel.id, field: 'bus', value: '""' },
     });
-    expect(result.kind).toBe('refused');
-    if (result.kind !== 'refused') return;
-    const [failure] = result.failures;
-    expect(failure?.summary).toMatch(/^The group “Footsteps\/Gravel” sets its bus with what/);
+    expect(reasonsOf(result)).toMatch(/^The group “Footsteps\/Gravel” sets its bus with what/);
   });
 
   it('refuses a field it does not know and a chain given beside a field that names none', () => {
