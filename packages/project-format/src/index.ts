@@ -77,6 +77,15 @@ export { writeDecodedRendition } from './decoded-rendition-json.js';
 export { type KeptCoverArt, type KeptMetadata, keptMetadata } from './kept-metadata.js';
 export { writeKeptMetadata } from './kept-metadata-json.js';
 export { readExportSettings, writeExportSettings } from './export-settings-json.js';
+export {
+  readGameAssetGroup,
+  readGroupMember,
+  readPolicyOverrides,
+  writeGameAssetGroup,
+  writeGroupMember,
+  writePolicyOverrides,
+} from './game-audio-json.js';
+export { readPolicyField, writePolicyValue } from './game-policy-json.js';
 
 export {
   type AssetProvenance,
@@ -94,6 +103,7 @@ export {
   SourceChangePolicy,
   emptyProjectState,
   storageKeyOf,
+  withGameAudio,
 } from './project-state.js';
 
 export {

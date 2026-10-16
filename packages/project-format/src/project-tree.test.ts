@@ -8,10 +8,10 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { stateFingerprintFrom } from './content-identity.js';
 import { readProjectTree } from './project-tree-reading.js';
 import { projectTree } from './project-tree-writing.js';
-import { CACHE_INDEX_PATH, placeOf } from './project-tree-layout.js';
+import { CACHE_INDEX_PATH, GAME_AUDIO_PATH, placeOf } from './project-tree-layout.js';
 import { nodeDigest } from './testing/node-digest.js';
 import { TREE_READING } from './testing/tree-reading.js';
-import { referenceState } from './testing/project-states.js';
+import { groupedReferenceState, referenceState } from './testing/project-states.js';
 import {
   historyContent,
   listingOf,
@@ -117,6 +117,46 @@ describe('reading a project tree (REQ-STOR-103)', () => {
       code: 'format.schema-incompatible',
       details: { schema: 'projectDocument', found: older, direction: 'older' },
     });
+  });
+
+  // Version 9 holds no asset groups, which version 10 keeps in their own file.
+  it('refuses a tree of version 9, from before asset groups, as version 10 reads', async () => {
+    expect(SCHEMA_VERSIONS.projectDocument).toBe(10);
+    const files = edited(await sampleTree(), 'audiogubbins-project.json', (header) => ({
+      ...header,
+      projectDocumentSchemaVersion: 9,
+    }));
+    const read = await readProjectTree(listingOf(files), TREE_READING);
+    expect(read.ok ? [] : read.failures).toMatchObject([
+      {
+        code: 'format.schema-incompatible',
+        details: { schema: 'projectDocument', found: 9, current: 10, direction: 'older' },
+      },
+    ]);
+  });
+
+  it('keeps the asset groups in their own file, and refuses one there that breaks their rules', async () => {
+    const { state, outer, inner } = groupedReferenceState(sampleProject());
+    const content = await historyContent(state, 5, nodeDigest);
+    const files = [...expectSuccess(await writtenFiles(projectTree(content)))];
+    expect(files.map(({ path }) => path)).toContain(GAME_AUDIO_PATH);
+    expect(placeOf(GAME_AUDIO_PATH)).toEqual({ kind: 'game-audio' });
+
+    const read = expectSuccess(await readProjectTree(listingOf(files), TREE_READING));
+    expect(read.state).toEqual(state);
+
+    const cyclic = edited(files, GAME_AUDIO_PATH, (value) => ({
+      ...value,
+      groups: (value['groups'] as Json[]).map((group) =>
+        group['id'] === outer.id ? { ...group, parent: inner.id } : group,
+      ),
+    }));
+    expect(await problemsOf(cyclic)).toContainEqual(['game.group-cycle', GAME_AUDIO_PATH]);
+  });
+
+  it('writes no file of asset groups for a project without them', async () => {
+    const paths = (await sampleTree()).map(({ path }) => path);
+    expect(paths).not.toContain(GAME_AUDIO_PATH);
   });
 
   it('refuses each file that keeps more of where the audio came from than the header says', async () => {

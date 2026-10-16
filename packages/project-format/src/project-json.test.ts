@@ -816,6 +816,20 @@ describe('readProjectDocument refuses', () => {
     },
   );
 
+  // Version 9 holds no asset groups; version 10 is the first that keeps them
+  // (ADR-0106), so a build that read 9 as its own would read a project whose
+  // groups it could not tell from none.
+  it('a document of version 9, from before asset groups, as version 10 reads', () => {
+    expect(SCHEMA_VERSIONS.projectDocument).toBe(10);
+    const result = readProjectDocument(withValue(DOCUMENT, ['schemaVersion'], 9));
+    expect(result.ok ? [] : result.failures).toMatchObject([
+      {
+        code: 'format.schema-incompatible',
+        details: { schema: 'projectDocument', found: 9, current: 10, direction: 'older' },
+      },
+    ]);
+  });
+
   it('every problem at once, up to the bound, as integrity violations', () => {
     const broken = withValue(
       withValue(

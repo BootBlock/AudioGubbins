@@ -25,6 +25,7 @@ import type {
   SampleRate,
 } from '@audiogubbins/domain';
 
+import type { GameAudioState } from '@audiogubbins/game-audio';
 import type { ExportSettings } from '@audiogubbins/import-export';
 
 import type { ContentId } from './content-identity.js';
@@ -41,6 +42,13 @@ export interface ProjectState {
    * opens with, or absent where it has never been exported (ADR-0092).
    */
   readonly exportSettings?: ExportSettings;
+
+  /**
+   * The project's asset groups and who belongs to them (ADR-0101, ADR-0106),
+   * absent where it has none: one form for a project without them, which
+   * {@link withGameAudio} keeps and the document's reader holds it to.
+   */
+  readonly gameAudio?: GameAudioState;
 }
 
 /** Where one asset's bytes come from, and how it came into the project. */
@@ -315,6 +323,19 @@ export type SourceContainer = (typeof SOURCE_CONTAINERS)[number];
  */
 export function storageKeyOf(assetId: AssetId, media: MediaSource): string {
   return media.kind === 'managed' ? `content:${media.contentId}` : `external:${assetId}`;
+}
+
+/**
+ * `state` holding `game` as its game-audio state, or none where `game` holds
+ * nothing: the one way a state's game-audio member is set, so a project whose
+ * last group goes is the project it was before its first, in memory and in its
+ * document alike.
+ */
+export function withGameAudio(state: ProjectState, game: GameAudioState): ProjectState {
+  const { gameAudio: _held, ...rest } = state;
+  return game.groups.size === 0 && game.memberships.length === 0
+    ? rest
+    : { ...rest, gameAudio: game };
 }
 
 /**

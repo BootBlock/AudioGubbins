@@ -35,6 +35,7 @@ import { writeTreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
   EXPORT_SETTINGS_PATH,
+  GAME_AUDIO_PATH,
   BRANCH_NAMES_PATH,
   CACHE_INDEX_PATH,
   COMPARISON_PATH,
@@ -170,7 +171,7 @@ export function projectTree(content: ProjectTreeContent): readonly ProjectTreeFi
   return files.sorted();
 }
 
-/** The project's files: its settings, track order, entities and sources. */
+/** The project's files: its settings, track order, export settings, game audio, entities and sources. */
 function addProject(files: TreeFiles, state: ProjectState): void {
   const document = writeProjectDocument(state);
   const project = objectIn(document, 'project');
@@ -178,6 +179,8 @@ function addProject(files: TreeFiles, state: ProjectState): void {
   files.text(TRACK_ORDER_PATH, () => valueIn(project, 'trackOrder'));
   const exportSettings = memberOf(document, 'exportSettings');
   if (exportSettings !== undefined) files.text(EXPORT_SETTINGS_PATH, () => exportSettings);
+  const gameAudio = memberOf(document, 'gameAudio');
+  if (gameAudio !== undefined) files.text(GAME_AUDIO_PATH, () => gameAudio);
   for (const list of ENTITY_DIRECTORIES.keys()) {
     for (const entity of objectsIn(project, list)) {
       files.text(entityPath(list, textIn(entity, 'id')), () => entity);

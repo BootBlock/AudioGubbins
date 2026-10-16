@@ -31,7 +31,6 @@
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
-import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import type { Digest } from './byte-ports.js';
 import { compareCodeUnits, type JsonObject, type JsonValue } from './canonical-json.js';
@@ -41,11 +40,7 @@ import { readExportRecord } from './export-record-json.js';
 import { readHistoryRecord } from './history-json.js';
 import type { HistoryRecord, RetentionPolicy } from './history-record.js';
 import type { InvocationProvenance } from './invocation-provenance.js';
-import {
-  PROJECT_DOCUMENT_FORMAT,
-  readProjectDocument,
-  stateFingerprintOf,
-} from './project-json.js';
+import { readProjectDocument, stateFingerprintOf } from './project-json.js';
 import type { ProjectState } from './project-state.js';
 import {
   TreeReading,
@@ -57,18 +52,15 @@ import {
 import type { TreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
-  EXPORT_SETTINGS_PATH,
   BRANCH_NAMES_PATH,
   CACHE_INDEX_PATH,
   COMPARISON_PATH,
   CURSOR_PATH,
-  ENTITY_DIRECTORIES,
   RETENTION_PATH,
-  SETTINGS_PATH,
-  TRACK_ORDER_PATH,
   cachePath,
   snapshotPath,
 } from './project-tree-layout.js';
+import { readTreeState } from './project-tree-state.js';
 import type { ProjectTreeContent, ProjectTreeHistory, TreeStates } from './project-tree-writing.js';
 import { ProvenanceCheck } from './tree-provenance-checks.js';
 import { readRetentionPolicy } from './retention-json.js';
@@ -109,7 +101,7 @@ export async function readProjectTree(
   tree.placeEvery(header.value);
   const check = new ProvenanceCheck(header.value, services.invocationProvenance);
 
-  const state = await readState(tree, header.value);
+  const state = await readTreeState(tree, header.value);
   if (state !== undefined) check.checkState(tree, state);
   const backup = await readBackup(tree);
   const history = header.value.history
@@ -146,48 +138,6 @@ export async function readProjectTree(
     ...(caches === undefined ? {} : { caches }),
   });
 }
-
-/** The project's state from its files, put back together and read whole. */
-async function readState(tree: TreeReading, header: TreeHeader): Promise<ProjectState | undefined> {
-  const settings = await tree.single('settings', SETTINGS_PATH);
-  const trackOrder = await tree.single('track-order', TRACK_ORDER_PATH);
-  const project: Record<string, JsonValue> = {
-    id: header.project,
-    displayName: header.displayName,
-  };
-  const lists = new Map<string, readonly string[]>();
-  for (const list of ENTITY_DIRECTORIES.keys()) {
-    const files = tree.ofKind('entity').filter(({ place }) => place.list === list);
-    const read = await namedValues(tree, files, 'id', ({ place }) => place.id);
-    project[list] = read.values;
-    lists.set(`project.${list}`, read.paths);
-  }
-  const sources = await namedValues(tree, tree.ofKind('source'), 'assetId', ({ place }) => {
-    return place.asset;
-  });
-  lists.set('sources', sources.paths);
-  const [exportFile] = tree.ofKind('export-settings');
-  const exportSettings = exportFile === undefined ? undefined : await tree.valueOf(exportFile);
-  if (settings === undefined || trackOrder === undefined) return undefined;
-  if (exportFile !== undefined && exportSettings === undefined) return undefined;
-  const state = readProjectDocument({
-    format: PROJECT_DOCUMENT_FORMAT,
-    schemaVersion: SCHEMA_VERSIONS.projectDocument,
-    project: { ...project, settings, trackOrder },
-    sources: sources.values,
-    ...(exportSettings === undefined ? {} : { exportSettings }),
-  });
-  if (state.ok) return state.value;
-  tree.locate(state.failures, { lists, members: PROJECT_MEMBER_FILES });
-  return undefined;
-}
-
-/** The file each member of the project put back together came from. */
-const PROJECT_MEMBER_FILES: ReadonlyMap<string, string> = new Map([
-  ['project.settings', SETTINGS_PATH],
-  ['project.trackOrder', TRACK_ORDER_PATH],
-  ['exportSettings', EXPORT_SETTINGS_PATH],
-]);
 
 /** The file each member of the history put back together came from. */
 const HISTORY_MEMBER_FILES: ReadonlyMap<string, string> = new Map([

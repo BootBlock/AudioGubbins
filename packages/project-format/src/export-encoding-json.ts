@@ -114,24 +114,50 @@ function joined<TEncoding>(
   return encoding === undefined || common === undefined ? undefined : make(encoding, common);
 }
 
+/**
+ * Reads the encoding `value` of one format, the member `encoding` of the
+ * object at `at`, refusing one the format does not hold.
+ */
+type EncodingReader<F extends ExportFormat> = (
+  reading: Reading,
+  value: JsonValue,
+  at: string,
+) => FormatEncodings[F] | undefined;
+
+/**
+ * Each format's encoding reader: the one account of what each format's
+ * encoding holds, read for whole settings here and for the encoding a game
+ * export profile chooses, where it chooses one (`game-audio-json.ts`).
+ */
+export const ENCODING_READERS: { readonly [F in ExportFormat]: EncodingReader<F> } = {
+  wav: (reading, value, at) => asPcm(reading, value, at, 'encoding'),
+  aiff: (reading, value, at) => heldPcm(reading, value, at, aiffEncoding),
+  aifc: (reading, value, at) => heldPcm(reading, value, at, aifcEncoding),
+  flac: readFlac,
+  mp3: readMp3,
+  'ogg-vorbis': readVorbis,
+  opus: readOpus,
+  aac: readAac,
+};
+
 /** The settings of a format of PCM codes. */
 function pcmSettings(format: 'wav' | 'aiff' | 'aifc', read: Read): ExportSettings | undefined {
   const { reading, value, at } = read;
   switch (format) {
     case 'wav':
-      return joined(asPcm(reading, value, at, 'encoding'), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
       }));
     case 'aiff':
-      return joined(heldPcm(reading, value, at, aiffEncoding), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
       }));
     case 'aifc':
-      return joined(heldPcm(reading, value, at, aifcEncoding), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
@@ -147,31 +173,31 @@ function codedSettings(
   const { reading, value, at } = read;
   switch (format) {
     case 'flac':
-      return joined(readFlac(reading, value, at), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
       }));
     case 'mp3':
-      return joined(readMp3(reading, value, at), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
       }));
     case 'ogg-vorbis':
-      return joined(readVorbis(reading, value, at), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
       }));
     case 'opus':
-      return joined(readOpus(reading, value, at), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
       }));
     case 'aac':
-      return joined(readAac(reading, value, at), read, (encoding, common) => ({
+      return joined(ENCODING_READERS[format](reading, value, at), read, (encoding, common) => ({
         ...common,
         format,
         encoding,
