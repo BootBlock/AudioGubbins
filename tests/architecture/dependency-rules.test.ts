@@ -3019,10 +3019,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
   const REVIEWED_PAST_THRESHOLD: Readonly<
     Record<string, readonly [lines: number, review: string]>
   > = {
-    'apps/web/src/shell/panels.tsx': [
-      402,
-      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read. Reviewed again when the Asset groups panel joined (ADR-0101): the growth is its arm, the parts it reads, and the context members it and the Inspector read, the group chosen, the loudness readings and the codecs served, still one arm per kind and one member per part read. Reviewed again when the Asset groups and Loop panels met: the growth is their two arms and the parts each reads, still one arm per kind. Reviewed again past the threshold when the Asset groups and Game preview panels met: the growth is registration lines for the Phase 10 panels, an arm, a parts function and the context members each reads, still one arm per kind and one member per part read; every panel already lives in a module of its own, so a split would separate the context from the switch that hands it out.",
-    ],
     'packages/domain/src/index.ts': [
       431,
       "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",

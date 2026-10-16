@@ -39,7 +39,8 @@ import type { RecordingFakes } from '../testing/recording-fakes.js';
 import { buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { DiagnosticsPanel, recordsPassing } from './diagnostics-panel.js';
-import { CapabilitiesPanel, renderPanel, type PanelContext } from './panels.js';
+import type { PanelContext } from './panel-context.js';
+import { CapabilitiesPanel, renderPanel } from './panels.js';
 
 /**
  * The diagnostic log panel.
