@@ -17,6 +17,11 @@
  * chains, smoothed, without playback starting again; a change a running chain
  * cannot take, a chain heard from a cached render among them, loads the
  * programme again where it plays, which makes the render again, and says so.
+ *
+ * A programme that continues the one playing, as a game preview's next stretch
+ * does, is gone on into without pausing or starting again (ADR-0104): the
+ * feeder takes it at the first frame it has not read, which `readFrame` says
+ * where to expect (`programme-continuation.ts`).
  */
 
 import {
@@ -37,30 +42,10 @@ import { PLAYBACK_SUPERSEDED, PlaybackPhase, type MeterLevels } from '@audiogubb
 import type { ChosenProfile } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import { reasonsOf, type Reasons } from '../state/reasons.js';
-import type { OpenPlayback, PlaybackParts, PlaybackSessionPort } from './playback-parts.js';
+import type { OpenPlayback, Opened, PlaybackSessionPort } from './playback-parts.js';
 import { followingOf, type Programme } from './programme.js';
-
-/** One profile's parts at one rate, and what was made with them. */
-interface Opened {
-  readonly profile: ChosenProfile;
-  readonly rate: number | undefined;
-  readonly parts: PlaybackParts;
-  session: PlaybackSessionPort | undefined;
-  stopListening: (() => void) | undefined;
-  /**
-   * The programme given to the session, which it keeps through a lost
-   * context, and which a change of profile goes on playing.
-   */
-  loaded: Programme | undefined;
-  /** The preview quality `loaded` was loaded at. */
-  quality: QualityMode | undefined;
-  /**
-   * Whether the session holds an older sound of `loaded` than `loaded` is,
-   * one a change it could not take running left behind, which the next Play
-   * loads.
-   */
-  stale: boolean;
-}
+import { continueProgramme, readFrameOf } from './programme-continuation.js';
+import type { Again, ContinuationOutcome, Playing } from './programme-continuation.js';
 
 /** Why Pause or Stop finds nothing to act on; their availability says so first. */
 const NOTHING_PLAYING: Reasons = ['Nothing is playing.'];
@@ -83,6 +68,8 @@ export class PlaybackControl {
   readonly #quality: () => QualityMode;
   readonly #announce: (text: string) => void;
   readonly #logger: Logger;
+  /** What plays, as a continuation goes on from it. */
+  readonly #whatPlays: Playing;
   #opened: Opened | undefined;
   /**
    * Where playback paused before a change of profile closed its context, and
@@ -109,6 +96,11 @@ export class PlaybackControl {
     this.#quality = options.quality;
     this.#announce = options.announce;
     this.#logger = options.logger;
+    this.#whatPlays = {
+      current: () => this.#opened,
+      quality: options.quality,
+      announce: options.announce,
+    };
   }
 
   /**
@@ -306,18 +298,46 @@ export class PlaybackControl {
   }
 
   /**
-   * Follows the sound of the programme the transport holds, which the
-   * project changed: `programme` is the same programme as it now stands.
-   * Numeric parameters changed while it plays reach its running chains; any
-   * other change, or one a chain cannot take running, loads it again, going
-   * on from where it plays if it is playing and otherwise at the next Play.
+   * Goes on from the programme the transport plays into `programme`, which
+   * continues it (`Programme.continues`), without pausing or starting again,
+   * where the feeder has not read past the frame it may first differ at, and
+   * otherwise into the continuation `again` makes from a later frame, or with
+   * no `again` not at all (`programme-continuation.ts`). Settles with the
+   * frame it went on from, or why it did not, which is also said.
+   */
+  continue(programme: Programme, again?: Again): Promise<ContinuationOutcome> {
+    return continueProgramme(this.#whatPlays, programme, again);
+  }
+
+  /**
+   * The earliest timeline frame a continuation asked for now can expect to go
+   * on from, or `undefined` where nothing is loaded: the frame its programme
+   * should continue from.
+   */
+  readFrame(): SampleCount | undefined {
+    return readFrameOf(this.#opened);
+  }
+
+  /**
+   * Follows the sound of the programme the transport holds, which the project
+   * changed: `programme` is the same programme as it now stands. Numeric
+   * parameters changed while it plays reach its running chains; any other
+   * change, or one a chain cannot take running, loads it again, going on from
+   * where it plays if it is playing and otherwise at the next Play. A programme
+   * that continues the one held is gone on into, once, from where it says it
+   * may first differ.
    */
   follow(programme: Programme): void {
     const current = this.#opened;
     const session = current?.session;
     const loaded = current?.loaded;
-    if (current === undefined || session === undefined || loaded?.key !== programme.key) return;
+    if (current === undefined || session === undefined || loaded === undefined) return;
     const following = followingOf(loaded, programme);
+    if (following.kind === 'continued') {
+      void this.continue(programme).catch(this.#recorded('A continuation failed.'));
+      return;
+    }
+    if (loaded.key !== programme.key) return;
     if (following.kind === 'reload') this.#reload(current, session, programme);
     if (following.kind !== 'running') return;
     // Followed now, so a change that follows this one is worked out from it.

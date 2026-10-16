@@ -221,6 +221,22 @@ Published paths
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   const ENGINE_VERSIONS: EngineVersions
+  class EditedSource
+  new EditedSource(readers: PlanReaders, shape: { readonly layout: ChannelLayout; readonly sampleRate: SampleRate; readonly length: SampleCount; }, stopHearing: () => void): EditedSource
+  readonly EditedSource.layout: ChannelLayout
+  readonly EditedSource.sampleRate: SampleRate
+  readonly EditedSource.#readers: PlanReaders
+  readonly EditedSource.#turns: ReadTurns
+  readonly EditedSource.#stopHearing: () => void
+  EditedSource.#length: SampleCount
+  EditedSource.#next: number
+  EditedSource.#released: boolean
+  EditedSource.length: SampleCount
+  EditedSource.read: (start: SampleCount, into: AudioFrameBlock, signal?: CancellationSignal) => Promise<number>
+  EditedSource.continueWith: (plan: EditPlan, media: readonly MediaEntry[]) => Promise<DomainResult<HeldContinuation>>
+  EditedSource.#continuable: (plan: EditPlan, media: readonly MediaEntry[]) => DomainResult<{ readonly valid: EditPlan; readonly length: SampleCount; }>
+  EditedSource.#held: (taking: () => void, letReadsGoOn: () => void) => HeldContinuation
+  EditedSource.release: () => void
   type FixedNamedMatrix = "itu-bs775-5.1-to-stereo" | "mid-side-decode" | "mid-side-encode"
   type FromPreview = { readonly kind: typeof FromPreviewKind.ReadFailed; readonly read: number; readonly failure: FailureSummary; } | { readonly kind: typeof FromPreviewKind.Ready; readonly stream: number; readonly declined: FailureSummary | undefined; } | { readonly kind: typeof FromPreviewKind.Samples; readonly read: number; readonly channels: readonly Float32Array[]; }
   interface GraphExecutor
@@ -229,6 +245,11 @@ Published paths
   GraphExecutor.process: (frames: number) => void
   GraphExecutor.setParameter: (node: NodeId, name: string, value: number) => DomainResult<void>
   GraphExecutor.release: () => void
+  interface HeldContinuation
+  readonly HeldContinuation.frame: SampleCount
+  readonly HeldContinuation.ended: boolean
+  HeldContinuation.take: () => void
+  HeldContinuation.drop: () => void
   interface HumSettings extends DetectorBasis
   readonly HumSettings.kind: "hum"
   readonly HumSettings.size: number
@@ -907,7 +928,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37451: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37905: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -997,6 +1018,7 @@ Published paths
   readonly ContextLifecycleOptions.sampleRate?: number
   readonly ContextLifecycleOptions.schedule: Schedule
   readonly ContextLifecycleOptions.logger: Logger
+  type Continuation = { readonly kind: "continued"; readonly frame: SampleCount; } | { readonly kind: "too-late"; readonly frame: SampleCount; }
   type CreateAudioContext = (options: AudioContextOptions) => AudioContextPort
   interface DeviceReport
   readonly DeviceReport.sampleRate: number
@@ -1063,6 +1085,8 @@ Published paths
   PlaybackSession.status: PlaybackStatus
   PlaybackSession.subscribe: (listener: PlaybackListener) => () => void
   PlaybackSession.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
+  PlaybackSession.continueWith: (request: PlaybackRequest, from: SampleCount) => Promise<DomainResult<Continuation>>
+  PlaybackSession.readFrame: () => DomainResult<SampleCount>
   PlaybackSession.play: () => Promise<DomainResult<void>>
   PlaybackSession.pause: () => DomainResult<void>
   PlaybackSession.park: (to: SampleCount) => DomainResult<void>
@@ -1199,12 +1223,12 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37451: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37905: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
 @audiogubbins/audio-runtime/testing
-  const FromFeederKind: { readonly SourcesMade: "sources-made"; readonly SourcesRefused: "sources-refused"; readonly Primed: "primed"; readonly FeedFailed: "feed-failed"; readonly Fault: "fault"; readonly ParametersTaken: "parameters-taken"; }
+  const FromFeederKind: { readonly SourcesMade: "sources-made"; readonly SourcesRefused: "sources-refused"; readonly Primed: "primed"; readonly FeedFailed: "feed-failed"; readonly Fault: "fault"; readonly ParametersTaken: "parameters-taken"; readonly Continued: "continued"; readonly ContinuationRefused: "continuation-refused"; }
   class LocalChainWorker
   new LocalChainWorker(make: (models: ModelChannel, post: PostToPage) => Core): LocalChainWorker
   LocalChainWorker.terminated: boolean
@@ -1216,7 +1240,7 @@ Published paths
   LocalChainWorker.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   LocalChainWorker.terminate: () => void
   LocalChainWorker.#toPage: (message: unknown, transfer: readonly unknown[]) => void
-  const ToFeederKind: { readonly Sources: "sources"; readonly Bind: "bind"; readonly Start: "start"; readonly Stop: "stop"; readonly Unbind: "unbind"; readonly Release: "release"; readonly Previews: "previews"; readonly Parameters: "parameters"; }
+  const ToFeederKind: { readonly Sources: "sources"; readonly Bind: "bind"; readonly Start: "start"; readonly Stop: "stop"; readonly Unbind: "unbind"; readonly Release: "release"; readonly Previews: "previews"; readonly Parameters: "parameters"; readonly Continue: "continue"; }
   type TypesWith = (services: ModelServices) => ReadonlyMap<string, ProcessorType>
   function fakeChannel(): { readonly port1: MessagePort; readonly port2: MessagePort; }
   function localFeederWorker(types?: TypesWith): LocalChainWorker
@@ -7196,7 +7220,7 @@ Published paths
   CacheClient.put: (key: CacheKey, bytes: Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
   CacheClient.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
   type DeliveryAnswer = Delivery | { readonly kind: "download"; readonly file: Blob; readonly record: ExportRecord; readonly unrecorded?: DomainFailure; }
-  type ExportDraft = { readonly recipe?: import("packages/project-format/src/export-provenance").ExportRecipeReference; readonly file?: import("packages/project-format/src/export-provenance").ExportedAudioFile; readonly output: import("packages/project-format/src/export-provenance").ExportOutput; readonly problems: readonly string[]; readonly status: import("packages/project-format/src/export-provenance").ExportStatus; readonly godot?: import("packages/project-format/src/export-provenance").GodotLinkage; readonly destination: import("packages/project-format/src/export-provenance").ExportDestination; readonly stateFingerprint: import("packages/project-format/src/content-identity").StateFingerprint; readonly historyNodeId?: string; readonly engineVersions: ReadonlyMap<string, string>; readonly outputContentId?: import("packages/project-format/src/content-identity").ContentId; }
+  type ExportDraft = { readonly recipe?: import("packages/project-format/src/export-provenance").ExportRecipeReference; readonly output: import("packages/project-format/src/export-provenance").ExportOutput; readonly file?: import("packages/project-format/src/export-provenance").ExportedAudioFile; readonly problems: readonly string[]; readonly status: import("packages/project-format/src/export-provenance").ExportStatus; readonly godot?: import("packages/project-format/src/export-provenance").GodotLinkage; readonly destination: import("packages/project-format/src/export-provenance").ExportDestination; readonly stateFingerprint: import("packages/project-format/src/content-identity").StateFingerprint; readonly historyNodeId?: string; readonly engineVersions: ReadonlyMap<string, string>; readonly outputContentId?: import("packages/project-format/src/content-identity").ContentId; }
   interface ExportStage
   readonly ExportStage.stream: MessagePort
   readonly ExportStage.origin: ExportOrigin
@@ -7975,10 +7999,158 @@ packages/audio-engine/src/dsp/canonical-analysis.ts
 packages/audio-engine/src/nodes/node-shape.ts
   type NodeProblemCode = "layout-unsupported" | "node-settings-invalid" | "role-ports-invalid"
 
+packages/audio-engine/src/pcm/mixed-content.ts
+  class MixedContent
+  new MixedContent(first: ReadableContent, rest: readonly ReadableContent[]): MixedContent
+  readonly MixedContent.channels: number
+  readonly MixedContent.#first: ReadableContent
+  readonly MixedContent.#rest: readonly ReadableContent[]
+  MixedContent.#scratch: readonly Float32Array<ArrayBufferLike>[]
+  MixedContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  MixedContent.#scratchFor: (frames: number) => readonly Float32Array[]
+
+packages/audio-engine/src/pcm/plan-content.ts
+  interface ContentReader extends ReadableContent
+  ContentReader.release: () => void
+  readonly ContentReader.channels: number
+  ContentReader.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  class ConvertedContent
+  new ConvertedContent(source: ResampledSource): ConvertedContent
+  readonly ConvertedContent.channels: number
+  readonly ConvertedContent.#source: ResampledSource
+  ConvertedContent.lookahead: number
+  ConvertedContent.consumedTo: number | undefined
+  ConvertedContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  ConvertedContent.release: () => void
+  class FileContent
+  new FileContent(entry: MediaEntry): FileContent
+  readonly FileContent.channels: number
+  readonly FileContent.#entry: MediaEntry
+  readonly FileContent.#lifetime: import("packages/domain/src/cancellation").CancellationSource
+  FileContent.#reader: Promise<AudioReader> | undefined
+  FileContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  FileContent.#opened: () => Promise<AudioReader>
+  FileContent.#open: (signal: CancellationSignal) => Promise<AudioReader>
+  FileContent.release: () => void
+  type ProcessedOutput = StreamOutput & ContentReader
+  interface ReadableContent
+  readonly ReadableContent.channels: number
+  ReadableContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  class SilentContent
+  new SilentContent(channels: number): SilentContent
+  readonly SilentContent.channels: number
+  SilentContent.read: (_start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  class StreamContent
+  new StreamContent(stream: PlanStream, sources: (source: PlanSource) => ReadableContent): StreamContent
+  readonly StreamContent.channels: number
+  StreamContent.#stream: PlanStream
+  StreamContent.#starts: readonly number[]
+  StreamContent.#length: number
+  readonly StreamContent.#sources: (source: PlanSource) => ReadableContent
+  readonly StreamContent.#scratch: Map<number, Float32Array<ArrayBufferLike>[]>
+  StreamContent.length: number
+  StreamContent.redefine: (stream: PlanStream) => void
+  StreamContent.#segmentAt: (position: number) => number
+  StreamContent.#scratchFor: (count: number, frames: number) => readonly Float32Array[]
+  StreamContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  interface StreamOutput extends ReadableContent
+  readonly StreamOutput.length: number
+  readonly StreamOutput.channels: number
+  StreamOutput.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+
+packages/audio-engine/src/pcm/plan-readers.ts
+  class PlanReaders
+  new PlanReaders(plan: EditPlan, media: readonly MediaEntry[], dsp: CanonicalDsp, processing: PlanProcessing): PlanReaders
+  PlanReaders.#plan: EditPlan
+  PlanReaders.#media: readonly MediaEntry[]
+  PlanReaders.#entries: ReadonlyMap<AssetId, MediaEntry>
+  readonly PlanReaders.#dsp: CanonicalDsp
+  readonly PlanReaders.#processing: PlanProcessing
+  readonly PlanReaders.#readers: MadeReaders
+  PlanReaders.#chains: Map<number, EffectChain>
+  readonly PlanReaders.#silences: Map<number, SilentContent>
+  PlanReaders.#made: ContentReader[]
+  PlanReaders.continueWith: (plan: EditPlan, media: readonly MediaEntry[]) => void
+  PlanReaders.stream: (place: number) => StreamContent
+  PlanReaders.output: (place: number) => StreamOutput
+  PlanReaders.setParameter: (change: ParameterChange) => DomainResult<boolean>
+  PlanReaders.release: () => void
+  PlanReaders.#streamAt: (place: number) => PlanStream
+  PlanReaders.#reader: (source: PlanSource, rate: SampleRate) => ReadableContent
+  PlanReaders.#rendered: (place: number, chain: EffectChain) => { readonly kind: "rendered"; readonly reason?: string; } | { readonly kind: "run"; }
+  PlanReaders.#processed: (place: number, stream: PlanStream, layout: ChannelLayout, content: StreamContent) => ProcessedOutput
+  PlanReaders.#file: (asset: AssetId) => FileContent
+  PlanReaders.#silence: (channels: number) => SilentContent
+  PlanReaders.#mix: (places: readonly number[]) => MixedContent
+  PlanReaders.#spectral: (place: number, stream: PlanStream, edit: PlannedSpectralEdit, content: StreamContent) => ProcessedOutput
+  PlanReaders.#spectralHeard: (stream: PlanStream, edit: PlannedSpectralEdit) => { readonly kind: "rendered"; readonly reason?: string; } | { readonly kind: "run"; }
+  PlanReaders.#stretched: (content: StreamContent, stream: PlanStream, length: number) => ProcessedOutput
+  PlanReaders.#convert: (place: number, rate: SampleRate) => ConvertedContent
+
+packages/audio-engine/src/pcm/processed-content.ts
+  class ProcessedContent
+  new ProcessedContent(chain: EffectChain, input: StreamInput, output: ChannelLayout, settings: ProcessedSettings): ProcessedContent
+  readonly ProcessedContent.channels: number
+  ProcessedContent.#chain: EffectChain
+  readonly ProcessedContent.#input: StreamInput
+  readonly ProcessedContent.#settings: ProcessedSettings
+  readonly ProcessedContent.#inputScratch: Float32Array<ArrayBufferLike>[]
+  readonly ProcessedContent.#outputScratch: Float32Array<ArrayBufferLike>[]
+  ProcessedContent.#running: Running | undefined
+  ProcessedContent.#partWay: PartWayStart | undefined
+  ProcessedContent.length: number
+  ProcessedContent.reach: RunReach | undefined
+  ProcessedContent.read: (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
+  ProcessedContent.#begin: (start: number, signal: CancellationSignal | undefined) => Promise<Running>
+  ProcessedContent.#runStart: (start: number) => number
+  ProcessedContent.#partWayStart: () => PartWayStart
+  ProcessedContent.setParameter: (chain: EffectChain, change: ParameterChange) => DomainResult<void>
+  ProcessedContent.#advance: (running: Running, count: number, into: readonly Float32Array[] | undefined, signal: CancellationSignal | undefined) => Promise<void>
+  ProcessedContent.#consume: (running: Running, count: number, into: readonly Float32Array[] | undefined, offset: number, signal: CancellationSignal | undefined) => Promise<void>
+  ProcessedContent.release: () => void
+  interface ProcessedSettings extends PlanProcessing
+  readonly ProcessedSettings.dsp: CanonicalDsp
+  readonly ProcessedSettings.processing: ChainProcessing
+  readonly ProcessedSettings.quality: QualitySettings
+  readonly ProcessedSettings.start: ProcessedStart
+  readonly ProcessedSettings.cached?: CachedStreams
+  readonly ProcessedSettings.parameters?: RunningParameters
+  interface RunReach
+  readonly RunReach.consumedTo: number
+  readonly RunReach.latency: number
+  readonly RunReach.measuredTo: number
+  interface Running
+  readonly Running.run: ChainRun
+  Running.raw: number
+  Running.produced: number
+  readonly Running.measured: { to: number; }
+  interface StreamInput
+  readonly StreamInput.layout: ChannelLayout
+  readonly StreamInput.sampleRate: SampleRate
+  readonly StreamInput.length: number
+  readonly StreamInput.read: StreamReader
+
+packages/audio-engine/src/pcm/read-turns.ts
+  class ReadTurns
+  new ReadTurns(): ReadTurns
+  ReadTurns.#last: Promise<void>
+  ReadTurns.take: <T>(read: () => Promise<T>, signal?: CancellationSignal) => Promise<T>
+
+packages/audio-engine/src/pcm/reader-continuation.ts
+  interface MadeReaders
+  readonly MadeReaders.streams: Map<number, StreamContent>
+  readonly MadeReaders.outputs: Map<number, ProcessedOutput | StreamContent>
+  readonly MadeReaders.runs: Map<number, ProcessedContent>
+  readonly MadeReaders.converted: Map<string, ConvertedContent>
+  readonly MadeReaders.files: Map<AssetId, FileContent>
+  readonly MadeReaders.mixes: Map<string, MixedContent>
+
 packages/audio-engine/src/pcm/resampled-source.ts
   interface ResampledSource extends PcmSource
   readonly ResampledSource.coefficients: ResamplerCoefficients
-  readonly ResampledSource.layout: import("packages/domain/src/index").ChannelLayout
+  readonly ResampledSource.lookahead: number
+  readonly ResampledSource.consumedTo: number | undefined
+  readonly ResampledSource.layout: ChannelLayout
   readonly ResampledSource.sampleRate: SampleRate
   readonly ResampledSource.length: SampleCount | undefined
   ResampledSource.read: (start: SampleCount, into: AudioFrameBlock, signal?: CancellationSignal) => Promise<number>
@@ -8233,6 +8405,8 @@ packages/audio-runtime/src/playback/graph-loader.ts
   GraphLoader.current: LoadedProcessor | undefined
   GraphLoader.lostRequest: PlaybackRequest | undefined
   GraphLoader.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
+  GraphLoader.request: PlaybackRequest | undefined
+  GraphLoader.continued: (request: PlaybackRequest) => void
   GraphLoader.sources: RequestSources | undefined
   GraphLoader.unload: () => void
   GraphLoader.lost: (problem: string) => void
@@ -8372,17 +8546,20 @@ packages/audio-runtime/src/playback/processor-runs.ts
 packages/audio-runtime/src/playback/request-sources.ts
   class RequestSources
   new RequestSources(options: RequestSourcesOptions): RequestSources
-  readonly RequestSources.request: PlaybackRequest
   readonly RequestSources.id: number
   readonly RequestSources.feeder: FeederLink
   readonly RequestSources.made: Promise<SourcesOutcome>
   readonly RequestSources.#stopListening: () => void
   readonly RequestSources.#cancelWait: () => void
   readonly RequestSources.#schedule: Schedule
+  RequestSources.#request: PlaybackRequest
   RequestSources.#changes: number
+  RequestSources.#continuations: number
   RequestSources.#settle: (outcome: SourcesOutcome) => void
   RequestSources.#settled: boolean
   RequestSources.changeParameters: (changes: readonly ParameterChange[]) => Promise<DomainResult<void>>
+  RequestSources.request: PlaybackRequest
+  RequestSources.continueWith: (request: PlaybackRequest, sources: readonly SourceDescription[], from: SampleCount) => Promise<DomainResult<Continuation>>
   RequestSources.release: () => void
   RequestSources.abandon: () => void
   readonly RequestSources.#reply: (reply: FromFeeder) => void
@@ -8426,8 +8603,8 @@ packages/audio-runtime/src/protocol/capture-messages.ts
 
 packages/audio-runtime/src/protocol/feeder-messages.ts
   type FeederBinding = { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted; } | { readonly node: NodeId; readonly transport: typeof FeedTransport.SharedRing; readonly ring: SharedArrayBuffer; }
-  type FromFeeder = { readonly kind: typeof FromFeederKind.Fault; readonly message: string; } | { readonly kind: typeof FromFeederKind.FeedFailed; readonly run: number; readonly node: NodeId; readonly reason: string; } | { readonly kind: typeof FromFeederKind.ParametersTaken; readonly change: number; readonly refusals: readonly FailureSummary[]; } | { readonly kind: typeof FromFeederKind.Primed; readonly run: number; } | { readonly kind: typeof FromFeederKind.SourcesMade; readonly request: number; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly dspInUse: boolean; } | { readonly kind: typeof FromFeederKind.SourcesRefused; readonly request: number; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; }
-  type ToFeeder = { readonly kind: typeof ToFeederKind.Bind; readonly request: number; readonly feeds: readonly FeederBinding[]; readonly feedAheadMilliseconds: number; readonly chunkFrames: number; readonly wakeMilliseconds: number; readonly processor: MessagePort; } | { readonly kind: typeof ToFeederKind.Parameters; readonly request: number; readonly change: number; readonly changes: readonly ParameterChange[]; } | { readonly kind: typeof ToFeederKind.Previews; readonly port: MessagePort; } | { readonly kind: typeof ToFeederKind.Release; readonly request: number; } | { readonly kind: typeof ToFeederKind.Sources; readonly request: number; readonly graph: GraphDescriptor; readonly sources: readonly SourceDescription[]; readonly quality: QualityMode; readonly dsp: DspDelivery<WebAssembly.Module>; } | { readonly kind: typeof ToFeederKind.Start; readonly run: number; readonly from: number; } | { readonly kind: typeof ToFeederKind.Stop; } | { readonly kind: typeof ToFeederKind.Unbind; }
+  type FromFeeder = { readonly kind: typeof FromFeederKind.ContinuationRefused; readonly continuation: number; readonly frame: number | undefined; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; } | { readonly kind: typeof FromFeederKind.Continued; readonly continuation: number; readonly frame: number; } | { readonly kind: typeof FromFeederKind.Fault; readonly message: string; } | { readonly kind: typeof FromFeederKind.FeedFailed; readonly run: number; readonly node: NodeId; readonly reason: string; } | { readonly kind: typeof FromFeederKind.ParametersTaken; readonly change: number; readonly refusals: readonly FailureSummary[]; } | { readonly kind: typeof FromFeederKind.Primed; readonly run: number; } | { readonly kind: typeof FromFeederKind.SourcesMade; readonly request: number; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly dspInUse: boolean; } | { readonly kind: typeof FromFeederKind.SourcesRefused; readonly request: number; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; }
+  type ToFeeder = { readonly kind: typeof ToFeederKind.Bind; readonly request: number; readonly feeds: readonly FeederBinding[]; readonly feedAheadMilliseconds: number; readonly chunkFrames: number; readonly wakeMilliseconds: number; readonly processor: MessagePort; } | { readonly kind: typeof ToFeederKind.Continue; readonly request: number; readonly continuation: number; readonly from: number; readonly sources: readonly SourceDescription[]; } | { readonly kind: typeof ToFeederKind.Parameters; readonly request: number; readonly change: number; readonly changes: readonly ParameterChange[]; } | { readonly kind: typeof ToFeederKind.Previews; readonly port: MessagePort; } | { readonly kind: typeof ToFeederKind.Release; readonly request: number; } | { readonly kind: typeof ToFeederKind.Sources; readonly request: number; readonly graph: GraphDescriptor; readonly sources: readonly SourceDescription[]; readonly quality: QualityMode; readonly dsp: DspDelivery<WebAssembly.Module>; } | { readonly kind: typeof ToFeederKind.Start; readonly run: number; readonly from: number; } | { readonly kind: typeof ToFeederKind.Stop; } | { readonly kind: typeof ToFeederKind.Unbind; }
 
 packages/audio-runtime/src/protocol/preview-worker-messages.ts
   type ToPreviewWorker = { readonly kind: typeof ToPreviewWorkerKind.Connect; readonly connection: number; readonly purpose: CachePurpose; readonly port: MessagePort; } | { readonly kind: typeof ToPreviewWorkerKind.Disconnect; readonly connection: number; }

@@ -44,6 +44,7 @@ export { type FeederWorkerEvents, type FeederWorkerPort } from './playback/feede
 export { type ChannelEnds } from './playback/channel-ends.js';
 
 export {
+  type Continuation,
   type PlaybackListener,
   type PlaybackRequest,
   PlaybackSession,

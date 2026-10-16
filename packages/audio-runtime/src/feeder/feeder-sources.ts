@@ -12,12 +12,15 @@
  * starts part way after a seek, as a preview may (ADR-0061); a chain it
  * cannot run as it plays is read from its render, where the feeder has the
  * preview worker's renders to read, and a parameter changed while it plays
- * reaches its chains through the request's running parameters.
+ * reaches its chains through the request's running parameters. Each edited
+ * sound is kept by its graph input too, so a plan that continues its own can
+ * be played on from where its source has read (ADR-0104).
  */
 
 import { flatMapResult, mapResult, type DomainResult } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
+  EditedSource,
   ProcessedStart,
   RunningParameters,
   type CachedStreams,
@@ -42,6 +45,17 @@ export interface RequestSources {
   readonly dspInUse: boolean;
   /** The chains its edited sounds run as they play, which a running change reaches. */
   readonly parameters: RunningParameters;
+  /** The edited sounds among the sources, by graph input, which a continued plan goes on with. */
+  readonly edited: ReadonlyMap<NodeId, EditedSource>;
+}
+
+/** The sources that are edited sounds, by graph input. */
+function editedOf(sources: ReadonlyMap<NodeId, PcmSource>): ReadonlyMap<NodeId, EditedSource> {
+  const edited = new Map<NodeId, EditedSource>();
+  for (const [node, source] of sources) {
+    if (source instanceof EditedSource) edited.set(node, source);
+  }
+  return edited;
 }
 
 /** The sources a message describes, each in its graph input's layout, or every reason one cannot be. */
@@ -68,6 +82,7 @@ export function sourcesFor(
         dsp,
         dspInUse: watched.used(),
         parameters,
+        edited: editedOf(sources),
       }),
     ),
   );

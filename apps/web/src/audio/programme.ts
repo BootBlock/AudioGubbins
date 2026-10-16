@@ -11,9 +11,13 @@
  * An asset's sound changes as the project does, so its programme says what
  * it is made from: the transport loads it again for a sound that changed,
  * and works out from its plan whether a change can be heard running instead.
+ *
+ * A programme may continue another (ADR-0104), as a game preview's next stretch
+ * continues the one playing: it says which, and the first frame at which it may
+ * sound different, and the transport goes on into it without stopping.
  */
 
-import type { DomainResult, EditPlan, QualityMode } from '@audiogubbins/domain';
+import type { DomainResult, EditPlan, QualityMode, SampleCount } from '@audiogubbins/domain';
 import { runningChanges, type ParameterChange } from '@audiogubbins/audio-engine';
 import type { PlaybackRequest } from '@audiogubbins/audio-runtime';
 
@@ -34,20 +38,29 @@ export interface Programme {
   readonly content?: string;
   /** The plan it plays, where it is an edited sound, which a running change is worked out from. */
   readonly plan?: EditPlan;
+  /**
+   * The programme this one continues, by its key, and the first timeline
+   * frame at which this one may sound different from it: a transport playing
+   * that one goes on into this one from there without stopping.
+   */
+  readonly continues?: { readonly key: string; readonly from: SampleCount };
 }
 
 /**
  * How the transport follows `next`, the programme it holds as it now stands:
- * not at all where it sounds as before; by the numeric parameters it changes,
- * running, where that is all it changes; and otherwise by loading it again.
+ * by going on into it from `from`, where it continues the one held; not at all
+ * where it sounds as before; by the numeric parameters it changes, running,
+ * where that is all it changes; and otherwise by loading it again.
  */
 export type Following =
+  | { readonly kind: 'continued'; readonly from: SampleCount }
   | { readonly kind: 'unchanged' }
   | { readonly kind: 'running'; readonly changes: readonly ParameterChange[] }
   | { readonly kind: 'reload' };
 
 /** How the transport holding `loaded` follows `next` (see {@link Following}). */
 export function followingOf(loaded: Programme, next: Programme): Following {
+  if (next.continues?.key === loaded.key) return { kind: 'continued', from: next.continues.from };
   if (loaded.content === next.content) return { kind: 'unchanged' };
   const changes =
     loaded.plan === undefined || next.plan === undefined
