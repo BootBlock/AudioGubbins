@@ -30,7 +30,11 @@ export interface PanelCommands {
     args?: CommandInvocation['arguments'],
     options?: VoicedOptions,
   ) => void;
-  readonly unavailableReason: (id: string) => string | undefined;
+  /** Why the command `id` cannot run now, given `args` where the control gives them. */
+  readonly unavailableReason: (
+    id: string,
+    args?: CommandInvocation['arguments'],
+  ) => string | undefined;
 }
 
 /**
@@ -102,7 +106,7 @@ export function CommandButton({
     <ReasonedButton
       {...toned}
       compact={compact}
-      reason={commands.unavailableReason(id) ?? refusal}
+      reason={commands.unavailableReason(id, args) ?? refusal}
       onPress={run}
     >
       {label}

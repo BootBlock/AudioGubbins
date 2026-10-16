@@ -9,7 +9,7 @@
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
-import type { GroupMember } from '@audiogubbins/game-audio';
+import { memberKey, type GroupMember } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import { readJoining } from './game-arguments.js';
@@ -21,7 +21,9 @@ import {
   withMembership,
   withoutMembership,
 } from './game-state.js';
+import { memberName } from './game-words.js';
 import { unplayed } from './scenario-players.js';
+import { memberOwner } from './value-owners.js';
 
 /** A state a member has left, and the arguments that put its membership back. */
 export interface Left {
@@ -57,7 +59,9 @@ export function rejoined(
   member: GroupMember,
 ): DomainResult<ProjectState> {
   const game = gameOf(state);
-  const joining = readJoining(invocation, game.memberships.length);
+  // The member was just added, so the project names it.
+  const name = memberName(state.project, member) ?? memberKey(member);
+  const joining = readJoining(invocation, game.memberships.length, memberOwner(member, name));
   if (!joining.ok || joining.value === undefined) return joining.ok ? succeed(state) : joining;
   if (membershipIndex(game, member) !== undefined) {
     return fail(

@@ -466,6 +466,9 @@ const PACKAGES = [
       // and what a varispeed voice's filter costs, which bounds the preview's
       // voice budget (ADR-0104).
       '@audiogubbins/audio-engine',
+      // The quoting every refusal names what the person wrote with, as the
+      // commands that report it do.
+      '@audiogubbins/text',
     ],
     devDeps: [],
     external: {},

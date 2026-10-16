@@ -256,11 +256,16 @@ class StreamReader {
             fieldsOf(read['processing'], `${field}.processing`),
             `${field}.processing`,
           );
+    const forgottenBefore =
+      read['forgottenBefore'] === undefined
+        ? undefined
+        : sampleCountOf(read['forgottenBefore'], `${field}.forgottenBefore`);
     return {
       sampleRate: rateOf(read['sampleRate'], `${field}.sampleRate`),
       layout: layoutOf(read['layout'], `${field}.layout`),
       segments,
       ...(processing === undefined ? {} : { processing }),
+      ...(forgottenBefore === undefined ? {} : { forgottenBefore }),
     };
   }
 

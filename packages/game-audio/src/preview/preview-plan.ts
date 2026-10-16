@@ -3,13 +3,14 @@
  * and the same plan continued from a frame without changing anything heard
  * before it.
  *
- * The fixed streams (`plan-layout.ts`) come first; then, in the order of the
- * events that made them, each voice's own streams (`voice-streams.ts`) and the
- * lanes an emitter takes beyond its first, so a continuation from a frame
- * drops every stream made for an event from it on and keeps the rest at their
- * places (`plan-build.ts`). Each voice is laid in its lane at its frame
- * (`plan-voices.ts`), and the fixed streams are written for the horizon and
- * the end (`plan-fixed-streams.ts`).
+ * The fixed streams (`plan-layout.ts`) come first; then each voice's own
+ * streams (`voice-streams.ts`) and the lanes an emitter takes beyond its first,
+ * each at places the plan gives (`stream-places.ts`), so a continuation from a
+ * frame lets go of every stream made for an event from it on and keeps the rest
+ * at their places (`plan-build.ts`). Each voice is laid in its lane at its
+ * frame (`plan-voices.ts`), and the fixed streams are written for the horizon
+ * and the end (`plan-fixed-streams.ts`). A plan that plays for long forgets
+ * what has been heard ({@link forgetPreviewPlanBefore}, `plan-forgetting.ts`).
  *
  * Nothing of the project is changed: the members' plans are read and copied.
  * Identifiers come from `ids`, so a plan is reproducible from the same
@@ -29,12 +30,14 @@ import {
   type ProcessorCatalogue,
   succeed,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import { memberKey } from '../groups/membership.js';
 import { emptyLane, type Lane } from './lane-segments.js';
 import { MASTER_BUS, STEREO, controlsOf, planLayout, type PreviewControls } from './plan-layout.js';
 import {
   PlanBuild,
+  VoiceList,
   endFor,
   firstFrom,
   laneStream,
@@ -44,6 +47,7 @@ import {
   type PreviewPlanBuild,
 } from './plan-build.js';
 import { writeBuses, writeEmitters, writeOutput } from './plan-fixed-streams.js';
+import { forgottenBuild } from './plan-forgetting.js';
 import { applyEvents, lengthenLoops, relayLanes, stereoStages, uncutFrom } from './plan-voices.js';
 import { pannerDescriptor } from './preview-chains.js';
 import type { GamePreviewScenario } from './preview-scenario.js';
@@ -82,6 +86,24 @@ function laneKeys(
   return keys;
 }
 
+/** `build` as the plan it is. */
+function planOf(build: PlanBuild): DomainResult<PreviewPlan> {
+  const { fixed } = build;
+  const [first, ...rest] = build.streams;
+  if (first === undefined) return refused('preview.plan-empty', 'A preview plan has its sound.');
+  let keys: ReadonlyMap<string, number> | undefined;
+  return succeed({
+    plan: { streams: [first, ...rest] },
+    media: fixed.media,
+    controls: fixed.controls,
+    get lanes() {
+      keys ??= laneKeys(fixed, build.lanes);
+      return keys;
+    },
+    build,
+  });
+}
+
 /** `build` continued by `simulation`'s events from `frame`. */
 function continued(
   build: PlanBuild,
@@ -105,31 +127,21 @@ function continued(
   writeOutput(working, horizon);
   writeBuses(working);
   writeEmitters(working, end > build.through);
-  const [first, ...rest] = working.streams;
-  if (first === undefined) return refused('preview.plan-empty', 'A preview plan has its sound.');
-  const next = new PlanBuild({
-    fixed,
-    streams: working.streams,
-    horizonFrame: horizon,
-    end,
-    through: Math.max(build.through, end),
-    lanes: working.lanes,
-    epochs: working.epochs,
-    laneStates: working.laneStates,
-    voices: working.voices,
-    marks: working.marks,
-  });
-  let keys: ReadonlyMap<string, number> | undefined;
-  return succeed({
-    plan: { streams: [first, ...rest] },
-    media: fixed.media,
-    controls: fixed.controls,
-    get lanes() {
-      keys ??= laneKeys(fixed, next.lanes);
-      return keys;
-    },
-    build: next,
-  });
+  return planOf(
+    new PlanBuild({
+      fixed,
+      streams: working.streams,
+      horizonFrame: horizon,
+      end,
+      through: Math.max(build.through, end),
+      lanes: working.lanes,
+      epochs: working.epochs,
+      laneStates: working.laneStates,
+      voices: working.voices,
+      free: working.free,
+      forgotten: working.forgotten,
+    }),
+  );
 }
 
 /** Why `member`'s `plan` cannot be played by the preview, or `undefined` where it can. */
@@ -180,8 +192,9 @@ function emptyBuild(fixed: Fixed, end: number): PlanBuild {
     lanes: fixed.layout.emitters.map((own) => own.lanes),
     epochs: fixed.layout.emitters.map((own) => [{ from: 0, lanes: own.lanes.length }]),
     laneStates,
-    voices: [],
-    marks: [],
+    voices: new VoiceList(),
+    free: [],
+    forgotten: 0,
   });
 }
 
@@ -205,6 +218,33 @@ function poolsOf(
 }
 
 /**
+ * What `simulation` played by and at what rate, where it is a whole simulation
+ * of `scenario`; a plan is made of one, and one that has forgotten its start
+ * only continues a plan.
+ */
+function wholeSimulation(
+  simulation: PreviewSimulation,
+  scenario: GamePreviewScenario,
+): DomainResult<NonNullable<ReturnType<typeof simulatedPlays>>> {
+  const simulated = simulatedPlays(simulation.state);
+  if (
+    simulated?.plays.length !== scenario.emitters.length ||
+    simulated.plays.some((play, index) => play.emitter !== scenario.emitters[index])
+  ) {
+    return refused(
+      'preview.simulation-mismatch',
+      'A preview plan is made of a simulation of its scenario.',
+    );
+  }
+  return simulation.log.forgotten > 0
+    ? refused(
+        'preview.simulation-forgotten',
+        'A preview plan is made of a whole simulation; one that has forgotten its start only continues one.',
+      )
+    : succeed(simulated);
+}
+
+/**
  * `simulation` as a plan in `output`, the project's layout: each member's
  * sound from `members`, by its `memberKey`, each processor from `catalogue`,
  * each chain's identifiers from `ids`; refused where a member has no plan, or
@@ -220,24 +260,16 @@ export function previewPlan(
   ids: IdGenerator,
   output: ChannelLayout,
 ): DomainResult<PreviewPlan> {
-  const simulated = simulatedPlays(simulation.state);
-  if (
-    simulated?.plays.length !== scenario.emitters.length ||
-    simulated.plays.some((play, index) => play.emitter !== scenario.emitters[index])
-  ) {
-    return refused(
-      'preview.simulation-mismatch',
-      'A preview plan is made of a simulation of its scenario.',
-    );
-  }
-  const { plays, rate } = simulated;
+  const simulated = wholeSimulation(simulation, scenario);
+  if (!simulated.ok) return simulated;
+  const { plays, rate } = simulated.value;
   for (const play of plays) {
     for (const member of play.pool) {
       const problem = memberProblem(member, members.get(memberKey(member.member)));
       if (problem !== undefined) {
         return refused(
           'preview.member-unplayable',
-          `A member of "${play.emitter.name}" ${problem}.`,
+          `A member of ${quoted(play.emitter.name)} ${problem}.`,
         );
       }
     }
@@ -291,5 +323,38 @@ export function extendPreviewPlan(
       'A preview plan goes on only with its own simulation, continued.',
     );
   }
-  return continued(build, simulation, Math.min(from, build.horizonFrame));
+  const frame = Math.min(from, build.horizonFrame);
+  if (frame < build.forgotten) {
+    return refused(
+      'preview.continuation-forgotten',
+      'A preview plan goes on only from a frame it has not forgotten.',
+    );
+  }
+  return continued(build, simulation, frame);
+}
+
+/**
+ * `previous` with what was heard before `frame` forgotten
+ * (`plan-forgetting.ts`): the same sound from `frame` on, every stream still
+ * sounding at its place and stating where it describes from, so an engine
+ * continuing into it keeps every reader of what sounds. `frame` is one the
+ * engine has read past, at or before `previous`'s horizon; a later continuation
+ * goes on from it or after it only.
+ */
+export function forgetPreviewPlanBefore(
+  previous: PreviewPlan,
+  frame: number,
+): DomainResult<PreviewPlan> {
+  const { build } = previous;
+  if (!(build instanceof PlanBuild)) {
+    return refused('preview.simulation-mismatch', 'A preview plan forgets only one made here.');
+  }
+  if (!Number.isSafeInteger(frame) || frame < 0 || frame > build.horizonFrame) {
+    return refused(
+      'preview.forget-invalid',
+      'A preview plan forgets up to a whole frame within its horizon.',
+    );
+  }
+  const forgotten = forgottenBuild(build, frame);
+  return forgotten === build ? succeed(previous) : planOf(forgotten);
 }

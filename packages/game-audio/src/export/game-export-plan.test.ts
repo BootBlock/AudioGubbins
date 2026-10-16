@@ -399,7 +399,7 @@ describe('a refused member', () => {
     ]);
     expect(failures[0]?.details).toEqual({ member: `region:${String(world.steps[0]?.id)}` });
     expect(failures[0]?.summary).toBe(
-      'No group from "Bare" up sets the export profile of the region "Left step", and it overrides none; set one on a group it is in.',
+      'No group from “Bare” up sets the export profile of the region “Left step”, and it overrides none; set one on a group it is in.',
     );
   });
 
@@ -432,7 +432,7 @@ describe('a refused member', () => {
     });
     expect(refusal?.cause?.code).toBe('import-export.too-many-channels');
     expect(refusal?.summary).toMatch(
-      /^The group "Footsteps" sets its export profile with what the asset "Crowd" cannot be exported by: /u,
+      /^The group “Footsteps” sets its export profile with what the asset “Crowd” cannot be exported by: /u,
     );
   });
 
@@ -462,7 +462,7 @@ describe('a refused member', () => {
       owner: 'member',
       member: `region:${String(world.steps[0]?.id)}`,
     });
-    expect(refusal?.summary).toMatch(/^The region "Left step" overrides its export profile/u);
+    expect(refusal?.summary).toMatch(/^The region “Left step” overrides its export profile/u);
   });
 
   it('keeps the refusal of a context as it is, which is no policy of the group', () => {
@@ -614,7 +614,7 @@ describe('names that collide', () => {
       otherNamingGroupPath: 'Footsteps/Grass',
     });
     expect(first[0]?.summary).toBe(
-      'Both the region "Left step" and the region "Right step" would be exported as "GRASS.wav" in the folder "sfx", one file over the other. The region "Left step" names the first. The group "Footsteps/Grass" names the second. Give one a template that tells them apart.',
+      'Both the region “Left step” and the region “Right step” would be exported as “GRASS.wav” in the folder “sfx”, one file over the other. The region “Left step” names the first. The group “Footsteps/Grass” names the second. Give one a template that tells them apart.',
     );
     expect(refusals(plan.items[2]).map((one) => one.details?.['other'])).toEqual([left, right]);
   });

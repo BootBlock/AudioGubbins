@@ -118,8 +118,12 @@ export interface AppliedExecution<TContext> {
 
 /** Runs commands and reports what happened. */
 export interface CommandBus<TContext> {
-  /** Whether the command could run against this context right now. */
-  availability(context: TContext, id: CommandId): CommandAvailability;
+  /** Whether the command could run against this context right now, given `args` where they are known. */
+  availability(
+    context: TContext,
+    id: CommandId,
+    args?: CommandInvocation['arguments'],
+  ): CommandAvailability;
 
   /** Runs one command. */
   execute(context: TContext, invocation: CommandInvocation): ExecutionResult<TContext>;
@@ -168,7 +172,7 @@ export function createCommandBus<TContext>(
       );
     }
 
-    const canRun = command.availability(context);
+    const canRun = command.availability(context, invocation);
     if (!canRun.available) {
       return refusedWith(
         failure(UNAVAILABLE_FAILURE_CODE, FailureKind.Conflict, canRun.reason, {
@@ -197,11 +201,14 @@ export function createCommandBus<TContext>(
   };
 
   return {
-    availability(context, id) {
+    availability(context, id, args) {
       const command = registry.get(id);
       return command === undefined
         ? { available: false, reason: `There is no command "${id}".` }
-        : command.availability(context);
+        : command.availability(
+            context,
+            args === undefined ? undefined : { commandId: id, arguments: args },
+          );
     },
 
     execute(context, invocation) {

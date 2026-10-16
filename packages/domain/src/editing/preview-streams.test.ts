@@ -196,6 +196,48 @@ describe('a chain’s automation in a plan', () => {
   });
 });
 
+describe('a stream’s forgotten frames', () => {
+  /** The sound reading the asset, its first `forgotten` frames forgotten, and a stream `spare`. */
+  function forgetting(forgotten: number, spare?: PlanStream): EditPlan {
+    return {
+      streams: [
+        {
+          ...media(1_000),
+          segments: [
+            reading({ kind: 'silence', channels: 1 }, 400),
+            reading({ kind: 'media', asset: asset.id }, 600, 400),
+          ],
+          forgottenBefore: frames(forgotten),
+        },
+        ...(spare === undefined ? [] : [spare]),
+      ],
+    };
+  }
+
+  it('are a whole number of the stream’s frames, at most all of them', () => {
+    expectSuccess(validatePlan(forgetting(400), ASSETS));
+    expectSuccess(validatePlan(forgetting(1_000), ASSETS));
+    expect(expectFailureCode(validatePlan(forgetting(1_001), ASSETS))).toBe(
+      'editing.plan-malformed',
+    );
+  });
+
+  it('let a stream forgotten whole hold its place where nothing reads it, and no other', () => {
+    const whole = { ...media(1), forgottenBefore: frames(1) };
+    expectSuccess(validatePlan(forgetting(400, whole), ASSETS));
+    expect(
+      expectFailureCode(
+        validatePlan(forgetting(400, { ...whole, forgottenBefore: frames(0) }), ASSETS),
+      ),
+    ).toBe('editing.plan-malformed');
+  });
+
+  it('read back from a clone as they were', () => {
+    const plan = forgetting(400);
+    expect(expectSuccess(readBack(plan))).toEqual(plan);
+  });
+});
+
 describe('a payload holding processing only a preview has', () => {
   const shape = shapesOf(asset)[0];
   if (shape === undefined) throw new Error('An asset has its source’s shape.');
@@ -211,9 +253,12 @@ describe('a payload holding processing only a preview has', () => {
       editingEntities(ASSETS),
     );
 
-  it('is refused, as a project keeps neither', () => {
+  it('is refused, as a project keeps none of it', () => {
     expect(expectFailureCode(insert(varispeedPlan(5_000, 820)))).toBe('editing.payload-varispeed');
     expect(expectFailureCode(insert(automatedPlan([SWEEP])))).toBe('editing.payload-automation');
+    expect(
+      expectFailureCode(insert({ streams: [{ ...media(10), forgottenBefore: frames(4) }] })),
+    ).toBe('editing.payload-forgotten');
     expectSuccess(insert({ streams: [media(10)] }));
   });
 });

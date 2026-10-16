@@ -7,8 +7,9 @@
  * Only events the listener has heard are taken: a continuation decides afresh
  * only from a frame the feeder has not read, which is never before the frame
  * heard, so the events taken are never changed under the list, and the place it
- * has reached in the log stays the place of the same event. Each is taken once,
- * so a long run costs its new events at each look.
+ * has reached in the log, counted from the run's first event, stays the place
+ * of the same event however many before it the log has forgotten. Each is taken
+ * once, so a long run costs its new events at each look.
  */
 
 import type { PreviewEmitterId, PreviewEventLog } from '@audiogubbins/game-audio';
@@ -27,7 +28,10 @@ export class LogProgress {
   readonly #limits: ReadonlyMap<PreviewEmitterId, number>;
   /** The voices each emitter sounds, by number. */
   readonly #sounding = new Map<PreviewEmitterId, Set<number>>();
+  /** How many of the run's events have been taken, counted from its first. */
   #taken = 0;
+  /** The frame through which every event has been heard and taken. */
+  #heardThrough = 0;
   #recent: PreviewRunStats['recent'] = [];
   #counts: EventCounts = NO_EVENTS;
   /** The hand triggers not yet heard: the frame each starts at, and when it was pressed. */
@@ -54,12 +58,15 @@ export class LogProgress {
    * `now` milliseconds, and answers whether anything the panel shows changed.
    */
   hear(log: PreviewEventLog, heard: number, now: number): boolean {
-    const { events } = log;
+    const { events, forgotten } = log;
+    // Events forgotten before they were heard are not the run's to forget.
+    if (this.#taken < forgotten) throw new Error('The log forgot events not yet heard.');
     const before = this.#taken;
     const recent = [...this.#recent];
     const counts = { ...this.#counts };
-    for (; this.#taken < events.length; this.#taken += 1) {
-      const event = events[this.#taken];
+    this.#heardThrough = Math.max(this.#heardThrough, heard);
+    for (; this.#taken - forgotten < events.length; this.#taken += 1) {
+      const event = events[this.#taken - forgotten];
       if (event === undefined || event.frame > heard) break;
       counts[event.kind] += 1;
       recent.push(event);
@@ -81,6 +88,11 @@ export class LogProgress {
     this.#recent = recent.slice(-RECENT_EVENTS);
     this.#counts = counts;
     return true;
+  }
+
+  /** The frame through which every event of the run has been heard and listed. */
+  get heardThrough(): number {
+    return this.#heardThrough;
   }
 
   /** What the panel shows, with the plan's `planStreams`. */

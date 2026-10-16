@@ -18,6 +18,7 @@ import type { ProjectState } from '@audiogubbins/project-format';
 
 import type { GamePreviewParts } from '../../audio/preview-runner.js';
 import { PreviewCommand } from '../../commands/preview-run-commands.js';
+import { PREVIEW_PANEL } from '../../input/use-shortcuts.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
 import {
   draftChanged,
@@ -232,7 +233,7 @@ export function GamePreviewPanel({
   const project = useOpenState(context.projects?.project);
   const { draft } = state;
   return (
-    <section className="ag-panel">
+    <section className="ag-panel" {...{ [PREVIEW_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       {project === undefined ? (
         <p className="ag-panel-note">

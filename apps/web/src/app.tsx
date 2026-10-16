@@ -27,11 +27,13 @@ import { createApplication, type Application } from './application.js';
 import type { RunCommand } from './shell/settings/section.js';
 import { useShellShortcuts } from './input/use-shell-shortcuts.js';
 import { bundleSourcesFrom } from './commands/diagnostic-commands.js';
+import type { PanelCommands } from './shell/command-button.js';
 import { CommandPalette } from './shell/command-palette.js';
 import { DiagnosticExportDialog } from './shell/diagnostic-export.js';
 import { ApplicationFailure, FailureBoundary, PanelFailure } from './shell/failure-boundary.js';
 import { shellMenus } from './shell/menus.js';
-import { panelContextOf, renderPanel } from './shell/panels.js';
+import { panelContextOf } from './shell/panel-context.js';
+import { renderPanel } from './shell/panels.js';
 import { ProjectBanner } from './shell/project-banner.js';
 import { ProjectSurfaces } from './shell/project-surfaces.js';
 import { BackupStatus } from './shell/backup-status.js';
@@ -99,8 +101,8 @@ function AudioGubbins({ application }: { readonly application: Application }) {
   );
 
   /** Why a command a settings surface names cannot run now, as the menus say it. */
-  const unavailableReason = (id: string): string | undefined => {
-    const availability = bus.availability(context, commandId(id));
+  const unavailableReason: PanelCommands['unavailableReason'] = (id, args) => {
+    const availability = bus.availability(context, commandId(id), args);
     return availability.available ? undefined : availability.reason;
   };
 

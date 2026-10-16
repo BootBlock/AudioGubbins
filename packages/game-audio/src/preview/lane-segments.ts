@@ -10,6 +10,11 @@
  * continued plan changes only where its first segment ends and what follows,
  * never a segment before: the lane reads the same as far as the plan it
  * continues was decided.
+ *
+ * A lane that has played for long forgets what came before a frame
+ * ({@link forgottenLane}): its segments before the voice or silence that plays
+ * across that frame become one of silence as long as they were, so its frames
+ * keep their places and the lane holds what is still to be heard.
  */
 
 import {
@@ -43,6 +48,8 @@ export interface Lane {
   readonly owners: readonly number[];
   /** In order of start. */
   readonly placements: readonly Placement[];
+  /** The frames at its start it no longer describes, silence in their place; 0 where none. */
+  readonly forgotten: number;
 }
 
 const SILENCE: PlanSource = { kind: 'silence', channels: 2 };
@@ -64,7 +71,13 @@ function segment(
 
 /** A lane of silence to `end`. */
 export function emptyLane(end: number): Lane {
-  return { segments: [segment(SILENCE, 0, end, [])], ends: [end], owners: [-1], placements: [] };
+  return {
+    segments: [segment(SILENCE, 0, end, [])],
+    ends: [end],
+    owners: [-1],
+    placements: [],
+    forgotten: 0,
+  };
 }
 
 /** The first index of `count` items, whose `valueAt` rises, at which it is above (or at, `inclusive`) `frame`. */
@@ -153,5 +166,28 @@ export function relaidLane(
     ends,
     owners,
     placements: [...before, ...placements.filter((one) => one.start >= from)],
+    forgotten: lane.forgotten,
+  };
+}
+
+/**
+ * `lane` with every segment that ends by the start of the voice or silence
+ * playing across `frame` forgotten: one segment of silence as long in their
+ * place, and the placements that sounded within it dropped. A voice playing
+ * across `frame` keeps every segment, so a continuation from `frame` on lays
+ * it as before.
+ */
+export function forgottenLane(lane: Lane, frame: number): Lane {
+  let kept = firstAbove(lane.ends.length, (index) => lane.ends[index] ?? 0, frame, false);
+  const owner = lane.owners[kept] ?? -1;
+  while (kept > 0 && owner >= 0 && lane.owners[kept - 1] === owner) kept -= 1;
+  const forgotten = kept === 0 ? 0 : (lane.ends[kept - 1] ?? 0);
+  if (forgotten <= lane.forgotten) return lane;
+  return {
+    segments: [segment(SILENCE, 0, forgotten, []), ...lane.segments.slice(kept)],
+    ends: [forgotten, ...lane.ends.slice(kept)],
+    owners: [-1, ...lane.owners.slice(kept)],
+    placements: lane.placements.filter((placement) => placement.soundEnd > forgotten),
+    forgotten,
   };
 }

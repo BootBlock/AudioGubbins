@@ -213,4 +213,65 @@ describe('where a continuing plan may first differ', () => {
     ).toBe(false);
     expect(planDivergence(before, slower, STATELESS).input(0)).toBe(0);
   });
+
+  it('compares a stream that has forgotten its past only from where it remembers', () => {
+    // A lane that played a file before frame 40 and silence since, and its
+    // chain's level moved by points before and after 40, as a preview leaves
+    // them once it has dropped what was heard.
+    const level = (points: readonly (readonly [number, number])[]) => [
+      {
+        processor: unsafeBrandId<'ProcessorId'>('0000d1fe-0004'),
+        parameter: LEVEL,
+        points: points.map(([frame, value]) => ({ frame, value })),
+      },
+    ];
+    const lane = (
+      segments: readonly PlanSegment[],
+      points: readonly (readonly [number, number])[],
+      forgottenBefore?: number,
+    ) =>
+      plan(
+        stream([segment({ kind: 'stream', stream: 1 }, 0, 100)]),
+        stream(segments, {
+          processing: { kind: 'chain', chain: chain(1), input: MONO, automation: level(points) },
+          ...(forgottenBefore === undefined
+            ? {}
+            : { forgottenBefore: derivedSampleCount(forgottenBefore) }),
+        }),
+      );
+    const played = lane(
+      [segment(FILE, 0, 30), segment(SILENCE, 0, 10), segment(SILENCE, 0, 60)],
+      [
+        [0, 1],
+        [20, 2],
+        [50, 3],
+        [90, 4],
+      ],
+    );
+    const remembered = (forgottenBefore?: number) =>
+      lane(
+        [segment(SILENCE, 0, 40), segment(SILENCE, 0, 60)],
+        [
+          [20, 2],
+          [50, 3],
+          [90, 4],
+        ],
+        forgottenBefore,
+      );
+
+    expect(planDivergence(played, remembered(40), STATELESS).input(1)).toBe(NEVER);
+    // Unstated, the past it dropped is a difference from the first frame.
+    expect(planDivergence(played, remembered(), STATELESS).input(1)).toBe(0);
+    // And a point moved past where it remembers from is a difference there.
+    const moved = lane(
+      [segment(SILENCE, 0, 40), segment(SILENCE, 0, 60)],
+      [
+        [20, 2],
+        [50, 3],
+        [80, 4],
+      ],
+      40,
+    );
+    expect(planDivergence(played, moved, STATELESS).input(1)).toBe(51);
+  });
 });

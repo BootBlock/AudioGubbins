@@ -225,6 +225,28 @@ describe('availability', () => {
     });
   });
 
+  it('hands a command the invocation it would run with, asked and run alike', () => {
+    // A command whose subject an argument names is available where the
+    // argument names one, whatever the interface has chosen.
+    const seen: unknown[] = [];
+    const registry = createCommandRegistry<CounterContext>();
+    registry.register({
+      ...incrementCommand,
+      availability: (_context, invocation) => {
+        seen.push(invocation?.arguments);
+        return invocation?.arguments?.['by'] === undefined
+          ? { available: false, reason: 'Say by how much.' }
+          : { available: true };
+      },
+    });
+    const bus = createCommandBus(registry, testLogger().logger);
+
+    expect(bus.availability(START, incrementCommand.id).available).toBe(false);
+    expect(bus.availability(START, incrementCommand.id, { by: 2 })).toEqual({ available: true });
+    expect(bus.execute(START, increment(3)).kind).toBe('applied');
+    expect(seen).toEqual([undefined, { by: 2 }, { by: 3 }]);
+  });
+
   it('reports an unregistered command as unavailable rather than throwing', () => {
     const bus = createCommandBus(createCommandRegistry<CounterContext>(), testLogger().logger);
     expect(bus.availability(START, commandId('test.absent')).available).toBe(false);

@@ -243,9 +243,9 @@ function exportGroupCommand(): Command<ShellContext> {
       );
     },
     {
-      availability: (context) => {
+      availability: (context, invocation) => {
         const can = exportAvailability(context);
-        return can.available ? groupAvailability(context) : can;
+        return can.available ? groupAvailability(context, invocation) : can;
       },
       keywords: ['export', 'group', 'game', 'batch', 'render', 'members'],
       description:

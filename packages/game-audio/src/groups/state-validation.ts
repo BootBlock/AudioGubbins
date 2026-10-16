@@ -25,6 +25,7 @@ import {
   type EffectChainId,
   type Project,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import {
   ownerDetails,
@@ -119,7 +120,7 @@ function takenNames(readings: readonly GroupReading[]): readonly DomainFailure[]
       refused(
         'game.group-name-taken',
         reading.owner,
-        `has the name of the group "${pathText(earlier.owner.path)}" beside it; siblings' names differ in more than case.`,
+        `has the name of the group ${quoted(pathText(earlier.owner.path))} beside it; siblings' names differ in more than case.`,
         { other: earlier.group.id },
       ),
     );
@@ -197,7 +198,7 @@ function processingMismatch(
   const { source } = policy.fields.processing;
   const from =
     source.kind === 'group'
-      ? `the group "${pathText(source.path)}" ${inherited === undefined ? 'sets no rack' : `names chain ${inherited}`}`
+      ? `the group ${quoted(pathText(source.path))} ${inherited === undefined ? 'sets no rack' : `names chain ${inherited}`}`
       : 'no group sets its processing';
   return [
     refused(
@@ -219,7 +220,7 @@ function misfiled(key: GamePreviewScenarioId, scenario: GamePreviewScenario): Do
   return failure(
     'game.scenario-id-mismatch',
     FailureKind.Rejected,
-    `The scenario "${scenario.name}" is held under the identifier ${key}, not its own.`,
+    `The scenario ${quoted(scenario.name)} is held under the identifier ${key}, not its own.`,
     { details: { scenario: scenario.id, part: 'id' } },
   );
 }

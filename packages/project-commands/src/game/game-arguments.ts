@@ -41,6 +41,7 @@ import { idArgument } from '../editing/editing-arguments.js';
 import { jsonArgument, optionalTextArgument, readNested } from '../invocation-arguments.js';
 import { chainToName } from '../processing/chain-naming.js';
 import { FIELD_WORDS, groupWords, memberName } from './game-words.js';
+import { isPolicyField, ownedBy, type ValueOwner } from './value-owners.js';
 
 function rejected(code: string, summary: string): DomainResult<never> {
   return fail(failure(code, FailureKind.Rejected, summary));
@@ -91,12 +92,6 @@ export function targetMember(
     : succeed({ member: member.value, name });
 }
 
-const FIELDS: ReadonlySet<string> = new Set(POLICY_FIELDS);
-
-function isPolicyField(text: string): text is PolicyField {
-  return FIELDS.has(text);
-}
-
 /** The policy field the argument `field` names. */
 export function fieldArgument(invocation: CommandInvocation): DomainResult<PolicyField> {
   const text = optionalTextArgument(invocation, 'field');
@@ -142,15 +137,22 @@ export function overridableFieldArgument(
   );
 }
 
-/** The value of `field` the argument `value` holds, or `undefined` where it is absent: unset. */
+/**
+ * The value of `field` the argument `value` holds for `owner`, or `undefined`
+ * where it is absent: unset; refused naming `owner` and the field where it
+ * does not read.
+ */
 export function policyValueArgument<F extends PolicyField>(
   invocation: CommandInvocation,
   field: F,
+  owner: ValueOwner,
 ): DomainResult<PolicyValues[F] | undefined> {
   const given = invocation.arguments?.['value'];
   if (given === undefined || given === null) return succeed(undefined);
   const value = jsonArgument(invocation, 'value');
-  return value.ok ? readNested(readPolicyField(field), value.value, 'value') : value;
+  return value.ok
+    ? ownedBy(readNested(readPolicyField(field), value.value, 'value'), owner, 'value', field)
+    : value;
 }
 
 const PROCESSINGS: ReadonlySet<string> = new Set<MemberProcessing>(['inherit', 'own']);
@@ -180,12 +182,20 @@ export function processingArgument(invocation: CommandInvocation): DomainResult<
     : succeed(processing.value);
 }
 
-/** The overrides the argument `overrides` holds, or none where it is absent. */
-export function overridesArgument(invocation: CommandInvocation): DomainResult<PolicyOverrides> {
+/**
+ * The overrides the argument `overrides` holds for `owner`, or none where it
+ * is absent; refused naming `owner` and each field that does not read.
+ */
+export function overridesArgument(
+  invocation: CommandInvocation,
+  owner: ValueOwner,
+): DomainResult<PolicyOverrides> {
   const given = invocation.arguments?.['overrides'];
   if (given === undefined || given === null) return succeed({});
   const value = jsonArgument(invocation, 'overrides');
-  return value.ok ? readNested(readPolicyOverrides, value.value, 'overrides') : value;
+  return value.ok
+    ? ownedBy(readNested(readPolicyOverrides, value.value, 'overrides'), owner, 'overrides')
+    : value;
 }
 
 /**
@@ -252,18 +262,19 @@ export interface Joining {
 
 /**
  * The membership the arguments `group`, `processing`, `overrides` and
- * `position` give, among `others` other memberships, or `undefined` where
- * none of them is given.
+ * `position` give `owner`, among `others` other memberships, or `undefined`
+ * where none of them is given.
  */
 export function readJoining(
   invocation: CommandInvocation,
   others: number,
+  owner: ValueOwner,
 ): DomainResult<Joining | undefined> {
   const group = optionalGroupId(invocation, 'group');
   if (!group.ok) return group;
   const processing = optionalProcessingArgument(invocation);
   if (!processing.ok) return processing;
-  const overrides = overridesArgument(invocation);
+  const overrides = overridesArgument(invocation, owner);
   if (!overrides.ok) return overrides;
   const position = positionArgument(invocation, others);
   if (!position.ok) return position;

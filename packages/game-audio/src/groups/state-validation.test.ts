@@ -117,7 +117,7 @@ describe('a game-audio state’s forest (ADR-0101)', () => {
       parent: 'gone',
     });
     expect(refusal.summary).toBe(
-      'The group "Steps" is inside group gone, which the project does not have.',
+      'The group “Steps” is inside group gone, which the project does not have.',
     );
   });
 
@@ -194,7 +194,7 @@ describe('a game-audio state’s members', () => {
     const state = stateOf([inRegion('own'), inRegion('own', {}, sfx)]);
     const refusal = only(validateGameAudioState(BASE, state), 'game.member-twice');
 
-    expect(refusal.summary).toBe('The region "Walk loop" is in more than one membership.');
+    expect(refusal.summary).toBe('The region “Walk loop” is in more than one membership.');
   });
 
   it('refuses a membership naming no group', () => {
@@ -236,7 +236,7 @@ describe('an inheriting member’s rack (one authority on processing)', () => {
       from: sfx,
     });
     expect(refusal.summary).toBe(
-      'The region "Walk loop" inherits its processing, and the group "SFX" names chain chain-a, but its rack is chain chain-b.',
+      'The region “Walk loop” inherits its processing, and the group “SFX” names chain chain-a, but its rack is chain chain-b.',
     );
   });
 
@@ -261,7 +261,7 @@ describe('an inheriting member’s rack (one authority on processing)', () => {
       'game.member-processing-mismatch',
     );
     expect(refusal.summary).toBe(
-      'The region "Walk loop" inherits its processing, and no group sets its processing, but its rack is chain chain-a.',
+      'The region “Walk loop” inherits its processing, and no group sets its processing, but its rack is chain chain-a.',
     );
   });
 
@@ -289,7 +289,7 @@ describe('a policy’s values, each refusal naming its owner', () => {
       groupPath: 'SFX/Steps',
     });
     expect(refusal.summary).toBe(
-      'The group "SFX/Steps" sets its processing chain with what it does not take: the project has no chain gone.',
+      'The group “SFX/Steps” sets its processing chain with what it does not take: the project has no chain gone.',
     );
   });
 
@@ -318,7 +318,7 @@ describe('a policy’s values, each refusal naming its owner', () => {
     });
     expect(refusal.cause?.code).toBe('game.destination-invalid');
     expect(refusal.summary).toMatch(
-      /^The region "Walk loop" overrides its destination with what it does not take: /,
+      /^The region “Walk loop” overrides its destination with what it does not take: /,
     );
   });
 
@@ -415,7 +415,7 @@ describe('a game-audio state’s preview scenarios (ADR-0104, ADR-0106)', () => 
     );
     expect(refusal.details).toEqual({ scenario: scenario.id, part: 'emitters.0.subject' });
     expect(refusal.summary).toBe(
-      'The emitter "Emitter 1" of the preview scenario "Vector" plays a group the project does not have.',
+      'The emitter “Emitter 1” of the preview scenario “Vector” plays a group the project does not have.',
     );
   });
 

@@ -11,6 +11,7 @@
 
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 import { dateOf, type ExportClock, type TemplatePart } from '@audiogubbins/import-export';
+import { quoted } from '@audiogubbins/text';
 
 import { CASE_MODIFIERS, inCase } from './case-modifiers.js';
 import type { NamingTemplate } from './naming-template.js';
@@ -94,7 +95,7 @@ export function expandNaming(template: NamingTemplate, values: NamingValues): Do
       failure(
         'game.export-region-token-for-asset',
         FailureKind.Rejected,
-        `The naming template "${template.source}" names {region}, but this member is a whole asset, which has no region; use {asset}.`,
+        `The naming template ${quoted(template.source)} names {region}, but this member is a whole asset, which has no region; use {asset}.`,
         { details: { template: template.source } },
       ),
     );

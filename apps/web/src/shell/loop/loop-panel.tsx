@@ -24,6 +24,7 @@ import { channelNames } from '../../assets/channel-names.js';
 import { regionEntryId } from '../../assets/project-entry.js';
 import type { Auditioning } from '../../audio/loop-audition.js';
 import type { EditorPanelParts } from '../../editor/panel-parts.js';
+import { LOOP_PANEL } from '../../input/use-shortcuts.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import {
   isCurrent,
@@ -228,7 +229,7 @@ export function LoopPanel({
   const analyses = useSyncExternalStore(parts.analyses.subscribe, parts.analyses.get);
   const audition = useSyncExternalStore(parts.audition.subscribe, parts.audition.get);
   return (
-    <section className="ag-panel ag-loop">
+    <section className="ag-panel ag-loop" {...{ [LOOP_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       {typeof shown === 'string' ? (
         <p>{shown}</p>

@@ -40,7 +40,8 @@ export interface EditorPanelParts {
   readonly run: (id: string, args?: ControlArguments, options?: VoicedOptions) => void;
   /** Says a sentence politely, where what it reports is shown in its own place already. */
   readonly announce: (text: string) => void;
-  readonly unavailableReason: (id: string) => string | undefined;
+  /** Why the command `id` cannot run now, given `args` where a control gives them. */
+  readonly unavailableReason: (id: string, args?: ControlArguments) => string | undefined;
   readonly labelFor: (id: string) => string;
   readonly shortcutFor: (id: string) => string | undefined;
 }

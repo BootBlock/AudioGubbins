@@ -114,7 +114,7 @@ describe('game.add-scenario', () => {
     });
     const result = bus.execute(state, addScenarioInvocation(loose));
     expect(refusalCodeOf(result)).toBe('game.scenario-subject-unknown');
-    expect(reasonsOf(result)).toContain('"Loose"');
+    expect(reasonsOf(result)).toContain('“Loose”');
   });
 
   it('refuses a scenario its own rules refuse', () => {

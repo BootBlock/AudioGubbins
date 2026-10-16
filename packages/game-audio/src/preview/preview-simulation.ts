@@ -16,6 +16,12 @@
  * trigger costs its own events rather than a new run, and what was heard is
  * never changed. It goes on from the last of its snapshots before that frame,
  * one taken every 256 actions (`simulation-loop.ts`).
+ *
+ * A simulation that plays for long forgets what came before a frame
+ * ({@link forgetPreviewBefore}): its log keeps the events from there, its state
+ * the run at that frame and the snapshots and hand actions after it, so what it
+ * holds is bounded by what is still to be heard, not by how long it has played.
+ * It goes on from that frame or later only.
  */
 
 import {
@@ -27,6 +33,7 @@ import {
   type DomainResult,
   type SampleRate,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import type { EmitterRules } from '../policy/playback-rules.js';
 import type { PreviewEvent, PreviewEventLog } from './preview-event-log.js';
@@ -55,9 +62,11 @@ export interface PreviewInput {
   readonly horizonFrame: number;
 }
 
-/** What a simulation goes on from: opaque, made only here. */
+/** What a simulation goes on from: opaque but for what its caller passes on, made only here. */
 export interface SimulationState {
   readonly horizonFrame: number;
+  /** The hand actions it holds, which a continuation's input begins with. */
+  readonly hand: readonly HandAction[];
 }
 
 /** The simulation as a value it continues from, so a hand trigger costs its own events, not a new run. */
@@ -68,17 +77,20 @@ export interface PreviewSimulation {
 
 class SimulationRecord implements SimulationState {
   readonly horizonFrame: number;
+  /** The frame before which it has forgotten everything; 0 where it has forgotten nothing. */
+  readonly since: number;
   readonly plays: readonly EmitterPlay[];
   readonly hand: readonly HandAction[];
   readonly rate: SampleRate;
   readonly budget: number;
   /** The run at the horizon. */
   readonly run: SimulationRun;
-  /** In order of frame, the first at 0. */
+  /** In order of frame, the first at {@link since}. */
   readonly snapshots: readonly Snapshot[];
 
   constructor(fields: Omit<SimulationRecord, never>) {
     this.horizonFrame = fields.horizonFrame;
+    this.since = fields.since;
     this.plays = fields.plays;
     this.hand = fields.hand;
     this.rate = fields.rate;
@@ -105,7 +117,10 @@ function inputProblems(
   for (const play of plays) {
     if (play.pool.length === 0) {
       problems.push(
-        refused('preview.pool-empty', `The emitter "${play.emitter.name}" has nothing to play.`),
+        refused(
+          'preview.pool-empty',
+          `The emitter ${quoted(play.emitter.name)} has nothing to play.`,
+        ),
       );
     }
   }
@@ -177,6 +192,7 @@ function continuationFrame(
     return mismatch;
   }
   let frame = Math.min(record.horizonFrame, input.horizonFrame);
+  if (frame < record.since) return mismatch;
   for (const [index, action] of record.hand.entries()) {
     const now = input.hand[index];
     if (now?.kind !== action.kind || now.emitter !== action.emitter || now.frame !== action.frame) {
@@ -185,7 +201,14 @@ function continuationFrame(
   }
   const added = input.hand[record.hand.length];
   if (added !== undefined) frame = Math.min(frame, added.frame);
-  return succeed(frame);
+  return frame < record.since
+    ? fail(
+        refused(
+          'preview.continuation-forgotten',
+          'A simulation goes on only from a frame it has not forgotten.',
+        ),
+      )
+    : succeed(frame);
 }
 
 /** The run of `record` at `frame`: every action before it taken and every voice ended before it gone. */
@@ -228,6 +251,8 @@ export function simulatePreview(
   const [problem, ...problems] = inputProblems(input, plays);
   if (problem !== undefined) return fail(problem, ...problems);
   const events: PreviewEvent[] = [];
+  let forgotten = 0;
+  let since = 0;
   const context: StepContext = {
     plays,
     rate: input.sampleRate,
@@ -252,11 +277,14 @@ export function simulatePreview(
     run = runAt(context, record, frame.value);
     snapshots = record.snapshots.filter((snapshot) => snapshot.at <= frame.value);
     events.push(...from.log.events.slice(0, firstEventFrom(from.log.events, frame.value)));
+    ({ forgotten } = from.log);
+    ({ since } = record);
   }
   advance(context, run, input.hand, input.horizonFrame, snapshots);
   endVoicesBy(context, run, input.horizonFrame - 1, true);
   const state = new SimulationRecord({
     horizonFrame: input.horizonFrame,
+    since,
     plays,
     hand: input.hand,
     rate: input.sampleRate,
@@ -264,7 +292,69 @@ export function simulatePreview(
     run,
     snapshots,
   });
-  return succeed({ log: { events, horizonFrame: input.horizonFrame }, state });
+  return succeed({ log: { events, horizonFrame: input.horizonFrame, forgotten }, state });
+}
+
+/** `run` with `taken` fewer hand actions taken, for a list of actions that lost its first `taken`. */
+function withHandDropped(run: SimulationRun, taken: number): SimulationRun {
+  const copied = run.copy();
+  copied.handTaken -= taken;
+  return copied;
+}
+
+/**
+ * `simulation` with everything before `frame` forgotten: the events before it
+ * dropped from its log, and from its state the snapshots before it and the hand
+ * actions taken before it, a snapshot taken at it in their place; refused where
+ * `frame` is past its horizon or it is no simulation made here. It goes on as
+ * `simulation` would from `frame` or later, and from no earlier frame.
+ */
+export function forgetPreviewBefore(
+  simulation: PreviewSimulation,
+  frame: number,
+): DomainResult<PreviewSimulation> {
+  const record = simulation.state;
+  if (!(record instanceof SimulationRecord)) {
+    return fail(refused('preview.continuation-mismatch', 'A simulation forgets only one it made.'));
+  }
+  if (!isFrame(frame) || frame > record.horizonFrame) {
+    return fail(
+      refused('preview.forget-invalid', 'A simulation forgets up to a frame within its horizon.'),
+    );
+  }
+  if (frame <= record.since) return succeed(simulation);
+  const context: StepContext = {
+    plays: record.plays,
+    rate: record.rate,
+    budget: record.budget,
+    fade: fadeFrames(record.rate),
+    emit: () => undefined,
+  };
+  const at = runAt(context, record, frame);
+  const taken = at.handTaken;
+  const kept = firstEventFrom(simulation.log.events, frame);
+  return succeed({
+    log: {
+      events: simulation.log.events.slice(kept),
+      horizonFrame: simulation.log.horizonFrame,
+      forgotten: simulation.log.forgotten + kept,
+    },
+    state: new SimulationRecord({
+      horizonFrame: record.horizonFrame,
+      since: frame,
+      plays: record.plays,
+      hand: record.hand.slice(taken),
+      rate: record.rate,
+      budget: record.budget,
+      run: withHandDropped(record.run, taken),
+      snapshots: [
+        { at: frame, run: withHandDropped(at, taken) },
+        ...record.snapshots
+          .filter((snapshot) => snapshot.at > frame)
+          .map((snapshot) => ({ at: snapshot.at, run: withHandDropped(snapshot.run, taken) })),
+      ],
+    }),
+  });
 }
 
 /**

@@ -238,6 +238,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/import-export',
     '@audiogubbins/audio-engine',
+    '@audiogubbins/text',
   ],
   '@audiogubbins/loop-analysis': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
@@ -3018,10 +3019,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
   const REVIEWED_PAST_THRESHOLD: Readonly<
     Record<string, readonly [lines: number, review: string]>
   > = {
-    'apps/web/src/shell/panels.tsx': [
-      402,
-      "The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind. Reviewed again when the Spectral panel and the export the Inspector describes met: the growth is the Spectral panel's arm and the context members it and the Inspector read, still one arm per kind and one member per part read. Reviewed again when the Asset groups panel joined (ADR-0101): the growth is its arm, the parts it reads, and the context members it and the Inspector read, the group chosen, the loudness readings and the codecs served, still one arm per kind and one member per part read. Reviewed again when the Asset groups and Loop panels met: the growth is their two arms and the parts each reads, still one arm per kind. Reviewed again past the threshold when the Asset groups and Game preview panels met: the growth is registration lines for the Phase 10 panels, an arm, a parts function and the context members each reads, still one arm per kind and one member per part read; every panel already lives in a module of its own, so a split would separate the context from the switch that hands it out.",
-    ],
     'packages/domain/src/index.ts': [
       431,
       "The domain's one published entry, a list of named exports with no logic: each line is one name a consumer imports, and the package-exports rule holds every name to a consumer outside the package or a listed reason, so nothing can be trimmed. The domain's modules are split by concept already (editing, processing, spectral, project, audio, time, identity); split, the entry would become subpath entries every consumer and the dependency rules name, and the one place that says what the domain publishes would be several.",
@@ -3178,6 +3175,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/domain/src/editing/plan-building.ts': [
       300,
       "The fold of an asset's chain into a plan, operation by operation: a cut, a reversal, a level or channel stage, a conversion, an insertion, and the processing of a range by a rack, a punch or a spectral edit. Where a kind's work is more than a few lines it is a module of its own (`processed-streams.ts`, `punch-fold.ts`, `operation-validation.ts`), so what is left is the one switch that applies each operation to the folding and the reading of the chain a range is processed through; split, each half would need the folding the other leaves.",
+    ],
+    'apps/web/src/audio/preview-run.ts': [
+      305,
+      "A run of the game preview over the one playback control: its one lineage of simulation and plan, and each change that goes on from it in turn, a hand action, laying further ahead, forgetting what was heard and a running change, each a few lines over the simulation's and plan's own continuation, forgetting and the programme they make. What it lists of the log is `preview-log-progress.ts`, the programme `preview-programme.ts` and the running changes `preview-live-values.ts`; what is left is the order of the changes on the one lineage, which split would let two changes go on from one lineage at once. It entered the band when the run came to forget what was heard in place of laying its plan afresh at a silent moment.",
+    ],
+    'packages/game-audio/src/export/game-export-plan.ts': [
+      300,
+      "The game export plan: each member planned alone from its effective profile, naming and destination, each refusal re-stated with the owner of the value refused, and the planned items whose files would land on one another refused together. A member's policy, naming and export settings are modules of their own (`policy-resolution.ts`, `member-names.ts`, `member-export-settings.ts`); what is left is planning one member and settling the drafts against each other. The collision check is the one seam, and split out it would need this module's item and draft types and the words a refusal names a member by, which a collision and an unset value share. It entered the band when its refusals took the text package's quoting.",
     ],
   };
 
@@ -3415,8 +3420,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      79,
-      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table.",
+      85,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key. Reviewed again when the spectral selection and the spectral tools gained keys (REQ-UX-005): the growth is their nine lines of the table. Reviewed again when the keyboard's spectral cursor gained its keys: eight more lines of the table. Reviewed again when the Game preview's hand trigger gained its key: one line of the table and its comment.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,

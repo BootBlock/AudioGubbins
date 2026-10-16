@@ -42,6 +42,7 @@ import {
   type ExportSettings,
   type PlannedFile,
 } from '@audiogubbins/import-export';
+import { quoted } from '@audiogubbins/text';
 
 import type { GameAudioState } from '../groups/game-audio-state.js';
 import { pathText } from '../groups/group-names.js';
@@ -130,7 +131,7 @@ function nameOf(naming: MemberNaming): string {
 
 /** The member as a refusal names it. */
 function memberWords(member: GroupMember, naming: MemberNaming): string {
-  return `the ${member.kind} "${nameOf(naming)}"`;
+  return `the ${member.kind} ${quoted(nameOf(naming))}`;
 }
 
 /** The owner of a value `source` sets, as a refusal names it. */
@@ -156,7 +157,7 @@ function unset(
   return failure(
     code,
     FailureKind.Rejected,
-    `No group from "${pathText(naming.groupPath)}" up sets the ${what} of ${memberWords(member, naming)}, and it overrides none; set one on a group it is in.`,
+    `No group from ${quoted(pathText(naming.groupPath))} up sets the ${what} of ${memberWords(member, naming)}, and it overrides none; set one on a group it is in.`,
     { details: { member: memberKey(member) } },
   );
 }
@@ -305,11 +306,11 @@ function collision(draft: Drafted, other: Drafted): DomainFailure {
   const name = safeFileName(draft.item.file.name);
   const { segments } = draft.item.destination;
   const folder =
-    segments.length === 0 ? 'the folder exported to' : `the folder "${segments.join('/')}"`;
+    segments.length === 0 ? 'the folder exported to' : `the folder ${quoted(segments.join('/'))}`;
   return failure(
     'game.export-names-collide',
     FailureKind.Rejected,
-    `Both ${memberWords(draft.item.member, draft.naming)} and ${memberWords(other.item.member, other.naming)} would be exported as "${name}" in ${folder}, one file over the other. ${ownerWords(draft.namingOwner)} names the first. ${ownerWords(other.namingOwner)} names the second. Give one a template that tells them apart.`,
+    `Both ${memberWords(draft.item.member, draft.naming)} and ${memberWords(other.item.member, other.naming)} would be exported as ${quoted(name)} in ${folder}, one file over the other. ${ownerWords(draft.namingOwner)} names the first. ${ownerWords(other.namingOwner)} names the second. Give one a template that tells them apart.`,
     {
       details: {
         member: memberKey(draft.item.member),

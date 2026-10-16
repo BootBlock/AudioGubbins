@@ -88,14 +88,18 @@ export function varispeedProblem(
 
 /**
  * What `plan` holds that a project never keeps, or `undefined` where it holds
- * none: a varispeed stream, or a chain's automation, which only a plan made
- * for hearing a game's preview has (ADR-0104). An insertion's payload is kept
- * in the project's history and document, so it is refused either.
+ * none: a varispeed stream, a chain's automation, or frames a stream has
+ * forgotten, which only a plan made for hearing a game's preview has
+ * (ADR-0104). An insertion's payload is kept in the project's history and
+ * document, so it is refused any.
  */
-export function generatedProcessing(plan: EditPlan): 'varispeed' | 'automation' | undefined {
-  for (const { processing } of plan.streams) {
+export function generatedProcessing(
+  plan: EditPlan,
+): 'varispeed' | 'automation' | 'forgotten' | undefined {
+  for (const { processing, forgottenBefore } of plan.streams) {
     if (processing?.kind === 'varispeed') return 'varispeed';
     if (processing?.kind === 'chain' && processing.automation !== undefined) return 'automation';
+    if (forgottenBefore !== undefined) return 'forgotten';
   }
   return undefined;
 }

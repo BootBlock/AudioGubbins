@@ -17,7 +17,6 @@ import {
   validatePlan,
   type AssetId,
   type EditPlan,
-  type PlanStream,
 } from '@audiogubbins/domain';
 import { expectSuccess, renderPlan, type Samples } from '@audiogubbins/domain/testing';
 
@@ -35,6 +34,7 @@ import {
   vectorInput,
   type VectorSpec,
 } from '../testing/preview-vectors.js';
+import { firstDifference, readsBefore } from '../testing/plan-reach.js';
 import { extendPreviewPlan, previewPlan, type PreviewPlan } from './preview-plan.js';
 import { simulatePreview, type PreviewSimulation } from './preview-simulation.js';
 
@@ -108,79 +108,6 @@ function planned(spec: VectorSpec, simulation: PreviewSimulation): PreviewPlan {
       StandardLayouts.stereo,
     ),
   );
-}
-
-/**
- * How far into each stream `plan`'s sound reads to make its first `frames`:
- * from the first stream, through each segment that starts before what is
- * read of its stream, to what it reads of its source, through a varispeed or
- * a conversion by its ratio, with a filter's reach past it.
- */
-function readsBefore(plan: EditPlan, frames: number): readonly number[] {
-  const reach = plan.streams.map(() => 0);
-  reach[0] = frames;
-  const REACH = 4_096;
-  for (const [place, stream] of plan.streams.entries()) {
-    const limit = reach[place] ?? 0;
-    let position = 0;
-    for (const segment of stream.segments) {
-      if (position >= limit) break;
-      const read = segment.start + Math.min(segment.length, limit - position);
-      const sources =
-        segment.source.kind === 'stream'
-          ? [segment.source.stream]
-          : segment.source.kind === 'mix'
-            ? segment.source.streams
-            : [];
-      for (const source of sources) {
-        const target = plan.streams[source];
-        if (target === undefined) continue;
-        let needed = read;
-        if (stream.processing?.kind === 'varispeed') {
-          needed =
-            Math.ceil((read * stream.processing.numerator) / stream.processing.denominator) + REACH;
-        }
-        if (target.sampleRate !== stream.sampleRate) {
-          needed = Math.ceil((needed * target.sampleRate) / stream.sampleRate) + REACH;
-        }
-        reach[source] = Math.max(reach[source] ?? 0, needed);
-      }
-      position += segment.length;
-    }
-  }
-  return reach;
-}
-
-/**
- * The first frame of its own at which `after` may read differently from
- * `before`: the end of the segments they share, and within a pair that reads
- * alike but for its length, the shorter's end; infinite where they are one.
- */
-function firstDifference(before: PlanStream, after: PlanStream): number {
-  const { automation: _was, ...was } =
-    before.processing?.kind === 'chain' ? before.processing : { automation: undefined };
-  const { automation: _now, ...now } =
-    after.processing?.kind === 'chain' ? after.processing : { automation: undefined };
-  if (
-    before.sampleRate !== after.sampleRate ||
-    JSON.stringify(before.layout) !== JSON.stringify(after.layout) ||
-    JSON.stringify(before.processing?.kind === 'chain' ? was : before.processing) !==
-      JSON.stringify(after.processing?.kind === 'chain' ? now : after.processing)
-  ) {
-    return 0;
-  }
-  let position = 0;
-  for (let index = 0; ; index += 1) {
-    const old = before.segments[index];
-    const young = after.segments[index];
-    if (old === undefined || young === undefined)
-      return old === young ? Number.POSITIVE_INFINITY : position;
-    const { length: oldLength, ...oldReading } = old;
-    const { length: youngLength, ...youngReading } = young;
-    if (JSON.stringify(oldReading) !== JSON.stringify(youngReading)) return position;
-    if (oldLength !== youngLength) return position + Math.min(oldLength, youngLength);
-    position += oldLength;
-  }
 }
 
 describe('a preview plan continued by hand', () => {
@@ -258,6 +185,47 @@ describe('a preview plan continued by hand', () => {
     expect(after.log.events.some((event) => event.kind === 'budget-stolen')).toBe(false);
     const continued = expectSuccess(extendPreviewPlan(planned(spec, before), after, 2_400));
     expect(continued.plan).toEqual(planned(stopped, after).plan);
+  });
+
+  it('lays a looping voice cut past the plan’s old end as far as it sounds', () => {
+    // One voice at a time, the oldest stolen, every 450 ms: the voice of 9.9 s
+    // starts a tenth of a second before the plan's end at 10 s, so its run is
+    // laid that far and a margin, and the next trigger at 10.35 s cuts it once
+    // the end has moved on, 0.45 s into its sound.
+    const spec: VectorSpec = {
+      scenario: vectorScenario(
+        [
+          repeatEmitter(1, {
+            kind: 'repeat',
+            intervalMilliseconds: 450,
+            jitterMilliseconds: 0,
+            count: 30,
+          }),
+        ],
+        5,
+      ),
+      emitters: [
+        {
+          rules: { ...DEFAULT_EMITTER_RULES, voices: { limit: 1, stealing: 'oldest' } },
+          pool: [poolMember(1, 4_800, { loop: { start: 0, end: 4_800 } })],
+        },
+      ],
+      hand: [],
+      voiceBudget: 4,
+      horizonFrame: 477_600,
+    };
+    const before = expectSuccess(simulatePreview(vectorInput(spec)));
+    const plan = planned(spec, before);
+    const after = expectSuccess(
+      simulatePreview(vectorInput({ ...spec, horizonFrame: 504_000 }), before),
+    );
+
+    const continued = expectSuccess(extendPreviewPlan(plan, after, 477_600));
+
+    expect(
+      after.log.events.some((event) => event.kind === 'stolen' && event.frame === 496_800),
+    ).toBe(true);
+    expectSuccess(validatePlan(continued.plan, ASSETS));
   });
 
   it(

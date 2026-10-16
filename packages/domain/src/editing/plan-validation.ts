@@ -24,6 +24,7 @@ import {
 import { automationProblem, varispeedProblem } from './generated-processing.js';
 import {
   convertedFrameCount,
+  forgottenWhole,
   segmentsLayout,
   segmentsLength,
   sourceStreams,
@@ -287,10 +288,21 @@ export function validatePlan(
       return malformed('A stream holds no audio.', `streams/${String(place)}`);
     const processing = processingProblem(plan, stream, place);
     if (processing !== undefined) return malformed(processing, `streams/${String(place)}`);
+    const { forgottenBefore } = stream;
+    if (
+      forgottenBefore !== undefined &&
+      (!isFrame(forgottenBefore) || forgottenBefore > segmentsLength(stream))
+    ) {
+      return malformed(
+        'A stream forgets a whole number of its frames, at most all of them.',
+        `streams/${String(place)}`,
+      );
+    }
   }
   const reached = new Set<number>([0]);
   for (const [place, stream] of plan.streams.entries()) {
-    if (!reached.has(place))
+    // A stream forgotten whole holds the place of the streams after it alone.
+    if (!reached.has(place) && !forgottenWhole(stream))
       return malformed('A stream is read by no segment.', `streams/${String(place)}`);
     for (const [index, segment] of stream.segments.entries()) {
       const problem = segmentProblem(plan, place, segment, assets);

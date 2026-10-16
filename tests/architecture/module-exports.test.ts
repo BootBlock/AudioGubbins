@@ -182,10 +182,10 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
-  "How far ahead of the feeder a game preview's run lays its plan, and how many voices its plan holds before it is laid afresh at a silent moment, which the run's tests advance playback by and hold the plan's size to; the run reads both itself.":
+  "How far ahead of the feeder a game preview's run lays its plan, and how often it forgets what was heard, which the run's tests advance playback by and hold the plan's size to; the run reads both itself.":
     [
       'apps/web/src/audio/preview-run.ts: AHEAD_SECONDS',
-      'apps/web/src/audio/preview-run.ts: REBASE_AFTER_VOICES',
+      'apps/web/src/audio/preview-run.ts: FORGET_EVERY_SECONDS',
     ],
   "A folder's safe name, which the tests hold to a file stem's rules segment by segment; the package's own `folderSegmentProblem` reads it, which is what a destination and a delivery hold a folder path to.":
     ['packages/import-export/src/file-name-safety.ts: safeFolderName'],

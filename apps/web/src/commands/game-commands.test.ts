@@ -161,6 +161,46 @@ describe('the asset group commands (ADR-0101)', { timeout: 30_000 }, () => {
     expect(viewOf(audio).game.groups.has(footstepsGroup.id)).toBe(true);
   });
 
+  // As straight after a workflow makes groups: a row of the groups' tree names
+  // its group, and pressing it, F2 or Delete there acts on that group.
+  /** The tone with the group "Hits", none chosen. */
+  async function unchosen(): Promise<{
+    readonly audio: AudioWindow;
+    readonly hits: GameAssetGroup;
+  }> {
+    const audio = await steps();
+    await audio.window.runAndHear('game.new-group', { name: 'Hits' });
+    audio.window.context.groups.forget();
+    return { audio, hits: onlyGroup(audio) };
+  }
+
+  it('chooses the group an invocation names while none is chosen', async () => {
+    const { audio, hits } = await unchosen();
+
+    expect(audio.window.run('game.choose-group', { group: hits.id }).kind).not.toBe('refused');
+    expect(audio.window.context.groups.chosen.get()?.group).toBe(hits.id);
+  });
+
+  it('renames the group an invocation names while none is chosen, and refuses one naming none', async () => {
+    const { audio, hits } = await unchosen();
+
+    expect(refusal(audio, 'game.rename-group', { name: 'Thuds' })).toBe(
+      'Choose a group in the Asset groups panel first.',
+    );
+    expect(
+      await audio.window.runAndHear('game.rename-group', { group: hits.id, name: 'Thuds' }),
+    ).toBe('Renamed the group “Hits” to “Thuds”.');
+  });
+
+  it('deletes the group an invocation names while none is chosen', async () => {
+    const { audio, hits } = await unchosen();
+
+    expect(await audio.window.runAndHear('game.delete-group', { group: hits.id })).toBe(
+      'Deleted the group “Hits”.',
+    );
+    expect(viewOf(audio).game.groups.size).toBe(0);
+  });
+
   it('puts the selected regions in the chosen group inheriting its processing, as one step one undo takes back', async () => {
     const audio = await steps();
     await audio.window.runAndHear('game.new-group', { name: 'Footsteps' });

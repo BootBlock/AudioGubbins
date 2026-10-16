@@ -38,8 +38,8 @@ import type { PreviewRunStats, PreviewRunView } from '../state/game-preview-stor
 import type { Again, ContinuationOutcome } from './programme-continuation.js';
 import {
   AHEAD_SECONDS,
+  FORGET_EVERY_SECONDS,
   PreviewRun,
-  REBASE_AFTER_VOICES,
   type PreviewPlayback,
 } from './preview-run.js';
 import type { Programme } from './programme.js';
@@ -92,11 +92,15 @@ function scenarioOf(trigger: TriggerPattern, z = -2): GamePreviewScenario {
   };
 }
 
-/** A setup of `scenario`, its one member `length` frames long, varied in pitch and gain. */
+/**
+ * A setup of `scenario`, its one member `length` frames long, varied in pitch
+ * and gain, and looping where `loop` says.
+ */
 function setupOf(
   scenario: GamePreviewScenario,
   length = 4_800,
   rules: EmitterRules = DEFAULT_EMITTER_RULES,
+  loop?: PoolMember['loop'],
 ): PreviewSetup {
   const pool: readonly PoolMember[] = [
     {
@@ -109,6 +113,7 @@ function setupOf(
       bus: undefined,
       sampleRate: RATE,
       length,
+      ...(loop === undefined ? {} : { loop }),
     },
   ];
   return {
@@ -360,7 +365,8 @@ describe('a run of the game preview', () => {
   it('keeps its plan from growing without end over a long run triggered by hand', async () => {
     const { playback, run, look, stats } = started(setupOf(scenarioOf({ kind: 'by-hand' }), 2_400));
     const sizes: number[] = [];
-    for (let trigger = 0; trigger < 3 * REBASE_AFTER_VOICES; trigger += 1) {
+    const triggers = 20 * 10 * FORGET_EVERY_SECONDS;
+    for (let trigger = 0; trigger < triggers; trigger += 1) {
       playback.read += 4_800;
       await run.trigger(EMITTER);
       playback.heard = playback.read;
@@ -371,9 +377,45 @@ describe('a run of the game preview', () => {
     const perVoice = ((sizes[19] ?? 0) - early) / 10;
 
     expect(perVoice).toBeGreaterThan(0);
-    expect(Math.max(...sizes)).toBeLessThanOrEqual(early + perVoice * (REBASE_AFTER_VOICES + 2));
-    expect(stats().counts.started).toBe(3 * REBASE_AFTER_VOICES);
+    // At ten triggers a second, what it holds is the voices of the seconds it
+    // has not yet forgotten: those behind the listener, those to forget next,
+    // and those laid ahead.
+    const window = 10 * (FORGET_EVERY_SECONDS + 1 + AHEAD_SECONDS + 2);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(early + perVoice * window);
+    expect(stats().counts.started).toBe(triggers);
   });
+
+  it('keeps its plan from growing without end where a loop and its triggers never fall silent', async () => {
+    // A loop of a tenth of a second triggered every 50 ms, four at a time, the
+    // oldest stolen: there is never a frame where nothing sounds.
+    const rules: EmitterRules = {
+      ...DEFAULT_EMITTER_RULES,
+      voices: { limit: 4, stealing: 'oldest' },
+    };
+    const scenario = scenarioOf({
+      kind: 'repeat',
+      intervalMilliseconds: 50,
+      jitterMilliseconds: 10,
+      count: 10_000,
+    });
+    const { playback, look, stats } = started(
+      setupOf(scenario, 4_800, rules, { start: 1_200, end: 4_400 }),
+    );
+    const sizes: number[] = [];
+    for (let turn = 0; turn < 1_200; turn += 1) {
+      playback.read += 4_800;
+      playback.heard = playback.read - 2_400;
+      look();
+      // Every change the look queued settles within the next task.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      sizes.push(stats().planStreams);
+    }
+    const second = Math.max(...sizes.slice(200, 400));
+    const last = Math.max(...sizes.slice(1_000));
+
+    expect(stats().counts.started).toBeGreaterThan(2_000);
+    expect(last).toBeLessThanOrEqual(Math.ceil(second * 1.1));
+  }, 120_000);
 
   it('stops what it plays, keeping what it played to show', async () => {
     const { playback, run, views } = started(setupOf(scenarioOf({ kind: 'by-hand' })));

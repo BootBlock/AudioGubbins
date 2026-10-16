@@ -18,6 +18,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import { folderSegmentProblem } from '@audiogubbins/import-export';
+import { quoted } from '@audiogubbins/text';
 
 export interface DestinationPath {
   /** The folders from the export's folder down, outermost first; none is that folder itself. */
@@ -39,12 +40,12 @@ function segmentProblem(segment: string, index: number): DomainFailure | undefin
   if (problem === undefined) return undefined;
   if (problem.kind === 'steps-out') {
     return invalid(
-      `The destination's folder "${segment}" would step out of the folder it is in; name a folder.`,
+      `The destination's folder ${quoted(segment)} would step out of the folder it is in; name a folder.`,
       { index },
     );
   }
   return invalid(
-    `The destination's folder "${segment}" is not a name every file system takes; "${problem.safe}" is.`,
+    `The destination's folder ${quoted(segment)} is not a name every file system takes; ${quoted(problem.safe)} is.`,
     { index, safe: problem.safe },
   );
 }

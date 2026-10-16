@@ -118,9 +118,15 @@ export {
   type PreviewInput,
   type PreviewSimulation,
   type SimulationState,
+  forgetPreviewBefore,
   simulatePreview,
 } from './preview/preview-simulation.js';
 export { previewVoiceBudget } from './preview/voice-budget.js';
 export { type PreviewControls } from './preview/plan-layout.js';
 export { type PreviewPlanBuild } from './preview/plan-build.js';
-export { type PreviewPlan, extendPreviewPlan, previewPlan } from './preview/preview-plan.js';
+export {
+  type PreviewPlan,
+  extendPreviewPlan,
+  forgetPreviewPlanBefore,
+  previewPlan,
+} from './preview/preview-plan.js';

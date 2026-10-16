@@ -5,17 +5,20 @@
  * playback goes on, as a hand triggers or stops an emitter, and as the person
  * moves what can be heard moving.
  *
- * The run keeps one lineage: the hand actions so far, the simulation made of
- * them and the plan made of that, and the programme playing it. Every change
+ * The run keeps one lineage: the simulation, which holds the hand actions it
+ * was given, the plan made of it, and the programme playing it. Every change
  * goes on from it in turn, one at a time: the simulation is continued from its
  * own state and the plan extended from the frame the change starts at, which
  * costs the change's own events, and the transport goes on into the new
  * programme from there (`PlaybackControl.continue`). A continuation the feeder
  * has read past is made again from where it had read; a hand action is moved to
  * that frame. The plan is laid {@link AHEAD_SECONDS} ahead of what the feeder
- * reads, so a hand trigger replaces little, and it is laid afresh at a silent
- * moment once it holds many voices (`preview-rebase.ts`), so a long run's plan
- * does not grow without end.
+ * reads, so a hand trigger replaces little. As playback goes on, the run
+ * forgets, every {@link FORGET_EVERY_SECONDS}, what was heard more than
+ * {@link FORGET_BEHIND_SECONDS} before the listener (`forgetPreviewBefore`,
+ * `forgetPreviewPlanBefore`), so a run that plays for long, a loop never
+ * stopped among it, holds a simulation and a plan as large as what is still to
+ * be heard, and the feeder keeps every reader of what sounds.
  *
  * The run plays at the person's preview quality, as the transport plays
  * everything, and reads the project only through the setup it was made with; it
@@ -31,6 +34,8 @@ import {
 } from '@audiogubbins/domain';
 import {
   extendPreviewPlan,
+  forgetPreviewBefore,
+  forgetPreviewPlanBefore,
   previewPlan,
   simulatePreview,
   type GamePreviewScenario,
@@ -47,7 +52,6 @@ import type { PlaybackControl } from './playback-control.js';
 import { liveValues, withLiveValues, type LiveValues } from './preview-live-values.js';
 import { LogProgress } from './preview-log-progress.js';
 import { previewProgramme } from './preview-programme.js';
-import { FROM_THE_START, quietAt, rebasedView, voicesLaid, type Rebase } from './preview-rebase.js';
 import type { PreviewSetup } from './preview-setup.js';
 import type { Programme } from './programme.js';
 
@@ -57,8 +61,11 @@ export const AHEAD_SECONDS = 1;
 /** How often the run looks at where playback is, to lay more and list what was heard. */
 const LOOK_EVERY_MILLISECONDS = 100;
 
-/** How many voices a plan holds before it is laid afresh at the next silent moment. */
-export const REBASE_AFTER_VOICES = 256;
+/** How far behind what the listener hears the run forgets, in seconds. */
+const FORGET_BEHIND_SECONDS = 1;
+
+/** How often, in seconds of playback, the run forgets what was heard. */
+export const FORGET_EVERY_SECONDS = 5;
 
 /** The part of the playback control a run drives. */
 export type PreviewPlayback = Pick<
@@ -78,10 +85,8 @@ export interface RunPorts {
 
 /** What a run has made and plays. */
 interface Lineage {
-  readonly hand: readonly HandAction[];
   readonly simulation: PreviewSimulation;
   readonly plan: PreviewPlan;
-  readonly rebase: Rebase;
 }
 
 /** A run of a scenario's preview: playing, continued, and stopped. */
@@ -98,6 +103,8 @@ export class PreviewRun {
   /** The changes made so far, each going on from the one before. */
   #work: Promise<void> = Promise.resolve();
   #extending = false;
+  /** The frame before which the run has forgotten what was heard. */
+  #forgotten = 0;
   /** Whether the transport has taken the programme, which it may later give up. */
   #heard = false;
   #ended = false;
@@ -122,13 +129,11 @@ export class PreviewRun {
     const horizon = Math.round(AHEAD_SECONDS * setup.rate);
     const simulation = simulatePreview(inputOf(setup, [], horizon));
     if (!simulation.ok) return simulation;
-    const plan = laidAfresh(setup, simulation.value, FROM_THE_START);
+    const plan = laidAfresh(setup, simulation.value);
     if (!plan.ok) return plan;
     const run = new PreviewRun(setup, key, ports, {
-      hand: [],
       simulation: simulation.value,
       plan: plan.value,
-      rebase: FROM_THE_START,
     });
     ports.playback.play(run.#programmeOf(run.#lineage), derivedSampleCount(0));
     run.#look();
@@ -228,29 +233,41 @@ export class PreviewRun {
 
   /**
    * The lineage going on from `base` with `hand` to `horizon`, its plan changed
-   * from `from`, laid afresh where it holds many voices and nothing sounds at
-   * `read`, the first frame the feeder may switch at.
+   * from `from`, and everything before `forget` forgotten where it is given.
    */
   #built(
     base: Lineage,
     hand: readonly HandAction[],
     horizon: number,
     from: number,
-    read: number,
+    forget?: number,
   ): DomainResult<Lineage> {
     const simulated = simulatePreview(inputOf(this.#setup, hand, horizon), base.simulation);
     if (!simulated.ok) return simulated;
-    const simulation = simulated.value;
-    const quiet =
-      voicesLaid(simulation, base.rebase) > REBASE_AFTER_VOICES
-        ? quietAt(simulation, base.rebase, read, this.#setup.rate)
-        : undefined;
-    const rebase = quiet ?? base.rebase;
+    const simulation =
+      forget === undefined ? simulated : forgetPreviewBefore(simulated.value, forget);
+    if (!simulation.ok) return simulation;
+    const extended = extendPreviewPlan(base.plan, simulation.value, from);
     const plan =
-      quiet === undefined
-        ? extendPreviewPlan(base.plan, rebasedView(simulation, rebase), from)
-        : laidAfresh(this.#setup, simulation, rebase);
-    return mapResult(plan, (laid) => ({ hand, simulation, plan: laid, rebase }));
+      forget === undefined || !extended.ok
+        ? extended
+        : forgetPreviewPlanBefore(extended.value, forget);
+    return mapResult(plan, (laid) => ({ simulation: simulation.value, plan: laid }));
+  }
+
+  /**
+   * The frame before which the run forgets what was heard, where it is time to
+   * forget more: a whole number of {@link FORGET_EVERY_SECONDS} at least
+   * {@link FORGET_BEHIND_SECONDS} behind what the listener hears now, which the
+   * feeder has read past, so every event before it has been heard and listed.
+   */
+  #forgetting(): number | undefined {
+    const heard = this.#ports.playback.audiblePosition();
+    if (heard === undefined) return undefined;
+    const { rate } = this.#setup;
+    const every = FORGET_EVERY_SECONDS * rate;
+    const frame = Math.floor((heard - FORGET_BEHIND_SECONDS * rate) / every) * every;
+    return frame > this.#progress.heardThrough || frame <= this.#forgotten ? undefined : frame;
   }
 
   /**
@@ -288,18 +305,18 @@ export class PreviewRun {
       if (this.#ended) return;
       const base = this.#lineage;
       const horizon = base.simulation.log.horizonFrame;
-      const last = base.hand.at(-1)?.frame ?? 0;
+      const { hand } = base.simulation.state;
+      const last = hand.at(-1)?.frame ?? 0;
       const build = (at: number): DomainResult<Lineage> =>
         this.#built(
           base,
-          [...base.hand, { kind, emitter, frame: at }],
+          [...hand, { kind, emitter, frame: at }],
           Math.max(horizon, at + this.#ahead),
           Math.min(at, horizon),
-          at,
         );
       const at = Math.max(this.#ports.playback.readFrame() ?? 0, last);
       const made = await this.#continue(build(at), at, build);
-      const frame = made?.hand.at(-1)?.frame;
+      const frame = made?.simulation.state.hand.at(-1)?.frame;
       if (kind === 'trigger' && frame !== undefined) this.#progress.pressed(frame, pressed);
     });
   }
@@ -310,9 +327,17 @@ export class PreviewRun {
       const base = this.#lineage;
       const read = this.#ports.playback.readFrame() ?? 0;
       const from = base.simulation.log.horizonFrame;
+      const forget = this.#forgetting();
       const build = (at: number): DomainResult<Lineage> =>
-        this.#built(base, base.hand, Math.max(from, at) + this.#ahead, from, at);
-      await this.#continue(build(read), from, build);
+        this.#built(
+          base,
+          base.simulation.state.hand,
+          Math.max(from, at) + this.#ahead,
+          from,
+          forget,
+        );
+      const made = await this.#continue(build(read), from, build);
+      if (made !== undefined && forget !== undefined) this.#forgotten = forget;
     }).finally(() => {
       this.#extending = false;
     });
@@ -332,7 +357,11 @@ export class PreviewRun {
       this.#heard = true;
       this.#ready();
       const horizon = this.#lineage.simulation.log.horizonFrame;
-      if (!this.#extending && horizon - read < this.#ahead / 2) {
+      // Laid further, and what was heard forgotten, as each falls due.
+      if (
+        !this.#extending &&
+        (horizon - read < this.#ahead / 2 || this.#forgetting() !== undefined)
+      ) {
         void this.#extend();
       }
       const heard = playback.audiblePosition();
@@ -374,17 +403,10 @@ function inputOf(setup: PreviewSetup, hand: readonly HandAction[], horizon: numb
   };
 }
 
-/**
- * `simulation`'s plan laid from `rebase`, its identifiers drawn from the
- * scenario's seed, so a run laid afresh keeps every panner and gain's.
- */
-function laidAfresh(
-  setup: PreviewSetup,
-  simulation: PreviewSimulation,
-  rebase: Rebase,
-): DomainResult<PreviewPlan> {
+/** `simulation`'s plan, its identifiers drawn from the scenario's seed. */
+function laidAfresh(setup: PreviewSetup, simulation: PreviewSimulation): DomainResult<PreviewPlan> {
   return previewPlan(
-    rebasedView(simulation, rebase),
+    simulation,
     setup.scenario,
     setup.members,
     setup.catalogue,

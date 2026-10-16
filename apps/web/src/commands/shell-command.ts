@@ -56,9 +56,7 @@ export interface ShellCommandOptions {
   readonly description?: string;
   readonly discoverable?: boolean;
   readonly takesItsKeyOnlyWhenAvailable?: boolean;
-  readonly availability?: (
-    context: ShellContext,
-  ) => ReturnType<Command<ShellContext>['availability']>;
+  readonly availability?: Command<ShellContext>['availability'];
 }
 
 /**
@@ -154,8 +152,8 @@ function naming(
 ): ShellCommandOptions {
   return {
     ...extra,
-    availability: (context) => {
-      const own = extra.availability?.(context) ?? AVAILABLE;
+    availability: (context, invocation) => {
+      const own = extra.availability?.(context, invocation) ?? AVAILABLE;
       if (!own.available || !names(context)) return own;
       return availableUnless(namingProblem(context.capabilities));
     },

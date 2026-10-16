@@ -694,6 +694,7 @@ describe('the default shortcut profile', () => {
       commandId('loop.audition-cycles'),
       commandId('loop.audition-seam'),
       commandId('loop.stop-audition'),
+      commandId('preview.trigger'),
       commandId('workflow.apply'),
       commandId('workflow.leave-out-refused'),
     ]);

@@ -329,8 +329,9 @@ export function placeDefaults(
  * X, C and V cuts, copies and pastes, as everywhere. Shift with I turns input
  * monitoring on or off, and Shift with A, P, R and S arms, arms a punch,
  * records and stops. In the Loop panel, Y, E and Q cycle the loop, stress-test
- * its seam and stop; in a workflow's dialog, the usual modifier with Enter
- * applies it, and with Shift too leaves the refused items out.
+ * its seam and stop; in the Game preview panel, T triggers an emitter by hand;
+ * in a workflow's dialog, the usual modifier with Enter applies it, and with
+ * Shift too leaves the refused items out.
  *
  * The spectral selection is made from the keyboard as a pointer makes it
  * (REQ-UX-005). B selects a band of the time selection, Shift with B adds one
@@ -454,6 +455,9 @@ function editorBindings(
     bind('loop.audition-cycles', of(alone('y'))),
     bind('loop.audition-seam', of(alone('e'))),
     bind('loop.stop-audition', of(alone('q'))),
+    // The Game preview's hand trigger, the panel's only where it has the
+    // keyboard, as the Loop panel's auditions are: T to Trigger the emitter.
+    bind('preview.trigger', of(alone('t'))),
     // A workflow dialog's own actions, the dialog's only: the usual modifier
     // with Enter applies the plan it shows, as a dialogue's main action is
     // taken from anywhere in it, and with Shift as well leaves the refused

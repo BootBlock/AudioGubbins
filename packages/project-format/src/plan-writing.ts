@@ -3,10 +3,10 @@
  * of every stream, segment and stage, an optional one left out where it is
  * absent, lists in the plan's own order, which is its meaning.
  *
- * A project keeps only plans its own edits make: a varispeed stream and a
- * chain's automation belong to a game preview's plan alone (ADR-0104), and the
- * domain refuses a payload holding either before it joins a project, so this
- * writes neither and the reader reads neither.
+ * A project keeps only plans its own edits make: a varispeed stream, a chain's
+ * automation and a stream's forgotten frames belong to a game preview's plan
+ * alone (ADR-0104), and the domain refuses a payload holding any before it
+ * joins a project, so this writes none and the reader reads none.
  */
 
 import type {
@@ -27,7 +27,7 @@ import { writeLayout } from './value-writing.js';
 
 /** Why a plan holding what only a preview's has is never written. */
 const KEPT_ONLY_BY_A_PREVIEW =
-  'A project keeps no varispeed or automation; validation refuses a plan holding either.';
+  'A project keeps no varispeed, automation or forgotten frames; validation refuses a plan holding any.';
 
 /** Writes an edit plan, or a clipboard payload, which is one. */
 export function writeEditPlan(plan: EditPlan): JsonObject {
@@ -63,6 +63,7 @@ function writeProcessing(processing: StreamProcessing): JsonObject {
 }
 
 function writeStream(stream: PlanStream): JsonObject {
+  if (stream.forgottenBefore !== undefined) throw new Error(KEPT_ONLY_BY_A_PREVIEW);
   return presentMembers({
     sampleRate: stream.sampleRate,
     layout: writeLayout(stream.layout),

@@ -25,6 +25,7 @@ import {
   type RegionId,
 } from '@audiogubbins/domain';
 import type { ExportClock } from '@audiogubbins/import-export';
+import { quoted } from '@audiogubbins/text';
 
 import type { GameAudioState } from '../groups/game-audio-state.js';
 import { groupPath } from '../groups/group-forest.js';
@@ -121,7 +122,7 @@ export function memberNamings(
       return fail(
         refused(
           'game.member-in-no-group',
-          `The ${member.kind} "${own.region ?? own.asset}" is in no group, so no group names or numbers it; add it to one.`,
+          `The ${member.kind} ${quoted(own.region ?? own.asset)} is in no group, so no group names or numbers it; add it to one.`,
           member,
         ),
       );
@@ -159,7 +160,7 @@ export function memberStem(
   return fail(
     refused(
       'game.member-name-empty',
-      `The naming template "${template.source}" gives the ${member.kind} "${values.region ?? values.asset}" no name; name it by something it has.`,
+      `The naming template ${quoted(template.source)} gives the ${member.kind} ${quoted(values.region ?? values.asset)} no name; name it by something it has.`,
       member,
     ),
   );
@@ -207,7 +208,7 @@ export function memberNames(
         failures: [
           refused(
             'game.region-name-format-token',
-            `The naming template "${template.source}" names {format}, a file's extension, which no region's name has; name the region without it.`,
+            `The naming template ${quoted(template.source)} names {format}, a file's extension, which no region's name has; name the region without it.`,
             member,
           ),
         ],

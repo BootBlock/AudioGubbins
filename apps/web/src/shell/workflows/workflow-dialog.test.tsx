@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { FadeShape } from '@audiogubbins/domain';
 import type { GameAssetGroup } from '@audiogubbins/game-audio';
 import { addGroupInvocation, assignMemberInvocation } from '@audiogubbins/project-commands';
 import { sine } from '@audiogubbins/test-fixtures';
@@ -13,8 +14,11 @@ import { WorkflowDialog } from './workflow-dialog.js';
 
 holdPlatformFiles();
 
-/** Prepare One-Shot open over a group of two regions nobody has analysed, and the commands the dialog ran. */
-async function shown() {
+/**
+ * `workflow` open over a group of two regions nobody has analysed, neither
+ * looped, and the commands the dialog ran.
+ */
+async function shown(workflow = 'workflow.prepare-one-shot') {
   const audio = await windowWithAudio({
     fixture: sine(440, { length: 48_000 }),
     name: 'Bell',
@@ -36,7 +40,7 @@ async function shown() {
       assignMemberInvocation({ kind: 'region', region: region.id }, group.id, 'inherit'),
     ),
   ]);
-  window.run('workflow.prepare-one-shot', { group: group.id });
+  window.run(workflow, { group: group.id });
   const ran: string[] = [];
   renderInTheShell(
     <WorkflowDialog
@@ -49,7 +53,7 @@ async function shown() {
       unavailableReason={() => undefined}
     />,
   );
-  return { ran, window };
+  return { ran, window, regions };
 }
 
 describe('a guided workflow’s dialog', () => {
@@ -85,4 +89,35 @@ describe('a guided workflow’s dialog', () => {
     expect(ran).toEqual([WorkflowCommand.LeaveOutRefused, WorkflowCommand.Analyse]);
     expect(within(dialog).getAllByText('Skipped')).toHaveLength(2);
   });
+
+  it(
+    'analyses the whole of a region that does not loop as the loop Create Seamless Loop asks for',
+    { timeout: 180_000 },
+    async () => {
+      // The workflow asks for the whole region where it has no loop; read as
+      // the Loop panel reads a region, one that does not loop could not be
+      // analysed.
+      const { window, regions } = await shown('workflow.create-seamless-loop');
+      const dialog = screen.getByRole('dialog', { name: 'Create Seamless Loop' });
+      expect(dialog).not.toHaveTextContent('does not loop');
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Analyse' }));
+
+      // The regions are analysed one at a time, the first at once.
+      expect(dialog).toHaveTextContent('Analysing “Ding”, 1 of 2.');
+      const [first] = regions;
+      expect(first && window.context.loopAnalysis.analyses.of(first.id)?.request.loop).toEqual({
+        start: 0,
+        end: 24_000,
+        crossfadeLength: 0,
+        crossfadeShape: FadeShape.EqualPower,
+      });
+      // And the worker measures it, rather than refusing a loop as long as the region.
+      await expect
+        .poll(() => first && window.context.loopAnalysis.analyses.of(first.id)?.kind, {
+          timeout: 120_000,
+        })
+        .toBe('done');
+    },
+  );
 });

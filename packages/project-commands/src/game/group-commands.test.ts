@@ -91,7 +91,24 @@ describe('game.add-group', () => {
       addGroupInvocation(group('gravel', { parent: footsteps.id })),
     );
     expect(refusalCodeOf(result)).toBe('game.group-name-taken');
-    expect(reasonsOf(result)).toContain('the group "Footsteps/Gravel" beside it');
+    expect(reasonsOf(result)).toContain('the group “Footsteps/Gravel” beside it');
+  });
+
+  it('refuses a policy value that does not read, naming the new group by its path and the field', () => {
+    const added = addGroupInvocation(group('Steps', { parent: footsteps.id }));
+    const written = JSON.parse(String(added.arguments?.['group'])) as Record<string, unknown>;
+    const result = bus.execute(state, {
+      ...added,
+      arguments: {
+        ...added.arguments,
+        group: JSON.stringify({ ...written, policy: { naming: '{region' } }),
+      },
+    });
+    expect(result.kind).toBe('refused');
+    if (result.kind !== 'refused') return;
+    expect(result.failures.map((failure) => failure.summary)).toContainEqual(
+      expect.stringMatching(/^The new group “Footsteps\/Steps” sets its naming template with what/),
+    );
   });
 
   it('refuses a parent the project lacks, an identifier it holds and a chain nothing gives', () => {
@@ -238,6 +255,16 @@ describe('game.set-group-policy', () => {
     expect(
       unchangedCodeOf(bus.execute(state, setGroupPolicyInvocation(gravel.id, 'bus', undefined))),
     ).toBe('game.policy-unchanged');
+  });
+
+  it('refuses a value that does not read, naming the group by its path and the field', () => {
+    // A bus has a name, which the bus's own constructor refuses as the value is
+    // read, before the state's rules see it.
+    const result = bus.execute(state, {
+      commandId: ProjectCommandId.SetGroupPolicy,
+      arguments: { group: gravel.id, field: 'bus', value: '""' },
+    });
+    expect(reasonsOf(result)).toMatch(/^The group “Footsteps\/Gravel” sets its bus with what/);
   });
 
   it('refuses a field it does not know and a chain given beside a field that names none', () => {
