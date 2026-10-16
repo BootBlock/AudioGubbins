@@ -24,3 +24,11 @@ export {
   type KindCount,
   type LearnedState,
 } from './detection-result.js';
+export {
+  type DetectionScope,
+  SILENCE_PARTS,
+  type SilencePart,
+  learnedStates,
+  silenceRemovals,
+  treatmentPlacement,
+} from './report-reading.js';
