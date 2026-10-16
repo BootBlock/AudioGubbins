@@ -66,8 +66,11 @@ export const EDITOR_PANEL = 'data-ag-editor-panel';
 /** Where an editor has the keyboard: on its surface, or in its panel. */
 const IN_AN_EDITOR = `${TAKES_NAVIGATION}, [${EDITOR_PANEL}]`;
 
-/** The Loop panel, by the class its section is drawn with, whose auditions' keys are its own. */
-const IN_THE_LOOP_PANEL = 'section.ag-loop';
+/** The attribute the Loop panel marks itself with, so its auditions' keys are its own. */
+export const LOOP_PANEL = 'data-ag-loop-panel';
+
+/** The attribute the Game preview panel marks itself with, so its hand trigger's key is its own. */
+export const PREVIEW_PANEL = 'data-ag-preview-panel';
 
 /** The attribute a guided workflow's dialog marks what it holds with, so its actions' keys are its own. */
 export const WORKFLOW_DIALOG = 'data-ag-workflow-dialog';
@@ -183,6 +186,9 @@ const LOOP_AUDITIONS: ReadonlySet<CommandId> = new Set(
   ['loop.audition-cycles', 'loop.audition-seam', 'loop.stop-audition'].map(commandId),
 );
 
+/** The Game preview panel's hand trigger, which acts on the run the panel shows. */
+const PREVIEW_ACTIONS: ReadonlySet<CommandId> = new Set([commandId('preview.trigger')]);
+
 /** A workflow dialog's own actions, which act on the plan it shows. */
 const WORKFLOW_ACTIONS: ReadonlySet<CommandId> = new Set(
   [WorkflowCommand.Apply, WorkflowCommand.LeaveOutRefused].map(commandId),
@@ -202,7 +208,8 @@ function inAWorkflowDialog(target: Element): boolean {
  * (`fieldEditsWith`): anywhere else the platform's clipboard keys copy the text
  * a reader selected on the page, a diagnostic or a history entry, and paste
  * where the browser pastes, which a shortcut taking them would stop. A loop
- * audition runs only in the Loop panel, whose loop it hears, and a workflow's
+ * audition runs only in the Loop panel, whose loop it hears, a hand trigger
+ * only in the Game preview panel, whose run it triggers, and a workflow's
  * action only in its dialog, whose plan it runs. Decided by the command rather
  * than by the keys, so a command bound to other keys keeps the rule, and no
  * other command bound to these keys is given it.
@@ -214,7 +221,10 @@ function runsHere(id: CommandId, target: EventTarget | null): boolean {
     );
   }
   if (LOOP_AUDITIONS.has(id)) {
-    return target instanceof Element && target.closest(IN_THE_LOOP_PANEL) !== null;
+    return target instanceof Element && target.closest(`[${LOOP_PANEL}]`) !== null;
+  }
+  if (PREVIEW_ACTIONS.has(id)) {
+    return target instanceof Element && target.closest(`[${PREVIEW_PANEL}]`) !== null;
   }
   if (WORKFLOW_ACTIONS.has(id)) return target instanceof Element && inAWorkflowDialog(target);
   return true;

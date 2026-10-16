@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { sine } from '@audiogubbins/test-fixtures';
 
 import { regionEntryId } from '../../assets/project-entry.js';
+import { LOOP_PANEL } from '../../input/use-shortcuts.js';
 import type { ShellContext } from '../../commands/shell-context.js';
 import { panelCommandsOver } from '../../testing/command-availability.js';
 import {
@@ -70,6 +71,8 @@ describe('the Loop panel', () => {
         'Select a region, or open one in a view of its own, to analyse its loop here.',
       ),
     ).toBeInTheDocument();
+    // Its auditions' keys run only within the element so marked (`use-shortcuts.ts`).
+    expect(screen.getByRole('heading', { name: 'Loop' }).closest(`[${LOOP_PANEL}]`)).not.toBeNull();
     act(() => {
       audio.window.run('region.open', { region });
     });

@@ -22,6 +22,8 @@ import { buildLayoutStore } from '../testing/layout-store.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import {
   EDITOR_PANEL,
+  LOOP_PANEL,
+  PREVIEW_PANEL,
   WORKFLOW_DIALOG,
   isTextField,
   ownsItsKeys,
@@ -528,7 +530,7 @@ describe('useShortcuts over the default profile', () => {
     // Loop panel last showed from anywhere in the page.
     const { ran } = listeningToDefaults(KeyboardConvention.Windows);
     const panel = document.createElement('section');
-    panel.className = 'ag-panel ag-loop';
+    panel.setAttribute(LOOP_PANEL, '');
     const button = document.createElement('button');
     panel.append(button);
     const elsewhere = document.createElement('button');
@@ -542,6 +544,29 @@ describe('useShortcuts over the default profile', () => {
     expect(ran).toEqual(['loop.audition-cycles', 'loop.audition-seam', 'loop.stop-audition']);
     expect(inside.map((event) => event.defaultPrevented)).toEqual([true, true, true]);
     expect(outside.defaultPrevented).toBe(false);
+  });
+
+  it('triggers the Game preview by hand only where its panel has the keyboard', () => {
+    // Bound globally, T would trigger the preview playing from anywhere in the
+    // page, a text field's neighbours and the Loop panel among them.
+    const { ran } = listeningToDefaults(KeyboardConvention.Windows);
+    const panel = document.createElement('section');
+    panel.setAttribute(PREVIEW_PANEL, '');
+    const button = document.createElement('button');
+    panel.append(button);
+    const loop = document.createElement('section');
+    loop.setAttribute(LOOP_PANEL, '');
+    const inLoop = document.createElement('button');
+    loop.append(inLoop);
+    const elsewhere = document.createElement('button');
+    document.body.append(panel, loop, elsewhere);
+
+    const inside = press(button, { code: 'KeyT', key: 't' });
+    const outside = [inLoop, elsewhere].map((target) => press(target, { code: 'KeyT', key: 't' }));
+
+    expect(ran).toEqual(['preview.trigger']);
+    expect(inside.defaultPrevented).toBe(true);
+    expect(outside.map((event) => event.defaultPrevented)).toEqual([false, false]);
   });
 
   it('applies a workflow from anywhere in its dialogue, and from no other', () => {
