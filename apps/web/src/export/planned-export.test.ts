@@ -79,9 +79,22 @@ function plannedOf(audio: AudioWindow, of: ExportSettings): PlannedFile {
   return file;
 }
 
-async function namesIn(folder: FakeDirectoryHandle): Promise<readonly string[]> {
+/** The names in the folder `path` leads to from `folder`, sorted. */
+async function namesIn(
+  folder: FakeDirectoryHandle,
+  path: readonly string[] = [],
+): Promise<readonly string[]> {
+  let at = folder;
+  for (const name of path) {
+    let inner: FakeDirectoryHandle | undefined;
+    for await (const child of at.values()) {
+      if (child instanceof FakeDirectoryHandle && child.name === name) inner = child;
+    }
+    if (inner === undefined) throw new Error(`There is no folder ${name}.`);
+    at = inner;
+  }
   const names: string[] = [];
-  for await (const entry of folder.values()) names.push(entry.name);
+  for await (const child of at.values()) names.push(child.name);
   return names.sort();
 }
 
@@ -115,8 +128,7 @@ describe('an export of files planned each with its own settings (ADR-0102)', () 
       { kind: 'integer', bits: 24 },
     ]);
     expect(await namesIn(folder)).toEqual(['sfx', 'step_2.wav']);
-    const steps = await (await folder.getDirectoryHandle('sfx')).getDirectoryHandle('Steps');
-    expect(await namesIn(steps as FakeDirectoryHandle)).toEqual(['step_1.wav']);
+    expect(await namesIn(folder, ['sfx', 'Steps'])).toEqual(['step_1.wav']);
     const records = audio.session.getSnapshot().model.exports;
     expect(records.map((record) => record.file?.fileName)).toEqual(['step_1.wav', 'step_2.wav']);
     expect(records.map((record) => record.file?.folder)).toEqual([

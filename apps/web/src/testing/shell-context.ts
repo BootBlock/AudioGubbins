@@ -27,6 +27,9 @@ import { DetectionHost } from '@audiogubbins/detection-runtime';
 import { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 
 import { DetectionControl } from '../analysis/detection-control.js';
+import { LoudnessMeasuring } from '../analysis/loudness-measuring.js';
+import { followGroupFocus } from '../state/group-focus.js';
+import { createLoudnessStore } from '../state/loudness-store.js';
 import { PlaybackControl } from '../audio/playback-control.js';
 import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
@@ -183,22 +186,23 @@ function fakeAudio(
  */
 function localDetection(interaction: InteractionStore): {
   readonly control: DetectionControl;
+  readonly loudness: LoudnessMeasuring;
   readonly workers: readonly LocalDetectionWorker[];
 } {
   const workers: LocalDetectionWorker[] = [];
-  const control = new DetectionControl({
-    host: new DetectionHost({
-      createWorker: () => {
-        const worker = new LocalDetectionWorker();
-        workers.push(worker);
-        return worker;
-      },
-    }),
-    announce: (text) => {
-      interaction.announce(text);
+  const host = new DetectionHost({
+    createWorker: () => {
+      const worker = new LocalDetectionWorker();
+      workers.push(worker);
+      return worker;
     },
   });
-  return { control, workers };
+  const announce = (text: string): void => {
+    interaction.announce(text);
+  };
+  const control = new DetectionControl({ host, announce });
+  const loudness = new LoudnessMeasuring({ host, store: createLoudnessStore(), announce });
+  return { control, loudness, workers };
 }
 
 /**
@@ -255,6 +259,7 @@ export function buildShellContext(
     logger,
   });
 
+  const exportFocus = followExportFocus(workspace, recording.parts.claimed);
   return {
     logs,
     files,
@@ -283,10 +288,12 @@ export function buildShellContext(
       projects: undefined,
       storageAbsences: [],
       exports: undefined,
-      exportFocus: followExportFocus(workspace, recording.parts.claimed),
+      exportFocus,
+      groups: followGroupFocus(workspace, recording.parts.claimed, exportFocus.subject),
       ...parts,
       ...fakeEditor(storage, logger),
       detection: detection.control,
+      loudness: detection.loudness,
       packs: noPackManager(),
       recording: recording.parts,
     },

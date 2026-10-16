@@ -68,6 +68,10 @@ import { exportInspectionCommands } from './export-inspection-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { rackBuildingCommands } from './rack-building-commands.js';
 import { rackComparisonCommands } from './rack-comparison-commands.js';
+import { gameExportCommands } from './game-export-commands.js';
+import { gameGroupCommands } from './game-group-commands.js';
+import { gameMemberCommands } from './game-member-commands.js';
+import { loudnessCommands } from './loudness-commands.js';
 import { rackParameterCommands } from './rack-parameter-commands.js';
 import { rackSlotCommands } from './rack-slot-commands.js';
 import { recordingCommands } from './recording-commands.js';
@@ -898,6 +902,13 @@ describe('finding the shell commands in the palette', () => {
       ...rackSlotCommands(),
       ...rackParameterCommands(),
       ...rackComparisonCommands(),
+      // The asset groups' commands change the project, or measure in a
+      // worker, or export, each settling after it returns; each is run twice,
+      // its work awaited, in `game-commands.test.ts`.
+      ...gameGroupCommands(),
+      ...gameMemberCommands(),
+      ...gameExportCommands(),
+      ...loudnessCommands(),
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')

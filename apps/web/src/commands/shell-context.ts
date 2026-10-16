@@ -36,6 +36,7 @@ import type {
 import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
+import type { LoudnessMeasuring } from '../analysis/loudness-measuring.js';
 import type { CodecServices } from '../codecs/codec-services.js';
 import type { ExportFocus } from '../export/export-focus.js';
 import type { ExportControl } from '../export/export-types.js';
@@ -51,6 +52,7 @@ import type { ClipboardStore } from '../state/clipboard-store.js';
 import type { Observable } from '../state/observable.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
+import type { GroupFocus } from '../state/group-focus.js';
 import type { HearingStore } from '../state/hearing-store.js';
 import type { SelectionStore } from '../state/selection-store.js';
 import type { RenderControl } from '../audio/render-control.js';
@@ -198,6 +200,19 @@ export interface ShellContext {
    * commands acts on.
    */
   readonly detection: DetectionControl;
+
+  /**
+   * The asset group the person is working on (ADR-0101), which the group
+   * commands act on where they name none and the Inspector describes.
+   */
+  readonly groups: GroupFocus;
+
+  /**
+   * The loudness of the members measured this session, on the detection
+   * worker, which the conformance report reads against each member's target;
+   * values only, never a change to the project.
+   */
+  readonly loudness: LoudnessMeasuring;
 
   /**
    * The model packs kept here and what the catalogue offers, which the
