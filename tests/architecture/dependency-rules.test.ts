@@ -1582,10 +1582,7 @@ describe("a chain's users are read with the game-audio state (ADR-0101)", () => 
    * reads the answer that counts the groups. A module leaves this list when it
    * changes; none joins it.
    */
-  const NOT_YET_MOVED: readonly string[] = [
-    'apps/web/src/commands/rack-building-commands.ts',
-    'apps/web/src/commands/rack-target.ts',
-  ];
+  const NOT_YET_MOVED: readonly string[] = [];
 
   /** Whether any identifier of a file's code, never its comments, is `chainUsers`. */
   const namesChainUsers = (node: ts.Node): boolean =>

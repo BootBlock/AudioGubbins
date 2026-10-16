@@ -116,6 +116,9 @@
       "path": "../../packages/detection-runtime"
     },
     {
+      "path": "../../packages/game-audio"
+    },
+    {
       "path": "../../packages/ml-runtime"
     },
     {

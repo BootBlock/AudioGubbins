@@ -16,14 +16,13 @@
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
   SummingLaw,
-  chainUseCount,
-  chainUsers,
   copyChain,
   instantiateProcessor,
   withSlotAt,
   type ChainSlot,
   type EffectChain,
 } from '@audiogubbins/domain';
+import { projectChainUsers, stateChainUseCount } from '@audiogubbins/game-audio';
 import {
   addSlotInvocation,
   independentChainInvocations,
@@ -42,7 +41,14 @@ import { RANGE_ONLY, editScope } from './edit-target.js';
 import { needsProjectAsset } from './project-edits.js';
 import { lawArgument, placeArgument, slotName } from './rack-arguments.js';
 import { changeRacks } from './rack-changes.js';
-import { otherUsers, rackScope, targetChain, targetName, type RackScope } from './rack-target.js';
+import {
+  otherUsers,
+  ownsItsProcessingNow,
+  rackScope,
+  targetChain,
+  targetName,
+  type RackScope,
+} from './rack-target.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -85,13 +91,13 @@ function intoRack(
     return changeRacks(context, {
       description: `Give ${name} a rack`,
       invocations: [setRackInvocation(scope.target, chain)],
-      said: `Gave ${name} a rack, with ${slotName(slot)} in it.${told}`,
+      said: `Gave ${name} a rack, with ${slotName(slot)} in it.${ownsItsProcessingNow(scope.state, scope.target)}${told}`,
     });
   }
   const place = placeArgument(invocation, named.chain);
   if (typeof place === 'string') return place;
   if (withSlotAt(named.chain, place, slot) === undefined) return 'That is not a place in the rack.';
-  const others = otherUsers(scope.state.project, named.id, scope.target);
+  const others = otherUsers(scope.state, named.id, scope.target);
   const shared =
     others.length === 0 ? '' : ` Its chain is shared, so ${others.join(', ')} hear it too.`;
   return changeRacks(context, {
@@ -208,13 +214,15 @@ function removeRackCommand(): Command<ShellContext> {
       const name = targetName(target);
       if (rack === undefined) return `${name} has no rack to take away.`;
       // The project command removes the chain where nothing else names it.
-      const kept = chainUseCount(chainUsers(scope.state.project, rack)) > 1;
+      const { project, gameAudio } = scope.state;
+      const kept = stateChainUseCount(projectChainUsers(project, gameAudio, rack)) > 1;
+      const owns = ownsItsProcessingNow(scope.state, target);
       return changeRacks(context, {
         description: `Take away the rack of ${name}`,
         invocations: [setRackInvocation(target, undefined)],
         said: kept
-          ? `Took away the rack of ${name}. Its chain is kept, as other things use it.`
-          : `Took away the rack of ${name}.`,
+          ? `Took away the rack of ${name}. Its chain is kept, as other things use it.${owns}`
+          : `Took away the rack of ${name}.${owns}`,
       });
     },
     {
@@ -285,7 +293,7 @@ function makeIndependentCommand(): Command<ShellContext> {
       const name = targetName(scope.target);
       if (named === undefined) return `${name} has no rack.`;
       if ('refused' in named) return named.refused;
-      const others = otherUsers(scope.state.project, named.id, scope.target);
+      const others = otherUsers(scope.state, named.id, scope.target);
       if (others.length === 0) return `The chain is ${name}’s alone already; nothing else uses it.`;
       return changeRacks(context, {
         description: `Make the chain of ${name} its own`,
@@ -294,7 +302,7 @@ function makeIndependentCommand(): Command<ShellContext> {
           named.id,
           copyChain(named.chain, context.ids),
         ),
-        said: `${name} has a chain of its own now, a copy; ${counted(others.length, 'other use', 'other uses')} keep the shared one.`,
+        said: `${name} has a chain of its own now, a copy; ${counted(others.length, 'other use', 'other uses')} keep the shared one.${targetChains(scope.target).rack === named.id ? ownsItsProcessingNow(scope.state, scope.target) : ''}`,
       });
     },
     {
