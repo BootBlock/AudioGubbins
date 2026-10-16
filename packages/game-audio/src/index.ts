@@ -1,10 +1,14 @@
 /**
  * The public contract of AudioGubbins game audio (ADR-0100).
  *
- * The game-audio domain as values. Its export layer (ADR-0102) names a
- * group's members by a template read by the export's own grammar, places
- * their files in a relative destination folder, and resolves a game export
- * profile to the export settings Phase 09 plans, renders and delivers.
+ * The game-audio domain as values. Its asset groups (ADR-0101) form one
+ * forest whose policy each member resolves field by field, with the group or
+ * override every value comes from; a group's processing is heard through each
+ * inheriting member's rack, and the users of a chain count the groups that
+ * name it. Its export layer (ADR-0102) names a group's members by a template
+ * read by the export's own grammar, places their files in a relative
+ * destination folder, and resolves a game export profile to the export
+ * settings Phase 09 plans, renders and delivers.
  *
  * Portable: no clock, browser global or thread. Nothing here imports anything
  * of an engine integration, which depends on these contracts instead.
@@ -13,3 +17,51 @@
 export { type DestinationPath, destinationPath } from './export/destination-path.js';
 export { type GameExportProfile, profileFromPreset } from './export/game-export-profile.js';
 export { type NamingTemplate, namingTemplate } from './export/naming-template.js';
+
+export { type GameAssetGroupId } from './groups/group-ids.js';
+export { type GameAssetGroup } from './groups/game-asset-group.js';
+export { type GameAudioState } from './groups/game-audio-state.js';
+export {
+  type GroupMember,
+  type GroupMembership,
+  type MemberProcessing,
+  memberKey,
+} from './groups/membership.js';
+export { validateGameAudioState } from './groups/state-validation.js';
+
+export { POLICY_FIELDS, type PolicyField, type PolicyValues } from './policy/policy-fields.js';
+export {
+  type InheritedPolicy,
+  type OverridableField,
+  type PolicyOverrides,
+  withOverride,
+  withPolicyField,
+} from './policy/inherited-policy.js';
+export { type LoudnessTarget } from './policy/loudness-target.js';
+export { type BusName, busName } from './policy/bus-name.js';
+export {
+  type Attenuation,
+  DEFAULT_EMITTER_RULES,
+  DEFAULT_VOICE_VARIATION,
+  type DistanceFilter,
+  type EmitterRules,
+  type SelectionRule,
+  type VoiceStealing,
+  type VoiceVariation,
+} from './policy/playback-rules.js';
+export {
+  type EffectivePolicy,
+  type GroupEffectivePolicy,
+  type PolicySource,
+  type Resolved,
+  type ResolvedTag,
+  resolveAll,
+  resolveGroupPolicy,
+  resolvePolicy,
+} from './policy/policy-resolution.js';
+export { inheritedProcessing, inheritingRacks } from './policy/processing-realisation.js';
+export {
+  type StateChainUsers,
+  projectChainUsers,
+  stateChainUseCount,
+} from './policy/chain-users.js';

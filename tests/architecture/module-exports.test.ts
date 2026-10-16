@@ -363,6 +363,8 @@ const AHEAD_OF_USE: Readonly<Record<string, readonly string[]>> = {
       'packages/game-audio/src/export/member-naming.ts: NamingValues',
       'packages/game-audio/src/export/member-naming.ts: expandNaming',
     ],
+  "A group's names from its root, read from a validated forest (ADR-0101), built ahead of the game export plan and the region naming that fill a member's {group-path} with it.":
+    ['packages/game-audio/src/groups/group-forest.ts: groupPath'],
 };
 
 /**
