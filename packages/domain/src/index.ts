@@ -173,6 +173,7 @@ export {
   type PlacedMarker,
   type PlacedRegion,
   type Region,
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
   RegionBoundary,
   clipAssetId,
   clipEnd,
@@ -289,7 +290,11 @@ export {
 } from './editing/operation-validation.js';
 export { punchTakeFrames, punchTakeProblem } from './editing/punch-validation.js';
 export { validateTakeStack, validateTakeStackInProject } from './editing/take-stack-validation.js';
-export { validateMarker, validateRegion } from './editing/placement-validation.js';
+export {
+  validateLoopLead,
+  validateMarker,
+  validateRegion,
+} from './editing/placement-validation.js';
 export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
 export {
   markersInRegion,

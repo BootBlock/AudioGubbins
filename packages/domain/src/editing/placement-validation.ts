@@ -6,12 +6,18 @@
  * or a position past the timeline it names, is refused. A region's processing
  * is checked the same way, its channels by the layout at its basis, since it is
  * folded in there, ahead of any later conversion (`plan-building.ts`).
+ *
+ * A loop's crossfade reads the frames before the loop's start (ADR-0103), so
+ * a command that makes a loop also asks {@link validateLoopLead}. A region
+ * read back is not asked it: an edit made since may have moved the loop's
+ * start, and placing the region shortens the crossfade to fit, saying so.
  */
 
 import { channelCount } from '../audio/channel-layout.js';
 import type { Asset } from '../project/asset.js';
 import type { Marker, Region } from '../project/timeline.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
+import { anchorResolver } from './anchors.js';
 import { shapesOf, type EditShape } from './edit-shape.js';
 import type { RegionOperation } from './operations.js';
 import {
@@ -105,4 +111,25 @@ export function validateRegion(
     if (problem !== undefined) return refused('region-operation-invalid', problem);
   }
   return succeed(region);
+}
+
+/**
+ * The region, where its loop's crossfade has the frames it reads before the
+ * loop's start within the region: what every command that makes or changes a
+ * loop asks, after {@link validateRegion}, both placed on the asset's timeline
+ * as it stands now.
+ */
+export function validateLoopLead(asset: Asset, region: Region): DomainResult<Region> {
+  const { loop } = region;
+  if (loop === undefined || loop.crossfadeLength === 0) return succeed(region);
+  const resolver = anchorResolver(asset);
+  const span = resolver.span(region.basis, { start: region.start, end: region.end });
+  const loopSpan = resolver.span(loop.basis, { start: loop.start, end: loop.end });
+  const lead = span === undefined || loopSpan === undefined ? 0 : loopSpan.start - span.start;
+  return loop.crossfadeLength <= lead
+    ? succeed(region)
+    : refused(
+        'loop-crossfade-without-lead',
+        `A loop’s crossfade reads the audio before the loop’s start, and the region has ${String(Math.max(0, lead))} frames there, fewer than the crossfade’s ${String(loop.crossfadeLength)}.`,
+      );
 }

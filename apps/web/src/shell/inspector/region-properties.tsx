@@ -8,13 +8,18 @@
 
 import { useId, useState, type ReactNode } from 'react';
 
-import { TextField } from '@audiogubbins/design-system';
-import type { Region } from '@audiogubbins/domain';
+import { OptionSelect, TextField } from '@audiogubbins/design-system';
+import {
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
+  type FadeShape,
+  type LoopDefinition,
+  type Region,
+} from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
 
 import { loopAbsence } from '../../commands/region-property-commands.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
-import { regionOperationWords, type EditWording } from './edit-words.js';
+import { FADE_SHAPE_NAMES, regionOperationWords, type EditWording } from './edit-words.js';
 import type { InspectedRegion } from './inspected.js';
 
 /** What the region controls are given. */
@@ -70,13 +75,17 @@ function KeptField({
   );
 }
 
-/** The crossfade typed, and the control that loops the selection with it. */
+const SHAPE_OPTIONS = [...FADE_SHAPE_NAMES].map(([value, label]) => ({ value, label }));
+
+/** The crossfade typed and its shape, and the control that loops the selection with them. */
 function LoopField({ controls }: { readonly controls: RegionControls }): ReactNode {
   const [crossfade, setCrossfade] = useState('0');
+  const [shape, setShape] = useState<FadeShape>(DEFAULT_LOOP_CROSSFADE_SHAPE);
   const args = {
     view: controls.panel,
     region: controls.region.id,
     crossfade: crossfade.trim() === '' ? Number.NaN : Number(crossfade),
+    shape,
   };
   return (
     <div className="ag-inspector-row">
@@ -88,6 +97,15 @@ function LoopField({ controls }: { readonly controls: RegionControls }): ReactNo
           controls.commands.run('region.loop', args);
         }}
       />
+      <OptionSelect
+        label="Crossfade shape"
+        value={shape}
+        options={SHAPE_OPTIONS}
+        onValueChange={(value) => {
+          const chosen = SHAPE_OPTIONS.find((option) => option.value === value);
+          if (chosen !== undefined) setShape(chosen.value);
+        }}
+      />
       <CommandButton
         id="region.loop"
         label={controls.labelFor('region.loop')}
@@ -97,6 +115,24 @@ function LoopField({ controls }: { readonly controls: RegionControls }): ReactNo
       />
     </div>
   );
+}
+
+/**
+ * How a loop sounds, in words: where it lies, its crossfade and the crossfade's
+ * shape, and, where an edit since it was set left less audio before its start
+ * than its crossfade reads, that the crossfade is heard shortened.
+ */
+function loopWords(loop: LoopDefinition, words: EditWording): string {
+  const where = `It loops between ${words.position(loop.loopStart)} and ${words.position(loop.loopEnd)} of the region`;
+  const shape = FADE_SHAPE_NAMES.get(loop.crossfadeShape)?.toLowerCase() ?? loop.crossfadeShape;
+  const crossfade =
+    loop.crossfadeLength === 0
+      ? `${where}, with no crossfade.`
+      : `${where}, with a crossfade of ${counted(loop.crossfadeLength, 'frame', 'frames')}, ${shape}.`;
+  const kept = loop.crossfadeClampedFrom;
+  return kept === undefined
+    ? crossfade
+    : `${crossfade} It was set to ${counted(kept, 'frame', 'frames')}; the region now holds too little audio before or within the loop for more.`;
 }
 
 /** Whether the region loops, and the controls that loop it or stop it. */
@@ -113,11 +149,7 @@ function LoopControls({
   const args = { view: controls.panel, region: controls.region.id };
   return (
     <div className="ag-inspector-controls">
-      <p>
-        {loop === undefined
-          ? 'It does not loop.'
-          : `It loops between ${words.position(loop.loopStart)} and ${words.position(loop.loopEnd)} of the region, with a crossfade of ${counted(loop.crossfadeLength, 'frame', 'frames')}.`}
-      </p>
+      <p>{loop === undefined ? 'It does not loop.' : loopWords(loop, words)}</p>
       {inspected.shownAlone ? (
         <LoopField controls={controls} />
       ) : (

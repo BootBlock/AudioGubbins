@@ -332,19 +332,23 @@ describe('the Inspector panel (WU-05.D)', () => {
     inspectorOver(audio.window);
     const user = userEvent.setup();
 
+    screen.getByRole('combobox', { name: 'Crossfade shape' }).focus();
+    await user.keyboard('{Enter}');
+    await user.click(screen.getByRole('option', { name: 'S-curve' }));
     const crossfade = screen.getByRole('textbox', { name: 'Crossfade in frames' });
     await user.clear(crossfade);
     await user.type(crossfade, '480{Enter}');
 
     expect(
       await screen.findByText(
-        /^It loops between .* of the region, with a crossfade of 480 frames\.$/u,
+        /^It loops between .* of the region, with a crossfade of 480 frames, s-curve\.$/u,
       ),
     ).toBeInTheDocument();
     expect(regionOf(audio).loop).toMatchObject({
       start: 12_000,
       end: 36_000,
       crossfadeLength: 480,
+      crossfadeShape: 's-curve',
     });
     const stop = screen.getByRole('button', { name: 'Stop the region looping' });
     await user.click(stop);
@@ -353,6 +357,28 @@ describe('the Inspector panel (WU-05.D)', () => {
     expect(stop).toHaveFocus();
     expect(stop).toHaveAttribute('aria-disabled', 'true');
     expect(stop).toHaveAccessibleDescription('Intro does not loop.');
+  });
+
+  it('says a loop’s crossfade is heard shortened once an edit leaves too little audio before the loop', async () => {
+    const audio = await loopInView();
+    await regionInView(audio);
+    audio.window.run('editor.select-time', { start: 12_000, end: 36_000 });
+    inspectorOver(audio.window);
+    await audio.window.runAndHear('region.loop', { crossfade: 480 });
+    expect(
+      await screen.findByText(/with a crossfade of 480 frames, equal power\.$/u),
+    ).toBeInTheDocument();
+
+    // Leaves 200 frames of the region before the loop's start.
+    audio.window.run('editor.select-time', { start: 100, end: 11_900 });
+    await audio.window.runAndHear('edit.delete');
+
+    expect(
+      await screen.findByText(
+        /with a crossfade of 200 frames, equal power\. It was set to 480 frames; the region now holds too little audio before or within the loop for more\.$/u,
+      ),
+    ).toBeInTheDocument();
+    expect(regionOf(audio).loop?.crossfadeLength).toBe(480);
   });
 
   it('never shows a name typed for one region as another’s of the same name', async () => {

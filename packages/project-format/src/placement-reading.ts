@@ -32,7 +32,7 @@ import {
   type ProblemDetails,
   type Reading,
 } from './document-reading.js';
-import { asBasis } from './edit-value-reading.js';
+import { asBasis, asFadeShape } from './edit-value-reading.js';
 import { asRegionChain } from './edit-reading.js';
 import { asId, textConverter } from './scalar-reading.js';
 import { MAXIMUM_NESTED_ITEMS, asKey, asName, asSampleCount } from './value-reading.js';
@@ -49,7 +49,13 @@ const REGION_MEMBERS: ReadonlySet<string> = new Set([
   'operations',
   'rack',
 ]);
-const LOOP_MEMBERS: ReadonlySet<string> = new Set(['basis', 'start', 'end', 'crossfadeLength']);
+const LOOP_MEMBERS: ReadonlySet<string> = new Set([
+  'basis',
+  'start',
+  'end',
+  'crossfadeLength',
+  'crossfadeShape',
+]);
 const MARKER_MEMBERS: ReadonlySet<string> = new Set([
   'id',
   'assetId',
@@ -70,12 +76,14 @@ export const readAnchoredLoop: Converter<AnchoredLoop> = (reading, value, parent
   const start = required(reading, object, at, 'start', asSampleCount);
   const end = required(reading, object, at, 'end', asSampleCount);
   const crossfadeLength = required(reading, object, at, 'crossfadeLength', asSampleCount);
+  const crossfadeShape = required(reading, object, at, 'crossfadeShape', asFadeShape);
   return basis === undefined ||
     start === undefined ||
     end === undefined ||
-    crossfadeLength === undefined
+    crossfadeLength === undefined ||
+    crossfadeShape === undefined
     ? undefined
-    : { basis, start, end, crossfadeLength };
+    : { basis, start, end, crossfadeLength, crossfadeShape };
 };
 
 /**

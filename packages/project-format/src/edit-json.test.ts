@@ -435,9 +435,23 @@ describe('an edit-model value read alone refuses', () => {
     [
       'a loop with no crossfade length',
       readAnchoredLoop,
-      { basis: 0, start: 0, end: 10 },
+      { basis: 0, start: 0, end: 10, crossfadeShape: 'linear' },
       'schema.missing-member',
       'value.crossfadeLength',
+    ],
+    [
+      'a loop with no crossfade shape',
+      readAnchoredLoop,
+      { basis: 0, start: 0, end: 10, crossfadeLength: 0 },
+      'schema.missing-member',
+      'value.crossfadeShape',
+    ],
+    [
+      'a loop whose crossfade has a shape no fade has',
+      readAnchoredLoop,
+      { basis: 0, start: 0, end: 10, crossfadeLength: 2, crossfadeShape: 'cubic' },
+      'schema.unknown-value',
+      'value.crossfadeShape',
     ],
   ];
 

@@ -15,6 +15,7 @@ import {
   range,
 } from '../testing/editing-fixtures.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
+import { FadeShape } from './fades.js';
 import { sourceShape } from './edit-shape.js';
 import { validateChain, validateOperation } from './operation-validation.js';
 import type { EditOperation, RegionOperation } from './operations.js';
@@ -436,7 +437,13 @@ describe('validating what is placed on an asset', () => {
           edited,
           {
             ...region,
-            loop: { basis: 1, start: frames(10), end: frames(20), crossfadeLength: frames(11) },
+            loop: {
+              basis: 1,
+              start: frames(10),
+              end: frames(20),
+              crossfadeLength: frames(11),
+              crossfadeShape: FadeShape.Linear,
+            },
           },
           PLAN_WITHOUT_CHAINS.chains,
         ),

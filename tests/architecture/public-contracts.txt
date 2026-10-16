@@ -928,7 +928,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37905: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38040: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1223,7 +1223,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37905: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38040: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -2906,6 +2906,7 @@ Published paths
   readonly AnchoredLoop.start: SampleCount
   readonly AnchoredLoop.end: SampleCount
   readonly AnchoredLoop.crossfadeLength: SampleCount
+  readonly AnchoredLoop.crossfadeShape: FadeShape
   interface Asset
   readonly Asset.id: AssetId
   readonly Asset.displayName: string
@@ -2999,6 +3000,7 @@ Published paths
   readonly Clip.fadeOutLength: SampleCount
   readonly Clip.muted: boolean
   type ClipId = string & { readonly [BrandTag]: "ClipId"; }
+  const DEFAULT_LOOP_CROSSFADE_SHAPE: FadeShape
   const DEFAULT_SPECTRAL_RESOLUTION: 2048
   interface DetectorFinding
   readonly DetectorFinding.kind: FindingKind
@@ -3098,6 +3100,8 @@ Published paths
   readonly LoopDefinition.loopStart: SampleCount
   readonly LoopDefinition.loopEnd: SampleCount
   readonly LoopDefinition.crossfadeLength: SampleCount
+  readonly LoopDefinition.crossfadeShape: FadeShape
+  readonly LoopDefinition.crossfadeClampedFrom?: SampleCount
   const MAIN_OUTPUT: RoutingTarget
   const MAXIMUM_CHAIN_SLOTS: 256
   const MAXIMUM_CHANNEL_COUNT: 256
@@ -3566,7 +3570,7 @@ Published paths
   function readValue<TValue>(value: unknown, code: string, read: (value: unknown) => TValue): DomainResult<TValue>
   function regionChains(region: Region): TargetChains
   function regionEnd(region: PlacedRegion): number
-  function regionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
+  function regionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver, options?: RegionPlanOptions): DomainResult<EditPlan>
   function removalEdits(removals: readonly EditRange[], length: number): DomainResult<readonly RemovalEdit[]>
   function restateRegion(region: Region, asset: Asset, span: Span): Region
   function routeToBus(busId: BusId): RoutingTarget
@@ -3616,6 +3620,7 @@ Published paths
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
   function validateChain(asset: Asset, entities: EditingEntities): DomainResult<Asset>
   function validateChainShape(chain: EffectChain): DomainResult<EffectChain>
+  function validateLoopLead(asset: Asset, region: Region): DomainResult<Region>
   function validateMarker(asset: Asset, marker: Marker): DomainResult<Marker>
   function validateOperation(operation: EditOperation, shape: EditShape, entities: EditingEntities): DomainResult<EditOperation>
   function validateParameterValue(descriptor: ParameterDescriptor, value: ParameterValue): DomainResult<ParameterValue>
@@ -3656,6 +3661,7 @@ Published paths
   function deepestChain(ids: IdGenerator): EffectChain
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
+  function loopCrossfaded(plain: Samples, loop: LoopDefinition): Samples
   function nestedGroups(ids: IdGenerator, depth: number): ChainSlot
   function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>, world?: OracleWorld): Samples
   function sourceShape(asset: Asset): EditShape
@@ -8902,6 +8908,10 @@ packages/detection-runtime/src/detection-worker-core.ts
 
 packages/domain/src/editing/operations.ts
   type StreamChain = { readonly kind: "chain"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; } | { readonly kind: "process"; readonly chain: import("packages/domain/src/index").EffectChain; readonly input: ChannelLayout; }
+
+packages/domain/src/editing/placement.ts
+  interface RegionPlanOptions
+  readonly RegionPlanOptions.loopCrossfade?: boolean
 
 packages/domain/src/processing/effect-chain.ts
   interface SlotControls

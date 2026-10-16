@@ -600,6 +600,12 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
     code: 'project.region-off-asset',
     at: 'project.regions[0]',
   },
+  'a loop whose crossfade has no shape a fade has': {
+    edit: (document) =>
+      withValue(document, ['project', 'regions', 0, 'loop', 'crossfadeShape'], 'cubic'),
+    code: 'schema.unknown-value',
+    at: 'project.regions[0].loop.crossfadeShape',
+  },
   'a region that ends past its asset': {
     edit: (document) =>
       withValue(document, ['project', 'regions', 0, 'end'], regionAssetLength + 1),
@@ -856,6 +862,14 @@ describe('readProjectDocument refuses', () => {
     expect(problemsOf(without(DOCUMENT, [...externalAt, 'identity', 'relativePath']))).toEqual([]);
     expect(problemsOf(without(DOCUMENT, ['sources', 0, 'provenance']))).toEqual([]);
     expect(problemsOf(withValue(DOCUMENT, ['project', 'regions', 0, 'tags'], []))).toEqual([]);
+    // An edit after a loop was set can leave less audio before its start than
+    // its crossfade reads; placing the region shortens the crossfade then, so a
+    // document holding one opens.
+    expect(
+      problemsOf(
+        withValue(DOCUMENT, ['project', 'regions', 0, 'loop', 'crossfadeLength'], loopStart + 1),
+      ),
+    ).toEqual([]);
   });
 });
 

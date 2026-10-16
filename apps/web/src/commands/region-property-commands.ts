@@ -3,8 +3,16 @@
  * REQ-EDIT-014), each changed by one project command the history keeps.
  */
 
-import type { Command } from '@audiogubbins/commands';
-import { sampleCount, validateRegion, type Region } from '@audiogubbins/domain';
+import type { Command, CommandInvocation } from '@audiogubbins/commands';
+import {
+  DEFAULT_LOOP_CROSSFADE_SHAPE,
+  FadeShape,
+  flatMapResult,
+  sampleCount,
+  validateLoopLead,
+  validateRegion,
+  type Region,
+} from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 
 import { RANGE_OR_WHOLE, editScope } from './edit-target.js';
@@ -35,6 +43,13 @@ function renameCommand(): Command<ShellContext> {
   );
 }
 
+/** The crossfade's shape a loop command is given, the default where it names none, or `undefined` for no shape. */
+function loopShapeArgument(invocation: CommandInvocation): FadeShape | undefined {
+  const named = textArgument(invocation, 'shape');
+  if (named === undefined) return DEFAULT_LOOP_CROSSFADE_SHAPE;
+  return Object.values(FadeShape).find((shape) => shape === named);
+}
+
 function loopCommand(): Command<ShellContext> {
   return regionCommand(
     'region.loop',
@@ -54,18 +69,21 @@ function loopCommand(): Command<ShellContext> {
         given === undefined ? 0 : typeof given === 'number' ? given : Number.NaN,
       );
       if (!crossfade.ok) return crossfade.failures[0].summary;
-      const looped = validateRegion(
-        found.asset,
-        {
-          ...found.region,
-          loop: {
-            basis: found.asset.edits.length,
-            start: scope.target.range.start,
-            end: scope.target.range.end,
-            crossfadeLength: crossfade.value,
-          },
+      const shape = loopShapeArgument(invocation);
+      if (shape === undefined) return `A crossfade is ${Object.values(FadeShape).join(', ')}.`;
+      const region: Region = {
+        ...found.region,
+        loop: {
+          basis: found.asset.edits.length,
+          start: scope.target.range.start,
+          end: scope.target.range.end,
+          crossfadeLength: crossfade.value,
+          crossfadeShape: shape,
         },
-        found.project.state.project.effectChains,
+      };
+      const looped = flatMapResult(
+        validateRegion(found.asset, region, found.project.state.project.effectChains),
+        (valid) => validateLoopLead(found.asset, valid),
       );
       if (!looped.ok) return looped.failures[0].summary;
       changeProject(context, found.project.session, {
