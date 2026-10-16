@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
-    "@audiogubbins/import-export": "workspace:*"
+    "@audiogubbins/import-export": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

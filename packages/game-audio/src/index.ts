@@ -9,7 +9,11 @@
  * read by the export's own grammar, places their files in a relative
  * destination folder, and resolves a game export profile to the export
  * settings Phase 09 plans, renders and delivers: many members planned as one
- * itemised plan, each item planned or refused with its owner named.
+ * itemised plan, each item planned or refused with its owner named. Its game
+ * preview (ADR-0104) simulates a scenario's emitters by the authored rules
+ * over the one counter-based generator, as an event log that is the reference
+ * an engine's runtime reproduces, and makes the log a plan the engine plays,
+ * continued as hand triggers arrive without changing what was heard.
  *
  * Portable: no clock, browser global or thread. Nothing here imports anything
  * of an engine integration, which depends on these contracts instead.
@@ -76,3 +80,43 @@ export {
   projectChainUsers,
   stateChainUseCount,
 } from './policy/chain-users.js';
+
+export {
+  type BusLevel,
+  type GamePreviewScenario,
+  type GamePreviewScenarioId,
+  type Listener,
+  type Motion,
+  type Position,
+  type PreviewEmitter,
+  type PreviewEmitterId,
+  type PreviewSubject,
+  type TriggerPattern,
+  type Waypoint,
+  previewScenarioProblems,
+  scenarioSubjectProblems,
+} from './preview/preview-scenario.js';
+export {
+  type MemberSound,
+  type PoolMember,
+  type PreviewSubjects,
+  previewSubjects,
+} from './preview/preview-subjects.js';
+export {
+  type PreviewEvent,
+  type PreviewEventLog,
+  type RefusedEvent,
+  type StartedEvent,
+  type VoiceEndEvent,
+} from './preview/preview-event-log.js';
+export { type HandAction } from './preview/trigger-schedule.js';
+export {
+  type PreviewInput,
+  type PreviewSimulation,
+  type SimulationState,
+  simulatePreview,
+} from './preview/preview-simulation.js';
+export { previewVoiceBudget } from './preview/voice-budget.js';
+export { type PreviewControls } from './preview/plan-layout.js';
+export { type PreviewPlanBuild } from './preview/plan-build.js';
+export { type PreviewPlan, extendPreviewPlan, previewPlan } from './preview/preview-plan.js';

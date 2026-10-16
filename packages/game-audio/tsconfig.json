@@ -21,6 +21,9 @@
     },
     {
       "path": "../../packages/import-export"
+    },
+    {
+      "path": "../../packages/audio-engine"
     }
   ]
 }

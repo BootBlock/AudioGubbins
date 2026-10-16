@@ -462,6 +462,10 @@ const PACKAGES = [
       // The export settings, presets and template grammar a game export
       // profile and a naming template are made of.
       '@audiogubbins/import-export',
+      // The canonical decibel conversion a preview voice's gain is heard by,
+      // and what a varispeed voice's filter costs, which bounds the preview's
+      // voice budget (ADR-0104).
+      '@audiogubbins/audio-engine',
     ],
     devDeps: [],
     external: {},

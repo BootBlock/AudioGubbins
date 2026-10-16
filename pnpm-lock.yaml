@@ -712,6 +712,9 @@ importers:
 
   packages/game-audio:
     dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
