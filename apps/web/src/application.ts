@@ -439,7 +439,7 @@ export function createApplication() {
     codecs,
     exports,
     exportFocus,
-    gamePreview: startGamePreview(audioPart.parts.playback),
+    gamePreview: startGamePreview(audioPart, editorPart.parts.assets, projectSystem.projects),
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -501,7 +501,7 @@ export function createApplication() {
      */
     dispose: () => {
       stopWatching();
-      context.gamePreview.runner.stop();
+      context.gamePreview.runner.dispose();
       exportFocus.stop();
       recordingPart.dispose();
       analysisPart.dispose();

@@ -132,6 +132,19 @@ function ScenarioBar({
   );
 }
 
+/** What the renders the members are heard from say: how far they have come, and any not kept. */
+function rendersWords(renders: GamePreviewState['renders']): string | undefined {
+  const { needed, made, declined } = renders;
+  if (needed === 0) return undefined;
+  const progress =
+    made < needed
+      ? `Preparing the sound of members whose processing measures its whole input: ${String(made)} of ${String(needed)} made; Run waits for them.`
+      : `The sound of ${String(needed)} members whose processing measures its whole input is prepared.`;
+  return declined.length === 0
+    ? progress
+    : `${progress} Not kept, so heard as it is worked out: ${declined.join(' ')}`;
+}
+
 /** What a run says of itself: what is heard at once, the budget and how late a trigger is. */
 function runWords(run: GamePreviewState['run'], feedAhead: number): string | undefined {
   if (run.kind === 'ended') return run.reasons.join(' ');
@@ -172,12 +185,14 @@ function ScenarioWork({
     [draft],
   );
   const said = runWords(run, settings.chosen.settings.feedAheadMilliseconds);
+  const preparing = rendersWords(state.renders);
   const edit = (scenario: ScenarioDraft['scenario']): void => {
     store.edit(() => scenario);
   };
   return (
     <>
       <CommandRow buttons={RUN_BUTTONS} commands={commands} />
+      {preparing === undefined ? null : <p className="ag-panel-note">{preparing}</p>}
       {said === undefined ? null : <p className="ag-panel-note">{said}</p>}
       <PreviewPad scenario={draft.scenario} onScenario={edit} />
       <ScenarioEditor

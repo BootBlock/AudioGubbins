@@ -8,7 +8,8 @@
  * scenario commands, which is the only way it reaches the project. Nothing here
  * is saved, undone or written into the project, and a run changes no edit.
  *
- * The run's view is what the panel lists: the events heard so far, newest
+ * Beside it, how far the renders its members are heard from have come, which
+ * a run waits for. The run's view is what the panel lists: the events heard so far, newest
  * last and only the latest {@link RECENT_EVENTS} of them, with a count of every
  * kind; the voices sounding against each emitter's limit; the voice budget and
  * how many were stolen or refused for it; and how late a hand trigger is heard.
@@ -67,9 +68,18 @@ export type PreviewRunView =
   /** It stopped by itself, for these reasons: playback was refused, or moved to something else. */
   | { readonly kind: 'ended'; readonly reasons: Reasons; readonly stats: PreviewRunStats };
 
+/** How far the renders the scenario's members are heard from have come. */
+export interface RendersView {
+  readonly needed: number;
+  readonly made: number;
+  /** Why a render is not kept, so its voices run the chain as they play. */
+  readonly declined: readonly string[];
+}
+
 export interface GamePreviewState {
   readonly draft: ScenarioDraft | undefined;
   readonly run: PreviewRunView;
+  readonly renders: RendersView;
 }
 
 /** Every event kind at none. */
@@ -95,6 +105,7 @@ export interface GamePreviewStore extends Observable<GamePreviewState> {
   /** Sets nothing up. */
   readonly close: () => void;
   readonly showRun: (run: PreviewRunView) => void;
+  readonly showRenders: (renders: RendersView) => void;
 }
 
 /** Whether `draft` differs from the project's copy, or was never kept. */
@@ -104,7 +115,11 @@ export function draftChanged(draft: ScenarioDraft): boolean {
 
 /** A store with nothing set up and nothing running. */
 export function createGamePreviewStore(): GamePreviewStore {
-  const state = observable<GamePreviewState>({ draft: undefined, run: { kind: 'idle' } });
+  const state = observable<GamePreviewState>({
+    draft: undefined,
+    run: { kind: 'idle' },
+    renders: { needed: 0, made: 0, declined: [] },
+  });
   return {
     get: state.get,
     subscribe: state.subscribe,
@@ -132,6 +147,9 @@ export function createGamePreviewStore(): GamePreviewStore {
     },
     showRun: (run) => {
       state.update((current) => ({ ...current, run }));
+    },
+    showRenders: (renders) => {
+      state.update((current) => ({ ...current, renders }));
     },
   };
 }

@@ -180,34 +180,42 @@ async function ranOnce(
 }
 
 /** Each command, the state it is run from, and what it is given. */
-const TWICE: readonly (readonly [
-  id: string,
-  before: readonly string[],
-  args?: (audio: AudioWindow) => Readonly<Record<string, string>>,
-])[] = [
-  [PreviewCommand.NewScenario, []],
-  [
-    PreviewCommand.ChooseScenario,
-    [PreviewCommand.NewScenario, PreviewCommand.KeepScenario],
-    (audio) => ({ scenario: [...keptScenarios(audio).keys()][0] ?? '' }),
-  ],
-  [PreviewCommand.KeepScenario, [PreviewCommand.NewScenario]],
-  [PreviewCommand.DeleteScenario, [PreviewCommand.NewScenario, PreviewCommand.KeepScenario]],
-  [PreviewCommand.NewSeed, [PreviewCommand.NewScenario]],
-  [PreviewCommand.Run, [PreviewCommand.NewScenario]],
-  [PreviewCommand.Stop, [PreviewCommand.NewScenario, PreviewCommand.Run]],
+interface Twice {
+  readonly id: string;
+  readonly before: readonly string[];
+  readonly args?: (audio: AudioWindow) => Readonly<Record<string, string>>;
+}
+
+const TWICE: readonly Twice[] = [
+  { id: PreviewCommand.NewScenario, before: [] },
+  {
+    id: PreviewCommand.ChooseScenario,
+    before: [PreviewCommand.NewScenario, PreviewCommand.KeepScenario],
+    args: (audio) => ({ scenario: [...keptScenarios(audio).keys()][0] ?? '' }),
+  },
+  { id: PreviewCommand.KeepScenario, before: [PreviewCommand.NewScenario] },
+  {
+    id: PreviewCommand.DeleteScenario,
+    before: [PreviewCommand.NewScenario, PreviewCommand.KeepScenario],
+  },
+  { id: PreviewCommand.NewSeed, before: [PreviewCommand.NewScenario] },
+  { id: PreviewCommand.Run, before: [PreviewCommand.NewScenario] },
+  { id: PreviewCommand.Stop, before: [PreviewCommand.NewScenario, PreviewCommand.Run] },
 ];
 
 describe('each preview command run a second time', () => {
-  it.each(TWICE)('%s changes something again, or says it would not', async (id, before, args) => {
-    const audio = await footsteps();
-    for (const step of before) await ranOnce(audio, step);
-    const given = args?.(audio);
+  it.each(TWICE)(
+    '$id changes something again, or says it would not',
+    async ({ id, before, args }) => {
+      const audio = await footsteps();
+      for (const step of before) await ranOnce(audio, step);
+      const given = args?.(audio);
 
-    expect(await ranOnce(audio, id, given)).toBe('applied');
-    const after = seen(audio);
-    const second = audio.window.run(id, given);
+      expect(await ranOnce(audio, id, given)).toBe('applied');
+      const after = seen(audio);
+      const second = audio.window.run(id, given);
 
-    expect(second.kind !== 'applied' || seen(audio) !== after).toBe(true);
-  });
+      expect(second.kind !== 'applied' || seen(audio) !== after).toBe(true);
+    },
+  );
 });

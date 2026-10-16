@@ -20,11 +20,9 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import type { GamePreviewScenario, PreviewEmitterId } from '@audiogubbins/game-audio';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ProjectState } from '@audiogubbins/project-format';
 
-import { previewSetup } from '../audio/preview-setup.js';
-import { previewQualityOf } from '../state/audio-settings-store.js';
+import { setupNow } from '../audio/preview-setup.js';
 import { reasonsOf } from '../state/reasons.js';
 import { scenarioProblem } from '../state/scenario-drafts.js';
 import { shellCommand, textArgument } from './shell-command.js';
@@ -69,9 +67,15 @@ function playable(
 ): { readonly state: ProjectState; readonly scenario: GamePreviewScenario } | string {
   const state = openState(context);
   if (typeof state === 'string') return state;
-  const scenario = context.gamePreview.store.get().draft?.scenario;
-  if (scenario === undefined) return NO_SCENARIO;
-  return scenarioProblem(state.gameAudio, scenario) ?? { state, scenario };
+  const { draft, renders } = context.gamePreview.store.get();
+  if (draft === undefined) return NO_SCENARIO;
+  const { scenario } = draft;
+  const problem = scenarioProblem(state.gameAudio, scenario);
+  if (problem !== undefined) return problem;
+  if (renders.made < renders.needed) {
+    return `Its members' sound is still being prepared: ${String(renders.made)} of ${String(renders.needed)} made.`;
+  }
+  return { state, scenario };
 }
 
 /**
@@ -102,12 +106,14 @@ function runCommand(): Command<ShellContext> {
     (context) => {
       const ready = playable(context);
       if (typeof ready === 'string') return ready;
-      const made = previewSetup(ready.scenario, {
-        state: ready.state,
-        assets: context.assets,
-        grade: previewQualityOf(context.audioSettings.get()).settings.resampling,
-        catalogue: PROCESSOR_CATALOGUE,
-      });
+      const made = setupNow(
+        {
+          project: context.projects?.project,
+          assets: context.assets,
+          audioSettings: context.audioSettings,
+        },
+        ready.scenario,
+      );
       if (!made.ok) return made.reasons;
       const started = context.gamePreview.runner.start(made.setup);
       return started.ok ? undefined : reasonsOf(started.failures);

@@ -36,7 +36,12 @@ import {
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import type { EditorAsset, ProjectOwner } from '../assets/editor-asset.js';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+
 import type { AssetCatalogue, AssetCatalogueState } from '../state/asset-catalogue.js';
+import { previewQualityOf, type AudioSettings } from '../state/audio-settings-store.js';
+import type { Observable } from '../state/observable.js';
+import type { OpenProjectState } from '../state/open-project-store.js';
 import type { Reasons } from '../state/reasons.js';
 
 /** Everything a run plays from. */
@@ -54,6 +59,11 @@ export interface PreviewSetup {
   readonly budget: number;
   readonly catalogue: ProcessorCatalogue;
 }
+
+/** What a scenario is set up from, or why it cannot be. */
+export type SetupResult =
+  | { readonly ok: true; readonly setup: PreviewSetup }
+  | { readonly ok: false; readonly reasons: Reasons };
 
 /** What a setup is read from. */
 export interface SetupSources {
@@ -150,12 +160,7 @@ function heardMembers(
  * each member sounds like is read once, so a run plays what it was started
  * with however the project changes while it plays.
  */
-export function previewSetup(
-  scenario: GamePreviewScenario,
-  sources: SetupSources,
-):
-  | { readonly ok: true; readonly setup: PreviewSetup }
-  | { readonly ok: false; readonly reasons: Reasons } {
+function previewSetup(scenario: GamePreviewScenario, sources: SetupSources): SetupResult {
   const { state } = sources;
   const game = state.gameAudio;
   if (game === undefined) {
@@ -183,4 +188,23 @@ export function previewSetup(
       catalogue: sources.catalogue,
     },
   };
+}
+
+/** Where the page reads a setup from: the project open, its opened audio and the preview quality. */
+export interface SetupReading {
+  readonly project: Observable<OpenProjectState> | undefined;
+  readonly assets: SetupSources['assets'];
+  readonly audioSettings: Observable<AudioSettings>;
+}
+
+/** What `scenario` plays from in the project open now, at the preview quality in force. */
+export function setupNow(reading: SetupReading, scenario: GamePreviewScenario): SetupResult {
+  const open = reading.project?.get();
+  if (open?.kind !== 'open') return { ok: false, reasons: ['No project is open.'] };
+  return previewSetup(scenario, {
+    state: open.snapshot.model.state,
+    assets: reading.assets,
+    grade: previewQualityOf(reading.audioSettings.get()).settings.resampling,
+    catalogue: PROCESSOR_CATALOGUE,
+  });
 }
