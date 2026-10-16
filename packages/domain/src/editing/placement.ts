@@ -164,11 +164,16 @@ export function regionPlan(
   resolver = anchorResolver(asset),
   options: RegionPlanOptions = {},
 ): DomainResult<EditPlan> {
-  const loop = placeRegion(resolver, region)?.loop;
+  const placed = placeRegion(resolver, region);
+  const loop = placed?.loop;
   const rendering = loopRendering(asset, region, context);
   const sound =
-    rendering?.kind === 'wrapped' && loop !== undefined
-      ? wrappedRegionPlan(asset, region, context, resolver, { loop, racks: rendering.racks })
+    rendering?.kind === 'wrapped' && placed !== undefined && loop !== undefined
+      ? wrappedRegionPlan(asset, region, context, resolver, {
+          span: { start: placed.start, end: placed.start + placed.length },
+          loop,
+          racks: rendering.racks,
+        })
       : fromStartRegionPlan(asset, region, context, resolver);
   return mapResult(sound, (plan) =>
     options.loopCrossfade === false || loop === undefined ? plan : withLoopCrossfade(plan, loop),
@@ -201,12 +206,15 @@ function wrappedRegionPlan(
   region: Region,
   context: PlanContext,
   resolver: AnchorResolver,
-  wrapping: { readonly loop: LoopDefinition; readonly racks: readonly EffectChain[] },
+  wrapping: {
+    readonly span: Span;
+    readonly loop: LoopDefinition;
+    readonly racks: readonly EffectChain[];
+  },
 ): DomainResult<EditPlan> {
   const edited = unrackedAssetPlan(asset, context, region.operations);
   if (!edited.ok) return edited;
-  const { loop, racks } = wrapping;
-  const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
+  const { span, loop, racks } = wrapping;
   const { sampleRate } = edited.value.streams[0];
   const cycles = warmUpCycles(
     racks,
