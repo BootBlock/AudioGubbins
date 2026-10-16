@@ -30,6 +30,9 @@
     },
     {
       "path": "../../packages/ml-runtime"
+    },
+    {
+      "path": "../../packages/loop-analysis"
     }
   ]
 }

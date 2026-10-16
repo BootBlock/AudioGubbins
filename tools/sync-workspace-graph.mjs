@@ -552,6 +552,7 @@ const PACKAGES = [
       '@audiogubbins/effect-rack',
       '@audiogubbins/processors',
       '@audiogubbins/ml-runtime',
+      '@audiogubbins/loop-analysis',
     ],
     devDeps: [],
     external: {},

@@ -270,6 +270,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/effect-rack',
     '@audiogubbins/processors',
     '@audiogubbins/ml-runtime',
+    '@audiogubbins/loop-analysis',
   ],
   '@audiogubbins/audio-engine': [
     '@audiogubbins/domain',
