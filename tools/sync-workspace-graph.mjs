@@ -468,6 +468,23 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // Seamless-loop analysis (ADR-0103): the seam metrics, the candidate
+    // search, the micro-crossfade suggestion and the loop audition plans,
+    // reading audio only through a `PcmSource` it is given, in bounded
+    // windows. The detection worker runs it; it knows no thread of its own.
+    dir: 'packages/loop-analysis',
+    name: '@audiogubbins/loop-analysis',
+    description:
+      'Seamless-loop analysis: seam metrics, the candidate search, the micro-crossfade suggestion and the loop audition plans.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The multi-resolution peak pyramid, made off the page by the peak worker
     // and shared among views by source identity and revision, with its
     // disposable cache format and the zero-crossing search (ADR-0040,

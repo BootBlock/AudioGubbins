@@ -31,6 +31,8 @@ Published paths
   @audiogubbins/import-export
   @audiogubbins/input
   @audiogubbins/input/testing
+  @audiogubbins/loop-analysis
+  @audiogubbins/loop-analysis/testing
   @audiogubbins/media-store
   @audiogubbins/media-store/testing
   @audiogubbins/ml-runtime
@@ -74,6 +76,10 @@ Published paths
   readonly AudioFrameBlock.channels: readonly Float32Array<ArrayBufferLike>[]
   type AvailableAccelerators = { readonly gpu: boolean; }
   const BUILT_IN_NODES: NodeImplementations
+  interface BoundarySamples
+  readonly BoundarySamples.channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly BoundarySamples.from: number
+  readonly BoundarySamples.length: number
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
   const CANONICAL_RESAMPLER_VERSION: 1
@@ -646,6 +652,8 @@ Published paths
   readonly WorkloadShape.channels: number
   readonly WorkloadShape.sampleRate: SampleRate
   readonly WorkloadShape.conversions?: readonly ResamplerCoefficients[]
+  const ZeroCrossingEdges: { readonly Silence: "silence"; readonly Interior: "interior"; }
+  type ZeroCrossingEdges = "interior" | "silence"
   function allocateBlock(layout: ChannelLayout, sampleRate: SampleRate, frames: number): AudioFrameBlock
   function arctangentTurns(y: number, x: number): number
   function assertReadableInto(source: Pick<PcmSource, "layout" | "sampleRate">, into: AudioFrameBlock): void
@@ -676,6 +684,7 @@ Published paths
   function gainToDecibels(gain: number): number
   function isLatencyHint(value: unknown): boolean
   function isMessagePortLike(value: unknown): boolean
+  function isZeroCrossingBoundary(samples: BoundarySamples, at: number, channels: readonly number[], edges: ZeroCrossingEdges): boolean
   function kernelRefusal(shape: NodeShape, problems: readonly NodeProblem[]): DomainFailureResult
   function ln(x: number): number
   function log10(x: number): number
@@ -928,7 +937,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37905: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37939: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1223,7 +1232,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@37905: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@37939: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3505,6 +3514,7 @@ Published paths
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
   function floatsAt(fields: Readonly<Record<string, unknown>>, field: string): Float32Array<ArrayBuffer>
   function frameRangeAt(fields: Readonly<Record<string, unknown>>, field: string): { readonly start: number; readonly end: number; }
+  function gainAt(curve: GainCurve, frame: number): number
   function identifierAt<TBrand extends string>(fields: Readonly<Record<string, unknown>>, field: string): Branded<TBrand>
   function identifierOf<TBrand extends string>(value: unknown, field: string): Branded<TBrand>
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
@@ -4565,6 +4575,109 @@ Published paths
 
 @audiogubbins/input/testing
   function keyEventOf(code: string, key: string, held?: Partial<KeyEventReading>): KeyEventReading
+
+@audiogubbins/loop-analysis
+  interface AnalysedLoop
+  readonly AnalysedLoop.start: number
+  readonly AnalysedLoop.end: number
+  readonly AnalysedLoop.crossfadeLength: number
+  readonly AnalysedLoop.crossfadeShape: FadeShape
+  interface CrossfadeSuitability
+  readonly CrossfadeSuitability.lengthFrames: number
+  readonly CrossfadeSuitability.correlation: number
+  readonly CrossfadeSuitability.shape: FadeShape
+  readonly CrossfadeSuitability.levelChangeDb: number
+  readonly CrossfadeSuitability.verdict: Verdict
+  const LOOP_ANALYSIS_VERSION: 1
+  interface LoopAnalysis
+  readonly LoopAnalysis.version: number
+  readonly LoopAnalysis.sampleRate: SampleRate
+  readonly LoopAnalysis.channels: number
+  readonly LoopAnalysis.windowFrames: number
+  readonly LoopAnalysis.current: LoopMetrics
+  readonly LoopAnalysis.verdict: "fail" | "pass" | "warn"
+  readonly LoopAnalysis.candidates: readonly LoopCandidate[]
+  readonly LoopAnalysis.seam: { readonly tail: readonly Float32Array[]; readonly head: readonly Float32Array[]; }
+  interface LoopAnalysisRequest
+  readonly LoopAnalysisRequest.loop: AnalysedLoop
+  readonly LoopAnalysisRequest.search?: LoopSearch
+  interface LoopAudition
+  readonly LoopAudition.plan: EditPlan
+  readonly LoopAudition.cycle: readonly PlanSegment[]
+  type LoopAuditionMode = { readonly kind: "cycles"; readonly leadInFrames: number; } | { readonly kind: "seam"; readonly sideFrames: number; }
+  interface LoopCandidate
+  readonly LoopCandidate.rank: number
+  readonly LoopCandidate.start: number
+  readonly LoopCandidate.end: number
+  readonly LoopCandidate.moved: { readonly start: number; readonly end: number; }
+  readonly LoopCandidate.cost: number
+  readonly LoopCandidate.metrics: LoopMetrics
+  readonly LoopCandidate.crossfade: SuggestedCrossfade | undefined
+  readonly LoopCandidate.makesRoomForCrossfade: boolean
+  interface LoopMetric
+  readonly LoopMetric.value: number
+  readonly LoopMetric.unit: MetricUnit
+  readonly LoopMetric.verdict: Verdict
+  readonly LoopMetric.channel: number | undefined
+  readonly LoopMetric.reference?: SeamReference
+  readonly LoopMetric.reason?: string
+  interface LoopMetrics
+  readonly LoopMetrics.discontinuity: LoopMetric
+  readonly LoopMetrics.dcMismatch: LoopMetric
+  readonly LoopMetrics.netDc: LoopMetric
+  readonly LoopMetrics.levelMismatch: LoopMetric
+  readonly LoopMetrics.phaseMismatch: LoopMetric
+  readonly LoopMetrics.spectralMismatch: LoopMetric
+  readonly LoopMetrics.zeroCrossing: { readonly start: LoopMetric; readonly end: LoopMetric; readonly signs: LoopMetric; }
+  readonly LoopMetrics.crossfade: CrossfadeSuitability | undefined
+  readonly LoopMetrics.cycleStability: { readonly seam: LoopMetric; readonly drift: LoopMetric; }
+  interface LoopSearch
+  readonly LoopSearch.radiusFrames: number
+  readonly LoopSearch.keepLength: boolean
+  readonly LoopSearch.candidates: number
+  interface LoopTools
+  readonly LoopTools.dsp: CanonicalDsp
+  readonly LoopTools.signal: CancellationSignal
+  readonly LoopTools.yieldToHost: () => Promise<void>
+  readonly LoopTools.onProgress: (done: number, total: number) => void
+  const MOST_CANDIDATES: 16
+  type MetricUnit = "dB" | "dBFS" | "degrees" | "deviations" | "frames" | "ratio"
+  const SHORTEST_LOOP_FRAMES: 16
+  type SeamReference = "adjacent" | "post-end" | "pre-start"
+  interface SuggestedCrossfade
+  readonly SuggestedCrossfade.lengthFrames: number
+  readonly SuggestedCrossfade.shape: FadeShape
+  type Verdict = "fail" | "not-applicable" | "pass" | "warn"
+  function analyseLoop(heard: PcmSource, plain: PcmSource, request: LoopAnalysisRequest, tools: LoopTools): Promise<DomainResult<LoopAnalysis>>
+  function defaultLoopSearch(sampleRate: SampleRate): LoopSearch
+  function extendedAuditionPlan(audition: LoopAudition, cycles: number): LoopAudition
+  function loopAuditionPlan(regionPlan: EditPlan, loop: LoopDefinition, mode: LoopAuditionMode, cycles: number): DomainResult<LoopAudition>
+  function widestRadiusFrames(sampleRate: SampleRate): number
+
+@audiogubbins/loop-analysis/testing
+  const LOOP_FIXTURE_RATE: 48000
+  interface LoopFixture
+  readonly LoopFixture.name: string
+  readonly LoopFixture.sampleRate: SampleRate
+  readonly LoopFixture.layout: ChannelLayout
+  readonly LoopFixture.channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly LoopFixture.loop: AnalysedLoop
+  function antiPhaseStereo(rate?: number): LoopFixture
+  function clickBeforeSeam(rate?: number): LoopFixture
+  function cutNoise(rate?: number): LoopFixture
+  function dcStep(rate?: number): LoopFixture
+  function directCurrentOnly(): LoopFixture
+  function drone(rate?: number): LoopFixture
+  function drumBars(rate?: number): LoopFixture
+  function fixtureSource(fixture: Pick<LoopFixture, "channels" | "layout" | "sampleRate">): PcmSource
+  function levelStep(rate?: number): LoopFixture
+  function nonFinite(): LoopFixture
+  function quarterPeriodShort(rate?: number): LoopFixture
+  function rightChannelDiscontinuous(rate?: number): LoopFixture
+  function seamlessSine(rate?: number): LoopFixture
+  function silentLoop(): LoopFixture
+  function singleCycle(): LoopFixture
+  function wholeSoundSine(rate?: number): LoopFixture
 
 @audiogubbins/media-store
   type AbsenceReason = "access-needed" | "not-found" | "permission-refused" | "unreadable"

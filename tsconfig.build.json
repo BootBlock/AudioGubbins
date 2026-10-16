@@ -102,6 +102,12 @@
       "path": "./packages/game-audio/scopes/any"
     },
     {
+      "path": "./packages/loop-analysis"
+    },
+    {
+      "path": "./packages/loop-analysis/scopes/any"
+    },
+    {
       "path": "./packages/waveform"
     },
     {

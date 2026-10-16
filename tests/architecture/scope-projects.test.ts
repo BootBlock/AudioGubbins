@@ -36,6 +36,7 @@ const PORTABLE = [
   'packages/ml-runtime',
   'packages/detection-runtime',
   'packages/game-audio',
+  'packages/loop-analysis',
 ];
 
 /** The library each thread entry's scope is compiled with, by entry. */

@@ -252,6 +252,7 @@ export {
   type PlanStream,
   type StreamProcessing,
   convertedFrameCount,
+  gainAt,
   planIsSilence,
   planReadsAsset,
   segmentsLayout,

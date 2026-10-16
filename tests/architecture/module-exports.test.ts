@@ -182,6 +182,10 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "The pass the loop's own metrics read, which the bounds test holds the reads of the heard source to; the analysis makes it through `analyseLoop`.":
+    ['packages/loop-analysis/src/analyse-loop.ts: heardCapture'],
+  "The value an envelope histogram's bin stands for, which the envelope's tests hold a steady seam's median to; the cycle stability reads it through `histogramSpread`.":
+    ['packages/loop-analysis/src/envelope-histogram.ts: binValue'],
   "The codecs each container's reader reads in place, which the registry's test holds equal to the codecs whose descriptors name the application as their reader there; a reader reaches them through `openAudio`.":
     [
       'packages/codecs/src/aiff-common.ts: AIFC_IN_PLACE_CODECS',
