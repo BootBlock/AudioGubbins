@@ -16,6 +16,7 @@
 import {
   FadeDirection,
   FadeShape,
+  ProcessingAcrossLoop,
   MAXIMUM_EDIT_GAIN,
   assetPlan,
   channelCount,
@@ -411,6 +412,7 @@ function randomLoop(random: Random, shapes: readonly EditShape[]): AnchoredLoop 
         ...span,
         crossfadeLength: randomCount(random, span.end - span.start),
         crossfadeShape: random.pick(Object.values(FadeShape)),
+        processingAcrossLoop: random.pick(Object.values(ProcessingAcrossLoop)),
       };
 }
 

@@ -15,6 +15,7 @@ import {
   FailureKind,
   anchorResolver,
   placeRegion,
+  processingOfNewLoop,
   derivedSampleCount,
   failure,
   succeed,
@@ -170,6 +171,7 @@ function looped(
       end: derivedSampleCount(span.start + loop.loopEnd),
       crossfadeLength: loop.crossfadeLength,
       crossfadeShape: loop.crossfadeShape,
+      processingAcrossLoop: loop.processingAcrossLoop,
     },
   };
 }
@@ -240,6 +242,7 @@ function planRegion(
     loopEnd: derivedSampleCount(candidate.end),
     crossfadeLength: derivedSampleCount(crossfade.lengthFrames),
     crossfadeShape: crossfade.shape,
+    processingAcrossLoop: processingOfNewLoop(region),
   };
   const ends = input.options.endAtLoopEnd && candidate.end !== spanLength(subject.span);
   builder.attempt(

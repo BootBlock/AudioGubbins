@@ -174,7 +174,10 @@ export {
   type PlacedRegion,
   type Region,
   DEFAULT_LOOP_CROSSFADE_SHAPE,
+  DEFAULT_PROCESSING_ACROSS_LOOP,
+  ProcessingAcrossLoop,
   RegionBoundary,
+  processingOfNewLoop,
   clipAssetId,
   clipEnd,
   clipsOverlap,
@@ -301,6 +304,12 @@ export {
   validateRegion,
 } from './editing/placement-validation.js';
 export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
+export {
+  type FromStartCause,
+  type LoopRendering,
+  type LoopRenderingContext,
+  loopRendering,
+} from './editing/loop-rendering.js';
 export {
   markersInRegion,
   placeMarkers,

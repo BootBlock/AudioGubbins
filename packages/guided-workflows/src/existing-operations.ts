@@ -95,14 +95,18 @@ export function regionOver(project: Project, asset: Asset, span: Span): boolean 
   return false;
 }
 
-/** Whether `region`'s loop, placed, is `loop`: the same points, crossfade length and shape. */
+/**
+ * Whether `region`'s loop, placed, is `loop`: the same points, crossfade length
+ * and shape, and the same rendering of its processing.
+ */
 export function loopIs(asset: Asset, region: Region, loop: LoopDefinition): boolean {
   const placed = placeRegion(anchorResolver(asset), region)?.loop;
   return (
     placed?.loopStart === loop.loopStart &&
     placed.loopEnd === loop.loopEnd &&
     placed.crossfadeLength === loop.crossfadeLength &&
-    placed.crossfadeShape === loop.crossfadeShape
+    placed.crossfadeShape === loop.crossfadeShape &&
+    placed.processingAcrossLoop === loop.processingAcrossLoop
   );
 }
 

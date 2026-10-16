@@ -334,7 +334,9 @@ describe('the entries of a state the worker sends, against those of the state be
           )
         : [],
     );
-    expect(values).toEqual([6]);
+    // The region loops, its loop carrying its rack over (ADR-0107), so the rack
+    // runs twice: from the region's start for the intro, and over the warm-up.
+    expect(values).toEqual([6, 6]);
   });
 
   it('plans nothing again where only the files the page holds were told of again', () => {

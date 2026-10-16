@@ -14,52 +14,20 @@
  *
  * Each join is a mix of two streams of one segment each, as a punch's
  * boundary is (ADR-0072): the side faded out first, then the side faded in.
- * The crossfade reads the region's sound as its rack made it, so it is
- * applied to a region's plan after its rack, and the region's plan without it
+ * The crossfade reads the region's sound as its racks made it, wrapped across
+ * the loop where the loop renders so (ADR-0107), so it is applied to a
+ * region's plan after both, and the frames before the loop's start it reads
+ * are the intro as spliced into the wrapped run. The region's plan without it
  * is what a search for better loop points reads (`regionPlan`'s
  * `loopCrossfade`).
  */
 
-import { channelCount } from '../audio/channel-layout.js';
 import type { LoopDefinition } from '../project/timeline.js';
-import { derivedSampleCount } from '../time/sample-time.js';
-import { FadeDirection, type FadeShape } from './fades.js';
-import { segmentsLength, type EditPlan, type PlanSegment, type PlanStream } from './plan.js';
-import { rangeEditStage } from './range-stages.js';
-import { changeRange, sliceSegments } from './segment-list.js';
+import { fadedSpan, mixed } from './faded-joins.js';
+import { FadeDirection } from './fades.js';
+import { segmentsLength, type EditPlan } from './plan.js';
+import { sliceSegments } from './segment-list.js';
 import { shiftStreams } from './stream-tables.js';
-
-/** One segment reading `length` frames of the mix of `streams` from their start. */
-function mixed(streams: readonly [number, number], length: number): PlanSegment {
-  return {
-    source: { kind: 'mix', streams },
-    start: derivedSampleCount(0),
-    length: derivedSampleCount(length),
-    reversed: false,
-    stages: [],
-  };
-}
-
-/** `[start, start + length)` of `stream`'s segments as a stream of its own, faded `direction`. */
-function fadedSpan(
-  stream: PlanStream,
-  start: number,
-  length: number,
-  direction: FadeDirection,
-  shape: FadeShape,
-): PlanStream {
-  const fade = rangeEditStage(
-    { kind: 'fade', direction, shape },
-    { start: derivedSampleCount(0), end: derivedSampleCount(length) },
-    undefined,
-    channelCount(stream.layout),
-  );
-  return {
-    sampleRate: stream.sampleRate,
-    layout: stream.layout,
-    segments: changeRange(sliceSegments(stream.segments, start, start + length), 0, length, fade),
-  };
-}
 
 /**
  * `plan`, a region's sound, with `loop`'s crossfade made part of it: the plan

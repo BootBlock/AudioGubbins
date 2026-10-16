@@ -17,16 +17,19 @@
  */
 
 import {
+  DEFAULT_PROCESSING_ACROSS_LOOP,
   FadeShape,
   ZERO_SAMPLES,
   anchorResolver,
   createCancellationSource,
+  loopRendering,
   placeRegion,
   regionPlan,
   type Asset,
   type CancellationSource,
   type EditPlan,
   type LoopDefinition,
+  type LoopRendering,
   type QualityMode,
   type Region,
   type SampleCount,
@@ -67,6 +70,11 @@ export interface RegionLoop {
   readonly sound: EditorAsset;
   /** Its loop as its plan places it, in region frames, its crossfade cut to fit. */
   readonly loop: LoopDefinition;
+  /**
+   * How its loop renders the effects upstream of it, as its plans do
+   * (ADR-0107), or `undefined` where it is read as a loop it does not have.
+   */
+  readonly rendering: LoopRendering | undefined;
   /** The region's plan with its loop's crossfade, as it is heard. */
   readonly heard: EditPlan;
   /** The region's plan without it, as a search for loop points reads it. */
@@ -102,6 +110,7 @@ function wholeRegionLoop(length: SampleCount): LoopDefinition {
     loopEnd: length,
     crossfadeLength: ZERO_SAMPLES,
     crossfadeShape: FadeShape.EqualPower,
+    processingAcrossLoop: DEFAULT_PROCESSING_ACROSS_LOOP,
   };
 }
 
@@ -129,7 +138,8 @@ function loopOf(
   if (loop === undefined) {
     return `${quoted(region.displayName)} does not loop. Loop part of it first, with “Loop the selection of the region”.`;
   }
-  const plain = regionPlan(asset, region, planContextOf(state), resolver, { loopCrossfade: false });
+  const context = planContextOf(state);
+  const plain = regionPlan(asset, region, context, resolver, { loopCrossfade: false });
   if (!plain.ok) return plain.failures[0].summary;
   const described = sound.describe();
   if (described.kind !== PcmDescriptionKind.Edited) {
@@ -141,6 +151,7 @@ function loopOf(
     asset,
     sound,
     loop,
+    rendering: loopRendering(asset, region, context),
     heard: owner.plan,
     plain: plain.value,
     identity: loopIdentity(sound, plain.value, loop),

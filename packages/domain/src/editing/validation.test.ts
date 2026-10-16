@@ -5,7 +5,7 @@ import { StandardLayouts } from '../audio/channel-layout.js';
 import { unsafeBrandId, type EffectChainId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import { SummingLaw } from '../processing/effect-chain.js';
-import type { Marker, Region } from '../project/timeline.js';
+import { ProcessingAcrossLoop, type Marker, type Region } from '../project/timeline.js';
 import {
   assetOf,
   editingEntities,
@@ -443,6 +443,7 @@ describe('validating what is placed on an asset', () => {
               end: frames(20),
               crossfadeLength: frames(11),
               crossfadeShape: FadeShape.Linear,
+              processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
             },
           },
           PLAN_WITHOUT_CHAINS.chains,

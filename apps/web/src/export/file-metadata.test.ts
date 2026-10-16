@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FadeShape,
+  ProcessingAcrossLoop,
   StandardLayouts,
   derivedSampleCount,
   sampleRate,
@@ -46,6 +47,7 @@ const REGIONS: readonly PlacedRegion[] = [
       loopEnd: at(12_000),
       crossfadeLength: at(0),
       crossfadeShape: FadeShape.Linear,
+      processingAcrossLoop: ProcessingAcrossLoop.Wrapped,
     },
     tags: [],
   },
