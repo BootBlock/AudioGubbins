@@ -428,27 +428,12 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['SMALLEST_FFT_SIZE', 'log2'],
   },
   '@audiogubbins/loop-analysis': {
-    "The loop analysis's contract (ADR-0103): the request with its bounds and defaults, the analysis and every value it holds, and the audition plans. The detection worker runs the analysis, the Loop panel shows it and plays the auditions, and the Create Seamless Loop workflow plans from it; each is a later unit of this phase, built against this contract.":
+    "The loop analysis's version, its bounds and defaults, and the audition plans (ADR-0103). The Loop panel shows an analysis against its version and plays the auditions, and the Create Seamless Loop workflow asks with the default search; each is a later unit of this phase, built against this contract.":
       [
-        'AnalysedLoop',
-        'CrossfadeSuitability',
         'LOOP_ANALYSIS_VERSION',
-        'LoopAnalysis',
-        'LoopAnalysisRequest',
         'LoopAudition',
         'LoopAuditionMode',
-        'LoopCandidate',
-        'LoopMetric',
-        'LoopMetrics',
-        'LoopSearch',
-        'LoopTools',
-        'MOST_CANDIDATES',
-        'MetricUnit',
         'SHORTEST_LOOP_FRAMES',
-        'SeamReference',
-        'SuggestedCrossfade',
-        'Verdict',
-        'analyseLoop',
         'defaultLoopSearch',
         'extendedAuditionPlan',
         'loopAuditionPlan',

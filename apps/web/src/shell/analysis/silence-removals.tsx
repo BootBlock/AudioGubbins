@@ -7,14 +7,14 @@
 
 import type { ReactNode } from 'react';
 
-import type { AssistantReport } from '@audiogubbins/detection-runtime';
-import { counted } from '@audiogubbins/text';
-
 import {
   silenceRemovals,
+  type AssistantReport,
   type DetectionScope,
   type SilencePart,
-} from '../../analysis/detection-control.js';
+} from '@audiogubbins/detection-runtime';
+import { counted } from '@audiogubbins/text';
+
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import type { Shown } from './analysis-findings.js';
 

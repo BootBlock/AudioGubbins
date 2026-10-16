@@ -31,7 +31,8 @@
     "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/effect-rack": "workspace:*",
     "@audiogubbins/processors": "workspace:*",
-    "@audiogubbins/ml-runtime": "workspace:*"
+    "@audiogubbins/ml-runtime": "workspace:*",
+    "@audiogubbins/loop-analysis": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

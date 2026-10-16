@@ -8,7 +8,8 @@ import {
   namedQualityMode,
 } from '@audiogubbins/domain';
 
-import { DetectionHost, type DetectionSubject } from './detection-host.js';
+import { DetectionHost } from './detection-host.js';
+import type { DetectionSubject } from './job-subjects.js';
 import { FromDetectionWorkerKind, ToDetectionWorkerKind } from './detection-messages.js';
 import { FAULTY_LENGTH, faultyDescription } from './testing/faulty-signal.js';
 import { LocalDetectionWorker, turn } from './testing/local-detection-worker.js';

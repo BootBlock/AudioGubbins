@@ -1,24 +1,22 @@
 /**
- * The page's end of the detection worker: one worker, made with the first
- * detection asked for and kept for the rest, and the results it answered,
- * kept for the operation's life by what the target's audio is made from.
+ * The page's end of the detection worker: one worker, made with the first job
+ * asked for and kept for the rest, and the answers it gave, kept for the
+ * operation's life by what the target's audio is made from. Its jobs are
+ * detections by the assistants, loop analyses (ADR-0103) and loudness
+ * measurements.
  *
- * A detection of a target whose audio, quality, range and assistants are all
- * as they were when it was last answered is answered from what was kept, and
- * the worker reads nothing (G4): the key is the subject's whole identity, the
- * canonical text of its plan and of the media that plan reads, never a short
- * fingerprint two versions could share. The worker's messages are read field
- * by field; one it cannot read, or the worker failing, fails every detection
- * waiting with the reason, never silently, and the next is given a new worker.
+ * A job whose subject is as it was when it was last answered is answered from
+ * what was kept, and the worker reads nothing (G4): the key is the subject's
+ * whole identity (`job-subjects.ts`). The worker's messages are read field by
+ * field; one it cannot read, or the worker failing, fails every job waiting
+ * with the reason, never silently, and the next is given a new worker. An
+ * answer is a value: nothing here changes the project, so a job that fails or
+ * is cancelled leaves it as it was.
  */
 
-import type {
-  CancellationSignal,
-  DetectorValues,
-  EditRange,
-  QualityMode,
-} from '@audiogubbins/domain';
-import { describedBuffers, type PcmDescription } from '@audiogubbins/audio-engine';
+import type { CancellationSignal } from '@audiogubbins/domain';
+import { describedBuffers } from '@audiogubbins/audio-engine';
+import type { LoopAnalysis } from '@audiogubbins/loop-analysis';
 
 import { readFromDetectionWorker } from './detection-message-reading.js';
 import {
@@ -27,6 +25,15 @@ import {
   type ToDetectionWorker,
 } from './detection-messages.js';
 import type { DetectionResult } from './detection-result.js';
+import {
+  detectionKey,
+  loopKey,
+  loudnessKey,
+  type DetectionSubject,
+  type LoopSubject,
+  type LoudnessSubject,
+} from './job-subjects.js';
+import type { LoudnessMeasurement } from './loudness-run.js';
 
 /** The page's end of a detection worker. */
 export interface DetectionWorkerPort {
@@ -36,37 +43,9 @@ export interface DetectionWorkerPort {
   terminate(): void;
 }
 
-/** What a detection is asked for. */
-export interface DetectionSubject {
-  /** What it analyses, an asset or a region, of which one detection runs at a time. */
-  readonly target: string;
-  /**
-   * What the target's audio is made from, written out whole: two subjects of
-   * one identity sound alike, so a result kept for one answers the other.
-   */
-  readonly identity: string;
-  readonly channels: number;
-  /** Its audio, described when a detection starts; arrays in memory are transferred. */
-  readonly describe: () => PcmDescription;
-  /**
-   * The audio a recommended step learns its state from, where that is not the
-   * audio analysed (`detection-run.ts`), with what it is made from, as
-   * {@link identity} says for the audio analysed.
-   */
-  readonly learning?: {
-    readonly identity: string;
-    readonly channels: number;
-    readonly describe: () => PcmDescription;
-  };
-  /** The quality an edited sound's chains run at: the final render's. */
-  readonly quality: QualityMode;
-  /** The frames of the target to read. */
-  readonly range: EditRange;
-  /** The keys of the assistants to run, in the order their reports are answered. */
-  readonly assistants: readonly string[];
-  /** What a person set of how their detectors judge, which changes what they find. */
-  readonly detectors: DetectorValues;
-}
+/** How a job ended without an answer. */
+export type JobEnded =
+  { readonly kind: 'failed'; readonly reason: string } | { readonly kind: 'cancelled' };
 
 /** How a detection ended. */
 export type DetectionOutcome =
@@ -76,57 +55,80 @@ export type DetectionOutcome =
       /** Whether it was answered from a result kept, with nothing read. */
       readonly kept: boolean;
     }
-  | { readonly kind: 'failed'; readonly reason: string }
-  | { readonly kind: 'cancelled' };
+  | JobEnded;
 
-/** What a caller watches a detection with. */
+/** How a loop analysis ended. */
+export type LoopOutcome =
+  | {
+      readonly kind: 'done';
+      readonly analysis: LoopAnalysis;
+      /** Whether it was answered from an analysis kept, with nothing read. */
+      readonly kept: boolean;
+    }
+  | JobEnded;
+
+/** How a loudness measurement ended. */
+export type LoudnessOutcome =
+  | {
+      readonly kind: 'done';
+      readonly measurement: LoudnessMeasurement;
+      /** Whether it was answered from a measurement kept, with nothing read. */
+      readonly kept: boolean;
+    }
+  | JobEnded;
+
+/** What a caller watches a job with. */
 export interface DetectionWatch {
-  /** Stops the detection, which then ends as cancelled. */
+  /** Stops the job, which then ends as cancelled. */
   readonly signal?: CancellationSignal;
+  /** How far it has gone: frames read, or for a loop analysis its work in frames' worth. */
   readonly onProgress?: (framesRead: number, framesTotal: number) => void;
 }
 
-/** A detection the worker is running or holds queued. */
+/** A job's answer, as the worker gave it. */
+type Answer =
+  | { readonly kind: typeof FromDetectionWorkerKind.Done; readonly result: DetectionResult }
+  | { readonly kind: typeof FromDetectionWorkerKind.LoopAnalysed; readonly analysis: LoopAnalysis }
+  | {
+      readonly kind: typeof FromDetectionWorkerKind.LoudnessMeasured;
+      readonly measurement: LoudnessMeasurement;
+    };
+
+/** How a job ended, its answer taken as the caller asked for it. */
+type Outcome<TValue> =
+  { readonly kind: 'done'; readonly value: TValue; readonly kept: boolean } | JobEnded;
+
+/** A job the worker is running or holds queued. */
 interface Waiting {
   readonly key: string;
   readonly watch: DetectionWatch;
-  readonly settle: (outcome: DetectionOutcome) => void;
+  /** Answers the job; false where the answer is not of the kind it asked for, and the job failed. */
+  readonly answer: (answer: Answer) => boolean;
+  readonly end: (ended: JobEnded) => void;
   readonly stopWatching: () => void;
 }
 
+/** A job's message to the worker, and the arrays in memory it transfers. */
+interface Posting {
+  readonly message: ToDetectionWorker;
+  readonly transfer: readonly ArrayBuffer[];
+}
+
 /**
- * The most results kept. A result is small, its findings and learned states,
+ * The most answers kept. An answer is small, findings, metrics and readings,
  * but every edit makes a new identity, and the oldest are the least likely to
- * be asked for again: an undo far back analyses again rather than the page
+ * be asked for again: an undo far back reads again rather than the page
  * holding every version it has seen.
  */
 const KEPT_RESULTS = 64;
 
-/** The key a result is kept under: everything that changes what a detection finds. */
-function keyOf(subject: DetectionSubject): string {
-  return [
-    subject.identity,
-    subject.learning?.identity ?? '',
-    JSON.stringify(subject.quality.settings),
-    String(subject.channels),
-    String(subject.range.start),
-    String(subject.range.end),
-    subject.assistants.join(','),
-    valuesKey(subject.detectors),
-  ].join('\u0000');
-}
+/** Why a job failed whose answer was of another kind than it asked for. */
+const ANSWER_MISMATCHED = 'The detection worker answered a job with an answer of another kind.';
 
-/** `values` as text, the same however their keys were ordered. */
-function valuesKey(values: DetectorValues): string {
-  const sorted = <T>(record: Readonly<Record<string, T>>): [string, T][] =>
-    Object.entries(record).toSorted(([one], [other]) => (one < other ? -1 : one > other ? 1 : 0));
-  return JSON.stringify(sorted(values).map(([detector, set]) => [detector, sorted(set)]));
-}
-
-/** Detections on one worker, and the results it answered. */
+/** Jobs on one worker, and the answers it gave. */
 export class DetectionHost {
   readonly #createWorker: () => DetectionWorkerPort;
-  readonly #kept = new Map<string, DetectionResult>();
+  readonly #kept = new Map<string, Answer>();
   readonly #waiting = new Map<string, Waiting>();
   #worker: DetectionWorkerPort | undefined;
   #jobs = 0;
@@ -139,14 +141,135 @@ export class DetectionHost {
    * Finds what `subject`'s assistants find and recommend. A detection of the
    * same target still running ends as cancelled, as the worker cancels it.
    */
-  detect(subject: DetectionSubject, watch: DetectionWatch = {}): Promise<DetectionOutcome> {
-    const key = keyOf(subject);
+  async detect(subject: DetectionSubject, watch: DetectionWatch = {}): Promise<DetectionOutcome> {
+    const outcome = await this.#run(
+      detectionKey(subject),
+      watch,
+      (answer) => (answer.kind === FromDetectionWorkerKind.Done ? answer.result : undefined),
+      (job) => {
+        const description = subject.describe();
+        const learning =
+          subject.learning === undefined
+            ? undefined
+            : { channels: subject.learning.channels, description: subject.learning.describe() };
+        return {
+          message: {
+            kind: ToDetectionWorkerKind.Detect,
+            job,
+            target: subject.target,
+            channels: subject.channels,
+            description,
+            ...(learning === undefined ? {} : { learning }),
+            quality: subject.quality,
+            range: subject.range,
+            assistants: subject.assistants,
+            detectors: subject.detectors,
+          },
+          transfer: describedBuffers(
+            learning === undefined ? [description] : [description, learning.description],
+          ),
+        };
+      },
+    );
+    return outcome.kind === 'done'
+      ? { kind: 'done', result: outcome.value, kept: outcome.kept }
+      : outcome;
+  }
+
+  /**
+   * Measures the loop `subject` names, and searches for better boundaries
+   * where its request asks. It applies nothing: the region's loop is moved
+   * only by a command the person runs. An analysis of the same region still
+   * running ends as cancelled.
+   */
+  async analyseLoop(subject: LoopSubject, watch: DetectionWatch = {}): Promise<LoopOutcome> {
+    const outcome = await this.#run(
+      loopKey(subject),
+      watch,
+      (answer) =>
+        answer.kind === FromDetectionWorkerKind.LoopAnalysed ? answer.analysis : undefined,
+      (job) => {
+        const { heard, plain } = subject.describe();
+        return {
+          message: {
+            kind: ToDetectionWorkerKind.AnalyseLoop,
+            job,
+            target: subject.target,
+            channels: subject.channels,
+            heard,
+            plain,
+            quality: subject.quality,
+            request: subject.request,
+          },
+          transfer: describedBuffers([heard, plain]),
+        };
+      },
+    );
+    return outcome.kind === 'done'
+      ? { kind: 'done', analysis: outcome.value, kept: outcome.kept }
+      : outcome;
+  }
+
+  /**
+   * Measures the integrated loudness, loudness range and true peak of
+   * `subject`. A measurement of the same target still running ends as
+   * cancelled.
+   */
+  async measureLoudness(
+    subject: LoudnessSubject,
+    watch: DetectionWatch = {},
+  ): Promise<LoudnessOutcome> {
+    const outcome = await this.#run(
+      loudnessKey(subject),
+      watch,
+      (answer) =>
+        answer.kind === FromDetectionWorkerKind.LoudnessMeasured ? answer.measurement : undefined,
+      (job) => {
+        const description = subject.describe();
+        return {
+          message: {
+            kind: ToDetectionWorkerKind.MeasureLoudness,
+            job,
+            target: subject.target,
+            channels: subject.channels,
+            description,
+            quality: subject.quality,
+            range: subject.range,
+          },
+          transfer: describedBuffers([description]),
+        };
+      },
+    );
+    return outcome.kind === 'done'
+      ? { kind: 'done', measurement: outcome.value, kept: outcome.kept }
+      : outcome;
+  }
+
+  /** Ends every job waiting as cancelled, and the worker with them. */
+  dispose(): void {
+    for (const job of [...this.#waiting.keys()]) this.#end(job, { kind: 'cancelled' });
+    this.#worker?.terminate();
+    this.#worker = undefined;
+  }
+
+  /**
+   * Answers the job kept under `key` from what was kept, or posts the one
+   * `posting` makes for a new job's name, and answers what the worker does,
+   * `take` reading the answer as the caller asked for it.
+   */
+  #run<TValue>(
+    key: string,
+    watch: DetectionWatch,
+    take: (answer: Answer) => TValue | undefined,
+    posting: (job: string) => Posting,
+  ): Promise<Outcome<TValue>> {
     const kept = this.#kept.get(key);
-    if (kept !== undefined) {
+    const keptValue = kept === undefined ? undefined : take(kept);
+    if (kept !== undefined && keptValue !== undefined) {
       // Taken out and put back, so the order of the map is the order of use.
       this.#kept.delete(key);
       this.#kept.set(key, kept);
-      return Promise.resolve({ kind: 'done', result: kept, kept: true });
+      return Promise.resolve({ kind: 'done', value: keptValue, kept: true });
     }
     if (watch.signal?.aborted === true) return Promise.resolve({ kind: 'cancelled' });
     this.#jobs += 1;
@@ -154,45 +277,27 @@ export class DetectionHost {
     return new Promise((resolve) => {
       const stop = (): void => {
         this.#workerPort().post({ kind: ToDetectionWorkerKind.Cancel, job }, []);
-        this.#settle(job, { kind: 'cancelled' });
+        this.#end(job, { kind: 'cancelled' });
       };
       watch.signal?.addEventListener('abort', stop, { once: true });
       this.#waiting.set(job, {
         key,
         watch,
-        settle: resolve,
+        answer: (answer) => {
+          const value = take(answer);
+          resolve(
+            value === undefined
+              ? { kind: 'failed', reason: ANSWER_MISMATCHED }
+              : { kind: 'done', value, kept: false },
+          );
+          return value !== undefined;
+        },
+        end: resolve,
         stopWatching: () => watch.signal?.removeEventListener('abort', stop),
       });
-      const description = subject.describe();
-      const learning =
-        subject.learning === undefined
-          ? undefined
-          : { channels: subject.learning.channels, description: subject.learning.describe() };
-      this.#workerPort().post(
-        {
-          kind: ToDetectionWorkerKind.Detect,
-          job,
-          target: subject.target,
-          channels: subject.channels,
-          description,
-          ...(learning === undefined ? {} : { learning }),
-          quality: subject.quality,
-          range: subject.range,
-          assistants: subject.assistants,
-          detectors: subject.detectors,
-        },
-        describedBuffers(
-          learning === undefined ? [description] : [description, learning.description],
-        ),
-      );
+      const { message, transfer } = posting(job);
+      this.#workerPort().post(message, transfer);
     });
-  }
-
-  /** Ends every detection waiting as cancelled, and the worker with them. */
-  dispose(): void {
-    for (const job of [...this.#waiting.keys()]) this.#settle(job, { kind: 'cancelled' });
-    this.#worker?.terminate();
-    this.#worker = undefined;
   }
 
   #workerPort(): DetectionWorkerPort {
@@ -224,44 +329,55 @@ export class DetectionHost {
       case FromDetectionWorkerKind.Progress:
         this.#waiting.get(message.job)?.watch.onProgress?.(message.framesRead, message.framesTotal);
         return;
-      case FromDetectionWorkerKind.Done: {
-        const waiting = this.#waiting.get(message.job);
-        if (waiting !== undefined) this.#keep(waiting.key, message.result);
-        this.#settle(message.job, { kind: 'done', result: message.result, kept: false });
+      case FromDetectionWorkerKind.Done:
+      case FromDetectionWorkerKind.LoopAnalysed:
+      case FromDetectionWorkerKind.LoudnessMeasured:
+        this.#answer(message.job, message);
         return;
-      }
       case FromDetectionWorkerKind.Failed:
-        this.#settle(message.job, { kind: 'failed', reason: message.reason });
+        this.#end(message.job, { kind: 'failed', reason: message.reason });
         return;
       case FromDetectionWorkerKind.Cancelled:
-        this.#settle(message.job, { kind: 'cancelled' });
+        this.#end(message.job, { kind: 'cancelled' });
         return;
     }
   }
 
-  #keep(key: string, result: DetectionResult): void {
+  /** Answers a waiting job, once, keeping the answer where it is the kind the job asked for. */
+  #answer(job: string, answer: Answer): void {
+    const waiting = this.#take(job);
+    if (waiting === undefined) return;
+    if (waiting.answer(answer)) this.#keep(waiting.key, answer);
+  }
+
+  /** Ends a waiting job without an answer, once; an end for one already ended is dropped. */
+  #end(job: string, ended: JobEnded): void {
+    this.#take(job)?.end(ended);
+  }
+
+  /** The job waiting under `job`, no longer waiting or watched, if it still was. */
+  #take(job: string): Waiting | undefined {
+    const waiting = this.#waiting.get(job);
+    if (waiting === undefined) return undefined;
+    this.#waiting.delete(job);
+    waiting.stopWatching();
+    return waiting;
+  }
+
+  #keep(key: string, answer: Answer): void {
     this.#kept.delete(key);
-    this.#kept.set(key, result);
+    this.#kept.set(key, answer);
     for (const oldest of this.#kept.keys()) {
       if (this.#kept.size <= KEPT_RESULTS) break;
       this.#kept.delete(oldest);
     }
   }
 
-  /** Answers a waiting detection, once; an answer for one already answered is dropped. */
-  #settle(job: string, outcome: DetectionOutcome): void {
-    const waiting = this.#waiting.get(job);
-    if (waiting === undefined) return;
-    this.#waiting.delete(job);
-    waiting.stopWatching();
-    waiting.settle(outcome);
-  }
-
-  /** Fails every detection waiting on `worker`, which is let go, so the next has a new one. */
+  /** Fails every job waiting on `worker`, which is let go, so the next has a new one. */
   #failAll(worker: DetectionWorkerPort, reason: string): void {
     if (this.#worker !== worker) return;
     this.#worker = undefined;
     worker.terminate();
-    for (const job of [...this.#waiting.keys()]) this.#settle(job, { kind: 'failed', reason });
+    for (const job of [...this.#waiting.keys()]) this.#end(job, { kind: 'failed', reason });
   }
 }

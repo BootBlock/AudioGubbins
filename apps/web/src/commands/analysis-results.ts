@@ -3,13 +3,10 @@
  * view's audio as it is now, and what it was of, in words.
  */
 
+import type { DetectionScope } from '@audiogubbins/detection-runtime';
 import { formatPosition } from '@audiogubbins/timeline';
 
-import {
-  detectionIdentity,
-  type Detection,
-  type DetectionScope,
-} from '../analysis/detection-control.js';
+import { detectionIdentity, type Detection } from '../analysis/detection-control.js';
 import type { EditorTarget } from './editor-target.js';
 import type { ShellContext } from './shell-context.js';
 

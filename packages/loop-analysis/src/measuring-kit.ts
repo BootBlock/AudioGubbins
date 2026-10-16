@@ -5,10 +5,14 @@
  * with it.
  */
 
-import type { CanonicalDsp, CanonicalFft } from '@audiogubbins/audio-engine';
+import {
+  StftWindow,
+  stftWindowWeights,
+  type CanonicalDsp,
+  type CanonicalFft,
+} from '@audiogubbins/audio-engine';
 import type { SampleRate } from '@audiogubbins/domain';
 
-import { blackmanHarrisWindow } from './blackman-harris.js';
 import { thirdOctaveBands, type Band } from './third-octave-bands.js';
 
 /** One analysis's measuring tools. */
@@ -24,11 +28,11 @@ export class MeasuringKit {
     this.sampleRate = sampleRate;
   }
 
-  /** The Blackman–Harris window of `size` weights. */
+  /** The canonical STFT's Blackman–Harris window (ADR-0080) of `size` weights, any length. */
   window(size: number): Float64Array {
     let weights = this.#windows.get(size);
     if (weights === undefined) {
-      weights = blackmanHarrisWindow(size);
+      weights = stftWindowWeights(StftWindow.BlackmanHarris, size);
       this.#windows.set(size, weights);
     }
     return weights;

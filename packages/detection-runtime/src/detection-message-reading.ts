@@ -1,9 +1,10 @@
 /**
- * Reading a detection message that crossed a thread, field by field
+ * Reading a detection worker's message that crossed a thread, field by field
  * (REQ-EXEC-136.12): the page's request, and the worker's answer down to each
- * finding, step and learned state, so the page never shows or applies a value
- * it has not checked. A reader throws at the first wrong field, which `read`
- * turns into a failure naming it.
+ * finding, step and learned state, each loop metric (`loop-message-reading.ts`)
+ * and each loudness reading, so the page never shows or applies a value it has
+ * not checked. A reader throws at the first wrong field, which `read` turns
+ * into a failure naming it.
  */
 
 import {
@@ -57,6 +58,8 @@ import type {
   KindCount,
   LearnedState,
 } from './detection-result.js';
+import { loopAnalysisOf, loopRequestOf } from './loop-message-reading.js';
+import type { LoudnessMeasurement } from './loudness-run.js';
 
 /** A range of the source's frames, named `field`. */
 function rangeOf(value: unknown, field: string): EditRange {
@@ -223,6 +226,21 @@ function learningOf(value: unknown): DescribedAudio {
   };
 }
 
+/** A finite number, or `undefined` where the field is absent. */
+function optionalNumberOf(value: unknown, field: string): number | undefined {
+  return value === undefined ? undefined : numberOf(value, field);
+}
+
+function loudnessOf(value: unknown, field: string): LoudnessMeasurement {
+  const measurement = fieldsOf(value, field);
+  return {
+    frames: countAt(measurement, 'frames'),
+    integratedLufs: optionalNumberOf(measurement['integratedLufs'], `${field}.integratedLufs`),
+    rangeLu: numberAt(measurement, 'rangeLu'),
+    truePeakDbtp: optionalNumberOf(measurement['truePeakDbtp'], `${field}.truePeakDbtp`),
+  };
+}
+
 function readToWorker(fields: MessageFields): ToDetectionWorker {
   const kind = oneOf(fields, 'kind', ToDetectionWorkerKind);
   if (kind === ToDetectionWorkerKind.Previews) {
@@ -231,9 +249,38 @@ function readToWorker(fields: MessageFields): ToDetectionWorker {
     return { kind, port };
   }
   const job = textAt(fields, 'job');
-  if (kind === ToDetectionWorkerKind.Cancel) return { kind, job };
+  switch (kind) {
+    case ToDetectionWorkerKind.Cancel:
+      return { kind, job };
+    case ToDetectionWorkerKind.AnalyseLoop:
+      return {
+        kind,
+        job,
+        target: textAt(fields, 'target'),
+        channels: countAt(fields, 'channels'),
+        heard: descriptionAt(fields, 'heard'),
+        plain: descriptionAt(fields, 'plain'),
+        quality: qualityModeAt(fields, 'quality'),
+        request: loopRequestOf(fields['request'], 'request'),
+      };
+    case ToDetectionWorkerKind.MeasureLoudness:
+      return {
+        kind,
+        job,
+        target: textAt(fields, 'target'),
+        channels: countAt(fields, 'channels'),
+        description: descriptionAt(fields, 'description'),
+        quality: qualityModeAt(fields, 'quality'),
+        range: rangeOf(fields['range'], 'range'),
+      };
+    case ToDetectionWorkerKind.Detect:
+      return readDetect(fields, job);
+  }
+}
+
+function readDetect(fields: MessageFields, job: string): ToDetectionWorker {
   return {
-    kind,
+    kind: ToDetectionWorkerKind.Detect,
     job,
     target: textAt(fields, 'target'),
     channels: countAt(fields, 'channels'),
@@ -260,6 +307,10 @@ function readFromWorker(fields: MessageFields): FromDetectionWorker {
       };
     case FromDetectionWorkerKind.Done:
       return { kind, job, result: resultOf(fields['result'], 'result') };
+    case FromDetectionWorkerKind.LoopAnalysed:
+      return { kind, job, analysis: loopAnalysisOf(fields['analysis'], 'analysis') };
+    case FromDetectionWorkerKind.LoudnessMeasured:
+      return { kind, job, measurement: loudnessOf(fields['measurement'], 'measurement') };
     case FromDetectionWorkerKind.Failed:
       return { kind, job, reason: textAt(fields, 'reason') };
     case FromDetectionWorkerKind.Cancelled:

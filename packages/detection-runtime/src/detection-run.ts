@@ -22,20 +22,13 @@
  * reaches. Progress is reported in frames read.
  */
 
-import {
-  allocateBlock,
-  blockView,
-  type AudioFrameBlock,
-  type CanonicalDsp,
-  type PcmSource,
-} from '@audiogubbins/audio-engine';
+import { allocateBlock, type CanonicalDsp, type PcmSource } from '@audiogubbins/audio-engine';
 import {
   FailureKind,
   derivedSampleCount,
   fail,
   failure,
   succeed,
-  throwIfCancelled,
   treatmentValues,
   type CancellationSignal,
   type DetectorFinding,
@@ -61,9 +54,7 @@ import {
   type KindCount,
   type LearnedState,
 } from './detection-result.js';
-
-/** The frames read at a time: under a second, so a cancellation waits on no more. */
-const CHUNK_FRAMES = 32_768;
+import { CHUNK_FRAMES, rangeProblem, readRange } from './range-reading.js';
 
 /** What a detection runs with, apart from the audio. */
 export interface DetectionTools {
@@ -120,28 +111,6 @@ function onSource(finding: DetectorFinding, offset: number): DetectorFinding {
             ),
           },
   };
-}
-
-/** Reads `range` of `source` into `block` a chunk at a time, handing each chunk to `hear`. */
-async function readRange(
-  source: PcmSource,
-  range: EditRange,
-  block: AudioFrameBlock,
-  tools: Pick<DetectionTools, 'signal' | 'yieldToHost'>,
-  hear: (chunk: AudioFrameBlock, frames: number) => Promise<void>,
-): Promise<number> {
-  let position: number = range.start;
-  while (position < range.end) {
-    const wanted = Math.min(block.frames, range.end - position);
-    const into = wanted === block.frames ? block : blockView(block, 0, wanted);
-    const read = await source.read(derivedSampleCount(position), into, tools.signal);
-    if (read === 0) break;
-    await hear(into, read);
-    position += read;
-    await tools.yieldToHost();
-    throwIfCancelled(tools.signal);
-  }
-  return position - range.start;
 }
 
 /** The findings of every detection over `range` of `source`, on the source's frames. */
@@ -283,19 +252,12 @@ export async function runDetection(
   tools: DetectionTools,
 ): Promise<DomainResult<DetectionResult>> {
   const { heard: source, learning } = audio;
-  if (range.end <= range.start) {
-    return refused('detection.range-empty', 'The range to analyse holds no audio.');
-  }
+  const problem = rangeProblem(source, range);
+  if (problem !== undefined) return problem;
   if (learning.sampleRate !== source.sampleRate || learning.length !== source.length) {
     return refused(
       'detection.learning-mismatched',
       'The audio a treatment would learn from is not on the frames of the audio analysed.',
-    );
-  }
-  if (source.length !== undefined && range.end > source.length) {
-    return refused(
-      'detection.range-outside',
-      'The range to analyse runs past the end of the audio.',
     );
   }
   const detectors = detectorsOf(assistants);

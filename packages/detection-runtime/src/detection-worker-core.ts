@@ -4,19 +4,21 @@
  * The worker's module (`threads/detection-worker.ts`) only connects this to
  * its global scope and gives it the effect rack, the assistants and the
  * processor types, so the whole of its behaviour runs in a test with the
- * page's side played by the test. It reads a target's audio through the
- * engine's own described source, with the chains its plan names run by the
- * rack at the final render's quality from the stream's start, as the render
- * and the peaks read it: never a second reader (ADR-0061). The audio a
- * recommended step learns from is read the same way, from the request's own
- * description of it where it differs from the audio analysed.
+ * page's side played by the test. Its jobs are detections by the assistants,
+ * loop analyses (ADR-0103) and loudness measurements. Each reads a target's
+ * audio through the engine's own described source, with the chains its plan
+ * names run by the rack at the final render's quality from the stream's
+ * start, as the render and the peaks read it: never a second reader
+ * (ADR-0061). The audio a recommended step learns from, and a loop's region
+ * without its crossfade, are read the same way, from the request's own
+ * description of them.
  *
- * One detection runs at a time, the rest queued in the order asked, which
- * bounds the work in flight to one source (G4). A target has one detection
- * at a time: a request for a target cancels the one before it, queued or
- * running, which is answered as cancelled. The core yields to its host
- * between chunks, so a cancellation sent while a chunk is heard is read
- * before the next.
+ * One job runs at a time, the rest queued in the order asked, which bounds the
+ * work in flight to one target's sources (G4). A target has one job of each
+ * kind at a time: a request of a kind for a target cancels the one of that
+ * kind before it, queued or running, which is answered as cancelled. The core
+ * yields to its host between chunks, so a cancellation sent while a chunk is
+ * heard is read before the next.
  */
 
 import {
@@ -25,21 +27,15 @@ import {
   createCancellationSource,
   fail,
   failure,
-  mapResult,
   succeed,
-  discreteLayout,
   type CancellationSource,
   type DomainResult,
-  type QualityMode,
 } from '@audiogubbins/domain';
 import {
   PreviewClient,
-  ProcessedStart,
-  describedSource,
   previewPort,
   type CanonicalDsp,
   type ChainProcessing,
-  type PcmSource,
   type ToPreview,
 } from '@audiogubbins/audio-engine';
 import type { Assistant, ProcessorType } from '@audiogubbins/processors';
@@ -48,12 +44,22 @@ import { readToDetectionWorker } from './detection-message-reading.js';
 import {
   FromDetectionWorkerKind,
   ToDetectionWorkerKind,
+  type AnalyseLoopRequest,
   type DetectRequest,
   type FromDetectionWorker,
-  type DescribedAudio,
+  type MeasureLoudnessRequest,
+  type WorkRequest,
 } from './detection-messages.js';
-import type { DetectionResult } from './detection-result.js';
-import { runDetection, type DetectionAudio } from './detection-run.js';
+import { runDetection } from './detection-run.js';
+import {
+  detectionAudio,
+  loopAudio,
+  loudnessAudio,
+  type Opened,
+  type SourceOpening,
+} from './job-audio.js';
+import { runLoopAnalysis } from './loop-run.js';
+import { measureLoudness } from './loudness-run.js';
 
 /** What the worker's scope gives the core. */
 export interface DetectionWorkerHost {
@@ -75,18 +81,30 @@ export interface DetectionWorkerHost {
   readonly reportFault: (error: unknown) => void;
 }
 
-/** A detection asked for, and what cancels it. */
+/** A job asked for, and what cancels it. */
 interface Job {
-  readonly request: DetectRequest;
+  readonly request: WorkRequest;
   readonly cancellation: CancellationSource;
   /** Why it was stopped, where it was stopped by a failure rather than asked to stop. */
   failedWith: string | undefined;
 }
 
+/** What a job's work is given beside its sources: what stops it, and where its progress goes. */
+interface WorkTools {
+  readonly signal: CancellationSource['signal'];
+  readonly yieldToHost: () => Promise<void>;
+  readonly onProgress: (framesRead: number, framesTotal: number) => void;
+}
+
+/** Whether `request` supersedes `job`: one of its kind for its target, which it cancels. */
+function supersedes(request: WorkRequest, job: Job): boolean {
+  return job.request.kind === request.kind && job.request.target === request.target;
+}
+
 /**
- * Whether a detection threw what the engine throws on purpose: a plain
- * `Error`, for a source that cannot be read, or a `RangeError`, an engine out
- * of memory. Anything else is a fault in the code, raised as itself.
+ * Whether a job threw what the engine throws on purpose: a plain `Error`, for
+ * a source that cannot be read, or a `RangeError`, an engine out of memory.
+ * Anything else is a fault in the code, raised as itself.
  */
 function isReadFault(error: unknown): error is Error {
   return (
@@ -123,7 +141,7 @@ export class DetectionWorkerCore {
       this.#cancel((job) => job.request.job === message.job);
       return;
     }
-    this.#cancel((job) => job.request.target === message.target);
+    this.#cancel((job) => supersedes(message, job));
     this.#queue.push({
       request: message,
       cancellation: createCancellationSource(),
@@ -134,8 +152,8 @@ export class DetectionWorkerCore {
 
   /**
    * Says that a message arrived and could not be received, which names no job:
-   * every detection fails with the reason, rather than one leaving the page
-   * waiting on an answer for ever.
+   * every job fails with the reason, rather than one leaving the page waiting
+   * on an answer for ever.
    */
   messageFailed(): void {
     const reason = 'A message to the detection worker could not be read.';
@@ -148,7 +166,7 @@ export class DetectionWorkerCore {
     running.cancellation.cancel(new Cancelled(reason));
   }
 
-  /** Cancels every detection `matches`: a queued one at once, the running one at its next turn. */
+  /** Cancels every job `matches`: a queued one at once, the running one at its next turn. */
   #cancel(matches: (job: Job) => boolean): void {
     for (let index = this.#queue.length - 1; index >= 0; index -= 1) {
       const job = this.#queue[index];
@@ -175,106 +193,130 @@ export class DetectionWorkerCore {
   }
 
   async #run(job: Job): Promise<void> {
-    const { request, cancellation } = job;
-    const name = request.job;
-    const { signal } = cancellation;
+    const { request } = job;
+    switch (request.kind) {
+      case ToDetectionWorkerKind.Detect:
+        await this.#detect(job, request);
+        return;
+      case ToDetectionWorkerKind.AnalyseLoop:
+        await this.#analyseLoop(job, request);
+        return;
+      case ToDetectionWorkerKind.MeasureLoudness:
+        await this.#measureLoudness(job, request);
+        return;
+    }
+  }
+
+  async #detect(job: Job, request: DetectRequest): Promise<void> {
     const assistants = this.#assistantsOf(request);
     if (!assistants.ok) {
-      this.#post(name, assistants);
+      this.#postFailed(job, assistants.failures[0].summary);
       return;
     }
-    const audio = this.#audioOf(request);
-    if (!audio.ok) {
-      this.#post(name, audio);
-      return;
-    }
-    try {
-      const result = await runDetection(
-        audio.value,
-        request.range,
-        assistants.value,
-        request.detectors,
-        {
+    await this.#answer(
+      job,
+      detectionAudio(this.#opening(), request),
+      (audio, tools) =>
+        runDetection(audio, request.range, assistants.value, request.detectors, {
+          ...tools,
           dsp: this.#host.dsp,
           types: this.#host.types,
-          signal,
-          yieldToHost: this.#host.yieldToHost,
-          onProgress: (framesRead, framesTotal) => {
-            this.#host.post({
-              kind: FromDetectionWorkerKind.Progress,
-              job: name,
-              framesRead,
-              framesTotal,
-            });
-          },
-        },
-      );
-      this.#post(name, result);
-    } catch (error) {
-      this.#postStopped(job, error);
-    } finally {
-      audio.value.heard.release();
-      if (audio.value.learning !== audio.value.heard) audio.value.learning.release();
-    }
+        }),
+      (result) => ({ kind: FromDetectionWorkerKind.Done, job: request.job, result }),
+    );
   }
 
-  /**
-   * Says how a detection that threw ended: cancelled, or failed as it was
-   * stopped or because its audio could not be read. Anything else is a fault
-   * in the code, raised as itself.
-   */
-  #postStopped(job: Job, error: unknown): void {
-    const name = job.request.job;
-    const { signal } = job.cancellation;
-    if (signal.aborted && error === signal.reason) {
-      this.#host.post(
-        job.failedWith === undefined
-          ? { kind: FromDetectionWorkerKind.Cancelled, job: name }
-          : { kind: FromDetectionWorkerKind.Failed, job: name, reason: job.failedWith },
-      );
-      return;
-    }
-    if (!isReadFault(error)) throw error;
-    this.#host.post({
-      kind: FromDetectionWorkerKind.Failed,
-      job: name,
-      reason: `The audio could not be read: ${error.message}`,
-    });
+  async #analyseLoop(job: Job, request: AnalyseLoopRequest): Promise<void> {
+    await this.#answer(
+      job,
+      loopAudio(this.#opening(), request),
+      (audio, tools) => runLoopAnalysis(audio, request.request, { ...tools, dsp: this.#host.dsp }),
+      (analysis) => ({ kind: FromDetectionWorkerKind.LoopAnalysed, job: request.job, analysis }),
+    );
   }
 
-  /** Posts a detection's answer, or why there is none. */
-  #post(job: string, answer: DomainResult<DetectionResult>): void {
-    this.#host.post(
-      answer.ok
-        ? { kind: FromDetectionWorkerKind.Done, job, result: answer.value }
-        : { kind: FromDetectionWorkerKind.Failed, job, reason: answer.failures[0].summary },
+  async #measureLoudness(job: Job, request: MeasureLoudnessRequest): Promise<void> {
+    await this.#answer(
+      job,
+      loudnessAudio(this.#opening(), request),
+      (source, tools) => measureLoudness(source, request.range, { ...tools, dsp: this.#host.dsp }),
+      (measurement) => ({
+        kind: FromDetectionWorkerKind.LoudnessMeasured,
+        job: request.job,
+        measurement,
+      }),
     );
   }
 
   /**
-   * The audio a request reads, heard and learned from, one source where they
-   * are the same, or why it cannot be read. The caller releases it.
+   * Runs `work` over the audio `opened`, or says why it could not be opened,
+   * and posts its answer as `done` makes it, or why there is none; every source
+   * opened is released on every path.
    */
-  #audioOf(request: DetectRequest): DomainResult<DetectionAudio> {
-    const heard = this.#sourceOf(request, request.quality);
-    if (!heard.ok || request.learning === undefined) {
-      return mapResult(heard, (source) => ({ heard: source, learning: source }));
+  async #answer<TAudio, TValue>(
+    job: Job,
+    opened: DomainResult<Opened<TAudio>>,
+    work: (audio: TAudio, tools: WorkTools) => Promise<DomainResult<TValue>>,
+    done: (value: TValue) => FromDetectionWorker,
+  ): Promise<void> {
+    if (!opened.ok) {
+      this.#postFailed(job, opened.failures[0].summary);
+      return;
     }
-    const learning = this.#sourceOf(request.learning, request.quality);
-    if (!learning.ok) heard.value.release();
-    return mapResult(learning, (source) => ({ heard: heard.value, learning: source }));
+    const name = job.request.job;
+    try {
+      const answer = await work(opened.value.audio, {
+        signal: job.cancellation.signal,
+        yieldToHost: this.#host.yieldToHost,
+        onProgress: (framesRead, framesTotal) => {
+          this.#host.post({
+            kind: FromDetectionWorkerKind.Progress,
+            job: name,
+            framesRead,
+            framesTotal,
+          });
+        },
+      });
+      if (answer.ok) this.#host.post(done(answer.value));
+      else this.#postFailed(job, answer.failures[0].summary);
+    } catch (error) {
+      this.#postStopped(job, error);
+    } finally {
+      for (const source of opened.value.sources) source.release();
+    }
   }
 
-  /** The source of described audio, read as the render reads it, or why it cannot be. */
-  #sourceOf(audio: DescribedAudio, quality: QualityMode): DomainResult<PcmSource> {
-    const layout = discreteLayout(audio.channels);
-    if (!layout.ok) return layout;
-    return describedSource(audio.description, layout.value, this.#host.dsp, {
+  /**
+   * Says how a job that threw ended: cancelled, or failed as it was stopped or
+   * because its audio could not be read. Anything else is a fault in the code,
+   * raised as itself.
+   */
+  #postStopped(job: Job, error: unknown): void {
+    const { signal } = job.cancellation;
+    if (signal.aborted && error === signal.reason) {
+      if (job.failedWith === undefined) {
+        this.#host.post({ kind: FromDetectionWorkerKind.Cancelled, job: job.request.job });
+      } else {
+        this.#postFailed(job, job.failedWith);
+      }
+      return;
+    }
+    if (!isReadFault(error)) throw error;
+    this.#postFailed(job, `The audio could not be read: ${error.message}`);
+  }
+
+  /** Posts why a job has no answer. */
+  #postFailed(job: Job, reason: string): void {
+    this.#host.post({ kind: FromDetectionWorkerKind.Failed, job: job.request.job, reason });
+  }
+
+  /** What a job's sources are opened with: the rack, and the preview worker's renders where given. */
+  #opening(): SourceOpening {
+    return {
+      dsp: this.#host.dsp,
       processing: this.#host.processing,
-      quality: quality.settings,
-      start: ProcessedStart.Canonical,
-      ...(this.#previews === undefined ? {} : { cached: this.#previews }),
-    });
+      previews: this.#previews,
+    };
   }
 
   /** The assistants a request names, in its order, or the first key this build lacks. */

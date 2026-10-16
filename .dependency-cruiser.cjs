@@ -518,11 +518,11 @@ module.exports = {
         'detectors and assistants over it (ADR-0061, ADR-0062). It depends on the domain, the ' +
         'engine and the processors whose detectors and learners it runs, and its thread entry ' +
         'and test support on the effect rack an edited sound is read with, and the entry on the ' +
-        'model channel its models run through (ADR-0062); it knows no interface, storage or ' +
-        'command package.',
+        'model channel its models run through (ADR-0062); it runs the loop analysis (ADR-0103); ' +
+        'it knows no interface, storage or command package.',
       from: { path: '^packages/detection-runtime/' },
       to: {
-        path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+        path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|loop-analysis|ml-runtime|processors)/)',
       },
     },
     {

@@ -161,3 +161,69 @@ describe('the verdicts at another rate', () => {
     60_000,
   );
 });
+
+describe('the spans stated in time', () => {
+  /** `sin(2π · frequency · n / rate)` at frame `n`, `frequency` whole hertz. */
+  const sineAt = (frequency: number, rate: number, n: number): number =>
+    sineOfTurns(((frequency * n) % rate) / rate);
+
+  /** A mono region of `seconds` at `rate`, its loop `[start, end)` in seconds, its samples `at(n, rate)`. */
+  function region(
+    name: string,
+    rate: number,
+    seconds: { readonly start: number; readonly end: number; readonly length: number },
+    at: (n: number, rate: number) => number,
+  ): LoopFixture {
+    const frames = Math.round(seconds.length * rate);
+    return {
+      name,
+      sampleRate: expectSuccess(sampleRate(rate)),
+      layout: StandardLayouts.mono,
+      channels: [Float32Array.from({ length: frames }, (_, n) => at(n, rate))],
+      loop: {
+        start: Math.round(seconds.start * rate),
+        end: Math.round(seconds.end * rate),
+        crossfadeLength: 0,
+        crossfadeShape: seamlessSine().loop.crossfadeShape,
+      },
+    };
+  }
+
+  it('weighs the DC means over 200 ms at every rate, so a DC 100 to 200 ms past the end counts', async () => {
+    // The loop's head holds no DC, and the 200 ms after E holds 0.05 in its
+    // second half only: a span that were a fixed number of frames would be
+    // 100 ms at one of these rates and miss it.
+    const make = (rate: number) =>
+      region('late-dc', rate, { start: 0.3, end: 0.8, length: 1.1 }, (n, at) => {
+        const seconds = n / at;
+        const dc = seconds >= 0.9 && seconds < 1 ? 0.05 : 0;
+        return 0.5 * sineAt(480, at, n) + dc;
+      });
+    const [at48, at96] = [await analysed(make(48_000)), await analysed(make(96_000))];
+    expect(at48.current.dcMismatch.reference).toBe('post-end');
+    expect(at48.current.dcMismatch.verdict).toBe('fail');
+    expect(at96.current.dcMismatch.verdict).toBe('fail');
+    expect(at96.current.dcMismatch.value).toBeCloseTo(at48.current.dcMismatch.value, 2);
+  }, 60_000);
+
+  it('steps the envelope every 10 ms at every rate, so a level that repeats every 10 ms is steady', async () => {
+    // A 500 Hz tone whose level swings at 100 Hz: every 10 ms holds the same
+    // energy, but halves of it do not, so a step that were a fixed number of
+    // frames would be 5 ms at one of these rates and see the swing as unsteady.
+    const make = (rate: number) =>
+      region('swinging', rate, { start: 0.1, end: 0.6, length: 0.7 }, (n, at) => {
+        const level = 0.5 + 0.5 * sineAt(100, at, n);
+        return 0.4 * level * sineAt(500, at, n);
+      });
+    const [at48, at96] = [await analysed(make(48_000)), await analysed(make(96_000))];
+    expect(at48.current.cycleStability.seam.verdict).toBe('pass');
+    expect(at96.current.cycleStability.seam.value).toBeCloseTo(
+      at48.current.cycleStability.seam.value,
+      2,
+    );
+    expect(at96.current.cycleStability.drift.value).toBeCloseTo(
+      at48.current.cycleStability.drift.value,
+      2,
+    );
+  }, 60_000);
+});
