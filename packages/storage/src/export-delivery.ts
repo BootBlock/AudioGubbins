@@ -6,17 +6,17 @@
  *
  * A folder's collision is decided from the listing of the folder written into
  * at delivery, never assumed (`export-collision.ts`), the person asked where
- * the rules ask; a folder not there yet lists nothing. Each
- * destination writes through a sink that replaces the file only when it closes
- * (`createWritable` in the browser), so no destination is ever half written:
- * head, body and tail are streamed from the staging, never held whole.
+ * the rules ask; a folder not there yet lists nothing. Each destination writes
+ * through a sink that replaces the file only when it closes (`createWritable`
+ * in the browser), so no destination is ever half written: head, body and tail
+ * are streamed from the staging, never held whole.
  *
- * A delivery refused (permission lost, a folder path that is not one inside
- * the folder, the name skipped or left unanswered, a folder or a write the
- * destination refused) leaves the destination as it was and the
- * export staged, so a retry or another destination needs no new render. A
- * delivered export is recorded in the project's history as an export record,
- * never as a change undo reverses (REQ-STOR-198), and its staging given up.
+ * A delivery refused (permission lost, a folder path that is not one inside the
+ * folder, the name skipped or left unanswered, a folder or a write the
+ * destination refused) leaves the destination as it was and the export staged,
+ * so a retry or another destination needs no new render. A delivered export is
+ * recorded in the project's history as an export record, never as a change undo
+ * reverses (REQ-STOR-198), and its staging given up.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';

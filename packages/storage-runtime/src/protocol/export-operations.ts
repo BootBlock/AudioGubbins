@@ -8,11 +8,11 @@
  * destination the page chose, whose handle crosses as itself: a save dialog's
  * file, or a folder, with the relative folder inside it the file goes into
  * (ADR-0102) and the records of what was exported there before where the page
- * keeps it trusted. Where a name is taken and the rules ask, the
- * worker asks the person through the prompt the page lends and waits for the
- * answer. A download is answered as a file of the staged parts, read where they
- * lie, never copied whole into memory, so its staging stays until the page
- * gives it up.
+ * keeps it trusted. Where a name is taken and the rules ask, the worker asks
+ * the person through the prompt the page lends and waits for the answer. A
+ * download is answered as a file of the staged parts, read where they lie,
+ * never copied whole into memory, so its staging stays until the page gives it
+ * up.
  */
 
 import type { MetadataPart } from '@audiogubbins/codecs';
