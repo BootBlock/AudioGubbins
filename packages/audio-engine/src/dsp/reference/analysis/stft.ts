@@ -31,9 +31,9 @@ function weight(window: StftWindow, n: number, size: number): number {
 /**
  * The `size` weights of the periodic `window` the canonical STFT weights its
  * frames with, for a `size` of any length: the STFT takes only powers of two,
- * and an analysis that weights a span of another length by the same window
- * (a loop's DC means and phase projections) reads it here, so the window has
- * one statement.
+ * and an analysis that weights a span of another length by the same window (a
+ * loop's DC means and phase projections) reads it here, so the window has one
+ * statement.
  */
 export function stftWindowWeights(window: StftWindow, size: number): Float64Array {
   const weights = new Float64Array(size);

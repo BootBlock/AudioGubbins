@@ -113,8 +113,8 @@ const TOOLS = {
 describe('the detection worker core’s loop analyses', { timeout: 60_000 }, () => {
   it('answers the analysis of the region heard with its crossfade and without, with its progress', async () => {
     const fixture = quarterPeriodShort();
-    // Without its crossfade the region sounds otherwise: here, played backwards,
-    // so an analysis that read one for the other answers otherwise.
+    // Without its crossfade the region sounds otherwise: here, played
+    // backwards, so an analysis that read one for the other answers otherwise.
     const plain: LoopFixture = {
       ...fixture,
       channels: fixture.channels.map((channel) => channel.toReversed()),

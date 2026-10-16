@@ -1,15 +1,15 @@
 /**
  * The messages between the page and the detection worker.
  *
- * Each direction is one discriminated union, and each message is read field
- * by field on arrival (`detection-message-reading.ts`), so a malformed one is
+ * Each direction is one discriminated union, and each message is read field by
+ * field on arrival (`detection-message-reading.ts`), so a malformed one is
  * refused with the field that was wrong rather than acted on. A job is one
  * piece of work, named by the page: a detection by the assistants, a loop
  * analysis (ADR-0103) or a loudness measurement. A target is what it reads, an
- * asset or a region, of which the worker runs one job of each kind at a time:
- * a request of a kind for a target cancels the one of that kind before it. The
- * page gives it a port to the preview worker once, which a racked sound is
- * read from a render through (ADR-0061).
+ * asset or a region, of which the worker runs one job of each kind at a time: a
+ * request of a kind for a target cancels the one of that kind before it. The
+ * page gives it a port to the preview worker once, which a racked sound is read
+ * from a render through (ADR-0061).
  */
 
 import type { DetectorValues, EditRange, QualityMode } from '@audiogubbins/domain';
