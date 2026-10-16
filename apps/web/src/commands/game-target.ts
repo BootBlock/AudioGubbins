@@ -78,12 +78,21 @@ export function targetGroup(
   return group ?? 'The project has no such group.';
 }
 
-/** Available where a project is open to change and a group is named or chosen. */
-export function groupAvailability(context: ShellContext): CommandAvailability {
+/**
+ * Available where a project is open to change and a group is named by the
+ * invocation's `group` or chosen: a control that names its group, a row of the
+ * groups' tree, runs on it whether or not one is chosen. Whether the named group
+ * is one of the project's is the command's to say, as {@link targetGroup} does.
+ */
+export function groupAvailability(
+  context: ShellContext,
+  invocation?: CommandInvocation,
+): CommandAvailability {
   const open = sessionAvailability(context);
   if (!open.available) return open;
   const scope = gameScope(context);
   if (typeof scope === 'string') return unavailable(scope);
+  if (invocation !== undefined && textArgument(invocation, 'group') !== undefined) return AVAILABLE;
   return chosenGroup(context, scope.view) === undefined
     ? unavailable('Choose a group in the Asset groups panel first.')
     : AVAILABLE;

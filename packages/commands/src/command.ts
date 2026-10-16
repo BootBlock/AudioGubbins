@@ -288,12 +288,17 @@ export interface Command<TContext> {
   readonly undoable: boolean;
 
   /**
-   * Whether the command can run against this context.
+   * Whether the command can run against this context, given `invocation`
+   * where it is known.
    *
    * Called to decide whether a menu entry is enabled and whether the palette
-   * offers the command, so it must be cheap and must not change anything.
+   * offers the command, so it must be cheap and must not change anything. A
+   * control that runs the command with arguments, and the bus that runs it,
+   * pass the invocation, so a command whose subject an argument names, rather
+   * than what the interface has chosen, is available where the argument
+   * names one.
    */
-  availability(context: TContext): CommandAvailability;
+  availability(context: TContext, invocation?: CommandInvocation): CommandAvailability;
 
   /**
    * Runs the command.

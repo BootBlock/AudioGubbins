@@ -28,10 +28,12 @@ export function busOfShellCommands(): CommandBus<ShellContext> {
 }
 
 /** Why a command cannot run in `context`, or `undefined`, as the menus read it. */
-export function reasonsIn(context: ShellContext): (id: string) => string | undefined {
+export function reasonsIn(
+  context: ShellContext,
+): (id: string, args?: CommandInvocation['arguments']) => string | undefined {
   const bus = busOfShellCommands();
-  return (id) => {
-    const availability = bus.availability(context, commandId(id));
+  return (id, args) => {
+    const availability = bus.availability(context, commandId(id), args);
     return availability.available ? undefined : availability.reason;
   };
 }

@@ -2365,11 +2365,11 @@ Published paths
   readonly Command.changesAppearance?: boolean
   readonly Command.takesItsKeyOnlyWhenAvailable?: boolean
   readonly Command.undoable: boolean
-  Command.availability: (context: TContext) => CommandAvailability
+  Command.availability: (context: TContext, invocation?: CommandInvocation) => CommandAvailability
   Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>
   type CommandAvailability = { readonly available: false; readonly reason: string; } | { readonly available: true; }
   interface CommandBus<TContext>
-  CommandBus.availability: (context: TContext, id: CommandId) => CommandAvailability
+  CommandBus.availability: (context: TContext, id: CommandId, args?: CommandInvocation["arguments"]) => CommandAvailability
   CommandBus.execute: (context: TContext, invocation: CommandInvocation) => ExecutionResult<TContext>
   CommandBus.executeGroup: (context: TContext, description: string, invocations: readonly [CommandInvocation, ...CommandInvocation[]]) => ExecutionResult<TContext>
   const CommandCategory: { readonly File: "file"; readonly Edit: "edit"; readonly Selection: "selection"; readonly View: "view"; readonly Workspace: "workspace"; readonly Transport: "transport"; readonly Tools: "tools"; readonly Settings: "settings"; readonly Help: "help"; }
@@ -5722,7 +5722,7 @@ Published paths
   readonly ProjectCommand.changesAppearance?: boolean
   readonly ProjectCommand.takesItsKeyOnlyWhenAvailable?: boolean
   readonly ProjectCommand.undoable: boolean
-  ProjectCommand.availability: (context: ProjectState) => CommandAvailability
+  ProjectCommand.availability: (context: ProjectState, invocation?: CommandInvocation) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
   const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly SetExportSettings: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly RestoreRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; readonly CreateTakeStack: CommandId; readonly RemoveTakeStack: CommandId; readonly RenameTakeStack: CommandId; readonly SetTakeStack: CommandId; readonly BranchTakeStack: CommandId; readonly ConsolidateTakeStack: CommandId; readonly AddTake: CommandId; readonly WithdrawTake: CommandId; readonly DuplicateTake: CommandId; readonly RenameTake: CommandId; readonly SetTakeNote: CommandId; readonly ChooseTake: CommandId; readonly RejectTake: CommandId; readonly KeepTake: CommandId; readonly RemoveTake: CommandId; readonly RestoreTake: CommandId; readonly SetTakeCompensation: CommandId; readonly AddPunch: CommandId; readonly RemovePunch: CommandId; readonly AddGroup: CommandId; readonly RemoveGroup: CommandId; readonly RenameGroup: CommandId; readonly MoveGroup: CommandId; readonly SetGroupPolicy: CommandId; readonly AssignMember: CommandId; readonly UnassignMember: CommandId; readonly SetMemberOverride: CommandId; readonly ResetMemberOverride: CommandId; readonly SetMemberProcessing: CommandId; readonly AddScenario: CommandId; readonly SetScenario: CommandId; readonly RemoveScenario: CommandId; }
   type RackTarget = { readonly kind: "asset"; readonly asset: Asset; } | { readonly kind: "region"; readonly region: Region; readonly asset: Asset; }

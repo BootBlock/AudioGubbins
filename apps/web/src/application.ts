@@ -255,8 +255,8 @@ function panelControls(
     run: (id, args, options) => {
       run(commandId(id), args, options);
     },
-    unavailableReason: (id) => {
-      const availability = bus.availability(context, commandId(id));
+    unavailableReason: (id, args) => {
+      const availability = bus.availability(context, commandId(id), args);
       return availability.available ? undefined : availability.reason;
     },
     labelFor: (id) => registry.get(commandId(id))?.label ?? id,
