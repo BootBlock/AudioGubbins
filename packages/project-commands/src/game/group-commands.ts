@@ -54,6 +54,7 @@ import {
 import { gameOf, withGame } from './game-state.js';
 import { FIELD_WORDS, groupWords } from './game-words.js';
 import { unplayed } from './scenario-players.js';
+import { groupOwner, newGroupOwner, ownedBy } from './value-owners.js';
 
 /** The chain a processing setting names, where it names one. */
 function chainOf(processing: EffectChainId | 'none' | undefined): EffectChainId | undefined {
@@ -81,11 +82,16 @@ function addGroup(
   state: ProjectState,
   invocation: CommandInvocation,
 ): CommandOutcome<ProjectState> {
+  const game = gameOf(state);
   const value = jsonArgument(invocation, 'group');
-  const read = value.ok ? readNested(readGameAssetGroup, value.value, 'group') : value;
+  if (!value.ok) return refusedBy(value);
+  const read = ownedBy(
+    readNested(readGameAssetGroup, value.value, 'group'),
+    newGroupOwner(game, value.value),
+    'group.policy',
+  );
   if (!read.ok) return refusedBy(read);
   const group = read.value;
-  const game = gameOf(state);
   if (game.groups.has(group.id)) {
     return refusal(
       'game.group-duplicate-id',
@@ -195,9 +201,9 @@ function setGroupPolicy(
   if (!found.ok) return refusedBy(found);
   const field = fieldArgument(invocation);
   if (!field.ok) return refusedBy(field);
-  const value = policyValueArgument(invocation, field.value);
-  if (!value.ok) return refusedBy(value);
   const group = found.value;
+  const value = policyValueArgument(invocation, field.value, groupOwner(game, group.id));
+  if (!value.ok) return refusedBy(value);
   const words = groupWords(game, group.id);
   const fieldWords = FIELD_WORDS[field.value];
   const old = group.policy[field.value];

@@ -37,6 +37,7 @@ import { unassignMemberInvocation } from './game-invocations.js';
 import { gameOf, rackOf, withGame, withMembership, withoutMembership } from './game-state.js';
 import { groupWords } from './game-words.js';
 import { unplayed } from './scenario-players.js';
+import { memberOwner } from './value-owners.js';
 import {
   inheritedRack,
   joinedMember,
@@ -70,7 +71,10 @@ function assignmentOf(
   if (!group.ok) return group;
   const processing = processingArgument(invocation);
   if (!processing.ok) return processing;
-  const overrides = overridesArgument(invocation);
+  const overrides = overridesArgument(
+    invocation,
+    memberOwner(target.value.member, target.value.name),
+  );
   if (!overrides.ok) return overrides;
   const old = placed(game, target.value.member);
   const position = positionArgument(invocation, game.memberships.length - (old ? 1 : 0));

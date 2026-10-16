@@ -118,6 +118,21 @@ describe('game.set-member-override and game.reset-member-override', () => {
   });
 });
 
+describe('a member’s override that does not read', () => {
+  it('is refused naming the member by its name and the field', () => {
+    const result = bus.execute(state, {
+      commandId: ProjectCommandId.SetMemberOverride,
+      arguments: {
+        ...setMemberOverrideInvocation(members.loop, 'bus', expectSuccess(busName('UI'))).arguments,
+        value: '""',
+      },
+    });
+    expect(reasonsOf(result)).toMatch(
+      /^The region “Walk loop” overrides its group’s bus with what/,
+    );
+  });
+});
+
 describe('game.set-member-processing', () => {
   it('resets an owning member to inherited, its rack following, and undo gives back its own', () => {
     const { next, entry } = appliedAndUndone(

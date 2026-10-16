@@ -36,6 +36,7 @@ import {
 import { gameOf, rackOf, withGame, withMembership } from './game-state.js';
 import { FIELD_WORDS, groupWords } from './game-words.js';
 import { inheritedRack, joinedMember, settled, withRackChange } from './member-changes.js';
+import { memberOwner } from './value-owners.js';
 
 function setMemberOverride(
   state: ProjectState,
@@ -47,7 +48,11 @@ function setMemberOverride(
   const game = gameOf(state);
   const field = overridableFieldArgument(invocation, game, target, membership.group);
   if (!field.ok) return refusedBy(field);
-  const value = policyValueArgument(invocation, field.value);
+  const value = policyValueArgument(
+    invocation,
+    field.value,
+    memberOwner(target.member, target.name),
+  );
   if (!value.ok) return refusedBy(value);
   const fieldWords = FIELD_WORDS[field.value];
   if (value.value === undefined) {

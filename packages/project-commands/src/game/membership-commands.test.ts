@@ -142,6 +142,22 @@ describe('game.assign-member', () => {
   });
 });
 
+describe('a membership’s overrides that do not read', () => {
+  it('are refused naming the member by its name and each field', () => {
+    const joining = assignMemberInvocation(members.rain, gravel.id, 'own');
+    const result = bus.execute(state, {
+      ...joining,
+      arguments: { ...joining.arguments, overrides: '{"bus":""}' },
+    });
+    const asset = members.rain.kind === 'asset' ? members.rain.asset : undefined;
+    const name = asset === undefined ? undefined : state.project.assets.get(asset)?.displayName;
+    expect(name).toBeDefined();
+    expect(reasonsOf(result)).toContain(
+      `The asset “${String(name)}” overrides its group’s bus with what it does not take`,
+    );
+  });
+});
+
 describe('game.unassign-member', () => {
   it('takes a member out, keeping its rack, and undo puts it back at its place', () => {
     const before = membershipIn(state, members.footstep);
