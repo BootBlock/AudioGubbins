@@ -49,6 +49,8 @@ import { libraryCommands } from './library-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
+import { loopAnalysisCommands } from './loop-analysis-commands.js';
+import { loopAuditionCommands } from './loop-audition-commands.js';
 import { markerCommands } from './marker-commands.js';
 import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
@@ -875,6 +877,12 @@ describe('finding the shell commands in the palette', () => {
       // Each is a step of the storage worker's pack installer, run twice with
       // its work awaited in `pack-commands.test.ts`.
       ...packCommands(),
+      // Each needs a looped region, and its analysis answered by the worker or
+      // its loop changed in the project, both of which settle after it returns;
+      // each is run twice, its work awaited, in
+      // `loop-analysis-commands.test.ts` and `loop-audition-commands.test.ts`.
+      ...loopAnalysisCommands(),
+      ...loopAuditionCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),

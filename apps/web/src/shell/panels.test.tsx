@@ -16,12 +16,14 @@ import {
 import { PanelKinds } from '@audiogubbins/workspace';
 
 import type { Detections } from '../analysis/detection-control.js';
+import type { Auditioning } from '../audio/loop-audition.js';
 import type { SpectrogramDsp } from '../editor/spectrogram-reports.js';
 import type { PackManagerState } from '../ml/pack-manager.js';
 import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
+import type { LoopAnalyses } from '../state/loop-analysis-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import {
   createRenderStrategyStore,
@@ -121,6 +123,10 @@ describe('what a panel is given', () => {
     expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
     expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
     expectTypeOf<PanelContext['detection']>().toEqualTypeOf<Observable<Detections>>();
+    expectTypeOf<PanelContext['loopAnalyses']>().toEqualTypeOf<Observable<LoopAnalyses>>();
+    expectTypeOf<PanelContext['loopAudition']>().toEqualTypeOf<
+      Observable<Auditioning | undefined>
+    >();
     // The manager's state alone, and no step that changes a pack.
     expectTypeOf<Omit<PanelContext['packs'], 'unavailable' | 'availability'>>().toEqualTypeOf<
       Observable<PackManagerState>
@@ -165,6 +171,8 @@ describe('every panel', () => {
           labelFor: (id) => id,
           editor: fakePanelParts(shell, logger),
           detection: shell.detection,
+          loopAnalyses: shell.loopAnalysis.analyses,
+          loopAudition: shell.loopAudition,
           packs: shell.packs,
           modelGate: shell.modelGate,
           hearing: shell.hearing,

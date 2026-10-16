@@ -951,6 +951,8 @@ const PACKAGES = [
       '@audiogubbins/clipboard',
       '@audiogubbins/processors',
       '@audiogubbins/detection-runtime',
+      // The Loop panel's analyses, thresholds and audition plans (ADR-0103).
+      '@audiogubbins/loop-analysis',
       '@audiogubbins/ml-runtime',
       '@audiogubbins/model-packs',
       '@audiogubbins/recording',

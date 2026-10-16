@@ -59,6 +59,8 @@ import { editorPresentationCommands } from './editor-presentation-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
+import { loopAnalysisCommands } from './loop-analysis-commands.js';
+import { loopAuditionCommands } from './loop-audition-commands.js';
 import { markerCommands } from './marker-commands.js';
 import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
@@ -186,6 +188,11 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** Every command that analyses audio: the assistants', and a region's loop's and hearing it. */
+function analysingCommands(): readonly Command<ShellContext>[] {
+  return [...analysisCommands(), ...loopAnalysisCommands(), ...loopAuditionCommands()];
+}
+
 /**
  * Builds every shell command.
  *
@@ -230,7 +237,7 @@ export function shellCommands(
     ...regionBoundaryCommands(),
     ...regionPropertyCommands(),
     ...splitCommands(),
-    ...analysisCommands(),
+    ...analysingCommands(),
     ...rackBuildingCommands(),
     ...rackSlotCommands(),
     ...rackParameterCommands(),

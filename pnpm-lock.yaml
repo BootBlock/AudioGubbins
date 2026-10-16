@@ -295,6 +295,9 @@ importers:
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:../../packages/input
+      '@audiogubbins/loop-analysis':
+        specifier: workspace:*
+        version: link:../../packages/loop-analysis
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../../packages/media-store
