@@ -28,6 +28,7 @@ import { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
 
 import { DetectionControl } from '../analysis/detection-control.js';
 import { LoopAnalysing } from '../analysis/loop-analysing.js';
+import { WorkflowAnalysing } from '../analysis/workflow-analysing.js';
 import { LoopAuditioning } from '../audio/loop-audition.js';
 import { createLoopAnalysisStore } from '../state/loop-analysis-store.js';
 import { PlaybackControl } from '../audio/playback-control.js';
@@ -317,6 +318,7 @@ export function buildShellContext(
       ...fakeEditor(storage, logger),
       detection: detection.control,
       loopAnalysis: detection.loops,
+      workflowAnalysis: new WorkflowAnalysing([detection.control, detection.loops.analyses]),
       loopAudition: new LoopAuditioning({
         playback: parts.playback,
         audio: parts.audio,

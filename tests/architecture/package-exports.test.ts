@@ -230,47 +230,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'simulatePreview',
       ],
   },
-  '@audiogubbins/guided-workflows': {
-    "The guided workflows as planners (ADR-0105), built ahead of the application's workflow commands and dialog, which ask each workflow for its options and analyses, show its plan's items with their changes, skips and refusals, offer to leave the refused out, and run the plan as one step whose export or measurement follows it: the six workflows with their options and analyses, the plan and its items, whether it may run, and the members a target list covers.":
-      [
-        'AnalysisNeed',
-        'AssistantAnalyses',
-        'AssistantAnalysis',
-        'CLEAN_DIALOGUE',
-        'CREATE_SEAMLESS_LOOP',
-        'CUT_INTO_SOUNDS',
-        'CleanDialogueAnalyses',
-        'CleanDialogueOptions',
-        'CreateSeamlessLoopOptions',
-        'CutIntoSoundsOptions',
-        'EXPORT_FOR_GODOT',
-        'ExportForGodotOptions',
-        'GodotFormat',
-        'GuidedWorkflow',
-        'LoopAnalyses',
-        'LoopAnswer',
-        'LoopChoice',
-        'NORMALISE_GAME_SFX',
-        'NoAnalyses',
-        'NormaliseGameSfxOptions',
-        'OptionSource',
-        'PREPARE_ONE_SHOT',
-        'Placement',
-        'PrepareOneShotOptions',
-        'WorkflowDispatch',
-        'WorkflowInput',
-        'WorkflowItem',
-        'WorkflowItemTarget',
-        'WorkflowKey',
-        'WorkflowOption',
-        'WorkflowOptions',
-        'WorkflowPlan',
-        'WorkflowTarget',
-        'itemKey',
-        'targetMembers',
-        'workflowDispatch',
-      ],
-  },
   '@audiogubbins/codec-runtime': {
     "The codec module's host ADR-0091 gives Phase 09, written before the codec worker, the import and export jobs and the application that drive it: the loader that instantiates the module and refuses one of another ABI, its decode sessions and their descriptions, and its FLAC frame and Opus encoders with their settings.":
       [
@@ -393,7 +352,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/project-commands': {
     "The invocations of the game commands (ADR-0101), built ahead of the application's group and member commands (the groups' tree, the policy editor and the Inspector, which dispatch them) which the guided workflows' plans are made of too: adding, removing, renaming and moving a group, resetting an override, taking a member out of its group, and choosing whether a member inherits its group's processing.":
       [
-        'addGroupInvocation',
         'moveGroupInvocation',
         'removeGroupInvocation',
         'renameGroupInvocation',
