@@ -30,7 +30,8 @@
     "@audiogubbins/codecs": "workspace:*",
     "@audiogubbins/import-export": "workspace:*",
     "@audiogubbins/text": "workspace:*",
-    "@audiogubbins/version": "workspace:*"
+    "@audiogubbins/version": "workspace:*",
+    "@audiogubbins/game-audio": "workspace:*"
   },
   "devDependencies": {
     "@audiogubbins/test-fixtures": "workspace:*",

@@ -11,10 +11,12 @@
  */
 
 export {
+  type GroupedReference,
   type SampleProject,
   contentIdOfDigit,
   deeplyRackedState,
   editedReferenceState,
+  groupedReferenceState,
   referenceState,
   withSources,
 } from './project-states.js';

@@ -101,7 +101,8 @@ const asTemplate = textConverter({ maximumLength: 1_024 });
 const asChannelIndex = integerConverter(0, MAXIMUM_CHANNEL_COUNT - 1);
 const asChannelIndices = listConverter(MAXIMUM_CHANNEL_COUNT, asChannelIndex);
 
-const asChannels: Converter<ChannelConversion> = (reading, value, parent, key) => {
+/** Reads a channel conversion. */
+export const asChannels: Converter<ChannelConversion> = (reading, value, parent, key) => {
   const read = kindOf(reading, value, parent, key, 'kind', {
     keep: members('kind'),
     fold: members('kind', 'to'),
@@ -129,7 +130,8 @@ const asChannels: Converter<ChannelConversion> = (reading, value, parent, key) =
   }
 };
 
-const asDither: Converter<DitherSettings> = (reading, value, parent, key) => {
+/** Reads a dither. */
+export const asDither: Converter<DitherSettings> = (reading, value, parent, key) => {
   const noise = members('kind', 'amplitude', 'shaping', 'seed');
   const read = kindOf(reading, value, parent, key, 'kind', {
     none: members('kind'),
@@ -188,7 +190,8 @@ const asEdit: Converter<MetadataEdit> = (reading, value, parent, key) => {
 const asPolicy = oneOfConverter(['full', 'minimal', 'none'] as const);
 const asEdits = listConverter(256, asEdit);
 
-const asMetadata: Converter<MetadataSettings> = (reading, value, parent, key) => {
+/** Reads the metadata a file carries. */
+export const asMetadata: Converter<MetadataSettings> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, members('policy', 'edits'));
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);
@@ -231,15 +234,18 @@ export function writeExportSettings(settings: ExportSettings): JsonObject {
     channels: writeChannels(settings.channels),
     dither: { ...settings.dither },
     range: { ...settings.range },
-    metadata: {
-      policy: settings.metadata.policy,
-      edits: settings.metadata.edits.map((edit) => ({ ...edit })),
-    },
+    metadata: writeMetadata(settings.metadata),
     fileName: settings.fileName,
   };
 }
 
-function writeChannels(channels: ChannelConversion): JsonObject {
+/** Writes the metadata a file carries. */
+export function writeMetadata(metadata: MetadataSettings): JsonObject {
+  return { policy: metadata.policy, edits: metadata.edits.map((edit) => ({ ...edit })) };
+}
+
+/** Writes a channel conversion. */
+export function writeChannels(channels: ChannelConversion): JsonObject {
   switch (channels.kind) {
     case 'keep':
     case 'matrix':

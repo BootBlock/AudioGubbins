@@ -26,6 +26,9 @@
       "path": "../../packages/project-format"
     },
     {
+      "path": "../../packages/game-audio"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

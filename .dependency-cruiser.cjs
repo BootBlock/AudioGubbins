@@ -80,12 +80,13 @@
  *
  * - project-format: the authoritative, versioned project and the forms it is
  *   written in; depends on domain + text + version, on the codecs' names and
- *   metadata map a compressed source's provenance records, and on the export
- *   settings a project and an export record keep (ADR-0090, ADR-0092).
+ *   metadata map a compressed source's provenance records, on the export
+ *   settings a project and an export record keep (ADR-0090, ADR-0092), and on
+ *   the game-audio state it keeps (ADR-0106).
  * - project-commands: the commands that change a project; depends on domain +
  *   commands + project-format + text.
  * - history: branching history as values; depends on domain + commands +
- *   project-format.
+ *   project-format, and on game-audio for the groups its differences name.
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
  * - model-packs: model packs (ADR-0062): the manifest, the install state
@@ -620,10 +621,11 @@ module.exports = {
         'can read it and it can read none of them (ADR-0020); it reads the text leaf for the ' +
         'rule a given name is held to, and the codecs and the export settings, portable values ' +
         'below every Phase 02 package, for the provenance and the export settings it keeps ' +
-        '(ADR-0090, ADR-0092). Its tests may take the fixtures package.',
+        '(ADR-0090, ADR-0092), and the game-audio state it keeps and validates with the project ' +
+        '(ADR-0106). Its tests may take the fixtures package.',
       from: { path: '^packages/project-format/' },
       to: {
-        path: '^packages/(?!(codecs|domain|import-export|project-format|text|version)/)',
+        path: '^packages/(?!(codecs|domain|game-audio|import-export|project-format|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -645,10 +647,11 @@ module.exports = {
       severity: 'error',
       comment:
         'History may reference command and domain identifiers but not renderer or interface ' +
-        'internals, nor storage: it is the model the journal persists (Phase 02 packet).',
+        'internals, nor storage: it is the model the journal persists (Phase 02 packet). It ' +
+        'reads the game-audio state for the groups a difference names (ADR-0106).',
       from: { path: '^packages/history/' },
       to: {
-        path: '^packages/(?!(commands|domain|history|project-format)/)',
+        path: '^packages/(?!(commands|domain|game-audio|history|project-format)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

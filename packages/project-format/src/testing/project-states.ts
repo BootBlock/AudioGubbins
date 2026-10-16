@@ -18,6 +18,7 @@ import {
   assetPlan,
   derivedSampleCount,
   routeToBus,
+  sampleRate,
   slicePlan,
   type Asset,
   type AssetId,
@@ -42,10 +43,23 @@ import {
   TEST_ENGINE,
 } from '@audiogubbins/domain/testing';
 
+import {
+  busName,
+  destinationPath,
+  namingTemplate,
+  profileFromPreset,
+  validateGameAudioState,
+  type GameAssetGroup,
+  type GameAudioState,
+  type GroupMember,
+} from '@audiogubbins/game-audio';
+import { BUILT_IN_PRESETS } from '@audiogubbins/import-export';
+
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import {
   SourceChangePolicy,
   storageKeyOf,
+  withGameAudio,
   type AssetSource,
   type ProjectState,
 } from '../project-state.js';
@@ -388,5 +402,134 @@ export function deeplyRackedState(fixture: SampleProject): ProjectState {
       assets: new Map([...state.project.assets, [footstep.id, { ...racked, edits: [paste] }]]),
       effectChains: chains,
     },
+  };
+}
+
+/** What `groupedReferenceState` holds of its groups, for a test to name them. */
+export interface GroupedReference {
+  readonly state: ProjectState;
+
+  /** The root group, which sets every field of its policy. */
+  readonly outer: GameAssetGroup;
+
+  /** The group inside it, which sets its bus and emitter rules alone. */
+  readonly inner: GameAssetGroup;
+
+  /** The chain the outer group's members inherit. */
+  readonly chain: EffectChainId;
+}
+
+/**
+ * The reference state with asset groups (ADR-0101, ADR-0106): a root group
+ * that sets every field of its policy, an export profile among them that
+ * makes every choice a profile may, and a group inside it that sets its bus
+ * and emitter rules; the sample's region in the inner group, inheriting its
+ * processing, so its rack is the outer group's chain, and the footstep in the
+ * outer group with processing of its own and an override of every field a
+ * member may override. Every reader and writer of the game-audio state is
+ * pinned with it, so a member left out of one is found.
+ */
+export function groupedReferenceState(fixture: SampleProject): GroupedReference {
+  const state = referenceState(fixture);
+  const { ids } = fixture;
+  const [chain] = state.project.effectChains.keys();
+  const [region] = state.project.regions.values();
+  const [preset] = BUILT_IN_PRESETS;
+  if (chain === undefined || region === undefined || preset === undefined) {
+    throw new Error('The reference state has a chain and a region, and a preset is built in.');
+  }
+  const rate = expectSuccess(sampleRate(48_000));
+  const outer: GameAssetGroup = {
+    id: ids.next<'GameAssetGroupId'>(),
+    name: 'Footsteps',
+    policy: {
+      processing: chain,
+      loudness: { integratedLufs: -16, toleranceLu: 1, truePeakCeilingDbtp: -1 },
+      exportProfile: {
+        format: 'flac',
+        choices: {
+          encoding: { bits: 24, compressionLevel: 5, keepRiffChunks: false },
+          sampleRate: rate,
+          channels: { kind: 'fold', to: StandardLayouts.mono },
+          dither: { kind: 'triangular', amplitude: 1, shaping: 'first-order', seed: 7 },
+          metadata: { policy: 'minimal', edits: [{ kind: 'set', key: 'artist', value: 'Foley' }] },
+        },
+      },
+      naming: expectSuccess(namingTemplate('{group:snake}_{number:2}')),
+      destination: expectSuccess(destinationPath(['audio', 'sfx'])),
+      emitter: {
+        selection: { kind: 'uniform' },
+        voices: { limit: 4, stealing: 'quietest' },
+        cooldownMilliseconds: 120,
+        attenuation: { kind: 'inverse', unitSize: 1, maxDistance: 40, ceilingDecibels: 3 },
+        filter: { cutoffHertz: 5_000, decibels: -24 },
+      },
+      variation: {
+        pitchCents: { min: -200, max: 150 },
+        gainDecibels: { min: -3, max: 0 },
+        startOffsetMilliseconds: { max: 20 },
+      },
+      bus: expectSuccess(busName('SFX')),
+      tags: ['footstep', 'gravel'],
+    },
+  };
+  const inner: GameAssetGroup = {
+    id: ids.next<'GameAssetGroupId'>(),
+    name: 'Grass',
+    parent: outer.id,
+    policy: {
+      bus: expectSuccess(busName('Foley')),
+      emitter: {
+        selection: { kind: 'avoid-recent', depth: 2 },
+        voices: { limit: 2, stealing: 'reject' },
+        cooldownMilliseconds: 0,
+        attenuation: { kind: 'exponent', maxDistance: 25, exponent: 1.5 },
+      },
+    },
+  };
+  const footstep: GroupMember = { kind: 'asset', asset: fixture.assets.footstep.id };
+  const game: GameAudioState = {
+    groups: new Map([
+      [outer.id, outer],
+      [inner.id, inner],
+    ]),
+    memberships: [
+      {
+        member: { kind: 'region', region: region.id },
+        group: inner.id,
+        processing: 'inherit',
+        overrides: {},
+      },
+      {
+        member: footstep,
+        group: outer.id,
+        processing: 'own',
+        overrides: {
+          loudness: { integratedLufs: -18, toleranceLu: 2 },
+          exportProfile: profileFromPreset(preset),
+          naming: expectSuccess(namingTemplate('{asset:kebab}')),
+          destination: expectSuccess(destinationPath(['ui'])),
+          variation: {
+            pitchCents: { min: 0, max: 0 },
+            gainDecibels: { min: -6, max: -6 },
+            startOffsetMilliseconds: { max: 0 },
+          },
+          bus: expectSuccess(busName('UI')),
+        },
+      },
+    ],
+  };
+  const project: Project = {
+    ...state.project,
+    regions: new Map([...state.project.regions, [region.id, { ...region, rack: chain }]]),
+  };
+  return {
+    state: withGameAudio(
+      { ...state, project },
+      expectSuccess(validateGameAudioState(project, game)),
+    ),
+    outer,
+    inner,
+    chain,
   };
 }

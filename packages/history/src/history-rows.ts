@@ -24,7 +24,15 @@ import { snapshotsByNode } from './snapshots.js';
 
 /** The kinds of entity a change can affect, as the panel names them. */
 export type EntityKind =
-  'asset' | 'track' | 'bus' | 'clip' | 'region' | 'marker' | 'effect-chain' | 'take-stack';
+  | 'asset'
+  | 'track'
+  | 'bus'
+  | 'clip'
+  | 'region'
+  | 'marker'
+  | 'effect-chain'
+  | 'take-stack'
+  | 'game-group';
 
 /** One entity of the project. */
 export interface EntityReference {
@@ -94,6 +102,7 @@ const AFFECTED_LISTS = [
   ['marker', 'markers'],
   ['effect-chain', 'effectChains'],
   ['take-stack', 'takeStacks'],
+  ['game-group', 'gameGroups'],
 ] as const;
 
 /** Text as it is searched: compatibility-composed and in lower case. */

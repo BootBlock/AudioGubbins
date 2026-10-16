@@ -8,6 +8,8 @@
  * - `project/backup-policy.json`: the project's backup policy.
  * - `project/export-settings.json`: the settings the project was last exported
  *   with, where it has been exported (ADR-0092).
+ * - `project/game-audio.json`: the project's asset groups and their members,
+ *   where it has any (ADR-0106).
  * - `project/<list>/<id>.json`: one entity of a list, such as a track at
  *   `project/tracks/<id>.json`.
  * - `project/assets/<id>.source.json`: where an asset's bytes come from and how
@@ -72,6 +74,7 @@ export const BRANCH_NAMES_PATH = 'history/branch-names.json';
 export const RETENTION_PATH = 'history/retention.json';
 export const BACKUP_POLICY_PATH = 'project/backup-policy.json';
 export const EXPORT_SETTINGS_PATH = 'project/export-settings.json';
+export const GAME_AUDIO_PATH = 'project/game-audio.json';
 export const COMPARISON_PATH = 'history/comparison.json';
 export const CACHE_INDEX_PATH = 'caches/index.json';
 
@@ -96,6 +99,7 @@ export type TreePlace =
   | { readonly kind: 'retention' }
   | { readonly kind: 'backup-policy' }
   | { readonly kind: 'export-settings' }
+  | { readonly kind: 'game-audio' }
   | { readonly kind: 'comparison' }
   | { readonly kind: 'node'; readonly id: string }
   | { readonly kind: 'snapshot'; readonly id: string }
@@ -114,6 +118,7 @@ const FIXED_PLACES: ReadonlyMap<string, TreePlace> = new Map<string, TreePlace>(
   [RETENTION_PATH, { kind: 'retention' }],
   [BACKUP_POLICY_PATH, { kind: 'backup-policy' }],
   [EXPORT_SETTINGS_PATH, { kind: 'export-settings' }],
+  [GAME_AUDIO_PATH, { kind: 'game-audio' }],
   [COMPARISON_PATH, { kind: 'comparison' }],
   // Never a cache's path, which has a category, a scope and a name.
   [CACHE_INDEX_PATH, { kind: 'cache-index' }],

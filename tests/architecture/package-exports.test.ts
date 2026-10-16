@@ -188,15 +188,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [],
   },
   '@audiogubbins/game-audio': {
-    "The game export layer's values (ADR-0102), built ahead of the project format that keeps them in a group's policy and reads them back through these constructors, and of the application's group policy editor, which applies a preset to a group as a profile: the naming template, the destination path and the game export profile.":
-      [
-        'DestinationPath',
-        'GameExportProfile',
-        'NamingTemplate',
-        'destinationPath',
-        'namingTemplate',
-        'profileFromPreset',
-      ],
+    "A preset's choices as a game export profile (ADR-0102), built ahead of the application's group policy editor, which applies a preset to a group as a profile.":
+      ['profileFromPreset'],
     "The game export plan and region naming (ADR-0102), built ahead of the guided workflows that export and name a group's members, and of the application's group export, which runs the planned items as one export batch after showing the refused ones, and its naming command, which writes each region's new name in one step: each member planned or refused with its owner named, and each region's name from a template.":
       [
         'GameExportItem',
@@ -208,34 +201,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'memberNames',
         'planGameExport',
       ],
-    "The game-audio state as values (ADR-0101, ADR-0106), built ahead of the project format that reads, writes and validates it with the project, the history that tells its changes apart, and the game commands that change it with their inverses: the groups and their memberships, the policy's fields and the values each holds, and setting or resetting one.":
-      [
-        'Attenuation',
-        'BusName',
-        'DistanceFilter',
-        'EmitterRules',
-        'GameAssetGroup',
-        'GameAssetGroupId',
-        'GameAudioState',
-        'GroupMember',
-        'GroupMembership',
-        'InheritedPolicy',
-        'LoudnessTarget',
-        'MemberProcessing',
-        'OverridableField',
-        'POLICY_FIELDS',
-        'PolicyField',
-        'PolicyOverrides',
-        'PolicyValues',
-        'SelectionRule',
-        'VoiceStealing',
-        'VoiceVariation',
-        'busName',
-        'memberKey',
-        'validateGameAudioState',
-        'withOverride',
-        'withPolicyField',
-      ],
+    "Setting or resetting one field of a group's policy or of a member's overrides (ADR-0101), built ahead of the game commands that change them with their inverses.":
+      ['withOverride', 'withPolicyField'],
     "A member's effective policy with the source of every value and what each hides (ADR-0101), built ahead of the application's policy view and Inspector, which show each value with the group or override it comes from and offer its reset.":
       [
         'EffectivePolicy',
@@ -247,14 +214,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'resolveGroupPolicy',
         'resolvePolicy',
       ],
-    "The racks inheriting members are heard through, and the users of a chain with the groups that name it (ADR-0101), built ahead of the game commands that re-point every inheriting member's rack in the command that moves it, and of the chain naming, the history's difference names and the application's rack commands, which read a chain's users through it.":
-      [
-        'StateChainUsers',
-        'inheritedProcessing',
-        'inheritingRacks',
-        'projectChainUsers',
-        'stateChainUseCount',
-      ],
+    "The racks inheriting members are heard through, and how many users a chain has with the groups that name it (ADR-0101), built ahead of the game commands that re-point every inheriting member's rack in the command that moves it, and of the chain naming and the application's rack commands, which count a chain's users through it.":
+      ['inheritedProcessing', 'inheritingRacks', 'stateChainUseCount'],
     'The rules the game preview plays where a field resolves unset (ADR-0104), built ahead of the preview simulation and its panel, which says so beside the rules it shows.':
       ['DEFAULT_EMITTER_RULES', 'DEFAULT_VOICE_VARIATION'],
   },
@@ -384,6 +345,17 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['stripAssetProvenance', 'stripExportRecords'],
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
+    "The readers and writers of a group, a member, a policy field and a member's overrides, and the one way a state's game-audio member is set (ADR-0106), built ahead of the game commands, whose arguments are canonical JSON these read and write, and whose results drop the member where the last group goes.":
+      [
+        'readGameAssetGroup',
+        'readGroupMember',
+        'readPolicyField',
+        'readPolicyOverrides',
+        'withGameAudio',
+        'writeGameAssetGroup',
+        'writeGroupMember',
+        'writePolicyOverrides',
+      ],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':

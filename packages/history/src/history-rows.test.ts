@@ -185,6 +185,36 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
     expect([...affectedEntities(row.node)]).toEqual([{ kind: 'take-stack', id: stack }]);
   });
 
+  it('are filtered to the changes that affected an asset group, which each names', () => {
+    const generator = testIds(54);
+    const group = generator.next<'GameAssetGroupId'>();
+    const changed = generator.next<'HistoryNodeId'>();
+    let history = grown(newHistory(generator), generator.next<'HistoryNodeId'>(), 'Trim start');
+    history = expectSuccess(
+      recordChange(
+        history,
+        changeNodeOf(history, {
+          id: changed,
+          at: EPOCH + 10,
+          entry: {
+            description: 'Set the group’s bus',
+            forward: [invocation('set-policy', 'bus')],
+            inverse: [invocation('set-policy-back', 'bus')],
+          },
+          affects: { ...NOTHING_AFFECTED, regions: [region], gameGroups: [group] },
+        }),
+      ),
+    );
+    const rows = rowsOf(history, { affecting: { kind: 'game-group', id: group } });
+    expect(rows.map((row) => row.node.id)).toEqual([changed]);
+    const [row] = rows;
+    if (row === undefined) throw new Error('One change affected the group.');
+    expect([...affectedEntities(row.node)]).toEqual([
+      { kind: 'region', id: region },
+      { kind: 'game-group', id: group },
+    ]);
+  });
+
   it('list a history ten thousand changes long without indenting it', () => {
     const generator = testIds(52);
     let history = newHistory(generator);

@@ -61,6 +61,7 @@ function grownBy(history: History, count: number): History {
         markers: [],
         effectChains: [],
         takeStacks: [],
+        gameGroups: [],
         project: true,
       },
     });

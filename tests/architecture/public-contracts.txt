@@ -27,6 +27,7 @@ Published paths
   @audiogubbins/editor-view
   @audiogubbins/effect-rack
   @audiogubbins/game-audio
+  @audiogubbins/game-audio/testing
   @audiogubbins/history
   @audiogubbins/import-export
   @audiogubbins/input
@@ -4084,11 +4085,13 @@ Published paths
   readonly VoiceVariation.startOffsetMilliseconds: { readonly max: number; }
   function busName(text: string): DomainResult<BusName>
   function destinationPath(segments: readonly string[]): DomainResult<DestinationPath>
+  function groupPath(groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>, id: GameAssetGroupId): readonly string[]
   function inheritedProcessing(state: GameAudioState, member: GroupMember): EffectChainId | undefined
   function inheritingRacks(state: GameAudioState): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined; }[]
   function memberKey(member: GroupMember): string
   function memberNames(project: Project, state: GameAudioState, members: readonly RegionMember[], template: NamingTemplate, clock: ExportClock): readonly RegionName[]
   function namingTemplate(source: string): DomainResult<NamingTemplate>
+  function pathText(path: readonly string[]): string
   function planGameExport(project: Project, state: GameAudioState, request: GameExportRequest, contextOf: (member: GroupMember) => DomainResult<ExportContext>): GameExportPlan
   function profileFromPreset(preset: ExportPreset): GameExportProfile
   function projectChainUsers(project: Project, game: GameAudioState | undefined, chain: EffectChainId): StateChainUsers
@@ -4100,13 +4103,27 @@ Published paths
   function withOverride<F extends OverridableField>(overrides: PolicyOverrides, field: F, value: PolicyValues[F] | undefined): PolicyOverrides
   function withPolicyField<F extends "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation">(policy: InheritedPolicy, field: F, value: PolicyValues[F] | undefined): InheritedPolicy
 
+@audiogubbins/game-audio/testing
+  interface GameWorld
+  readonly GameWorld.project: Project
+  readonly GameWorld.state: GameAudioState
+  interface Random
+  Random.next: () => number
+  Random.below: (bound: number) => number
+  Random.between: (lowest: number, highest: number) => number
+  Random.whole: (lowest: number, highest: number) => number
+  Random.pick: <T>(items: readonly T[]) => T
+  Random.chance: (probability: number) => boolean
+  function randomGameWorld(seed: number): GameWorld
+  function seededRandom(seed: number): Random
+
 @audiogubbins/history
   interface ChainDifference
   readonly ChainDifference.id: EffectChainId
   readonly ChainDifference.change: "added" | "changed" | "removed"
   readonly ChainDifference.slots: readonly SlotDifference[]
   interface ChainOwner
-  readonly ChainOwner.kind: "asset" | "bus" | "region" | "track"
+  readonly ChainOwner.kind: "asset" | "bus" | "game-group" | "region" | "track"
   readonly ChainOwner.naming: "range" | "whole"
   readonly ChainOwner.name: string
   interface ChangeDraft
@@ -4156,11 +4173,13 @@ Published paths
   readonly EntityDifferences.added: readonly TId[]
   readonly EntityDifferences.removed: readonly TId[]
   readonly EntityDifferences.changed: readonly EntityChange<TId, TEntity>[]
-  type EntityKind = "asset" | "bus" | "clip" | "effect-chain" | "marker" | "region" | "take-stack" | "track"
+  type EntityKind = "asset" | "bus" | "clip" | "effect-chain" | "game-group" | "marker" | "region" | "take-stack" | "track"
   interface EntityReference
   readonly EntityReference.kind: EntityKind
   readonly EntityReference.id: string
   type FieldOf<TEntity> = keyof TEntity & string
+  type GameGroupEntity = Omit<GameAssetGroup, "policy"> & InheritedPolicy & { readonly members: readonly string[]; }
+  type GameMemberEntity = { readonly member: GroupMember; readonly group: GameAssetGroupId; readonly processing: MemberProcessing; } & PolicyOverrides
   interface History
   readonly History.project: ProjectId
   readonly History.root: HistoryNodeId
@@ -4266,12 +4285,14 @@ Published paths
   readonly StateDifference.markers: EntityDifferences<MarkerId, Marker>
   readonly StateDifference.effectChains: readonly ChainDifference[]
   readonly StateDifference.takeStacks: EntityDifferences<TakeStackId, TakeStack>
+  readonly StateDifference.gameGroups: EntityDifferences<GameAssetGroupId, GameGroupEntity>
+  readonly StateDifference.gameMembers: EntityDifferences<string, GameMemberEntity>
   function activeLine(history: History): readonly HistoryNode[]
   function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities
   function affectedEntities(node: HistoryNode): Generator<EntityReference, any, any>
   function applyCompaction(history: History, plan: CompactionPlan): DomainResult<History>
   function applyHistoryDelta(earlier: History | undefined, delta: HistoryDelta): History
-  function chainOwner(project: Project, chain: EffectChainId): ChainOwner | undefined
+  function chainOwner(state: ProjectState, chain: EffectChainId): ChainOwner | undefined
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
   function comparedDifference(comparison: Comparison, stateA: ProjectState, stateB: ProjectState): DomainResult<StateDifference>
   function comparisonSide(history: History, source: ComparisonSource): DomainResult<ComparisonSide>
@@ -4281,6 +4302,7 @@ Published paths
   function deleteSnapshot(history: History, id: SnapshotId): DomainResult<History>
   function diffStates(before: ProjectState, after: ProjectState): StateDifference
   function differenceNames(before: ProjectState, after: ProjectState, difference: StateDifference): DifferenceNames
+  function gameGroupName(state: ProjectState, group: GameAssetGroupId): string | undefined
   function historyDelta(earlier: History | undefined, later: History): HistoryDelta
   function historyFromRecord(record: HistoryRecord<InvocationRecord>): DomainResult<History>
   function historyRecordOf(history: History): HistoryRecord<InvocationRecord>
@@ -5512,6 +5534,7 @@ Published paths
   readonly AffectedEntities.markers: readonly MarkerId[]
   readonly AffectedEntities.effectChains: readonly EffectChainId[]
   readonly AffectedEntities.takeStacks: readonly TakeStackId[]
+  readonly AffectedEntities.gameGroups: readonly GameAssetGroupId[]
   readonly AffectedEntities.project: boolean
   interface AssetProvenance
   readonly AssetProvenance.originalFileName?: string
@@ -5638,6 +5661,7 @@ Published paths
   interface ExportedAudioFile
   readonly ExportedAudioFile.settings: ExportSettings
   readonly ExportedAudioFile.fileName?: string
+  readonly ExportedAudioFile.folder?: DestinationPath
   readonly ExportedAudioFile.byteLength: number
   readonly ExportedAudioFile.sha256: string
   readonly ExportedAudioFile.codec: ExportCodec
@@ -5750,6 +5774,7 @@ Published paths
   readonly ProjectState.project: Project
   readonly ProjectState.sources: ReadonlyMap<AssetId, AssetSource>
   readonly ProjectState.exportSettings?: ExportSettings
+  readonly ProjectState.gameAudio?: GameAudioState
   interface ProjectTreeContent
   readonly ProjectTreeContent.state: ProjectState
   readonly ProjectTreeContent.scope: ProjectTreeScope
@@ -6002,6 +6027,8 @@ Published paths
   const readExportRecord: Converter<ExportRecord>
   const readExportSettings: Converter<ExportSettings>
   const readExternalIdentity: Converter<ExternalSourceIdentity>
+  const readGameAssetGroup: Converter<GameAssetGroup>
+  const readGroupMember: Converter<GroupMember>
   const readHistoryLabel: Converter<HistoryLabel>
   const readHistoryNodeRecord: Converter<HistoryNodeRecord>
   const readHistoryRecord: Converter<HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>>
@@ -6009,6 +6036,8 @@ Published paths
   function readLibraryEntry(id: LibraryEntryId, value: JsonValue): DomainResult<LibraryEntry>
   const readMarker: Converter<Marker>
   const readMediaSource: Converter<MediaSource>
+  function readPolicyField<F extends "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation">(field: F): Converter<PolicyValues[F]>
+  const readPolicyOverrides: Converter<PolicyOverrides>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
   function readProjectTree(listing: ProjectTreeListing, services: TreeReadingServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
   function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
@@ -6033,6 +6062,7 @@ Published paths
   function stripExportRecords(records: readonly ExportRecord[], level: ProvenanceLevel): readonly ExportRecord[]
   function stripHistory(parts: HistoryProvenanceParts, level: ProvenanceLevel, services: HistoryStrippingServices): Promise<DomainResult<HistoryProvenanceParts>>
   function textConverter(rule: TextRule): Converter<string>
+  function withGameAudio(state: ProjectState, game: GameAudioState): ProjectState
   function withStateFingerprints(record: HistoryRecord<InvocationRecord>, renamed: ReadonlyMap<StateFingerprint, StateFingerprint>): HistoryRecord<InvocationRecord>
   function writeAssetRecord(record: AssetRecord): JsonObject
   function writeBackupPolicy(policy: BackupPolicy): JsonObject
@@ -6045,6 +6075,8 @@ Published paths
   function writeExportRecord(record: ExportRecord): JsonObject
   function writeExportSettings(settings: ExportSettings): JsonObject
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
+  function writeGameAssetGroup(group: GameAssetGroup): JsonObject
+  function writeGroupMember(member: GroupMember): JsonObject
   function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject
   function writeHistoryRecord(history: HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>): JsonObject
   function writeHistorySegment(segment: HistorySegmentRecord): JsonObject
@@ -6052,6 +6084,8 @@ Published paths
   function writeLibraryEntry(entry: LibraryEntry): JsonObject
   function writeMarker(marker: Marker): JsonObject
   function writeMediaSource(media: MediaSource): JsonObject
+  function writePolicyOverrides(overrides: PolicyOverrides): JsonObject
+  function writePolicyValue<F extends "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation">(field: F, value: PolicyValues[F]): JsonValue
   function writeProcessor(processor: ProcessorInstance): JsonObject
   function writeProjectDocument(state: ProjectState): JsonObject
   function writePunchRange(punch: PunchRange): JsonObject
@@ -6072,6 +6106,11 @@ Published paths
   interface CountedTurns
   readonly CountedTurns.yieldToHost: YieldToHost
   readonly CountedTurns.asked: number
+  interface GroupedReference
+  readonly GroupedReference.state: ProjectState
+  readonly GroupedReference.outer: GameAssetGroup
+  readonly GroupedReference.inner: GameAssetGroup
+  readonly GroupedReference.chain: EffectChainId
   interface Random
   Random.next: () => number
   Random.below: (bound: number) => number
@@ -6088,6 +6127,7 @@ Published paths
   function editedReferenceState(fixture: SampleProject): ProjectState
   function everyChainShape(ids: IdGenerator): EffectChain
   function fullySetProcessor(ids: IdGenerator): ProcessorInstance
+  function groupedReferenceState(fixture: SampleProject): GroupedReference
   const immediateTurns: YieldToHost
   function pastedPunchState(fixture: SampleProject): ProjectState
   function punchedState(fixture: SampleProject): ProjectState
@@ -7899,7 +7939,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 9; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 3; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 3; readonly editorViews: 2; readonly diagnosticBundle: 1; readonly projectDocument: 10; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference

@@ -32,6 +32,9 @@
       "path": "../../packages/version"
     },
     {
+      "path": "../../packages/game-audio"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

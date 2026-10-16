@@ -326,6 +326,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/import-export',
     '@audiogubbins/text',
     '@audiogubbins/version',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/project-commands': [
     '@audiogubbins/domain',
@@ -337,6 +338,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/commands',
     '@audiogubbins/project-format',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
   '@audiogubbins/model-packs': [
@@ -1582,7 +1584,6 @@ describe("a chain's users are read with the game-audio state (ADR-0101)", () => 
   const NOT_YET_MOVED: readonly string[] = [
     'apps/web/src/commands/rack-building-commands.ts',
     'apps/web/src/commands/rack-target.ts',
-    'packages/history/src/difference-names.ts',
     'packages/project-commands/src/processing/chain-naming.ts',
   ];
 
