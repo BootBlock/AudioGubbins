@@ -333,6 +333,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/commands',
     '@audiogubbins/project-format',
     '@audiogubbins/text',
+    '@audiogubbins/game-audio',
   ],
   '@audiogubbins/history': [
     '@audiogubbins/domain',
@@ -1584,7 +1585,6 @@ describe("a chain's users are read with the game-audio state (ADR-0101)", () => 
   const NOT_YET_MOVED: readonly string[] = [
     'apps/web/src/commands/rack-building-commands.ts',
     'apps/web/src/commands/rack-target.ts',
-    'packages/project-commands/src/processing/chain-naming.ts',
   ];
 
   /** Whether any identifier of a file's code, never its comments, is `chainUsers`. */

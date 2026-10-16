@@ -81,6 +81,7 @@ import {
   setSlotControlInvocation,
 } from './processing/slot-commands.js';
 import type { SlotControl } from './processing/slot-arguments.js';
+import { GAME_CHOICES, randomGameInvocation } from './testing/random-game.js';
 import { TAKE_CHOICES, randomTakeInvocation } from './testing/random-takes.js';
 import {
   appliedOf,
@@ -106,6 +107,9 @@ function randomInvocation(
   const assets = [...state.project.assets.values()];
   if (random.chance(0.3)) {
     return randomTakeInvocation(random, ids, state, random.below(TAKE_CHOICES));
+  }
+  if (random.chance(0.25)) {
+    return randomGameInvocation(random, ids, state, random.below(GAME_CHOICES));
   }
   const choice = random.below(30);
   if (choice === 29) {
@@ -215,7 +219,11 @@ function randomProcessingInvocation(
     random.chance(0.5) || chain === undefined ? randomChain(random, ids) : chain.id;
   switch (choice) {
     case 22:
-      return setRackInvocation(target, random.chance(0.3) ? undefined : chain?.id);
+      return setRackInvocation(
+        target,
+        random.chance(0.3) ? undefined : chain?.id,
+        random.chance(0.15) ? random.pick(['inherit', 'own'] as const) : undefined,
+      );
     case 23: {
       const racks: readonly { readonly id: EditOperationId }[] =
         region === undefined
@@ -327,7 +335,9 @@ function randomEditingInvocation(
       break;
     case 17:
       if (region !== undefined && fresh !== undefined) {
-        return setRegionInvocation({ ...fresh, id: region.id });
+        const changed = { ...fresh, id: region.id };
+        const set = setRegionInvocation(changed);
+        return random.chance(0.2) ? { ...set, commandId: ProjectCommandId.RestoreRegion } : set;
       }
       break;
     case 18:
@@ -420,16 +430,19 @@ describe('applying random commands to random states', () => {
 
         let state = start;
         const inverses: CommandInvocation[] = [];
+        const forwards: CommandInvocation[] = [];
         for (let step = 0; step < STEPS; step += 1) {
           const invocation = randomInvocation(random, ids, state);
           const result = bus.execute(state, invocation);
           if (result.kind !== 'applied') continue;
           assertReadsBack(result.next);
           inverses.push(...entryOf(result).inverse);
+          forwards.push(invocation);
           appliedIds.add(invocation.commandId);
           applied += 1;
           state = result.next;
         }
+        const end = state;
 
         for (const inverse of inverses.reverse()) {
           state = appliedOf(bus.execute(state, inverse)).next;
@@ -437,6 +450,10 @@ describe('applying random commands to random states', () => {
         }
         expect(state).toEqual(start);
         expect(canonicalTextOf(state)).toBe(canonicalTextOf(start));
+
+        // Redo replays each change as it was first made, over the state undo gave back.
+        for (const forward of forwards) state = appliedOf(bus.execute(state, forward)).next;
+        expect(canonicalTextOf(state)).toBe(canonicalTextOf(end));
       }
 
       // The property is only worth its name if the walk applied every command.

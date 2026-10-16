@@ -9,7 +9,8 @@
  * only an explicit purge reclaims them (REQ-STOR-102). The inverse of a removal
  * carries the whole record, so undo needs nothing the history lacks: with the
  * chain of the asset's rack, where nothing else names it and it went with the
- * asset (`chain-naming.ts`).
+ * asset (`chain-naming.ts`), and with its membership of an asset group, which
+ * leaves with it and rejoins at its place as it is added back (ADR-0101).
  */
 
 import {
@@ -44,6 +45,7 @@ import {
   projectCommand,
   type ProjectCommand,
 } from './project-command.js';
+import { rejoined, withoutMember } from './game/member-removal.js';
 import { stateNaming, withoutUnnamed } from './processing/chain-naming.js';
 import { addAssetInvocation } from './project-invocations.js';
 import { withAsset, withAssetName, withoutAsset } from './state-edits.js';
@@ -65,7 +67,7 @@ export function assetCommands(): readonly ProjectCommand[] {
       label: 'Remove an asset',
       category: CommandCategory.Edit,
       description:
-        'Removes an asset no clip uses. Its audio stays stored while the history can bring it back.',
+        'Removes an asset no clip uses, and takes it out of its asset group. Its audio stays stored while the history can bring it back.',
       availability: assetAvailability,
       run: removeAsset,
       provenance: NO_PROVENANCE,
@@ -123,8 +125,13 @@ function addAsset(
       'The asset’s rack names a chain the project does not have.',
     );
   }
+  const joined = rejoined(withAsset(naming.value, asset, source), invocation, {
+    kind: 'asset',
+    asset: asset.id,
+  });
+  if (!joined.ok) return refusedBy(joined);
   return applied(
-    withAsset(naming.value, asset, source),
+    joined.value,
     { commandId: ProjectCommandId.RemoveAsset, arguments: { assetId: asset.id } },
     `Add asset ${quoted(asset.displayName)}`,
   );
@@ -145,10 +152,13 @@ function removeAsset(
       `${quoted(asset.displayName)} still has ${users}. Remove them first.`,
     );
   }
-  const next = withoutUnnamed(withoutAsset(state, asset.id), asset.rack);
+  const left = withoutMember(withoutAsset(state, asset.id), { kind: 'asset', asset: asset.id });
+  if (!left.ok) return refusedBy(left);
+  const next = withoutUnnamed(left.value.state, asset.rack);
+  const restoring = addAssetInvocation(asset, source, next.removed);
   return applied(
     next.state,
-    addAssetInvocation(asset, source, next.removed),
+    { ...restoring, arguments: { ...restoring.arguments, ...left.value.rejoining } },
     `Remove asset ${quoted(asset.displayName)}`,
   );
 }

@@ -3,21 +3,23 @@
  * region's own processing (REQ-EDIT-014, ADR-0051).
  *
  * A region's properties (its name, boundaries, loop and tags) are set whole by
- * one command whose inverse sets them back; its rack is set by the rack command
- * alone (`rack-commands.ts`); its processing is a chain like an asset's,
- * applied at the end and withdrawn from the end. Every command keeps an inverse
- * short enough to journal whatever the region holds: a region is removed only
- * once its processing is withdrawn, which the interface does in the same
- * change, so no inverse carries more than one chain, which the domain bounds. A
- * chain a region names enters and leaves with it as `chain-naming.ts` says. A
- * change to a region's processing anywhere but at its end, such as a split's,
- * is made the same way, as one change of those steps (`region-invocations.ts`),
- * each re-applied step giving its chain whole, since withdrawing it may have
- * removed the chain.
+ * one command, which refuses a loop it leaves without the frames its crossfade
+ * reads (`validateLoopLead`), and whose inverse restores them as they were,
+ * even a loop read back without those frames; its rack is set by the rack
+ * command alone (`rack-commands.ts`); a region in an asset group leaves it as
+ * the region is removed, and rejoins it at its place as it is added back; its
+ * processing is a chain like an asset's, applied at the end and withdrawn from
+ * the end. Every command keeps an inverse short enough to journal whatever the
+ * region holds: a region is removed only once its processing is withdrawn,
+ * which the interface does in the same change, so no inverse carries more than
+ * one chain, which the domain bounds. A chain a region names enters and leaves
+ * with it as `chain-naming.ts` says. A change to a region's processing anywhere
+ * but at its end, such as a split's, is made the same way, as one change of
+ * those steps (`region-invocations.ts`), each re-applied step giving its chain
+ * whole, since withdrawing it may have removed the chain.
  */
 
 import {
-  CommandCategory,
   refusal,
   unchanged,
   type CommandInvocation,
@@ -27,7 +29,9 @@ import {
   FailureKind,
   fail,
   failure,
+  validateLoopLead,
   validateRegion,
+  type Asset,
   type DomainResult,
   type Region,
 } from '@audiogubbins/domain';
@@ -42,13 +46,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { jsonArgument, readNested, refusedBy } from '../invocation-arguments.js';
-import {
-  NO_PROVENANCE,
-  ProjectCommandId,
-  applied,
-  projectCommand,
-  type ProjectCommand,
-} from '../project-command.js';
+import { ProjectCommandId, applied, editCommand, type ProjectCommand } from '../project-command.js';
 import { operationChain, stateNaming, withoutUnnamed } from '../processing/chain-naming.js';
 import { idArgument, targetRegion } from './editing-arguments.js';
 import {
@@ -61,50 +59,52 @@ import {
 } from './region-invocations.js';
 import { regionEditDescription } from './edit-descriptions.js';
 import { withRegion, withoutRegion } from './editing-state.js';
+import { rejoined, withoutMember } from '../game/member-removal.js';
 import { quoted } from '@audiogubbins/text';
+
+/**
+ * Sets an existing region's properties back to what `region` gives, keeping
+ * its processing, without asking its loop for the frames its crossfade reads:
+ * how undo restores a region as it was.
+ */
+function restoreRegionInvocation(region: Region): CommandInvocation {
+  return { ...setRegionInvocation(region), commandId: ProjectCommandId.RestoreRegion };
+}
 
 /** The commands that change regions and their processing. */
 export function regionCommands(): readonly ProjectCommand[] {
-  const declare = (
-    id: ProjectCommand['id'],
-    label: string,
-    description: string,
-    run: (state: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>,
-  ): ProjectCommand =>
-    projectCommand({
-      id,
-      label,
-      category: CommandCategory.Edit,
-      description,
-      run,
-      provenance: NO_PROVENANCE,
-    });
   return [
-    declare(
+    editCommand(
       ProjectCommandId.AddRegion,
       'Add a region',
       'Adds a region to one of the project’s assets.',
       addRegion,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.SetRegion,
       'Change a region',
       'Sets a region’s name, boundaries, loop and tags.',
-      setRegion,
+      (state, invocation) => setRegion(state, invocation, 'checked'),
     ),
-    declare(
+    editCommand(
+      ProjectCommandId.RestoreRegion,
+      'Restore a region',
+      'Sets a region’s name, boundaries, loop and tags back as they were, which is how undo restores them.',
+      (state, invocation) => setRegion(state, invocation, 'restored'),
+    ),
+    editCommand(
       ProjectCommandId.RemoveRegion,
       'Remove a region',
-      'Removes a region whose processing is withdrawn.',
+      'Removes a region whose processing is withdrawn, and takes it out of its asset group.',
       removeRegion,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.ApplyRegionEdit,
       'Process a region',
       'Adds processing to the end of a region’s own chain.',
       applyRegionEdit,
     ),
-    declare(
+    editCommand(
       ProjectCommandId.WithdrawRegionEdit,
       'Withdraw a region’s processing',
       'Removes the last processing of a region’s chain.',
@@ -149,20 +149,47 @@ function addRegion(
       'A region is added without processing, and its processing is applied after it.',
     );
   }
+  const joined = rejoined(withRegion(naming.value, region.value), invocation, {
+    kind: 'region',
+    region: region.value.id,
+  });
+  if (!joined.ok) return refusedBy(joined);
   return applied(
-    withRegion(naming.value, region.value),
+    joined.value,
     removeRegionInvocation(region.value),
     `Add region ${quoted(region.value.displayName)}`,
   );
 }
 
+/** The text of a region's loop, as the document writes it, or `null` where it does not loop. */
+function writtenLoop(region: Region): string {
+  return canonicalJson(writeRegion(region)['loop'] ?? null);
+}
+
+/**
+ * Whether a change of `old` to `region` must leave its loop's crossfade the
+ * frames it reads before the loop's start (`validateLoopLead`): where the loop
+ * changes, or where the region's start does and the loop had them. A loop
+ * read back without them, as an edit made since can leave one, is kept while
+ * the change leaves the loop alone, since placing the region shortens its
+ * crossfade to fit and says so.
+ */
+function asksLoopLead(asset: Asset, old: Region, region: Region): boolean {
+  if (writtenLoop(old) !== writtenLoop(region)) return true;
+  const moved = old.basis !== region.basis || old.start !== region.start;
+  return moved && validateLoopLead(asset, old).ok;
+}
+
 /**
  * The region the argument `region` sets: its properties as given over the
  * region as it stands, keeping its identity, its asset and its processing.
+ * Its loop's crossfade is `checked` for its lead (see {@link asksLoopLead}),
+ * except where the change is undo `restored`ing the region as it was.
  */
 function setRegion(
   state: ProjectState,
   invocation: CommandInvocation,
+  lead: 'checked' | 'restored',
 ): CommandOutcome<ProjectState> {
   const old = targetRegion(state, invocation);
   if (!old.ok) return refusedBy(old);
@@ -186,9 +213,14 @@ function setRegion(
   if (canonicalJson(writeRegion(region.value)) === canonicalJson(kept)) {
     return unchanged('region.unchanged', 'The region is already as given.');
   }
+  const asset = state.project.assets.get(region.value.assetId);
+  if (lead === 'checked' && asset !== undefined && asksLoopLead(asset, old.value, region.value)) {
+    const looped = validateLoopLead(asset, region.value);
+    if (!looped.ok) return refusedBy(looped);
+  }
   return applied(
     withRegion(state, region.value),
-    setRegionInvocation(old.value),
+    restoreRegionInvocation(old.value),
     `Change region ${quoted(region.value.displayName)}`,
   );
 }
@@ -205,10 +237,16 @@ function removeRegion(
       `Region ${quoted(region.value.displayName)} still has processing; withdraw it before removing the region.`,
     );
   }
-  const next = withoutUnnamed(withoutRegion(state, region.value.id), region.value.rack);
+  const left = withoutMember(withoutRegion(state, region.value.id), {
+    kind: 'region',
+    region: region.value.id,
+  });
+  if (!left.ok) return refusedBy(left);
+  const next = withoutUnnamed(left.value.state, region.value.rack);
+  const restoring = addRegionInvocation(region.value, next.removed);
   return applied(
     next.state,
-    addRegionInvocation(region.value, next.removed),
+    { ...restoring, arguments: { ...restoring.arguments, ...left.value.rejoining } },
     `Remove region ${quoted(region.value.displayName)}`,
   );
 }

@@ -30,7 +30,9 @@ import {
   refusalCodeOf,
   unchangedCodeOf,
 } from '../testing/bus-runs.js';
+import { groupedState } from '../testing/grouped-state.js';
 import { referenceState } from '../testing/reference-state.js';
+import { assignMemberInvocation } from '../game/game-invocations.js';
 import { applyInvocation, withdrawInvocation } from './edit-commands.js';
 import {
   addMarkerInvocation,
@@ -491,6 +493,87 @@ describe('project.set-region', () => {
     expect(refusalCodeOf(bus.execute(state, setRegionInvocation(regionOn(footstep, 0, 10))))).toBe(
       'region.unknown',
     );
+  });
+});
+
+describe('a region’s loop and the frames its crossfade reads (ADR-0103)', () => {
+  /** The loop's crossfade, its loop starting 2,400 frames into the region. */
+  const crossfading = (frames: number): Region => {
+    if (loop.loop === undefined) throw new Error('The walk loop loops.');
+    return { ...loop, loop: { ...loop.loop, crossfadeLength: at(frames) } };
+  };
+  /** The state holding `region` as a document read back may hold it, unchecked. */
+  const holding = (region: Region): ProjectState => ({
+    ...state,
+    project: { ...state.project, regions: new Map(state.project.regions).set(region.id, region) },
+  });
+
+  it('refuses a loop changed so its crossfade reads before the region, saying how much there is', () => {
+    const result = bus.execute(state, setRegionInvocation(crossfading(2_401)));
+    expect(refusalCodeOf(result)).toBe('editing.loop-crossfade-without-lead');
+    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain(
+      'the region has 2400 frames there, fewer than the crossfade’s 2401',
+    );
+    appliedAndUndone(state, setRegionInvocation(crossfading(2_400)));
+  });
+
+  it('refuses a start moved into the frames the crossfade reads', () => {
+    expect(
+      refusalCodeOf(bus.execute(state, setRegionInvocation({ ...loop, start: at(2_000) }))),
+    ).toBe('editing.loop-crossfade-without-lead');
+    appliedAndUndone(state, setRegionInvocation({ ...loop, start: at(1_920) }));
+  });
+
+  it('keeps a loop read back without its lead while the change leaves it alone, and undo restores one', () => {
+    const short = holding(crossfading(3_000));
+    appliedAndUndone(
+      short,
+      setRegionInvocation({ ...crossfading(3_000), displayName: 'Run loop' }),
+    );
+    // Its start moved, it is still without them, and no worse off for the change than before.
+    appliedAndUndone(short, setRegionInvocation({ ...crossfading(3_000), start: at(100) }));
+    const { entry } = appliedAndUndone(short, setRegionInvocation(crossfading(480)));
+    expect(entry.inverse).toEqual([
+      { ...setRegionInvocation(crossfading(3_000)), commandId: ProjectCommandId.RestoreRegion },
+    ]);
+  });
+});
+
+describe('a region in an asset group (ADR-0101)', () => {
+  const grouped = groupedState(state, assets, loop, ids);
+  const forestMember = { kind: 'asset', asset: forest.id } as const;
+  const joined = after(
+    grouped.state,
+    assignMemberInvocation(forestMember, grouped.groups.ambience.id, 'own'),
+  );
+
+  it('leaves its group as it is removed, and rejoins at its place as it is added back', () => {
+    const { next, entry } = appliedAndUndone(joined, removeRegionInvocation(loop));
+    expect(
+      next.gameAudio?.memberships.some(
+        (one) => one.member.kind === 'region' && one.member.region === loop.id,
+      ),
+    ).toBe(false);
+    // The group's chain stays: its group and the footstep asset still name it.
+    expect(next.project.effectChains.has(grouped.chains.a.id)).toBe(true);
+    expect(entry.inverse[0].arguments).toMatchObject({
+      group: grouped.groups.gravel.id,
+      processing: 'inherit',
+      position: 2,
+    });
+  });
+
+  it('refuses a membership it is added with that names no processing', () => {
+    const removed = after(joined, removeRegionInvocation(loop));
+    const add = addRegionInvocation(loop);
+    expect(
+      refusalCodeOf(
+        bus.execute(removed, {
+          ...add,
+          arguments: { ...add.arguments, group: grouped.groups.gravel.id },
+        }),
+      ),
+    ).toBe('game.membership-partial');
   });
 });
 

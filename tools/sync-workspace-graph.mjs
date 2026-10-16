@@ -728,6 +728,8 @@ const PACKAGES = [
       '@audiogubbins/commands',
       '@audiogubbins/project-format',
       '@audiogubbins/text',
+      // The game-audio state its game commands change and every result is held to (ADR-0101).
+      '@audiogubbins/game-audio',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},

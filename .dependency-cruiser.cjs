@@ -84,7 +84,8 @@
  *   settings a project and an export record keep (ADR-0090, ADR-0092), and on
  *   the game-audio state it keeps (ADR-0106).
  * - project-commands: the commands that change a project; depends on domain +
- *   commands + project-format + text.
+ *   commands + project-format + text, and on game-audio for the groups and
+ *   memberships its game commands change (ADR-0101).
  * - history: branching history as values; depends on domain + commands +
  *   project-format, and on game-audio for the groups its differences name.
  * - media-store: content-addressed source media; depends on domain +
@@ -635,10 +636,11 @@ module.exports = {
       comment:
         'A project command reads the project it changes and the command contract, and nothing ' +
         'that keeps or shows a project: replay stays deterministic (ADR-0020). It reads the text ' +
-        'leaf for the count a description says (ADR-0018).',
+        'leaf for the count a description says (ADR-0018), and the game-audio state its game ' +
+        'commands change and validate (ADR-0101).',
       from: { path: '^packages/project-commands/' },
       to: {
-        path: '^packages/(?!(commands|domain|project-commands|project-format|text)/)',
+        path: '^packages/(?!(commands|domain|game-audio|project-commands|project-format|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

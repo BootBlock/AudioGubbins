@@ -1,6 +1,7 @@
 /**
- * Every command that changes a project (REQ-EDIT-073, REQ-STOR-101), and what
- * they declare of the provenance their arguments hold (REQ-STOR-166).
+ * Every command that changes a project (REQ-EDIT-073, REQ-STOR-101), its asset
+ * groups included (REQ-GAME-120), and what they declare of the provenance
+ * their arguments hold (REQ-STOR-166).
  *
  * Each is pure and deterministic over a project's state: every identifier,
  * time and value it uses is in its arguments, the caller having minted the
@@ -18,6 +19,9 @@ import { invocationProvenance, type InvocationProvenance } from '@audiogubbins/p
 import { assetCommands } from './asset-commands.js';
 import { editCommands } from './editing/edit-commands.js';
 import { exportSettingsCommands } from './export-settings-commands.js';
+import { groupCommands } from './game/group-commands.js';
+import { memberSettingCommands } from './game/member-setting-commands.js';
+import { membershipCommands } from './game/membership-commands.js';
 import { markerCommands } from './editing/marker-commands.js';
 import { regionCommands } from './editing/region-commands.js';
 import { processorCommands } from './processing/processor-commands.js';
@@ -51,6 +55,9 @@ export function projectCommands(catalogue: ProcessorCatalogue): readonly Project
     ...takeMembershipCommands(),
     ...takeChangeCommands(),
     ...punchCommands(),
+    ...groupCommands(),
+    ...membershipCommands(),
+    ...memberSettingCommands(),
   ];
 }
 
