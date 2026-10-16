@@ -28,6 +28,7 @@ import {
   type ProcessorDescriptor,
   type ProcessorInstance,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import type { EmitterRules } from '../policy/playback-rules.js';
 import { inListenerFrame, type MotionLanes } from './motion.js';
@@ -46,7 +47,7 @@ function descriptorOf(
         failure(
           'preview.processor-missing',
           FailureKind.Rejected,
-          `The preview needs the "${typeKey}" processor, which this catalogue lacks.`,
+          `The preview needs the ${quoted(typeKey)} processor, which this catalogue lacks.`,
           { details: { typeKey } },
         ),
       )
@@ -68,7 +69,7 @@ function processorWith(
         failure(
           'preview.parameter-missing',
           FailureKind.Rejected,
-          `The "${descriptor.typeKey}" processor has no "${key}" parameter.`,
+          `The ${quoted(descriptor.typeKey)} processor has no ${quoted(key)} parameter.`,
           { details: { typeKey: descriptor.typeKey, key } },
         ),
       );

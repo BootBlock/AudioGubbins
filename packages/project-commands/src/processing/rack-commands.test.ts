@@ -444,7 +444,7 @@ describe('a rack given to a member of an asset group (ADR-0101)', () => {
       setRackInvocation(FOOTSTEP, chainOf(filter()), 'inherit'),
     );
     expect(refusalCodeOf(result)).toBe('game.member-processing-mismatch');
-    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain('"Footsteps"');
+    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain('“Footsteps”');
     expect(refusalCodeOf(bus.execute(state, setRackInvocation(FOOTSTEP, undefined, 'own')))).toBe(
       'rack.not-a-member',
     );

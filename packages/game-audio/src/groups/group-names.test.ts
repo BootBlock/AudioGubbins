@@ -13,7 +13,7 @@ describe('a group’s name (ADR-0101)', () => {
   it.each([
     ['empty', '', /1 to 128 characters long; this one is 0/],
     ['longer than 128', 'x'.repeat(129), /this one is 129/],
-    ['a path, not a segment', 'Footsteps/Grass', /holds no "\/"/],
+    ['a path, not a segment', 'Footsteps/Grass', /holds no “\/”/],
     ['a control character', 'Foot\tsteps', /control character/],
     ['a space at an end', ' Footsteps', /no space at either end/],
     ['decomposed, not NFC', 'Café', /NFC/],

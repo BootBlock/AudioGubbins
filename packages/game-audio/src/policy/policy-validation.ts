@@ -24,6 +24,7 @@ import {
   type DomainResult,
   type Project,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import { destinationPath } from '../export/destination-path.js';
 import { namingTemplate } from '../export/naming-template.js';
@@ -85,8 +86,8 @@ const CONTROL_CHARACTER = /\p{Cc}/u;
 /** The owner as a sentence begins with it. */
 export function ownerWords(owner: PolicyOwner): string {
   return owner.kind === 'group'
-    ? `The group "${pathText(owner.path)}"`
-    : `The ${owner.member.kind} "${owner.name}"`;
+    ? `The group ${quoted(pathText(owner.path))}`
+    : `The ${owner.member.kind} ${quoted(owner.name)}`;
 }
 
 /** The details that identify `owner`. */
@@ -126,9 +127,11 @@ function causesOf<T>(result: DomainResult<T>): readonly DomainFailure[] {
 function tagProblem(tag: string): string | undefined {
   const characters = tag.length;
   if (characters === 0 || characters > LONGEST_TAG) {
-    return `a tag is 1 to ${String(LONGEST_TAG)} characters long, and "${tag}" is ${String(characters)}.`;
+    return `a tag is 1 to ${String(LONGEST_TAG)} characters long, and ${quoted(tag)} is ${String(characters)}.`;
   }
-  return CONTROL_CHARACTER.test(tag) ? `the tag "${tag}" holds a control character.` : undefined;
+  return CONTROL_CHARACTER.test(tag)
+    ? `the tag ${quoted(tag)} holds a control character.`
+    : undefined;
 }
 
 type FieldCheck<F extends PolicyField> = (

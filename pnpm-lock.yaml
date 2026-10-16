@@ -730,6 +730,9 @@ importers:
       '@audiogubbins/import-export':
         specifier: workspace:*
         version: link:../import-export
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1

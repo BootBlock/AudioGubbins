@@ -29,6 +29,7 @@ import {
   type ProcessorCatalogue,
   succeed,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import { memberKey } from '../groups/membership.js';
 import { emptyLane, type Lane } from './lane-segments.js';
@@ -237,7 +238,7 @@ export function previewPlan(
       if (problem !== undefined) {
         return refused(
           'preview.member-unplayable',
-          `A member of "${play.emitter.name}" ${problem}.`,
+          `A member of ${quoted(play.emitter.name)} ${problem}.`,
         );
       }
     }

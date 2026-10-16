@@ -9,6 +9,8 @@
  * may become do on a case-insensitive file system.
  */
 
+import { quoted } from '@audiogubbins/text';
+
 /** The most characters, in UTF-16 code units as a channel's label is measured, a group's name holds. */
 const LONGEST_NAME = 128;
 
@@ -22,7 +24,7 @@ export function groupNameProblem(name: string): string | undefined {
     return `A group's name is 1 to ${String(LONGEST_NAME)} characters long; this one is ${String(characters)}.`;
   }
   if (name.includes(PATH_SEPARATOR)) {
-    return `A group's name is one segment of its path, so it holds no "${PATH_SEPARATOR}"; make a group inside another instead.`;
+    return `A group's name is one segment of its path, so it holds no ${quoted(PATH_SEPARATOR)}; make a group inside another instead.`;
   }
   if (CONTROL_CHARACTER.test(name)) return "A group's name holds no control character.";
   if (name.trim() !== name) return "A group's name has no space at either end.";

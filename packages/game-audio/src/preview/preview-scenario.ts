@@ -25,6 +25,7 @@ import {
   type DomainFailure,
   type RegionId,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import type { GameAssetGroupId } from '../groups/group-ids.js';
 import type { GroupMember } from '../groups/membership.js';
@@ -381,7 +382,7 @@ export function scenarioSubjectProblems(
       failure(
         'game.scenario-subject-unknown',
         FailureKind.Rejected,
-        `The emitter "${name}" of the preview scenario "${scenario.name}" plays ${plays}.`,
+        `The emitter ${quoted(name)} of the preview scenario ${quoted(scenario.name)} plays ${plays}.`,
         { details: { scenario: scenario.id, part: `emitters.${String(index)}.subject` } },
       ),
     );

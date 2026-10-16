@@ -133,7 +133,7 @@ describe('naming regions from a template', () => {
     expect(names(items)).toEqual([['game.member-in-no-group'], 'Birds 1']);
     const [refused] = items;
     expect(refused?.kind === 'refused' ? refused.failures[0].summary : undefined).toBe(
-      'The region "Crow" is in no group, so no group names or numbers it; add it to one.',
+      'The region “Crow” is in no group, so no group names or numbers it; add it to one.',
     );
   });
 

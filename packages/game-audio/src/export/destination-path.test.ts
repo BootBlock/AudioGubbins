@@ -37,7 +37,7 @@ describe('a destination path', () => {
     expect(refusedAt(['..', 'audio'])).toEqual([0]);
     const result = destinationPath(['..']);
     expect(result.ok ? undefined : result.failures[0].summary).toBe(
-      'The destination\'s folder ".." would step out of the folder it is in; name a folder.',
+      'The destination\'s folder “..” would step out of the folder it is in; name a folder.',
     );
   });
 

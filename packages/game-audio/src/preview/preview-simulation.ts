@@ -27,6 +27,7 @@ import {
   type DomainResult,
   type SampleRate,
 } from '@audiogubbins/domain';
+import { quoted } from '@audiogubbins/text';
 
 import type { EmitterRules } from '../policy/playback-rules.js';
 import type { PreviewEvent, PreviewEventLog } from './preview-event-log.js';
@@ -105,7 +106,10 @@ function inputProblems(
   for (const play of plays) {
     if (play.pool.length === 0) {
       problems.push(
-        refused('preview.pool-empty', `The emitter "${play.emitter.name}" has nothing to play.`),
+        refused(
+          'preview.pool-empty',
+          `The emitter ${quoted(play.emitter.name)} has nothing to play.`,
+        ),
       );
     }
   }

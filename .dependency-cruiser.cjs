@@ -112,7 +112,7 @@
  * Phase 10's packages (ADR-0100), none of which imports anything of Godot:
  *
  * - game-audio: groups, inherited policy, naming, game export profiles and the
- *   preview as values; depends on domain + import-export.
+ *   preview as values; depends on domain, import-export, audio-engine and text.
  * - loop-analysis: seamless-loop analysis over a given source; depends on
  *   domain + audio-engine.
  * - guided-workflows: planners of project-command invocations; depends on
@@ -446,13 +446,14 @@ module.exports = {
       severity: 'error',
       comment:
         'Game audio as values: groups, inherited policy, naming, game export profiles and the ' +
-        'preview (ADR-0100). It depends on the domain, the export settings a profile resolves to ' +
-        "and the engine's canonical primitives, and knows no browser, storage, command or " +
-        'interface package: the project format and the commands keep and change its state from ' +
+        'preview (ADR-0100). It depends on the domain, the export settings a profile resolves to, ' +
+        "the engine's canonical primitives and the text package's quoting, and knows no browser, " +
+        'storage, command or interface package: the project format and the commands keep and ' +
+        'change its state from ' +
         'above. Its tests may take the fixtures package.',
       from: { path: '^packages/game-audio/' },
       to: {
-        path: '^packages/(?!(game-audio|audio-engine|domain|import-export)/)',
+        path: '^packages/(?!(game-audio|audio-engine|domain|import-export|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
