@@ -69,6 +69,41 @@ this later"). The findings returned on the way, each now a rule of the language:
 - **The accent is the user's.** Every accent the settings offer is shown as a colour swatch, and
   each one's contrast is computed (`ADR-0012`).
 
+### 2026-10-17: the shell's menus, overlays and states, approved as references
+
+Shown: two boards in direction C, in both themes and both densities, walked through one rendering
+at a time and returned with findings until each was approved. The menus board holds the menu bar
+with the Edit menu open, the command palette, the editor's context menu, a tooltip, an unavailable
+button with its reason, a hint, an open select and the keyboard focus ring on each kind of control.
+The states board holds the status bar in its states, the project banner in each state, ordinary
+and urgent notices, the too-narrow message and the panel and application failure screens.
+
+| Theme and density  | Menus and overlays                                                          | States                                                                        |
+| ------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Dark, comfortable  | [menus-dark-comfortable.png](references/shell/menus-dark-comfortable.png)   | [states-dark-comfortable.png](references/shell/states-dark-comfortable.png)   |
+| Light, comfortable | [menus-light-comfortable.png](references/shell/menus-light-comfortable.png) | [states-light-comfortable.png](references/shell/states-light-comfortable.png) |
+| Dark, compact      | [menus-dark-compact.png](references/shell/menus-dark-compact.png)           | [states-dark-compact.png](references/shell/states-dark-compact.png)           |
+| Light, compact     | [menus-light-compact.png](references/shell/menus-light-compact.png)         | [states-light-compact.png](references/shell/states-light-compact.png)         |
+
+Decision: **approved**. The findings returned on the way, each now a rule of the language:
+
+- **A fill is a colour at a high translucency, never a solid colour**, so it takes up the backdrop:
+  a status item is its own colour at about a fifth, with a translucent edge; a secondary button is a
+  faint tint of the text colour over a blur. A call to action keeps a low translucency, never solid.
+- **A call to action is lit from above** in both themes: a gloss over its top half, a bright top
+  edge and a faint dark bottom edge.
+- **Every overlay is frosted glass**, notices included: the backdrop shows blurred through it.
+- **The highlighted row is a wash of accent light** from its leading edge, with a lit edge bar and
+  a glowing icon.
+- **Keyboard focus is one ring on every control**: a 2 px ring in the focus colour outside the
+  control, following its radius, with a soft halo that pulses gently at the full motion level.
+- **Animation and flourishes are wanted wherever they help**: the owner asks for as many as the
+  application can carry, within the motion levels of `REQ-UX-222`.
+- **An unavailable command keeps its reason**: a menu or palette row shows it under its name when
+  highlighted; a button keeps its focus and opens its reason on hover or focus; a standing
+  explanation becomes a hint behind an (i).
+- **A notice's time bar** runs along its bottom edge inside the notice, clipped by its corners.
+
 ## Editing-latency baseline
 
 Recorded on 2026-10-16 from the unchanged application, before any Phase 16 change to a surface:
