@@ -956,6 +956,8 @@ const PACKAGES = [
       '@audiogubbins/ml-runtime',
       '@audiogubbins/model-packs',
       '@audiogubbins/recording',
+      // The game preview's simulation and plan (ADR-0104).
+      '@audiogubbins/game-audio',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

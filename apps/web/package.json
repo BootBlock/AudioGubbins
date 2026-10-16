@@ -47,6 +47,7 @@
     "@audiogubbins/ml-runtime": "workspace:*",
     "@audiogubbins/model-packs": "workspace:*",
     "@audiogubbins/recording": "workspace:*",
+    "@audiogubbins/game-audio": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

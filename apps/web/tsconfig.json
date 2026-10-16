@@ -125,6 +125,9 @@
       "path": "../../packages/recording"
     },
     {
+      "path": "../../packages/game-audio"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]
