@@ -25,7 +25,7 @@ import type {
   SampleRate,
 } from '@audiogubbins/domain';
 
-import type { GameAudioState } from '@audiogubbins/game-audio';
+import { holdsNoGameAudio, type GameAudioState } from '@audiogubbins/game-audio';
 import type { ExportSettings } from '@audiogubbins/import-export';
 
 import type { ContentId } from './content-identity.js';
@@ -328,14 +328,12 @@ export function storageKeyOf(assetId: AssetId, media: MediaSource): string {
 /**
  * `state` holding `game` as its game-audio state, or none where `game` holds
  * nothing: the one way a state's game-audio member is set, so a project whose
- * last group goes is the project it was before its first, in memory and in its
- * document alike.
+ * last group and scenario go is the project it was before its first, in memory
+ * and in its document alike.
  */
 export function withGameAudio(state: ProjectState, game: GameAudioState): ProjectState {
   const { gameAudio: _held, ...rest } = state;
-  return game.groups.size === 0 && game.memberships.length === 0
-    ? rest
-    : { ...rest, gameAudio: game };
+  return holdsNoGameAudio(game) ? rest : { ...rest, gameAudio: game };
 }
 
 /**

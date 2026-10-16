@@ -7,8 +7,10 @@
  * over a small project of its own. Its state is carried onto the project here:
  * each chain it names becomes one of the project's (or no chain, where the
  * project has none), each member one of the project's regions or assets of its
- * kind, each once, and every inheriting member's rack the chain it inherits,
- * so the state is one `validateGameAudioState` passes, which is asserted.
+ * kind, each once, and every inheriting member's rack the chain it inherits; a
+ * scenario's emitter plays the member it played as carried, or, where that
+ * member was not carried, the group it was in. So the state is one
+ * `validateGameAudioState` passes, which is asserted.
  */
 
 import type { AssetId, EffectChainId, Project, RegionId } from '@audiogubbins/domain';
@@ -19,8 +21,10 @@ import {
   validateGameAudioState,
   type GameAssetGroup,
   type GameAudioState,
+  type GamePreviewScenario,
   type GroupMember,
   type GroupMembership,
+  type PreviewSubject,
 } from '@audiogubbins/game-audio';
 import { randomGameWorld } from '@audiogubbins/game-audio/testing';
 
@@ -67,13 +71,38 @@ function stateOnto(world: Project, game: GameAudioState, project: Project): Game
   );
   const taken = new Set<string>();
   const memberships: GroupMembership[] = [];
+  /** Each world member's subject in the project: itself carried, or the group it was in. */
+  const subjects = new Map<string, PreviewSubject>();
   for (const membership of game.memberships) {
+    const worldKey = memberKey(membership.member);
     const member = memberOnto(world, project, membership.member);
-    if (member === undefined || taken.has(memberKey(member))) continue;
+    if (member === undefined || taken.has(memberKey(member))) {
+      subjects.set(worldKey, { kind: 'group', group: membership.group });
+      continue;
+    }
     taken.add(memberKey(member));
     memberships.push({ ...membership, member });
+    subjects.set(worldKey, { kind: 'member', member });
   }
-  return { groups, memberships };
+  const subjectOnto = (subject: PreviewSubject): PreviewSubject => {
+    if (subject.kind === 'group') return subject;
+    const carriedSubject = subjects.get(memberKey(subject.member));
+    if (carriedSubject === undefined) throw new Error('A world scenario plays a world member.');
+    return carriedSubject;
+  };
+  const scenarios = new Map(
+    [...game.scenarios].map(([id, scenario]): [typeof id, GamePreviewScenario] => [
+      id,
+      {
+        ...scenario,
+        emitters: scenario.emitters.map((emitter) => ({
+          ...emitter,
+          subject: subjectOnto(emitter.subject),
+        })),
+      },
+    ]),
+  );
+  return { groups, memberships, scenarios };
 }
 
 /** `project` with each inheriting member's rack the chain it inherits in `game`. */

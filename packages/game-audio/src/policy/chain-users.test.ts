@@ -32,6 +32,7 @@ const STATE: GameAudioState = {
     [third, { id: third, name: 'Metal', parent: second, policy: { processing: grouped } }],
   ]),
   memberships: [],
+  scenarios: new Map(),
 };
 
 describe('the users of a chain, the groups included (ADR-0101)', () => {

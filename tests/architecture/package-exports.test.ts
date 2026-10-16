@@ -214,36 +214,25 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     "The chain one member inherits as its rack (ADR-0101), built ahead of the application's Inspector and rack commands, which show a member's rack against the one it would inherit and offer the reset to it.":
       ['inheritedProcessing'],
-    "The game preview (ADR-0104), built ahead of the project format and the game commands that keep and change its scenarios, and of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario and its validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
+    "The game preview (ADR-0104), built ahead of the application's preview panel, which simulates a scenario, plays its plan through the playback control and continues it as hand triggers arrive, and shows the rules each emitter plays by with the defaults where they resolve unset: the scenario's validation, the subjects' rules and pools, the simulation and its log, the voice budget, and the plan with its controls.":
       [
-        'BusLevel',
         'DEFAULT_EMITTER_RULES',
         'DEFAULT_VOICE_VARIATION',
-        'GamePreviewScenario',
-        'GamePreviewScenarioId',
         'HandAction',
-        'Listener',
         'MemberSound',
-        'Motion',
         'PoolMember',
-        'Position',
         'PreviewControls',
-        'PreviewEmitter',
-        'PreviewEmitterId',
         'PreviewEvent',
         'PreviewEventLog',
         'PreviewInput',
         'PreviewPlan',
         'PreviewPlanBuild',
         'PreviewSimulation',
-        'PreviewSubject',
         'PreviewSubjects',
         'RefusedEvent',
         'SimulationState',
         'StartedEvent',
-        'TriggerPattern',
         'VoiceEndEvent',
-        'Waypoint',
         'extendPreviewPlan',
         'previewPlan',
         'previewScenarioProblems',
@@ -395,6 +384,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'setMemberProcessingInvocation',
         'unassignMemberInvocation',
       ],
+    "The invocations of the preview scenario commands (ADR-0104, ADR-0106), built ahead of the application's preview panel, which keeps, changes and deletes a scenario through them: adding a scenario, replacing one whole, and removing one.":
+      ['addScenarioInvocation', 'removeScenarioInvocation', 'setScenarioInvocation'],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':

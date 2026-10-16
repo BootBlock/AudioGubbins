@@ -1,9 +1,9 @@
 /**
  * What differs between the two sides of an A/B comparison, said entity by
  * entity: each track, bus, clip, region, marker, asset, take stack, asset
- * group and group member only one side holds, each one both hold and what of
- * it differs, a group's settings one by one, and each effect chain processor
- * by processor (REQ-STOR-195).
+ * group, group member and preview scenario only one side holds, each one both
+ * hold and what of it differs, a group's settings one by one, and each effect
+ * chain processor by processor (REQ-STOR-195).
  *
  * Plain language and nothing of the data model: an entity is called by its
  * name and a field by what a person calls it, from tables whose types demand
@@ -31,6 +31,7 @@ import type {
   FieldOf,
   GameGroupEntity,
   GameMemberEntity,
+  GameScenarioEntity,
   SlotDifference,
   SlotField,
   StateDifference,
@@ -165,6 +166,18 @@ const GAME_MEMBER_WORDS: FieldWords<GameMemberEntity> = {
   destination: 'destination override',
   variation: 'voice variation override',
   bus: 'bus override',
+};
+
+const GAME_SCENARIO_WORDS: FieldWords<GameScenarioEntity> = {
+  id: 'identity',
+  name: 'name',
+  space: 'space',
+  panWidth: 'pan width',
+  panningStrength: 'panning strength',
+  listener: 'listener',
+  emitters: 'emitters',
+  seed: 'seed',
+  busLevels: 'bus levels',
 };
 
 /** The project's own fields, as a person calls them. */
@@ -302,6 +315,7 @@ export function differenceLines(
     ...entityLines(difference.takeStacks, 'take stack', TAKE_STACK_WORDS, names),
     ...entityLines(difference.gameGroups, 'group', GAME_GROUP_WORDS, names),
     ...entityLines(difference.gameMembers, 'group member', GAME_MEMBER_WORDS, names),
+    ...entityLines(difference.gameScenarios, 'preview scenario', GAME_SCENARIO_WORDS, names),
     ...difference.effectChains.map((chain) => chainLine(chain, names)),
   ];
   return lines.length === 0 ? ['The two states are the same.'] : lines;

@@ -4,9 +4,10 @@
  * one through the game commands themselves, so it is a state they produce.
  *
  * ```
- * Footsteps       processing: chain A    footstep asset (inherit, rack A), rain asset (own, no rack)
- *   Footsteps/Gravel   (inherits A)      the walk loop region (inherit, rack A)
- * Ambience        processing: none
+ * Footsteps          processing: chain A   footstep asset (inherit, rack A),
+ *                                          rain asset (own, no rack)
+ *   Footsteps/Gravel   (inherits A)        the loop region (inherit, rack A)
+ * Ambience           processing: none
  * ```
  */
 

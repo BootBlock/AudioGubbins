@@ -7,7 +7,8 @@ import type { GameAssetGroup } from '../groups/game-asset-group.js';
 import type { GameAudioState } from '../groups/game-audio-state.js';
 import { memberKey, type GroupMember, type GroupMembership } from '../groups/membership.js';
 import { validateGameAudioState } from '../groups/state-validation.js';
-import { randomGameWorld, seededRandom, type Random } from '../testing/random-game-state.js';
+import { randomGameWorld } from '../testing/random-game-state.js';
+import { seededRandom, type Random } from '../testing/seeded-random.js';
 import { withOverride, withPolicyField, type OverridableField } from './inherited-policy.js';
 import { POLICY_FIELDS, type PolicyField } from './policy-fields.js';
 import {
@@ -176,6 +177,7 @@ describe('policy resolution over random forests (REQ-GAME-120)', () => {
       const permuted: GameAudioState = {
         groups: new Map(shuffled(random, [...state.groups])),
         memberships: shuffled(random, state.memberships),
+        scenarios: state.scenarios,
       };
       const before = resolveAll(project, state);
       const after = resolveAll(project, permuted);

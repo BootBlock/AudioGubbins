@@ -7,7 +7,7 @@
  * reset removes the field, so what is inherited shows through.
  */
 
-import type { PolicyField, PolicyValues } from './policy-fields.js';
+import { POLICY_FIELDS, type PolicyField, type PolicyValues } from './policy-fields.js';
 
 /** What a group sets. */
 export type InheritedPolicy = { readonly [F in PolicyField]?: PolicyValues[F] };
@@ -18,6 +18,29 @@ export type InheritedPolicy = { readonly [F in PolicyField]?: PolicyValues[F] };
  * belongs to whoever plays the group, not to one sound in it.
  */
 export type OverridableField = Exclude<PolicyField, 'processing' | 'tags' | 'emitter'>;
+
+/**
+ * Each field a member may override, named once in a record typed over
+ * `OverridableField`, so a field the type gains or loses fails to compile here
+ * rather than going unread by the commands or the project format.
+ */
+const OVERRIDABLE: Readonly<Record<OverridableField, true>> = {
+  loudness: true,
+  exportProfile: true,
+  naming: true,
+  destination: true,
+  variation: true,
+  bus: true,
+};
+
+/** Whether a member may set `field` over its group. */
+export function isOverridableField(field: PolicyField): field is OverridableField {
+  return field in OVERRIDABLE;
+}
+
+/** The fields a member may override, in the policy's order: the one list of them. */
+export const OVERRIDABLE_FIELDS: readonly OverridableField[] =
+  POLICY_FIELDS.filter(isOverridableField);
 
 /** What a member sets over its group. */
 export type PolicyOverrides = { readonly [F in OverridableField]?: PolicyValues[F] };

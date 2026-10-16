@@ -51,6 +51,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       takeStacks: empty,
       gameGroups: empty,
       gameMembers: empty,
+      gameScenarios: empty,
     };
     expect(diffStates(state, state)).toEqual(expected);
     expect(diffStates(state, fixtureState(sampleProject()).state)).toEqual(expected);

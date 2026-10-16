@@ -9,4 +9,6 @@
  * support.
  */
 
-export { type GameWorld, type Random, randomGameWorld, seededRandom } from './random-game-state.js';
+export { type GameWorld, randomEmitterRules, randomGameWorld } from './random-game-state.js';
+export { randomScenario } from './random-scenarios.js';
+export { type Random, seededRandom } from './seeded-random.js';

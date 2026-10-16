@@ -10,6 +10,8 @@ import type { EffectChain, EffectChainId } from '@audiogubbins/domain';
 import type {
   GameAssetGroup,
   GameAssetGroupId,
+  GamePreviewScenario,
+  GamePreviewScenarioId,
   GroupMember,
   GroupMembership,
   MemberProcessing,
@@ -24,6 +26,7 @@ import {
   writeGroupMember,
   writePolicyOverrides,
   writePolicyValue,
+  writePreviewScenario,
 } from '@audiogubbins/project-format';
 
 import { ProjectCommandId } from '../project-command.js';
@@ -153,6 +156,27 @@ export function unassignMemberInvocation(member: GroupMember, rack?: GivenRack):
     commandId: ProjectCommandId.UnassignMember,
     arguments: { member: memberArgument(member), ...rackArguments(rack) },
   };
+}
+
+/** Adds `scenario`, whose identifiers the caller minted. */
+export function addScenarioInvocation(scenario: GamePreviewScenario): CommandInvocation {
+  return {
+    commandId: ProjectCommandId.AddScenario,
+    arguments: { scenario: canonicalJson(writePreviewScenario(scenario)) },
+  };
+}
+
+/** Replaces the scenario of `scenario`'s identifier with `scenario`, whole. */
+export function setScenarioInvocation(scenario: GamePreviewScenario): CommandInvocation {
+  return {
+    commandId: ProjectCommandId.SetScenario,
+    arguments: { scenario: canonicalJson(writePreviewScenario(scenario)) },
+  };
+}
+
+/** Removes the scenario `scenario`. */
+export function removeScenarioInvocation(scenario: GamePreviewScenarioId): CommandInvocation {
+  return { commandId: ProjectCommandId.RemoveScenario, arguments: { scenario } };
 }
 
 /** Sets `field` of `member`'s overrides to `value`. */

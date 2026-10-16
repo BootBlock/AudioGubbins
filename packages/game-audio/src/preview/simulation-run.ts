@@ -1,8 +1,8 @@
 /**
  * A game preview's simulation as it runs (ADR-0104): every emitter's cursor,
  * cooldown, selection history, voices and lanes, the voices still to end, and
- * the count the voice budget is held to. One run is mutable and private to
- * the simulation that drives it; it is copied whole for a snapshot, so a later
+ * the count the voice budget is held to. One run is mutable and private to the
+ * simulation that drives it; it is copied whole for a snapshot, so a later
  * simulation can go on from any point the snapshots mark.
  */
 

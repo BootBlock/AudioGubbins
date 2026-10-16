@@ -69,7 +69,7 @@ describe('emitter rules (ADR-0104)', () => {
         selection: { kind: 'avoid-recent', depth: 17 },
         voices: { limit: 0, stealing: 'oldest' },
         cooldownMilliseconds: 60_001,
-        attenuation: { ...rolloff, unitSize: 0, maxDistance: 0, ceilingDecibels: 25 },
+        attenuation: { ...rolloff, unitSize: 0, maxDistance: -1, ceilingDecibels: 25 },
         filter: { cutoffHertz: 19, decibels: 1 },
       }),
     ).toEqual([
@@ -86,9 +86,49 @@ describe('emitter rules (ADR-0104)', () => {
       emitterParts({
         ...DEFAULT_EMITTER_RULES,
         voices: { limit: 2.5, stealing: 'quietest' },
-        attenuation: { kind: 'exponent', maxDistance: 0, exponent: 17 },
+        attenuation: { kind: 'exponent', maxDistance: 1_000_001, exponent: 17 },
       }),
     ).toEqual(['voices.limit', 'attenuation.maxDistance', 'attenuation.exponent']);
+  });
+
+  it('take a maximum distance of 0 as no limit, as Godot and the spatial panner do', () => {
+    for (const attenuation of [
+      { ...rolloff, maxDistance: 0 },
+      { ...rolloff, unitSize: 1_000_000, maxDistance: 0 },
+      { kind: 'exponent', maxDistance: 0, exponent: 1 },
+    ] satisfies EmitterRules['attenuation'][]) {
+      expect(emitterParts({ ...DEFAULT_EMITTER_RULES, attenuation })).toEqual([]);
+    }
+  });
+
+  it("hold a distance to the spatial panner's range: a unit size from 0.01, every distance at most 1,000,000", () => {
+    expect(
+      emitterParts({ ...DEFAULT_EMITTER_RULES, attenuation: { ...rolloff, unitSize: 0.01 } }),
+    ).toEqual([]);
+    expect(
+      emitterParts({
+        ...DEFAULT_EMITTER_RULES,
+        attenuation: { ...rolloff, unitSize: 0.009, maxDistance: 0 },
+      }),
+    ).toEqual(['attenuation.unitSize']);
+    expect(
+      emitterParts({
+        ...DEFAULT_EMITTER_RULES,
+        attenuation: { ...rolloff, unitSize: 1_000_001, maxDistance: 0 },
+      }),
+    ).toEqual(['attenuation.unitSize']);
+    expect(
+      emitterParts({
+        ...DEFAULT_EMITTER_RULES,
+        attenuation: { ...rolloff, maxDistance: 1_000_000 },
+      }),
+    ).toEqual([]);
+    expect(
+      emitterParts({
+        ...DEFAULT_EMITTER_RULES,
+        attenuation: { ...rolloff, maxDistance: 1_000_001 },
+      }),
+    ).toEqual(['attenuation.maxDistance']);
   });
 
   it('refuse a silent distance no further than the unit size', () => {

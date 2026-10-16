@@ -20,6 +20,7 @@ const SAME: StateDifference = {
   takeStacks: NONE,
   gameGroups: NONE,
   gameMembers: NONE,
+  gameScenarios: NONE,
 };
 
 const DRUMS = unsafeBrandId<'TrackId'>('00000000-0000-4000-8000-000000000001');
@@ -188,6 +189,31 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
       'The group “Footsteps/Grass” differs in its members, loudness target and bus.',
       'The group member “Step 1” differs in its group and naming template override.',
       'The processing of the group “Footsteps” is in B only.',
+    ]);
+  });
+
+  it('says a preview scenario by its name and each part of it that differs', () => {
+    const corridor = unsafeBrandId<'GamePreviewScenarioId'>('00000000-0000-4000-8000-000000000010');
+    const yard = unsafeBrandId<'GamePreviewScenarioId'>('00000000-0000-4000-8000-000000000011');
+    const difference: StateDifference = {
+      ...SAME,
+      gameScenarios: {
+        added: [],
+        removed: [yard],
+        changed: [{ id: corridor, fields: ['listener', 'emitters', 'busLevels'] }],
+      },
+    };
+    const names: DifferenceNames = {
+      entities: new Map<string, string>([
+        [corridor, 'Corridor'],
+        [yard, 'Yard'],
+      ]),
+      chains: new Map(),
+    };
+
+    expect(differenceLines(difference, names)).toEqual([
+      'The preview scenario “Yard” is in A only.',
+      'The preview scenario “Corridor” differs in its listener, emitters and bus levels.',
     ]);
   });
 

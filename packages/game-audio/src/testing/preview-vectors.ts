@@ -10,41 +10,43 @@
  * vector), all in 32-bit unsigned integers or IEEE doubles in the order
  * written:
  *
- * - **Generator.** `lowbias32(x)`: `x ^= x >>> 16; x = imul(x, 0x7feb352d);
- *   x ^= x >>> 15; x = imul(x, 0x846ca68b); x ^= x >>> 16`. A draw word for
- *   `(key, stream, index)` with `index < 2³²`: `h = lowbias32(key ^
- *   imul(stream + 1, 0x9e3779b9)); h = lowbias32(h ^ 0); h = lowbias32(h ^
- *   index)` (the middle word is the index's high half, 0 below 2³²).
+ * - **Generator.** `lowbias32(x)`: `x ^= x >>> 16`; `x = imul(x, 0x7feb352d)`;
+ *   `x ^= x >>> 15`; `x = imul(x, 0x846ca68b)`; `x ^= x >>> 16`. A draw word
+ *   for `(key, stream, index)` with `index < 2³²`:
+ *   `h = lowbias32(key ^ imul(stream + 1, 0x9e3779b9))`;
+ *   `h = lowbias32(h ^ 0)`; `h = lowbias32(h ^ index)` (the middle word is the
+ *   index's high half, 0 below 2³²).
  * - **Emitter key.** `lowbias32(seed ^ crc32(id))`, CRC-32 as zlib's over the
  *   identifier's ASCII bytes. Streams: selection 1, pitch 2, gain 3, offset 4,
  *   jitter 5; the index is the trigger's ordinal (a repeat's `k`; by hand, the
  *   repeat's count, or 0, plus the emitter's hand triggers before it).
  * - **Whole choice among `n`.** `(h·n) >> 32`. **Fraction** `u = h / 2³²`.
  * - **Milliseconds to frames.** `floor(ms·fs/1000 + 0.5)`.
- * - **Repeat trigger `k`.** `max(0, frames(k·interval) + ((h_jitter·(2J + 1)) >> 32) − J)`,
+ * - **Repeat trigger `k`.**
+ *   `max(0, frames(k·interval) + ((h_jitter·(2J + 1)) >> 32) − J)`,
  *   `J = frames(jitter)`.
  * - **Order.** By frame; at one frame, the voices that end there first (by
- *   voice number), then emitters by identifier (code-unit order), an
- *   emitter's repeat trigger before its hand actions, hand actions as listed.
+ *   voice number), then emitters by identifier (code-unit order), an emitter's
+ *   repeat trigger before its hand actions, hand actions as listed.
  * - **Cooldown.** Suppressed where `t − t_last < frames(cooldown)`, `t_last`
  *   the last trigger that started a voice; refusals never move it.
  * - **Selection.** Pool in membership order. Uniform: `choice(n)`.
  *   Avoid-recent(d): set aside the last `min(d, n − 1)` choices, take
  *   `choice(m)` of the `m` left in pool order. Refused triggers add no choice.
  * - **Variation** of the chosen member: pitch `min + choice(max − min + 1)`
- *   cents; gain `min + u·(max − min)` dB; offset `choice(min(frames_m(max),
- *   S − 1) + 1)` of the member's own frames at its rate `r`, `S` its length or
- *   its loop's end.
+ *   cents; gain `min + u·(max − min)` dB; offset
+ *   `choice(min(frames_m(max), S − 1) + 1)` of the member's own frames at its
+ *   rate `r`, `S` its length or its loop's end.
  * - **Ratio.** `n / 4096`, `n` the whole number nearest `4096·2^(c/1200)`.
- * - **Voice length.** `L − offset` frames, then `ceil(·4096 / n)` where pitched,
- *   then `ceil(·fs / r)` where `r ≠ fs`; a loop never ends.
+ * - **Voice length.** `L − offset` frames, then `ceil(·4096 / n)` where
+ *   pitched, then `ceil(·fs / r)` where `r ≠ fs`; a loop never ends.
  * - **Voices.** At the emitter's limit, `oldest` steals the earliest started
- *   (then the lower emitter by identifier, then the lower lane), `quietest`
- *   the lowest gain (then as oldest), `reject` refuses. Below the limit but at
- *   the preview's budget, the same rule across every emitter
- *   (`budget-stolen`, `budget-rejected`). A stolen voice stops counting at
- *   once. Lanes: the lowest free at the frame, a lane busy until its voice's
- *   end or, cut, `frames(5)` after the cut.
+ *   (then the lower emitter by identifier, then the lower lane), `quietest` the
+ *   lowest gain (then as oldest), `reject` refuses. Below the limit but at the
+ *   preview's budget, the same rule across every emitter (`budget-stolen`,
+ *   `budget-rejected`). A stolen voice stops counting at once. Lanes: the
+ *   lowest free at the frame, a lane busy until its voice's end or, cut,
+ *   `frames(5)` after the cut.
  *
  * The attenuation curves are pinned by the spatial panner's golden tests in
  * the processors, which Phase 11 holds to Godot's players (the plan's Q3).
@@ -81,7 +83,7 @@ import type {
 import type { PreviewInput } from '../preview/preview-simulation.js';
 import type { HandAction } from '../preview/trigger-schedule.js';
 import type { PoolMember } from '../preview/preview-subjects.js';
-import { seededRandom, type Random } from './random-game-state.js';
+import { seededRandom, type Random } from './seeded-random.js';
 
 function rateOf(hertz: number): SampleRate {
   const made = sampleRate(hertz);

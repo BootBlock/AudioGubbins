@@ -33,7 +33,7 @@ import type {
   Track,
   TrackId,
 } from '@audiogubbins/domain';
-import type { GameAssetGroupId } from '@audiogubbins/game-audio';
+import type { GameAssetGroupId, GamePreviewScenarioId } from '@audiogubbins/game-audio';
 import {
   canonicalJson,
   compareCodeUnits,
@@ -58,8 +58,13 @@ import {
   type FieldOf,
 } from './entity-fields.js';
 import { chainDifferences, type ChainDifference } from './chain-differences.js';
-import { gameEntities, type GameGroupEntity, type GameMemberEntity } from './game-entities.js';
-import { GAME_GROUP_FIELDS, GAME_MEMBER_FIELDS } from './game-fields.js';
+import {
+  gameEntities,
+  type GameGroupEntity,
+  type GameMemberEntity,
+  type GameScenarioEntity,
+} from './game-entities.js';
+import { GAME_GROUP_FIELDS, GAME_MEMBER_FIELDS, GAME_SCENARIO_FIELDS } from './game-fields.js';
 
 /** An entity present in both states whose fields differ. */
 export interface EntityChange<TId extends string, TEntity> {
@@ -103,6 +108,9 @@ export interface StateDifference {
    * joining or leaving one, and its group, processing and overrides.
    */
   readonly gameMembers: EntityDifferences<string, GameMemberEntity>;
+
+  /** The preview scenarios, each part of one a field. */
+  readonly gameScenarios: EntityDifferences<GamePreviewScenarioId, GameScenarioEntity>;
 }
 
 /** The difference from state `before` to state `after`. */
@@ -124,19 +132,24 @@ export function diffStates(before: ProjectState, after: ProjectState): StateDiff
   };
 }
 
-/** How the asset groups and memberships differ; none where the two states share them. */
+/** How the asset groups, memberships and scenarios differ; none where the two states share them. */
 function gameDifferences(
   before: ProjectState,
   after: ProjectState,
-): Pick<StateDifference, 'gameGroups' | 'gameMembers'> {
+): Pick<StateDifference, 'gameGroups' | 'gameMembers' | 'gameScenarios'> {
   if (before.gameAudio === after.gameAudio) {
-    return { gameGroups: NO_DIFFERENCES, gameMembers: NO_DIFFERENCES };
+    return {
+      gameGroups: NO_DIFFERENCES,
+      gameMembers: NO_DIFFERENCES,
+      gameScenarios: NO_DIFFERENCES,
+    };
   }
   const was = gameEntities(before.gameAudio);
   const is = gameEntities(after.gameAudio);
   return {
     gameGroups: entityDifferences(was.groups, is.groups, GAME_GROUP_FIELDS),
     gameMembers: entityDifferences(was.members, is.members, GAME_MEMBER_FIELDS),
+    gameScenarios: entityDifferences(was.scenarios, is.scenarios, GAME_SCENARIO_FIELDS),
   };
 }
 

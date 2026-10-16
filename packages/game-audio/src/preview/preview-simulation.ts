@@ -7,7 +7,8 @@
  * changes nothing it is given, the project least of all. Triggers are taken in
  * order of frame; at one frame, by the emitters' identifiers, an emitter's
  * repeat trigger before its hand actions, and hand actions in the order given.
- * The voices that ended by a trigger's frame end before it (`simulation-steps.ts`).
+ * The voices that ended by a trigger's frame end before it
+ * (`simulation-steps.ts`).
  *
  * A simulation is a value it goes on from: given the simulation it last made,
  * it keeps every event before the first frame its input changes (the first new

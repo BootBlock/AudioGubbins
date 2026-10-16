@@ -4019,6 +4019,7 @@ Published paths
   interface GameAudioState
   readonly GameAudioState.groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>
   readonly GameAudioState.memberships: readonly GroupMembership[]
+  readonly GameAudioState.scenarios: ReadonlyMap<GamePreviewScenarioId, GamePreviewScenario>
   type GameExportItem = { readonly kind: "planned"; readonly member: GroupMember; readonly settings: ExportSettings; readonly file: PlannedFile; readonly destination: DestinationPath; readonly provenance: GameExportProvenance; } | { readonly kind: "refused"; readonly member: GroupMember; readonly failures: readonly [DomainFailure, ...DomainFailure[]]; }
   interface GameExportPlan
   readonly GameExportPlan.items: readonly GameExportItem[]
@@ -4069,9 +4070,11 @@ Published paths
   readonly MemberSound.length: number
   readonly MemberSound.loop?: { readonly start: number; readonly end: number; }
   type Motion = { readonly kind: "still"; readonly at: Position; } | { readonly kind: "waypoints"; readonly points: readonly Waypoint[]; readonly repeat: "back-and-forth" | "loop" | "once"; }
+  const NO_GAME_AUDIO: GameAudioState
   interface NamingTemplate
   readonly NamingTemplate.source: string
   readonly NamingTemplate.parts: readonly TemplatePart<"asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region">[]
+  const OVERRIDABLE_FIELDS: readonly OverridableField[]
   type OverridableField = "bus" | "destination" | "exportProfile" | "loudness" | "naming" | "variation"
   const POLICY_FIELDS: readonly ["processing", "loudness", "exportProfile", "naming", "destination", "emitter", "variation", "bus", "tags"]
   type PolicyField = "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation"
@@ -4192,8 +4195,10 @@ Published paths
   function destinationPath(segments: readonly string[]): DomainResult<DestinationPath>
   function extendPreviewPlan(previous: PreviewPlan, simulation: PreviewSimulation, from: number): DomainResult<PreviewPlan>
   function groupPath(groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>, id: GameAssetGroupId): readonly string[]
+  function holdsNoGameAudio(state: GameAudioState): boolean
   function inheritedProcessing(state: GameAudioState, member: GroupMember): EffectChainId | undefined
   function inheritingRacks(state: GameAudioState): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined; }[]
+  function isOverridableField(field: "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation"): boolean
   function memberKey(member: GroupMember): string
   function memberNames(project: Project, state: GameAudioState, members: readonly RegionMember[], template: NamingTemplate, clock: ExportClock): readonly RegionName[]
   function namingTemplate(source: string): DomainResult<NamingTemplate>
@@ -4226,7 +4231,9 @@ Published paths
   Random.whole: (lowest: number, highest: number) => number
   Random.pick: <T>(items: readonly T[]) => T
   Random.chance: (probability: number) => boolean
+  function randomEmitterRules(random: Random): EmitterRules
   function randomGameWorld(seed: number): GameWorld
+  function randomScenario(random: Random, ids: IdGenerator, subjects: readonly PreviewSubject[]): GamePreviewScenario
   function seededRandom(seed: number): Random
 
 @audiogubbins/history
@@ -4292,6 +4299,7 @@ Published paths
   type FieldOf<TEntity> = keyof TEntity & string
   type GameGroupEntity = Omit<GameAssetGroup, "policy"> & InheritedPolicy & { readonly members: readonly string[]; }
   type GameMemberEntity = { readonly member: GroupMember; readonly group: GameAssetGroupId; readonly processing: MemberProcessing; } & PolicyOverrides
+  type GameScenarioEntity = { readonly id: string; readonly name: string; readonly space: string; readonly panWidth: string; readonly panningStrength: string; readonly listener: string; readonly emitters: string; readonly seed: string; readonly busLevels: string; }
   interface History
   readonly History.project: ProjectId
   readonly History.root: HistoryNodeId
@@ -4399,6 +4407,7 @@ Published paths
   readonly StateDifference.takeStacks: EntityDifferences<TakeStackId, TakeStack>
   readonly StateDifference.gameGroups: EntityDifferences<GameAssetGroupId, GameGroupEntity>
   readonly StateDifference.gameMembers: EntityDifferences<string, GameMemberEntity>
+  readonly StateDifference.gameScenarios: EntityDifferences<GamePreviewScenarioId, GameScenarioEntity>
   function activeLine(history: History): readonly HistoryNode[]
   function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities
   function affectedEntities(node: HistoryNode): Generator<EntityReference, any, any>
@@ -5590,7 +5599,7 @@ Published paths
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
-  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly SetExportSettings: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly RestoreRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; readonly CreateTakeStack: CommandId; readonly RemoveTakeStack: CommandId; readonly RenameTakeStack: CommandId; readonly SetTakeStack: CommandId; readonly BranchTakeStack: CommandId; readonly ConsolidateTakeStack: CommandId; readonly AddTake: CommandId; readonly WithdrawTake: CommandId; readonly DuplicateTake: CommandId; readonly RenameTake: CommandId; readonly SetTakeNote: CommandId; readonly ChooseTake: CommandId; readonly RejectTake: CommandId; readonly KeepTake: CommandId; readonly RemoveTake: CommandId; readonly RestoreTake: CommandId; readonly SetTakeCompensation: CommandId; readonly AddPunch: CommandId; readonly RemovePunch: CommandId; readonly AddGroup: CommandId; readonly RemoveGroup: CommandId; readonly RenameGroup: CommandId; readonly MoveGroup: CommandId; readonly SetGroupPolicy: CommandId; readonly AssignMember: CommandId; readonly UnassignMember: CommandId; readonly SetMemberOverride: CommandId; readonly ResetMemberOverride: CommandId; readonly SetMemberProcessing: CommandId; }
+  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly SetExportSettings: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly RestoreRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; readonly CreateTakeStack: CommandId; readonly RemoveTakeStack: CommandId; readonly RenameTakeStack: CommandId; readonly SetTakeStack: CommandId; readonly BranchTakeStack: CommandId; readonly ConsolidateTakeStack: CommandId; readonly AddTake: CommandId; readonly WithdrawTake: CommandId; readonly DuplicateTake: CommandId; readonly RenameTake: CommandId; readonly SetTakeNote: CommandId; readonly ChooseTake: CommandId; readonly RejectTake: CommandId; readonly KeepTake: CommandId; readonly RemoveTake: CommandId; readonly RestoreTake: CommandId; readonly SetTakeCompensation: CommandId; readonly AddPunch: CommandId; readonly RemovePunch: CommandId; readonly AddGroup: CommandId; readonly RemoveGroup: CommandId; readonly RenameGroup: CommandId; readonly MoveGroup: CommandId; readonly SetGroupPolicy: CommandId; readonly AssignMember: CommandId; readonly UnassignMember: CommandId; readonly SetMemberOverride: CommandId; readonly ResetMemberOverride: CommandId; readonly SetMemberProcessing: CommandId; readonly AddScenario: CommandId; readonly SetScenario: CommandId; readonly RemoveScenario: CommandId; }
   type RackTarget = { readonly kind: "asset"; readonly asset: Asset; } | { readonly kind: "region"; readonly region: Region; readonly asset: Asset; }
   type SlotControl = { readonly control: "enabled" | "soloed"; readonly value: boolean; } | { readonly control: "mix"; readonly value: number; } | { readonly control: "summing"; readonly value: SummingLaw; }
   function addAssetInvocation(asset: Asset, source: AssetSource, chain?: EffectChain | undefined): CommandInvocation
@@ -5599,6 +5608,7 @@ Published paths
   function addPunchInvocation(asset: Pick<Asset, "id">, operation: EditOperation, stack: TakeStack): CommandInvocation
   function addRegionInvocation(region: Region, chain?: EffectChain | undefined): CommandInvocation
   function addRegionWithProcessing(region: Region, chains: ProjectChains): readonly [CommandInvocation, ...CommandInvocation[]]
+  function addScenarioInvocation(scenario: GamePreviewScenario): CommandInvocation
   function addSlotInvocation(chain: EffectChainId, place: SlotPlace, slot: ChainSlot): CommandInvocation
   function addTakeInvocation(stack: Named, take: Take, choose: boolean): CommandInvocation
   function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
@@ -5626,6 +5636,7 @@ Published paths
   function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
   function removePunchInvocation(asset: Pick<Asset, "id">, operation: Pick<EditOperation, "id">): CommandInvocation
   function removeRegionInvocation(region: Pick<Region, "id">): CommandInvocation
+  function removeScenarioInvocation(scenario: GamePreviewScenarioId): CommandInvocation
   function removeSlotsInvocations(state: ProjectState, slots: readonly (import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId)[]): readonly CommandInvocation[]
   function removeTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function removeTakeStackInvocation(stack: Named): CommandInvocation
@@ -5643,6 +5654,7 @@ Published paths
   function setProcessorInvocation(processor: ProcessorInstance): CommandInvocation
   function setRackInvocation(target: RackTarget, chain: EffectChain | EffectChainId | undefined, processing?: MemberProcessing | undefined): CommandInvocation
   function setRegionInvocation(region: Region): CommandInvocation
+  function setScenarioInvocation(scenario: GamePreviewScenario): CommandInvocation
   function setSlotControlInvocation(slot: import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId, props: SlotControl): CommandInvocation
   function setTakeCompensationInvocation(stack: Named, take: NamedTake, compensation: number): CommandInvocation
   function setTakeNoteInvocation(stack: Named, take: NamedTake, note: string): CommandInvocation
@@ -6165,6 +6177,7 @@ Published paths
   const readMediaSource: Converter<MediaSource>
   function readPolicyField<F extends "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation">(field: F): Converter<PolicyValues[F]>
   const readPolicyOverrides: Converter<PolicyOverrides>
+  const readPreviewScenario: Converter<GamePreviewScenario>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
   function readProjectTree(listing: ProjectTreeListing, services: TreeReadingServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
   function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
@@ -6213,6 +6226,7 @@ Published paths
   function writeMediaSource(media: MediaSource): JsonObject
   function writePolicyOverrides(overrides: PolicyOverrides): JsonObject
   function writePolicyValue<F extends "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation">(field: F, value: PolicyValues[F]): JsonValue
+  function writePreviewScenario(scenario: GamePreviewScenario): JsonObject
   function writeProcessor(processor: ProcessorInstance): JsonObject
   function writeProjectDocument(state: ProjectState): JsonObject
   function writePunchRange(punch: PunchRange): JsonObject
@@ -6238,6 +6252,7 @@ Published paths
   readonly GroupedReference.outer: GameAssetGroup
   readonly GroupedReference.inner: GameAssetGroup
   readonly GroupedReference.chain: EffectChainId
+  readonly GroupedReference.scenario: GamePreviewScenario
   interface Random
   Random.next: () => number
   Random.below: (bound: number) => number

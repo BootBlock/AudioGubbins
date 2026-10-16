@@ -9,7 +9,8 @@
  * children, so the forest is acyclic, with siblings named apart; every field of
  * a group's policy and of a member's overrides sometimes set, to a value the
  * field takes; members of both kinds, each in one group, inheriting or owning
- * their processing.
+ * their processing; and up to three preview scenarios playing its groups and
+ * members (`random-scenarios.ts`).
  *
  * An `inherit` member's rack is the chain the generator itself carried down the
  * forest as it made each group, not one the resolver answers, so a test that
@@ -24,7 +25,6 @@ import {
   createProject,
   sampleCount,
   sampleRate,
-  uniformDraw,
   type Asset,
   type EffectChain,
   type EffectChainId,
@@ -51,44 +51,9 @@ import type {
   VoiceVariation,
 } from '../policy/playback-rules.js';
 import type { PolicyValues } from '../policy/policy-fields.js';
-
-/** A seeded source of numbers over the counter draw. */
-export interface Random {
-  /** A number in [0, 1). */
-  next(): number;
-  /** A whole number in [0, bound). */
-  below(bound: number): number;
-  /** A number in [lowest, highest]. */
-  between(lowest: number, highest: number): number;
-  /** A whole number in [lowest, highest]. */
-  whole(lowest: number, highest: number): number;
-  /** One of the items. */
-  pick<T>(items: readonly T[]): T;
-  /** True with the given chance. */
-  chance(probability: number): boolean;
-}
-
-/** The stream every draw of a world is taken from; the draw's index counts up. */
-const WORLD_STREAM = 1;
-
-/** A seeded source of numbers: draw k of the world's stream under `seed`. */
-export function seededRandom(seed: number): Random {
-  let index = 0;
-  const next = (): number => uniformDraw(seed >>> 0, WORLD_STREAM, index++);
-  const below = (bound: number): number => Math.floor(next() * bound);
-  return {
-    next,
-    below,
-    between: (lowest, highest) => lowest + next() * (highest - lowest),
-    whole: (lowest, highest) => lowest + below(highest - lowest + 1),
-    pick: (items) => {
-      const item = items[below(items.length)];
-      if (item === undefined) throw new Error('Nothing to pick from.');
-      return item;
-    },
-    chance: (probability) => next() < probability,
-  };
-}
+import type { PreviewSubject } from '../preview/preview-scenario.js';
+import { randomScenario } from './random-scenarios.js';
+import { seededRandom, type Random } from './seeded-random.js';
 
 export interface GameWorld {
   readonly project: Project;
@@ -116,29 +81,35 @@ function randomSelection(random: Random): SelectionRule {
     : { kind: 'avoid-recent', depth: random.whole(1, 16) };
 }
 
+/** A distance from which an emitter is silent, past `floor`; sometimes 0, no limit. */
+function randomMaxDistance(random: Random, floor: number): number {
+  return random.chance(0.2) ? 0 : floor + random.between(1, 500);
+}
+
 function randomAttenuation(random: Random): Attenuation {
   switch (random.below(3)) {
     case 0:
       return { kind: 'none' };
     case 1: {
-      const unitSize = random.between(0.5, 10);
+      const unitSize = random.chance(0.1) ? 0.01 : random.between(0.5, 10);
       return {
         kind: random.pick(['inverse', 'inverse-square', 'logarithmic'] as const),
         unitSize,
-        maxDistance: unitSize + random.between(1, 500),
+        maxDistance: randomMaxDistance(random, unitSize),
         ceilingDecibels: random.between(-80, 24),
       };
     }
     default:
       return {
         kind: 'exponent',
-        maxDistance: random.between(1, 500),
+        maxDistance: randomMaxDistance(random, 0),
         exponent: random.between(0.01, 16),
       };
   }
 }
 
-function randomEmitter(random: Random): EmitterRules {
+/** Random emitter rules the policy takes, every attenuation and distance among them. */
+export function randomEmitterRules(random: Random): EmitterRules {
   const rules: EmitterRules = {
     selection: randomSelection(random),
     voices: {
@@ -214,7 +185,7 @@ function randomPolicy(random: Random, chains: readonly EffectChainId[]): Inherit
   return {
     ...(processing === undefined ? {} : { processing }),
     ...randomOverrides(random),
-    ...(random.chance(SETS) ? { emitter: randomEmitter(random) } : {}),
+    ...(random.chance(SETS) ? { emitter: randomEmitterRules(random) } : {}),
     ...(random.chance(SETS) ? { tags: randomTags(random) } : {}),
   };
 }
@@ -368,8 +339,20 @@ export function randomGameWorld(seed: number): GameWorld {
     ),
     chains: chainIds,
   });
+  // Drawn last, so a world's groups and members are the same with scenarios as without.
+  const subjects: PreviewSubject[] = [
+    ...groups.map((group): PreviewSubject => ({ kind: 'group', group: group.id })),
+    ...shuffled.map(({ member }): PreviewSubject => ({ kind: 'member', member })),
+  ];
+  const scenarios = Array.from({ length: random.whole(0, 3) }, () =>
+    randomScenario(random, ids, subjects),
+  );
   return {
     project,
-    state: { groups: new Map(groups.map((group) => [group.id, group])), memberships: shuffled },
+    state: {
+      groups: new Map(groups.map((group) => [group.id, group])),
+      memberships: shuffled,
+      scenarios: new Map(scenarios.map((scenario) => [scenario.id, scenario])),
+    },
   };
 }

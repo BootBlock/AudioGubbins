@@ -10,11 +10,12 @@
  *
  * - An emitter's key is `lowbias32(seed ^ crc32(utf8(id)))`. A well-formed
  *   identifier is ASCII, so its UTF-8 is its code units.
- * - A draw is the 32-bit word `h` the domain's `uniformDraw(key, stream,
- *   trigger)` is `h / 2³²` of. A whole choice among `n` is `⌊h·n / 2³²⌋`,
- *   computed exactly ((h·n) >> 32 in 64-bit integers), which is ⌊u·n⌋ for
- *   `u = h / 2³²`: each of the `n` is chosen by ⌊2³²/n⌋ or ⌈2³²/n⌉ of the 2³²
- *   words, so no choice is more likely than another by more than 2⁻³².
+ * - A draw is the 32-bit word `h` the domain's
+ *   `uniformDraw(key, stream, trigger)` is `h / 2³²` of. A whole choice among
+ *   `n` is `⌊h·n / 2³²⌋`, computed exactly ((h·n) >> 32 in 64-bit integers),
+ *   which is ⌊u·n⌋ for `u = h / 2³²`: each of the `n` is chosen by ⌊2³²/n⌋ or
+ *   ⌈2³²/n⌉ of the 2³² words, so no choice is more likely than another by more
+ *   than 2⁻³².
  * - A gain is `min + u·(max − min)` decibels, `u` the double `h / 2³²`.
  * - A time in milliseconds is `⌊ms·rate / 1000 + 0.5⌋` frames.
  * - A pitch of `c` cents plays at `n / 4,096` of the speed, `n` the whole

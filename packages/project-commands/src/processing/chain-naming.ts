@@ -1,8 +1,8 @@
 /**
  * The life of a chain of processors in a project (ADR-0060): it enters with
- * what first names it and leaves with what last names it, so no chain stays
- * in the project that nothing processes audio with. A group's processing names
- * a chain as a rack does (ADR-0101), so a chain only a group names stays.
+ * what first names it and leaves with what last names it, so no chain stays in
+ * the project that nothing processes audio with. A group's processing names a
+ * chain as a rack does (ADR-0101), so a chain only a group names stays.
  *
  * A command that names a chain names one something in the project names
  * already, by `chainId`, or gives the chain whole, as `chain`, which it adds

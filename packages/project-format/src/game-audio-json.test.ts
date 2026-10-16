@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { POLICY_FIELDS, type GameAudioState } from '@audiogubbins/game-audio';
+import {
+  NO_GAME_AUDIO,
+  OVERRIDABLE_FIELDS,
+  POLICY_FIELDS,
+  type GameAudioState,
+} from '@audiogubbins/game-audio';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { canonicalJson, isJsonArray, isJsonObject, type JsonValue } from './canonical-json.js';
 import { startReading } from './document-reading.js';
 import { readPolicyField, writePolicyValue } from './game-policy-json.js';
+import { readPreviewScenario, writePreviewScenario } from './game-scenario-json.js';
 import { readProjectDocument, writeProjectDocument } from './project-json.js';
 import { withGameAudio, type ProjectState } from './project-state.js';
 import { edited, valueAt, withValue, without } from './testing/json-editing.js';
@@ -21,7 +27,7 @@ import { randomState } from './testing/random-states.js';
  * wrote (REQ-PRIV-165).
  */
 
-const { state: GROUPED, outer, inner } = groupedReferenceState(sampleProject());
+const { state: GROUPED, outer, inner, scenario } = groupedReferenceState(sampleProject());
 const DOCUMENT = writeProjectDocument(GROUPED);
 
 function game(state: ProjectState): GameAudioState {
@@ -41,6 +47,16 @@ function groupIndex(id: string): number {
 
 const OUTER = groupIndex(outer.id);
 const INNER = groupIndex(inner.id);
+
+/** Where the reference scenario lies in the document's list of scenarios, sorted by identifier. */
+const SCENARIO = (() => {
+  const scenarios = valueAt(DOCUMENT, ['gameAudio', 'scenarios']);
+  const index = isJsonArray(scenarios)
+    ? scenarios.findIndex((one) => isJsonObject(one) && one['id'] === scenario.id)
+    : -1;
+  if (index < 0) throw new Error('The document lists the reference scenario.');
+  return index;
+})();
 
 /** Each problem's code and place, from reading `value` as a document. */
 function problemsOf(value: JsonValue): readonly (readonly [string, unknown])[] {
@@ -65,6 +81,21 @@ describe("a project's game-audio state in its document (ADR-0106)", () => {
     }
   });
 
+  it('writes a scenario and reads it back alone, as a command argument is', () => {
+    const reading = startReading();
+    const read = readPreviewScenario(reading, writePreviewScenario(scenario), 'scenario', 0);
+    expect(expectSuccess(reading.outcome(read))).toEqual(scenario);
+  });
+
+  it('writes its scenarios by identifier, whatever order the state holds them in', () => {
+    const reordered = withGameAudio(GROUPED, {
+      ...game(GROUPED),
+      scenarios: new Map([...game(GROUPED).scenarios].reverse()),
+    });
+    expect(game(GROUPED).scenarios.size).toBe(2);
+    expect(canonicalJson(writeProjectDocument(reordered))).toBe(canonicalJson(DOCUMENT));
+  });
+
   it('writes its groups by identifier, whatever order the state holds them in', () => {
     const groups = game(GROUPED).groups;
     const reordered = withGameAudio(GROUPED, {
@@ -82,8 +113,16 @@ describe("a project's game-audio state in its document (ADR-0106)", () => {
     expect(game(expectSuccess(readProjectDocument(document))).memberships).toEqual(memberships);
   });
 
+  it('keeps a state holding scenarios alone as something, not as none', () => {
+    const scenarios = withGameAudio(GROUPED, {
+      ...NO_GAME_AUDIO,
+      scenarios: game(GROUPED).scenarios,
+    });
+    expect(scenarios.gameAudio?.scenarios.size).toBe(2);
+  });
+
   it('keeps no member for a project without groups, the one form of having none', () => {
-    const none = withGameAudio(GROUPED, { groups: new Map(), memberships: [] });
+    const none = withGameAudio(GROUPED, NO_GAME_AUDIO);
     expect(none.gameAudio).toBeUndefined();
     expect(Object.keys(writeProjectDocument(none))).not.toContain('gameAudio');
     expect(withGameAudio(none, game(GROUPED))).toEqual(GROUPED);
@@ -97,6 +136,12 @@ describe('the game-audio member refuses', () => {
     index,
     ...path,
   ];
+  const scenarioAt = (...path: readonly (string | number)[]) => [
+    'gameAudio',
+    'scenarios',
+    SCENARIO,
+    ...path,
+  ];
   const at = (...path: readonly (string | number)[]) =>
     path.reduce<string>(
       (where, step) =>
@@ -107,7 +152,7 @@ describe('the game-audio member refuses', () => {
   it.each<[string, (value: JsonValue) => JsonValue, string, string]>([
     [
       'a state that holds nothing',
-      (value) => withValue(value, ['gameAudio'], { groups: [], memberships: [] }),
+      (value) => withValue(value, ['gameAudio'], { groups: [], memberships: [], scenarios: [] }),
       'game-audio.empty',
       'gameAudio',
     ],
@@ -199,6 +244,46 @@ describe('the game-audio member refuses', () => {
       at('memberships', 0, 'processing'),
     ],
     [
+      'a state holding only a scenario counted as something, so its subjects are what refuse it',
+      (value) =>
+        withValue(withValue(value, ['gameAudio', 'groups'], []), ['gameAudio', 'memberships'], []),
+      'game.scenario-subject-unknown',
+      at('scenarios', SCENARIO),
+    ],
+    [
+      'a trigger of a kind there is none of',
+      (value) => withValue(value, scenarioAt('emitters', 0, 'trigger', 'kind'), 'random'),
+      'schema.unknown-value',
+      at('scenarios', SCENARIO, 'emitters', 0, 'trigger', 'kind'),
+    ],
+    [
+      'a subject that is neither a group nor a member',
+      (value) => withValue(value, scenarioAt('emitters', 1, 'subject', 'kind'), 'track'),
+      'schema.unknown-value',
+      at('scenarios', SCENARIO, 'emitters', 1, 'subject', 'kind'),
+    ],
+    [
+      'a position along an axis written as text',
+      (value) => withValue(value, scenarioAt('listener', 'at', 'y'), '1.75'),
+      'schema.not-a-number',
+      at('scenarios', SCENARIO, 'listener', 'at', 'y'),
+    ],
+    [
+      'a motion that repeats some other way',
+      (value) => withValue(value, scenarioAt('emitters', 0, 'motion', 'repeat'), 'shuffle'),
+      'schema.unknown-value',
+      at('scenarios', SCENARIO, 'emitters', 0, 'motion', 'repeat'),
+    ],
+    [
+      'a scenario listed twice',
+      (value) =>
+        edited(value, ['gameAudio', 'scenarios'], (scenarios) =>
+          Array.isArray(scenarios) ? [...scenarios, scenarios[SCENARIO] ?? null] : scenarios,
+        ),
+      'schema.duplicate-id',
+      at('scenarios', 2),
+    ],
+    [
       'a group listed twice',
       (value) =>
         edited(value, ['gameAudio', 'groups'], (groups) =>
@@ -242,6 +327,34 @@ describe('the game-audio member refuses', () => {
       'processing that names a chain the project does not have',
       (value) => withValue(value, group(OUTER, 'policy', 'processing'), 'deadbeef-0001'),
       'game.policy-chain-unknown',
+      at('groups', OUTER),
+    ],
+    [
+      'a scenario whose emitter plays a group the project does not have',
+      (value) => withValue(value, scenarioAt('emitters', 0, 'subject', 'group'), 'deadbeef-0002'),
+      'game.scenario-subject-unknown',
+      at('scenarios', SCENARIO),
+    ],
+    [
+      'a scenario whose emitter plays a sound in no group',
+      (value) =>
+        edited(value, ['gameAudio', 'memberships'], (memberships) =>
+          Array.isArray(memberships) ? memberships.slice(0, 1) : memberships,
+        ),
+      'game.scenario-subject-unknown',
+      at('scenarios', SCENARIO),
+    ],
+    [
+      "a scenario's seed out of its range",
+      (value) => withValue(value, scenarioAt('seed'), 2 ** 32),
+      'game.scenario-invalid',
+      at('scenarios', SCENARIO),
+    ],
+    [
+      'an attenuation silent from closer than its unit size',
+      (value) =>
+        withValue(value, group(OUTER, 'policy', 'emitter', 'attenuation', 'maxDistance'), 0.5),
+      'game.policy-emitter-invalid',
       at('groups', OUTER),
     ],
     [
@@ -296,6 +409,28 @@ describe('the game-audio member refuses', () => {
     expect(cyclic.ok ? [] : cyclic.failures.map(({ code }) => code)).toContain('game.group-cycle');
     expect(JSON.stringify(cyclic)).not.toContain('private-person');
   });
+
+  it("without quoting a scenario's or an emitter's name, but naming the scenario and the part", () => {
+    const renamed = withValue(
+      withValue(DOCUMENT, scenarioAt('name'), 'private-person'),
+      scenarioAt('emitters', 0, 'name'),
+      'private-person',
+    );
+    const result = readProjectDocument(
+      withValue(renamed, scenarioAt('emitters', 0, 'subject', 'group'), 'deadbeef-0003'),
+    );
+    expect(result.ok ? [] : result.failures).toMatchObject([
+      {
+        code: 'game.scenario-subject-unknown',
+        details: {
+          at: at('scenarios', SCENARIO),
+          scenario: scenario.id,
+          part: 'emitters.0.subject',
+        },
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain('private-person');
+  });
 });
 
 describe('the random states the round trips are held to', () => {
@@ -319,12 +454,25 @@ describe('the random states the round trips are held to', () => {
         count(membership.processing === 'inherit' ? 'inheriting' : 'owning');
         for (const field of Object.keys(membership.overrides)) count(`override.${field}`);
       }
+      for (const one of gameAudio.scenarios.values()) {
+        count(`scenario.${one.space}`);
+        if (one.busLevels.length > 0) count('scenario.busLevels');
+        for (const emitter of one.emitters) {
+          count(`subject.${emitter.subject.kind}`);
+          count(`trigger.${emitter.trigger.kind}`);
+          count(
+            emitter.motion.kind === 'still' ? 'motion.still' : `motion.${emitter.motion.repeat}`,
+          );
+        }
+      }
     }
-    const overridable = ['loudness', 'exportProfile', 'naming', 'destination', 'variation', 'bus'];
     const kinds = [
       ...['states', 'groups', 'nested', 'regionMembers', 'assetMembers', 'inheriting', 'owning'],
       ...POLICY_FIELDS.map((field) => `policy.${field}`),
-      ...overridable.map((field) => `override.${field}`),
+      ...OVERRIDABLE_FIELDS.map((field) => `override.${field}`),
+      ...['scenario.2d', 'scenario.3d', 'scenario.busLevels', 'subject.group', 'subject.member'],
+      ...['trigger.by-hand', 'trigger.repeat', 'motion.still', 'motion.once', 'motion.loop'],
+      'motion.back-and-forth',
     ];
     for (const kind of kinds) expect(totals.get(kind) ?? 0, kind).toBeGreaterThan(20);
     expect([...totals.keys()].filter((kind) => !kinds.includes(kind))).toEqual([]);

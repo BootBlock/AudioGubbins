@@ -6,14 +6,14 @@
  *
  * One reader and one writer per field, in tables whose types name every field,
  * so a field added to the policy fails to compile here until it is kept. The
- * reader holds each value to its shape: every member present and of its type,
- * a union's kind one it has, numbers finite. A value made by a constructor, a
+ * reader holds each value to its shape: every member present and of its type, a
+ * union's kind one it has, numbers finite. A value made by a constructor, a
  * naming template, a destination or a bus, is made by it, and refused with its
  * reasons where it refuses. Ranges and references are the game-audio state's
  * rules, which the project document's reader runs on the whole state once the
  * project is read (`game-audio-json.ts`), so a range is refused naming the
- * group or override that set it, and refused alike when a command makes it.
- * A game export profile is read and written by `game-profile-json.ts`.
+ * group or override that set it, and refused alike when a command makes it. A
+ * game export profile is read and written by `game-profile-json.ts`.
  */
 
 import type { DomainFailure, DomainResult, EffectChainId } from '@audiogubbins/domain';
@@ -74,6 +74,7 @@ function made<TValue>(
 const KEPT_DETAILS: ReadonlySet<string> = new Set([
   'owner',
   'group',
+  'scenario',
   'member',
   'field',
   'part',
@@ -87,11 +88,11 @@ const KEPT_DETAILS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Refuses each failure at `at` under its own code, in words that quote
- * nothing the document holds: a game-audio refusal names a group by its path,
- * a member by its name and a folder or a template as written, which a document
- * reader never repeats (`document-reading.ts`). What identifies the problem,
- * its owner's identifier, its field and the part of the value, is kept, so the
+ * Refuses each failure at `at` under its own code, in words that quote nothing
+ * the document holds: a game-audio refusal names a group by its path, a member
+ * by its name and a folder or a template as written, which a document reader
+ * never repeats (`document-reading.ts`). What identifies the problem, its
+ * owner's identifier, its field and the part of the value, is kept, so the
  * refusal still says whose setting it is and which.
  */
 export function refuseSafely(
