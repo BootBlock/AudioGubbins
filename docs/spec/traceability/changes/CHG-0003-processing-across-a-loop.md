@@ -45,6 +45,11 @@ The Phase 10 plan also promised that a seam fault caused by a rack would name th
 - The project round trip of the new field, its refusal when absent, and the history comparator.
 - The region command, its undo, and the Inspector's control; the analysis explanation for a `from-start` loop under a rack.
 
+## Implementation
+- Delivered with this change: the loop's field and its persistence (`projectDocument` 11), the region plan's wrapped render (`packages/domain/src/editing/loop-rendering.ts`, `loop-wrapping.ts`), the `region.set-loop-processing` command with its undo, the Inspector's "Effects across the loop" field, and the Loop panel's explanation for a `from-start` loop under a rack.
+- In a real browser, a loop with a loud intro under a reverb kept its level flat across every cycle when wrapped (largest step 0.26 dB) and jumped about 18 dB at every seam from the region's start (largest step 23.4 dB).
+- Whole-pass processors take `ADR-0107`'s stated path: the engine cannot share one run's measurement with the other, so such a loop renders `from-start` and says why.
+
 ## Decision
 - Approved/rejected by: the maintainer, 2026-10-16: "let's go with your recommendation", with the choice per sound.
 - ADR/change references: `ADR-0107`; `ADR-0060` and `ADR-0103` amended by it.
