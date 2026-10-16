@@ -165,6 +165,9 @@
       "path": "./packages/project-commands"
     },
     {
+      "path": "./packages/guided-workflows"
+    },
+    {
       "path": "./packages/clipboard"
     },
     {

@@ -1,0 +1,43 @@
+{
+  "name": "@audiogubbins/guided-workflows",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Guided workflows as deterministic planners: each turns a subject, its options and the project into ordinary project-command invocations.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project guided-workflows"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/commands": "workspace:*",
+    "@audiogubbins/game-audio": "workspace:*",
+    "@audiogubbins/loop-analysis": "workspace:*",
+    "@audiogubbins/processors": "workspace:*",
+    "@audiogubbins/import-export": "workspace:*",
+    "@audiogubbins/project-format": "workspace:*",
+    "@audiogubbins/project-commands": "workspace:*",
+    "@audiogubbins/detection-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}

@@ -28,6 +28,8 @@ Published paths
   @audiogubbins/effect-rack
   @audiogubbins/game-audio
   @audiogubbins/game-audio/testing
+  @audiogubbins/guided-workflows
+  @audiogubbins/guided-workflows/testing
   @audiogubbins/history
   @audiogubbins/import-export
   @audiogubbins/input
@@ -943,7 +945,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38314: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38315: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1238,7 +1240,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@38314: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@38315: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -3985,6 +3987,7 @@ Published paths
   readonly BusLevel.bus: BusName
   readonly BusLevel.decibels: number
   type BusName = string & { readonly [BrandTag]: "BusName"; }
+  type CaseModifier = "kebab" | "lower" | "pascal" | "snake" | "upper"
   const DEFAULT_EMITTER_RULES: EmitterRules
   const DEFAULT_VOICE_VARIATION: VoiceVariation
   interface DestinationPath
@@ -4196,6 +4199,7 @@ Published paths
   function extendPreviewPlan(previous: PreviewPlan, simulation: PreviewSimulation, from: number): DomainResult<PreviewPlan>
   function groupPath(groups: ReadonlyMap<GameAssetGroupId, GameAssetGroup>, id: GameAssetGroupId): readonly string[]
   function holdsNoGameAudio(state: GameAudioState): boolean
+  function inCase(text: string, modifier: "kebab" | "lower" | "pascal" | "snake" | "upper"): string
   function inheritedProcessing(state: GameAudioState, member: GroupMember): EffectChainId | undefined
   function inheritingRacks(state: GameAudioState): readonly { readonly member: GroupMember; readonly rack: EffectChainId | undefined; }[]
   function isOverridableField(field: "bus" | "destination" | "emitter" | "exportProfile" | "loudness" | "naming" | "processing" | "tags" | "variation"): boolean
@@ -4235,6 +4239,119 @@ Published paths
   function randomGameWorld(seed: number): GameWorld
   function randomScenario(random: Random, ids: IdGenerator, subjects: readonly PreviewSubject[]): GamePreviewScenario
   function seededRandom(seed: number): Random
+
+@audiogubbins/guided-workflows
+  type AnalysisNeed = { readonly kind: "assistants"; readonly target: GroupMember; readonly assistants: readonly string[]; readonly detectors: DetectorValues; } | { readonly kind: "loop"; readonly target: GroupMember; readonly request: LoopAnalysisRequest; }
+  type AssistantAnalyses = ReadonlyMap<string, AssistantAnalysis>
+  interface AssistantAnalysis
+  readonly AssistantAnalysis.scope: DetectionScope
+  readonly AssistantAnalysis.assistants: readonly string[]
+  readonly AssistantAnalysis.detectors: Readonly<Record<string, Readonly<Record<string, number>>>>
+  readonly AssistantAnalysis.reports: readonly AssistantReport[]
+  const CLEAN_DIALOGUE: GuidedWorkflow<CleanDialogueOptions, CleanDialogueAnalyses>
+  const CREATE_SEAMLESS_LOOP: GuidedWorkflow<CreateSeamlessLoopOptions, LoopAnalyses>
+  const CUT_INTO_SOUNDS: GuidedWorkflow<CutIntoSoundsOptions, AssistantAnalyses>
+  interface CleanDialogueAnalyses
+  readonly CleanDialogueAnalyses.assistants: AssistantAnalyses
+  readonly CleanDialogueAnalyses.denoisingModel: "absent" | "installed"
+  interface CleanDialogueOptions
+  readonly CleanDialogueOptions.placement: Placement
+  interface CreateSeamlessLoopOptions
+  readonly CreateSeamlessLoopOptions.search: LoopSearch | undefined
+  readonly CreateSeamlessLoopOptions.choices: ReadonlyMap<string, LoopChoice>
+  readonly CreateSeamlessLoopOptions.endAtLoopEnd: boolean
+  interface CutIntoSoundsOptions
+  readonly CutIntoSoundsOptions.group: GameAssetGroupId | undefined
+  readonly CutIntoSoundsOptions.naming: NamingTemplate
+  readonly CutIntoSoundsOptions.threshold: number | undefined
+  readonly CutIntoSoundsOptions.shortestPause: number | undefined
+  readonly CutIntoSoundsOptions.leadInMilliseconds: number
+  readonly CutIntoSoundsOptions.tailMilliseconds: number
+  const EXPORT_FOR_GODOT: GuidedWorkflow<ExportForGodotOptions, undefined>
+  interface ExportForGodotOptions
+  readonly ExportForGodotOptions.format: GodotFormat
+  readonly ExportForGodotOptions.naming: NamingTemplate
+  readonly ExportForGodotOptions.destinationRoot: readonly string[]
+  type GodotFormat = "ogg-vorbis" | "wav"
+  interface GuidedWorkflow<Options, Analyses>
+  readonly GuidedWorkflow.key: WorkflowKey
+  readonly GuidedWorkflow.label: string
+  GuidedWorkflow.defaults: (state: ProjectState, targets: readonly WorkflowTarget[]) => WorkflowOptions<Options>
+  GuidedWorkflow.analysesFor: (state: ProjectState, targets: readonly WorkflowTarget[], options: Options) => readonly AnalysisNeed[]
+  GuidedWorkflow.plan: (input: WorkflowInput<Options, Analyses>) => DomainResult<WorkflowPlan>
+  type LoopAnalyses = ReadonlyMap<string, LoopAnswer>
+  interface LoopAnswer
+  readonly LoopAnswer.request: LoopAnalysisRequest
+  readonly LoopAnswer.analysis: LoopAnalysis
+  interface LoopChoice
+  readonly LoopChoice.rank: number
+  readonly LoopChoice.crossfade?: SuggestedCrossfade
+  const NORMALISE_GAME_SFX: GuidedWorkflow<NormaliseGameSfxOptions, undefined>
+  type NoAnalyses = undefined
+  interface NormaliseGameSfxOptions
+  readonly NormaliseGameSfxOptions.loudness: LoudnessTarget | undefined
+  readonly NormaliseGameSfxOptions.placement: Placement
+  type OptionSource = { readonly kind: "policy"; readonly source: PolicySource; } | { readonly kind: "targets"; } | { readonly kind: "workflow"; }
+  const PREPARE_ONE_SHOT: GuidedWorkflow<PrepareOneShotOptions, AssistantAnalyses>
+  type Placement = "group" | "member"
+  interface PrepareOneShotOptions
+  readonly PrepareOneShotOptions.threshold: number | undefined
+  readonly PrepareOneShotOptions.leadInMilliseconds: number
+  readonly PrepareOneShotOptions.tailMilliseconds: number
+  readonly PrepareOneShotOptions.fadeInMilliseconds: number
+  readonly PrepareOneShotOptions.fadeInShape: FadeShape
+  readonly PrepareOneShotOptions.fadeOutMilliseconds: number
+  readonly PrepareOneShotOptions.fadeOutShape: FadeShape
+  readonly PrepareOneShotOptions.peakDbtp: number
+  readonly PrepareOneShotOptions.placement: Placement
+  type WorkflowDispatch = { readonly kind: "blocked"; readonly refused: readonly WorkflowItemTarget[]; } | { readonly kind: "nothing"; } | { readonly kind: "ready"; readonly description: string; readonly invocations: readonly [CommandInvocation, ...CommandInvocation[]]; }
+  interface WorkflowInput<Options, Analyses>
+  readonly WorkflowInput.state: ProjectState
+  readonly WorkflowInput.targets: readonly WorkflowTarget[]
+  readonly WorkflowInput.options: Options
+  readonly WorkflowInput.analyses: Analyses
+  readonly WorkflowInput.catalogue: ProcessorCatalogue
+  readonly WorkflowInput.ids: IdGenerator
+  readonly WorkflowInput.clock: ExportClock
+  readonly WorkflowInput.leftOut?: readonly WorkflowItemTarget[]
+  type WorkflowItem = { readonly kind: "planned"; readonly target: WorkflowItemTarget; readonly changes: readonly string[]; } | { readonly kind: "refused"; readonly target: WorkflowItemTarget; readonly failures: readonly [DomainFailure, ...DomainFailure[]]; } | { readonly kind: "skipped"; readonly target: WorkflowItemTarget; readonly reason: string; }
+  type WorkflowItemTarget = GameAssetGroupId | GroupMember
+  type WorkflowKey = "clean-dialogue" | "create-seamless-loop" | "cut-into-sounds" | "export-for-godot" | "normalise-game-sfx" | "prepare-one-shot"
+  interface WorkflowOption<T>
+  readonly WorkflowOption.value: T
+  readonly WorkflowOption.source: OptionSource
+  type WorkflowOptions<Options> = { readonly [K in keyof Options]-?: WorkflowOption<Options[K]>; }
+  interface WorkflowPlan
+  readonly WorkflowPlan.description: string
+  readonly WorkflowPlan.invocations: readonly CommandInvocation[]
+  readonly WorkflowPlan.items: readonly WorkflowItem[]
+  readonly WorkflowPlan.exportAfter?: readonly GroupMember[]
+  readonly WorkflowPlan.measureAfter?: readonly GroupMember[]
+  type WorkflowTarget = GroupMember | { readonly kind: "group"; readonly group: GameAssetGroupId; readonly subgroups: boolean; }
+  function itemKey(target: WorkflowItemTarget): string
+  function targetMembers(state: GameAudioState, targets: readonly WorkflowTarget[]): readonly GroupMember[]
+  function workflowDispatch(plan: WorkflowPlan): WorkflowDispatch
+
+@audiogubbins/guided-workflows/testing
+  const REPAIR_KEY: string
+  const RESTORATION_KEY: string
+  interface WorkflowWorld
+  readonly WorkflowWorld.state: ProjectState
+  readonly WorkflowWorld.ids: IdGenerator
+  readonly WorkflowWorld.assets: { readonly footstep: Asset; readonly ambience: Asset; }
+  readonly WorkflowWorld.regions: { readonly walk: Region; readonly door: Region; }
+  readonly WorkflowWorld.groups: { readonly sfx: GameAssetGroup; readonly footsteps: GameAssetGroup; readonly dialogue: GameAssetGroup; }
+  readonly WorkflowWorld.chain: EffectChain
+  readonly WorkflowWorld.members: { readonly footstep: GroupMember; readonly ambience: GroupMember; readonly walk: GroupMember; readonly door: GroupMember; }
+  function applied(bus: CommandBus<ProjectState>, state: ProjectState, invocations: readonly CommandInvocation[]): ProjectState
+  function frames(start: number, end: number): EditRange
+  function repairReport(clicks: boolean): AssistantReport
+  function restorationReport(found: { readonly dcOffset: boolean; readonly noise?: { readonly stretch: EditRange; readonly state: ProcessorState; }; }): AssistantReport
+  function silenceReport(removals: readonly EditRange[], quietThroughoutLength?: number | undefined): AssistantReport
+  function stateText(state: ProjectState): string
+  function wholeAnalysis(length: number, assistants: readonly string[], detectors: Readonly<Record<string, Readonly<Record<string, number>>>>, reports: readonly AssistantReport[]): AssistantAnalysis
+  function workflowBus(): CommandBus<ProjectState>
+  function workflowWorld(fixture: SampleProject): WorkflowWorld
 
 @audiogubbins/history
   interface ChainDifference

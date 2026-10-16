@@ -20,6 +20,7 @@
  * of an engine integration, which depends on these contracts instead.
  */
 
+export { type CaseModifier, inCase } from './export/case-modifiers.js';
 export { type DestinationPath, destinationPath } from './export/destination-path.js';
 export { type GameExportProfile, profileFromPreset } from './export/game-export-profile.js';
 export { type NamingTemplate, namingTemplate } from './export/naming-template.js';

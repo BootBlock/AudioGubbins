@@ -115,6 +115,9 @@
  *   preview as values; depends on domain + import-export.
  * - loop-analysis: seamless-loop analysis over a given source; depends on
  *   domain + audio-engine.
+ * - guided-workflows: planners of project-command invocations; depends on
+ *   domain, commands, game-audio, loop-analysis, processors, import-export,
+ *   project-format, project-commands and detection-runtime.
  *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,
  * may take the fixtures package, which their own rules below leave out of what
@@ -194,7 +197,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|game-audio|history|import-export|input|loop-analysis|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|game-audio|guided-workflows|history|import-export|input|loop-analysis|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|spectral-analysis|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -641,6 +644,21 @@ module.exports = {
       from: { path: '^packages/project-commands/' },
       to: {
         path: '^packages/(?!(commands|domain|game-audio|project-commands|project-format|text)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'guided-workflows-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'A guided workflow plans ordinary project-command invocations from a subject, its ' +
+        'options, the project and the analyses (ADR-0100, ADR-0105). It reads what it plans ' +
+        'over and dispatches nothing, so it knows no storage, browser host or interface: the ' +
+        'application dispatches its plan as one history step. Its tests may take the fixtures ' +
+        'package.',
+      from: { path: '^packages/guided-workflows/' },
+      to: {
+        path: '^packages/(?!(guided-workflows|commands|detection-runtime|domain|game-audio|import-export|loop-analysis|processors|project-commands|project-format)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

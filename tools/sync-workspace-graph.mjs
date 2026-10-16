@@ -736,6 +736,34 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The guided workflows as deterministic planners (ADR-0105): each turns a
+    // subject, its options, the project and analysis results into ordinary
+    // project-command invocations, dispatched by the application as one
+    // history step. It dispatches nothing itself. Not portable: it plans over
+    // the project format and its commands, which are not.
+    dir: 'packages/guided-workflows',
+    name: '@audiogubbins/guided-workflows',
+    description:
+      'Guided workflows as deterministic planners: each turns a subject, its options and the project into ordinary project-command invocations.',
+    dom: false,
+    jsx: false,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/game-audio',
+      '@audiogubbins/loop-analysis',
+      '@audiogubbins/processors',
+      '@audiogubbins/import-export',
+      '@audiogubbins/project-format',
+      '@audiogubbins/project-commands',
+      // What a planner reads of an assistant's report.
+      '@audiogubbins/detection-runtime',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
     // What copying and pasting audio mean: the payload a copy takes from an
     // edit plan, and how a paste fits it to the asset it joins (ADR-0053).
     dir: 'packages/clipboard',

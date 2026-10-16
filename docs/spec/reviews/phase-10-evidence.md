@@ -286,7 +286,7 @@ WU-10.E1a, WU-10.E1b, WU-10.E2, WU-10.E3 and WU-10.F are **PENDING**.
 
 ```
 pnpm run verify:commit               # pnpm run lint, pnpm run typecheck:full, pnpm run test, pnpm run record:check, pnpm run test:dependencies
-pnpm test --filter game-audio --filter loop-analysis   # each package's own test script
+pnpm run test:game-audio             # vitest run --project game-audio --project loop-analysis --project guided-workflows
 pnpm run test:loop-golden            # vitest run loop-golden
 pnpm run test:audio-golden           # vitest run golden
 pnpm run test:project-roundtrip      # vitest run --project project-format --project history --project storage roundtrip round-trip project-json history-json history-conversion
