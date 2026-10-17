@@ -196,7 +196,7 @@ unless the entry says why none can. Commits are on `phase-05-editing`.
 | F-20 | **Fixed** in `0f7b4f0`. The attempt runs in a try whose finally withdraws it. `keeps nothing of a Quick Edit whose import fails rather than answers`. |
 | F-21 | **Fixed in part** in `0f7b4f0`: a failed removal still reopens the project open before, held by `opens again the project open before where the project made cannot be removed`. The rest is rejected, as above. |
 | F-22 | **Fixed** in `2d97240`, as above. |
-| F-23 | **Fixed** in `4f2dab0`. A command button that cannot run stays in the tab order, marked unavailable and described by its reason, said once above a row of them; the Transport, Asset Browser and Inspector buttons all use it. `keeps a button whose command cannot run in the tab order, saying the command’s own reason once` in `transport-panel.test.tsx`. |
+| F-23 | **Fixed** in `4f2dab0`. A command button that cannot run stays in the tab order, marked unavailable and described by its reason, said once above a row of them; the Transport, Asset Browser and Inspector buttons all use it. `keeps a button whose command cannot run in the tab order, saying the command’s own reason once` in `transport-panel.test.tsx`. Since Phase 16 the reason opens on hover or focus instead: The test is `keeps a button whose command cannot run in the tab order, described by the command’s own reason and never writing it beside the button`. |
 | F-24 | **Fixed** in `4f2dab0` and `c11aa9a`. The Inspector keys its fields by the region and starts a draft again in place when the project's value changes. `never shows a name typed for one region as another’s of the same name` in `inspector-panel.test.tsx`. |
 | F-25 | **Fixed** in `4f2dab0`. Import and Cancel are one button whose label changes, its status line always present, and the control that stops a region looping stays, unavailable with its reason. `turns the import control into the one that calls the import off and back, keeping the focus on it` in `asset-browser.test.tsx`. |
 | F-26 | **Fixed** in `82c644d`. The stale sentence is removed, the side heard is said once by the command that switches it, the play button is the command's own, named by its label and unavailable with its reason where audio cannot play. `says the side heard once, by the command that switches it, and plays it only where playback can` in `history-panel.test.tsx`. |
@@ -264,3 +264,9 @@ The owner's decision of 2026-09-28 replaces looped review rounds with one
 pass whose findings are fixed. No lens was re-run. Each fix was verified by
 the test its author saw fail before it and by the gate over the merged tree,
 and the browser test runs over the merged tree before it lands.
+
+### Titles a disposition quotes that no test has now
+
+| Quoted | The title its test has now |
+| --- | --- |
+| keeps a button whose command cannot run in the tab order, saying the command’s own reason once | keeps a button whose command cannot run in the tab order, described by the command’s own reason and never writing it beside the button |
