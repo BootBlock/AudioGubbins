@@ -63,6 +63,9 @@ import './shell/projects/projects.css';
 import './shell/export/export.css';
 import './shell/import/import.css';
 import './shell/workflows/workflows.css';
+import './shell/compatibility-screen.css';
+import './shell/source-change-prompt.css';
+import './shell/diagnostic-export.css';
 import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */

@@ -3535,8 +3535,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One control whose key handler, spoken feedback and buttons all read the same presses and listening state.',
     ],
     'apps/web/src/shell/diagnostic-export.tsx: DiagnosticExportDialog': [
-      130,
-      'One consent dialogue whose switches, notes, redacted note and contents preview all read one selection and one set of redaction options, so what is shown is what is saved. What is said of the redaction and what is shown of it are two elements, because the note is as long as the reader made it and only a sentence can be read out; both are that one preview, said and shown.',
+      95,
+      'One consent dialogue whose switches, notes, redacted note and contents preview all read one selection and one set of redaction options, so what is shown is what is saved. The redaction preview and the contents list are drawn by their own components from what this one reads.',
     ],
     'apps/web/src/shell/settings/workspaces.tsx: Workspaces': [
       85,

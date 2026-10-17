@@ -453,8 +453,7 @@
   text-align: end;
 }
 
-.ag-cleanup-steps,
-.ag-source-changes {
+.ag-cleanup-steps {
   margin: 0;
   padding: 0;
   list-style: none;

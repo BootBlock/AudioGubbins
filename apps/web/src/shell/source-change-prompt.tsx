@@ -16,7 +16,13 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ModalDialog, OptionSelect } from '@audiogubbins/design-system';
+import {
+  Button,
+  Icon,
+  ModalDialog,
+  OptionSelect,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { AssetId } from '@audiogubbins/domain';
 import type {
   ResolutionChoice,
@@ -29,7 +35,6 @@ import type { Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
 import { wantsLeave, type SourceChange, type SourceChangeState } from '../state/source-changes.js';
 import { offeredSentence } from '../commands/source-commands.js';
-import { ReasonedButton } from './settings/reasoned-button.js';
 import type { RunCommand } from './settings/section.js';
 import { quoted } from '@audiogubbins/text';
 
@@ -53,6 +58,35 @@ function whatBecame(classification: SourceClassification, name: string): string 
         case 'not-found':
         case 'unreadable':
           return `The file of ${name} cannot be found.`;
+      }
+  }
+}
+
+/** How a changed file is marked: its glyph, and the tone its card takes. */
+interface ChangeMark {
+  readonly icon: IconName;
+  readonly tone: 'accent' | 'warning' | 'error' | 'success';
+}
+
+/** The mark of what became of a file. */
+function markOf(classification: SourceClassification): ChangeMark {
+  switch (classification.kind) {
+    case 'unchanged':
+      return { icon: 'success', tone: 'success' };
+    case 'modified':
+      return { icon: 'changed-file', tone: 'warning' };
+    case 'replaced':
+    case 'relinked-identical':
+      return { icon: 'replaced-file', tone: 'accent' };
+    case 'missing':
+      switch (classification.reason) {
+        case 'access-needed':
+          return { icon: 'needs-access', tone: 'accent' };
+        case 'permission-refused':
+          return { icon: 'needs-access', tone: 'error' };
+        case 'not-found':
+        case 'unreadable':
+          return { icon: 'missing-file', tone: 'error' };
       }
   }
 }
@@ -96,17 +130,74 @@ function NextTime({
     .map((policy) => ({ value: policy, label: POLICY_LABELS[policy] }));
   return (
     <>
-      <OptionSelect
-        label="The next time its file changes"
-        value={media.policy}
-        options={options}
-        onValueChange={(policy) => run('source.set-policy', { asset, policy })}
-      />
+      <div className="ag-source-change-policy">
+        <OptionSelect
+          label="The next time its file changes"
+          value={media.policy}
+          options={options}
+          onValueChange={(policy) => run('source.set-policy', { asset, policy })}
+        />
+      </div>
       {!keepsCopy && (
-        <p className="ag-settings-note">
+        <p className="ag-dialogue-note">
           Keeping the version the project used needs a copy of it, which this asset does not keep.
         </p>
       )}
+    </>
+  );
+}
+
+/** The choices for one changed file, each a button, and why any cannot be taken. */
+function FileChoices({
+  change,
+  name,
+  run,
+}: {
+  readonly change: SourceChange;
+
+  /** The file's name, quoted. */
+  readonly name: string;
+  readonly run: RunCommand;
+}): ReactNode {
+  const { offered } = change;
+  const reasons = [...new Set(change.plan.choices.flatMap((choice) => reasonOf(choice) ?? []))];
+  return (
+    <>
+      <div className="ag-dialogue-row" role="group" aria-label={`What to do about ${name}`}>
+        {wantsLeave(change.classification) ? (
+          <Button onClick={() => run('source.give-access', { asset: change.asset })}>
+            <Icon name="give-access" />
+            Give access
+          </Button>
+        ) : undefined}
+        {offered === undefined ? undefined : (
+          <Button onClick={() => run('source.link-offered', { asset: change.asset })}>
+            {offered.identity.fileName === undefined
+              ? 'Link the chosen file anyway'
+              : `Link ${quoted(offered.identity.fileName)} anyway`}
+          </Button>
+        )}
+        {change.plan.choices.map((choice) => {
+          const reason = reasonOf(choice);
+          return (
+            <Button
+              key={choice.kind}
+              {...(reason === undefined ? {} : { unavailableReason: reason })}
+              onClick={() => run('source.resolve', { asset: change.asset, choice: choice.kind })}
+            >
+              {CHOICE_LABELS[choice.kind]}
+            </Button>
+          );
+        })}
+      </div>
+      {/* Shown under the buttons as well as held by the one it stops, so the
+          reader sees why before reaching for it. Hidden from a screen
+          reader, which hears it as that button's description. */}
+      {reasons.map((reason) => (
+        <p key={reason} className="ag-dialogue-note" aria-hidden="true">
+          {reason}
+        </p>
+      ))}
     </>
   );
 }
@@ -123,34 +214,20 @@ function ChangedFile({
 }): ReactNode {
   const name = quoted(change.name);
   const { offered } = change;
+  const mark = markOf(change.classification);
   return (
-    <li className="ag-source-change">
-      <p>{whatBecame(change.classification, name)}</p>
-      {offered === undefined ? undefined : <p>{offeredSentence(offered)}</p>}
-      <div className="ag-settings-row" role="group" aria-label={`What to do about ${name}`}>
-        {wantsLeave(change.classification) ? (
-          <Button onClick={() => run('source.give-access', { asset: change.asset })}>
-            Give access
-          </Button>
-        ) : undefined}
+    <li className="ag-source-change" data-ag-tone={mark.tone}>
+      <span className="ag-source-change-mark">
+        <Icon name={mark.icon} />
+      </span>
+      <div className="ag-source-change-body">
+        <p className="ag-dialogue-text">{whatBecame(change.classification, name)}</p>
         {offered === undefined ? undefined : (
-          <Button onClick={() => run('source.link-offered', { asset: change.asset })}>
-            {offered.identity.fileName === undefined
-              ? 'Link the chosen file anyway'
-              : `Link ${quoted(offered.identity.fileName)} anyway`}
-          </Button>
+          <p className="ag-dialogue-note">{offeredSentence(offered)}</p>
         )}
-        {change.plan.choices.map((choice) => (
-          <ReasonedButton
-            key={choice.kind}
-            reason={reasonOf(choice)}
-            onPress={() => run('source.resolve', { asset: change.asset, choice: choice.kind })}
-          >
-            {CHOICE_LABELS[choice.kind]}
-          </ReasonedButton>
-        ))}
+        <FileChoices change={change} name={name} run={run} />
+        <NextTime asset={change.asset} media={media} run={run} />
       </div>
-      <NextTime asset={change.asset} media={media} run={run} />
     </li>
   );
 }
@@ -177,7 +254,9 @@ export function SourceChangePrompt({
         if (!open) run('source.decide-later');
       }}
       title="Linked files have changed"
+      icon="linked-files-changed"
       description="Some files this project links to are not what it last used. Choose what to do about each."
+      closeLabel="Close"
     >
       <ul className="ag-source-changes">
         {state.changes.map((change) => (
@@ -190,7 +269,7 @@ export function SourceChangePrompt({
         ))}
       </ul>
       {state.applied.map((done) => (
-        <p key={done.asset} className="ag-settings-note">
+        <p key={done.asset} className="ag-dialogue-note">
           {`${quoted(done.name)} was dealt with as its own setting says: ${CHOICE_LABELS[done.kind].toLowerCase()}.`}
         </p>
       ))}

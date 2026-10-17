@@ -228,7 +228,7 @@ test.describe('projects kept in the browser', () => {
     // Not `openFresh`: the screen blocks the page, so the menu bar behind it is
     // hidden from the reader until a decision is made.
     await page.goto('/');
-    const screen = page.getByRole('dialog', { name: 'Your stored projects need a decision' });
+    const screen = page.getByRole('dialog', { name: 'Stored projects' });
     await expect(screen).toBeVisible();
     await expect(
       screen.getByText(
