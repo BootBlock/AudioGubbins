@@ -10,12 +10,18 @@ import type { ReactNode } from 'react';
 import { Icon, IconSize } from '../../icons/icon.js';
 import type { IconName } from '../../icons/vocabulary.js';
 
-/** Whether a popover explains, or gives the reason something cannot be done. */
+/** Whether a popover explains, warns, says why something failed, or gives the reason something cannot be done. */
 export const PopoverTone = {
   Plain: 'plain',
 
   /** Why a control is unavailable (ADR-0013): its glyph is in the warning colour. */
   Reason: 'reason',
+
+  /** A caution about something that still works: its glyph is in the warning colour. */
+  Warning: 'warning',
+
+  /** Why something failed: its glyph is in the error colour. */
+  Error: 'error',
 } as const;
 
 /** Whether a popover explains, or gives the reason something cannot be done. */

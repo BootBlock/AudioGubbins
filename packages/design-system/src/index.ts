@@ -230,7 +230,7 @@ export {
   PopoverBody,
   PopoverTone,
 } from './primitives/overlays/info-popover.js';
-export { Hint, type HintProps } from './primitives/overlays/hint.js';
+export { Hint, type HintProps, HintTone } from './primitives/overlays/hint.js';
 export { HintProvider, Tooltip, type TooltipProps } from './primitives/overlays/tooltips.js';
 export {
   RichTooltip,

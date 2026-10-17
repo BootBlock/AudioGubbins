@@ -427,8 +427,12 @@
   line-height: var(--ag-text-line-height-heading);
 }
 
-.ag-popover[data-ag-tone='reason'] .ag-popover-title .ag-icon {
+.ag-popover:is([data-ag-tone='reason'], [data-ag-tone='warning']) .ag-popover-title .ag-icon {
   color: var(--ag-chrome-status-warning);
+}
+
+.ag-popover[data-ag-tone='error'] .ag-popover-title .ag-icon {
+  color: var(--ag-chrome-status-error);
 }
 
 .ag-popover-arrow {
@@ -461,6 +465,32 @@
 .ag-hint:is([data-state='open'], [data-ag-force-state='pressed'] *) {
   color: var(--ag-chrome-accent);
   background-color: var(--ag-chrome-accent-subtle);
+}
+
+/* A warning or an error behind a hint is seen before it is opened: the glyph
+   in its tone's colour at rest, and its tone's wash, not the accent's, open. */
+.ag-hint[data-ag-tone='warning'] {
+  --ag-hint-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-hint[data-ag-tone='error'] {
+  --ag-hint-tone: var(--ag-chrome-status-error);
+}
+
+.ag-hint:is([data-ag-tone='warning'], [data-ag-tone='error']),
+.ag-hint:is([data-ag-tone='warning'], [data-ag-tone='error']):is(
+    :hover,
+    [data-ag-force-state='hover'] *
+  ) {
+  color: var(--ag-hint-tone);
+}
+
+.ag-hint:is([data-ag-tone='warning'], [data-ag-tone='error']):is(
+    [data-state='open'],
+    [data-ag-force-state='pressed'] *
+  ) {
+  color: var(--ag-hint-tone);
+  background-color: color-mix(in oklch, var(--ag-hint-tone) 14%, transparent);
 }
 
 /* ---------- The menu bar ---------- */

@@ -382,6 +382,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [
         'Hint',
         'HintProps',
+        'HintTone',
         'PopoverBody',
         'PopoverTone',
         'RichTooltip',

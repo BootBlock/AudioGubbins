@@ -17,6 +17,7 @@ import {
   ButtonTone,
   DialogueVariant,
   Hint,
+  HintTone,
   Icon,
   IconSize,
   type IconName,
@@ -761,6 +762,33 @@ const specimens: readonly Specimen[] = [
       </div>
     ),
   },
+  ...[HintTone.Warning, HintTone.Error].flatMap((tone): Specimen[] =>
+    (['default', 'pressed'] as const).map((state) => ({
+      component: 'Hint',
+      state: `${tone}${state === 'default' ? '' : `, ${state}`}`,
+      render: () => (
+        <Hint label="About the seam" title="The seam clicks" tone={tone}>
+          <p>The waveform jumps where the loop starts again.</p>
+        </Hint>
+      ),
+    })),
+  ),
+  ...[PopoverTone.Warning, PopoverTone.Error].map(
+    (tone): Specimen => ({
+      component: 'InfoPopover',
+      state: tone,
+      render: () => (
+        <div className="ag-popover" role="dialog" aria-label="The seam" data-ag-tone={tone}>
+          <PopoverBody
+            title={tone === PopoverTone.Error ? 'The loop could not be checked' : 'The seam clicks'}
+            icon={tone === PopoverTone.Error ? 'error' : 'warning'}
+          >
+            <p>The waveform jumps where the loop starts again.</p>
+          </PopoverBody>
+        </div>
+      ),
+    }),
+  ),
   ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
     component: 'Hint',
     state,
