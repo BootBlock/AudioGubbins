@@ -327,11 +327,23 @@ function readOnly(member: ts.Symbol): boolean {
   );
 }
 
+/**
+ * A member's name as its declaration writes it. A member keyed by a symbol,
+ * such as `[Symbol.asyncIterator]`, is named by the compiler with a number
+ * that moves whenever the program holds one more symbol, so the record would
+ * change with no contract changed.
+ */
+function memberName(member: ts.Symbol): string {
+  const [declaration] = member.declarations ?? [];
+  const name = declaration === undefined ? undefined : ts.getNameOfDeclaration(declaration);
+  return name !== undefined && ts.isComputedPropertyName(name) ? name.getText() : member.name;
+}
+
 /** A member of an interface, a class or an object type, as the record writes it. */
 function memberLine(recorder: Recorder, owner: string, member: ts.Symbol, at: ts.Node): string {
   const optional = (member.flags & ts.SymbolFlags.Optional) !== 0 ? '?' : '';
   const type = recorder.text(recorder.checker.getTypeOfSymbolAtLocation(member, at), at);
-  return `  ${readOnly(member) ? 'readonly ' : ''}${owner}.${member.name}${optional}: ${type}`;
+  return `  ${readOnly(member) ? 'readonly ' : ''}${owner}.${memberName(member)}${optional}: ${type}`;
 }
 
 /** The symbol an exported name stands for. */
