@@ -10,7 +10,7 @@
 
 import type { ReactNode } from 'react';
 
-import { ControlHint, describedBy } from './control-hint.js';
+import { ControlHint, describedBy } from '../control-hint.js';
 import { RecordLampDrawing } from './record-lamp-drawing.js';
 
 /** What a record button takes. */

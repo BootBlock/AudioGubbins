@@ -15,7 +15,7 @@ import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '../../icons/icon.js';
 import type { IconName } from '../../icons/vocabulary.js';
 import { useChosenBox, type ChosenBox } from './chosen-box.js';
-import { ControlHint, describedBy } from './control-hint.js';
+import { ControlHint, describedBy } from '../control-hint.js';
 
 /** How the choices are drawn. */
 export const SegmentedVariant = {

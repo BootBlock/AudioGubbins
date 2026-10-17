@@ -13,8 +13,8 @@
 import { Tooltip } from 'radix-ui';
 import { useId, useState, type ReactElement, type ReactNode } from 'react';
 
-import { Icon, IconSize } from '../../icons/icon.js';
-import { hintSurface } from '../overlays/tooltips.js';
+import { Icon, IconSize } from '../icons/icon.js';
+import { hintSurface } from './overlays/tooltips.js';
 
 /**
  * How long a pointer rests before a hint opens, and how soon the next opens

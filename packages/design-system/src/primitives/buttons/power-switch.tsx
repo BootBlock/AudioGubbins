@@ -10,7 +10,7 @@
 import { Switch } from 'radix-ui';
 import type { ReactNode } from 'react';
 
-import { ControlHint, describedBy } from './control-hint.js';
+import { ControlHint, describedBy } from '../control-hint.js';
 import { PowerSwitchDrawing } from './power-switch-drawing.js';
 
 /** What a power switch takes. */

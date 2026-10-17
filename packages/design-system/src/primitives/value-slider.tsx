@@ -17,7 +17,7 @@
 import { Slider } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
-import { UnavailableReason } from './dials/unavailable-reason.js';
+import { ControlHint, describedBy } from './control-hint.js';
 import { isLocked, placeHandlers, travelOf, type DialProps } from './dials/value-travel.js';
 
 /** What a slider takes. */
@@ -27,7 +27,6 @@ export type ValueSliderProps = DialProps;
 export function ValueSlider(props: ValueSliderProps): ReactNode {
   const { label, value, describeValue, displayValue, unavailableReason } = props;
   const labelId = useId();
-  const reasonId = useId();
   const travel = travelOf(props);
   const unavailable = unavailableReason !== undefined;
 
@@ -51,18 +50,20 @@ export function ValueSlider(props: ValueSliderProps): ReactNode {
         <Slider.Track className="ag-slider-track">
           <Slider.Range className="ag-slider-range" />
         </Slider.Track>
-        <UnavailableReason id={reasonId} reason={unavailableReason}>
-          <Slider.Thumb
-            className="ag-slider-thumb ag-touch-target"
-            // The slider role sits on the thumb, not the root, so the label and
-            // the spoken value belong here. On the root they would name an
-            // element a screen reader never lands on.
-            aria-labelledby={labelId}
-            aria-valuetext={describeValue(value)}
-            aria-disabled={unavailable ? true : undefined}
-            aria-describedby={unavailable ? reasonId : undefined}
-          />
-        </UnavailableReason>
+        <ControlHint unavailableReason={unavailableReason}>
+          {({ reasonId }) => (
+            <Slider.Thumb
+              className="ag-slider-thumb ag-touch-target"
+              // The slider role sits on the thumb, not the root, so the label
+              // and the spoken value belong here. On the root they would name
+              // an element a screen reader never lands on.
+              aria-labelledby={labelId}
+              aria-valuetext={describeValue(value)}
+              aria-disabled={unavailable ? true : undefined}
+              {...describedBy(reasonId)}
+            />
+          )}
+        </ControlHint>
       </Slider.Root>
       {displayValue !== undefined && <span className="ag-slider-value">{displayValue}</span>}
     </div>

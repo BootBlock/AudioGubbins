@@ -12,7 +12,7 @@
 import { RadioGroup as Radio } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
-import { ControlHint, describedBy } from './control-hint.js';
+import { ControlHint, describedBy } from '../control-hint.js';
 import { PanelLamp } from './panel-lamp.js';
 
 /** One choice of a radio group. */

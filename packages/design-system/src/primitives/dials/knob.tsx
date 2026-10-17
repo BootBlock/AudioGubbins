@@ -17,10 +17,10 @@
 
 import { useId, type CSSProperties, type ReactNode } from 'react';
 
+import { ControlHint, describedBy } from '../control-hint.js';
 import { KnobFace } from './knob-face.js';
 import { knobAngle } from './knob-geometry.js';
 import { TypedValueField, type DialTyping } from './typed-value-field.js';
-import { UnavailableReason } from './unavailable-reason.js';
 import { useKnobTurn } from './use-knob-turn.js';
 import { fractionOf, isLocked, travelOf, type DialProps } from './value-travel.js';
 
@@ -48,10 +48,8 @@ function turnStyle(fraction: number): CSSProperties & { readonly '--ag-knob-turn
 export function Knob(props: KnobProps): ReactNode {
   const { label, value, describeValue, displayValue, typing, unavailableReason } = props;
   const labelId = useId();
-  const reasonId = useId();
   const travel = travelOf(props);
   const locked = isLocked(props);
-  const unavailable = unavailableReason !== undefined;
   const fraction = fractionOf(travel, travel.at);
   const { dragging, handlers } = useKnobTurn(props, travel, locked);
 
@@ -61,25 +59,27 @@ export function Knob(props: KnobProps): ReactNode {
       data-ag-bypassed={props.bypassed === true ? '' : undefined}
       data-ag-locked={locked ? '' : undefined}
     >
-      <UnavailableReason id={reasonId} reason={unavailableReason}>
-        <div
-          className="ag-knob-dial ag-touch-target"
-          role="slider"
-          tabIndex={props.disabled === true ? undefined : 0}
-          aria-labelledby={labelId}
-          aria-valuemin={travel.min}
-          aria-valuemax={travel.max}
-          aria-valuenow={travel.at}
-          aria-valuetext={describeValue(value)}
-          aria-disabled={locked ? true : undefined}
-          aria-describedby={unavailable ? reasonId : undefined}
-          data-ag-dragging={dragging ? '' : undefined}
-          style={turnStyle(fraction)}
-          {...handlers}
-        >
-          <KnobFace fraction={fraction} />
-        </div>
-      </UnavailableReason>
+      <ControlHint unavailableReason={unavailableReason}>
+        {({ reasonId }) => (
+          <div
+            className="ag-knob-dial ag-touch-target"
+            role="slider"
+            tabIndex={props.disabled === true ? undefined : 0}
+            aria-labelledby={labelId}
+            aria-valuemin={travel.min}
+            aria-valuemax={travel.max}
+            aria-valuenow={travel.at}
+            aria-valuetext={describeValue(value)}
+            aria-disabled={locked ? true : undefined}
+            {...describedBy(reasonId)}
+            data-ag-dragging={dragging ? '' : undefined}
+            style={turnStyle(fraction)}
+            {...handlers}
+          >
+            <KnobFace fraction={fraction} />
+          </div>
+        )}
+      </ControlHint>
       <span className="ag-knob-label" id={labelId}>
         {label}
       </span>

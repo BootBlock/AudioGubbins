@@ -18,7 +18,7 @@ import { Slider } from 'radix-ui';
 import { useId, useLayoutEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { useTheme } from '../../theme/theme-provider.js';
-import { UnavailableReason } from './unavailable-reason.js';
+import { ControlHint, describedBy } from '../control-hint.js';
 import {
   fractionOf,
   fractionOfValue,
@@ -102,13 +102,10 @@ interface FaderSliderProps {
 
   /** The fader's label, which names the cap. */
   readonly labelId: string;
-
-  /** The reason it is unavailable, which describes the cap. */
-  readonly reasonId: string;
 }
 
 /** The slot and its cap: the slider that moves the fader's value. */
-function FaderSlider({ dial, travel, labelId, reasonId }: FaderSliderProps): ReactNode {
+function FaderSlider({ dial, travel, labelId }: FaderSliderProps): ReactNode {
   const { value, describeValue, unavailableReason } = dial;
   const unavailable = unavailableReason !== undefined;
   return (
@@ -127,17 +124,19 @@ function FaderSlider({ dial, travel, labelId, reasonId }: FaderSliderProps): Rea
       <Slider.Track className="ag-fader-slot">
         <span className="ag-fader-slot-level" />
       </Slider.Track>
-      <UnavailableReason id={reasonId} reason={unavailableReason}>
-        <Slider.Thumb
-          className="ag-fader-cap ag-touch-target"
-          aria-labelledby={labelId}
-          aria-valuetext={describeValue(value)}
-          aria-disabled={unavailable ? true : undefined}
-          aria-describedby={unavailable ? reasonId : undefined}
-        >
-          <span className="ag-fader-index" />
-        </Slider.Thumb>
-      </UnavailableReason>
+      <ControlHint unavailableReason={unavailableReason}>
+        {({ reasonId }) => (
+          <Slider.Thumb
+            className="ag-fader-cap ag-touch-target"
+            aria-labelledby={labelId}
+            aria-valuetext={describeValue(value)}
+            aria-disabled={unavailable ? true : undefined}
+            {...describedBy(reasonId)}
+          >
+            <span className="ag-fader-index" />
+          </Slider.Thumb>
+        )}
+      </ControlHint>
     </Slider.Root>
   );
 }
@@ -146,7 +145,6 @@ function FaderSlider({ dial, travel, labelId, reasonId }: FaderSliderProps): Rea
 export function Fader(props: FaderProps): ReactNode {
   const { label, displayValue, marks = [] } = props;
   const labelId = useId();
-  const reasonId = useId();
   const travel = travelOf(props);
   const [measured, short] = useShortTravel();
 
@@ -178,7 +176,7 @@ export function Fader(props: FaderProps): ReactNode {
             </span>
           ))}
         </div>
-        <FaderSlider dial={props} travel={travel} labelId={labelId} reasonId={reasonId} />
+        <FaderSlider dial={props} travel={travel} labelId={labelId} />
       </div>
       {displayValue !== undefined && <span className="ag-fader-value">{displayValue}</span>}
     </div>

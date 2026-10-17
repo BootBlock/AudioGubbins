@@ -12,7 +12,7 @@
 import { Switch } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
-import { ControlHint, describedBy } from './control-hint.js';
+import { ControlHint, describedBy } from '../control-hint.js';
 
 /** What a switch takes. */
 export interface ToggleSwitchProps {

@@ -13,7 +13,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 
-import { ControlHint, describedBy } from './buttons/control-hint.js';
+import { ControlHint, describedBy } from './control-hint.js';
 
 /** How prominent the button is. */
 export const ButtonTone = {
