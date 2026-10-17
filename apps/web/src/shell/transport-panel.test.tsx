@@ -4,6 +4,12 @@ import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubbins/capabilities';
+import {
+  DEFAULT_THEME_PREFERENCES,
+  ThemeProvider,
+  UNKNOWN_SYSTEM_APPEARANCE,
+  fixedSystemAppearance,
+} from '@audiogubbins/design-system';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
@@ -71,22 +77,29 @@ function draw(
     options.environment ?? CAPABLE,
     createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
   );
+  // In the theme, as the application draws it: the meters take their
+  // ballistics from it.
   render(
-    <TransportPanel
-      title="Transport"
-      audio={audio}
-      audioSettings={options.settings ?? audioSettings()}
-      renderStrategy={options.strategy ?? createRenderStrategyStore()}
-      capabilities={capabilities}
-      playhead={options.playhead ?? (() => undefined)}
-      meters={options.meters ?? (() => NO_METERS)}
-      framesRendered={options.framesRendered ?? (() => 0)}
-      run={run}
-      unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
-      editorViews={options.editorViews ?? observable(undefined)}
-      assets={options.assets ?? observable(undefined)}
-      hearing={createHearingStore()}
-    />,
+    <ThemeProvider
+      preferences={DEFAULT_THEME_PREFERENCES}
+      system={fixedSystemAppearance(UNKNOWN_SYSTEM_APPEARANCE)}
+    >
+      <TransportPanel
+        title="Transport"
+        audio={audio}
+        audioSettings={options.settings ?? audioSettings()}
+        renderStrategy={options.strategy ?? createRenderStrategyStore()}
+        capabilities={capabilities}
+        playhead={options.playhead ?? (() => undefined)}
+        meters={options.meters ?? (() => NO_METERS)}
+        framesRendered={options.framesRendered ?? (() => 0)}
+        run={run}
+        unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
+        editorViews={options.editorViews ?? observable(undefined)}
+        assets={options.assets ?? observable(undefined)}
+        hearing={createHearingStore()}
+      />
+    </ThemeProvider>,
   );
   return { run };
 }

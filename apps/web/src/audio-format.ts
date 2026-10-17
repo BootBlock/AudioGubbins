@@ -9,7 +9,7 @@
  * written in British English whatever the browser's own locale.
  */
 
-import { DspImplementation, decibelsToGain, gainToDecibels } from '@audiogubbins/audio-engine';
+import { DspImplementation, gainToDecibels } from '@audiogubbins/audio-engine';
 
 const WHOLE = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 const TENTHS = new Intl.NumberFormat('en-GB', {
@@ -60,27 +60,6 @@ const HUNDREDTHS = new Intl.NumberFormat('en-GB', {
  */
 export function correlationText(correlation: number): string {
   return HUNDREDTHS.format(correlation).replace('-', '−');
-}
-
-/** Where a peak sits on a meter's scale, for its colour. */
-export const MeterZone = {
-  Low: 'low',
-  Mid: 'mid',
-  High: 'high',
-  Clip: 'clip',
-} as const;
-
-/** Where a peak sits on a meter's scale. */
-export type MeterZone = (typeof MeterZone)[keyof typeof MeterZone];
-
-/** The linear peaks at −18 dB and −6 dB, where a meter turns amber and then red. */
-const MID_FROM = decibelsToGain(-18);
-const HIGH_FROM = decibelsToGain(-6);
-
-export function meterZone(peak: number): MeterZone {
-  if (peak >= 1) return MeterZone.Clip;
-  if (peak >= HIGH_FROM) return MeterZone.High;
-  return peak >= MID_FROM ? MeterZone.Mid : MeterZone.Low;
 }
 
 /** A fingerprint as the golden tests print it: `0x` and sixteen hexadecimal digits. */

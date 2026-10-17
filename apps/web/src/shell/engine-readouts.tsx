@@ -35,15 +35,17 @@ import {
   type PlaybackStatus,
 } from '@audiogubbins/audio-runtime';
 
+import { CorrelationMeter, LevelMeter } from '@audiogubbins/design-system';
+
 import { PROFILE_NAMES } from '../commands/audio-commands.js';
 import {
   correlationText,
   dspText,
   latencyFramesText,
   latencySecondsText,
-  meterZone,
   peakText,
 } from '../audio-format.js';
+import { PEAK_METER_SCALE } from './meter-scale.js';
 
 /** The audio features whose reductions the panel lists, in the order a person meets them. */
 const AUDIO_FEATURES = [AUDIO_PLAYBACK, CANONICAL_DSP, OFFLINE_RENDERING, OUTPUT_DEVICE_CHOICE];
@@ -192,79 +194,20 @@ export function EngineState({
   );
 }
 
-/** What a channel is called: left and right for a pair, a number otherwise. */
-function channelName(channel: number, channels: number): string {
-  if (channels === 2) return channel === 0 ? 'Left' : 'Right';
-  return `Channel ${String(channel + 1)}`;
-}
-
-/** One meter's peak on each channel. */
-function ChannelPeaks({ levels }: { readonly levels: MeterLevels }): ReactNode {
-  return levels.peak.map((peak, channel) => {
-    const name = channelName(channel, levels.peak.length);
-    return (
-      <div key={name} className="ag-meter">
-        <span className="ag-meter-name">{name}</span>
-        <div
-          className="ag-meter-scale"
-          role="meter"
-          aria-label={`${name} peak`}
-          aria-valuemin={0}
-          aria-valuemax={1}
-          aria-valuenow={Math.min(1, peak)}
-          aria-valuetext={peakText(peak)}
-        >
-          <div
-            className="ag-meter-fill"
-            data-ag-zone={meterZone(peak)}
-            style={{ inlineSize: `${String(Math.min(1, peak) * 100)}%` }}
-          />
-        </div>
-        <span className="ag-meter-value">{peakText(peak)}</span>
-      </div>
-    );
-  });
+/** What a channel is called, and the letter its meter is marked with. */
+function channelOf(
+  channel: number,
+  channels: number,
+): { readonly name: string; readonly letter: string } {
+  if (channels === 2)
+    return channel === 0 ? { name: 'Left', letter: 'L' } : { name: 'Right', letter: 'R' };
+  const number = String(channel + 1);
+  return { name: `Channel ${number}`, letter: number };
 }
 
 /** What a correlated pair is called: left and right for a stereo meter, a number otherwise. */
 function pairName(pair: number, channels: number): string {
   return channels === 2 ? 'Left and right' : `Pair ${String(pair + 1)}`;
-}
-
-/**
- * Each correlated pair's phase correlation, on a scale from −1, one channel
- * the inverse of the other, through 0, unrelated, to 1, in phase: a bar from
- * the middle, towards the end the reading is nearer.
- */
-function PairCorrelations({ levels }: { readonly levels: MeterLevels }): ReactNode {
-  return levels.correlation.map((correlation, pair) => {
-    const name = pairName(pair, levels.peak.length);
-    const reach = Math.min(1, Math.abs(correlation)) * 50;
-    return (
-      <div key={name} className="ag-meter">
-        <span className="ag-meter-name">Correlation</span>
-        <div
-          className="ag-meter-scale"
-          role="meter"
-          aria-label={`${name} correlation`}
-          aria-valuemin={-1}
-          aria-valuemax={1}
-          aria-valuenow={correlation}
-          aria-valuetext={correlationText(correlation)}
-        >
-          <div
-            className="ag-meter-fill"
-            data-ag-zone={correlation < 0 ? 'high' : 'low'}
-            style={{
-              marginInlineStart: `${String(correlation < 0 ? 50 - reach : 50)}%`,
-              inlineSize: `${String(reach)}%`,
-            }}
-          />
-        </div>
-        <span className="ag-meter-value">{correlationText(correlation)}</span>
-      </div>
-    );
-  });
 }
 
 /**
@@ -284,7 +227,13 @@ export function LevelMeters({
   ));
 }
 
-/** One meter's channels and correlated pairs, as a group named `label`: a graph's, or an input's. */
+/**
+ * One meter's channels and correlated pairs, as a group named `label`: a
+ * graph's, or an input's. The channels are the design system's LED meter and
+ * each pair its correlation meter, which move with their own ballistics: a
+ * peak rises at once and falls back, its hold waits and then falls, and the
+ * correlation's pointer glides (design language, MotionSpec).
+ */
 export function LevelGroup({
   label,
   levels,
@@ -292,10 +241,31 @@ export function LevelGroup({
   readonly label: string;
   readonly levels: MeterLevels;
 }): ReactNode {
+  const channels = levels.peak.length;
   return (
-    <div className="ag-meters" role="group" aria-label={label}>
-      <ChannelPeaks levels={levels} />
-      <PairCorrelations levels={levels} />
+    <div className="ag-level-group" role="group" aria-label={label}>
+      <LevelMeter
+        label="Peaks"
+        channels={levels.peak.map((peak, channel) => {
+          const { name, letter } = channelOf(channel, channels);
+          return { name: `${name} peak`, letter, peak };
+        })}
+        scale={PEAK_METER_SCALE}
+        describePeak={peakText}
+      />
+      {levels.correlation.map((correlation, pair) => {
+        const name = pairName(pair, channels);
+        return (
+          <CorrelationMeter
+            key={name}
+            label={`${name} correlation`}
+            caption="Corr"
+            correlation={correlation}
+            displayValue={correlationText(correlation)}
+            describeCorrelation={correlationText}
+          />
+        );
+      })}
     </div>
   );
 }
