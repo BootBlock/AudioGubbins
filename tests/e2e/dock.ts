@@ -8,12 +8,12 @@ import type { Locator, Page } from '@playwright/test';
  * it draws them with. Those names are the engine's private business and change
  * when it does.
  *
- * Here rather than in each spec. Spread over the specs, the names
- * would leave the architecture rule that keeps the engine behind one module
- * true of the production code and the claim it carries — "replacing it is a
- * change to one directory and one stylesheet" — false. With them here, the
- * engine is known in four places: the adapter, the stylesheet that reaches the
- * engine's own by `@import`, the adapter's own test, and this file. A rule in
+ * Here rather than in each spec. Spread over the specs, the names would leave
+ * the architecture rule that keeps the engine behind one module true of the
+ * production code and the claim it carries — "replacing it is a change to one
+ * directory and one stylesheet" — false. With them here, the engine is known in
+ * four places: the adapter, the stylesheet that reaches the engine's own by
+ * `@import`, the adapter's own test, and this file. A rule in
  * `dependency-rules.test.ts` holds that list.
  *
  * A test should ask for a panel by its heading or its tab's accessible name

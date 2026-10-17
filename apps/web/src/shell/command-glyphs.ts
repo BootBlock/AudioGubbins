@@ -5,8 +5,9 @@
  * palette's rows and the buttons that run a command. A command drawn with one
  * glyph in a menu and another on a panel's button would read as two actions,
  * and a glyph chosen at each call site drifts the first time one of them is
- * changed. A command missing here is drawn without a glyph, never with a stand-in:
- * the ones left out have no glyph in the vocabulary that says what they do.
+ * changed. A command missing here is drawn without a glyph, never with a
+ * stand-in: the ones left out have no glyph in the vocabulary that says what
+ * they do.
  *
  * A command that shows a panel takes the panel's own glyph, so the Workspace
  * menu's list of panels reads as the dock's tabs do.

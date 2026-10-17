@@ -4,9 +4,9 @@
  *
  * Every change is written as it is made, so there is no Save: the status bar
  * says the project is saved, is being saved, or is not being saved, with why
- * behind a hint and the action that tries again. Changes that stop being saved are said
- * aloud as well, once, since the person is still working and would otherwise
- * lose them unawares.
+ * behind a hint and the action that tries again. Changes that stop being saved
+ * are said aloud as well, once, since the person is still working and would
+ * otherwise lose them unawares.
  */
 
 import { useEffect, useRef, type ReactNode } from 'react';

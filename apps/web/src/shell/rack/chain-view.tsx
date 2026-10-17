@@ -1,11 +1,11 @@
 /**
  * One chain of a rack as the Effects rack panel draws it (ADR-0060): its slots
- * in signal order as a row of cards, a parallel group's branches nested in
- * its card, each processor with its power switch, its name, which selects it,
- * its solo and a handle that moves it by pointer or arrow keys, what it sets
- * at a glance, why it cannot run where its model is missing, its mix, and the
- * buttons that move and remove it; and the controls of each processor
- * selected, under the row (`processor-controls.tsx`).
+ * in signal order as a row of cards, a parallel group's branches nested in its
+ * card, each processor with its power switch, its name, which selects it, its
+ * solo and a handle that moves it by pointer or arrow keys, what it sets at a
+ * glance, why it cannot run where its model is missing, its mix, and the
+ * buttons that move and remove it; and the controls of each processor selected,
+ * under the row (`processor-controls.tsx`).
  *
  * Every control runs a command, naming its slot, so a control acts on the
  * slot it is drawn beside whatever is selected (`slot-controls.tsx`). The

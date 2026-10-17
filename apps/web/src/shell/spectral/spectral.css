@@ -25,8 +25,9 @@
   overflow-wrap: anywhere;
 }
 
-/* The tools' toolbar, a separator and the combination mode share one row while the panel is wide
-   enough; each group keeps itself together, so a narrower panel moves the whole mode under. */
+/* The tools' toolbar, a separator and the combination mode share one row while
+   the panel is wide enough; each group keeps itself together, so a narrower
+   panel moves the whole mode under. */
 .ag-spectral-tool-row {
   display: flex;
   flex-wrap: wrap;
@@ -70,8 +71,9 @@
   --ag-spectral-label-column: calc(38 * var(--ag-grid-unit));
 }
 
-/* A slider keeps its label, groove and value on one row in a narrow panel: the label takes the
-   form's column and the groove shrinks, rather than the value wrapping under it. */
+/* A slider keeps its label, groove and value on one row in a narrow panel: the
+   label takes the form's column and the groove shrinks, rather than the value
+   wrapping under it. */
 .ag-spectral .ag-slider-field {
   display: grid;
   grid-template-columns: var(--ag-spectral-label-column) minmax(0, 1fr) auto;
@@ -117,8 +119,8 @@
   flex: 1 1 auto;
 }
 
-/* An input's own width is its `size`, wider than half this column; sized from nothing and
-   grown to its field, two fit side by side in a narrow panel. */
+/* An input's own width is its `size`, wider than half this column; sized from
+   nothing and grown to its field, two fit side by side in a narrow panel. */
 .ag-spectral-form-row .ag-text-field-input {
   inline-size: 0;
 }

@@ -1,11 +1,11 @@
 /**
- * Hearing the original beside the processed sound (REQ-AUDIO-019): one
- * switch, on while the original is heard, which runs the command that hears
- * the other, unavailable with that command's own reason, named as that
- * command is, and saying behind its hint that every chain and spectral edit is
- * bypassed while it is on, as the approved Transport draws it. Shown by the
- * Effects rack, the Transport and the Spectral panel alike, so they never
- * disagree about what plays.
+ * Hearing the original beside the processed sound (REQ-AUDIO-019): one switch,
+ * on while the original is heard, which runs the command that hears the other,
+ * unavailable with that command's own reason, named as that command is, and
+ * saying behind its hint that every chain and spectral edit is bypassed while
+ * it is on, as the approved Transport draws it. Shown by the Effects rack, the
+ * Transport and the Spectral panel alike, so they never disagree about what
+ * plays.
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';

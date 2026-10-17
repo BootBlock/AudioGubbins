@@ -1,9 +1,9 @@
 /**
  * The Custom performance profile's settings (REQ-ARCH-083), as a form: they are
- * checked together, so a person sets the fields and applies them, and a
- * refusal names every field that is wrong while keeping what they typed.
- * Nothing here switches a feature on or off; each setting changes how soon
- * audio is heard, how much is buffered, or how work is queued.
+ * checked together, so a person sets the fields and applies them, and a refusal
+ * names every field that is wrong while keeping what they typed. Nothing here
+ * switches a feature on or off; each setting changes how soon audio is heard,
+ * how much is buffered, or how work is queued.
  */
 
 import { useState, type ReactNode } from 'react';

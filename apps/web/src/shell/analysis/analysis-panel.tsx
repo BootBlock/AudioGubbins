@@ -8,11 +8,11 @@
  * those names, which make the change through the project's commands.
  *
  * Each assistant's report is a card of `analysis-report.tsx`, its findings
- * listed by `analysis-findings.tsx`. The panel reads the
- * stores and runs commands; it writes nothing itself (`CLAUDE.md` G2), and it
- * follows every change to them, an edit that makes what it shows stale
- * included. Lists are keyed by what each item is, so a detection that answers
- * again updates them in place.
+ * listed by `analysis-findings.tsx`. The panel reads the stores and runs
+ * commands; it writes nothing itself (`CLAUDE.md` G2), and it follows every
+ * change to them, an edit that makes what it shows stale included. Lists are
+ * keyed by what each item is, so a detection that answers again updates them in
+ * place.
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';

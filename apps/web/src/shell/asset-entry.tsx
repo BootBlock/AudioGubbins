@@ -1,8 +1,8 @@
 /**
- * One row of the Asset Browser: an asset or a region of the project, its regions
- * listed under it. An entry a view can open is opened by a press on its name,
- * marked with the lit edge while the editor in use shows it; one it cannot
- * open yet says why, as the editor view of it would.
+ * One row of the Asset Browser: an asset or a region of the project, its
+ * regions listed under it. An entry a view can open is opened by a press on its
+ * name, marked with the lit edge while the editor in use shows it; one it
+ * cannot open yet says why, as the editor view of it would.
  */
 
 import type { ReactNode } from 'react';

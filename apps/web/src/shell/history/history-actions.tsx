@@ -40,8 +40,8 @@ export interface HistoryActionsProps {
 
 /**
  * A button that runs an action at the point, unavailable with `reason`. Where
- * its face is shorter than its name, `label` is the whole name, and it holds the
- * face's words, so a person who says what they see still reaches it.
+ * its face is shorter than its name, `label` is the whole name, and it holds
+ * the face's words, so a person who says what they see still reaches it.
  */
 function ActionButton({
   reason,

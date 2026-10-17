@@ -71,9 +71,9 @@ const CHOOSABLE: readonly BundleContentKey[] = Object.values(BundleContentKey).f
  * every character.
  *
  * A sentence, not the note. Holding the note itself, the region would read the
- * reader's own four thousand characters back to them atomically at every
- * pause in typing, and the field's description would read them again at every
- * return of focus.
+ * reader's own four thousand characters back to them atomically at every pause
+ * in typing, and the field's description would read them again at every return
+ * of focus.
  */
 function RedactionPreview({
   said,

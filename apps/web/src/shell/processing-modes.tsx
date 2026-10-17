@@ -1,11 +1,10 @@
 /**
- * The Transport panel's account of how the offline render processes: the
- * mode it runs in, with its reason (REQ-ARCH-079); the render mode the person
- * may set over the automatic choice; the quality a render and playback run
- * at, with every value each stands for and where the two differ
- * (REQ-AUDIO-080, REQ-AUDIO-086); and what the render's resources warned of,
- * with the choice a warning asks for (REQ-ARCH-087). How playback runs is
- * `playback-modes.tsx`.
+ * The Transport panel's account of how the offline render processes: the mode
+ * it runs in, with its reason (REQ-ARCH-079); the render mode the person may
+ * set over the automatic choice; the quality a render and playback run at, with
+ * every value each stands for and where the two differ (REQ-AUDIO-080,
+ * REQ-AUDIO-086); and what the render's resources warned of, with the choice a
+ * warning asks for (REQ-ARCH-087). How playback runs is `playback-modes.tsx`.
  *
  * As the approved Transport draws it, the render's mode, its setting and the
  * quality stand in the Offline render section, and a warning, with the choice
@@ -214,8 +213,8 @@ function usePlanning(strategy: Observable<RenderStrategyView>): RenderPlanning {
 }
 
 /**
- * How the offline render runs, for its section: the mode it takes and why,
- * the render mode set over the automatic choice, and the quality each runs at.
+ * How the offline render runs, for its section: the mode it takes and why, the
+ * render mode set over the automatic choice, and the quality each runs at.
  */
 export function RenderModes(
   props: Pick<ProcessingModesProps, 'settings' | 'strategy' | 'run'>,

@@ -1,6 +1,8 @@
 /**
- * The icons of listening and editing audio: the transport, recording, editing, the tools and the view, spectral editing. Part of the icon vocabulary (`vocabulary.ts`), which joins the parts
- * into one map whose keys are the names a feature may use.
+ * The icons of listening and editing audio: the transport, recording, editing,
+ * the tools and the view, spectral editing. Part of the icon vocabulary
+ * (`vocabulary.ts`), which joins the parts into one map whose keys are the
+ * names a feature may use.
  */
 
 import { __iconData as alignCenterVerticalGlyph } from 'lucide-react/dist/esm/icons/align-center-vertical.mjs';

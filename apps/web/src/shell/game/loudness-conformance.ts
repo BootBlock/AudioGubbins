@@ -4,8 +4,8 @@
  * this session and the identity of the member's audio now.
  *
  * A member conforms where its integrated loudness is within the target's
- * tolerance and, where the target sets a ceiling, its true peak is under it.
- * A reading of audio that has changed since is stale and says so, rather than
+ * tolerance and, where the target sets a ceiling, its true peak is under it. A
+ * reading of audio that has changed since is stale and says so, rather than
  * standing for audio it did not read. Every verdict is told in words and by the
  * glyph of its kind, never by a colour alone.
  */

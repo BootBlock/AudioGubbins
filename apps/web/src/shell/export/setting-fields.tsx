@@ -43,8 +43,8 @@ export type EncodingRows = {
 
 /**
  * A group of settings under a quiet heading, as a form: each control's label in
- * a column of its own. A fieldset, so a screen reader hears the group's name
- * as it enters it.
+ * a column of its own. A fieldset, so a screen reader hears the group's name as
+ * it enters it.
  */
 export function SettingGroup({
   title,

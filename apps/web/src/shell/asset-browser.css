@@ -58,8 +58,8 @@
   background-color: color-mix(in oklch, var(--ag-chrome-accent) 9%, transparent);
 }
 
-/* With nothing imported the strip is not drawn, but its status stays in the page
-   so what is said in it later is heard. */
+/* With nothing imported the strip is not drawn, but its status stays in the
+   page so what is said in it later is heard. */
 .ag-imports-strip:not([data-ag-shown]) {
   position: absolute;
   inline-size: 1px;

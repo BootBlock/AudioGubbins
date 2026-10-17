@@ -20,8 +20,8 @@ export interface CommandPress {
 /**
  * The reason and the press of the command `id` with `args`, run as `commands`
  * runs it. `refusal` is why the command refuses these arguments where the panel
- * knows before it runs; it is the reason only where the command has none of
- * its own, as `CommandButton` orders them.
+ * knows before it runs; it is the reason only where the command has none of its
+ * own, as `CommandButton` orders them.
  */
 export function commandPress(
   commands: PanelCommands,

@@ -3,14 +3,14 @@
  * MotionSpec, "Dock and panel transitions" and "Workspace transitions").
  *
  * Two mechanisms carry it, both the platform's own (ADR-0014). A change the
- * application makes outside the engine (a panel opened, closed, docked,
- * floated or moved by a command, and a workspace switched) builds the dock
- * again, so the stage runs that rebuild as a view transition, and each group is
- * named here so the browser morphs it from its old box to its new one. A drop
- * the engine makes itself rearranges its own elements in the drop's handler,
- * with no moment to run as a transition, so its groups are measured as the
- * drop begins and settled into their new places afterwards with the Web
- * Animations API.
+ * application makes outside the engine (a panel opened, closed, docked, floated
+ * or moved by a command, and a workspace switched) builds the dock again, so
+ * the stage runs that rebuild as a view transition, and each group is named
+ * here so the browser morphs it from its old box to its new one. A drop the
+ * engine makes itself rearranges its own elements in the drop's handler, with
+ * no moment to run as a transition, so its groups are measured as the drop
+ * begins and settled into their new places afterwards with the Web Animations
+ * API.
  *
  * Kept apart from the adapter, which alone may name the engine: everything
  * here reads elements and panel identifiers.
@@ -110,9 +110,9 @@ export function nameDeparting(
 /**
  * Names the groups arriving, after the dock is built again: a group takes the
  * name of the group its panel in front left under, else of the group any of its
- * panels left under, so a group whose panels moved morphs from where they
- * were. A group with no such panel arrives under a name of its own in a change
- * of arrangement, and with none in a workspace switch, where it is part of the
+ * panels left under, so a group whose panels moved morphs from where they were.
+ * A group with no such panel arrives under a name of its own in a change of
+ * arrangement, and with none in a workspace switch, where it is part of the
  * workspace fading in.
  */
 export function nameArriving(
@@ -237,9 +237,9 @@ export interface MutationSource {
  * a drop, a panel the engine's own key closed.
  *
  * The engine makes such a change in the handler of the gesture, with no moment
- * to run it as a view transition, but it brackets each structural change with
- * a pair of events. Before it, each group is measured; after it, in the same
- * task and so before the next frame is drawn, each is settled from where it was
+ * to run it as a view transition, but it brackets each structural change with a
+ * pair of events. Before it, each group is measured; after it, in the same task
+ * and so before the next frame is drawn, each is settled from where it was
  * (`settleDrop`). Only a change the user made: one the adapter makes as it
  * builds the dock is part of the stage's transition, and a splitter drag or a
  * window resized changes no structure, so neither is ever eased, which direct

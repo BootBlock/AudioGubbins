@@ -100,8 +100,8 @@ export class FailureBoundary extends Component<FailureBoundaryProps, FailureStat
  * Inside the workspace, so it is themed like the panel it replaces, and it can
  * offer to try again: a panel that failed on data that has since changed may
  * well draw the second time. What went wrong is kept under Details, closed, so
- * the panel says what happened and what to do first (design language,
- * section 13).
+ * the panel says what happened and what to do first (design language, section
+ * 13).
  */
 export function PanelFailure({
   title,

@@ -349,10 +349,10 @@ interface PaletteOptionProps<TContext> {
  * tap moves focus out instead, and the click handler puts it back where the
  * row cannot run.
  *
- * The command runs on the click, not on the press. Were it run on the press,
- * it could not be called off: a user with a tremor, a head pointer or an
- * imprecise touch could not slide off the wrong row, and this phase has no undo
- * (WCAG 2.5.2).
+ * The command runs on the click, not on the press. Were it run on the press, it
+ * could not be called off: a user with a tremor, a head pointer or an imprecise
+ * touch could not slide off the wrong row, and this phase has no undo (WCAG
+ * 2.5.2).
  *
  * The category is seen beside the name and not heard with it, so the option's
  * accessible name stays its label, its shortcut and its reason.

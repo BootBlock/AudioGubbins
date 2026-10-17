@@ -85,11 +85,11 @@ export type PanelRenderer = (panel: OpenPanel) => ReactNode;
  * audit of the running application would report both.
  *
  * This tab therefore renders the panel's glyph and title and nothing else,
- * which leaves one interactive element per tab and nothing unreachable. Closing a panel is a
- * command like every other action (REQ-EDIT-073), so it is available from the
- * palette, from a menu and from a shortcut, to pointer and keyboard users
- * alike. That is a wider affordance than the control it replaces, not a
- * narrower one.
+ * which leaves one interactive element per tab and nothing unreachable. Closing
+ * a panel is a command like every other action (REQ-EDIT-073), so it is
+ * available from the palette, from a menu and from a shortcut, to pointer and
+ * keyboard users alike. That is a wider affordance than the control it
+ * replaces, not a narrower one.
  *
  * It is not the only way, and the other is the engine's: `dockview@8.3.1` binds
  * Backspace and Delete on the tab that has focus to closing its panel, which

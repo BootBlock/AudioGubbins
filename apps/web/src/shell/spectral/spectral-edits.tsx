@@ -115,7 +115,8 @@ function CompareButton({
  * the latest, or any one, with before it.
  *
  * The list keeps a heading of its own, hidden from sight, because the section's
- * header is the button that opens it rather than a heading a reader can move to.
+ * header is the button that opens it rather than a heading a reader can move
+ * to.
  */
 export function SpectralEdits({
   shown,

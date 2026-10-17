@@ -1,9 +1,9 @@
 /**
  * Where a peak sits along a level meter in AudioGubbins: the printed levels of
- * the design language's meters (section 10, "LED meters"), each an equal
- * share of the meter, so the levels a person works at, near full scale, take
- * as much of it as the quiet ones. Every level meter the application draws
- * reads this one scale, so a peak sits at the same place on each.
+ * the design language's meters (section 10, "LED meters"), each an equal share
+ * of the meter, so the levels a person works at, near full scale, take as much
+ * of it as the quiet ones. Every level meter the application draws reads this
+ * one scale, so a peak sits at the same place on each.
  */
 
 import type { MeterScale } from '@audiogubbins/design-system';

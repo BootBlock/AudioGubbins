@@ -1047,11 +1047,11 @@ describe('third-party libraries stay behind their adapters', () => {
 
   it("draws on the docking engine's own class names in four places, all of them listed", () => {
     // The containment above is about imports, and the browser suite imports
-    // nothing from the engine while driving its private class
-    // names. Counting them is what makes the claim above measurable: the
-    // adapter, the stylesheet that reaches the engine's own by `@import`, the
-    // adapter's own test, which stands in for the engine, and the one helper
-    // the browser suite asks for a group, a tab or a splitter through.
+    // nothing from the engine while driving its private class names. Counting
+    // them is what makes the claim above measurable: the adapter, the
+    // stylesheet that reaches the engine's own by `@import`, the adapter's own
+    // test, which stands in for the engine, and the one helper the browser
+    // suite asks for a group, a tab or a splitter through.
     const engineClass = /['"`.][\w-]*\bdv-[\w-]+/;
     const knowing = EVERY_WRITTEN_FILE.filter((path) => engineClass.test(read(path)));
 

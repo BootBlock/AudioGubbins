@@ -29,10 +29,11 @@
     display: none;
   }
 
-  /* The project strip goes with the workspace it speaks of, so the notice has
-     the room: wrapped at this width it would take the height the notice needs.
-     What it would say is still said aloud, and the menus still reach it. Named
-     through the shell, to outrank the strip's own rule in `project-banner.css`. */
+  /* The project strip goes with the workspace it speaks of, so the
+     notice has the room: wrapped at this width it would take the height
+     the notice needs. What it would say is still said aloud, and the
+     menus still reach it. Named through the shell, to outrank the
+     strip's own rule in `project-banner.css`. */
   .ag-app > .ag-project-banner {
     display: none;
   }

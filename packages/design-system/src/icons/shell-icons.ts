@@ -1,5 +1,6 @@
 /**
- * The shell's icons: windows, panels, lists, the dock's drop targets and states. Part of the icon vocabulary (`vocabulary.ts`), which joins the parts
+ * The shell's icons: windows, panels, lists, the dock's drop targets and
+ * states. Part of the icon vocabulary (`vocabulary.ts`), which joins the parts
  * into one map whose keys are the names a feature may use.
  */
 

@@ -1,8 +1,9 @@
 /*
- * The Editor panel (design language, section 11): its toolbar in one row, the scope, the display
- * reaching the panel's bottom inset, and the readings beneath. The surface draws itself on
- * stacked canvases the size of the surface; the browser neither pans nor zooms the page under a
- * finger there, since two fingers pan and pinch the view (REQ-UX-067).
+ * The Editor panel (design language, section 11): its toolbar in one row, the
+ * scope, the display reaching the panel's bottom inset, and the readings
+ * beneath. The surface draws itself on stacked canvases the size of the
+ * surface; the browser neither pans nor zooms the page under a finger there,
+ * since two fingers pan and pinch the view (REQ-UX-067).
  */
 .ag-editor {
   display: flex;
@@ -35,8 +36,9 @@
 }
 
 /*
- * A select in a toolbar is named for a screen reader and shows only its value, as the toolbar's
- * icon buttons show only their glyphs; the name stays in the page, tied to the trigger.
+ * A select in a toolbar is named for a screen reader and shows only its value,
+ * as the toolbar's icon buttons show only their glyphs; the name stays in the
+ * page, tied to the trigger.
  */
 .ag-editor-choices .ag-select-label,
 .ag-editor-scroll .ag-slider-label {
@@ -77,8 +79,8 @@
 }
 
 /*
- * The display: the surface with a subtle edge and the control radius, and what is drawn over
- * it, the waveform's progress and its failure.
+ * The display: the surface with a subtle edge and the control radius, and what
+ * is drawn over it, the waveform's progress and its failure.
  */
 .ag-editor-display {
   position: relative;
@@ -148,8 +150,9 @@
 }
 
 /*
- * The waveform's failure, centred over the display on glass, so whatever the canvas still draws
- * shows through it; the pointer passes through to the surface.
+ * The waveform's failure, centred over the display on glass, so whatever the
+ * canvas still draws shows through it; the pointer passes through to the
+ * surface.
  */
 .ag-editor-display-state {
   position: absolute;

@@ -1,6 +1,7 @@
 /**
- * The icons of the panels and places, analysis and processing. Part of the icon vocabulary (`vocabulary.ts`), which joins the parts
- * into one map whose keys are the names a feature may use.
+ * The icons of the panels and places, analysis and processing. Part of the icon
+ * vocabulary (`vocabulary.ts`), which joins the parts into one map whose keys
+ * are the names a feature may use.
  */
 
 import { __iconData as accessibilityGlyph } from 'lucide-react/dist/esm/icons/accessibility.mjs';

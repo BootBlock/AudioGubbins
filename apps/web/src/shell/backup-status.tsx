@@ -5,8 +5,8 @@
  *
  * A backup made on its own is never seen being made, so one that was not is
  * said where a change not saved is said, with why behind a hint and the action
- * that tries again, until one is made; and said aloud once for each reason, since the
- * person would otherwise go on working with no backup they know of.
+ * that tries again, until one is made; and said aloud once for each reason,
+ * since the person would otherwise go on working with no backup they know of.
  */
 
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';

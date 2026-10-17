@@ -1,6 +1,6 @@
 /**
- * One assistant's report in the Analysis panel (ADR-0062), as a card: its glyph,
- * its name and how many things it found, the findings of each kind, the
+ * One assistant's report in the Analysis panel (ADR-0062), as a card: its
+ * glyph, its name and how many things it found, the findings of each kind, the
  * settings its detectors judged by, and what it recommends, the processors in
  * order with Apply, or the silence it would take out. Nothing is applied by
  * being shown: Apply runs the command of that name.

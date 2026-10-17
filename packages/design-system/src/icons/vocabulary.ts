@@ -21,22 +21,7 @@ import type { PlacedGlyph } from './placed-glyph.js';
 import { PROJECT_ICONS } from './project-icons.js';
 import { SHELL_ICONS } from './shell-icons.js';
 
-/**
- * The names two parts share. A name in two parts would let one glyph silently
- * replace the other when the parts are joined, where one map refused it as a
- * duplicate key; this keeps that refusal: `NoNameShared` fails to compile
- * unless the parts share no name.
- */
-type Shared<A, B> = keyof A & keyof B;
-type Nothing<T extends never> = T;
-export type NoNameShared = [
-  Nothing<Shared<typeof SHELL_ICONS, typeof AUDIO_ICONS>>,
-  Nothing<Shared<typeof SHELL_ICONS, typeof PANEL_ICONS>>,
-  Nothing<Shared<typeof SHELL_ICONS, typeof PROJECT_ICONS>>,
-  Nothing<Shared<typeof AUDIO_ICONS, typeof PANEL_ICONS>>,
-  Nothing<Shared<typeof AUDIO_ICONS, typeof PROJECT_ICONS>>,
-  Nothing<Shared<typeof PANEL_ICONS, typeof PROJECT_ICONS>>,
-];
+/** The parts, joined: `icon-names.types.test.tsx` holds that they share no name. */
 const VOCABULARY = {
   ...SHELL_ICONS,
   ...AUDIO_ICONS,

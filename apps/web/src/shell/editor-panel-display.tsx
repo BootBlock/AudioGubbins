@@ -1,9 +1,9 @@
 /**
  * The Editor panel's display: the waveform surface the renderer draws, mounted
- * once per panel and fed from the stores, so React draws the controls around
- * it and never a sample or a peak; the context actions a right click or a
- * long press opens on it (REQ-UX-067); and what the view's peaks and
- * spectrogram are waiting for, said beside it.
+ * once per panel and fed from the stores, so React draws the controls around it
+ * and never a sample or a peak; the context actions a right click or a long
+ * press opens on it (REQ-UX-067); and what the view's peaks and spectrogram are
+ * waiting for, said beside it.
  *
  * The surface is the view's one focusable region, an application to assistive
  * technology, described by the readings beside it.

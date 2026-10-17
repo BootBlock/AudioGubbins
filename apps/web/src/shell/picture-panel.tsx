@@ -2,10 +2,10 @@
  * The Picture panel: reference video beside the audio (REQ-AUDIO-156), dockable
  * and able to fill the screen. It shows the picture the reference picture
  * holds, its timecode at the playhead over the picture's corner, the frame
- * there and where the picture starts, the frame-rate interpretation, the
- * offset and its calibration, a marker at the frame shown, and the picture's
- * own sound, extracted when the person asks and where the browser can decode
- * it in the memory the page can spare.
+ * there and where the picture starts, the frame-rate interpretation, the offset
+ * and its calibration, a marker at the frame shown, and the picture's own
+ * sound, extracted when the person asks and where the browser can decode it in
+ * the memory the page can spare.
  *
  * While it is open it keeps the picture on the transport: it hands the
  * reference picture the audible position of the asset the picture is bound to,

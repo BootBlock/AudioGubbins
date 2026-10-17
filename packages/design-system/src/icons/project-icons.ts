@@ -1,5 +1,6 @@
 /**
- * The icons of the guided workflows, built-in chains, projects, files and storage. Part of the icon vocabulary (`vocabulary.ts`), which joins the parts
+ * The icons of the guided workflows, built-in chains, projects, files and
+ * storage. Part of the icon vocabulary (`vocabulary.ts`), which joins the parts
  * into one map whose keys are the names a feature may use.
  */
 

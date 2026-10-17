@@ -217,19 +217,20 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                     key={shown.key}
                     layout={shown.layout}
                     descriptors={descriptors}
-                    // The resolved theme, not the preference: given the preference,
-                    // in system mode on a light system the engine would get the
-                    // dark class while the shell drew light. Every variable that
-                    // differs is overridden by the workspace stylesheet today, so
-                    // nothing would show; one engine upgrade and it would.
+                    // The resolved theme, not the preference: given the
+                    // preference, in system mode on a light system the engine
+                    // would get the dark class while the shell drew light.
+                    // Every variable that differs is overridden by the
+                    // workspace stylesheet today, so nothing would show; one
+                    // engine upgrade and it would.
                     dark={resolvedTheme.dark}
                     memory={application.dockMemory}
                     motion={dockMotion}
                     glyph={panelGlyph}
                     onArrangementChange={rearrange}
                     renderPanel={(panel) => (
-                      // One boundary per panel, so a panel that throws costs the
-                      // user that panel and not the application around it.
+                      // One boundary per panel, so a panel that throws costs
+                      // the user that panel and not the application around it.
                       <FailureBoundary
                         part={`panel:${panel.kind}`}
                         logger={logger}
