@@ -185,6 +185,7 @@ import { __iconData as zoomInGlyph } from 'lucide-react/dist/esm/icons/zoom-in.m
 import { __iconData as zoomOutGlyph } from 'lucide-react/dist/esm/icons/zoom-out.mjs';
 
 import { CHANNELS, PANEL_FAILURE, SAMPLE_RATE } from './custom-glyphs.js';
+import { DOCK_BOTTOM, DOCK_CENTRE, DOCK_LEFT, DOCK_RIGHT, DOCK_TOP } from './dock-glyphs.js';
 import {
   EQUAL_POWER_FADE,
   FADE_IN,
@@ -233,6 +234,13 @@ const VOCABULARY = {
   'too-narrow': stroked(moveHorizontalGlyph),
   'move-left': stroked(moveLeftGlyph),
   'move-right': stroked(moveRightGlyph),
+
+  // The dock's drop targets, each drawn as the group it would make
+  'dock-left': stroked(DOCK_LEFT),
+  'dock-right': stroked(DOCK_RIGHT),
+  'dock-top': stroked(DOCK_TOP),
+  'dock-bottom': stroked(DOCK_BOTTOM),
+  'dock-centre': stroked(DOCK_CENTRE),
 
   // States
   warning: stroked(triangleAlertGlyph),
