@@ -11,6 +11,7 @@ import {
   type EmitterRules,
   type GameAudioState,
   type GroupMember,
+  type Motion,
   type PolicySource,
   type PreviewEvent,
   type PreviewSubject,
@@ -36,6 +37,12 @@ export function subjectName(
   if (game?.groups.has(subject.group) !== true) return 'A group no longer in the project';
   return `The group ${pathText(groupPath(game.groups, subject.group))}`;
 }
+
+/** How an emitter moves, in a word or two: what the emitter's motion choice says. */
+export const MOTION_WORDS: Readonly<Record<Motion['kind'], string>> = {
+  still: 'Still',
+  waypoints: 'Along waypoints',
+};
 
 /** Where an emitter's rules come from. */
 export function sourceWords(source: PolicySource): string {

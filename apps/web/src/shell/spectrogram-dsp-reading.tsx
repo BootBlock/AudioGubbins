@@ -20,13 +20,13 @@ export function SpectrogramDspReading({
   const choice = useSyncExternalStore(dsp.subscribe, dsp.get);
   if (choice === undefined) return null;
   return (
-    <>
+    <div className="ag-capability-group">
       <h3 className="ag-capability-heading">Editor analysis</h3>
-      <ul className="ag-capability-list">
+      <ul className="ag-capability-lines">
         <li className="ag-capability" data-ag-dsp={choice.implementation}>
-          <span className="ag-capability-name">
+          <p className="ag-capability-line">
             {`Spectrogram worker: ${dspText(choice.implementation)}`}
-          </span>
+          </p>
           {choice.fallbackReason !== undefined && (
             <p className="ag-capability-explanation" data-ag-status="reduced">
               {choice.fallbackReason}
@@ -34,6 +34,6 @@ export function SpectrogramDspReading({
           )}
         </li>
       </ul>
-    </>
+    </div>
   );
 }

@@ -21,7 +21,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { Button, Hint, PanelHeader } from '@audiogubbins/design-system';
 import {
   ALL_FEATURES,
   FeatureStatus,
@@ -36,6 +36,7 @@ import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { Observable } from '../state/observable.js';
 import { AnalysisPanel } from './analysis/analysis-panel.js';
 import { AssetBrowserPanel } from './asset-browser.js';
+import { CapabilityRow } from './capability-row.js';
 import type { PanelCommands } from './command-button.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
@@ -83,8 +84,8 @@ function RecordingCapability({
   useWatchedInputs(recording);
   const reading = useRecordingDiagnostics(recording, audioSettings);
   return (
-    <div>
-      <h3>Recording with this browser and hardware</h3>
+    <div className="ag-capability-group">
+      <h3 className="ag-capability-heading">Recording with this browser and hardware</h3>
       <RecordingDiagnosticsList reading={reading} commands={commands} />
     </div>
   );
@@ -117,32 +118,33 @@ export function CapabilitiesPanel({
   const degraded = capabilities.degradedFeatures(ALL_FEATURES);
 
   return (
-    <section className="ag-panel">
-      <h2 className="ag-panel-title">{title}</h2>
-      <p className="ag-panel-note">
-        What this browser can do, and what AudioGubbins does where it cannot.
-      </p>
+    <section className="ag-panel ag-stacked-panel ag-capabilities">
+      <PanelHeader
+        title={title}
+        icon="capabilities"
+        actions={
+          <Hint label="About capabilities">
+            What this browser can do, and what AudioGubbins does where it cannot.
+          </Hint>
+        }
+      />
 
       {degraded.length === 0 && storageAbsences.length === 0 ? (
-        <p>Every AudioGubbins feature can run at full capability in this browser.</p>
+        <p className="ag-capability-line">
+          Every AudioGubbins feature can run at full capability in this browser.
+        </p>
       ) : (
         <ul className="ag-capability-list">
           {degraded.map((feature) => (
-            <li key={feature.featureKey} className="ag-capability">
-              <span className="ag-capability-name">{feature.label}</span>
-              <span className="ag-capability-status" data-ag-status={feature.status}>
-                {feature.status === FeatureStatus.Unavailable ? 'Unavailable' : 'Reduced'}
-              </span>
-              <p className="ag-capability-explanation">{feature.explanation}</p>
-              {feature.missingRequired
+            <CapabilityRow
+              key={feature.featureKey}
+              name={feature.label}
+              state={feature.status === FeatureStatus.Unavailable ? 'unavailable' : 'reduced'}
+              explanation={feature.explanation}
+              remedies={feature.missingRequired
                 .concat(feature.missingPreferred)
-                .filter((state) => state.remedy !== undefined)
-                .map((state) => (
-                  <p key={state.key} className="ag-capability-remedy">
-                    {state.remedy}
-                  </p>
-                ))}
-            </li>
+                .flatMap((state) => (state.remedy === undefined ? [] : [state.remedy]))}
+            />
           ))}
         </ul>
       )}

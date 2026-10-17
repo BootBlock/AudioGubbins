@@ -126,7 +126,7 @@ export function EmitterEditor({
   const [attenuation, setAttenuation] = useDraft<Attenuation['kind']>(from.attenuation.kind);
   return (
     <>
-      <div className="ag-inspector-row">
+      <div className="ag-policy-edit">
         <OptionSelect
           label="Selection"
           value={selection}

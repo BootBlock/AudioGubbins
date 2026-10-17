@@ -9,8 +9,9 @@
 
 import type { ReactNode } from 'react';
 
-import { StatusChip, StatusTone } from '@audiogubbins/design-system';
 import type { StorageCapabilityAbsence } from '@audiogubbins/capabilities';
+
+import { CapabilityRow } from './capability-row.js';
 
 /** The list, or nothing where the browser lacks nothing. */
 export function StorageAbsences({
@@ -20,22 +21,17 @@ export function StorageAbsences({
 }): ReactNode {
   if (absences.length === 0) return null;
   return (
-    <div role="group" aria-label="Keeping projects">
-      <h3 className="ag-section-heading">Keeping projects</h3>
+    <div className="ag-capability-group" role="group" aria-label="Keeping projects">
+      <h3 className="ag-capability-heading">Keeping projects</h3>
       <ul className="ag-capability-list">
         {absences.map((absence) => (
-          <li key={absence.key} className="ag-capability">
-            <span className="ag-capability-name">{absence.reason}</span>
-            <span className="ag-capability-status">
-              <StatusChip tone={StatusTone.Warning} icon="warning">
-                Reduced
-              </StatusChip>
-            </span>
-            <p className="ag-capability-explanation">{absence.fallback}</p>
-            {absence.remedy !== undefined && (
-              <p className="ag-capability-remedy">{absence.remedy}</p>
-            )}
-          </li>
+          <CapabilityRow
+            key={absence.key}
+            name={absence.reason}
+            state="reduced"
+            explanation={absence.fallback}
+            remedies={absence.remedy === undefined ? [] : [absence.remedy]}
+          />
         ))}
       </ul>
     </div>

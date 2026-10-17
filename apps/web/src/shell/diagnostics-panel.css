@@ -1,0 +1,82 @@
+/*
+ * The Diagnostics panel, in the design language: diagnostic mode as a strip of
+ * the accent, and each record a row of the log, its severity in its colour
+ * with its glyph, every other row on a quiet fill (sections 10 and 11).
+ */
+
+.ag-diagnostics-mode {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: calc(var(--ag-grid-unit) * 1.5) var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-accent);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent-text);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-diagnostics-mode > .ag-icon {
+  flex: none;
+}
+
+.ag-log {
+  display: grid;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ag-text-label);
+}
+
+/* A record: its time, its severity, its part of the application, its message. */
+.ag-log-record {
+  display: grid;
+  grid-template-columns:
+    auto calc(var(--ag-grid-unit) * 18.5) calc(var(--ag-grid-unit) * 21.5)
+    minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  border-radius: var(--ag-radius-small);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-log-record:nth-child(odd) {
+  background-color: var(--ag-chrome-fill-quiet);
+}
+
+.ag-log-time {
+  color: var(--ag-chrome-text-secondary);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-log-severity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+}
+
+.ag-log-severity[data-ag-severity='error'] {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-log-severity[data-ag-severity='warning'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-log-category {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  overflow-wrap: anywhere;
+}
+
+.ag-log-message {
+  overflow-wrap: anywhere;
+}

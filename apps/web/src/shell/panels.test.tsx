@@ -8,6 +8,7 @@ import { DspImplementation } from '@audiogubbins/audio-engine';
 import { FailureKind, failure } from '@audiogubbins/domain';
 import {
   ALL_FEATURES,
+  FeatureStatus,
   createCapabilityRegistry,
   missingStorageCapabilities,
   type CapabilityEnvironment,
@@ -329,6 +330,21 @@ describe('the diagnostic log panel', () => {
   });
 });
 
+/**
+ * What every "What you can do" hint inside `container` says, each opened as a
+ * person opens it, in the order they are shown.
+ */
+async function remediesIn(container: HTMLElement): Promise<readonly string[]> {
+  const user = userEvent.setup();
+  const said: string[] = [];
+  for (const hint of within(container).getAllByRole('button', { name: /^What you can do: / })) {
+    await user.click(hint);
+    said.push((await screen.findByRole('dialog')).textContent);
+    await user.keyboard('{Escape}');
+  }
+  return said;
+}
+
 /** What the editor reports to the Capabilities panel, before it has drawn or analysed anything. */
 function editorReports() {
   return {
@@ -346,7 +362,7 @@ function editorReports() {
  * since nothing is missing there and the empty branch is the only one reached.
  */
 describe('the capability panel', () => {
-  it('names each reduced feature, what it means and what can be done about it', () => {
+  it('names each reduced feature, what it means and what can be done about it', async () => {
     const registry = createCapabilityRegistry(
       bareEnvironment(),
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
@@ -364,9 +380,10 @@ describe('the capability panel', () => {
 
     expect(screen.getAllByText(/Unavailable|Reduced/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recording/).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/secure connection|current version|headers/i).length,
-    ).toBeGreaterThan(0);
+    // What can be done, behind each explanation's hint.
+    expect((await remediesIn(document.body)).join(' ')).toMatch(
+      /secure connection|current version|headers/i,
+    );
 
     // What each reduction means. `Recording` above is satisfied by the
     // feature's name alone, so without this the explanation would be asserted
@@ -434,9 +451,16 @@ describe('the capability panel', () => {
       />,
     );
 
+    // Each feature's row is in its status, and its badge says the status in a word.
     const statuses = screen.getAllByText(/^(Unavailable|Reduced)$/);
-    expect(statuses.map((status) => status.getAttribute('data-ag-status'))).toEqual(
-      registry.degradedFeatures(ALL_FEATURES).map((feature) => feature.status),
+    const degraded = registry.degradedFeatures(ALL_FEATURES);
+    expect(
+      statuses.map((status) => status.closest('.ag-capability')?.getAttribute('data-ag-status')),
+    ).toEqual(degraded.map((feature) => feature.status));
+    expect(statuses.map((status) => status.textContent)).toEqual(
+      degraded.map((feature) =>
+        feature.status === FeatureStatus.Unavailable ? 'Unavailable' : 'Reduced',
+      ),
     );
   });
 });
@@ -585,7 +609,7 @@ describe('filtering the diagnostic log', () => {
 });
 
 describe('what the browser lacks for keeping projects', () => {
-  it('lists each missing part with what AudioGubbins does instead and what can be done', () => {
+  it('lists each missing part with what AudioGubbins does instead and what can be done', async () => {
     const registry = createCapabilityRegistry(
       bareEnvironment(),
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
@@ -624,10 +648,8 @@ describe('what the browser lacks for keeping projects', () => {
         /Projects open read-only, so two tabs can never overwrite each other\./,
       ),
     ).toBeVisible();
-    expect(
-      within(keeping).getAllByText(
-        'Open AudioGubbins from its https:// address rather than an insecure one.',
-      ),
-    ).not.toEqual([]);
+    expect(await remediesIn(keeping)).toContain(
+      'Open AudioGubbins from its https:// address rather than an insecure one.',
+    );
   });
 });

@@ -25,6 +25,24 @@ export function rendererReport(page: Page): Locator {
 }
 
 /**
+ * What the renderer report says was tried to draw the view, each backend and
+ * how it went, read from the report's hint as a person opens it, and closed
+ * again so the hint is not left over the view.
+ */
+export async function rendererAttempts(page: Page): Promise<string> {
+  const hint = rendererReport(page).getByRole('button', {
+    name: 'What was tried to draw the editor',
+  });
+  await hint.click();
+  const said = page.getByRole('dialog', { name: 'What was tried to draw the editor' });
+  await expect(said).toBeVisible();
+  const words = await said.innerText();
+  await page.keyboard.press('Escape');
+  await expect(said).toBeHidden();
+  return words;
+}
+
+/**
  * Opens the tone bursts, and the Capabilities panel beside the editor. The
  * panel writes positions in samples, which is how its picture is checked
  * against what it says it shows, and the grid, whose lines cross every lane, is

@@ -10,6 +10,15 @@
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
+  ButtonTone,
+  Hint,
+  Icon,
+  IconSize,
+  Verdict,
+  VerdictKind,
+  VisuallyHidden,
+} from '@audiogubbins/design-system';
+import {
   memberKey,
   type GameAssetGroup,
   type GameExportItem,
@@ -24,7 +33,8 @@ import { gameExportPlan } from '../../commands/game-export-commands.js';
 import { memberName } from '../../commands/game-target.js';
 import { exportClockAt } from '../../export/page-export.js';
 import type { GamePolicyView } from '../../state/game-policy-view.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { HintedCommandButton } from '../hinted-command-button.js';
 import type { GroupsParts } from './groups-parts.js';
 
 /** Where a value of a planned file comes from, in a phrase. */
@@ -39,17 +49,50 @@ function ownerWords(source: PolicySource, view: GamePolicyView): string {
   }
 }
 
-/** One item of the game export plan, in words. */
-function itemWords(item: GameExportItem, state: ProjectState, view: GamePolicyView): string {
+/**
+ * One item of the game export plan: a planned member, the file it makes and,
+ * behind its hint, the group or override that owns its profile, its naming
+ * and its folder; or a refused member with every reason.
+ */
+function PlanItem({
+  item,
+  state,
+  view,
+}: {
+  readonly item: GameExportItem;
+  readonly state: ProjectState;
+  readonly view: GamePolicyView;
+}): ReactNode {
   const name = memberName(state.project, item.member);
   if (item.kind === 'refused') {
-    return `✗ ${name}: ${item.failures.map((one) => one.summary).join(' ')}`;
+    return (
+      <li className="ag-plan-item" data-ag-refused="">
+        <Verdict kind={VerdictKind.Fails}>
+          <span className="ag-plan-name">{`${name}:`}</span>{' '}
+          <span className="ag-plan-reason">
+            {item.failures.map((one) => one.summary).join(' ')}
+          </span>
+        </Verdict>
+      </li>
+    );
   }
   const folder = item.destination.segments.join('/');
   const file = safeFileName(item.file.name);
   const where = folder === '' ? file : `${folder}/${file}`;
   const { provenance } = item;
-  return `✓ ${name} → ${where} (profile: ${ownerWords(provenance.exportProfile, view)}; name: ${ownerWords(provenance.naming, view)}; folder: ${ownerWords(provenance.destination, view)})`;
+  return (
+    <li className="ag-plan-item">
+      <Verdict kind={VerdictKind.Passes}>
+        {name}
+        <Icon name="leads-to" size={IconSize.Small} className="ag-plan-arrow" />
+        <VisuallyHidden>{' to '}</VisuallyHidden>
+        <span className="ag-figure">{where}</span>
+      </Verdict>
+      <Hint label={`Where the file of ${name} takes its values from`}>
+        {`Profile: ${ownerWords(provenance.exportProfile, view)}; name: ${ownerWords(provenance.naming, view)}; folder: ${ownerWords(provenance.destination, view)}.`}
+      </Hint>
+    </li>
+  );
 }
 
 /** The game export plan of the group chosen, and the command that exports its planned members. */
@@ -82,25 +125,35 @@ export function ExportPlan({
   );
   const planned = plan.items.filter((item) => item.kind === 'planned').length;
   return (
-    <section aria-labelledby={heading}>
-      <h3 className="ag-section-heading" id={heading}>
-        Export plan
-      </h3>
-      <p>
-        {`${counted(planned, 'member is', 'members are')} planned and ${counted(plan.items.length - planned, 'is', 'are')} refused. The folder each goes into is inside the folder you export to; a download has none.`}
+    <section className="ag-plan" aria-labelledby={heading}>
+      <div className="ag-plan-head">
+        <Icon name="export-plan" size={IconSize.Inline} className="ag-plan-glyph" />
+        <h3 className="ag-plan-heading" id={heading}>
+          Export plan
+        </h3>
+        <Hint label="About the export plan">
+          The folder each goes into is inside the folder you export to; a download has none.
+        </Hint>
+        <span className="ag-plan-export">
+          <HintedCommandButton
+            id="game.export-group"
+            label="Export the planned members…"
+            commands={commands}
+            args={{ group: group.id }}
+            tone={ButtonTone.Primary}
+            refusal={planned === 0 ? 'No member of the group is planned yet.' : undefined}
+            compact
+          />
+        </span>
+      </div>
+      <p className="ag-plan-summary">
+        {`${counted(planned, 'member is', 'members are')} planned and ${counted(plan.items.length - planned, 'is', 'are')} refused.`}
       </p>
-      <ul>
+      <ul className="ag-plan-items">
         {plan.items.map((item) => (
-          <li key={memberKey(item.member)}>{itemWords(item, state, view)}</li>
+          <PlanItem key={memberKey(item.member)} item={item} state={state} view={view} />
         ))}
       </ul>
-      <CommandButton
-        id="game.export-group"
-        label="Export the planned members…"
-        commands={commands}
-        args={{ group: group.id }}
-        refusal={planned === 0 ? 'No member of the group is planned yet.' : undefined}
-      />
     </section>
   );
 }

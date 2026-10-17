@@ -3,12 +3,16 @@
  * assignment order, with whether its rack is its group's processing or its
  * own, how many fields it overrides, the loudness target it resolves to and
  * how its loudness measured this session stands against it, a verdict in
- * words with its sign as text, and the command that takes it out.
+ * words beside the glyph of its kind, and the command that takes it out.
+ *
+ * Drawn in the design language's table (section 10, "Tables"), with each
+ * member's name the header of its row, so a screen reader names the member
+ * with every cell of it.
  */
 
 import { useId, useSyncExternalStore, type ReactNode } from 'react';
 
-import { VisuallyHidden } from '@audiogubbins/design-system';
+import { Badge, BadgeTone, EmptyState, Verdict, VisuallyHidden } from '@audiogubbins/design-system';
 import type { QualityMode } from '@audiogubbins/domain';
 import { memberKey, type GameAssetGroup, type GroupMembership } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
@@ -20,10 +24,11 @@ import { memberName } from '../../commands/game-target.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { GamePolicyView } from '../../state/game-policy-view.js';
 import type { LoudnessReadings } from '../../state/loudness-store.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { CommandIconButton } from '../hinted-command-button.js';
 import { loudnessWords } from './game-words.js';
 import type { GroupsParts } from './groups-parts.js';
-import { conformance, conformanceWords } from './loudness-conformance.js';
+import { CONFORMANCE_VERDICTS, conformance, conformanceWords } from './loudness-conformance.js';
 
 /** What a member's loudness is judged with: the readings, the quality measured at, and its audio now. */
 interface LoudnessSources {
@@ -54,16 +59,30 @@ function MemberRow({
   const identity = audio === undefined ? undefined : detectionIdentity(audio, loudness.quality);
   const verdict = conformance(target, loudness.readings.get(memberKey(member)), identity);
   const overrides = Object.keys(membership.overrides).length;
+  const name = memberName(state.project, member);
   return (
     <tr>
-      <th scope="row">{memberName(state.project, member)}</th>
-      <td>{membership.processing === 'inherit' ? 'Inherits' : 'Its own'}</td>
-      <td>{overrides === 0 ? 'None' : counted(overrides, 'field', 'fields')}</td>
-      <td>{target === undefined ? 'Not set' : loudnessWords(target)}</td>
-      <td>{conformanceWords(verdict)}</td>
+      <th scope="row">{name}</th>
       <td>
-        <CommandButton
+        {membership.processing === 'inherit' ? (
+          <Badge>Inherits</Badge>
+        ) : (
+          <Badge tone={BadgeTone.Accent}>Its own</Badge>
+        )}
+      </td>
+      <td data-ag-quiet={overrides === 0 ? '' : undefined}>
+        {overrides === 0 ? 'None' : counted(overrides, 'field', 'fields')}
+      </td>
+      <td className="ag-figure" data-ag-quiet={target === undefined ? '' : undefined}>
+        {target === undefined ? 'Not set' : loudnessWords(target)}
+      </td>
+      <td data-ag-kind="verdict">
+        <Verdict kind={CONFORMANCE_VERDICTS[verdict.kind]}>{conformanceWords(verdict)}</Verdict>
+      </td>
+      <td data-ag-kind="action">
+        <CommandIconButton
           id="game.remove-from-group"
+          icon="remove"
           label="Take out"
           commands={commands}
           args={{ member: memberKey(member) }}
@@ -96,15 +115,19 @@ export function GroupMembers({
   useSyncExternalStore(parts.assets.subscribe, parts.assets.get);
   if (memberships.length === 0) {
     return (
-      <p>
-        No members yet. Select regions in the editor, or show an asset, and put them in the group.
-      </p>
+      <EmptyState
+        icon="group"
+        title="No members yet"
+        text="Select regions in the editor, or show an asset, and put them in the group."
+      />
     );
   }
   return (
-    <div className="ag-group-members">
-      <table aria-labelledby={caption}>
-        <caption id={caption}>{`Members of ${view.pathOf(group.id).join('/')}`}</caption>
+    <div className="ag-table-frame">
+      <table className="ag-table ag-row-headed-table ag-group-members" aria-labelledby={caption}>
+        <caption id={caption} className="ag-visually-hidden">
+          {`Members of ${view.pathOf(group.id).join('/')}`}
+        </caption>
         <thead>
           <tr>
             <th scope="col">Member</th>

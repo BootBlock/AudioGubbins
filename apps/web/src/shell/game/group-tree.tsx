@@ -14,7 +14,7 @@
 
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 
-import { TextField } from '@audiogubbins/design-system';
+import { EmptyState, Icon, IconSize, TextField } from '@audiogubbins/design-system';
 import type { GameAssetGroup, GameAssetGroupId } from '@audiogubbins/game-audio';
 
 import type { GamePolicyView } from '../../state/game-policy-view.js';
@@ -124,10 +124,38 @@ function depthStyle(depth: number): CSSProperties & { readonly '--ag-group-depth
   return { '--ag-group-depth': depth };
 }
 
-/** What a group's item says: that it is chosen, its name, and how many members it has. */
-function itemWords(view: GamePolicyView, group: GameAssetGroup, chosen: boolean): string {
-  const members = view.membersOf(group.id).length;
-  return `${chosen ? '▸ ' : ''}${group.name} (${String(members)} ${members === 1 ? 'member' : 'members'})`;
+/** How many members a group has, in words. */
+function membersWords(members: number): string {
+  return `${String(members)} ${members === 1 ? 'member' : 'members'}`;
+}
+
+/**
+ * What a group's item shows: its twisty where it holds groups, its glyph, its
+ * name and how many members it has. The item is named in words by its
+ * `aria-label`, so the glyphs and the bare count say nothing of their own;
+ * that it is chosen is its `aria-selected`, drawn as the lit edge.
+ */
+function ItemContent({
+  row,
+  open,
+  members,
+}: {
+  readonly row: TreeRow;
+  readonly open: boolean;
+  readonly members: number;
+}): ReactNode {
+  return (
+    <>
+      <span className="ag-group-twisty" aria-hidden="true">
+        {row.hasChildren && <Icon name={open ? 'collapse' : 'expand'} size={IconSize.Small} />}
+      </span>
+      <Icon name="group" size={IconSize.Inline} className="ag-group-glyph" />
+      <span className="ag-group-name">{row.group.name}</span>
+      <span className="ag-group-count" aria-hidden="true">
+        {String(members)}
+      </span>
+    </>
+  );
 }
 
 /** What every item of the tree reads: the tree's state, and how it moves and runs commands. */
@@ -174,6 +202,8 @@ function TreeItem({
   readonly tree: TreeParts;
 }): ReactNode {
   const { group } = row;
+  const renaming = tree.renaming === group.id;
+  const members = tree.view.membersOf(group.id).length;
   return (
     <li
       ref={(element) => {
@@ -181,6 +211,8 @@ function TreeItem({
         else tree.items.current.set(group.id, element);
       }}
       role="treeitem"
+      className="ag-group-item ag-lit-row"
+      {...(renaming ? {} : { 'aria-label': `${group.name} (${membersWords(members)})` })}
       aria-level={row.level}
       aria-selected={group.id === tree.chosen}
       {...(row.hasChildren ? { 'aria-expanded': !tree.closed.has(group.id) } : {})}
@@ -192,13 +224,14 @@ function TreeItem({
       onKeyDown={(event) => {
         onItemKey(event, row, index, tree);
       }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          tree.commands.run('game.choose-group', { group: group.id });
-        }
+      onClick={() => {
+        // A press anywhere on the item chooses its group, on its name or
+        // glyph as well as round them; while it is renamed, presses are the
+        // name field's own.
+        if (!renaming) tree.commands.run('game.choose-group', { group: group.id });
       }}
     >
-      {tree.renaming === group.id ? (
+      {renaming ? (
         <RenameField
           group={group}
           commands={tree.commands}
@@ -207,7 +240,7 @@ function TreeItem({
           }}
         />
       ) : (
-        itemWords(tree.view, group, group.id === tree.chosen)
+        <ItemContent row={row} open={tree.moves.isOpen(row)} members={members} />
       )}
     </li>
   );
@@ -278,13 +311,21 @@ export function GroupTree({
 }): ReactNode {
   const tree = useTree(view, chosen, commands);
   if (tree.rows.length === 0) {
-    return <p>No asset groups yet. Make one to give sounds a shared policy.</p>;
+    return (
+      <EmptyState
+        icon="asset-groups"
+        title="No asset groups yet"
+        text="Make one to give sounds a shared policy."
+      />
+    );
   }
   return (
-    <ul role="tree" aria-label={label} className="ag-group-tree">
-      {tree.rows.map((row, index) => (
-        <TreeItem key={row.group.id} row={row} index={index} tree={tree} />
-      ))}
-    </ul>
+    <div className="ag-group-well">
+      <ul role="tree" aria-label={label} className="ag-group-tree">
+        {tree.rows.map((row, index) => (
+          <TreeItem key={row.group.id} row={row} index={index} tree={tree} />
+        ))}
+      </ul>
+    </div>
   );
 }

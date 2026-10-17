@@ -7,176 +7,48 @@
  * a tenth of a unit, by a whole unit with Shift, and a pointer drags it; a
  * moving emitter's path is set by its waypoints' fields. Nothing on the pad
  * moves of its own accord, so it honours reduced motion as it is. A list beside
- * it says each emitter's distance and direction in words.
+ * it says each emitter's distance and direction in words, for a reader who
+ * cannot see the pad.
+ *
+ * It is drawn in the display palette, the light one in the light theme (design
+ * language, section 8): a grid, rings of distance round the listener, the way
+ * the listener faces, and each emitter in its own colour.
  */
 
+import { useRef, type ReactNode } from 'react';
+
+import type { GamePreviewScenario } from '@audiogubbins/game-audio';
+
+import { emitterColour } from './emitter-colours.js';
 import {
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
-  type RefObject,
-} from 'react';
-
-import type { GamePreviewScenario, Position } from '@audiogubbins/game-audio';
-
+  SIZE,
+  padGeometry,
+  shownAt,
+  useMoves,
+  type Moved,
+  type Moves,
+  type PadPoint,
+} from './pad-moves.js';
 import { whereWords } from './preview-words.js';
 
-/** The pad's drawing size, in its own units. */
-const SIZE = 240;
+/** How many squares the grid divides the pad into along each side. */
+const GRID_SQUARES = 8;
 
-/** How far a key moves a point: a tenth of a unit, or a unit with Shift. */
-const STEP = 0.1;
-const BIG_STEP = 1;
+/** The rings of distance round the listener, as shares of the pad's half-width. */
+const RINGS = [1 / 3, 2 / 3, 1];
 
-/** The least extent the pad shows either side of the listener, and the margin round its points. */
-const LEAST_EXTENT = 4;
-const MARGIN = 1.25;
+/** How far the listener's facing reaches, and how wide it opens either side, in radians. */
+const FACING_REACH = 46;
+const FACING_SPREAD = 0.5;
 
-const KEY_STEPS: Readonly<Record<string, readonly [number, number]>> = {
-  ArrowLeft: [-1, 0],
-  ArrowRight: [1, 0],
-  ArrowUp: [0, -1],
-  ArrowDown: [0, 1],
-};
-
-/** What is moved: the listener, or the emitter at a place. */
-type Moved = { readonly kind: 'listener' } | { readonly kind: 'emitter'; readonly index: number };
-
-/** Where the pad draws a point. */
-interface PadPoint {
-  readonly x: number;
-  readonly y: number;
-}
-
-/** The axis the pad shows down the page: z in 3D, y in 2D. */
-function downAxis(space: GamePreviewScenario['space']): 'y' | 'z' {
-  return space === '3d' ? 'z' : 'y';
-}
-
-/** A tenth to its nearest, so steps of a tenth add up exactly as typed. */
-function round(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
-/** Where `emitter` is drawn: where it stands, or where its path starts. */
-function shownAt(emitter: GamePreviewScenario['emitters'][number]): Position | undefined {
-  return emitter.motion.kind === 'still' ? emitter.motion.at : emitter.motion.points[0]?.at;
-}
-
-/** How the pad maps the scenario's positions onto its drawing, and back. */
-function padGeometry(scenario: GamePreviewScenario) {
-  const { listener, space } = scenario;
-  const down = downAxis(space);
-  const points = [
-    listener.at,
-    ...scenario.emitters.flatMap((emitter) =>
-      emitter.motion.kind === 'still'
-        ? [emitter.motion.at]
-        : emitter.motion.points.map((one) => one.at),
-    ),
-  ];
-  const extent =
-    MARGIN *
-    Math.max(
-      LEAST_EXTENT,
-      ...points.map((at) =>
-        Math.max(Math.abs(at.x - listener.at.x), Math.abs(at[down] - listener.at[down])),
-      ),
-    );
-  const scale = SIZE / 2 / extent;
-  return {
-    down,
-    toPad: (at: Position): PadPoint => ({
-      x: SIZE / 2 + (at.x - listener.at.x) * scale,
-      y: SIZE / 2 + (at[down] - listener.at[down]) * scale,
-    }),
-    fromPad: (at: Position, padX: number, padY: number): Position => ({
-      ...at,
-      x: round(listener.at.x + (padX - SIZE / 2) / scale),
-      [down]: round(listener.at[down] + (padY - SIZE / 2) / scale),
-    }),
-  };
-}
-
-/** `scenario` with `which` moved to `at`. */
-function placed(scenario: GamePreviewScenario, which: Moved, at: Position): GamePreviewScenario {
-  if (which.kind === 'listener') return { ...scenario, listener: { ...scenario.listener, at } };
-  return {
-    ...scenario,
-    emitters: scenario.emitters.map((emitter, index) =>
-      index === which.index && emitter.motion.kind === 'still'
-        ? { ...emitter, motion: { kind: 'still', at } }
-        : emitter,
-    ),
-  };
-}
-
-/** Where `which` stands, where it can be moved. */
-function positionOf(scenario: GamePreviewScenario, which: Moved): Position | undefined {
-  if (which.kind === 'listener') return scenario.listener.at;
-  const motion = scenario.emitters[which.index]?.motion;
-  return motion?.kind === 'still' ? motion.at : undefined;
-}
-
-/** The handlers that move a point by key and by pointer. */
-function useMoves(
-  scenario: GamePreviewScenario,
-  onScenario: (scenario: GamePreviewScenario) => void,
-  svg: RefObject<SVGSVGElement | null>,
-) {
-  const [dragging, setDragging] = useState<Moved | undefined>(undefined);
-  const geometry = padGeometry(scenario);
-  return {
-    onKey: (which: Moved) => (event: KeyboardEvent<SVGElement>) => {
-      const steps = KEY_STEPS[event.key];
-      const at = positionOf(scenario, which);
-      if (steps === undefined || at === undefined) return;
-      event.preventDefault();
-      const step = event.shiftKey ? BIG_STEP : STEP;
-      const axis = geometry.down;
-      onScenario(
-        placed(scenario, which, {
-          ...at,
-          x: round(at.x + steps[0] * step),
-          [axis]: round(at[axis] + steps[1] * step),
-        }),
-      );
-    },
-    grab: (which: Moved) => (event: PointerEvent<SVGElement>) => {
-      event.currentTarget.focus();
-      setDragging(which);
-    },
-    drag: (event: PointerEvent<SVGSVGElement>) => {
-      const bounds = svg.current?.getBoundingClientRect();
-      const at = dragging === undefined ? undefined : positionOf(scenario, dragging);
-      if (
-        dragging === undefined ||
-        at === undefined ||
-        bounds === undefined ||
-        bounds.width === 0
-      ) {
-        return;
-      }
-      const padX = ((event.clientX - bounds.left) / bounds.width) * SIZE;
-      const padY = ((event.clientY - bounds.top) / bounds.height) * SIZE;
-      onScenario(placed(scenario, dragging, geometry.fromPad(at, padX, padY)));
-    },
-    release: () => {
-      setDragging(undefined);
-    },
-  };
-}
-
-type Moves = ReturnType<typeof useMoves>;
-
-/** One point on the pad: a square for an emitter, numbered, or the listener's circle. */
+/** One point on the pad: a square for an emitter, numbered in its colour, or the listener's circle. */
 function Point({
   shown,
   label,
   mark,
   which,
+  colour,
+  sounding,
   moves,
 }: {
   readonly shown: PadPoint;
@@ -184,12 +56,17 @@ function Point({
   readonly mark: string;
   /** What moving it moves; nothing for a moving emitter. */
   readonly which: Moved | undefined;
+  /** An emitter's colour; nothing for the listener. */
+  readonly colour: string | undefined;
+  /** Whether a run is sounding it, drawn with rings round it. */
+  readonly sounding: boolean;
   readonly moves: Moves;
 }): ReactNode {
-  const outline = { stroke: 'var(--ag-chrome-text-primary)' };
   return (
     <g
+      className="ag-preview-point"
       aria-label={label}
+      {...(colour === undefined ? {} : { 'data-ag-category': colour })}
       {...(which === undefined
         ? {}
         : {
@@ -199,69 +76,99 @@ function Point({
             onPointerDown: moves.grab(which),
           })}
     >
-      {which?.kind === 'listener' ? (
-        <circle
-          cx={shown.x}
-          cy={shown.y}
-          r={8}
-          style={{ ...outline, fill: 'var(--ag-chrome-surface-raised)' }}
-        />
+      {sounding &&
+        [14, 22].map((r) => (
+          <circle key={r} className="ag-preview-point-wave" cx={shown.x} cy={shown.y} r={r} />
+        ))}
+      {colour === undefined ? (
+        <circle className="ag-preview-point-mark" cx={shown.x} cy={shown.y} r={10} />
       ) : (
         <rect
-          x={shown.x - 7}
-          y={shown.y - 7}
-          width={14}
-          height={14}
-          style={{ ...outline, fill: 'var(--ag-chrome-surface-base)' }}
+          className="ag-preview-point-mark"
+          x={shown.x - 9}
+          y={shown.y - 9}
+          width={18}
+          height={18}
+          rx={4}
         />
       )}
-      <text
-        x={shown.x}
-        y={shown.y + 4}
-        textAnchor="middle"
-        style={{ fill: 'var(--ag-chrome-text-primary)', fontSize: 10 }}
-      >
+      <text className="ag-preview-point-text" x={shown.x} y={shown.y} textAnchor="middle">
         {mark}
       </text>
     </g>
   );
 }
 
+/** The grid, and the rings of distance round the listener, who is always at the centre. */
+function PadGround(): ReactNode {
+  const centre = SIZE / 2;
+  const lines = Array.from(
+    { length: GRID_SQUARES - 1 },
+    (_, at) => ((at + 1) * SIZE) / GRID_SQUARES,
+  );
+  return (
+    <g aria-hidden="true">
+      {lines.map((at) => (
+        <g key={at}>
+          <line className="ag-preview-grid" x1={at} x2={at} y1={0} y2={SIZE} />
+          <line className="ag-preview-grid" x1={0} x2={SIZE} y1={at} y2={at} />
+        </g>
+      ))}
+      {RINGS.map((share) => (
+        <circle
+          key={share}
+          className="ag-preview-ring"
+          cx={centre}
+          cy={centre}
+          r={(share * SIZE) / 2}
+        />
+      ))}
+    </g>
+  );
+}
+
+/** The way the listener faces: a wedge from it, turned by its facing, ahead being up. */
+function Facing({ at, turns }: { readonly at: PadPoint; readonly turns: number }): ReactNode {
+  const angle = turns * 2 * Math.PI - Math.PI / 2;
+  const edge = (offset: number): string =>
+    `${String(at.x + FACING_REACH * Math.cos(angle + offset))} ${String(at.y + FACING_REACH * Math.sin(angle + offset))}`;
+  return (
+    <path
+      className="ag-preview-facing"
+      aria-hidden="true"
+      d={`M ${String(at.x)} ${String(at.y)} L ${edge(-FACING_SPREAD)} A ${String(FACING_REACH)} ${String(FACING_REACH)} 0 0 1 ${edge(FACING_SPREAD)} Z`}
+    />
+  );
+}
+
 /** Each moving emitter's path, the listener, and each emitter, as the pad draws them. */
 function PadPoints({
   scenario,
+  sounding,
   moves,
 }: {
   readonly scenario: GamePreviewScenario;
+  readonly sounding: ReadonlySet<string>;
   readonly moves: Moves;
 }): ReactNode {
   const { toPad, down } = padGeometry(scenario);
   const { listener } = scenario;
   return (
     <>
-      {scenario.emitters.map((emitter) =>
+      <Facing at={toPad(listener.at)} turns={listener.facingTurns} />
+      {scenario.emitters.map((emitter, index) =>
         emitter.motion.kind === 'waypoints' ? (
           <polyline
             key={`path-${emitter.id}`}
+            className="ag-preview-path"
+            data-ag-category={emitterColour(index)}
             aria-hidden="true"
             points={emitter.motion.points
               .map((one) => `${String(toPad(one.at).x)},${String(toPad(one.at).y)}`)
               .join(' ')}
-            style={{
-              fill: 'none',
-              stroke: 'var(--ag-chrome-text-secondary)',
-              strokeDasharray: '4 3',
-            }}
           />
         ) : null,
       )}
-      <Point
-        shown={toPad(listener.at)}
-        label={`Listener at x ${String(listener.at.x)}, ${down} ${String(listener.at[down])}`}
-        mark="L"
-        which={{ kind: 'listener' }}
-        moves={moves}
-      />
       {scenario.emitters.map((emitter, index) => {
         const at = shownAt(emitter);
         if (at === undefined) return null;
@@ -273,10 +180,21 @@ function PadPoints({
             label={`${emitter.name} at x ${String(at.x)}, ${down} ${String(at[down])}${still ? '' : ', moving'}`}
             mark={String(index + 1)}
             which={still ? { kind: 'emitter', index } : undefined}
+            colour={emitterColour(index)}
+            sounding={sounding.has(emitter.id)}
             moves={moves}
           />
         );
       })}
+      <Point
+        shown={toPad(listener.at)}
+        label={`Listener at x ${String(listener.at.x)}, ${down} ${String(listener.at[down])}`}
+        mark="L"
+        which={{ kind: 'listener' }}
+        colour={undefined}
+        sounding={false}
+        moves={moves}
+      />
     </>
   );
 }
@@ -284,7 +202,7 @@ function PadPoints({
 /** Each emitter's distance and direction from the listener, in words. */
 function WhereList({ scenario }: { readonly scenario: GamePreviewScenario }): ReactNode {
   return (
-    <ul className="ag-preview-where">
+    <ul className="ag-visually-hidden">
       {scenario.emitters.map((emitter) => {
         const at = shownAt(emitter);
         const path = emitter.motion.kind === 'still' ? '' : ', where its path starts';
@@ -301,9 +219,12 @@ function WhereList({ scenario }: { readonly scenario: GamePreviewScenario }): Re
 /** The pad of `scenario`, which `onScenario` changes as a point is moved. */
 export function PreviewPad({
   scenario,
+  sounding,
   onScenario,
 }: {
   readonly scenario: GamePreviewScenario;
+  /** The emitters a run is sounding now, by their identity. */
+  readonly sounding: ReadonlySet<string>;
   readonly onScenario: (scenario: GamePreviewScenario) => void;
 }): ReactNode {
   const svg = useRef<SVGSVGElement>(null);
@@ -313,17 +234,16 @@ export function PreviewPad({
     <div className="ag-preview-pad">
       <svg
         ref={svg}
+        className="ag-preview-pad-drawing"
         viewBox={`0 0 ${String(SIZE)} ${String(SIZE)}`}
-        width={SIZE}
-        height={SIZE}
         role="group"
         aria-label={`The scenario seen from above, in ${unit}; arrow keys move the focused point.`}
         onPointerMove={moves.drag}
         onPointerUp={moves.release}
         onPointerLeave={moves.release}
-        style={{ border: '1px solid var(--ag-chrome-border-subtle)', touchAction: 'none' }}
       >
-        <PadPoints scenario={scenario} moves={moves} />
+        <PadGround />
+        <PadPoints scenario={scenario} sounding={sounding} moves={moves} />
       </svg>
       <WhereList scenario={scenario} />
     </div>

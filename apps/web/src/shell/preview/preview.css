@@ -1,0 +1,327 @@
+/*
+ * The Game preview panel (ADR-0104), in the design language: the scenario's
+ * bar, the pad seen from above in the display palette beside its emitters,
+ * each emitter in its own category colour, the event log in the language's
+ * table, and the settings behind their sections (sections 8, 10 and 11).
+ */
+
+/* Each emitter's colour, read by its number, its mark on the pad, its path and
+   the dots of its events. */
+[data-ag-category='amber'] {
+  --ag-emitter-colour: var(--ag-category-amber);
+}
+
+[data-ag-category='sky'] {
+  --ag-emitter-colour: var(--ag-category-sky);
+}
+
+[data-ag-category='rose'] {
+  --ag-emitter-colour: var(--ag-category-rose);
+}
+
+[data-ag-category='lime'] {
+  --ag-emitter-colour: var(--ag-category-lime);
+}
+
+[data-ag-category='violet'] {
+  --ag-emitter-colour: var(--ag-category-violet);
+}
+
+[data-ag-category='coral'] {
+  --ag-emitter-colour: var(--ag-category-coral);
+}
+
+[data-ag-category='teal'] {
+  --ag-emitter-colour: var(--ag-category-teal);
+}
+
+[data-ag-category='indigo'] {
+  --ag-emitter-colour: var(--ag-category-indigo);
+}
+
+.ag-preview-note {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-preview-problems {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-preview-problems > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+}
+
+.ag-preview-problem-glyph {
+  flex: none;
+  inline-size: var(--ag-icon-size-inline);
+  block-size: var(--ag-icon-size-inline);
+  margin-block-start: calc((1lh - var(--ag-icon-size-inline)) / 2);
+}
+
+/* The pad beside its emitters; the emitters drop under the pad where the
+   panel is too narrow for both. */
+.ag-preview-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ag-space-inset);
+}
+
+.ag-preview-pad {
+  flex: 1 1 calc(var(--ag-grid-unit) * 60);
+  max-inline-size: calc(var(--ag-grid-unit) * 90);
+}
+
+.ag-preview-emitters {
+  display: grid;
+  flex: 999 1 calc(var(--ag-grid-unit) * 90);
+  gap: var(--ag-space-tiny);
+  align-content: start;
+  min-inline-size: 0;
+}
+
+/* The pad: a square display one inset in, drawn in the display palette. */
+.ag-preview-pad-drawing {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 1;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-waveform-background);
+  touch-action: none;
+}
+
+.ag-preview-grid {
+  stroke: color-mix(in oklch, var(--ag-analysis-grid) 35%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-preview-ring {
+  fill: none;
+  stroke: color-mix(in oklch, var(--ag-chrome-accent) 25%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-preview-facing {
+  fill: color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent);
+}
+
+.ag-preview-path {
+  fill: none;
+  stroke: color-mix(in oklch, var(--ag-emitter-colour) 70%, transparent);
+  stroke-dasharray: calc(var(--ag-grid-unit) * 1);
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-preview-point {
+  outline: none;
+}
+
+.ag-preview-point[role='button'] {
+  cursor: grab;
+}
+
+.ag-preview-point-mark {
+  fill: var(--ag-emitter-colour, var(--ag-chrome-accent));
+  filter: drop-shadow(
+    0 0 calc(var(--ag-grid-unit) * 2) var(--ag-emitter-colour, var(--ag-chrome-accent))
+  );
+}
+
+.ag-preview-point-wave {
+  fill: none;
+  stroke: color-mix(in oklch, var(--ag-emitter-colour) 40%, transparent);
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-preview-point-text {
+  fill: var(--ag-chrome-surface-base);
+  font-family: var(--ag-font-ui);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-bold);
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.ag-preview-point:not([data-ag-category]) .ag-preview-point-text {
+  fill: var(--ag-chrome-text-on-accent);
+}
+
+/* A focused point: the focus colour round its mark, as the one ring is round a
+   control, since an SVG shape takes no box shadow. */
+.ag-preview-point:focus-visible .ag-preview-point-mark {
+  stroke: var(--ag-chrome-border-focus);
+  stroke-width: var(--ag-focus-ring-width);
+  paint-order: stroke;
+}
+
+/* An emitter: its row, and its settings under it. */
+.ag-preview-emitter {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  border: 1px solid transparent;
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-preview-emitter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-preview-emitter-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-grid-unit) * 5.5);
+  block-size: calc(var(--ag-grid-unit) * 5.5);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-emitter-colour);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 2.5) calc(var(--ag-grid-unit) * -0.5)
+    var(--ag-emitter-colour);
+  color: var(--ag-chrome-surface-base);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-bold);
+}
+
+.ag-preview-emitter-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-preview-emitter-name {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.ag-preview-emitter-detail,
+.ag-preview-voices {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+.ag-preview-voices {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-preview-voice-lamps {
+  display: flex;
+  gap: var(--ag-space-hair);
+}
+
+/* A voice: an LED segment, lit while it sounds (section 10, "LED meters"). */
+.ag-preview-voice-lamp {
+  inline-size: var(--ag-hardware-meter-segment);
+  block-size: calc(var(--ag-grid-unit) * 3);
+  border-radius: var(--ag-radius-hairline);
+  background-color: var(--ag-hardware-led-off);
+}
+
+.ag-preview-voice-lamp[data-ag-lit] {
+  background-color: var(--ag-meter-low);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 1.5) var(--ag-meter-low);
+}
+
+.ag-preview-emitter-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+/* The fields behind a settings section, wrapping. */
+.ag-preview-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+}
+
+.ag-preview-fields > .ag-preview-note {
+  flex-basis: 100%;
+}
+
+.ag-preview-position {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+}
+
+.ag-preview-waypoints {
+  display: grid;
+  flex-basis: 100%;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-preview-waypoint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+/* The event log: its title and hint, then the table. */
+.ag-preview-log {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-preview-log-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-preview-group-title {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+.ag-preview-log-table {
+  font-size: var(--ag-text-label);
+}
+
+.ag-preview-log-table tr[data-ag-refusal] td {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-preview-event-dot {
+  display: inline-block;
+  inline-size: calc(var(--ag-grid-unit) * 1.75);
+  block-size: calc(var(--ag-grid-unit) * 1.75);
+  margin-inline-end: var(--ag-space-small);
+  border-radius: var(--ag-radius-hairline);
+  background-color: var(--ag-emitter-colour);
+  vertical-align: middle;
+}

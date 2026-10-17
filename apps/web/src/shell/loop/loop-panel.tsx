@@ -13,35 +13,26 @@
  * it was made of, and offers nothing to hear or apply until it is made again.
  */
 
-import { useId, useSyncExternalStore, type ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 
-import type { LoopRendering } from '@audiogubbins/domain';
-import { LOOP_ANALYSIS_VERSION, type LoopAnalysis } from '@audiogubbins/loop-analysis';
+import { EmptyState, Hint, PanelHeader } from '@audiogubbins/design-system';
+import { LOOP_ANALYSIS_VERSION } from '@audiogubbins/loop-analysis';
 import { formatPosition } from '@audiogubbins/timeline';
-import { counted, quoted } from '@audiogubbins/text';
+import { quoted } from '@audiogubbins/text';
 
-import { judgedWords, regionLoopOf, type RegionLoop } from '../../analysis/loop-analysing.js';
+import { regionLoopOf, type RegionLoop } from '../../analysis/loop-analysing.js';
 import { channelNames } from '../../assets/channel-names.js';
 import { regionEntryId } from '../../assets/project-entry.js';
 import type { Auditioning } from '../../audio/loop-audition.js';
 import type { EditorPanelParts } from '../../editor/panel-parts.js';
 import { LOOP_PANEL } from '../../input/use-shortcuts.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
-import {
-  isCurrent,
-  type LoopAnalyses,
-  type LoopAnalysisRecord,
-} from '../../state/loop-analysis-store.js';
+import { isCurrent, type LoopAnalyses } from '../../state/loop-analysis-store.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
 import { inspected } from '../inspector/inspected.js';
-import { seamCauseWords } from '../inspector/loop-processing-words.js';
-import { ChecksTable } from './checks-table.js';
-import { LoopCandidates, type CandidateTarget } from './loop-candidates.js';
-import { Hearing, Running, SearchSettings } from './loop-controls.js';
-import { millisecondsWords, seamFaulted, shapeWords } from './loop-words.js';
-import { SeamView } from './seam-view.js';
+import { HeardSide, SearchSide, type Analysed, type Shown } from './loop-sides.js';
 
 /** What the Loop panel reads. */
 export interface LoopParts {
@@ -56,19 +47,6 @@ export interface LoopParts {
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
-
-/** The region the panel shows, and how it reads. */
-interface Shown {
-  /** The editor panel its commands act in. */
-  readonly panel: string;
-  readonly name: string;
-  /** Its loop as heard now, or why it has none to analyse. */
-  readonly looped: RegionLoop | string;
-  readonly region: string;
-  /** A position of the region, as its views write one. */
-  readonly position: (frames: number) => string;
-  readonly channels: readonly string[];
-}
 
 /** Reads the region the editor in use acts on, and its loop as heard now; or why there is none. */
 function useShown(parts: LoopParts): Shown | string {
@@ -113,119 +91,37 @@ function useShown(parts: LoopParts): Shown | string {
   };
 }
 
-/** The region's loop in a sentence: where it lies, its crossfade, and any shortening of it. */
-function loopSentence(looped: RegionLoop, position: (frames: number) => string): string {
-  const { loop, sound } = looped;
-  const where = `It loops from ${position(loop.loopStart)} to ${position(loop.loopEnd)} of the region`;
-  const crossfade =
-    loop.crossfadeLength === 0
-      ? `${where}, with no crossfade.`
-      : `${where}, with a crossfade of ${millisecondsWords(loop.crossfadeLength, sound.sampleRate)} (${counted(loop.crossfadeLength, 'frame', 'frames')}), ${shapeWords(loop.crossfadeShape)}.`;
-  const kept = loop.crossfadeClampedFrom;
-  return kept === undefined
-    ? crossfade
-    : `${crossfade} It was set to ${counted(kept, 'frame', 'frames')}; the region now holds too little audio before or within the loop for more.`;
-}
-
-/** What an answered analysis found: its verdict, its checks, the seam and the candidates. */
-function Answered({
-  analysis,
-  searched,
-  shown,
-  current,
-  rendering,
-  commands,
-}: {
-  readonly analysis: LoopAnalysis;
-  /** Whether candidates were searched for, so none found is said. */
-  readonly searched: boolean;
-  readonly shown: Shown;
-  readonly current: boolean;
-  /** How the loop renders its effects now (ADR-0107). */
-  readonly rendering: LoopRendering | undefined;
-  readonly commands: PanelCommands;
-}): ReactNode {
-  const checks = useId();
-  // Said only of an analysis of the sound as it is, whose rendering is the
-  // loop's now.
-  const cause =
-    current && rendering !== undefined && seamFaulted(analysis.current)
-      ? seamCauseWords(rendering)
-      : undefined;
-  const target: CandidateTarget = {
-    view: shown.panel,
-    region: shown.region,
-    refusal: current
-      ? undefined
-      : 'The region’s sound has changed since its loop was analysed. Analyse it again first.',
-  };
-  return (
-    <>
-      {!current && (
-        <p role="status">
-          The region’s sound has changed since its loop was analysed, so what is shown here is of
-          its sound as it was. Analyse it again to see its loop as it is now.
-        </p>
-      )}
-      <p className="ag-loop-verdict">{`As heard, the loop ${judgedWords(analysis.current)}.`}</p>
-      <section aria-labelledby={checks}>
-        <h3 className="ag-analysis-heading" id={checks}>
-          Its checks
-        </h3>
-        <ChecksTable
-          metrics={analysis.current}
-          channels={shown.channels}
-          caption="The loop’s checks, as it is heard with its crossfade"
-        />
-        {cause !== undefined && <p className="ag-panel-note">{cause}</p>}
-      </section>
-      <SeamView analysis={analysis} channels={shown.channels} />
-      {searched ? (
-        <LoopCandidates
-          candidates={analysis.candidates}
-          sampleRate={analysis.sampleRate}
-          channels={shown.channels}
-          position={shown.position}
-          target={target}
-          commands={commands}
-        />
-      ) : null}
-    </>
-  );
-}
-
-/** What an analysis of the region's loop is doing, or what it came to. */
-function AnalysisState({
-  record,
+/** The region's loop: how it sounds and is judged, beside the search near it. */
+function RegionLoopView({
   shown,
   looped,
+  parts,
   commands,
 }: {
-  readonly record: LoopAnalysisRecord | undefined;
   readonly shown: Shown;
   readonly looped: RegionLoop;
+  readonly parts: LoopParts;
   readonly commands: PanelCommands;
 }): ReactNode {
-  if (record === undefined) {
-    return <p className="ag-panel-note">Its loop has not been analysed this session.</p>;
-  }
-  switch (record.kind) {
-    case 'running':
-      return <Running record={record} shown={shown} commands={commands} />;
-    case 'failed':
-      return <p role="status">{`Its loop could not be analysed. ${record.reason}`}</p>;
-    case 'done':
-      return (
-        <Answered
-          analysis={record.analysis}
-          searched={record.request.search !== undefined}
-          shown={shown}
-          current={isCurrent(record, looped.identity, LOOP_ANALYSIS_VERSION)}
-          rendering={looped.rendering}
-          commands={commands}
-        />
-      );
-  }
+  const analyses = useSyncExternalStore(parts.analyses.subscribe, parts.analyses.get);
+  const audition = useSyncExternalStore(parts.audition.subscribe, parts.audition.get);
+  const record = analyses.get(shown.region);
+  const analysed: Analysed = {
+    record,
+    current: record?.kind === 'done' && isCurrent(record, looped.identity, LOOP_ANALYSIS_VERSION),
+  };
+  return (
+    <div className="ag-loop-split">
+      <HeardSide
+        shown={shown}
+        looped={looped}
+        analysed={analysed}
+        audition={audition}
+        commands={commands}
+      />
+      <SearchSide shown={shown} analysed={analysed} commands={commands} />
+    </div>
+  );
 }
 
 /** The Loop panel. */
@@ -239,42 +135,25 @@ export function LoopPanel({
   readonly commands: PanelCommands;
 }): ReactNode {
   const shown = useShown(parts);
-  const analyses = useSyncExternalStore(parts.analyses.subscribe, parts.analyses.get);
-  const audition = useSyncExternalStore(parts.audition.subscribe, parts.audition.get);
   return (
-    <section className="ag-panel ag-loop" {...{ [LOOP_PANEL]: '' }}>
-      <h2 className="ag-panel-title">{title}</h2>
+    <section className="ag-panel ag-stacked-panel ag-loop" {...{ [LOOP_PANEL]: '' }}>
+      <PanelHeader
+        title={title}
+        icon="loop"
+        {...(typeof shown === 'string' ? {} : { subLabel: shown.name })}
+        actions={
+          <Hint label="About the loop’s checks">
+            The checks measure the seam as it is heard. Nothing changes until you apply a candidate,
+            which one undo reverses.
+          </Hint>
+        }
+      />
       {typeof shown === 'string' ? (
-        <p>{shown}</p>
+        <EmptyState icon="loop" title="No loop to analyse" text={shown} />
+      ) : typeof shown.looped === 'string' ? (
+        <EmptyState icon="loop" title="No loop to analyse" text={shown.looped} />
       ) : (
-        <>
-          <p className="ag-editor-asset-name">{shown.name}</p>
-          {typeof shown.looped === 'string' ? (
-            <p>{shown.looped}</p>
-          ) : (
-            <>
-              <p>{loopSentence(shown.looped, shown.position)}</p>
-              <p className="ag-panel-note">
-                The checks measure the seam as it is heard. Nothing changes until you apply a
-                candidate, which one undo reverses.
-              </p>
-              <CommandButton
-                id="loop.analyse"
-                label="Analyse the loop"
-                commands={commands}
-                args={{ view: shown.panel, region: shown.region }}
-              />
-              <SearchSettings shown={shown} commands={commands} />
-              <Hearing shown={shown} audition={audition} commands={commands} />
-              <AnalysisState
-                record={analyses.get(shown.region)}
-                shown={shown}
-                looped={shown.looped}
-                commands={commands}
-              />
-            </>
-          )}
-        </>
+        <RegionLoopView shown={shown} looped={shown.looped} parts={parts} commands={commands} />
       )}
     </section>
   );
