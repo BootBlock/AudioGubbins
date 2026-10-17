@@ -1,0 +1,116 @@
+/*
+ * The Capabilities panel, in the design language: each thing this browser
+ * cannot do, or does in part, a row in its state's colour at about a fifth
+ * with a translucent edge, led by a status lamp and named by a badge; and the
+ * recording, drawing and analysis readings as quiet lines under their group's
+ * title (sections 5, 10 and 11).
+ *
+ * Scoped to the panel: the recording and engine readings elsewhere share the
+ * capability classes, and keep their own drawing.
+ */
+
+.ag-capabilities .ag-capability-group {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+/* A group's title: caption size, 600, upper case (section 11). */
+.ag-capabilities .ag-capability-heading {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+.ag-capabilities .ag-capability-list,
+.ag-capabilities .ag-capability-lines {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-capabilities .ag-capability-line,
+.ag-capabilities .ag-capability-explanation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-capabilities .ag-capability-explanation {
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* A missing capability: its state's colour at about a fifth, a translucent edge. */
+.ag-capabilities .ag-capability[data-ag-status] {
+  --ag-capability-tone: var(--ag-chrome-status-warning);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+  padding: calc(var(--ag-grid-unit) * 1.5) var(--ag-space-inset);
+  border: 1px solid color-mix(in oklch, var(--ag-capability-tone) 30%, transparent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-capability-tone) 20%, transparent);
+}
+
+.ag-capabilities .ag-capability[data-ag-status='unavailable'] {
+  --ag-capability-tone: var(--ag-chrome-status-error);
+}
+
+/* The status lamp: its colour with a glow (section 10, "Status LED"). */
+.ag-capabilities .ag-capability-lamp {
+  flex: none;
+  inline-size: calc(var(--ag-grid-unit) * 1.75);
+  block-size: calc(var(--ag-grid-unit) * 1.75);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-capability-tone);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 2) var(--ag-capability-tone);
+}
+
+.ag-capabilities .ag-capability-name {
+  flex: 1;
+  min-inline-size: 0;
+  font-weight: var(--ag-text-weight-medium);
+  line-height: var(--ag-text-line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.ag-capabilities .ag-capability[data-ag-status] > .ag-capability-explanation {
+  flex-basis: 100%;
+  padding-inline-start: calc(var(--ag-grid-unit) * 1.75 + var(--ag-space-medium));
+  color: var(--ag-chrome-text-primary);
+}
+
+/* A reading on a line of its own, not a missing capability's row. */
+.ag-capabilities .ag-capability-lines > .ag-capability {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* What a hint says, in its popover, outside the panel. */
+.ag-capability-advice {
+  margin: 0;
+}
+
+.ag-capability-advice + .ag-capability-advice {
+  margin-block-start: var(--ag-space-small);
+}
+
+.ag-renderer-attempts {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

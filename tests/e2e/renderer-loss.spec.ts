@@ -6,6 +6,7 @@ import {
   expectLabelled,
   expectSpectrogramDrawn,
   openWithCapabilities,
+  rendererAttempts,
   rendererReport,
   webglLoss,
 } from './renderer.js';
@@ -71,7 +72,7 @@ test.describe('the editor renderer', () => {
     await webglLoss(page, 'loseContext');
 
     await expect(rendererReport(page)).toContainText('Drawn with Canvas 2D.', { timeout: 10_000 });
-    await expect(rendererReport(page)).toContainText('WebGL 2: stopped');
+    expect(await rendererAttempts(page)).toContain('WebGL 2: stopped');
     await expect(rendererReport(page)).toHaveAttribute('data-ag-renderer', 'canvas-2d');
     await expectDrawnAsShown(page, panel);
   });

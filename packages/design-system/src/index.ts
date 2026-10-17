@@ -18,7 +18,8 @@
  * conversions are: `oklchToHex`, which the page's pre-paint colours are checked
  * against, so the check reads the theme's own arithmetic, and `oklchToSrgb`,
  * which gives the editor's renderer the theme's colours as the channels it
- * draws with.
+ * draws with. A canvas states a token at a translucency with `withAlpha` and
+ * takes it, its alpha kept, from `oklchToCanvasColour`.
  */
 
 export {
@@ -27,9 +28,11 @@ export {
   ContrastRequirement,
   type Srgb,
   contrastRatio,
+  oklchToCanvasColour,
   oklchToHex,
   oklchToSrgb,
   srgbToOklch,
+  withAlpha,
 } from './tokens/colour.js';
 
 export {
@@ -73,6 +76,7 @@ export {
 
 export {
   type ControlScale,
+  type DialogueScale,
   type DisplayScale,
   type FocusScale,
   type GridScale,
@@ -136,6 +140,18 @@ export { WINDOW_ROW, useRowWindow } from './primitives/row-window.js';
 
 export { VisuallyHidden } from './primitives/visually-hidden.js';
 
+// The level a component's title takes in the surface's outline, given by the
+// caller that knows how deep it sits: an empty state's and a section's.
+export { type HeadingLevel } from './primitives/heading.js';
+
+// A control's description stands under its label, or, opted in, waits behind
+// an (i) beside it (text economy): the switch, the check, a radio's choices,
+// the select, the slider and the text field each take one.
+export {
+  type ControlDescription,
+  type HintedDescription,
+} from './primitives/control-description.js';
+
 // Buttons: the controls a user presses or turns over. `ControlBarItem` is the
 // toolbar's slot for a control other than its own button, which a toolbar
 // needs as much as its buttons. The hardware controls (the switch, the radio's
@@ -166,6 +182,10 @@ export {
 } from './primitives/buttons/radio-group.js';
 export { PowerSwitch, type PowerSwitchProps } from './primitives/buttons/power-switch.js';
 export { RecordButton, type RecordButtonProps } from './primitives/buttons/record-button.js';
+export {
+  TransportButton,
+  type TransportButtonProps,
+} from './primitives/buttons/transport-button.js';
 
 // ds-dials: the dials and the meters. The slider, the knob and the fader take
 // one taper, a `SliderScale`, from the panel that owns the value; the meters
@@ -188,6 +208,7 @@ export {
   CorrelationMeter,
   type CorrelationMeterProps,
 } from './primitives/dials/correlation-meter.js';
+export { ThresholdMeter, type ThresholdMeterProps } from './primitives/dials/threshold-meter.js';
 export { type FrameClock } from './primitives/dials/frame-clock.js';
 
 // ds-fields: the overlays, the menus and the fields.
@@ -206,14 +227,18 @@ export {
 } from './primitives/overlays/context-actions.js';
 export { type MenuGroup, type MenuItemDescriptor } from './primitives/overlays/menu-entries.js';
 export { ShortcutKeys, type ShortcutKeysProps } from './primitives/overlays/shortcut-keys.js';
-export { ModalDialog, type ModalDialogProps } from './primitives/overlays/modal-dialog.js';
+export {
+  DialogueVariant,
+  ModalDialog,
+  type ModalDialogProps,
+} from './primitives/overlays/modal-dialog.js';
 export {
   InfoPopover,
   type InfoPopoverProps,
   PopoverBody,
   PopoverTone,
 } from './primitives/overlays/info-popover.js';
-export { Hint, type HintProps } from './primitives/overlays/hint.js';
+export { Hint, type HintProps, HintTone } from './primitives/overlays/hint.js';
 export { HintProvider, Tooltip, type TooltipProps } from './primitives/overlays/tooltips.js';
 export {
   RichTooltip,
@@ -244,7 +269,12 @@ export { TemplateText, type TemplateTextProps } from './primitives/fields/templa
 // ds-chrome: the chrome around content. Tabs, the panel and its header,
 // sections, property grids, lists, tables, badges and chips, the empty,
 // loading and error states, notices and banners.
-export { type TabDescriptor, TabSet, type TabSetProps } from './primitives/chrome/tab-set.js';
+export {
+  type TabDescriptor,
+  TabOrientation,
+  TabSet,
+  type TabSetProps,
+} from './primitives/chrome/tab-set.js';
 export { Panel, type PanelProps } from './primitives/chrome/panel.js';
 export { PanelHeader, type PanelHeaderProps } from './primitives/chrome/panel-header.js';
 export { Section, type SectionProps } from './primitives/chrome/section.js';
@@ -264,6 +294,7 @@ export {
 export { Verdict, VerdictKind, type VerdictProps } from './primitives/chrome/verdict.js';
 export { Badge, type BadgeProps, BadgeTone } from './primitives/chrome/badge.js';
 export { StatusChip, type StatusChipProps, StatusTone } from './primitives/chrome/status-chip.js';
+export { LedTone, StatusLed, type StatusLedProps } from './primitives/chrome/status-led.js';
 export { KeyCap, type KeyCapProps } from './primitives/chrome/key-cap.js';
 export {
   EmptyState,

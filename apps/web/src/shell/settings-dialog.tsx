@@ -14,7 +14,7 @@
 
 import type { ReactNode } from 'react';
 
-import { ModalDialog, TabSet } from '@audiogubbins/design-system';
+import { ModalDialog, TabSet, type TabDescriptor } from '@audiogubbins/design-system';
 import type { VerbosityConfiguration } from '@audiogubbins/diagnostics';
 import type { WorkspaceLayout } from '@audiogubbins/workspace';
 
@@ -92,18 +92,20 @@ export interface SettingsDialogProps {
 }
 
 /** The project system's sections, where this browser keeps projects. */
-function projectTabs(props: SettingsDialogProps) {
+function projectTabs(props: SettingsDialogProps): readonly TabDescriptor[] {
   const { projects, run, unavailableReason } = props;
   if (projects === undefined) return [];
   return [
     {
       value: 'projects',
       label: 'Projects',
+      icon: 'projects',
       content: <ProjectSettings projects={projects} run={run} />,
     },
     {
       value: 'backups',
       label: 'Backups',
+      icon: 'backups',
       content: <Backups projects={projects} run={run} unavailableReason={unavailableReason} />,
     },
   ];
@@ -113,10 +115,11 @@ function projectTabs(props: SettingsDialogProps) {
  * The Export tab: the person's own presets, and where this browser keeps
  * projects, the folders kept trusted, which are kept with them.
  */
-function exportTab(props: SettingsDialogProps) {
+function exportTab(props: SettingsDialogProps): TabDescriptor {
   return {
     value: 'export',
     label: 'Export',
+    icon: 'export',
     content: (
       <div className="ag-settings-section">
         <ExportPresetsSection presets={props.preferences.exportPresets} run={props.run} />
@@ -129,10 +132,11 @@ function exportTab(props: SettingsDialogProps) {
 }
 
 /** How a pen's pressure sets a tool's strength, the person's input choice (REQ-UX-068). */
-function penAndTouchTab(props: SettingsDialogProps) {
+function penAndTouchTab(props: SettingsDialogProps): TabDescriptor {
   return {
     value: 'pen-and-touch',
     label: 'Pen and touch',
+    icon: 'pen-and-touch',
     content: (
       <div className="ag-settings-section">
         <PressureControls pressure={props.preferences.pressure} run={props.run} />
@@ -150,80 +154,93 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
       open={open}
       onOpenChange={onOpenChange}
       title="Settings"
+      icon="settings"
+      closeLabel="Close the settings"
       description="How AudioGubbins looks, how it moves, how it processes audio, and what it records."
     >
-      <TabSet
-        label="Settings sections"
-        value={section}
-        onValueChange={onSectionChange}
-        tabs={[
-          {
-            value: 'appearance',
-            label: 'Appearance',
-            content: <Appearance preferences={props.preferences} run={props.run} />,
-          },
-          {
-            value: 'accessibility',
-            label: 'Accessibility',
-            content: <Accessibility preferences={props.preferences} run={props.run} />,
-          },
-          penAndTouchTab(props),
-          {
-            value: 'workspaces',
-            label: 'Workspaces',
-            content: (
-              <Workspaces
-                layout={props.layout}
-                available={props.available}
-                deleted={props.deleted}
-                unread={props.workspaceUnread}
-                run={props.run}
-                unavailableReason={props.unavailableReason}
-              />
-            ),
-          },
-          {
-            value: 'shortcuts',
-            label: 'Shortcuts',
-            content: (
-              <Shortcuts
-                {...props.shortcuts}
-                run={props.run}
-                unavailableReason={props.unavailableReason}
-              />
-            ),
-          },
-          ...projectTabs(props),
-          exportTab(props),
-          {
-            value: 'audio',
-            label: 'Audio',
-            content: (
-              <Audio
-                settings={props.audio}
-                run={props.run}
-                recording={props.recording}
-                unavailableReason={props.unavailableReason}
-              />
-            ),
-          },
-          {
-            value: 'diagnostics',
-            label: 'Diagnostics',
-            content: (
-              <Diagnostics
-                diagnosticModeActive={props.diagnosticModeActive}
-                {...(props.diagnosticModeEnds === undefined
-                  ? {}
-                  : { diagnosticModeEnds: props.diagnosticModeEnds })}
-                verbosity={props.verbosity}
-                categories={props.logCategories}
-                run={props.run}
-              />
-            ),
-          },
-        ]}
-      />
+      {/* The pages as a list beside the page showing, rather than a strip
+          above it (design language, section 11): ten names do not fit one
+          row of a dialogue, and wrapped they would move as the window does. */}
+      <div className="ag-settings">
+        <TabSet
+          label="Settings sections"
+          value={section}
+          onValueChange={onSectionChange}
+          tabs={[
+            {
+              value: 'appearance',
+              label: 'Appearance',
+              icon: 'appearance',
+              content: <Appearance preferences={props.preferences} run={props.run} />,
+            },
+            {
+              value: 'accessibility',
+              label: 'Accessibility',
+              icon: 'accessibility',
+              content: <Accessibility preferences={props.preferences} run={props.run} />,
+            },
+            penAndTouchTab(props),
+            {
+              value: 'workspaces',
+              label: 'Workspaces',
+              icon: 'workspace',
+              content: (
+                <Workspaces
+                  layout={props.layout}
+                  available={props.available}
+                  deleted={props.deleted}
+                  unread={props.workspaceUnread}
+                  run={props.run}
+                  unavailableReason={props.unavailableReason}
+                />
+              ),
+            },
+            {
+              value: 'shortcuts',
+              label: 'Shortcuts',
+              icon: 'shortcuts',
+              content: (
+                <Shortcuts
+                  {...props.shortcuts}
+                  run={props.run}
+                  unavailableReason={props.unavailableReason}
+                />
+              ),
+            },
+            ...projectTabs(props),
+            exportTab(props),
+            {
+              value: 'audio',
+              label: 'Audio',
+              icon: 'waveform',
+              content: (
+                <Audio
+                  settings={props.audio}
+                  run={props.run}
+                  recording={props.recording}
+                  unavailableReason={props.unavailableReason}
+                />
+              ),
+            },
+            {
+              value: 'diagnostics',
+              label: 'Diagnostics',
+              icon: 'diagnostics',
+              content: (
+                <Diagnostics
+                  diagnosticModeActive={props.diagnosticModeActive}
+                  {...(props.diagnosticModeEnds === undefined
+                    ? {}
+                    : { diagnosticModeEnds: props.diagnosticModeEnds })}
+                  verbosity={props.verbosity}
+                  categories={props.logCategories}
+                  run={props.run}
+                />
+              ),
+            },
+          ]}
+        />
+      </div>
     </ModalDialog>
   );
 }

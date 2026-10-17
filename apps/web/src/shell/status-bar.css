@@ -1,0 +1,82 @@
+/*
+ * The status bar: a strip of short statements along the foot of the window,
+ * each a status chip with the action that answers it where there is one
+ * (design language, sections 6 and 10). Its items are the design system's
+ * chips, hints and buttons; this sheet places them and draws the strip.
+ */
+
+/*
+ * A shell strip: base at 40 % under the panels' blur, with a faint edge along
+ * its top and no shadow (section 6).
+ */
+.ag-status-bar {
+  grid-row: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+
+  min-block-size: var(--ag-status-bar-block-size);
+  /* At most a third of the screen, and scrolled past that: unbounded, wrapped
+     notices would grow the bar until the workspace above it had no height at
+     all, at a narrow width or a large zoom. Its padding and border are counted
+     in. */
+  box-sizing: border-box;
+  max-block-size: calc(100dvh / 3);
+  overflow-y: auto;
+  padding-inline: calc(var(--ag-space-inset) + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-inset) + env(safe-area-inset-right, 0px));
+  /* Room for the focus ring above and below each button. Scrolled, the bar
+     clips what reaches past its padding, and its buttons fill its height, so
+     without this room the ring would lose its top and bottom edges. */
+  padding-block-start: var(--ag-focus-ring-reach);
+  padding-block-end: calc(var(--ag-focus-ring-reach) + env(safe-area-inset-bottom, 0px));
+
+  border-block-start: 1px solid color-mix(in oklch, var(--ag-chrome-text-primary) 6%, transparent);
+  background-color: var(--ag-elevation-strip-fill);
+  backdrop-filter: var(--ag-elevation-panel-backdrop);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* Its ring is drawn inside it. Reached by Tab while it scrolls, the bar sits at
+   the foot of a page that clips whatever reaches past it, so a ring drawn
+   outside would lose its bottom edge. The rule names the theme, so it outranks
+   the theme's ring, in forced colours as well, where the outline over the band
+   is what is drawn. */
+[data-ag-theme] .ag-status-bar:focus-visible {
+  outline-offset: calc(-1 * var(--ag-focus-ring-width));
+  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
+}
+
+/* A word too long for the bar breaks where it must, rather than reaching past
+   the bar's end: a workspace name may be 120 characters with no space, wider
+   than the bar at the narrowest width a page reflows to. The breaks count
+   towards the chip's smallest width as well, so it shrinks with the bar. A
+   chip's words are never cut short. */
+.ag-status-bar .ag-status-chip {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A wait in a chip: the spinner leads its words as a glyph would. */
+.ag-status-bar .ag-status-chip > span:has(> .ag-spinner) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* A statement with its hint and its action, kept together so they wrap as
+   one: as siblings in the bar, an action could wrap to the start of the next
+   line, beside a statement it does not answer. */
+.ag-status-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  min-inline-size: 0;
+}
+
+.ag-status-spacer {
+  flex: 1 1 auto;
+}

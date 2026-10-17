@@ -17,7 +17,13 @@
 
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, OptionSelect, TextField } from '@audiogubbins/design-system';
+import {
+  EmptyState,
+  IconButton,
+  SegmentedControl,
+  SegmentedVariant,
+  TextField,
+} from '@audiogubbins/design-system';
 import {
   historyRowModel,
   type EntityReference,
@@ -39,9 +45,9 @@ import type { RunCommand } from '../settings/section.js';
 import { CompactionReview } from './compaction-review.js';
 import { ComparisonView } from './comparison-view.js';
 import { entityNamesOf, type EntityNames } from './entity-names.js';
-import { HistoryActions } from './history-actions.js';
+import { HistoryActions, type HistoryActionsProps } from './history-actions.js';
 import { HistoryList } from './history-list.js';
-import { AffectingFilter, PointDetails } from './point-details.js';
+import { AffectingFilter, PointDetails, type PointDetailsProps } from './point-details.js';
 import { SnapshotField } from './snapshot-field.js';
 
 /** What the panel reads and runs. */
@@ -58,9 +64,9 @@ export interface HistoryPanelProps {
 }
 
 const SCOPES = [
-  { value: 'all', label: 'Every point' },
-  { value: 'active-line', label: 'The line the project is on' },
-  { value: 'snapshots', label: 'Snapshots only' },
+  { value: 'all', label: 'All' },
+  { value: 'active-line', label: 'Line' },
+  { value: 'snapshots', label: 'Snapshots only', icon: 'snapshot' },
 ] as const;
 
 /** How much history there is, in a sentence. */
@@ -137,7 +143,7 @@ function Points({
   readonly run: RunCommand;
 }): ReactNode {
   return rows.count === 0 ? (
-    <p>Nothing in the history matches.</p>
+    <p className="ag-history-none">Nothing in the history matches.</p>
   ) : (
     <HistoryList
       rows={rows}
@@ -152,16 +158,62 @@ function Points({
 /** How much history there is, and the way to what it takes up. */
 function Summary({ order, run }: { readonly order: HistoryRowOrder; readonly run: RunCommand }) {
   return (
-    <p className="ag-panel-note">
-      {summaryOf(order)}{' '}
-      <Button
+    <div className="ag-history-summary">
+      <p className="ag-history-counts">{summaryOf(order)}</p>
+      <IconButton
+        icon="storage"
         compact
-        tone="quiet"
+        label="What it takes up"
+        hint="What it takes up"
         onClick={() => run(showPanelCommandId(ProjectPanelKinds.Storage))}
-      >
-        What it takes up
-      </Button>
-    </p>
+      />
+    </div>
+  );
+}
+
+/** The words to find points by, and the scope they are found in. */
+function FindBar({
+  text,
+  onText,
+  scope,
+  onScope,
+}: {
+  readonly text: string;
+  readonly onText: (text: string) => void;
+  readonly scope: string;
+  readonly onScope: (scope: string) => void;
+}): ReactNode {
+  return (
+    <div className="ag-history-find" role="group" aria-label="Find in the history">
+      <TextField label="Find" value={text} onValueChange={onText} />
+      <SegmentedControl
+        label="Show"
+        small
+        variant={SegmentedVariant.Icons}
+        value={scope}
+        options={SCOPES}
+        onValueChange={onScope}
+      />
+    </div>
+  );
+}
+
+/** The chosen point's card: what it affected, and what can be done at it. */
+function ChosenPoint({
+  row,
+  names,
+  affecting,
+  onAffecting,
+  ...actions
+}: PointDetailsProps & Omit<HistoryActionsProps, 'row'>): ReactNode {
+  return (
+    <HistoryActions
+      row={row}
+      {...actions}
+      details={
+        <PointDetails row={row} names={names} affecting={affecting} onAffecting={onAffecting} />
+      }
+    />
   );
 }
 
@@ -192,24 +244,21 @@ function OpenHistory({
 
   return (
     <section className="ag-panel ag-history">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       <Summary order={order} run={run} />
-      <div className="ag-settings-row" role="group" aria-label="Find in the history">
-        <TextField label="Find" value={text} onValueChange={setText} />
-        <OptionSelect label="Show" value={scope} options={SCOPES} onValueChange={setScope} />
-      </div>
+      <FindBar text={text} onText={setText} scope={scope} onScope={setScope} />
       <AffectingFilter affecting={affecting} names={names} onAffecting={setAffecting} />
       <Points rows={rows} names={names} chosen={row?.node.id} onChoose={setChosen} run={run} />
       {row !== undefined && (
-        <>
-          <PointDetails row={row} names={names} affecting={affecting} onAffecting={setAffecting} />
-          <HistoryActions
-            row={row}
-            chosen={reviewing.chosen}
-            run={run}
-            unavailableReason={unavailableReason}
-          />
-        </>
+        <ChosenPoint
+          row={row}
+          names={names}
+          affecting={affecting}
+          onAffecting={setAffecting}
+          chosen={reviewing.chosen}
+          run={run}
+          unavailableReason={unavailableReason}
+        />
       )}
       <Reviewing
         model={model}
@@ -229,8 +278,12 @@ export function HistoryPanel({ project, review, ...rest }: HistoryPanelProps): R
   if (open.kind !== 'open') {
     return (
       <section className="ag-panel">
-        <h2 className="ag-panel-title">{rest.title}</h2>
-        <p>No project is open. Its history appears here once one is.</p>
+        <h2 className="ag-visually-hidden">{rest.title}</h2>
+        <EmptyState
+          icon="history"
+          title="No project is open"
+          text="Its history appears here once one is."
+        />
       </section>
     );
   }

@@ -8,7 +8,7 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect, TextField } from '@audiogubbins/design-system';
+import { OptionSelect, Section, TextField } from '@audiogubbins/design-system';
 import type { ProcessorId } from '@audiogubbins/domain';
 
 import { processorIn } from '../../commands/library-access.js';
@@ -50,7 +50,7 @@ function PresetControls({
   const args = { view: shown.panel, processorId: processor };
   return (
     <>
-      <div className="ag-inspector-row">
+      <div className="ag-rack-library-row">
         <TextField label="Save its settings as" value={name} onValueChange={setName} />
         <CommandButton
           id="library.save-preset"
@@ -63,7 +63,7 @@ function PresetControls({
       {chosen === undefined ? (
         <p className="ag-panel-note">Your library keeps no preset of this processor.</p>
       ) : (
-        <div className="ag-inspector-row">
+        <div className="ag-rack-library-row">
           <OptionSelect label="Preset" value={chosen} options={presets} onValueChange={setPreset} />
           <CommandButton
             id="library.apply-preset"
@@ -92,25 +92,26 @@ export function LibraryControls({
   const [only, ...more] = shown.selected;
   const one = more.length === 0 ? only : undefined;
   return (
-    <section className="ag-inspector-section" aria-label="Your library">
-      <h3 className="ag-inspector-heading">Your library</h3>
-      <div className="ag-inspector-row">
-        <TextField label="Save the rack as" value={name} onValueChange={setName} />
-        <CommandButton
-          id="library.save-chain"
-          label="Save chain"
-          commands={commands}
-          args={{ view: shown.panel, name }}
-          compact
-        />
-      </div>
-      {one === undefined ? (
-        <p className="ag-panel-note">
-          Select one processor to save its settings or apply a preset.
-        </p>
-      ) : (
-        <PresetControls processor={one} shown={shown} library={library} commands={commands} />
-      )}
+    <section className="ag-rack-section" aria-label="Your library">
+      <Section title="Your library" icon="library">
+        <div className="ag-rack-library-row">
+          <TextField label="Save the rack as" value={name} onValueChange={setName} />
+          <CommandButton
+            id="library.save-chain"
+            label="Save chain"
+            commands={commands}
+            args={{ view: shown.panel, name }}
+            compact
+          />
+        </div>
+        {one === undefined ? (
+          <p className="ag-panel-note">
+            Select one processor to save its settings or apply a preset.
+          </p>
+        ) : (
+          <PresetControls processor={one} shown={shown} library={library} commands={commands} />
+        )}
+      </Section>
     </section>
   );
 }

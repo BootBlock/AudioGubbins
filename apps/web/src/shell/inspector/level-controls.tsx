@@ -10,9 +10,9 @@ import { useState, type ReactNode } from 'react';
 import { OptionSelect, TextField } from '@audiogubbins/design-system';
 import { FadeShape } from '@audiogubbins/domain';
 
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
-import { SharedReasonNotes } from '../settings/reasoned-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { FADE_SHAPE_NAMES } from './edit-words.js';
+import { InspectorPart } from './inspector-part.js';
 
 const SHAPE_OPTIONS = [...FADE_SHAPE_NAMES].map(([value, label]) => ({ value, label }));
 
@@ -42,37 +42,40 @@ function GainControl({ panel, commands, labelFor }: ControlParts): ReactNode {
   const [decibels, setDecibels] = useState('-3');
   const args = { view: panel, decibels: decibelsOf(decibels) };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-form-row">
       <TextField
         label="Gain in decibels"
+        unit="dB"
         value={decibels}
         onValueChange={setDecibels}
         onSubmit={() => {
           commands.run('edit.gain', args);
         }}
       />
-      <CommandButton
-        id="edit.gain"
-        label={labelFor('edit.gain')}
-        commands={commands}
-        args={args}
-        compact
-      />
+      <div className="ag-inspector-form-actions">
+        <CommandButton
+          id="edit.gain"
+          label={labelFor('edit.gain')}
+          commands={commands}
+          args={args}
+          compact
+        />
+      </div>
     </div>
   );
 }
 
-/** The fades, whose reasons are said once above them. */
+/** The fades, in and out. */
 const FADES: readonly string[] = ['edit.fade-in', 'edit.fade-out'];
 
 /** A fade shape, and the controls that fade in and out with it. */
 function FadeControl({ panel, commands, labelFor }: ControlParts): ReactNode {
   const [shape, setShape] = useState<FadeShape>(FadeShape.Linear);
-  const reasons = useCommandReasons(commands, FADES);
   return (
     <>
-      <SharedReasonNotes reasons={reasons} />
-      <div className="ag-inspector-row">
+      {/* Two buttons do not fit beside a select in a narrow panel, so they
+          take the line under it, under the control rather than its label. */}
+      <div className="ag-inspector-form-row" data-ag-actions-below="">
         <OptionSelect
           label="Fade shape"
           value={shape}
@@ -81,17 +84,18 @@ function FadeControl({ panel, commands, labelFor }: ControlParts): ReactNode {
             if (isFadeShape(value)) setShape(value);
           }}
         />
-        {FADES.map((id) => (
-          <CommandButton
-            key={id}
-            id={id}
-            label={labelFor(id)}
-            commands={commands}
-            args={{ view: panel, shape }}
-            compact
-            shared={reasons}
-          />
-        ))}
+        <div className="ag-inspector-form-actions">
+          {FADES.map((id) => (
+            <CommandButton
+              key={id}
+              id={id}
+              label={labelFor(id)}
+              commands={commands}
+              args={{ view: panel, shape }}
+              compact
+            />
+          ))}
+        </div>
       </div>
     </>
   );
@@ -100,9 +104,9 @@ function FadeControl({ panel, commands, labelFor }: ControlParts): ReactNode {
 /** The gain and fade controls, acting in the editor panel `panel`. */
 export function LevelControls(parts: ControlParts): ReactNode {
   return (
-    <div className="ag-inspector-controls">
+    <InspectorPart heading="Level" title="Level">
       <GainControl {...parts} />
       <FadeControl {...parts} />
-    </div>
+    </InspectorPart>
   );
 }

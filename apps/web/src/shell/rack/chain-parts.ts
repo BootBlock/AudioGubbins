@@ -8,10 +8,15 @@ import type { EffectChainId, ProcessorId, SlotPlace } from '@audiogubbins/domain
 import type { ModelGate } from '../../assets/model-gate.js';
 import type { PanelCommands } from '../command-button.js';
 
-/** What every slot of a chain is drawn with: the view, the chain, the selection and the gate. */
+/**
+ * What every slot of a chain is drawn with: the view, the chain, the rate of
+ * the audio it processes, the selection and the gate.
+ */
 export interface ChainParts {
   readonly panel: string;
   readonly chain: EffectChainId;
+  /** The rate of the audio the chain runs on, which a processor's response is drawn at. */
+  readonly sampleRate: number;
   readonly selected: readonly ProcessorId[];
   readonly gate: ModelGate;
   readonly commands: PanelCommands;

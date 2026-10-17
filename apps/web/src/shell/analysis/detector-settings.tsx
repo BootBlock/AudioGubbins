@@ -56,7 +56,7 @@ function Setting({
   const [refused, setRefused] = useState<string | undefined>(undefined);
   const unit = parameter.unit === undefined ? '' : ` in ${parameter.unit}`;
   return (
-    <>
+    <div className="ag-analysis-setting">
       <TextField
         label={`${parameter.label}${unit}`}
         description={`From ${String(parameter.minimum)} to ${String(parameter.maximum)}; press Enter to analyse again.`}
@@ -69,11 +69,11 @@ function Setting({
         }}
       />
       {refused !== undefined && (
-        <p role="status" className="ag-panel-note">
+        <p role="status" className="ag-analysis-refused">
           {refused}
         </p>
       )}
-    </>
+    </div>
   );
 }
 
@@ -92,8 +92,8 @@ export function DetectorSettings({
   const detectors = settableDetectors(report);
   if (detectors.length === 0) return undefined;
   return (
-    <>
-      <h4 className="ag-analysis-heading">It judged by</h4>
+    <div className="ag-analysis-settings">
+      <h4 className="ag-analysis-subheading">It judged by</h4>
       {detectors.map((detector) => {
         const key = detector.identity.key;
         const settled = settledValues(detector, detection.detectors[key]);
@@ -118,6 +118,6 @@ export function DetectorSettings({
           />
         ));
       })}
-    </>
+    </div>
   );
 }

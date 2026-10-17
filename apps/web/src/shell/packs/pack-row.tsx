@@ -6,44 +6,33 @@
  * conditions holds for it, and the steps its state allows, each a pack
  * command. A version a project needs, whose removal was refused for that, says
  * so and offers to remove it knowingly.
+ *
+ * Drawn as a card: its name, purpose, state and steps at its head, its facts
+ * behind a Details section with the long explanations behind their hints, and
+ * a download's progress or a failure under them.
  */
 
 import { useId, type ReactNode } from 'react';
 
-import { ButtonTone } from '@audiogubbins/design-system';
+import {
+  Badge,
+  BadgeTone,
+  ButtonTone,
+  Icon,
+  ProgressBar,
+  ProgressPlace,
+  VisuallyHidden,
+} from '@audiogubbins/design-system';
 import type {
   InstallState,
   ModelPackManifest,
-  PackCapability,
   PackRef,
-  PackTier,
   PackVersionCondition,
 } from '@audiogubbins/model-packs';
 
 import { CONDITION_NAMES, packTitle, progressWords, stateWords } from '../../ml/pack-words.js';
-import { describeBytes } from '../../wording.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
-import { SharedReasonNotes } from '../settings/reasoned-button.js';
-
-/** What each capability a pack may need is called. */
-const CAPABILITY_NAMES: Readonly<Record<PackCapability, string>> = {
-  'webassembly-simd': 'WebAssembly SIMD',
-};
-
-/**
- * What each tier says of a pack's model: how quick it is to run against how
- * thorough its result is. Worded for the model alone, since every render and
- * preview quality runs a model the same way, and with none of the quality
- * levels' names, so no reader takes a tier for a quality to choose.
- */
-const TIER_WORDS: Readonly<Record<PackTier, string>> = {
-  light: 'Light: quick to run, with a lighter result',
-  balanced: 'Balanced: between speed and the most thorough result',
-  thorough: 'Thorough: the slowest to run, with the most thorough result',
-};
-
-/** Said under the tier, so it is read as the model's and not as a quality setting. */
-const TIER_NOTE = 'The model’s own; it is the same at every render and preview quality.';
+import { CommandButton, type PanelCommands } from '../command-button.js';
+import { PackFacts } from './pack-facts.js';
 
 /** One version as the panel lists it: what the installer and the catalogue know of it. */
 export interface PackVersion {
@@ -55,34 +44,6 @@ export interface PackVersion {
   readonly condition: PackVersionCondition | undefined;
   /** Why its removal was refused because a project needs it, where it was. */
   readonly needed: string | undefined;
-}
-
-/** What the pack needs to run, in a sentence. */
-function compatibilityWords(manifest: ModelPackManifest): string {
-  const { runtime } = manifest;
-  const needs =
-    runtime.capabilities.length === 0
-      ? ''
-      : `, with ${runtime.capabilities.map((one) => CAPABILITY_NAMES[one]).join(' and ')}`;
-  return `${runtime.name} from ${runtime.minimum}, below ${runtime.below}${needs}`;
-}
-
-/** What the integrity check says of a version in this state. */
-function integrityWords(state: InstallState): string {
-  switch (state.kind) {
-    case 'installed':
-      return 'Every file matched its SHA-256 when it was installed, and is checked again as it is read.';
-    case 'verifying':
-      return 'Every file is being checked against its SHA-256 now.';
-    case 'failed':
-      return 'Nothing of it is used: a version is used only once every file matches its SHA-256.';
-    case 'available':
-    case 'queued':
-    case 'downloading':
-    case 'paused':
-    case 'removing':
-      return 'Every file is checked against its SHA-256 before anything uses it.';
-  }
 }
 
 /** The condition that holds for a version, and why, where one other than running holds. */
@@ -99,13 +60,13 @@ function ConditionLine({
     // made out of date by another offered.
     if (!installed) return null;
     return (
-      <p data-ag-status="reduced">
+      <p className="ag-pack-line" data-ag-tone="warning">
         {`${CONDITION_NAMES['update-available']}: version ${condition.update.version}.`}
       </p>
     );
   }
   return (
-    <p data-ag-status="unavailable">
+    <p className="ag-pack-line" data-ag-tone="error">
       {`${CONDITION_NAMES[condition.condition]}. ${condition.reason.summary}`}
     </p>
   );
@@ -131,76 +92,64 @@ function stepsOf(state: InstallState, offered: boolean): readonly string[] {
   }
 }
 
-/** What each step's button says. */
-const STEP_LABELS: Readonly<Record<string, string>> = {
-  'packs.install': 'Install',
-  'packs.pause': 'Pause',
-  'packs.resume': 'Resume',
-  'packs.cancel': 'Cancel',
-  'packs.retry': 'Retry',
-  'packs.remove': 'Remove',
+/**
+ * How each step's button is drawn: its words, and whether its command's glyph
+ * stands for them, where the step is a row's small action. Install and Retry
+ * keep their words, being what the row is for in its state.
+ */
+const STEPS: Readonly<Record<string, { readonly label: string; readonly iconOnly?: true }>> = {
+  'packs.install': { label: 'Install' },
+  'packs.pause': { label: 'Pause', iconOnly: true },
+  'packs.resume': { label: 'Resume', iconOnly: true },
+  'packs.cancel': { label: 'Cancel', iconOnly: true },
+  'packs.retry': { label: 'Retry' },
+  'packs.remove': { label: 'Remove', iconOnly: true },
 };
 
-/** How far a download has come, and its bar. */
-function Progress({ state, title }: { readonly state: InstallState; readonly title: string }) {
-  if (state.kind !== 'queued' && state.kind !== 'downloading' && state.kind !== 'paused') {
-    return null;
+/** The state of a version's installation: a badge where it is settled, a line otherwise. */
+function StateLine({ state, title }: { readonly state: InstallState; readonly title: string }) {
+  const words = stateWords(state);
+  switch (state.kind) {
+    case 'installed': {
+      // The badge says the state in a word; the rest of the words are the
+      // integrity fact's too, said here to a screen reader.
+      const [badge = words, rest = ''] = words.split(/(?=, )/u);
+      return (
+        <Badge tone={BadgeTone.Success} icon="verified">
+          {badge}
+          <VisuallyHidden>{rest}</VisuallyHidden>
+        </Badge>
+      );
+    }
+    case 'available':
+      return <Badge>{words}</Badge>;
+    case 'failed':
+      return (
+        <p className="ag-pack-line" data-ag-tone="error">
+          {words}
+        </p>
+      );
+    case 'queued':
+    case 'downloading':
+    case 'paused':
+      return (
+        <>
+          <p className="ag-pack-line ag-figure">{words}</p>
+          <ProgressBar
+            label={`Download of ${title}`}
+            value={state.total === 0 ? null : state.received / state.total}
+            valueText={() => progressWords(state.received, state.total)}
+            place={ProgressPlace.Row}
+          />
+        </>
+      );
+    case 'verifying':
+    case 'removing':
+      return <p className="ag-pack-line">{words}</p>;
   }
-  return (
-    <progress
-      className="ag-render-progress"
-      aria-label={`Download of ${title}`}
-      aria-valuetext={progressWords(state.received, state.total)}
-      max={state.total}
-      value={state.received}
-    />
-  );
 }
 
-/** What REQ-AUDIO-139 asks to be shown of a version, from its manifest. */
-function PackFacts({
-  manifest,
-  state,
-}: {
-  readonly manifest: ModelPackManifest;
-  readonly state: InstallState;
-}): ReactNode {
-  return (
-    <>
-      <p>{manifest.purpose}</p>
-      <dl className="ag-pack-facts">
-        <div>
-          <dt>Download size</dt>
-          <dd>{describeBytes(manifest.downloadBytes)}</dd>
-        </div>
-        <div>
-          <dt>Installed size</dt>
-          <dd>{describeBytes(manifest.installedBytes)}</dd>
-        </div>
-        <div>
-          <dt>Integrity</dt>
-          <dd>{integrityWords(state)}</dd>
-        </div>
-        <div>
-          <dt>Licence</dt>
-          <dd>{`Code ${manifest.licence.code}; weights ${manifest.licence.weights}`}</dd>
-        </div>
-        <div>
-          <dt>Compatibility</dt>
-          <dd>{compatibilityWords(manifest)}</dd>
-        </div>
-        <div>
-          <dt>Model tier</dt>
-          <dd>
-            {TIER_WORDS[manifest.tier]}. {TIER_NOTE}
-          </dd>
-        </div>
-      </dl>
-    </>
-  );
-}
-
-/** The steps a version's state allows, their reasons said once above them. */
+/** The steps a version's state allows, each its reason opened on hover or focus. */
 function Steps({
   steps,
   args,
@@ -210,25 +159,67 @@ function Steps({
   readonly args: { readonly id: string; readonly version: string };
   readonly commands: PanelCommands;
 }): ReactNode {
-  const shared = useCommandReasons(commands, steps);
   return (
-    <>
-      <SharedReasonNotes reasons={shared} />
-      <div className="ag-settings-row">
-        {steps.map((step) => (
+    <span className="ag-pack-steps">
+      {steps.map((step) => {
+        const { label = step, iconOnly = false } = STEPS[step] ?? {};
+        return (
           <CommandButton
             key={step}
             id={step}
-            label={STEP_LABELS[step] ?? step}
+            label={label}
             commands={commands}
             args={args}
             compact
-            shared={shared}
+            iconOnly={iconOnly}
           />
-        ))}
-      </div>
-    </>
+        );
+      })}
+    </span>
   );
+}
+
+/** A version's head: its glyph, name and purpose, its settled state, and its steps. */
+function PackHead({
+  version,
+  title,
+  heading,
+  steps,
+  commands,
+}: {
+  readonly version: PackVersion;
+  readonly title: string;
+  /** The id its name is the heading of the row by. */
+  readonly heading: string;
+  readonly steps: readonly string[];
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const { ref, manifest, state } = version;
+  return (
+    <div className="ag-pack-head">
+      <span className="ag-pack-tile" aria-hidden="true">
+        <Icon name="enhance" />
+      </span>
+      <div className="ag-pack-text">
+        <h3 className="ag-pack-name" id={heading}>
+          {manifest?.name ?? ref.id}{' '}
+          <span className="ag-pack-version ag-figure">{ref.version}</span>
+        </h3>
+        <p className="ag-pack-purpose">
+          {manifest === undefined
+            ? 'Its manifest cannot be read, so it can only be removed.'
+            : manifest.purpose}
+        </p>
+      </div>
+      {settled(state) && <StateLine state={state} title={title} />}
+      <Steps steps={steps} args={{ id: ref.id, version: ref.version }} commands={commands} />
+    </div>
+  );
+}
+
+/** Whether a version's state is settled, which its head says in a badge. */
+function settled(state: InstallState): boolean {
+  return state.kind === 'installed' || state.kind === 'available';
 }
 
 /** One version and what can be done with it. */
@@ -248,30 +239,37 @@ export function PackRow({
   const steps = stepsOf(state, offered && manifest !== undefined);
   const args = { id: ref.id, version: ref.version };
   return (
-    <li className="ag-pack" role="group" aria-labelledby={heading}>
-      <h3 className="ag-pack-name" id={heading}>
-        {title}
-      </h3>
-      {manifest === undefined ? (
-        <p>Its manifest cannot be read, so it can only be removed.</p>
-      ) : (
-        <PackFacts manifest={manifest} state={state} />
-      )}
-      <p className="ag-pack-state">{stateWords(state)}</p>
-      <Progress state={state} title={title} />
+    <li
+      className="ag-pack"
+      role="group"
+      aria-labelledby={heading}
+      data-ag-failed={state.kind === 'failed' ? '' : undefined}
+    >
+      <PackHead
+        version={version}
+        title={title}
+        heading={heading}
+        steps={steps}
+        commands={commands}
+      />
+      {manifest === undefined ? null : <PackFacts manifest={manifest} state={state} />}
+      {settled(state) ? null : <StateLine state={state} title={title} />}
       <ConditionLine condition={version.condition} installed={state.kind === 'installed'} />
-      <Steps steps={steps} args={args} commands={commands} />
       {version.needed !== undefined && (
-        <div role="group" aria-label={`Remove ${title} knowingly`}>
-          <p data-ag-status="unavailable">{version.needed}</p>
-          <CommandButton
-            id="packs.remove"
-            label="Remove it anyway"
-            commands={commands}
-            args={{ ...args, knowingly: true }}
-            tone={ButtonTone.Destructive}
-            compact
-          />
+        <div className="ag-pack-knowingly" role="group" aria-label={`Remove ${title} knowingly`}>
+          <p className="ag-pack-line" data-ag-tone="error">
+            {version.needed}
+          </p>
+          <span>
+            <CommandButton
+              id="packs.remove"
+              label="Remove it anyway"
+              commands={commands}
+              args={{ ...args, knowingly: true }}
+              tone={ButtonTone.Destructive}
+              compact
+            />
+          </span>
         </div>
       )}
     </li>

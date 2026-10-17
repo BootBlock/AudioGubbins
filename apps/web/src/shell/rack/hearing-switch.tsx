@@ -1,17 +1,21 @@
 /**
- * Hearing the original beside the processed sound (REQ-AUDIO-019): one
- * switch, pressed while the original is heard, which runs the command that
- * hears the other, and says which is heard. Shown by the Effects rack and the
- * Transport panel alike, so the two never disagree about what plays.
+ * Hearing the original beside the processed sound (REQ-AUDIO-019): one switch,
+ * on while the original is heard, which runs the command that hears the other,
+ * unavailable with that command's own reason, named as that command is, and
+ * saying behind its hint that every chain and spectral edit is bypassed while
+ * it is on, as the approved Transport draws it. Shown by the Effects rack, the
+ * Transport and the Spectral panel alike, so they never disagree about what
+ * plays.
  */
 
-import { useId, useSyncExternalStore, type ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { Hint, ToggleSwitch } from '@audiogubbins/design-system';
 
 import { Hearing } from '../../state/hearing-store.js';
 import type { Observable } from '../../state/observable.js';
 import type { PanelCommands } from '../command-button.js';
+import { optionalReason } from '../optional-reason.js';
 
 /** Hearing the original beside the processed sound, a switch whose state is what is heard. */
 export function HearingSwitch({
@@ -24,31 +28,20 @@ export function HearingSwitch({
   const hearing = useSyncExternalStore(store.subscribe, store.get);
   const original = hearing === Hearing.Original;
   const id = original ? 'transport.listen-processed' : 'transport.listen-original';
-  const reason = commands.unavailableReason(id);
-  const reasonId = useId();
   return (
-    <div className="ag-inspector-row">
-      <Button
-        compact
-        aria-pressed={original}
-        aria-disabled={reason !== undefined}
-        {...(reason === undefined ? {} : { 'aria-describedby': reasonId })}
-        onClick={() => {
-          if (reason === undefined) commands.run(id);
+    <span className="ag-hearing-switch">
+      <ToggleSwitch
+        label="Hear the original"
+        checked={original}
+        small
+        {...optionalReason(commands.unavailableReason(id))}
+        onCheckedChange={() => {
+          commands.run(id);
         }}
-      >
-        Hear the original
-      </Button>
-      <p className="ag-panel-note">
-        {original
-          ? 'The original is heard, every chain and spectral edit bypassed.'
-          : 'It is heard processed.'}
-      </p>
-      {reason !== undefined && (
-        <p id={reasonId} className="ag-panel-note">
-          {reason}
-        </p>
-      )}
-    </div>
+      />
+      <Hint label="About hearing the original">
+        While it is on, the original is heard, every chain and spectral edit bypassed.
+      </Hint>
+    </span>
   );
 }

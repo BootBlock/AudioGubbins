@@ -14,15 +14,15 @@ describe('what the waveform is waiting for', () => {
     rerender(<PeaksNote status={{ kind: 'generating', progress: 0.37 }} />);
 
     expect(screen.getByRole('status')).toBe(status);
-    expect(status).toHaveTextContent('Making the waveform: 37%');
+    expect(status).toHaveTextContent('Making the waveform 37%');
   });
 
   it('raises its failure as an alert', () => {
     render(<PeaksNote status={{ kind: 'failed', reason: 'The worker stopped.' }} />);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'The waveform could not be made: The worker stopped.',
-    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('The waveform could not be made');
+    expect(alert).toHaveTextContent('The worker stopped.');
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 });

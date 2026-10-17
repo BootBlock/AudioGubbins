@@ -12,6 +12,13 @@
 
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
+import {
+  ButtonTone,
+  EmptyState,
+  Hint,
+  PanelHeader,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { IdGenerator } from '@audiogubbins/domain';
 import type { PreviewEmitterId } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
@@ -28,11 +35,11 @@ import {
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import type { ProjectStores } from '../../state/project-stores.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { ChoiceField, type Choice } from '../export/setting-fields.js';
 import { EventLog } from './event-log.js';
 import { PreviewPad } from './preview-pad.js';
-import { ScenarioEditor } from './scenario-editor.js';
+import { EmitterList, ScenarioProblems, ScenarioSettings } from './scenario-editor.js';
 
 /** What the panel reads of the panel context, and how its controls run commands. */
 export interface PreviewPanelContext extends PanelCommands {
@@ -51,39 +58,43 @@ function useOpenState(project: Observable<OpenProjectState> | undefined): Projec
   return open?.kind === 'open' ? open.snapshot.model.state : undefined;
 }
 
-const SCENARIO_BUTTONS: readonly (readonly [string, string])[] = [
-  [PreviewCommand.NewScenario, 'New scenario'],
-  [PreviewCommand.KeepScenario, 'Keep in the project'],
-  [PreviewCommand.DeleteScenario, 'Delete'],
-  [PreviewCommand.NewSeed, 'New seed'],
+/** A command over the scenario set up: its id, its words, its glyph and its tone. */
+interface ScenarioAction {
+  readonly id: string;
+  readonly label: string;
+  readonly icon?: IconName;
+  readonly tone?: ButtonTone;
+}
+
+const SCENARIO_ACTIONS: readonly ScenarioAction[] = [
+  { id: PreviewCommand.NewScenario, label: 'New scenario', icon: 'add' },
+  { id: PreviewCommand.KeepScenario, label: 'Keep in the project' },
+  { id: PreviewCommand.DeleteScenario, label: 'Delete', icon: 'delete', tone: ButtonTone.Quiet },
+  { id: PreviewCommand.NewSeed, label: 'New seed', icon: 'new-seed' },
 ];
 
-const RUN_BUTTONS: readonly (readonly [string, string])[] = [
-  [PreviewCommand.Run, 'Run'],
-  [PreviewCommand.Stop, 'Stop'],
+const RUN_ACTIONS: readonly ScenarioAction[] = [
+  { id: PreviewCommand.Run, label: 'Run', icon: 'play' },
+  { id: PreviewCommand.Stop, label: 'Stop', icon: 'stop', tone: ButtonTone.Destructive },
 ];
 
-/** A row of command buttons, their reasons said once above them. */
-function CommandRow({
-  buttons,
+/** A command's button, its reason opened on hover or focus. */
+function ActionButton({
+  action,
   commands,
-  children,
 }: {
-  readonly buttons: readonly (readonly [string, string])[];
+  readonly action: ScenarioAction;
   readonly commands: PanelCommands;
-  readonly children?: ReactNode;
 }): ReactNode {
-  const shared = useCommandReasons(
-    commands,
-    buttons.map(([id]) => id),
-  );
   return (
-    <div className="ag-preview-actions">
-      {children}
-      {buttons.map(([id, label]) => (
-        <CommandButton key={id} id={id} label={label} commands={commands} shared={shared} compact />
-      ))}
-    </div>
+    <CommandButton
+      id={action.id}
+      label={action.label}
+      {...(action.icon === undefined ? {} : { icon: action.icon })}
+      {...(action.tone === undefined ? {} : { tone: action.tone })}
+      commands={commands}
+      compact
+    />
   );
 }
 
@@ -116,7 +127,7 @@ function ScenarioBar({
 }): ReactNode {
   const choices = scenarioChoices(draft, project);
   return (
-    <CommandRow buttons={SCENARIO_BUTTONS} commands={commands}>
+    <div className="ag-control-row ag-preview-bar">
       {choices.length === 0 ? null : (
         <ChoiceField
           label="Scenario"
@@ -129,7 +140,10 @@ function ScenarioBar({
           }}
         />
       )}
-    </CommandRow>
+      {SCENARIO_ACTIONS.map((action) => (
+        <ActionButton key={action.id} action={action} commands={commands} />
+      ))}
+    </div>
   );
 }
 
@@ -146,9 +160,13 @@ function rendersWords(renders: GamePreviewState['renders']): string | undefined 
     : `${progress} Not kept, so heard as it is worked out: ${declined.join(' ')}`;
 }
 
-/** What a run says of itself: what is heard at once, the budget and how late a trigger is. */
-function runWords(run: GamePreviewState['run'], feedAhead: number): string | undefined {
-  if (run.kind === 'ended') return run.reasons.join(' ');
+/** Why a run ended, where the last one did. */
+function endedWords(run: GamePreviewState['run']): string | undefined {
+  return run.kind === 'ended' ? run.reasons.join(' ') : undefined;
+}
+
+/** What a running run says of itself: what is heard at once, the budget and how late a trigger is. */
+function runningWords(run: GamePreviewState['run'], feedAhead: number): string | undefined {
   if (run.kind !== 'running') return undefined;
   const { budget, latencyMilliseconds } = run.stats;
   const latency =
@@ -162,7 +180,34 @@ function runWords(run: GamePreviewState['run'], feedAhead: number): string | und
   ].join(' ');
 }
 
-/** The scenario set up: its run, its pad, its editor and what its run played. */
+/** The voices a running run sounds, by emitter. */
+type Voices = ReadonlyMap<PreviewEmitterId, { readonly sounding: number; readonly limit: number }>;
+
+/**
+ * Each emitter's name and place, which its events are shown by, and the
+ * emitters a running run is sounding, which the pad rings.
+ */
+function useEmittersShown(draft: ScenarioDraft, voices: Voices | undefined) {
+  const emitters = useMemo(
+    () =>
+      new Map<PreviewEmitterId, { readonly name: string; readonly place: number }>(
+        draft.scenario.emitters.map((one, place) => [one.id, { name: one.name, place }]),
+      ),
+    [draft],
+  );
+  const sounding = useMemo(
+    () =>
+      new Set<string>(
+        [...(voices?.entries() ?? [])]
+          .filter(([, one]) => one.sounding > 0)
+          .map(([emitter]) => emitter),
+      ),
+    [voices],
+  );
+  return { emitters, sounding };
+}
+
+/** The scenario set up: its pad beside its emitters, what its run played, and its settings. */
 function ScenarioWork({
   state,
   draft,
@@ -176,47 +221,73 @@ function ScenarioWork({
 }): ReactNode {
   const { store } = context.gamePreview;
   const commands = context;
-  const settings = useSyncExternalStore(context.audioSettings.subscribe, context.audioSettings.get);
   const { run } = state;
   const played =
     run.kind !== 'idle' && run.stats.scenario === draft.scenario.id ? run.stats : undefined;
-  const names = useMemo(
-    () =>
-      new Map<PreviewEmitterId, string>(draft.scenario.emitters.map((one) => [one.id, one.name])),
-    [draft],
-  );
-  const said = runWords(run, settings.chosen.settings.feedAheadMilliseconds);
+  const voices = run.kind === 'running' ? played?.voices : undefined;
+  const { emitters, sounding } = useEmittersShown(draft, voices);
   const preparing = rendersWords(state.renders);
+  const ended = endedWords(run);
   const edit = (scenario: ScenarioDraft['scenario']): void => {
     store.edit(() => scenario);
   };
+  const parts = {
+    project: project.project,
+    game: project.gameAudio,
+    ids: context.ids,
+    commands,
+    voices,
+  };
   return (
     <>
-      <CommandRow buttons={RUN_BUTTONS} commands={commands} />
-      {preparing === undefined ? null : <p className="ag-panel-note">{preparing}</p>}
-      {said === undefined ? null : <p className="ag-panel-note">{said}</p>}
-      <PreviewPad scenario={draft.scenario} onScenario={edit} />
-      <ScenarioEditor
-        scenario={draft.scenario}
-        parts={{
-          project: project.project,
-          game: project.gameAudio,
-          ids: context.ids,
-          commands,
-          voices: run.kind === 'running' ? played?.voices : undefined,
-        }}
-        onScenario={edit}
-      />
+      {preparing === undefined ? null : <p className="ag-preview-note">{preparing}</p>}
+      {ended === undefined ? null : <p className="ag-preview-note">{ended}</p>}
+      <ScenarioProblems scenario={draft.scenario} />
+      <div className="ag-preview-split">
+        <PreviewPad scenario={draft.scenario} sounding={sounding} onScenario={edit} />
+        <EmitterList scenario={draft.scenario} parts={parts} onScenario={edit} />
+      </div>
       {played === undefined ? null : (
         <EventLog
           events={played.recent}
           counts={played.counts}
           rate={project.project.settings.sampleRate}
           project={project.project}
-          emitterNames={names}
+          emitters={emitters}
         />
       )}
+      <ScenarioSettings scenario={draft.scenario} parts={parts} onScenario={edit} />
     </>
+  );
+}
+
+/** The panel's header: its title, Run and Stop, and what a run hears at once while it runs. */
+function PreviewHeader({
+  title,
+  run,
+  context,
+}: {
+  readonly title: string;
+  readonly run: GamePreviewState['run'];
+  readonly context: PreviewPanelContext;
+}): ReactNode {
+  const settings = useSyncExternalStore(context.audioSettings.subscribe, context.audioSettings.get);
+  const running = runningWords(run, settings.chosen.settings.feedAheadMilliseconds);
+  return (
+    <PanelHeader
+      title={title}
+      icon="game-preview"
+      actions={
+        <>
+          {running === undefined ? null : (
+            <Hint label="About the preview while it runs">{running}</Hint>
+          )}
+          {RUN_ACTIONS.map((action) => (
+            <ActionButton key={action.id} action={action} commands={context} />
+          ))}
+        </>
+      }
+    />
   );
 }
 
@@ -233,20 +304,23 @@ export function GamePreviewPanel({
   const project = useOpenState(context.projects?.project);
   const { draft } = state;
   return (
-    <section className="ag-panel" {...{ [PREVIEW_PANEL]: '' }}>
-      <h2 className="ag-panel-title">{title}</h2>
+    <section className="ag-panel ag-stacked-panel ag-preview" {...{ [PREVIEW_PANEL]: '' }}>
+      <PreviewHeader title={title} run={state.run} context={context} />
       {project === undefined ? (
-        <p className="ag-panel-note">
-          Open a project to preview its asset groups as a game would play them.
-        </p>
+        <EmptyState
+          icon="game-preview"
+          title="No project open"
+          text="Open a project to preview its asset groups as a game would play them."
+        />
       ) : (
         <>
           <ScenarioBar draft={draft} project={project} commands={context} />
           {draft === undefined ? (
-            <p className="ag-panel-note">
-              Set up a scenario: a new one, or one the project keeps. A run never changes the
-              project.
-            </p>
+            <EmptyState
+              icon="game-preview"
+              title="No scenario set up"
+              text="Set up a scenario: a new one, or one the project keeps. A run never changes the project."
+            />
           ) : (
             <ScenarioWork state={state} draft={draft} project={project} context={context} />
           )}

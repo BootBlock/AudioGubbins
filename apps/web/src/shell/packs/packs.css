@@ -1,0 +1,161 @@
+/*
+ * The Model packs panel (REQ-AUDIO-139), in the design language: what the open
+ * project needs as banners, and each pack a card with its state, its steps, its
+ * facts behind a Details section and a download's progress (sections 9, 10 and
+ * 11).
+ */
+
+.ag-packs-note,
+.ag-pack-line {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+:is(.ag-packs-note, .ag-pack-line)[data-ag-tone='warning'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+:is(.ag-packs-note, .ag-pack-line)[data-ag-tone='error'] {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-packs-group {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+/* A group's title: caption size, 600, upper case (section 11). */
+.ag-packs-group-title {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+.ag-pack-list {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A pack: a card of the raised surface, its edge the error's where it failed. */
+.ag-pack {
+  display: grid;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-pack[data-ag-failed] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-error) 40%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 7%, transparent);
+}
+
+.ag-pack-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+}
+
+/* Its glyph in a tile of the accent, or of the error where it failed. */
+.ag-pack-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-grid-unit) * 8);
+  block-size: calc(var(--ag-grid-unit) * 8);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent);
+}
+
+.ag-pack[data-ag-failed] .ag-pack-tile {
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 16%, transparent);
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-pack-text {
+  display: grid;
+  flex: 1 1 calc(var(--ag-grid-unit) * 50);
+  min-inline-size: 0;
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-pack-name {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.ag-pack-version {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-regular);
+}
+
+.ag-pack-purpose {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-pack-steps {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  margin-inline-start: auto;
+}
+
+/* Its facts: two pairs a line, the long ones across the whole width. */
+.ag-pack-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ag-grid-unit) * 50), 1fr));
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+  margin: 0;
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-pack-facts > div {
+  display: grid;
+  grid-template-columns: calc(var(--ag-grid-unit) * 22) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ag-space-medium);
+}
+
+.ag-pack-facts > div[data-ag-wide] {
+  grid-column: 1 / -1;
+}
+
+.ag-pack-facts dt {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-pack-facts dd {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-pack-knowingly {
+  display: grid;
+  justify-items: start;
+  gap: var(--ag-space-small);
+}

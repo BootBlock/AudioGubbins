@@ -4,7 +4,8 @@
  */
 
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 
 import { List, ListRow } from './list.js';
 import { PropertyGrid } from './property-grid.js';
@@ -90,6 +91,43 @@ describe('ListRow', () => {
     expect(two).toHaveAttribute('data-ag-lines', 'two');
     expect(one).toHaveAttribute('data-ag-lines', 'one');
   });
+
+  it('is pressed by pointer and by keyboard where it is itself a button, its actions apart', async () => {
+    // A project to open is a row that is pressed: drawn as a plain row with a
+    // click handler, a keyboard could not reach it at all.
+    const onPress = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <List label="Projects">
+        <ListRow
+          name="Harbour ambience"
+          detail="Opened today"
+          chosen
+          onPress={onPress}
+          actions={
+            <button type="button" onClick={onRemove}>
+              Remove
+            </button>
+          }
+        />
+      </List>,
+    );
+
+    const row = screen.getByRole('button', { name: 'Harbour ambience' });
+    const remove = screen.getByRole('button', { name: 'Remove' });
+    expect(row).toHaveAccessibleDescription('Opened today');
+    expect(row).not.toContainElement(remove);
+    expect(row).toHaveAttribute('aria-current', 'true');
+
+    await userEvent.click(row);
+    row.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onPress).toHaveBeenCalledTimes(2);
+
+    await userEvent.click(remove);
+    expect(onRemove).toHaveBeenCalledOnce();
+    expect(onPress).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('Table', () => {
@@ -127,6 +165,39 @@ describe('Table', () => {
         .map((cell) => cell.textContent),
     ).toEqual(['gravel_01', '−1.2 dB', 'Within the target']);
   });
+
+  it('heads each row with the cell of a row-header column', () => {
+    // A check's name heads its verdict and its value: as a plain cell, a
+    // screen reader read "Fails" with its column's head and never said which
+    // check failed.
+    render(
+      <Table
+        label="Loop checks"
+        columns={[
+          { id: 'check', header: 'Check', rowHeader: true },
+          { id: 'verdict', header: 'Verdict', kind: 'verdict' },
+        ]}
+        rows={[
+          {
+            id: 'seam',
+            cells: {
+              check: 'Click at the seam',
+              verdict: <Verdict kind="fails">Fails</Verdict>,
+            },
+          },
+        ]}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: 'Loop checks' });
+    expect(within(table).getByRole('rowheader')).toHaveTextContent('Click at the seam');
+    expect(within(table).getByRole('rowheader')).toHaveAttribute('scope', 'row');
+    expect(
+      within(table)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Fails']);
+  });
 });
 
 describe('Verdict', () => {
@@ -137,5 +208,16 @@ describe('Verdict', () => {
     view.rerender(<Verdict kind="fails">Too loud</Verdict>);
     expect(document.querySelector('.ag-verdict .ag-spinner')).toBeNull();
     expect(document.querySelector('.ag-verdict svg[data-icon="check-fails"]')).not.toBeNull();
+  });
+
+  it('draws a reading out of date apart from a warning, asking for it to be checked again', () => {
+    // A loudness measured before an edit was drawn as a warning, the same as
+    // one that measured too loud, so a reader could not tell "measure again"
+    // from "fix this".
+    render(<Verdict kind="stale">Measured before the last edit</Verdict>);
+
+    const verdict = screen.getByText('Measured before the last edit').closest('.ag-verdict');
+    expect(verdict).toHaveAttribute('data-ag-verdict', 'stale');
+    expect(verdict?.querySelector('svg[data-icon="analyse-again"]')).not.toBeNull();
   });
 });

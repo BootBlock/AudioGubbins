@@ -257,6 +257,16 @@ export default defineConfig<SuiteOptions>({
       testMatch: /interaction-latency\.spec\.ts/,
     },
     {
+      // The motion system read from the browser at each motion level
+      // (REQ-UX-222): every kind of motion the shell runs, at the full, reduced
+      // and off levels, the system's request for reduced motion, and the
+      // docking engine following the level. Run with one worker, so the
+      // animations it reads are timed on a page with the machine to itself.
+      name: 'chromium-motion',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /motion\.spec\.ts/,
+    },
+    {
       // A browser with WebGL switched off, where the editor draws with Canvas 2D.
       name: 'chromium-renderer-reduced',
       use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--disable-webgl'] } },

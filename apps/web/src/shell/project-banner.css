@@ -1,0 +1,44 @@
+/*
+ * The project strip under the menu bar: one banner saying what project is open,
+ * how this tab may use it, and the action that answers each thing it says
+ * (design language, section 10, "Banner"). The banner is the design system's;
+ * this sheet places it in the shell and lays out the parts the ownership,
+ * recovery and interrupted-recording offers put among its actions. It takes no
+ * room when it says nothing.
+ */
+.ag-project-banner {
+  grid-row: 2;
+  padding-block: var(--ag-space-gutter) 0;
+  padding-inline: calc(var(--ag-space-gutter) + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-gutter) + env(safe-area-inset-right, 0px));
+  font-size: var(--ag-text-label);
+}
+
+.ag-project-banner:empty {
+  display: none;
+}
+
+/* A sentence among the actions reads as the banner's own: secondary text that
+   wraps, and is never cut short. */
+.ag-project-banner-text {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* An offer with its own buttons, kept together so they wrap as one. */
+.ag-project-banner-confirm,
+.ag-project-banner-request,
+.ag-project-banner-report {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+}
+
+/* A badge sits on the sentence's line, ahead of its words. */
+.ag-project-banner .ag-banner-sentence > .ag-badge {
+  vertical-align: baseline;
+}

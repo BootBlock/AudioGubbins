@@ -11,8 +11,12 @@ import { OptionSelect } from '@audiogubbins/design-system';
 import type { PerformanceProfile } from '@audiogubbins/audio-engine';
 
 import { PROFILES, PROFILE_NAMES, profileCommandId } from '../commands/audio-commands.js';
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 
-/** The profile in force, chosen from the four. */
+/**
+ * The profile in force, chosen from the four, each with the glyph of the
+ * command that chooses it, as its menu entry and its palette row draw it.
+ */
 export function PerformanceChoice({
   profile,
   run,
@@ -24,7 +28,10 @@ export function PerformanceChoice({
     <OptionSelect
       label="Performance profile"
       value={profile}
-      options={PROFILES.map((one) => ({ value: one, label: PROFILE_NAMES[one] }))}
+      options={PROFILES.map((one) => {
+        const icon = COMMAND_GLYPHS.get(profileCommandId(one));
+        return { value: one, label: PROFILE_NAMES[one], ...(icon === undefined ? {} : { icon }) };
+      })}
       onValueChange={(value) => {
         const chosen = PROFILES.find((one) => one === value);
         if (chosen !== undefined && chosen !== profile) run(profileCommandId(chosen));

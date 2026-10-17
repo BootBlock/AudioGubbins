@@ -4,7 +4,7 @@ import type { LoudnessMeasurement } from '@audiogubbins/detection-runtime';
 import type { LoudnessTarget } from '@audiogubbins/game-audio';
 
 import type { LoudnessReading } from '../../state/loudness-store.js';
-import { conformance, conformanceWords } from './loudness-conformance.js';
+import { CONFORMANCE_VERDICTS, conformance, conformanceWords } from './loudness-conformance.js';
 
 const TARGET: LoudnessTarget = { integratedLufs: -16, toleranceLu: 1, truePeakCeilingDbtp: -1 };
 
@@ -50,11 +50,16 @@ describe("a member's loudness against its target (ADR-0101)", () => {
     expect(conformance(TARGET, measured(undefined), 'now').kind).toBe('silent');
   });
 
-  it('writes every verdict with its sign as text, never by colour alone', () => {
-    expect(conformanceWords({ kind: 'conforms', lufs: -16.2 })).toBe('✓ Conforms at −16.2 LUFS');
+  it('tells every verdict in words and by its glyph, never by colour alone', () => {
+    expect(conformanceWords({ kind: 'conforms', lufs: -16.2 })).toBe('Conforms at −16.2 LUFS');
     expect(conformanceWords({ kind: 'too-loud', lufs: -14.5, by: 1.5 })).toBe(
-      '✗ Too loud: −14.5 LUFS, 1.5 LU over',
+      'Too loud: −14.5 LUFS, 1.5 LU over',
     );
-    expect(conformanceWords({ kind: 'measuring', percent: 40 })).toBe('… Measuring, 40%');
+    expect(conformanceWords({ kind: 'measuring', percent: 40 })).toBe('Measuring, 40%');
+    expect(CONFORMANCE_VERDICTS.conforms).toBe('passes');
+    expect(CONFORMANCE_VERDICTS['too-loud']).toBe('fails');
+    expect(CONFORMANCE_VERDICTS.stale).toBe('warns');
+    expect(CONFORMANCE_VERDICTS.measuring).toBe('running');
+    expect(CONFORMANCE_VERDICTS['no-target']).toBe('none');
   });
 });

@@ -489,7 +489,7 @@ describe('the workspace settings', () => {
     );
 
     const reset = screen.getByRole('button', { name: 'Reset to how it ships' });
-    expect(reset).toHaveAttribute('aria-disabled', 'false');
+    expect(reset).not.toHaveAttribute('aria-disabled');
     await userEvent.click(reset);
     expect(run).toHaveBeenCalledWith('workspace.reset', { layoutId: layout.id });
   });

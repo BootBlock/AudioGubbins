@@ -16,7 +16,7 @@
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon, IconSize, Section } from '@audiogubbins/design-system';
 import { sanitiseStack, type Logger } from '@audiogubbins/diagnostics';
 
 /** What a boundary shows once its part has failed. */
@@ -99,7 +99,9 @@ export class FailureBoundary extends Component<FailureBoundaryProps, FailureStat
  *
  * Inside the workspace, so it is themed like the panel it replaces, and it can
  * offer to try again: a panel that failed on data that has since changed may
- * well draw the second time.
+ * well draw the second time. What went wrong is kept under Details, closed, so
+ * the panel says what happened and what to do first (design language, section
+ * 13).
  */
 export function PanelFailure({
   title,
@@ -109,11 +111,24 @@ export function PanelFailure({
   const { name, message } = describeFailure(failure);
 
   return (
-    <section className="ag-panel">
-      <h2 className="ag-panel-title">{`The ${title} panel stopped working`}</h2>
-      <p>The rest of AudioGubbins still works. The diagnostic log has a record of what happened.</p>
-      <p className="ag-panel-note">{`${name}: ${message}`}</p>
-      <Button onClick={retry}>Try the panel again</Button>
+    <section className="ag-panel ag-panel-failure">
+      <span className="ag-failure-mark">
+        <Icon name="error" size={IconSize.Mark} />
+      </span>
+      <h2 className="ag-failure-title">{`The ${title} panel stopped working`}</h2>
+      <p className="ag-failure-text">The rest of AudioGubbins still works.</p>
+      <div className="ag-failure-actions">
+        <Button compact tone={ButtonTone.Primary} onClick={retry}>
+          <Icon name="try-again" size={IconSize.Inline} />
+          Try the panel again
+        </Button>
+      </div>
+      <div className="ag-panel-failure-details">
+        <Section title="Details" defaultOpen={false}>
+          <p className="ag-failure-text">The diagnostic log has a record of what happened.</p>
+          <p className="ag-failure-code">{`${name}: ${message}`}</p>
+        </Section>
+      </div>
     </section>
   );
 }
@@ -123,31 +138,35 @@ export function PanelFailure({
  *
  * Plain elements and system colours only. It is shown because something failed
  * outside every panel, which may have been the theme, a primitive or a store,
- * so it depends on none of them. Reloading is the one thing it offers, because
- * there is nothing left running to retry into.
+ * so it depends on none of them: its stylesheet reads the theme's tokens where
+ * they were written and falls back to the platform's colours where they were
+ * not, and it draws no glyph, since a glyph is a primitive. Reloading is the
+ * one thing it offers, because there is nothing left running to retry into.
  */
 export function ApplicationFailure({ failure }: { readonly failure: unknown }): ReactNode {
   const { name, message } = describeFailure(failure);
 
   return (
     <main className="ag-application-failure" aria-labelledby="ag-application-failure-title">
-      <h1 id="ag-application-failure-title">AudioGubbins stopped working</h1>
-      <p>
-        Something in the interface failed, and it could not carry on. Nothing has been sent
-        anywhere. Reloading starts AudioGubbins again.
-      </p>
-      <p>
-        What went wrong: <code>{`${name}: ${message}`}</code>
-      </p>
-      <button
-        type="button"
-        className="ag-failure-action"
-        onClick={() => {
-          window.location.reload();
-        }}
-      >
-        Reload AudioGubbins
-      </button>
+      <div className="ag-application-failure-card">
+        <h1 id="ag-application-failure-title" className="ag-application-failure-title">
+          AudioGubbins stopped working
+        </h1>
+        <p className="ag-failure-text">
+          Something in the interface failed, and it could not carry on. Nothing has been sent
+          anywhere.
+        </p>
+        <code className="ag-failure-code">{`${name}: ${message}`}</code>
+        <button
+          type="button"
+          className="ag-failure-action"
+          onClick={() => {
+            window.location.reload();
+          }}
+        >
+          Reload AudioGubbins
+        </button>
+      </div>
     </main>
   );
 }

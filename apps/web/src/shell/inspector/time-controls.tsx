@@ -13,15 +13,8 @@ import { OptionSelect, TextField } from '@audiogubbins/design-system';
 
 import { DEFAULT_SILENCE_SECONDS, OFFERED_RATES } from '../../commands/time-edit-commands.js';
 import { sampleRateWords } from '../../wording.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
-import { SharedReasonNotes, type SharedReasons } from '../settings/reasoned-button.js';
-
-/** The commands of these controls, whose reasons are said once above them. */
-const TIME_COMMANDS: readonly string[] = [
-  'edit.insert-silence',
-  'edit.stretch',
-  'edit.convert-rate',
-];
+import { CommandButton, type PanelCommands } from '../command-button.js';
+import { InspectorPart } from './inspector-part.js';
 
 /** What a stretch is given: a length in seconds, or a ratio of the new length to the old. */
 type StretchBy = 'seconds' | 'ratio';
@@ -49,17 +42,14 @@ interface RowParts {
   readonly panel: string;
   readonly commands: PanelCommands;
   readonly labelFor: (id: string) => string;
-
-  /** The reasons of the three commands, said once above the rows. */
-  readonly reasons: SharedReasons<string>;
 }
 
 /** A length of silence typed, and the control that inserts it. */
-function SilenceRow({ panel, commands, labelFor, reasons }: RowParts): ReactNode {
+function SilenceRow({ panel, commands, labelFor }: RowParts): ReactNode {
   const [silence, setSilence] = useState(String(DEFAULT_SILENCE_SECONDS));
   const args = { view: panel, seconds: typedNumber(silence) };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <TextField
         label="Silence in seconds"
         value={silence}
@@ -74,19 +64,18 @@ function SilenceRow({ panel, commands, labelFor, reasons }: RowParts): ReactNode
         commands={commands}
         args={args}
         compact
-        shared={reasons}
       />
     </div>
   );
 }
 
 /** A length or a ratio typed, and the control that stretches to it. */
-function StretchRow({ panel, commands, labelFor, reasons }: RowParts): ReactNode {
+function StretchRow({ panel, commands, labelFor }: RowParts): ReactNode {
   const [stretchBy, setStretchBy] = useState<StretchBy>('ratio');
   const [stretch, setStretch] = useState('2');
   const args = { view: panel, [stretchBy]: typedNumber(stretch) };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <OptionSelect
         label="Stretch by"
         value={stretchBy}
@@ -110,7 +99,6 @@ function StretchRow({ panel, commands, labelFor, reasons }: RowParts): ReactNode
         commands={commands}
         args={args}
         compact
-        shared={reasons}
       />
     </div>
   );
@@ -121,14 +109,13 @@ function RateRow({
   panel,
   commands,
   labelFor,
-  reasons,
   sampleRate,
 }: RowParts & { readonly sampleRate: number }): ReactNode {
   const [rate, setRate] = useState(() =>
     String(OFFERED_RATES.find((offered) => offered !== sampleRate && offered >= 44_100) ?? 48_000),
   );
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <OptionSelect
         label="Sample rate"
         value={rate}
@@ -141,7 +128,6 @@ function RateRow({
         commands={commands}
         args={{ view: panel, rate: Number(rate) }}
         compact
-        shared={reasons}
       />
     </div>
   );
@@ -149,20 +135,22 @@ function RateRow({
 
 /** The time and rate controls, acting in the editor panel `panel`. */
 export function TimeControls(
-  parts: Omit<RowParts, 'reasons'> & {
+  parts: RowParts & {
     /** The rate the asset is at now, which the rate offered first is not. */
     readonly sampleRate: number;
   },
 ): ReactNode {
-  const reasons = useCommandReasons(parts.commands, TIME_COMMANDS);
-  const rows = { ...parts, reasons };
   return (
-    <div className="ag-inspector-controls">
-      <h4 className="ag-inspector-heading">Time and rate</h4>
-      <SharedReasonNotes reasons={reasons} />
-      <SilenceRow {...rows} />
-      <StretchRow {...rows} />
-      <RateRow {...rows} />
-    </div>
+    // Reached for less often than the level, so it waits closed, saying what it holds.
+    <InspectorPart
+      heading="Time and rate"
+      title="Time and rate"
+      summary="Silence · Stretch · Rate"
+      defaultOpen={false}
+    >
+      <SilenceRow {...parts} />
+      <StretchRow {...parts} />
+      <RateRow {...parts} />
+    </InspectorPart>
   );
 }

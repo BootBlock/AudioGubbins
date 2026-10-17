@@ -1,0 +1,253 @@
+/* The Assets panel: the import under way and the project's audio, each asset's regions under it. */
+
+.ag-asset-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+  min-block-size: 0;
+}
+
+/* The import: its list, the panel's state when it lists nothing, and its buttons. */
+
+.ag-assets-import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+}
+
+.ag-assets-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-micro);
+}
+
+/* Beside a list the buttons stand at the top, where a panel's actions sit; the
+   DOM keeps them after the state so they are one element in every state. */
+.ag-assets-import:not([data-ag-calling]) > .ag-assets-import-actions {
+  order: -1;
+}
+
+/* In a project with no audio they are the empty state's calls to action, under
+   its line, as close to it as its parts are to each other. */
+.ag-assets-import[data-ag-calling] {
+  flex: 1;
+  justify-content: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-assets-import[data-ag-calling] > .ag-empty-state {
+  padding-block-end: 0;
+}
+
+.ag-assets-import[data-ag-calling] > .ag-assets-import-actions {
+  justify-content: center;
+  gap: var(--ag-space-small);
+  padding-block-end: var(--ag-space-huge);
+}
+
+/* The strip of files being imported: a wash of the accent, the batch over its files. */
+
+.ag-imports-strip {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  padding: var(--ag-space-inset);
+  border: 1px solid color-mix(in oklch, var(--ag-chrome-accent) 28%, transparent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 9%, transparent);
+}
+
+/* With nothing imported the strip is not drawn, but its status stays in the
+   page so what is said in it later is heard. */
+.ag-imports-strip:not([data-ag-shown]) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.ag-imports-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-imports-summary {
+  flex: 1;
+  margin: 0;
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-imports-list {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-imports-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--ag-space-small);
+  align-items: center;
+}
+
+.ag-imports-row > :not(.ag-imports-glyph) {
+  grid-column: 2;
+}
+
+.ag-imports-glyph {
+  grid-row: 1;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-imports-name {
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+.ag-imports-stage {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* A refused file: its glyph and its stage in the error colour; it keeps its place. */
+.ag-imports-row[data-ag-refused] :is(.ag-imports-glyph, .ag-imports-stage) {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-imports-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--ag-space-medium);
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+}
+
+.ag-imports-facts div {
+  display: flex;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-imports-facts dt {
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-imports-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-imports-bar {
+  display: grid;
+  padding-block-start: var(--ag-space-micro);
+}
+
+/* The project's audio. */
+
+.ag-asset-list-head {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+.ag-asset-count {
+  color: var(--ag-chrome-text-disabled);
+  font-family: var(--ag-font-numeric);
+}
+
+.ag-asset-list {
+  display: grid;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A row: its glyph, its name over its description, and its actions. Chosen, the
+   lit edge (`ag-lit-row`, the design system's one mark of a chosen row). */
+.ag-asset-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: var(--ag-space-medium);
+  align-items: center;
+  min-block-size: var(--ag-control-row-height);
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-asset-row[data-ag-nested] {
+  margin-inline-start: calc(var(--ag-space-inset) + var(--ag-grid-unit) * 9);
+}
+
+.ag-asset-row > :not(.ag-asset-glyph, .ag-asset-actions) {
+  grid-column: 2;
+}
+
+.ag-asset-glyph {
+  display: inline-grid;
+  grid-row: 1 / span 3;
+  grid-column: 1;
+  place-items: center;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-asset-name {
+  margin: 0;
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+/* The design system has no row that is itself a button, so the entry is opened
+   by its name drawn as the set's quiet button, at the start of the row. */
+.ag-asset-row > .ag-button {
+  justify-self: start;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.ag-asset-detail {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ag-asset-detail[data-ag-status='unavailable'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-asset-actions {
+  display: flex;
+  grid-row: 1 / span 3;
+  grid-column: 3;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-asset-actions:empty {
+  display: none;
+}
+
+.ag-asset-sublist {
+  margin-block-start: var(--ag-space-hair);
+}
+
+/* The compact density's rows are a control's height. */
+[data-ag-density='compact'] .ag-asset-row {
+  min-block-size: var(--ag-control-height);
+}

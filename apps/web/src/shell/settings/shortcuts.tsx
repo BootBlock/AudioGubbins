@@ -13,7 +13,7 @@
  * the recorder only says so early.
  */
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import {
   describeShortcut,
@@ -22,17 +22,17 @@ import {
   type ShortcutConflict,
   type ShortcutProfile,
 } from '@audiogubbins/commands';
-import { Button, ButtonTone, OptionSelect } from '@audiogubbins/design-system';
+import { Button, ButtonTone, OptionSelect, ShortcutKeys } from '@audiogubbins/design-system';
 import type { KeyEventReading, KeyboardLayout } from '@audiogubbins/input';
 
 import type { Announce } from '../../commands/voiced-execution.js';
 import type { ReservedBinding, WaitingDefault } from '../../state/shortcut-layout.js';
+import { CommandButton } from '../command-button.js';
 import type { RunCommand } from './section.js';
 import { ImportProfile } from './import-profile.js';
 import { ConflictList, ReservedList, WaitingList } from './shortcut-notes.js';
 import {
   NotedButton,
-  ReasonedButton,
   SharedReasonNotes,
   useSharedReasons,
   type SharedReasons,
@@ -239,21 +239,23 @@ function ProfileHeader(props: {
       </p>
       <SharedReasonNotes reasons={naming} />
 
-      <OptionSelect
-        label="Shortcut profile"
-        value={profile.id}
-        options={available.map((one) => ({ value: one.id, label: one.displayName }))}
-        onValueChange={(profileId) => {
-          run('shortcuts.switch-to', { profileId });
-        }}
-      />
+      <div className="ag-settings-profile">
+        <OptionSelect
+          label="Shortcut profile"
+          value={profile.id}
+          options={available.map((one) => ({ value: one.id, label: one.displayName }))}
+          onValueChange={(profileId) => {
+            run('shortcuts.switch-to', { profileId });
+          }}
+        />
 
-      <ProfileActions
-        run={run}
-        announce={announce}
-        unavailableReason={unavailableReason}
-        importReasonId={naming.idOf('import')}
-      />
+        <ProfileActions
+          run={run}
+          announce={announce}
+          unavailableReason={unavailableReason}
+          importReasonId={naming.idOf('import')}
+        />
+      </div>
     </>
   );
 }
@@ -271,10 +273,11 @@ function profileNote(profile: ShortcutProfile, changeable: boolean): string {
 
 /**
  * What is done to the profile as a whole: reset, export, import and delete.
- * Reset and Delete read their commands' availability, with the reason beside
- * each: disabled by whether the profile was built in, each would decide for
- * itself what the commands decide, and say nothing. Import's reason is said
- * above, once for it and for every row that shares it.
+ * Reset and Delete read their commands' availability, each opening its
+ * reason on hover or focus: disabled by whether the profile was built in,
+ * each would decide for itself what the commands decide, and say nothing.
+ * Import's reason is said above, once for it and for every row that shares
+ * it.
  */
 function ProfileActions(props: {
   readonly run: RunCommand;
@@ -286,14 +289,11 @@ function ProfileActions(props: {
 
   return (
     <div className="ag-settings-row">
-      <ReasonedButton
-        reason={unavailableReason('shortcuts.reset')}
-        onPress={() => {
-          run('shortcuts.reset');
-        }}
-      >
-        Reset to the defaults
-      </ReasonedButton>
+      <CommandButton
+        id="shortcuts.reset"
+        label="Reset to the defaults"
+        commands={{ run, unavailableReason }}
+      />
       <Button
         onClick={() => {
           run('shortcuts.export');
@@ -302,15 +302,12 @@ function ProfileActions(props: {
         Export
       </Button>
       <ImportProfile run={run} announce={announce} reasonId={importReasonId} />
-      <ReasonedButton
+      <CommandButton
+        id="shortcuts.delete"
+        label="Delete profile"
+        commands={{ run, unavailableReason }}
         tone={ButtonTone.Destructive}
-        reason={unavailableReason('shortcuts.delete')}
-        onPress={() => {
-          run('shortcuts.delete');
-        }}
-      >
-        Delete profile
-      </ReasonedButton>
+      />
     </div>
   );
 }
@@ -373,6 +370,21 @@ function useFocusBackToChange(
   };
 }
 
+/**
+ * A command's bindings as key caps, each binding its own and joined by "or",
+ * so the row reads as the platform writes each one.
+ */
+function BoundKeys({ bound }: { readonly bound: readonly string[] }): ReactNode {
+  return bound.map((written, index) => (
+    // Two bindings can be written alike on a layout not yet known, so the
+    // place is part of the key.
+    <Fragment key={`${String(index)}-${written}`}>
+      {index > 0 && <span className="ag-shortcut-or"> or </span>}
+      <ShortcutKeys shortcut={written} />
+    </Fragment>
+  ));
+}
+
 /** One command, its bindings, and the controls that change them. */
 function ShortcutRow(props: ShortcutRowProps): ReactNode {
   const { command, bound, editing, convention, layout, learnKey, onEdit, run, naming } = props;
@@ -380,7 +392,7 @@ function ShortcutRow(props: ShortcutRowProps): ReactNode {
   const { changeButton, closing } = useFocusBackToChange(editing, bound.length);
 
   return (
-    <tr>
+    <tr data-ag-recording={editing ? '' : undefined}>
       <th scope="row">{command.label}</th>
       <td className="ag-shortcut-keys">
         {editing ? (
@@ -411,7 +423,7 @@ function ShortcutRow(props: ShortcutRowProps): ReactNode {
         ) : bound.length === 0 ? (
           <span className="ag-shortcut-none">None</span>
         ) : (
-          bound.join(' or ')
+          <BoundKeys bound={bound} />
         )}
       </td>
       <td>

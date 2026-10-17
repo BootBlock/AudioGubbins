@@ -47,6 +47,24 @@ function select(group: string, name: string): HTMLElement {
   return within(screen.getByRole('group', { name: group })).getByRole('combobox', { name });
 }
 
+/**
+ * The choice chosen in the row of choices called `name`, within `group` when
+ * one is named.
+ */
+function chosen(name: string, group?: string): HTMLElement {
+  const scope = group === undefined ? screen : within(screen.getByRole('group', { name: group }));
+  return within(scope.getByRole('radiogroup', { name })).getByRole('radio', { checked: true });
+}
+
+/** Chooses `option` in the row of choices called `name` within `group`, from the keyboard. */
+async function pick(group: string, name: string, option: string): Promise<void> {
+  const choices = within(screen.getByRole('group', { name: group })).getByRole('radiogroup', {
+    name,
+  });
+  within(choices).getByRole('radio', { name: option }).focus();
+  await userEvent.keyboard(' ');
+}
+
 /** Opens the select called `name` within `group` from the keyboard, and picks `option`. */
 async function choose(group: string, name: string, option: string): Promise<void> {
   const trigger = select(group, name);
@@ -120,9 +138,7 @@ describe('the audio settings', () => {
     context.audioSettings.choosePriorityPolicy(SchedulingPolicy.Throughput);
     render(<Section context={context} />);
 
-    expect(screen.getByRole('combobox', { name: 'Background priority' })).toHaveTextContent(
-      'Background work as fast as possible',
-    );
+    expect(chosen('Background priority')).toHaveTextContent('Background work as fast as possible');
     expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
   });
 });
@@ -132,7 +148,7 @@ describe('the quality settings', () => {
     const { context } = buildShellContext();
     render(<Section context={context} />);
 
-    expect(select('Render quality', 'Render quality level')).toHaveTextContent('Maximum');
+    expect(chosen('Render quality level', 'Render quality')).toHaveTextContent('Maximum');
     expect(select('Render quality', 'Resampling')).toHaveTextContent('Maximum');
     expect(select('Render quality', 'Oversampling')).toHaveTextContent('8 times');
     expect(select('Render quality', 'Spectral overlap')).toHaveTextContent('8 frames');
@@ -143,7 +159,7 @@ describe('the quality settings', () => {
     context.audioSettings.chooseProfile(PerformanceProfile.LowLatency);
     render(<Section context={context} />);
 
-    expect(select('Preview quality', 'Preview quality level')).toHaveTextContent('Automatic');
+    expect(chosen('Preview quality level', 'Preview quality')).toHaveTextContent('Automatic');
     expect(select('Preview quality', 'Resampling')).toHaveTextContent('Draft');
     expect(select('Preview quality', 'Oversampling')).toHaveTextContent('None');
   });
@@ -152,8 +168,8 @@ describe('the quality settings', () => {
     const { context } = buildShellContext();
     render(<Section context={context} />);
 
-    await choose('Render quality', 'Render quality level', 'Draft');
-    await choose('Preview quality', 'Preview quality level', 'High');
+    await pick('Render quality', 'Render quality level', 'Draft');
+    await pick('Preview quality', 'Preview quality level', 'High');
 
     expect(context.audioSettings.get().renderQuality.level).toBe(QualityLevel.Draft);
     expect(context.audioSettings.get().previewQuality).toEqual(namedQualityMode(QualityLevel.High));
@@ -169,6 +185,6 @@ describe('the quality settings', () => {
       level: QualityLevel.Custom,
       settings: { ...MAXIMUM_QUALITY.settings, oversampling: 4 },
     });
-    expect(select('Render quality', 'Render quality level')).toHaveTextContent('Custom');
+    expect(chosen('Render quality level', 'Render quality')).toHaveTextContent('Custom');
   });
 });

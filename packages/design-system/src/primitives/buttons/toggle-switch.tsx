@@ -12,6 +12,11 @@
 import { Switch } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
+import {
+  type ControlDescription,
+  DescriptionHint,
+  DescriptionText,
+} from '../control-description.js';
 import { ControlHint, describedBy } from '../control-hint.js';
 
 /** What a switch takes. */
@@ -20,8 +25,11 @@ export interface ToggleSwitchProps {
   readonly checked: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
 
-  /** A sentence explaining what turning it on does. */
-  readonly description?: string;
+  /**
+   * A sentence explaining what turning it on does: standing under the label,
+   * or behind an (i) beside it.
+   */
+  readonly description?: ControlDescription;
 
   readonly disabled?: boolean;
 
@@ -53,14 +61,17 @@ export function ToggleSwitch({
   return (
     <div className="ag-switch-field">
       <div className="ag-switch-text">
-        <span className="ag-switch-label" id={labelId}>
-          {label}
-        </span>
-        {description !== undefined && (
-          <span className="ag-switch-description" id={descriptionId}>
-            {description}
+        <span className="ag-labelled">
+          <span className="ag-switch-label" id={labelId}>
+            {label}
           </span>
-        )}
+          <DescriptionHint description={description} />
+        </span>
+        <DescriptionText
+          description={description}
+          id={descriptionId}
+          className="ag-switch-description"
+        />
       </div>
       <ControlHint unavailableReason={unavailableReason}>
         {({ reasonId }) => (

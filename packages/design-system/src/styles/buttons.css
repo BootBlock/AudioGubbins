@@ -154,6 +154,76 @@
   color: var(--ag-chrome-text-primary);
 }
 
+/* A transport button: a circle a little larger than a control, on the quiet
+   fill with a quiet edge. The main one, play and pause, is larger again and
+   lit as a call to action, its filled glyph at the feature size; while what it
+   runs is running it grows once more, ringed by the accent at a fifth, with a
+   wide glow. A glow is never clipped (section 12): the transport leaves room
+   round it. The size moves at the full level only, as a state change does. */
+.ag-button[data-ag-transport] {
+  --ag-transport-size: calc(var(--ag-control-height) + 4 * var(--ag-grid-unit));
+
+  inline-size: var(--ag-transport-size);
+  block-size: var(--ag-transport-size);
+  border-radius: var(--ag-radius-full);
+  transition-property:
+    background-color, border-color, color, box-shadow, filter, inline-size, block-size;
+  transition-duration:
+    var(--ag-motion-instant), var(--ag-motion-instant), var(--ag-motion-instant),
+    var(--ag-motion-quick), var(--ag-motion-instant), var(--ag-buttons-travel-time),
+    var(--ag-buttons-travel-time);
+}
+
+.ag-button[data-ag-transport='main'] {
+  --ag-transport-size: calc(var(--ag-control-height) + 6 * var(--ag-grid-unit));
+  --ag-transport-glow: var(--ag-effect-glow);
+}
+
+/* Heavier than the call to action's own glow, which comes later, and never
+   on a main button that cannot be used, which keeps no light. */
+.ag-button[data-ag-transport='main']:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  color: var(--ag-chrome-text-on-accent);
+  box-shadow: var(--ag-transport-glow);
+}
+
+.ag-button[data-ag-transport='main'][data-ag-running] {
+  --ag-transport-size: calc(var(--ag-control-height) + 10 * var(--ag-grid-unit));
+  --ag-transport-glow:
+    0 0 0 calc(2 * var(--ag-grid-unit))
+      color-mix(in oklch, var(--ag-chrome-accent) 18%, transparent),
+    0 0 calc(14 * var(--ag-grid-unit)) calc(-1 * var(--ag-grid-unit)) var(--ag-chrome-accent);
+}
+
+/* The keyboard's ring of `tokens.css` and the main button's glow together:
+   the glow is a box shadow too, and written after the ring at the same weight
+   it would take the ring's place. */
+[data-ag-theme]
+  .ag-button[data-ag-transport='main']:focus-visible:not(
+    :disabled,
+    [aria-disabled='true'],
+    [data-ag-unavailable]
+  ),
+[data-ag-force-state='focus-visible']
+  > .ag-button[data-ag-transport='main']:not(
+    :disabled,
+    [aria-disabled='true'],
+    [data-ag-unavailable]
+  ) {
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo),
+    var(--ag-transport-glow);
+}
+
+.ag-button[data-ag-transport='main']:is(
+    :hover,
+    [data-ag-force-state='hover'] > *,
+    [data-ag-force-state='hover'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  color: var(--ag-chrome-text-on-accent);
+}
+
 /* The quiet button: no surface until the pointer is over it. */
 .ag-button[data-ag-tone='quiet'] {
   border-color: transparent;
@@ -454,6 +524,57 @@
   color: var(--ag-chrome-text-secondary);
 }
 
+/* Cards: each choice a card holding a preview over its label, as many to a
+   row as fit at a readable width, the row's cards one inset apart. A chosen
+   card takes an accent edge and the glow of a chosen card (section 7); it
+   needs no wash, so the well and its padding go. */
+.ag-segmented[data-ag-variant='cards'] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(48 * var(--ag-grid-unit)), 1fr));
+  gap: var(--ag-space-inset);
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+}
+
+.ag-segmented[data-ag-variant='cards'] .ag-segment {
+  display: grid;
+  align-content: start;
+  justify-content: stretch;
+  gap: var(--ag-space-small);
+  block-size: auto;
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: calc(var(--ag-radius-control) + var(--ag-grid-unit));
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-control);
+  text-align: start;
+  transition-property: background-color, border-color, box-shadow, color;
+  transition-duration: var(--ag-motion-quick);
+}
+
+.ag-segmented[data-ag-variant='cards'] .ag-segment[aria-checked='true'] {
+  border-color: var(--ag-chrome-accent);
+  background-color: var(--ag-chrome-fill-accent);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-segmented[data-ag-variant='cards']:is([data-disabled], [data-ag-unavailable])
+  .ag-segment[aria-checked='true'] {
+  border-color: var(--ag-chrome-edge-quiet);
+  background-color: var(--ag-chrome-fill-press);
+  box-shadow: none;
+}
+
+/* The preview fills the card's width; what it draws is its caller's. */
+.ag-segment-preview {
+  display: grid;
+  min-inline-size: 0;
+}
+
 /* Small choices for a dense row: shorter, narrower padding, label-sized words
    and the small glyphs. */
 .ag-segmented[data-ag-small] .ag-segment {
@@ -527,7 +648,10 @@
    lights the first choice alone, as it does a toolbar's first button. */
 :is(
     :is(.ag-power-switch, .ag-record-button):is(:hover, [data-ag-force-state='hover'] *),
-    .ag-radio-option:is(:hover, [data-ag-force-state='hover'] .ag-radio-option:first-of-type)
+    .ag-radio-option:is(
+      :hover,
+      [data-ag-force-state='hover'] .ag-radio-choice:first-of-type .ag-radio-option
+    )
   ):not(:disabled, [aria-disabled='true'], [data-disabled])
   .ag-hardware-hover {
   opacity: 0.08;
@@ -556,22 +680,21 @@
 
 .ag-switch-field {
   display: flex;
-
-  /* A long label cannot shrink, so where a narrow panel leaves the switch no
-     room beside it, the switch moves under it rather than being squeezed. */
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--ag-space-medium);
   min-block-size: var(--ag-control-height);
 }
 
 /* The words take the row and the switch its trailing edge, so a column of
-   switches shares one edge (section 1). */
+   switches shares one edge (section 1). A long label wraps its words beside
+   the switch rather than pushing the switch under it: a switch on a line of
+   its own, at the far side, reads as belonging to the row below. */
 .ag-switch-text {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
-  min-inline-size: calc(64 * var(--ag-grid-unit));
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .ag-switch-description {
@@ -846,6 +969,13 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: var(--ag-space-medium);
+}
+
+/* A choice and the (i) of a description kept behind one, side by side. */
+.ag-radio-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
 }
 
 .ag-radio-option {

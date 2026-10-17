@@ -7,6 +7,7 @@
  */
 
 import type { GraphicsPlatform } from '@audiogubbins/capabilities';
+import type { CommandInvocation } from '@audiogubbins/commands';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { SpectrogramHost } from '@audiogubbins/spectral-analysis';
 import type { PeakHost } from '@audiogubbins/waveform';
@@ -21,8 +22,12 @@ import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { RendererReports } from '../state/renderer-reports.js';
 
-/** What a command a control runs is given. */
-export type ControlArguments = Readonly<Record<string, string | number | boolean>>;
+/**
+ * What a command a control runs is given: a command's own arguments, which the
+ * shell hands on unchanged, so a panel's control and a command button take one
+ * shape.
+ */
+export type ControlArguments = CommandInvocation['arguments'];
 
 /** What the editor's panels are given. */
 export interface EditorPanelParts {

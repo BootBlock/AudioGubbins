@@ -24,6 +24,7 @@ import {
   SegmentedControl,
   SegmentedVariant,
   ToggleSwitch,
+  TransportButton,
   type SegmentedOption,
 } from '@audiogubbins/design-system';
 import type { ReactNode } from 'react';
@@ -153,6 +154,58 @@ const iconButtonSpecimens: readonly Specimen[] = [
   },
 ];
 
+const transportSpecimens: readonly Specimen[] = [
+  ...INTERACTIVE.map((state) => ({
+    component: 'TransportButton (main)',
+    state,
+    render: () => <TransportButton icon="play" label="Play" main />,
+  })),
+  {
+    component: 'TransportButton (main)',
+    state: 'running',
+    render: () => <TransportButton icon="pause" label="Pause" main running />,
+  },
+  {
+    component: 'TransportButton (main)',
+    state: 'unavailable',
+    render: () => (
+      <TransportButton icon="play" label="Play" main unavailableReason="Open a sound to play it." />
+    ),
+  },
+  ...INTERACTIVE.map((state) => ({
+    component: 'TransportButton (ordinary)',
+    state,
+    render: () => <TransportButton icon="stop" label="Stop" />,
+  })),
+  {
+    component: 'TransportButton (ordinary)',
+    state: 'unavailable',
+    render: () => (
+      <TransportButton icon="stop" label="Stop" unavailableReason="Nothing is playing." />
+    ),
+  },
+  {
+    // The approved Transport's row: stop, play while playing, and the test
+    // signal, with room round the play button's glow.
+    component: 'TransportButton',
+    state: 'transport',
+    render: () => (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--ag-space-small)',
+          padding: 'var(--ag-space-inset-wide)',
+        }}
+      >
+        <TransportButton icon="stop" label="Stop" />
+        <TransportButton icon="pause" label="Pause" main running />
+        <TransportButton icon="test-signal" label="Play the test signal" />
+      </div>
+    ),
+  },
+];
+
 /** A toolbar of two groups, the second's mode on. */
 function editingBar(): ReactNode {
   return (
@@ -182,6 +235,46 @@ const TOOLS: readonly SegmentedOption[] = [
   { value: 'brush', label: 'Brush', icon: 'spectral-brush' },
 ];
 
+/** A density's rows in miniature, in the theme's own colours, for a card's preview. */
+function rowsPreview(rows: number) {
+  return (
+    <span
+      style={{
+        display: 'grid',
+        alignContent: 'start',
+        gap: 'var(--ag-space-tiny)',
+        blockSize: 'calc(26 * var(--ag-grid-unit))',
+        padding: 'var(--ag-space-small)',
+        borderRadius: 'var(--ag-radius-small)',
+        backgroundColor: 'var(--ag-chrome-fill-well)',
+      }}
+    >
+      {Array.from({ length: rows }, (_, row) => (
+        <span
+          key={row}
+          style={{
+            blockSize: 'calc(2 * var(--ag-grid-unit))',
+            borderRadius: 'var(--ag-radius-hairline)',
+            backgroundColor: 'var(--ag-chrome-fill-hover)',
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+const DENSITIES: readonly SegmentedOption[] = [
+  { value: 'comfortable', label: 'Comfortable', preview: rowsPreview(3) },
+  { value: 'compact', label: 'Compact', preview: rowsPreview(5) },
+];
+
+/** The choices each variant shows. */
+function optionsOf(variant: SegmentedVariant): readonly SegmentedOption[] {
+  if (variant === SegmentedVariant.Tools) return TOOLS;
+  if (variant === SegmentedVariant.Cards) return DENSITIES;
+  return DISPLAY;
+}
+
 /** A segmented control in one variant, the first choice chosen. */
 function segmented(
   variant: SegmentedVariant,
@@ -191,11 +284,17 @@ function segmented(
     readonly disabled?: boolean;
   } = {},
 ): ReactNode {
-  const options = variant === SegmentedVariant.Tools ? TOOLS : DISPLAY;
+  const options = optionsOf(variant);
   const first = options[0]?.value ?? '';
   return (
     <SegmentedControl
-      label={variant === SegmentedVariant.Tools ? 'Tools' : 'Display'}
+      label={
+        variant === SegmentedVariant.Tools
+          ? 'Tools'
+          : variant === SegmentedVariant.Cards
+            ? 'Density'
+            : 'Display'
+      }
       value={first}
       options={options}
       variant={variant}
@@ -227,6 +326,11 @@ const segmentedSpecimens: readonly Specimen[] = [
     component: 'SegmentedControl (text)',
     state: 'disabled',
     render: () => segmented(SegmentedVariant.Text, { disabled: true }),
+  },
+  {
+    component: 'SegmentedControl (cards)',
+    state: 'disabled',
+    render: () => segmented(SegmentedVariant.Cards, { disabled: true }),
   },
   {
     component: 'SegmentedControl (text)',
@@ -265,6 +369,36 @@ const switchSpecimens: readonly Specimen[] = [
     render: () => toggle(false),
   })),
   { component: 'ToggleSwitch', state: 'on', render: () => toggle(true) },
+  {
+    component: 'ToggleSwitch',
+    state: 'description behind a hint',
+    render: () => (
+      <ToggleSwitch
+        label="Diagnostic mode"
+        description={{
+          hintLabel: 'About diagnostic mode',
+          text: 'Collects more detail for a limited time.',
+        }}
+        checked
+        onCheckedChange={ignore}
+      />
+    ),
+  },
+  {
+    component: 'ToggleSwitch',
+    state: 'long label',
+    // The label wraps its words beside the switch, in a column as narrow as a
+    // settings page's on a phone.
+    render: () => (
+      <div style={{ inlineSize: 'calc(110 * var(--ag-grid-unit))' }}>
+        <ToggleSwitch
+          label="Keep the waveform and analysis caches with the project when it is exported"
+          checked={false}
+          onCheckedChange={ignore}
+        />
+      </div>
+    ),
+  },
   ...[false, true].flatMap((checked) => {
     const word = checked ? 'on' : 'off';
     return [
@@ -315,6 +449,18 @@ const checkSpecimens: readonly Specimen[] = [
     state: 'unavailable',
     render: () => check(false, { unavailableReason: 'This format has no markers.' }),
   },
+  {
+    component: 'Check',
+    state: 'description behind a hint',
+    render: () => (
+      <Check
+        label="Include markers"
+        description={{ hintLabel: 'About markers', text: 'Written into the file as cue points.' }}
+        checked
+        onCheckedChange={ignore}
+      />
+    ),
+  },
 ];
 
 /** A radio group of takes, the first chosen. */
@@ -348,6 +494,32 @@ const radioSpecimens: readonly Specimen[] = [
     component: 'RadioGroup',
     state: 'unavailable',
     render: () => takes({ unavailableReason: 'Stop recording to choose a take.' }),
+  },
+  {
+    component: 'RadioGroup',
+    state: 'descriptions behind hints',
+    render: () => (
+      <RadioGroup
+        label="Format"
+        value="wav"
+        options={[
+          {
+            value: 'wav',
+            label: 'WAV',
+            description: { hintLabel: 'About WAV', text: 'Every sample as it is, uncompressed.' },
+          },
+          {
+            value: 'ogg',
+            label: 'Ogg Vorbis',
+            description: {
+              hintLabel: 'About Ogg Vorbis',
+              text: 'Smaller, losing detail the ear is least likely to miss.',
+            },
+          },
+        ]}
+        onValueChange={ignore}
+      />
+    ),
   },
 ];
 
@@ -402,6 +574,7 @@ const specimens: readonly Specimen[] = [
   ...buttonSpecimens,
   ...toggledButtonSpecimens,
   ...iconButtonSpecimens,
+  ...transportSpecimens,
   ...controlBarSpecimens,
   ...segmentedSpecimens,
   ...switchSpecimens,

@@ -135,9 +135,8 @@ describe('the project strip, with projects to reach', () => {
       });
     });
 
-    expect(
-      within(strip).getByText('Quick Edit of “Harbour.wav”, kept in the project “Harbour”'),
-    ).toBeVisible();
+    expect(within(strip).getByText('Quick Edit')).toBeVisible();
+    expect(within(strip).getByText('“Harbour.wav”, kept in the project “Harbour”')).toBeVisible();
   });
 
   it('offers a Quick Edit’s export, and nothing to export for a project alone', async () => {
@@ -214,9 +213,9 @@ describe('the project strip, with projects to reach', () => {
       ),
     ).toBeVisible();
     expect(run).not.toHaveBeenCalledWith('project.take-over');
-    // Focus stays in the strip as the button pressed goes.
+    // Focus stays in the strip as the button pressed goes, on the choice that loses nothing.
     await waitFor(() => {
-      expect(within(strip).getByRole('button', { name: 'Take over now' })).toHaveFocus();
+      expect(within(strip).getByRole('button', { name: 'Cancel' })).toHaveFocus();
     });
 
     await userEvent.click(within(strip).getByRole('button', { name: 'Take over now' }));

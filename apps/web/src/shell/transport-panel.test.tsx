@@ -4,6 +4,12 @@ import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubbins/capabilities';
+import {
+  DEFAULT_THEME_PREFERENCES,
+  ThemeProvider,
+  UNKNOWN_SYSTEM_APPEARANCE,
+  fixedSystemAppearance,
+} from '@audiogubbins/design-system';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
@@ -71,24 +77,36 @@ function draw(
     options.environment ?? CAPABLE,
     createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
   );
+  // In the theme, as the application draws it: the meters take their
+  // ballistics from it.
   render(
-    <TransportPanel
-      title="Transport"
-      audio={audio}
-      audioSettings={options.settings ?? audioSettings()}
-      renderStrategy={options.strategy ?? createRenderStrategyStore()}
-      capabilities={capabilities}
-      playhead={options.playhead ?? (() => undefined)}
-      meters={options.meters ?? (() => NO_METERS)}
-      framesRendered={options.framesRendered ?? (() => 0)}
-      run={run}
-      unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
-      editorViews={options.editorViews ?? observable(undefined)}
-      assets={options.assets ?? observable(undefined)}
-      hearing={createHearingStore()}
-    />,
+    <ThemeProvider
+      preferences={DEFAULT_THEME_PREFERENCES}
+      system={fixedSystemAppearance(UNKNOWN_SYSTEM_APPEARANCE)}
+    >
+      <TransportPanel
+        title="Transport"
+        audio={audio}
+        audioSettings={options.settings ?? audioSettings()}
+        renderStrategy={options.strategy ?? createRenderStrategyStore()}
+        capabilities={capabilities}
+        playhead={options.playhead ?? (() => undefined)}
+        meters={options.meters ?? (() => NO_METERS)}
+        framesRendered={options.framesRendered ?? (() => 0)}
+        run={run}
+        unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
+        editorViews={options.editorViews ?? observable(undefined)}
+        assets={options.assets ?? observable(undefined)}
+        hearing={createHearingStore()}
+      />
+    </ThemeProvider>,
   );
   return { run };
+}
+
+/** Opens the panel's closed section headed `title`: the engine's readings, or the offline render. */
+async function open(title: 'Engine' | 'Offline render'): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: title }));
 }
 
 /** The text a description list gives for `term`. */
@@ -136,8 +154,9 @@ function playingStatus(): PlaybackStatus {
 }
 
 describe('the Transport panel before anything plays', () => {
-  it('says the context starts with Play, and has no levels yet', () => {
+  it('says the context starts with Play, and has no levels yet', async () => {
     draw();
+    await open('Engine');
 
     expect(screen.getByRole('heading', { level: 2, name: 'Transport' })).toBeInTheDocument();
     expect(reading('Audio context')).toBe('Not started; it starts when you press Play');
@@ -152,6 +171,7 @@ describe('the Transport panel before anything plays', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Play' }));
     await userEvent.click(screen.getByRole('button', { name: 'Play the test signal' }));
+    await open('Offline render');
     await userEvent.click(screen.getByRole('button', { name: 'Render the test signal offline' }));
 
     expect(run.mock.calls).toEqual([
@@ -175,7 +195,7 @@ describe('the Transport panel before anything plays', () => {
       views.set(1);
     });
 
-    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAttribute('aria-disabled');
   });
 
   it('offers Play once the asset the editor in use shows has opened, its files read', () => {
@@ -194,10 +214,10 @@ describe('the Transport panel before anything plays', () => {
       assets.set(1);
     });
 
-    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAttribute('aria-disabled');
   });
 
-  it('keeps a button whose command cannot run in the tab order, saying the command’s own reason once', async () => {
+  it('keeps a button whose command cannot run in the tab order, described by the command’s own reason and never writing it beside the button', async () => {
     const { run } = draw(undefined, {
       unavailable: {
         'transport.pause': 'Nothing is playing.',
@@ -211,7 +231,13 @@ describe('the Transport panel before anything plays', () => {
     expect(screen.getByRole('button', { name: 'Stop' })).toHaveAccessibleDescription(
       'Nothing is playing.',
     );
-    expect(screen.getAllByText('Nothing is playing.')).toHaveLength(1);
+    // Each button's reason is its own description, held out of sight until it
+    // opens on hover or focus: none is standing text beside the row.
+    expect(
+      screen
+        .getAllByText('Nothing is playing.')
+        .every((said) => said.classList.contains('ag-visually-hidden')),
+    ).toBe(true);
     expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAccessibleDescription();
     pause.focus();
     expect(pause).toHaveFocus();
@@ -251,17 +277,19 @@ function contestedRender() {
 }
 
 describe('the Transport panel’s processing modes', () => {
-  it('shows playback as real-time processing, and says why it does not move to a cached preview', () => {
+  it('shows playback as real-time processing, and says why it does not move to a cached preview', async () => {
     draw();
 
-    expect(reading('Playback')).toMatch(/^Real-time processing/);
-    expect(reading('Playback')).toContain(
+    expect(reading('Playback')).toBe('Real-time processing');
+    await userEvent.click(screen.getByRole('button', { name: 'Why playback runs so' }));
+    expect(screen.getByRole('dialog', { name: 'Why playback runs so' })).toHaveTextContent(
       'a cached preview is not available: nothing measures what live processing costs yet',
     );
   });
 
-  it('shows the mode the next render takes before any render, with its reason', () => {
+  it('shows the mode the next render takes before any render, with its reason', async () => {
     draw();
+    await open('Offline render');
 
     expect(reading('Offline render')).toBe(
       'Final offline rendering' +
@@ -270,10 +298,11 @@ describe('the Transport panel’s processing modes', () => {
     expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
   });
 
-  it('shows the mode a render was planned with, and where it queued', () => {
+  it('shows the mode a render was planned with, and where it queued', async () => {
     const strategy = createRenderStrategyStore();
     strategy.decide(contestedRender().safer);
     draw(undefined, { strategy });
+    await open('Offline render');
 
     expect(reading('Offline render')).toMatch(/^Background rendering/);
     expect(reading('Offline render')).toContain(
@@ -308,8 +337,9 @@ describe('the Transport panel’s processing modes', () => {
 });
 
 describe('the Transport panel’s quality modes', () => {
-  it('shows the render and preview quality with every value each runs at, and where they differ', () => {
+  it('shows the render and preview quality with every value each runs at, and where they differ', async () => {
     draw();
+    await open('Offline render');
 
     expect(reading('Render quality')).toBe(
       'Maximum' + 'Resampling maximum, oversampling 8 times, spectral overlap 8 frames.',
@@ -326,9 +356,10 @@ describe('the Transport panel’s quality modes', () => {
     ).toBeInTheDocument();
   });
 
-  it('follows a change of either, and says so where they match', () => {
+  it('follows a change of either, and says so where they match', async () => {
     const settings = audioSettings();
     draw(undefined, { settings });
+    await open('Offline render');
 
     act(() => {
       settings.choosePreviewQuality(namedQualityMode(QualityLevel.Maximum));
@@ -346,10 +377,11 @@ describe('the Transport panel’s quality modes', () => {
 });
 
 describe('the Transport panel while the test signal plays', () => {
-  it('shows the context, the transport, each thread’s DSP path, the device rate and each latency in milliseconds and frames', () => {
+  it('shows the context, the transport, each thread’s DSP path, the device rate and each latency in milliseconds and frames', async () => {
     const audio = createAudioViewStore();
     audio.showPlayback(playingStatus());
     draw(audio);
+    await open('Engine');
 
     expect(reading('Audio context')).toBe('Running');
     expect(reading('Transport')).toBe('Playing');
@@ -364,6 +396,15 @@ describe('the Transport panel while the test signal plays', () => {
     expect(reading('Output latency')).toBe('20.0 ms (960 frames)');
     expect(reading('Graph latency')).toBe('2.7 ms (128 frames)');
     expect(reading('Underruns')).toBe('0. No underruns in the last 10 seconds.');
+  });
+
+  it('says the device’s rate under the position, as the readout’s state', () => {
+    const audio = createAudioViewStore();
+    audio.showPlayback(playingStatus());
+    draw(audio);
+
+    const controls = screen.getByRole('group', { name: 'Transport' });
+    expect(within(controls).getByText('48 kHz')).toBeInTheDocument();
   });
 
   it('says there are no levels while a loaded graph has reported none', () => {
@@ -460,7 +501,7 @@ describe('the Transport panel while the test signal plays', () => {
 });
 
 describe('the Transport panel where the engine is degraded', () => {
-  it('names the reference path and why it runs, and what the browser does not report', () => {
+  it('names the reference path and why it runs, and what the browser does not report', async () => {
     const audio = createAudioViewStore();
     const status = playingStatus();
     const reference = {
@@ -475,6 +516,7 @@ describe('the Transport panel where the engine is degraded', () => {
       device: { ...FAKE_DEVICE, outputLatencySeconds: undefined },
     });
     draw(audio);
+    await open('Engine');
 
     for (const term of ['Graph on the audio thread', 'Sources in the feeder thread']) {
       expect(reading(term)).toBe('Reference pathThis page cannot compile WebAssembly.');
@@ -486,7 +528,7 @@ describe('the Transport panel where the engine is degraded', () => {
     expect(reading('Graph latency')).toBe('Not known: a node on the way cannot say its own');
   });
 
-  it('explains the underruns and recommends a steadier profile', () => {
+  it('explains the underruns and recommends a steadier profile', async () => {
     const audio = createAudioViewStore();
     audio.showPlayback({
       ...playingStatus(),
@@ -498,6 +540,7 @@ describe('the Transport panel where the engine is degraded', () => {
       },
     });
     draw(audio);
+    await open('Engine');
 
     expect(reading('Underruns')).toBe(
       '3. The audio ran out 3 times.Recommended profile: Maximum stability.',
@@ -534,9 +577,10 @@ describe('the Transport panel’s offline render', () => {
     audio.renderStarted(480_000);
     draw(audio, { framesRendered: () => 200_000 });
 
-    const progress = screen.getByRole('progressbar', { name: 'Render progress' });
-    expect(progress).toHaveAttribute('value', '200000');
-    expect(progress).toHaveAttribute('max', '480000');
+    expect(screen.getByRole('progressbar', { name: 'Render progress' })).toHaveAttribute(
+      'aria-valuetext',
+      '42%',
+    );
     expect(screen.getByRole('status')).toHaveTextContent('Rendering: 40%');
   });
 
@@ -552,18 +596,18 @@ describe('the Transport panel’s offline render', () => {
       // Several chunks reported between two frames redraw nothing until the frame.
       rendered = 24_000;
       rendered = 240_000;
-      expect(progress()).toHaveAttribute('value', '0');
+      expect(progress()).toHaveAttribute('aria-valuetext', '0%');
       act(() => {
         vi.advanceTimersToNextFrame();
       });
-      expect(progress()).toHaveAttribute('value', '240000');
+      expect(progress()).toHaveAttribute('aria-valuetext', '50%');
       expect(screen.getByRole('status')).toHaveTextContent('Rendering: 50%');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('shows what a finished render produced, its fingerprint in hexadecimal', () => {
+  it('shows what a finished render produced, its fingerprint in hexadecimal', async () => {
     const audio = createAudioViewStore();
     audio.renderFinished({
       frames: 480_000,
@@ -574,6 +618,7 @@ describe('the Transport panel’s offline render', () => {
       fingerprint: 0x00ab_cdef_0123_4567n,
     });
     draw(audio);
+    await open('Offline render');
 
     expect(reading('Frames')).toBe('480,000 at 48,000 Hz');
     expect(reading('Time taken')).toBe('0.8 s');
@@ -597,18 +642,21 @@ describe('the Transport panel’s word on the GPU', () => {
     [{ kind: GpuUseKind.Unavailable }, 'Not available: this browser offers no GPU through WebGPU.'],
     [{ kind: GpuUseKind.Unused }, 'Available; no processor in this graph uses it.'],
     [{ kind: GpuUseKind.Used, nodes: [expectSuccess(nodeId('reverb'))] }, 'Used by reverb.'],
-  ] as const)('says what the engine chose: %o', (gpu, said) => {
+  ] as const)('says what the engine chose: %o', async (gpu, said) => {
     const audio = createAudioViewStore();
     audio.showPlayback({ ...playingStatus(), gpu });
     draw(audio);
+    await open('Engine');
 
     expect(reading('GPU')).toBe(said);
   });
 
-  it('says nothing of the GPU before a graph is loaded', () => {
+  it('says nothing of the GPU before a graph is loaded', async () => {
     const audio = createAudioViewStore();
     audio.showPlayback({ ...playingStatus(), gpu: undefined });
     draw(audio);
+    await open('Engine');
+    expect(reading('Transport')).toBe('Playing');
 
     expect(screen.queryByText('GPU')).toBeNull();
   });

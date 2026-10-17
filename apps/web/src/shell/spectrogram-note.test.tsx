@@ -11,9 +11,9 @@ describe('why the spectrogram is not drawn', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'The spectrogram could not be made: The spectrogram worker stopped: It ran out of memory.',
-    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('The spectrogram could not be made');
+    expect(alert).toHaveTextContent('The spectrogram worker stopped: It ran out of memory.');
   });
 
   it('says nothing while the spectrogram is made, or where the view shows none', () => {

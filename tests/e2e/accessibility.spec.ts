@@ -220,7 +220,7 @@ async function barHoldingTheAdvice(
   await openFresh(page);
 
   const bar = page.getByRole('contentinfo', { name: 'Status' });
-  const advice = bar.locator('.ag-status-item', {
+  const advice = bar.locator('.ag-status-chip', {
     hasText: 'To make room without losing anything',
   });
   const dismiss = bar.getByRole('button', {
@@ -469,8 +469,10 @@ test.describe('the shell has no automatically detectable violation', { tag: '@sc
     await openFresh(page);
     await openSettings(page);
     await page.getByRole('tab', { name: 'Accessibility' }).click();
-    await page.getByRole('combobox', { name: 'Contrast' }).click();
-    await page.getByRole('option', { name: /^High/ }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Contrast' })
+      .getByRole('radio', { name: /^High/ })
+      .click();
     await page.keyboard.press('Escape');
     await expect(page.locator('.ag-theme-root')).toHaveAttribute('data-ag-contrast', 'high');
 
@@ -850,7 +852,7 @@ test.describe('forced colours keep what the user needs to see', () => {
     });
     await openFresh(page);
 
-    const notice = page.locator('.ag-status-item[data-ag-status="unavailable"]').first();
+    const notice = page.locator('.ag-status-chip[data-ag-tone="warning"]').first();
     await expect(notice).toBeVisible();
     expect(await notice.evaluate((element) => getComputedStyle(element).color)).toBe(
       await systemColour(page, 'MarkText'),
@@ -1091,11 +1093,12 @@ test.describe('a floating surface is inside the theme', () => {
       await page.keyboard.press('Escape');
 
       // And a select list, which the three selectors share one declaration
-      // block with: struck from that block, the Show, Verbosity and Accent
+      // block with: struck from that block, the Show, Verbosity and profile
       // lists would mark the keyboard's position by a background difference of
       // about 1.05 to 1 again, and every test here would pass.
       await openSettings(page);
-      await page.getByRole('combobox', { name: 'Density' }).click();
+      await page.getByRole('tab', { name: 'Shortcuts' }).click();
+      await page.getByRole('combobox', { name: 'Shortcut profile' }).click();
       await ringedAfterArrowing('.ag-select-item[data-highlighted]', {
         surface: 'select list',
         marksOnOpening: true,
@@ -1604,8 +1607,10 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await expect(menuBarMenu(page, 'File')).toBeFocused();
 
     await openSettings(page);
-    await page.getByRole('combobox', { name: 'Accent colour' }).click();
-    await page.getByRole('option', { name: 'Green' }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Accent colour' })
+      .getByRole('radio', { name: /^Green/ })
+      .click();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeHidden();
 
@@ -1744,7 +1749,7 @@ test.describe('the shell is operable from the keyboard alone', () => {
       await expect(dialog).toBeHidden();
 
       const bar = page.getByRole('contentinfo', { name: 'Status' });
-      const named = bar.locator('.ag-status-item').first();
+      const named = bar.locator('.ag-status-chip').first();
       await expect(named).toHaveText(name);
       await expect(bar.getByRole('button', { name: /^Dismiss/u }), 'a notice stands').toHaveCount(
         0,
@@ -1906,8 +1911,10 @@ test.describe('the dock says which panel and which group without colour', () => 
           } else if (setting === 'high contrast') {
             await openSettings(page);
             await page.getByRole('tab', { name: 'Accessibility' }).click();
-            await page.getByRole('combobox', { name: 'Contrast' }).click();
-            await page.getByRole('option', { name: /^High/ }).click();
+            await page
+              .getByRole('radiogroup', { name: 'Contrast' })
+              .getByRole('radio', { name: /^High/ })
+              .click();
             await page.keyboard.press('Escape');
           }
           await page.locator('body').click();
@@ -2806,8 +2813,10 @@ test.describe('the reduced-motion preference is respected', () => {
     await openSettings(page);
     await page.getByRole('tab', { name: 'Accessibility' }).click();
 
-    await page.getByRole('combobox', { name: 'Animation' }).click();
-    await page.getByRole('option', { name: 'Full' }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Animation' })
+      .getByRole('radio', { name: /^Full/ })
+      .click();
 
     await expect(page.locator('.ag-theme-root')).toHaveAttribute('data-ag-motion', 'full');
   });
@@ -2984,11 +2993,13 @@ test.describe('the system contrast preference is respected', () => {
     await openSettings(page);
     await page.getByRole('tab', { name: 'Accessibility' }).click();
 
-    const contrast = page.getByRole('combobox', { name: 'Contrast' });
-    await expect(contrast).toContainText('Follow the system (high now)');
+    // Following the system is chosen, and says what the system asks for now.
+    const contrast = page.getByRole('radiogroup', { name: 'Contrast' });
+    const following = contrast.getByRole('radio', { name: /^System/ });
+    await expect(following).toBeChecked();
+    await expect(following).toContainText('high now');
 
-    await contrast.click();
-    await page.getByRole('option', { name: 'Standard' }).click();
+    await contrast.getByRole('radio', { name: /^Standard/ }).click();
 
     await expect(page.locator('.ag-theme-root')).toHaveAttribute('data-ag-contrast', 'standard');
   });

@@ -1,0 +1,130 @@
+/*
+ * The too-narrow message (design language, section 9): when it shows, and how
+ * it looks — a mark, the heading, a line, and how to make room, centred in the
+ * room the workspace leaves.
+ */
+
+/*
+ * Below the width a docking layout needs (REQ-UX-057.1), the workspace says so
+ * rather than drawing one.
+ *
+ * Why, once, in `too-narrow.tsx`, which is where the number the application
+ * draws is declared. The number is written three times — there, here, and in
+ * the message's own browser test — because a media query cannot read a custom
+ * property, so the rule and the message cannot share a token; an architecture
+ * rule holds the three equal.
+ *
+ * `display: none` rather than hiding it visually: the dock is left mounted so
+ * that widening the window brings the arrangement back untouched, and nothing
+ * inside it should be in the tab order or read out while it cannot be seen.
+ */
+.ag-too-narrow {
+  display: none;
+}
+
+/* Narrower than the width `too-narrow.tsx` names, written as a range rather
+   than as that width minus one, for the reason given there. */
+@media (width < 640px) {
+  .ag-workspace > :not(.ag-too-narrow) {
+    display: none;
+  }
+
+  /* The project strip goes with the workspace it speaks of, so the
+     notice has the room: wrapped at this width it would take the height
+     the notice needs. What it would say is still said aloud, and the
+     menus still reach it. Named through the shell, to outrank the
+     strip's own rule in `project-banner.css`. */
+  .ag-app > .ag-project-banner {
+    display: none;
+  }
+
+  /* A container its notice can measure, so the notice gives up its padding
+     when the menu bar and the status bar leave less room than the padding
+     asks for, as a touch screen's wrapped chrome does on a short page. */
+  .ag-workspace {
+    container-type: size;
+  }
+
+  .ag-too-narrow {
+    display: flex;
+  }
+}
+
+/* How it looks, while it shows. Nothing below sets `display`, which the
+   rules above alone decide, so none of this draws while it is hidden. */
+.ag-too-narrow {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ag-space-large);
+  /* `safe`, so the head of the notice stays reachable. A centred flex
+     container whose content is taller than it puts the overflow at the start
+     edge, where no scroll position brings it back: without `safe`, at a short
+     viewport the heading would go out of reach on every engine. */
+  justify-content: safe center;
+  /* Its padding counted in, and above and below at most a quarter of the
+     room, the workspace being the container it measures. The shell is
+     `overflow: hidden`, so a notice taller than the workspace has its foot cut
+     off: content-box with `block-size: 100%`, it would always be a padding
+     taller, and a border box is never shorter than its padding, so a whole
+     padding would outgrow a short room. */
+  box-sizing: border-box;
+  block-size: 100%;
+  padding: min(var(--ag-space-huge), calc(100cqb / 4)) var(--ag-space-huge);
+  overflow-y: auto;
+  color: var(--ag-chrome-text-primary);
+  text-align: center;
+}
+
+/* Every part keeps to a reading measure, centred. */
+.ag-too-narrow > * {
+  max-inline-size: calc(var(--ag-grid-unit) * 160);
+}
+
+/* The mark: the empty state's, at the size the language gives this message. */
+.ag-too-narrow-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-state-mark-size) * 64 / 52);
+  block-size: calc(var(--ag-state-mark-size) * 64 / 52);
+  border-radius: var(--ag-radius-full);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent),
+    transparent 70%
+  );
+  color: var(--ag-chrome-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ag-chrome-accent) 30%, transparent);
+}
+
+.ag-too-narrow-heading {
+  margin: 0;
+  font-size: var(--ag-text-display);
+  font-weight: var(--ag-text-weight-heading);
+  letter-spacing: var(--ag-text-tracking-tight);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-too-narrow p {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-body);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* How to make room reads as a note under the line, aligned to its start. */
+.ag-too-narrow-help {
+  align-self: stretch;
+  margin-inline: auto;
+  text-align: start;
+}
+
+.ag-too-narrow-help .ag-section {
+  border-block-start: 0;
+}
+
+.ag-too-narrow-help p {
+  font-size: var(--ag-text-label);
+}

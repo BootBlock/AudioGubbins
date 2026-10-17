@@ -58,6 +58,7 @@
     "test:e2e:spectral": "playwright test --project=chromium-spectral",
     "test:e2e:worker-policy": "playwright test --project=chromium-worker-policy",
     "test:e2e:latency": "playwright test --project=chromium-latency --workers=1",
+    "test:e2e:motion": "playwright test --project=chromium-motion --workers=1",
     "test:e2e:import-export": "playwright test --project=chromium-import-export",
     "test:e2e:game-workflows": "playwright test --project=chromium-game-workflows",
     "test:e2e:inventory": "playwright test --project=chromium-visual-inventory",

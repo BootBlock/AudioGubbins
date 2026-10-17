@@ -20,7 +20,7 @@ import { notCopiedReason } from '../../backup-words.js';
 import type { BackupFolderState } from '../../state/backup-folder-store.js';
 import type { BackupState } from '../../state/backup-store.js';
 import type { Observable } from '../../state/observable.js';
-import { ReasonedButton } from './reasoned-button.js';
+import { CommandButton } from '../command-button.js';
 import type { RunCommand } from './section.js';
 import { quoted } from '@audiogubbins/text';
 
@@ -93,19 +93,17 @@ export function BackupFolder({
         <p {...(copied?.kind === 'failed' ? { 'data-ag-status': 'unavailable' } : {})}>{copy}</p>
       )}
       <div className="ag-settings-row">
-        <ReasonedButton
-          reason={unavailableReason('backup.choose-folder')}
-          onPress={() => run('backup.choose-folder')}
-        >
-          {state.kind === 'chosen' ? 'Choose another folder…' : 'Choose a backups folder…'}
-        </ReasonedButton>
+        <CommandButton
+          id="backup.choose-folder"
+          label={state.kind === 'chosen' ? 'Choose another folder…' : 'Choose a backups folder…'}
+          commands={{ run, unavailableReason }}
+        />
         {state.kind === 'chosen' && state.access !== 'granted' && (
-          <ReasonedButton
-            reason={unavailableReason('backup.allow-folder')}
-            onPress={() => run('backup.allow-folder')}
-          >
-            Allow writing to the folder
-          </ReasonedButton>
+          <CommandButton
+            id="backup.allow-folder"
+            label="Allow writing to the folder"
+            commands={{ run, unavailableReason }}
+          />
         )}
         {state.kind === 'chosen' && (
           <Button onClick={() => run('backup.forget-folder')}>Stop copying to the folder</Button>

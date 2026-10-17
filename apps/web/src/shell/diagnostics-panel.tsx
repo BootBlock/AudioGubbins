@@ -1,11 +1,23 @@
 /**
  * The Diagnostics panel: the recent records of the diagnostic log, filtered
  * as the person reading them chose, and what keeping them costs.
+ *
+ * Drawn in the design language: what the log holds as its header's sub-line,
+ * diagnostic mode as a strip of the accent, and each record a row, its
+ * severity told by its word and its glyph (sections 10 and 11).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import {
+  EmptyState,
+  Hint,
+  Icon,
+  IconSize,
+  OptionSelect,
+  PanelHeader,
+  type IconName,
+} from '@audiogubbins/design-system';
 import {
   LogSeverity,
   allSeverities,
@@ -35,6 +47,21 @@ export function recordsPassing(
       severityPasses(record.severity, threshold) &&
       (category === 'all' || record.category === category),
   );
+}
+
+/** The glyph each severity is drawn with beside its word, where it has one. */
+const SEVERITY_GLYPHS: Readonly<Partial<Record<LogSeverity, IconName>>> = {
+  [LogSeverity.Error]: 'error',
+  [LogSeverity.Warning]: 'warning',
+  [LogSeverity.Info]: 'information',
+};
+
+/** What the log holds and what it costs, and what it has discarded to keep within its bound. */
+function usageWords(usage: ReturnType<LogStore['usage']>): string {
+  const held = `${String(usage.recordCount)} messages, about ${String(Math.round(usage.approximateBytes / 1024))} kB.`;
+  return usage.droppedRecordCount > 0
+    ? `${held} ${String(usage.droppedRecordCount)} older messages have been discarded.`
+    : held;
 }
 
 /** The recent diagnostic records, and what they cost to keep. */
@@ -78,25 +105,27 @@ export function DiagnosticsPanel({
   const shown = recordsPassing(records, threshold, category);
 
   return (
-    <section className="ag-panel">
-      <h2 className="ag-panel-title">{title}</h2>
-
-      <p className="ag-panel-note">
-        {`${String(usage.recordCount)} messages, about ${String(Math.round(usage.approximateBytes / 1024))} kB. `}
-        {usage.droppedRecordCount > 0
-          ? `${String(usage.droppedRecordCount)} older messages have been discarded. `
-          : ''}
-        Nothing here leaves this machine unless you choose to share it.
-      </p>
+    <section className="ag-panel ag-stacked-panel ag-diagnostics">
+      <PanelHeader
+        title={title}
+        icon="diagnostics"
+        subLabel={usageWords(usage)}
+        actions={
+          <Hint label="About the diagnostic log">
+            Nothing here leaves this machine unless you choose to share it.
+          </Hint>
+        }
+      />
 
       {diagnosticModeActive && (
-        <p className="ag-panel-note" data-ag-status="reduced">
+        <p className="ag-diagnostics-mode">
+          <Icon name="diagnostic-mode" size={IconSize.Inline} />
           Diagnostic mode is on, so AudioGubbins is collecting more detail than usual.
         </p>
       )}
 
       {records.length > 0 && (
-        <div className="ag-settings-row" role="group" aria-label="Filter the log">
+        <div className="ag-control-row" role="group" aria-label="Filter the log">
           <OptionSelect
             label="Show"
             value={threshold}
@@ -125,24 +154,28 @@ export function DiagnosticsPanel({
       )}
 
       {records.length === 0 ? (
-        <p>Nothing has been recorded.</p>
+        <EmptyState icon="diagnostics" title="Nothing has been recorded." />
       ) : shown.length === 0 ? (
-        <p>Nothing recorded matches the filter.</p>
+        <EmptyState icon="diagnostics" title="Nothing recorded matches the filter." />
       ) : (
         <ol className="ag-log">
           {shown
             .slice()
             .reverse()
-            .map((record: LogRecord, index) => (
-              <li key={`${String(record.timestamp)}-${String(index)}`} className="ag-log-record">
-                <span className="ag-log-time">{timeOfDay(record.timestamp)}</span>
-                <span className="ag-log-severity" data-ag-severity={record.severity}>
-                  {record.severity}
-                </span>
-                <span className="ag-log-category">{logCategoryName(record.category)}</span>
-                <span className="ag-log-message">{record.message}</span>
-              </li>
-            ))}
+            .map((record: LogRecord, index) => {
+              const glyph = SEVERITY_GLYPHS[record.severity];
+              return (
+                <li key={`${String(record.timestamp)}-${String(index)}`} className="ag-log-record">
+                  <span className="ag-log-time">{timeOfDay(record.timestamp)}</span>
+                  <span className="ag-log-severity" data-ag-severity={record.severity}>
+                    {glyph !== undefined && <Icon name={glyph} size={IconSize.Inline} />}
+                    {record.severity}
+                  </span>
+                  <span className="ag-log-category">{logCategoryName(record.category)}</span>
+                  <span className="ag-log-message">{record.message}</span>
+                </li>
+              );
+            })}
         </ol>
       )}
     </section>

@@ -18,19 +18,33 @@ import {
 } from 'react';
 
 import { Icon, IconSize } from '../../icons/icon.js';
+import {
+  type ControlDescription,
+  DescriptionHint,
+  DescriptionText,
+} from '../control-description.js';
 import { TemplateEditor } from './template-editor.js';
 import type { TemplateVocabulary } from './template-vocabulary.js';
 
 /** What a text field takes. */
 export interface TextFieldProps {
-  /** The visible label. */
+  /** The visible label, and the field's accessible name. */
   readonly label: string;
+
+  /**
+   * Keeps the label for a screen reader alone, where what surrounds the field
+   * already says what it is for, such as the command palette's search.
+   */
+  readonly labelHidden?: boolean;
 
   readonly value: string;
   readonly onValueChange: (value: string) => void;
 
-  /** A sentence saying what the field is for. */
-  readonly description?: string;
+  /**
+   * A sentence saying what the field is for: standing under the label, or
+   * behind an (i) beside it.
+   */
+  readonly description?: ControlDescription;
 
   /** Shown in the empty field, never as a substitute for the label. */
   readonly placeholder?: string;
@@ -217,25 +231,31 @@ function FieldBox({
 /** The field's label, and the sentence saying what it is for. */
 function FieldHeading({
   label,
+  labelHidden,
   field,
   description,
   descriptionId,
 }: {
   readonly label: string;
+  readonly labelHidden: boolean;
   readonly field: string;
-  readonly description: string | undefined;
+  readonly description: ControlDescription | undefined;
   readonly descriptionId: string;
 }): ReactNode {
   return (
     <>
-      <label className="ag-text-field-label" htmlFor={field}>
-        {label}
-      </label>
-      {description !== undefined && (
-        <span className="ag-text-field-description" id={descriptionId}>
-          {description}
-        </span>
-      )}
+      <span className={labelHidden ? 'ag-visually-hidden' : 'ag-labelled'}>
+        <label className="ag-text-field-label" htmlFor={field}>
+          {label}
+        </label>
+        {!labelHidden && <DescriptionHint description={description} />}
+      </span>
+      {labelHidden && <DescriptionHint description={description} />}
+      <DescriptionText
+        description={description}
+        id={descriptionId}
+        className="ag-text-field-description"
+      />
     </>
   );
 }
@@ -253,6 +273,7 @@ function FieldError({ id, error }: { readonly id: string; readonly error: string
 /** A single line of text the user types. */
 export function TextField({
   label,
+  labelHidden = false,
   value,
   onValueChange,
   description,
@@ -287,6 +308,7 @@ export function TextField({
     <div className="ag-text-field">
       <FieldHeading
         label={label}
+        labelHidden={labelHidden}
         field={fieldId}
         description={description}
         descriptionId={descriptionId}

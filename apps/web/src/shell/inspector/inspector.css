@@ -1,0 +1,214 @@
+/* The Inspector: its subject, then stacked sections of properties and controls. */
+
+.ag-inspector-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+  min-block-size: 0;
+}
+
+.ag-inspector-body > .ag-empty-state {
+  flex: 1;
+  justify-content: center;
+}
+
+/* The subject: a glyph tile, its title over what it is, and its scope as a chip. */
+
+.ag-inspector-subject {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-inspector-subject-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+}
+
+.ag-inspector-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-grid-unit) * 18);
+  block-size: calc(var(--ag-grid-unit) * 18);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent);
+}
+
+[data-ag-density='compact'] .ag-inspector-tile {
+  inline-size: calc(var(--ag-grid-unit) * 15);
+  block-size: calc(var(--ag-grid-unit) * 15);
+}
+
+.ag-inspector-subject-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ag-inspector-title {
+  margin: 0;
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-inspector-scope {
+  display: flex;
+}
+
+/* Words in a section: a sentence about the subject, and a quieter detail. */
+
+.ag-inspector-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-inspector-detail {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* A value that is a number or a measure, in the numeric family. */
+.ag-inspector-number {
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A row of fields and the button that applies them, the button level with the
+   fields rather than their labels. */
+.ag-inspector-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-inspector-fields > :is(.ag-text-field, .ag-select-field) {
+  flex: 1 1 calc(var(--ag-grid-unit) * 50);
+  min-inline-size: 0;
+}
+
+.ag-inspector-stack {
+  display: grid;
+  gap: var(--ag-space-small);
+  justify-items: start;
+}
+
+.ag-inspector-stack > :is(.ag-inspector-text, .ag-inspector-detail, .ag-inspector-fields) {
+  justify-self: stretch;
+}
+
+/* Edits and a region's own processing, in the order they were made. Each is
+   numbered by a counter inside the row, so the number sits within the panel's
+   inset rather than hanging off its edge as a list marker would. */
+.ag-inspector-steps {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ag-inspector-step;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-inspector-steps > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ag-space-small);
+  counter-increment: ag-inspector-step;
+  overflow-wrap: anywhere;
+}
+
+.ag-inspector-steps > li::before {
+  content: counter(ag-inspector-step) '.';
+  color: var(--ag-chrome-text-disabled);
+  font-family: var(--ag-font-numeric);
+}
+
+/* A form in a panel: a label column, the control beside it, and its button
+   after it (design language, section 10). The field's own label is laid in
+   the label column, so it stays the field's accessible name. */
+.ag-inspector-form-row {
+  --ag-inspector-label-column: calc(var(--ag-grid-unit) * 44);
+
+  display: grid;
+  grid-template-columns: var(--ag-inspector-label-column) minmax(0, 1fr) auto;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+  align-items: center;
+}
+
+[data-ag-density='compact'] .ag-inspector-form-row {
+  --ag-inspector-label-column: calc(var(--ag-grid-unit) * 38);
+}
+
+.ag-inspector-form-row > :is(.ag-text-field, .ag-select-field) {
+  display: contents;
+}
+
+.ag-inspector-form-row :is(.ag-text-field-label, .ag-select-label) {
+  grid-column: 1;
+  min-inline-size: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-regular);
+  overflow-wrap: anywhere;
+}
+
+.ag-inspector-form-row :is(.ag-text-field-box, .ag-select-trigger) {
+  grid-column: 2;
+  min-inline-size: 0;
+}
+
+.ag-inspector-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 3;
+  gap: var(--ag-space-small);
+}
+
+.ag-inspector-form-row[data-ag-actions-below] > .ag-inspector-form-actions {
+  grid-column: 2 / -1;
+}
+
+/* An export: its heading as the subject, its facts, then each of its files. */
+
+.ag-inspector-export {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-inspector-export-files {
+  display: grid;
+  gap: var(--ag-space-inset);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-inspector-file {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding-block-start: var(--ag-space-inset);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-inspector-file-name {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.ag-inspector-file-name > .ag-icon {
+  flex: none;
+  color: var(--ag-chrome-text-secondary);
+}

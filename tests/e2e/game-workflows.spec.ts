@@ -220,6 +220,30 @@ function policyRow(inspector: Locator, heading: string): Locator {
   return inspector.getByRole('group', { name: heading, exact: true });
 }
 
+/**
+ * Expects the policy row `row` to say where its value comes from, as its source
+ * chip does, and, where given, to show `value`.
+ */
+async function expectSource(row: Locator, source: string, value?: string): Promise<void> {
+  await expect(row.locator('.ag-source-chip')).toHaveText(source);
+  if (value !== undefined) await expect(row.locator('.ag-policy-value')).toHaveText(value);
+}
+
+/** Opens the settings section `title` of `within`, where its fields are. */
+async function openSettings(within: Locator, title: string): Promise<void> {
+  const section = within.getByRole('button', { name: title, exact: true });
+  if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+  await expect(section).toHaveAttribute('aria-expanded', 'true');
+}
+
+/** What the hint named `label` of `within` says, opened as a person opens it, then closed. */
+async function hintOf(page: Page, within: Locator, label: string): Promise<Locator> {
+  await within.getByRole('button', { name: label, exact: true }).click();
+  const said = page.getByRole('dialog', { name: label, exact: true });
+  await expect(said).toBeVisible();
+  return said;
+}
+
 /** The History's points, each by its description, and which is the current one. */
 async function historyPoints(
   page: Page,
@@ -268,9 +292,15 @@ async function analyseAndApply(dialog: Locator): Promise<void> {
  * looped hum, which sounds on.
  */
 async function finishedLog(preview: Locator): Promise<readonly string[]> {
-  await expect(preview.getByText(/^21 voices started; 0 stolen and 0 refused/u)).toBeVisible({
+  await expect(
+    preview.getByRole('table', { name: /^The latest \d+ events heard, oldest first$/u }),
+  ).toBeVisible({ timeout: WORKING });
+  const page = preview.page();
+  const counts = await hintOf(page, preview, 'How many events of each kind were heard');
+  await expect(counts).toHaveText(/^21 voices started; 0 stolen and 0 refused/u, {
     timeout: WORKING,
   });
+  await page.keyboard.press('Escape');
   const steps = preview.getByRole('region', { name: 'Emitter 1', exact: true });
   const hum = preview.getByRole('region', { name: 'Emitter 2', exact: true });
   await expect(steps.getByText('Sounding 0 of 8 voices.', { exact: true })).toBeVisible({
@@ -343,26 +373,24 @@ test.describe('game-audio workflows', () => {
       await profile.getByRole('button', { name: 'Set here…' }).click();
       await choose(page, profile, 'From the export preset', WAV_PRESET);
       await profile.getByRole('button', { name: 'Set on this group' }).click();
-      await expect(profile.getByText(/\. Set on this group\.$/u)).toBeVisible();
+      await expectSource(profile, 'Set on this group');
 
       const naming = policyRow(inspector, 'Naming template');
       await naming.getByRole('button', { name: 'Set here…' }).click();
       await naming.getByRole('textbox', { name: 'Naming template' }).fill(EXPORT_NAMING);
       await naming.getByRole('button', { name: 'Set on this group' }).click();
-      await expect(naming.getByText(`“${EXPORT_NAMING}”. Set on this group.`)).toBeVisible();
+      await expectSource(naming, 'Set on this group', `“${EXPORT_NAMING}”`);
 
       await treeItem(await shownPanel(page, 'Asset groups'), GROUP).click();
       await expect(
         inspector.getByRole('heading', { name: `Asset group: ${GROUP_PATH}`, exact: true }),
       ).toBeVisible();
-      await expect(
-        policyRow(inspector, 'Export profile').getByText(/\. Inherited from Footsteps\.$/u),
-      ).toBeVisible();
-      await expect(
-        policyRow(inspector, 'Naming template').getByText(
-          `“${EXPORT_NAMING}”. Inherited from Footsteps.`,
-        ),
-      ).toBeVisible();
+      await expectSource(policyRow(inspector, 'Export profile'), 'Inherited from Footsteps');
+      await expectSource(
+        policyRow(inspector, 'Naming template'),
+        'Inherited from Footsteps',
+        `“${EXPORT_NAMING}”`,
+      );
 
       const destination = policyRow(inspector, 'Destination folder');
       await destination.getByRole('button', { name: 'Set here…' }).click();
@@ -370,7 +398,7 @@ test.describe('game-audio workflows', () => {
         .getByRole('textbox', { name: 'Destination folder, its folders separated by /' })
         .fill(DESTINATION);
       await destination.getByRole('button', { name: 'Set on this group' }).click();
-      await expect(destination.getByText(`“${DESTINATION}”. Set on this group.`)).toBeVisible();
+      await expectSource(destination, 'Set on this group', `“${DESTINATION}”`);
       await saved(page);
     });
 
@@ -381,17 +409,17 @@ test.describe('game-audio workflows', () => {
         inspector.getByRole('heading', { name: `Game policy, in “${GROUP_PATH}”`, exact: true }),
       ).toBeVisible();
       const profile = policyRow(inspector, 'Export profile');
-      await expect(profile.getByText(/\. Inherited from Footsteps\.$/u)).toBeVisible();
+      await expectSource(profile, 'Inherited from Footsteps');
       await profile.getByRole('button', { name: 'Override…' }).click();
       await choose(page, profile, 'From the export preset', OGG_PRESET);
       await profile.getByRole('button', { name: 'Override on this member' }).click();
-      await expect(profile.getByText(/\. Overridden on this region\.$/u)).toBeVisible();
+      await expectSource(profile, 'Overridden on this region');
       await expect(
         profile.getByRole('list', { name: 'What the export profile here hides' }),
       ).toContainText('set on Footsteps.');
 
       await profile.getByRole('button', { name: 'Reset to inherited' }).click();
-      await expect(profile.getByText(/\. Inherited from Footsteps\.$/u)).toBeVisible();
+      await expectSource(profile, 'Inherited from Footsteps');
     });
 
     await test.step('The group’s export plan names each file and the group that owns each value', async () => {
@@ -406,10 +434,18 @@ test.describe('game-audio workflows', () => {
       await expect(plan.getByRole('listitem')).toHaveText(
         Array.from(
           { length: STEPS },
-          (_, index) =>
-            `✓ “${stepName(index + 1)}” → ${DESTINATION}/${stepFile(index + 1)} (profile: ${PARENT}; name: ${PARENT}; folder: ${GROUP_PATH})`,
+          (_, index) => `“${stepName(index + 1)}” to ${DESTINATION}/${stepFile(index + 1)}`,
         ),
       );
+      const owners = await hintOf(
+        page,
+        plan.getByRole('listitem').first(),
+        `Where the file of “${stepName(1)}” takes its values from`,
+      );
+      await expect(owners).toHaveText(
+        `Profile: ${PARENT}; name: ${PARENT}; folder: ${GROUP_PATH}.`,
+      );
+      await page.keyboard.press('Escape');
     });
 
     await test.step('Prepare One-Shot over the group is one step of the History, its fades in the Inspector, and one undo', async () => {
@@ -473,7 +509,7 @@ test.describe('game-audio workflows', () => {
     const loopAfter =
       await test.step('The Loop panel analyses the loop and lists candidates without moving it; one is heard, applied by hand, and undone', async () => {
         const panel = await shownPanel(page, 'Loop');
-        await expect(panel.locator('.ag-editor-asset-name')).toHaveText(HUM_REGION);
+        await expect(panel.locator('.ag-panel-sub-label')).toHaveText(HUM_REGION);
         const before = await historyPoints(page);
         await shownPanel(page, 'Loop');
 
@@ -526,9 +562,11 @@ test.describe('game-audio workflows', () => {
     await test.step('The Game preview triggers the group twenty times beside the looped hum, twice alike under its seed, and leaves the History as it was', async () => {
       const preview = await shownPanel(page, 'Game preview');
       await preview.getByRole('button', { name: 'New scenario', exact: true }).click();
+      await openSettings(preview, 'Settings for Scenario 1');
       await preview.getByRole('textbox', { name: 'Seed' }).fill('7');
 
       const steps = preview.getByRole('region', { name: 'Emitter 1', exact: true });
+      await openSettings(steps, 'Settings for Emitter 1');
       await choose(page, steps, 'Plays', `The group ${GROUP_PATH}`);
       await choose(page, steps, 'Triggered', 'Repeatedly');
       await steps.getByRole('textbox', { name: 'Every' }).fill('100');
@@ -536,6 +574,7 @@ test.describe('game-audio workflows', () => {
 
       await preview.getByRole('button', { name: 'Add an emitter', exact: true }).click();
       const hum = preview.getByRole('region', { name: 'Emitter 2', exact: true });
+      await openSettings(hum, 'Settings for Emitter 2');
       await choose(page, hum, 'Plays', 'The group Ambience');
       await choose(page, hum, 'Triggered', 'Repeatedly');
       await hum.getByRole('textbox', { name: 'Times' }).fill('1');
@@ -599,19 +638,17 @@ test.describe('game-audio workflows', () => {
 
       await treeItem(groups, GROUP).click();
       const inspector = await shownPanel(page, 'Inspector');
-      await expect(
-        policyRow(inspector, 'Export profile').getByText(/\. Inherited from Footsteps\.$/u),
-      ).toBeVisible();
-      await expect(
-        policyRow(inspector, 'Naming template').getByText(
-          `“${EXPORT_NAMING}”. Inherited from Footsteps.`,
-        ),
-      ).toBeVisible();
-      await expect(
-        policyRow(inspector, 'Destination folder').getByText(
-          `“${DESTINATION}”. Set on this group.`,
-        ),
-      ).toBeVisible();
+      await expectSource(policyRow(inspector, 'Export profile'), 'Inherited from Footsteps');
+      await expectSource(
+        policyRow(inspector, 'Naming template'),
+        'Inherited from Footsteps',
+        `“${EXPORT_NAMING}”`,
+      );
+      await expectSource(
+        policyRow(inspector, 'Destination folder'),
+        'Set on this group',
+        `“${DESTINATION}”`,
+      );
 
       await openFromAssets(page, HUM_REGION);
       await expect(
@@ -621,15 +658,17 @@ test.describe('game-audio workflows', () => {
       const preview = await shownPanel(page, 'Game preview');
       await choose(page, preview, 'Scenario', 'Scenario 1');
       const steps = preview.getByRole('region', { name: 'Emitter 1', exact: true });
+      await openSettings(steps, 'Settings for Emitter 1');
       await expect(steps.getByRole('combobox', { name: 'Plays' })).toContainText(
         `The group ${GROUP_PATH}`,
       );
       await expect(steps.getByRole('textbox', { name: 'Times' })).toHaveValue('20');
-      await expect(
-        preview
-          .getByRole('region', { name: 'Emitter 2', exact: true })
-          .getByRole('combobox', { name: 'Plays' }),
-      ).toContainText('The group Ambience');
+      const hum = preview.getByRole('region', { name: 'Emitter 2', exact: true });
+      await openSettings(hum, 'Settings for Emitter 2');
+      await expect(hum.getByRole('combobox', { name: 'Plays' })).toContainText(
+        'The group Ambience',
+      );
+      await openSettings(preview, 'Settings for Scenario 1');
       await expect(preview.getByRole('textbox', { name: 'Seed' })).toHaveValue('7');
     });
   });

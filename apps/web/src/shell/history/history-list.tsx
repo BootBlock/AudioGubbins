@@ -26,7 +26,14 @@ import {
   type RefObject,
 } from 'react';
 
-import { WINDOW_ROW, useRowWindow } from '@audiogubbins/design-system';
+import {
+  Badge,
+  BadgeTone,
+  Tooltip,
+  WINDOW_ROW,
+  useRowWindow,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { HistoryRow, HistoryRowModel } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 
@@ -56,15 +63,37 @@ const DEEPEST_DRAWN = 6;
 /** The height of a row, in pixels, until one is drawn to measure. */
 const ROW_ESTIMATE = 56;
 
+/** One thing said of a row beside its description, and how its badge is drawn. */
+interface Mark {
+  readonly text: string;
+  readonly tone: BadgeTone;
+  readonly icon?: IconName;
+}
+
 /** What is said of a row beside its description. */
-function marksOf(row: HistoryRow): readonly string[] {
-  return [
-    row.isCurrent ? 'Current' : '',
-    row.branchName === undefined ? '' : `Branch ${quoted(row.branchName)}`,
-    row.depth > 0 && row.forkPoint !== undefined && row.branchName === undefined ? 'Branch' : '',
-    ...row.snapshots.map((snapshot) => `Snapshot ${quoted(snapshot.name)}`),
-    ...row.exports.map(describeExport),
-  ].filter((mark) => mark !== '');
+function marksOf(row: HistoryRow): readonly Mark[] {
+  const marks: Mark[] = [];
+  if (row.isCurrent) marks.push({ text: 'Current', tone: BadgeTone.Accent });
+  if (row.branchName !== undefined) {
+    marks.push({
+      text: `Branch ${quoted(row.branchName)}`,
+      tone: BadgeTone.Neutral,
+      icon: 'branch',
+    });
+  } else if (row.depth > 0 && row.forkPoint !== undefined) {
+    marks.push({ text: 'Branch', tone: BadgeTone.Neutral, icon: 'branch' });
+  }
+  for (const snapshot of row.snapshots) {
+    marks.push({
+      text: `Snapshot ${quoted(snapshot.name)}`,
+      tone: BadgeTone.Neutral,
+      icon: 'snapshot',
+    });
+  }
+  for (const record of row.exports) {
+    marks.push({ text: describeExport(record), tone: BadgeTone.Neutral, icon: 'export' });
+  }
+  return marks;
 }
 
 /** What a row says under its description: what the change affected, and snapshot notes. */
@@ -99,34 +128,54 @@ function RowView({
   chosen,
   onChoose,
 }: RowProps): ReactNode {
+  const description = describeNode(row.node);
+  const time = when(row.node.at);
+  const marks = marksOf(row);
+  // A row is one line tall for each of its two lines, so the window can measure
+  // them all by one: what does not fit is cut short, and the tooltip and the
+  // option's name hold it whole.
+  const whole = [time, ...(detail === '' ? [] : [detail]), ...marks.map(({ text }) => text)];
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- the list takes the keys for every option, as a listbox does, and a click chooses one
-    <li
-      id={id}
-      role="option"
-      aria-selected={chosen}
-      aria-posinset={position}
-      aria-setsize={total}
-      className="ag-history-row"
-      style={before > 0 ? { marginBlockStart: `${String(before)}px` } : undefined}
-      data-ag-depth={Math.min(row.depth, DEEPEST_DRAWN)}
-      data-ag-current={row.isCurrent ? '' : undefined}
-      {...{ [WINDOW_ROW]: '' }}
-      onClick={() => {
-        onChoose(row.node.id);
-      }}
-    >
-      <span className="ag-history-row-line">
-        <span className="ag-history-row-description">{describeNode(row.node)}</span>
-        <span className="ag-history-row-time">{when(row.node.at)}</span>
-        {marksOf(row).map((mark) => (
-          <span key={mark} className="ag-history-row-mark">
-            {mark}
+    <Tooltip label={description} detail={whole.join(' · ')}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events -- the list takes the keys for every option, as a listbox does, and a click chooses one */}
+      <li
+        id={id}
+        role="option"
+        aria-selected={chosen}
+        aria-posinset={position}
+        aria-setsize={total}
+        className="ag-history-row ag-lit-row"
+        style={before > 0 ? { marginBlockStart: `${String(before)}px` } : undefined}
+        data-ag-depth={Math.min(row.depth, DEEPEST_DRAWN)}
+        data-ag-current={row.isCurrent ? '' : undefined}
+        data-ag-snapshot={row.snapshots.length > 0 ? '' : undefined}
+        data-ag-branch-start={row.depth > 0 && row.forkPoint !== undefined ? '' : undefined}
+        data-ag-first={position === 1 ? '' : undefined}
+        data-ag-last={position === total ? '' : undefined}
+        {...{ [WINDOW_ROW]: '' }}
+        onClick={() => {
+          onChoose(row.node.id);
+        }}
+      >
+        {/* The timeline's node and, on a branch, its elbow: drawing alone, so hidden. */}
+        <span className="ag-history-row-node" aria-hidden="true" />
+        {row.depth > 0 && <span className="ag-history-row-elbow" aria-hidden="true" />}
+        <span className="ag-history-row-line">
+          <span className="ag-history-row-description">{description}</span>
+          <span className="ag-history-row-time">{time}</span>
+          {detail !== '' && <span className="ag-history-row-detail">{detail}</span>}
+          <span className="ag-history-row-marks">
+            {marks.map((mark) => (
+              <span key={mark.text} className="ag-history-row-mark">
+                <Badge tone={mark.tone} {...(mark.icon === undefined ? {} : { icon: mark.icon })}>
+                  <span className="ag-history-row-mark-text">{mark.text}</span>
+                </Badge>
+              </span>
+            ))}
           </span>
-        ))}
-      </span>
-      {detail !== '' && <span className="ag-history-row-detail">{detail}</span>}
-    </li>
+        </span>
+      </li>
+    </Tooltip>
   );
 }
 

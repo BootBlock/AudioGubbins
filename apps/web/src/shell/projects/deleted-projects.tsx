@@ -10,9 +10,9 @@
  * once, can only finish it.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon, List, ListRow } from '@audiogubbins/design-system';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
 import { when } from '../../wording.js';
@@ -34,17 +34,17 @@ function PurgeConfirmation({
 }): ReactNode {
   const name = quoted(header.name);
   return (
-    <span className="ag-project-row-actions" role="group" aria-label={`Purge ${name}`}>
-      <span data-ag-status="unavailable">{`Purging removes ${name} and its backups for good.`}</span>
+    <span className="ag-projects-purge" role="group" aria-label={`Purge ${name}`}>
+      <span className="ag-projects-purge-warning">{`Purging removes ${name} and its backups for good.`}</span>
+      <Button compact onClick={onKeep}>
+        Keep it
+      </Button>
       <Button
         compact
         tone={ButtonTone.Destructive}
         onClick={() => run('file.purge-project', { project: header.id, deletedAt: header.deleted })}
       >
         Purge for good
-      </Button>
-      <Button compact onClick={onKeep}>
-        Keep it
       </Button>
     </span>
   );
@@ -60,12 +60,11 @@ function CutShort({
 }): ReactNode {
   const name = quoted(header.name);
   return (
-    <li className="ag-project-row">
-      <span className="ag-project-row-name">{header.name}</span>
-      <span className="ag-project-row-note">
-        Purging was cut short, so it can no longer be restored.
-      </span>
-      <span className="ag-project-row-actions">
+    <ListRow
+      name={header.name}
+      detail="Purging was cut short, so it can no longer be restored."
+      leading={<Icon name="delete" />}
+      actions={
         <Button
           compact
           tone={ButtonTone.Destructive}
@@ -76,8 +75,8 @@ function CutShort({
         >
           Finish purging
         </Button>
-      </span>
-    </li>
+      }
+    />
   );
 }
 
@@ -92,38 +91,41 @@ function DeletedProject({
   const [confirming, setConfirming] = useState(false);
   const name = quoted(header.name);
   return (
-    <li className="ag-project-row">
-      <span className="ag-project-row-name">{header.name}</span>
-      <span className="ag-project-row-note">{`Deleted ${when(header.deleted)}`}</span>
-      {confirming ? (
-        <PurgeConfirmation
-          header={header}
-          onKeep={() => {
-            setConfirming(false);
-          }}
-          run={run}
-        />
-      ) : (
-        <span className="ag-project-row-actions">
-          <Button
-            compact
-            label={`Restore ${name}`}
-            onClick={() => run('file.restore-project', { project: header.id })}
-          >
-            Restore
-          </Button>
-          <Button
-            compact
-            label={`Purge ${name}…`}
-            onClick={() => {
-              setConfirming(true);
+    <ListRow
+      name={header.name}
+      detail={`Deleted ${when(header.deleted)}`}
+      leading={<Icon name="delete" />}
+      actions={
+        confirming ? (
+          <PurgeConfirmation
+            header={header}
+            onKeep={() => {
+              setConfirming(false);
             }}
-          >
-            Purge…
-          </Button>
-        </span>
-      )}
-    </li>
+            run={run}
+          />
+        ) : (
+          <>
+            <Button
+              compact
+              label={`Restore ${name}`}
+              onClick={() => run('file.restore-project', { project: header.id })}
+            >
+              Restore
+            </Button>
+            <Button
+              compact
+              label={`Purge ${name}…`}
+              onClick={() => {
+                setConfirming(true);
+              }}
+            >
+              Purge…
+            </Button>
+          </>
+        )
+      }
+    />
   );
 }
 
@@ -135,14 +137,17 @@ export function DeletedProjects({
   readonly headers: readonly ProjectHeader[];
   readonly run: RunCommand;
 }): ReactNode {
+  const heading = useId();
   const deleted = headers.flatMap((header) =>
     header.deleted === undefined ? [] : [{ ...header, deleted: header.deleted }],
   );
   if (deleted.length === 0) return null;
   return (
-    <div role="group" aria-label="Deleted projects">
-      <h3 className="ag-section-heading">Deleted projects</h3>
-      <ul className="ag-project-list">
+    <div className="ag-dialogue-group" role="group" aria-labelledby={heading}>
+      <h3 className="ag-dialogue-heading" id={heading}>
+        Deleted projects
+      </h3>
+      <List>
         {deleted.map((header) =>
           header.purging === undefined ? (
             <DeletedProject key={header.id} header={header} run={run} />
@@ -150,7 +155,7 @@ export function DeletedProjects({
             <CutShort key={header.id} header={header} run={run} />
           ),
         )}
-      </ul>
+      </List>
     </div>
   );
 }

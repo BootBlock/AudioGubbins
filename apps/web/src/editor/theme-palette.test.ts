@@ -25,9 +25,16 @@ import {
   ThemeMode,
   UNKNOWN_SYSTEM_APPEARANCE,
   contrastRatio,
+  oklchToSrgb,
   resolveTheme,
   srgbToOklch,
 } from '@audiogubbins/design-system';
+import {
+  LogSeverity,
+  createDiagnosticCentre,
+  createLogStore,
+  type LogStore,
+} from '@audiogubbins/diagnostics';
 import { sampleCount, unsafeBrandId, type SampleCount } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
@@ -45,6 +52,23 @@ import { EMPTY_SELECTION } from '@audiogubbins/timeline';
 import { editorPaletteOf, editorTypeOf } from './theme-palette.js';
 
 const at = (value: number): SampleCount => expectSuccess(sampleCount(value));
+
+/** A log at its most verbose, so a test reads what the palette recorded. */
+function logged(): {
+  readonly logs: LogStore;
+  readonly logger: ReturnType<ReturnType<typeof createDiagnosticCentre>['loggerFor']>;
+} {
+  const logs = createLogStore();
+  const centre = createDiagnosticCentre(
+    logs,
+    { now: () => 0 },
+    { defaultSeverity: LogSeverity.Trace, categoryOverrides: {} },
+  );
+  return { logs, logger: centre.loggerFor('editor') };
+}
+
+/** Where the contrast checks' palettes log, which none of them reads. */
+const QUIET = logged().logger;
 
 const LENGTH = 48_000;
 const WIDTH = 800;
@@ -197,7 +221,7 @@ describe("the editor's canvas colours", () => {
             { ...DEFAULT_THEME_PREFERENCES, mode, accent, brightness, contrast },
             UNKNOWN_SYSTEM_APPEARANCE,
           );
-          const palette = editorPaletteOf(theme);
+          const palette = editorPaletteOf(theme, QUIET);
           const type = editorTypeOf(theme);
           for (const display of Object.values(DisplayMode)) {
             for (const [known, audio] of Object.entries(AUDIO)) {
@@ -228,4 +252,29 @@ describe("the editor's canvas colours", () => {
       expect([...failures]).toEqual([]);
     },
   );
+
+  it('draws a colour the theme cannot give with its accent, and records which it was', () => {
+    // A category the theme lacked was drawn with the accent and no record,
+    // so a missing token looked like a deliberate colour.
+    const theme = resolveTheme(DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE);
+    const { violet: _left, ...rest } = theme.palette.category;
+    const lacking = { ...theme, palette: { ...theme.palette, category: rest } };
+    const { logs, logger } = logged();
+
+    const palette = editorPaletteOf(lacking, logger);
+
+    const { red, green, blue, alpha } = oklchToSrgb(theme.palette.chrome.accent);
+    expect(palette.loop).toEqual([red, green, blue, alpha]);
+    expect(
+      logs
+        .snapshot()
+        .filter((record) => record.severity === LogSeverity.Warning)
+        .map((record) => record.fields),
+    ).toEqual([
+      {
+        missing: '--ag-category-violet',
+        reason: 'Drawn with --ag-chrome-accent, the theme default.',
+      },
+    ]);
+  });
 });

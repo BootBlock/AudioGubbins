@@ -14,7 +14,16 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, ModalDialog } from '@audiogubbins/design-system';
+import {
+  Button,
+  ButtonTone,
+  Icon,
+  IconSize,
+  ModalDialog,
+  ProgressBar,
+  ProgressPlace,
+  Spinner,
+} from '@audiogubbins/design-system';
 import {
   batchProgress,
   safeFileName,
@@ -28,6 +37,36 @@ import type { ExportRunState } from '../../export/export-types.js';
 import type { Observable } from '../../state/observable.js';
 import type { RunCommand } from '../settings/section.js';
 import { stageWords } from './export-job-words.js';
+
+/** The mark before a file: done, refused, under way, or waiting its turn. */
+function StageMark({ job }: { readonly job: ExportJob }): ReactNode {
+  switch (job.state.kind) {
+    case 'delivered':
+      return <Icon name="success" size={IconSize.Inline} className="ag-export-job-done" />;
+    case 'failed':
+      return <Icon name="error" size={IconSize.Inline} className="ag-export-job-failed" />;
+    case 'staged':
+      return job.state.refused === undefined ? (
+        <Icon name="waiting" size={IconSize.Inline} />
+      ) : (
+        <Icon name="warning" size={IconSize.Inline} className="ag-export-job-held" />
+      );
+    case 'cancelled':
+      return <Icon name="skipped" size={IconSize.Inline} />;
+    case 'planned':
+      return <Icon name="waiting" size={IconSize.Inline} />;
+    case 'rendering':
+    case 'encoding':
+    case 'delivering':
+      return <Spinner size={IconSize.Inline} />;
+  }
+}
+
+/** Whether a file is the one being worked on now. */
+function underWay(job: ExportJob): boolean {
+  const { kind } = job.state;
+  return kind === 'rendering' || kind === 'encoding' || kind === 'delivering';
+}
 
 /** One file of the batch, and, where it waits, what may be done with it. */
 function JobRow({
@@ -44,12 +83,16 @@ function JobRow({
   const name = file === undefined ? job.id : safeFileName(file.name);
   const waiting = held && job.state.kind === 'staged';
   return (
-    <li className="ag-export-job">
-      <p>
-        <strong>{name}</strong> {stageWords(job)}
-      </p>
+    <li className="ag-export-job" {...(underWay(job) ? { 'data-ag-active': '' } : {})}>
+      <StageMark job={job} />
+      <span className="ag-export-job-name">{name}</span>{' '}
+      <span className="ag-export-job-stage">{stageWords(job)}</span>
       {waiting && (
-        <div className="ag-settings-row" role="group" aria-label={`What to do with ${name}`}>
+        <div
+          className="ag-dialogue-row ag-export-job-actions"
+          role="group"
+          aria-label={`What to do with ${name}`}
+        >
           <Button onClick={() => run(ExportCommand.Retry, { job: job.id })}>Retry</Button>
           <Button onClick={() => run(ExportCommand.DeliverElsewhere, { job: job.id, to: 'file' })}>
             Save as a file…
@@ -85,6 +128,7 @@ export function ExportProgress({
       // until it ends or the person cancels it.
       onOpenChange={() => undefined}
       title={held ? 'The export is waiting' : 'Exporting'}
+      icon={held ? 'warning' : 'export'}
       description={
         held
           ? 'A file could not be delivered. It is kept, so it needs no new render: retry it, deliver it elsewhere, or cancel the export.'
@@ -97,18 +141,18 @@ export function ExportProgress({
       }
     >
       {shown !== undefined && progress !== undefined && (
-        <>
-          <progress
-            aria-label="Export progress"
-            max={Math.max(1, progress.framesTotal)}
-            value={progress.framesRendered}
+        <div className="ag-dialogue-stack">
+          <ProgressBar
+            label="Export progress"
+            place={ProgressPlace.Dialogue}
+            value={progress.framesRendered / Math.max(1, progress.framesTotal)}
           />
           <ul aria-label="Files being exported" className="ag-export-jobs">
             {shown.batch.jobs.map((job) => (
               <JobRow key={job.id} job={job} file={shown.files.get(job.id)} held={held} run={run} />
             ))}
           </ul>
-        </>
+        </div>
       )}
     </ModalDialog>
   );

@@ -11,99 +11,94 @@
 
 import { useId, useState, type ReactNode } from 'react';
 
-import { Button, ToggleSwitch } from '@audiogubbins/design-system';
-import type { LibraryEntry } from '@audiogubbins/domain';
+import {
+  ButtonTone,
+  Icon,
+  IconButton,
+  IconSize,
+  VisuallyHidden,
+  type IconName,
+} from '@audiogubbins/design-system';
+import type { ChainSlot, LibraryEntry } from '@audiogubbins/domain';
+import { BUILT_IN_LIBRARY, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { LibraryListing } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
 
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { when } from '../../wording.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { Applying, type Shown } from './entry-applying.js';
 import { RemoveConfirmation, RenameField } from './entry-changes.js';
 import { processorWords, slotsWords } from './library-words.js';
 import { useOpening, type Opening, type Part } from './row-opening.js';
 import { TargetChooser } from './target-chooser.js';
 
-/** The editor in use, and the name of what it shows, which a chain or preset is applied in. */
-export interface Shown {
-  readonly panel: string;
-  readonly name: string;
+/** The glyph each built-in chain is drawn with, in the order the library lists them. */
+const BUILT_IN_GLYPHS: readonly IconName[] = [
+  'game-sound',
+  'interface-sound',
+  'dialogue',
+  'seamless-loop',
+  'impact-sound',
+];
+
+/** Each built-in chain's glyph, by its identity. */
+const GLYPHS_BY_ENTRY: ReadonlyMap<string, IconName> = new Map(
+  BUILT_IN_LIBRARY.flatMap((entry, index) => {
+    const glyph = BUILT_IN_GLYPHS[index];
+    return glyph === undefined ? [] : [[entry.id, glyph] as const];
+  }),
+);
+
+/** The glyph an entry is drawn with: its own where it is built in, else its kind's. */
+function glyphOf(entry: LibraryEntry): IconName {
+  return (
+    GLYPHS_BY_ENTRY.get(entry.id) ?? (entry.content.kind === 'preset' ? 'preset' : 'saved-chain')
+  );
 }
 
-/** Why applying cannot run while no editor shows the project's audio. */
-const NOTHING_SHOWN = 'Open audio of the project in an editor to apply it there.';
-
-/** The control that opens one part of a row. */
+/** The control that opens one part of a row, drawn as its glyph. */
 function Opener({
   part,
   opening,
-  children,
+  icon,
+  label,
 }: {
   readonly part: Part;
   readonly opening: Opening;
-  readonly children: string;
+  readonly icon: IconName;
+  readonly label: string;
 }): ReactNode {
   return (
-    <Button
+    <IconButton
+      icon={icon}
+      label={label}
       compact
+      {...(part === 'remove' ? { tone: ButtonTone.QuietDestructive } : {})}
       ref={opening.opener(part)}
       onClick={() => {
         opening.show(part);
       }}
-    >
-      {children}
-    </Button>
+    />
   );
 }
 
-/** Applying an entry where the editor in use shows: a chain shared or not, or a preset. */
-function Applying({
-  entry,
-  shown,
-  share,
-  onShare,
-  opening,
-  commands,
-}: {
-  readonly entry: LibraryEntry;
-  readonly shown: Shown | undefined;
-  readonly share: boolean;
-  readonly onShare: (share: boolean) => void;
-  readonly opening: Opening;
-  readonly commands: PanelCommands;
-}): ReactNode {
-  const where = shown === undefined ? {} : { view: shown.panel };
-  const refusal = shown === undefined ? NOTHING_SHOWN : undefined;
-  if (entry.content.kind === 'preset') {
-    return (
-      <CommandButton
-        id="library.apply-preset"
-        label="Apply to the selected processor"
-        commands={commands}
-        args={{ entry: entry.id, ...where }}
-        refusal={refusal}
-      />
-    );
-  }
+/** The processors a chain runs, in order, as chips: what a built-in chain holds at a glance. */
+function ChainChips({ slots }: { readonly slots: readonly ChainSlot[] }): ReactNode {
   return (
-    <>
-      <ToggleSwitch
-        label="Share one chain"
-        description="Every target names one copy, so a later change to it reaches them all. Off, each gets a copy of its own."
-        checked={share}
-        onCheckedChange={onShare}
-      />
-      <CommandButton
-        id="library.apply-chain"
-        label={shown === undefined ? 'Apply' : `Apply to ${quoted(shown.name)}`}
-        commands={commands}
-        args={{ entry: entry.id, ...where, share }}
-        refusal={refusal}
-      />
-      <Opener part="targets" opening={opening}>
-        Apply to several…
-      </Opener>
-    </>
+    // The sentence the entry carries says what it holds; this draws it.
+    <ol className="ag-library-chain" aria-hidden="true">
+      {slots.map((slot, index) => (
+        <li key={slot.id} className="ag-library-chip" data-ag-off={slot.enabled ? undefined : ''}>
+          {index > 0 && <Icon name="chain-next" size={IconSize.Small} />}
+          <span className="ag-library-chip-name">
+            {slot.kind === 'processor'
+              ? (PROCESSOR_CATALOGUE.get(slot.typeKey)?.label ?? slot.typeKey)
+              : 'Parallel group'}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -151,6 +146,61 @@ function OpenPart({
   }
 }
 
+/** The head of an entry's row: its glyph, its name, a line on it, and the controls that change it. */
+function EntryHead({
+  heading,
+  glyph,
+  name,
+  detail,
+  tools,
+}: {
+  readonly heading: string;
+  readonly glyph: IconName;
+  readonly name: string;
+  readonly detail: ReactNode;
+  readonly tools?: ReactNode;
+}): ReactNode {
+  return (
+    <div className="ag-library-entry-head">
+      <span className="ag-library-glyph">
+        <Icon name={glyph} />
+      </span>
+      <div className="ag-library-entry-text">
+        <h4 className="ag-library-entry-name" id={heading}>
+          {name}
+        </h4>
+        {detail}
+      </div>
+      {tools !== undefined && <span className="ag-library-entry-tools">{tools}</span>}
+    </div>
+  );
+}
+
+/** What a usable entry holds, and when it was saved or that it is built in. */
+function EntryDetail({
+  entry,
+  builtIn,
+}: {
+  readonly entry: LibraryEntry;
+  readonly builtIn: boolean;
+}): ReactNode {
+  const { content } = entry;
+  const holds =
+    content.kind === 'chain'
+      ? `Holds ${slotsWords(content.chain.slots)}.`
+      : `The settings of a ${processorWords(content.processor)}.`;
+  // Built in, it says so in a word and draws what it holds as chips; the
+  // whole of it stays in the sentence a screen reader reads.
+  return builtIn ? (
+    <p className="ag-library-entry-detail">
+      Built in
+      <VisuallyHidden>{`: it comes with AudioGubbins, so it is not renamed or removed. ${holds}`}</VisuallyHidden>
+    </p>
+  ) : (
+    <p className="ag-library-entry-detail">{`Saved ${when(entry.savedAt)}. ${holds}`}</p>
+  );
+}
+
 /** A saved chain or preset this version can use, and what can be done with it. */
 function UsableEntry({
   entry,
@@ -172,20 +222,25 @@ function UsableEntry({
   const [share, setShare] = useState(false);
   const opening = useOpening();
   const { content } = entry;
-  const holds =
-    content.kind === 'chain'
-      ? `Holds ${slotsWords(content.chain.slots)}.`
-      : `The settings of a ${processorWords(content.processor)}.`;
   return (
     <li className="ag-library-entry" role="group" aria-labelledby={heading}>
-      <h4 className="ag-library-entry-name" id={heading}>
-        {entry.name}
-      </h4>
-      <p className="ag-panel-note">
-        {builtIn
-          ? `Built in: it comes with AudioGubbins, so it is not renamed or removed. ${holds}`
-          : `Saved ${when(entry.savedAt)}. ${holds}`}
-      </p>
+      <EntryHead
+        heading={heading}
+        glyph={glyphOf(entry)}
+        name={entry.name}
+        detail={<EntryDetail entry={entry} builtIn={builtIn} />}
+        {...(builtIn
+          ? {}
+          : {
+              tools: (
+                <>
+                  <Opener part="rename" opening={opening} icon="change" label="Rename…" />
+                  <Opener part="remove" opening={opening} icon="delete" label="Remove…" />
+                </>
+              ),
+            })}
+      />
+      {builtIn && content.kind === 'chain' && <ChainChips slots={content.chain.slots} />}
       <Applying
         entry={entry}
         shown={shown}
@@ -194,16 +249,6 @@ function UsableEntry({
         opening={opening}
         commands={commands}
       />
-      {!builtIn && (
-        <>
-          <Opener part="rename" opening={opening}>
-            Rename…
-          </Opener>
-          <Opener part="remove" opening={opening}>
-            Remove…
-          </Opener>
-        </>
-      )}
       <OpenPart
         entry={entry}
         share={share}
@@ -230,14 +275,14 @@ function UnusableEntry({
   const opening = useOpening();
   const name = listed.entry === undefined ? 'An entry that cannot be read' : listed.entry.name;
   return (
-    <li className="ag-library-entry" role="group" aria-labelledby={heading}>
-      <h4 className="ag-library-entry-name" id={heading}>
-        {name}
-      </h4>
-      <p data-ag-status="unavailable">{listed.reason.summary}</p>
-      <Opener part="remove" opening={opening}>
-        Remove…
-      </Opener>
+    <li className="ag-library-entry" role="group" aria-labelledby={heading} data-ag-refused="">
+      <EntryHead
+        heading={heading}
+        glyph="unreadable-project"
+        name={name}
+        detail={<p className="ag-library-entry-detail">{listed.reason.summary}</p>}
+        tools={<Opener part="remove" opening={opening} icon="delete" label="Remove…" />}
+      />
       {opening.open === 'remove' && (
         <RemoveConfirmation
           id={listed.id}

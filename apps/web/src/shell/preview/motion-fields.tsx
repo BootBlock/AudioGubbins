@@ -6,11 +6,12 @@
 
 import type { ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { Motion, TriggerPattern, Waypoint } from '@audiogubbins/game-audio';
 
 import { ChoiceField, NumberField, type Choice } from '../export/setting-fields.js';
 import { PositionFields } from './position-fields.js';
+import { MOTION_WORDS } from './preview-words.js';
 
 const TRIGGERS: readonly Choice<TriggerPattern['kind']>[] = [
   { value: 'by-hand', label: 'By hand' },
@@ -18,8 +19,8 @@ const TRIGGERS: readonly Choice<TriggerPattern['kind']>[] = [
 ];
 
 const MOTIONS: readonly Choice<Motion['kind']>[] = [
-  { value: 'still', label: 'Still' },
-  { value: 'waypoints', label: 'Along waypoints' },
+  { value: 'still', label: MOTION_WORDS.still },
+  { value: 'waypoints', label: MOTION_WORDS.waypoints },
 ];
 
 type Repeat = Extract<Motion, { readonly kind: 'waypoints' }>['repeat'];
@@ -122,7 +123,7 @@ function WaypointFields({
 }): ReactNode {
   const name = `Waypoint ${String(index + 1)}`;
   return (
-    <li>
+    <li className="ag-preview-waypoint">
       <PositionFields
         label={name}
         at={point.at}
@@ -140,7 +141,7 @@ function WaypointFields({
         }}
       />
       {onRemove === undefined ? null : (
-        <Button compact tone="quiet" onClick={onRemove}>
+        <Button compact tone={ButtonTone.QuietDestructive} onClick={onRemove}>
           {`Remove ${name.toLowerCase()}`}
         </Button>
       )}

@@ -1,0 +1,138 @@
+/*
+ * The Storage panel (design language, sections 10 and 11): what the storage
+ * takes as one bar of its parts, each its own colour at a high translucency
+ * with a lit edge, listed under it with a swatch beside each name; and a
+ * cleanup planned, safest first, each step a switch with what it frees and
+ * what it costs, and the decision that carries it out last.
+ */
+
+.ag-usage-bar {
+  display: flex;
+  gap: var(--ag-space-hair);
+  block-size: var(--ag-space-large);
+  overflow: hidden;
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+/* A fill is its colour at a high translucency with a translucent lit edge,
+   never solid (section 5). */
+.ag-usage-bar > span {
+  flex: none;
+  inline-size: var(--ag-part-share);
+  border-radius: var(--ag-radius-hairline);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--ag-part-colour) 55%, transparent),
+    color-mix(in oklch, var(--ag-part-colour) 30%, transparent)
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--ag-part-colour) 65%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--ag-part-colour) 90%, transparent);
+}
+
+.ag-usage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+  margin: 0;
+}
+
+.ag-usage-part {
+  display: contents;
+}
+
+.ag-usage dt {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-usage dd {
+  margin: 0;
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.ag-usage-swatch {
+  flex: none;
+  inline-size: calc(var(--ag-grid-unit) * 4);
+  block-size: calc(var(--ag-grid-unit) * 4);
+  border-radius: var(--ag-radius-hairline);
+  background-color: color-mix(in oklch, var(--ag-part-colour) 40%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ag-part-colour) 80%, transparent);
+}
+
+.ag-cleanup-plan {
+  display: grid;
+  gap: var(--ag-space-inset);
+  padding-block-start: var(--ag-space-inset);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-cleanup-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-cleanup-heading > .ag-icon {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-cleanup-steps {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-cleanup-lost {
+  margin: var(--ag-space-tiny) 0 0;
+  padding-inline-start: var(--ag-space-large);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-cleanup-packs {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-cleanup-packs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ag-space-small);
+}
+
+.ag-cleanup-refused {
+  margin: 0;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+}
+
+/* The safe action first and the one that removes last, at the trailing end,
+   under the sentence that says what the plan frees and what goes for good. */
+.ag-cleanup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-cleanup-decision {
+  flex: 1 1 100%;
+  order: -1;
+  margin: 0;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+}

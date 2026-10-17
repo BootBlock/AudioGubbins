@@ -7,6 +7,7 @@
 
 import type { ReactNode } from 'react';
 
+import { Badge, BadgeTone, Banner, BannerTone, type IconName } from '@audiogubbins/design-system';
 import type { DomainResult } from '@audiogubbins/domain';
 import { itemKey, type WorkflowItem, type WorkflowPlan } from '@audiogubbins/guided-workflows';
 import type { ProjectState } from '@audiogubbins/project-format';
@@ -24,6 +25,15 @@ function itemDetail(item: WorkflowItem): readonly string[] {
       return item.failures.map((failure) => failure.summary);
   }
 }
+
+/** How each standing is marked beside its word: its badge's tone and glyph. */
+const STANDING_BADGE: Readonly<
+  Record<WorkflowItem['kind'], { readonly tone: BadgeTone; readonly icon: IconName }>
+> = {
+  planned: { tone: BadgeTone.Success, icon: 'add' },
+  skipped: { tone: BadgeTone.Neutral, icon: 'skipped' },
+  refused: { tone: BadgeTone.Error, icon: 'refused' },
+};
 
 /** How many items of each standing `plan` holds, in words. */
 function planSummary(plan: WorkflowPlan): string {
@@ -47,13 +57,13 @@ export function WorkflowItems({
   if (!plan.ok) {
     return (
       <section className="ag-workflow-section" aria-label="What it will do">
-        <ul className="ag-workflow-blockers" aria-label="Why nothing can be planned yet">
-          {plan.failures.map((failure) => (
-            <li key={failure.code + failure.summary} data-ag-status="unavailable">
-              {failure.summary}
-            </li>
-          ))}
-        </ul>
+        <Banner tone={BannerTone.Error} icon="error">
+          <ul className="ag-workflow-reasons" aria-label="Why nothing can be planned yet">
+            {plan.failures.map((failure) => (
+              <li key={failure.code + failure.summary}>{failure.summary}</li>
+            ))}
+          </ul>
+        </Banner>
       </section>
     );
   }
@@ -67,7 +77,7 @@ export function WorkflowItems({
         {items.map((item) => (
           <li key={itemKey(item.target)} className="ag-workflow-item" data-ag-standing={item.kind}>
             <span className="ag-workflow-item-name">{targetName(item.target, state)}</span>
-            <span className="ag-workflow-standing">{ITEM_STANDING[item.kind]}</span>
+            <Badge {...STANDING_BADGE[item.kind]}>{ITEM_STANDING[item.kind]}</Badge>
             <ul className="ag-workflow-changes">
               {itemDetail(item).map((line, index) => (
                 <li key={String(index)}>{line}</li>

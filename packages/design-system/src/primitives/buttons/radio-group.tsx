@@ -12,6 +12,11 @@
 import { RadioGroup as Radio } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
+import {
+  type ControlDescription,
+  DescriptionHint,
+  DescriptionText,
+} from '../control-description.js';
 import { ControlHint, describedBy } from '../control-hint.js';
 import { PanelLamp } from './panel-lamp.js';
 
@@ -20,8 +25,11 @@ export interface RadioOption {
   readonly value: string;
   readonly label: string;
 
-  /** A sentence saying what choosing it does. */
-  readonly description?: string;
+  /**
+   * A sentence saying what choosing it does: standing under the label, or
+   * behind an (i) beside the choice.
+   */
+  readonly description?: ControlDescription;
 }
 
 /** What a radio group takes. */
@@ -45,7 +53,13 @@ export interface RadioGroupProps {
   readonly unavailableReason?: string;
 }
 
-/** One choice of the group: its lamp, lit while it is the one chosen, beside its label. */
+/**
+ * One choice of the group: its lamp, lit while it is the one chosen, beside its
+ * label, and the (i) of a description kept behind one.
+ *
+ * The (i) is beside the choice rather than in it: the choice is a button to a
+ * screen reader, and a button inside a button is neither reachable nor said.
+ */
 function RadioChoice({
   option,
   chosen,
@@ -58,28 +72,31 @@ function RadioChoice({
   readonly descriptionId: string;
 }): ReactNode {
   return (
-    <Radio.Item
-      value={option.value}
-      className="ag-radio-option ag-touch-sized"
-      // Named by its label alone: the description is inside the
-      // choice too, and is its description rather than its name.
-      aria-labelledby={labelId}
-      {...describedBy(option.description === undefined ? undefined : descriptionId)}
-    >
-      <span className="ag-radio-lamp">
-        <PanelLamp lit={chosen} />
-      </span>
-      <span className="ag-radio-text">
-        <span className="ag-radio-label" id={labelId}>
-          {option.label}
+    <span className="ag-radio-choice">
+      <Radio.Item
+        value={option.value}
+        className="ag-radio-option ag-touch-sized"
+        // Named by its label alone: the description is inside the
+        // choice too, and is its description rather than its name.
+        aria-labelledby={labelId}
+        {...describedBy(option.description === undefined ? undefined : descriptionId)}
+      >
+        <span className="ag-radio-lamp">
+          <PanelLamp lit={chosen} />
         </span>
-        {option.description !== undefined && (
-          <span className="ag-radio-description" id={descriptionId}>
-            {option.description}
+        <span className="ag-radio-text">
+          <span className="ag-radio-label" id={labelId}>
+            {option.label}
           </span>
-        )}
-      </span>
-    </Radio.Item>
+          <DescriptionText
+            description={option.description}
+            id={descriptionId}
+            className="ag-radio-description"
+          />
+        </span>
+      </Radio.Item>
+      <DescriptionHint description={option.description} />
+    </span>
   );
 }
 

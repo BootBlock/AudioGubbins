@@ -271,18 +271,28 @@ html {
  * A visually small control still has to be reachable with a finger. The
  * pseudo-element widens the hit area without changing the layout, so a dense
  * toolbar stays dense and stays usable on a tablet (REQ-UX-067, REQ-UX-071).
+ *
+ * Only where the primary pointer is a finger. A widened area reaches past the
+ * control's own box, over its neighbour two pixels away in a toolbar, and a
+ * mouse aims at the pixel it is on: with the area in force for a mouse, a click
+ * on one button pressed the button beside it. `pointer` rather than
+ * `any-pointer`, because a laptop with a touch screen still aims its mouse at a
+ * pixel; a finger there meets the control at its drawn size, which is never
+ * under 24 pixels (WCAG 2.5.8).
  */
 .ag-touch-target {
   position: relative;
 }
 
-.ag-touch-target::after {
-  content: '';
-  position: absolute;
-  inset-block: calc((var(--ag-control-minimum-touch-target, 44px) - 100%) / -2);
-  inset-inline: calc((var(--ag-control-minimum-touch-target, 44px) - 100%) / -2);
-  min-block-size: var(--ag-control-minimum-touch-target, 44px);
-  min-inline-size: var(--ag-control-minimum-touch-target, 44px);
+@media (pointer: coarse) {
+  .ag-touch-target::after {
+    content: '';
+    position: absolute;
+    inset-block: calc((var(--ag-control-minimum-touch-target, 44px) - 100%) / -2);
+    inset-inline: calc((var(--ag-control-minimum-touch-target, 44px) - 100%) / -2);
+    min-block-size: var(--ag-control-minimum-touch-target, 44px);
+    min-inline-size: var(--ag-control-minimum-touch-target, 44px);
+  }
 }
 
 /*

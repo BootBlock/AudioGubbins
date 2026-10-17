@@ -231,7 +231,7 @@ test.describe('starting up', () => {
     });
     await openFresh(page);
 
-    const item = page.locator('.ag-status-item', { hasText: /capabilit/ });
+    const item = page.locator('.ag-status-chip', { hasText: /capabilit/ });
     await expect(item).toHaveText(/^(One capability is|[0-9]+ capabilities are) unavailable$/);
 
     await page.getByRole('button', { name: 'Show the Capabilities panel' }).click();
@@ -640,8 +640,10 @@ test.describe('the settings dialogue', () => {
     await openFresh(page);
     await openSettings(page);
 
-    await page.getByRole('combobox', { name: 'Theme' }).click();
-    await page.getByRole('option', { name: 'Light' }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Theme' })
+      .getByRole('radio', { name: /^Light/ })
+      .click();
 
     await expect(themeRoot(page)).toHaveAttribute('data-ag-theme', 'light');
   });
@@ -651,8 +653,10 @@ test.describe('the settings dialogue', () => {
     await openSettings(page);
 
     await page.getByRole('tab', { name: 'Accessibility' }).click();
-    await page.getByRole('combobox', { name: 'Contrast' }).click();
-    await page.getByRole('option', { name: /^High/ }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Contrast' })
+      .getByRole('radio', { name: /^High/ })
+      .click();
 
     await expect(themeRoot(page)).toHaveAttribute('data-ag-contrast', 'high');
   });
@@ -1954,7 +1958,7 @@ test.describe('one rule for when two names are one, in every engine', () => {
 
   /** The name of the workspace on screen, as the status bar shows it. */
   function nameOnScreen(page: Page): Locator {
-    return page.getByRole('contentinfo', { name: 'Status' }).locator('.ag-status-item').first();
+    return page.getByRole('contentinfo', { name: 'Status' }).locator('.ag-status-chip').first();
   }
 
   /** Saves the workspace on screen as a new one, from the Workspace menu. */

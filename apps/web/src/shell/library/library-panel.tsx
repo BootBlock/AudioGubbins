@@ -17,7 +17,7 @@
 
 import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { TextField } from '@audiogubbins/design-system';
+import { EmptyState, Hint, PanelHeader, TextField } from '@audiogubbins/design-system';
 import type { LibraryEntry } from '@audiogubbins/domain';
 import type { LibraryListing } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
@@ -28,7 +28,8 @@ import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import type { SavedProcessingState } from '../../state/saved-processing-store.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
-import { LibraryEntryRow, type Shown } from './library-entry.js';
+import type { Shown } from './entry-applying.js';
+import { LibraryEntryRow } from './library-entry.js';
 
 /** The person's library and the project open here, which the panel reads. */
 export interface LibraryStores {
@@ -84,6 +85,7 @@ function SaveRack({
         commands={commands}
         args={shown === undefined ? { name } : { view: shown.panel, name }}
         refusal={refusal}
+        compact
       />
     </div>
   );
@@ -108,8 +110,9 @@ function EntryList({
   if (entries.length === 0) return null;
   return (
     <div className="ag-library-kind" role="group" aria-labelledby={id}>
-      <h3 className="ag-section-heading" id={id} ref={headingRef} tabIndex={-1}>
-        {`${heading} (${String(entries.length)})`}
+      <h3 className="ag-library-kind-name" id={id} ref={headingRef} tabIndex={-1}>
+        {`${heading} `}
+        <span className="ag-library-count">{`(${String(entries.length)})`}</span>
       </h3>
       <ul className="ag-library-entries">
         {entries.map((listed) => (
@@ -164,17 +167,12 @@ function LibraryContents({
   ];
   return (
     <>
-      {shown === undefined ? (
-        <p>Open audio of the project in an editor to apply a chain or a preset to it.</p>
-      ) : (
-        <p className="ag-panel-note">
-          {`A chain is applied to what is selected in ${quoted(shown.name)}, or to all of it with nothing selected.`}
-        </p>
-      )}
       <SaveRack shown={shown} commands={commands} />
       {saved.problem !== undefined && <p role="status">{saved.problem}</p>}
       {saved.loaded && entries.every((listed) => listed.builtIn) && (
-        <p>Nothing is saved yet. Save a rack here, or a processor’s settings from the rack.</p>
+        <p className="ag-panel-note">
+          Nothing is saved yet. Save a rack here, or a processor’s settings from the rack.
+        </p>
       )}
       {lists.map(([heading, listed]) => (
         <EntryList
@@ -190,6 +188,24 @@ function LibraryContents({
   );
 }
 
+/** What the library is and where a chain is applied, behind the header's hint. */
+function About({ parts }: { readonly parts: LibraryParts }): ReactNode {
+  const shown = useShown(parts);
+  return (
+    <Hint label="About the library" title="Library">
+      <p>
+        Your saved chains and presets, kept for every project. Applying one changes the project as
+        one step you can undo; changing one here changes nothing it was applied to.
+      </p>
+      <p>
+        {shown === undefined
+          ? 'Open audio of the project in an editor to apply a chain or a preset to it.'
+          : `A chain is applied to what is selected in ${quoted(shown.name)}, or to all of it with nothing selected.`}
+      </p>
+    </Hint>
+  );
+}
+
 /** The Library panel, or what is said in its place where this browser keeps no projects. */
 export function LibraryPanel({
   title,
@@ -201,17 +217,19 @@ export function LibraryPanel({
   readonly commands: PanelCommands;
 }): ReactNode {
   return (
-    <section className="ag-panel ag-library">
-      <h2 className="ag-panel-title">{title}</h2>
-      <p className="ag-panel-note">
-        Your saved chains and presets, kept for every project. Applying one changes the project as
-        one step you can undo; changing one here changes nothing it was applied to.
-      </p>
-      {parts.library === undefined ? (
-        <p>{parts.unavailable ?? 'This browser cannot keep projects.'}</p>
-      ) : (
-        <LibraryContents library={parts.library} parts={parts} commands={commands} />
-      )}
+    <section className="ag-panel ag-processing-panel ag-library">
+      <PanelHeader title={title} icon="library" actions={<About parts={parts} />} />
+      <div className="ag-panel-body">
+        {parts.library === undefined ? (
+          <EmptyState
+            icon="library"
+            title="No library here"
+            text={parts.unavailable ?? 'This browser cannot keep projects.'}
+          />
+        ) : (
+          <LibraryContents library={parts.library} parts={parts} commands={commands} />
+        )}
+      </div>
     </section>
   );
 }

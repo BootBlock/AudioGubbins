@@ -1,0 +1,238 @@
+/*
+ * The Loop panel (ADR-0103), in the design language: the loop as heard beside
+ * the search near it, the seam drawn in the display palette, the verdict as a
+ * status item, the checks in the language's table, and each candidate a card,
+ * the best one lit (sections 7, 8, 10 and 11).
+ */
+
+/* The loop as heard beside the search; the search drops under it where the
+   panel is too narrow for both. */
+.ag-loop-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: calc(var(--ag-space-inset) * 2);
+}
+
+.ag-loop-side {
+  display: grid;
+  flex: 999 1 calc(var(--ag-grid-unit) * 110);
+  gap: var(--ag-space-inset);
+  align-content: start;
+  min-inline-size: 0;
+}
+
+.ag-loop-side + .ag-loop-side {
+  flex: 1 1 calc(var(--ag-grid-unit) * 70);
+}
+
+.ag-loop-sentence,
+.ag-loop-note,
+.ag-loop-heard,
+.ag-loop-stale {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-loop-note,
+.ag-loop-heard {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-loop-heard[data-ag-heard] {
+  color: var(--ag-chrome-accent-text);
+}
+
+.ag-loop-stale {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-loop-analyse {
+  margin-inline-start: auto;
+}
+
+/* The verdict line: a status item drawn across the side. */
+.ag-loop-side > .ag-status-chip {
+  display: flex;
+  padding-block: var(--ag-space-tiny);
+}
+
+/* The seam as heard: a display one inset from the side, in the display
+   palette, with the seam and the jump across it in the error colour. */
+.ag-loop-seam {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+}
+
+.ag-loop-seam-caption {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-loop-seam-drawing {
+  display: block;
+  inline-size: 100%;
+  block-size: calc(var(--ag-grid-unit) * 30 * var(--ag-seam-channels, 1));
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-waveform-background);
+  overflow: hidden;
+}
+
+.ag-loop-seam-drawing line,
+.ag-loop-seam-drawing polyline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-loop-seam-centre {
+  stroke: var(--ag-waveform-centre-line);
+  stroke-dasharray: calc(var(--ag-grid-unit) * 0.75);
+}
+
+.ag-loop-seam-trace {
+  stroke: var(--ag-waveform-peak);
+  stroke-width: calc(var(--ag-grid-unit) * 0.5);
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 calc(var(--ag-grid-unit) * 1.5) var(--ag-waveform-peak));
+}
+
+.ag-loop-seam-mark {
+  stroke: color-mix(in oklch, var(--ag-chrome-status-error) 70%, transparent);
+}
+
+.ag-loop-seam-jump {
+  stroke: var(--ag-chrome-status-error);
+  stroke-dasharray: calc(var(--ag-grid-unit) * 0.5);
+}
+
+/* A sample either side of the seam: a line of no length with a round cap,
+   which stays round however the drawing is stretched. */
+.ag-loop-seam-dot {
+  stroke: var(--ag-chrome-status-error);
+  stroke-width: calc(var(--ag-grid-unit) * 1.75);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 calc(var(--ag-grid-unit) * 2) var(--ag-chrome-status-error));
+}
+
+/* A group's title: caption size, 600, upper case (section 11). */
+.ag-loop-group-title {
+  margin: 0;
+  padding: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+/* The search: a form of a setting a row, each with its hint. */
+.ag-loop-search {
+  display: grid;
+  gap: var(--ag-space-inset);
+  justify-items: start;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ag-loop-search > legend {
+  margin-block-end: var(--ag-space-inset);
+}
+
+.ag-loop-setting {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-loop-setting:has(.ag-switch-field) {
+  align-items: center;
+}
+
+/* The candidates: each a card, the best lit with the accent's glow. */
+.ag-loop-candidates {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-loop-candidate-list {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-loop-candidate {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  min-inline-size: 0;
+  padding: calc(var(--ag-grid-unit) * 1.5) var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-quiet);
+}
+
+.ag-loop-candidate[data-ag-best] {
+  border-color: var(--ag-chrome-edge-accent);
+  background-color: var(--ag-chrome-fill-accent);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-loop-candidate-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-loop-candidate-rank {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-grid-unit) * 5.5);
+  block-size: calc(var(--ag-grid-unit) * 5.5);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-fill-hover);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-bold);
+}
+
+.ag-loop-candidate[data-ag-best] .ag-loop-candidate-rank {
+  background-image: var(--ag-effect-cta-fill);
+  color: var(--ag-chrome-text-on-accent);
+}
+
+.ag-loop-candidate-name {
+  flex: 1;
+  min-inline-size: 0;
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-medium);
+}
+
+.ag-loop-candidate-hearing {
+  display: flex;
+  gap: var(--ag-space-micro);
+}
+
+.ag-loop-candidate-text {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-loop-candidate-text[data-ag-quiet] {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-loop-running {
+  display: grid;
+  gap: var(--ag-space-small);
+}

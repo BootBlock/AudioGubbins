@@ -40,16 +40,18 @@ export function RenameField({
         onValueChange={setName}
         onSubmit={rename}
       />
+      <Button compact onClick={onClose}>
+        Cancel
+      </Button>
       <CommandButton
         id="library.rename"
         label="Rename"
         commands={commands}
         args={{ entry: entry.id, name }}
         refusal={name.trim() === '' ? 'Type the new name.' : undefined}
+        tone={ButtonTone.Primary}
+        compact
       />
-      <Button compact onClick={onClose}>
-        Cancel
-      </Button>
     </div>
   );
 }
@@ -72,24 +74,26 @@ export function RemoveConfirmation({
   const remove = useRef<HTMLButtonElement>(null);
   useFocusOnShow(remove);
   return (
-    <span className="ag-project-row-actions" role="group" aria-label={`Remove ${name}`}>
-      <span data-ag-status="unavailable">
+    <div className="ag-library-confirm" role="group" aria-label={`Remove ${name}`}>
+      <p className="ag-library-confirm-text">
         {`Removing ${name} from your library is for good. What it was applied to keeps its copy.`}
-      </span>
-      <Button
-        ref={remove}
-        compact
-        tone={ButtonTone.Destructive}
-        onClick={() => {
-          onRemoving();
-          commands.run('library.remove', { entry: id });
-        }}
-      >
-        Remove for good
-      </Button>
-      <Button compact onClick={onKeep}>
-        Keep it
-      </Button>
-    </span>
+      </p>
+      <div className="ag-library-confirm-actions">
+        <Button compact onClick={onKeep}>
+          Keep it
+        </Button>
+        <Button
+          ref={remove}
+          compact
+          tone={ButtonTone.Destructive}
+          onClick={() => {
+            onRemoving();
+            commands.run('library.remove', { entry: id });
+          }}
+        >
+          Remove for good
+        </Button>
+      </div>
+    </div>
   );
 }

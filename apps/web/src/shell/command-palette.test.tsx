@@ -51,6 +51,36 @@ describe('the command palette', () => {
     expect(within(entry).getByText('Ctrl+K, Ctrl+P')).toBeInTheDocument();
   });
 
+  it('marks the letters the search matched without changing what a row is called', () => {
+    // The marks split the label into runs, and the category chip sits beside
+    // it: either could have changed the option's name, which is what a screen
+    // reader says and what every test and macro finds the row by.
+    const keyboard = buildLayoutStore().store;
+    const { context } = buildShellContext(undefined, KeyboardConvention.Windows, keyboard);
+
+    renderInTheShell(
+      <CommandPalette
+        open
+        onClose={() => undefined}
+        commands={shellCommands(DESCRIPTORS)}
+        context={context}
+        profile={context.shortcuts.get().profile}
+        convention={context.convention}
+        layout={keyboard.get()}
+        onRun={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search commands' }), {
+      target: { value: 'palette' },
+    });
+    const entry = screen.getByRole('option', { name: /^Show the command palette/ });
+    expect(entry).toHaveAccessibleName('Show the command paletteCtrl+K, Ctrl+P');
+    expect(
+      [...entry.querySelectorAll('.ag-palette-match')].map((mark) => mark.textContent),
+    ).toEqual(['palette']);
+  });
+
   it('announces the result count once the reader stops typing, as a whole sentence', async () => {
     // A polite region queues rather than replaces, so a count that changed on
     // every keystroke read the whole run out before the number the reader

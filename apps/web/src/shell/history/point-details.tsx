@@ -10,10 +10,9 @@
 
 import type { ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon, IconButton, IconSize } from '@audiogubbins/design-system';
 import { affectedEntities, type EntityReference, type HistoryRow } from '@audiogubbins/history';
 
-import { ReasonedButton } from '../settings/reasoned-button.js';
 import { describeEntity, type EntityNames } from './entity-names.js';
 import { quoted } from '@audiogubbins/text';
 
@@ -39,22 +38,22 @@ function Affected({ row, names, affecting, onAffecting }: PointDetailsProps): Re
   if (entities.length === 0 && !project) return null;
   return (
     <ul className="ag-history-affected" aria-label="What the change affected">
-      {project && <li>The project itself</li>}
+      {project && <li className="ag-history-affected-item">The project itself</li>}
       {entities.map((entity) => {
         const said = describeEntity(entity, names);
+        const shown = sameEntity(affecting, entity);
         return (
-          <li key={`${entity.kind}:${entity.id}`}>
-            <span>{said}</span>{' '}
-            <ReasonedButton
-              reason={
-                sameEntity(affecting, entity) ? 'The list shows only these changes now.' : undefined
-              }
-              onPress={() => {
+          <li key={`${entity.kind}:${entity.id}`} className="ag-history-affected-item">
+            <span className="ag-history-affected-name">{said}</span>
+            <IconButton
+              icon="show-only"
+              compact
+              label={`Show only the changes to ${said}`}
+              {...(shown ? { unavailableReason: 'The list shows only these changes now.' } : {})}
+              onClick={() => {
                 onAffecting(entity);
               }}
-            >
-              {`Show only the changes to ${said}`}
-            </ReasonedButton>
+            />
           </li>
         );
       })}
@@ -70,8 +69,8 @@ export function PointDetails(props: PointDetailsProps): ReactNode {
       <Affected {...props} />
       {row.snapshots.map((snapshot) =>
         snapshot.notes === undefined ? null : (
-          <p key={snapshot.id}>
-            <span className="ag-history-row-mark">{`Notes of ${quoted(snapshot.name)}: `}</span>
+          <p key={snapshot.id} className="ag-history-notes">
+            <span className="ag-history-notes-of">{`Notes of ${quoted(snapshot.name)}: `}</span>
             {snapshot.notes}
           </p>
         ),
@@ -88,17 +87,20 @@ export function AffectingFilter({
 }: Pick<PointDetailsProps, 'affecting' | 'names' | 'onAffecting'>): ReactNode {
   if (affecting === undefined) return null;
   return (
-    <p className="ag-panel-note">
-      {`Showing only the changes to ${describeEntity(affecting, names)}.`}{' '}
+    <div className="ag-history-filtering">
+      <Icon name="show-only" size={IconSize.Inline} />
+      <span className="ag-history-filtering-text">
+        {`Showing only the changes to ${describeEntity(affecting, names)}.`}
+      </span>
       <Button
         compact
-        tone="quiet"
+        tone={ButtonTone.Quiet}
         onClick={() => {
           onAffecting(undefined);
         }}
       >
         Show every change
       </Button>
-    </p>
+    </div>
   );
 }

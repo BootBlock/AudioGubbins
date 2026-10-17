@@ -24,6 +24,7 @@ export { type CaseModifier, inCase } from './export/case-modifiers.js';
 export { type DestinationPath, destinationPath } from './export/destination-path.js';
 export { type GameExportProfile, profileFromPreset } from './export/game-export-profile.js';
 export { type NamingTemplate, namingTemplate } from './export/naming-template.js';
+export { NAMING_VOCABULARY, type NamingToken } from './export/naming-vocabulary.js';
 export {
   type GameExportItem,
   type GameExportPlan,

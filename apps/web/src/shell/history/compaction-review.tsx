@@ -11,7 +11,7 @@
 
 import type { ReactNode } from 'react';
 
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon, IconSize } from '@audiogubbins/design-system';
 import type { ExportRecord } from '@audiogubbins/project-format';
 
 import type { PendingCompaction } from '../../state/history-review-store.js';
@@ -36,30 +36,34 @@ export function CompactionReview({
   };
   const removes = pending.plan.removable.length > 0;
   const keeping = pending.policy === undefined ? 'Keep the history' : 'Leave the policy as it is';
+  // The choice that keeps everything comes first and the one that removes last,
+  // at the trailing end, as every surface orders them.
   return (
     <div
       role="group"
       className="ag-history-compaction"
+      data-ag-removes={removes ? '' : undefined}
       aria-label="What removing history would cost"
     >
-      <h3 className="ag-section-heading">
+      <h3 className="ag-history-compaction-title">
+        <Icon name={removes ? 'warning' : 'information'} size={IconSize.Inline} />
         {pending.policy === undefined ? 'Remove history' : 'Keep less history'}
       </h3>
-      <ul>
+      <ul className="ag-history-compaction-cost">
         {compactionSentences(pending.plan, nameOf).map((sentence) => (
           <li key={sentence}>{sentence}</li>
         ))}
       </ul>
-      <div className="ag-settings-row">
+      <div className="ag-history-buttons">
+        <Button compact onClick={() => run('history.cancel-compaction')}>
+          {keeping}
+        </Button>
         <Button
           compact
           tone={removes ? ButtonTone.Destructive : ButtonTone.Primary}
           onClick={() => run('history.confirm-compaction')}
         >
           {removes ? 'Remove it for good' : 'Apply'}
-        </Button>
-        <Button compact onClick={() => run('history.cancel-compaction')}>
-          {keeping}
         </Button>
       </div>
     </div>

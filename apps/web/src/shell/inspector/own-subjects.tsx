@@ -121,7 +121,8 @@ function GroupSubject({
     projects?.project.get ?? NO_PROJECT.get,
   );
   const state = open?.kind === 'open' ? open.snapshot.model.state : undefined;
-  if (state === undefined) return <p>Open a project to see its asset groups.</p>;
+  if (state === undefined)
+    return <p className="ag-inspector-detail">Open a project to see its asset groups.</p>;
   return (
     <OpenGroup group={group} state={state} parts={parts} projects={projects} commands={commands} />
   );
@@ -144,7 +145,7 @@ function OpenGroup({
   const policyParts = usePolicyParts({ projects, preferences: parts.preferences, commands }, state);
   const held = policyParts.view.game.groups.get(group);
   return held === undefined ? (
-    <p>That asset group is no longer in the project.</p>
+    <p className="ag-inspector-detail">That asset group is no longer in the project.</p>
   ) : (
     <GroupPolicySection group={held} parts={policyParts} />
   );

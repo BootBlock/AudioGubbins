@@ -1,0 +1,226 @@
+/* The Spectral panel: the selection, the tools, the spectrogram's settings and the repairs. */
+
+/* The panel's parts stacked one inset apart; each section draws its own hairline. */
+.ag-spectral-body {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+/* The selection's summary: a card lit by the accent, as the selection on the display is. */
+.ag-spectral-selection {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  padding: var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  background: var(--ag-chrome-fill-accent);
+  box-shadow: inset 0 0 0 1px var(--ag-chrome-edge-accent);
+}
+
+/* Tabular figures, so the times do not shift sideways as the area is dragged. */
+.ag-spectral-description {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* The tools' toolbar, a separator and the combination mode share one row while
+   the panel is wide enough; each group keeps itself together, so a narrower
+   panel moves the whole mode under. */
+.ag-spectral-tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-spectral-combination {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+/* The separator between the tools and the mode, drawn as the toolbar's own separator is. */
+.ag-spectral-combination::before {
+  inline-size: 1px;
+  block-size: calc(9 * var(--ag-grid-unit));
+  margin-inline-end: var(--ag-space-tiny);
+  background-color: var(--ag-chrome-border-subtle);
+  content: '';
+}
+
+.ag-spectral-modes {
+  display: flex;
+  gap: var(--ag-space-micro);
+}
+
+/* A form in a panel: one control a row, the rows one inset apart. */
+.ag-spectral-form {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+/* The language's panel form: a narrow label column, the controls in the rest. */
+.ag-spectral {
+  --ag-spectral-label-column: calc(44 * var(--ag-grid-unit));
+}
+
+[data-ag-density='compact'] .ag-spectral {
+  --ag-spectral-label-column: calc(38 * var(--ag-grid-unit));
+}
+
+/* A slider keeps its label, groove and value on one row in a narrow panel: the
+   label takes the form's column and the groove shrinks, rather than the value
+   wrapping under it. */
+.ag-spectral .ag-slider-field {
+  display: grid;
+  grid-template-columns: var(--ag-spectral-label-column) minmax(0, 1fr) auto;
+  column-gap: var(--ag-space-medium);
+}
+
+.ag-spectral .ag-slider-label,
+.ag-spectral .ag-slider {
+  min-inline-size: 0;
+}
+
+.ag-spectral-form-row {
+  display: grid;
+  grid-template-columns: var(--ag-spectral-label-column) minmax(0, 1fr);
+  column-gap: var(--ag-space-medium);
+  align-items: center;
+}
+
+.ag-spectral-form-label {
+  overflow-wrap: anywhere;
+}
+
+.ag-spectral-form-controls {
+  display: grid;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+}
+
+/* The row's short word stands for the field's full label, which stays its accessible name. */
+.ag-spectral-form-row :is(.ag-text-field-label, .ag-select-label) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ag-spectral-form-row .ag-select-field > .ag-select-trigger {
+  flex: 1 1 auto;
+}
+
+/* An input's own width is its `size`, wider than half this column; sized from
+   nothing and grown to its field, two fit side by side in a narrow panel. */
+.ag-spectral-form-row .ag-text-field-input {
+  inline-size: 0;
+}
+
+/* Two typed values side by side, sharing the row. */
+.ag-spectral-fields {
+  display: flex;
+  gap: var(--ag-space-small);
+}
+
+.ag-spectral-fields > .ag-text-field {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+/* A typed value and the operation it is given to. */
+.ag-spectral-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-spectral-field-row > .ag-text-field {
+  flex: 1 1 calc(30 * var(--ag-grid-unit));
+  min-inline-size: 0;
+}
+
+/* A row of actions: at the trailing end under a form, or after the values they act on. */
+.ag-spectral-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-spectral-actions[data-ag-align='start'] {
+  justify-content: flex-start;
+}
+
+.ag-spectral-caption,
+.ag-spectral-words p {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-spectral-caption[data-ag-status='reduced'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-spectral-words {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+/* Each group of the spectrogram's settings under its quiet name. */
+.ag-spectral-setting {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-spectral-setting-name {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+/* The spectral edits, each a row: what it did, in words, and its comparison. */
+.ag-spectral-edit-list {
+  display: grid;
+  gap: var(--ag-space-micro);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-spectral-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+  padding: var(--ag-space-micro) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-spectral-edit:hover {
+  background: var(--ag-chrome-fill-hover);
+}
+
+/* The words come first in the document, for a reader; the glyph is drawn before them. */
+.ag-spectral-edit-glyph {
+  order: -1;
+  flex: 0 0 auto;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-spectral-edit-words {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}

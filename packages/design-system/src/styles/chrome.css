@@ -91,6 +91,97 @@
   padding-block-start: var(--ag-space-inset);
 }
 
+/* Vertical tabs: a column of rows beside what they show, as Settings lists
+   its pages. Each row is a menu row's shape, glyph and label; the chosen one
+   is lit by the lit edge (`lit-edge.css`, which it opts into), so it needs no
+   wash of its own. The column is as wide as its longest label, which wraps
+   rather than being cut where the column has to give way. */
+.ag-tabs[data-orientation='vertical'] {
+  display: grid;
+  grid-template-columns: minmax(auto, max-content) minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+.ag-tabs[data-orientation='vertical'] > .ag-tab-list {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--ag-space-hair);
+  max-inline-size: calc(110 * var(--ag-grid-unit));
+  padding: var(--ag-space-inset);
+  border-inline-end: 1px solid var(--ag-chrome-border-subtle);
+  overflow: auto;
+  scroll-padding: var(--ag-focus-ring-reach);
+}
+
+.ag-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-inset);
+  border: 0;
+  border-radius: var(--ag-radius-control);
+  background-color: transparent;
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ag-nav-tab > .ag-icon {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-nav-tab:is(:hover, [data-ag-force-state='hover'] .ag-nav-tab:last-child):not(
+    [aria-selected='true']
+  ) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-nav-tab:is(:active, [data-ag-force-state='pressed'] .ag-nav-tab:last-child):not(
+    [aria-selected='true']
+  ) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
+/* The keyboard's ring sits inside the row, as a list draws it, so the
+   column's scrolling never cuts it; written heavier than the lit row's glow,
+   which would otherwise take its place. */
+[data-ag-theme] .ag-tab-list .ag-nav-tab:focus-visible,
+[data-ag-theme]
+  [data-ag-force-state='focus-visible']
+  .ag-tab-list
+  .ag-nav-tab[aria-selected='true'] {
+  outline-offset: calc(-1 * var(--ag-focus-ring-width));
+  box-shadow:
+    inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+/* Forced colours draw no wash, edge or glow, so the chosen page takes the
+   pair the platform uses for a selection, its glyph and words with it. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-nav-tab[aria-selected='true'] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  [data-ag-theme] .ag-nav-tab[aria-selected='true'] * {
+    color: inherit;
+    filter: none;
+  }
+}
+
+.ag-tabs[data-orientation='vertical'] > .ag-tab-panel {
+  min-inline-size: 0;
+  padding: var(--ag-space-inset) var(--ag-space-inset-wide);
+  overflow: auto;
+}
+
 /* Panels: glass, one inset on every side, and nested corners. */
 
 .ag-glass-panel {
@@ -156,10 +247,16 @@
   overflow-wrap: anywhere;
 }
 
+/* More actions than the header has room for wrap onto a second row at the
+   trailing end rather than running off the panel's side, where a reader
+   could not reach them. */
 .ag-panel-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--ag-space-micro);
+  min-inline-size: 0;
   margin-inline-start: auto;
 }
 
@@ -199,6 +296,16 @@
   color: var(--ag-chrome-text-secondary);
   font-size: var(--ag-text-label);
   font-weight: var(--ag-text-weight-strong);
+}
+
+/* The heading round a section's button adds a level to the outline and
+   nothing to the drawing. Laid out as a box of its own rather than taken out
+   with `display: contents`, which some engines of the support floor drop from
+   the accessibility tree with the heading's role. */
+.ag-section-heading {
+  display: inline-flex;
+  margin: 0;
+  font: inherit;
 }
 
 .ag-section-trigger {
@@ -467,6 +574,54 @@
   margin-inline-start: auto;
 }
 
+/* A row that is itself a button: the button holds the row's glyph and words,
+   and its hit area is stretched over the whole row, so a press anywhere on it
+   but its actions presses it. The actions sit above the stretched area, as
+   buttons of their own. The keyboard's ring is drawn round the row, inside it,
+   as a list draws it, so the list's scrolling never cuts it. */
+.ag-list-row-press {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ag-list-row-press::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+[data-ag-theme] .ag-list-row-press:focus-visible,
+[data-ag-theme] [data-ag-force-state='focus-visible'] .ag-list-row-press {
+  box-shadow: none;
+}
+
+.ag-list-row-press:focus-visible::before,
+[data-ag-force-state='focus-visible'] .ag-list-row-press::before {
+  box-shadow:
+    inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+.ag-list-row[data-ag-pressable] .ag-list-row-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.ag-list-row[data-ag-pressable]:is(:active, [data-ag-force-state='pressed'] *):not([data-ag-lit]) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
 /* The compact density sets a row on one line, its second line beside its
    name (design language, section 10). */
 [data-ag-density='compact'] .ag-list-row[data-ag-lines='two'] {
@@ -513,7 +668,7 @@
   padding-inline-end: var(--ag-space-inset);
 }
 
-.ag-table th {
+.ag-table thead th {
   padding-block: calc(var(--ag-grid-unit) * 3);
   background-color: var(--ag-chrome-fill-quiet);
   color: var(--ag-chrome-text-secondary);
@@ -524,12 +679,19 @@
   text-transform: uppercase;
 }
 
-.ag-table td {
+.ag-table tbody :is(th, td) {
   block-size: calc(var(--ag-control-height) + var(--ag-grid-unit) * 2);
   padding-block: calc(var(--ag-grid-unit) * 2);
 }
 
-.ag-table tbody tr + tr td {
+/* A cell that heads its row reads as the row's name: a list row's weight, in
+   the body's own size and case, never the column head's capitals. */
+.ag-table tbody th {
+  color: var(--ag-chrome-text-primary);
+  font-weight: var(--ag-text-weight-control);
+}
+
+.ag-table tbody tr + tr :is(th, td) {
   border-block-start: 1px solid var(--ag-chrome-border-subtle);
 }
 
@@ -569,6 +731,10 @@
 
 .ag-verdict[data-ag-verdict='fails'] {
   color: var(--ag-chrome-status-error);
+}
+
+.ag-verdict[data-ag-verdict='stale'] > .ag-icon {
+  color: var(--ag-chrome-status-warning);
 }
 
 /* Badges. The padding centres one line of text in the pill, which the
@@ -685,6 +851,55 @@
       0 0 0 calc(var(--ag-grid-unit) * 1.5)
         color-mix(in oklch, var(--ag-chrome-status-recording) 25%, transparent),
       0 0 calc(var(--ag-grid-unit) * 7.5) var(--ag-chrome-status-recording);
+  }
+}
+
+/* A status LED: a lamp of its state's colour with its glow; idle, unlit and
+   without one. Seven pixels: a lamp's drawing, not a box laid out on the page
+   (section 1). */
+.ag-status-led {
+  --ag-led-tone: var(--ag-chrome-status-success);
+
+  display: inline-block;
+  flex: none;
+  inline-size: calc(3.5 * var(--ag-grid-unit));
+  block-size: calc(3.5 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-led-tone);
+  box-shadow: 0 0 calc(4 * var(--ag-grid-unit)) var(--ag-led-tone);
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-status-led[data-ag-tone='warning'] {
+  --ag-led-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-status-led[data-ag-tone='error'] {
+  --ag-led-tone: var(--ag-chrome-status-error);
+}
+
+.ag-status-led[data-ag-tone='accent'] {
+  --ag-led-tone: var(--ag-chrome-accent);
+}
+
+.ag-status-led[data-ag-tone='idle'] {
+  background-color: var(--ag-chrome-text-disabled);
+  box-shadow: none;
+}
+
+/* In forced colours a lit LED is the text colour and an idle one an outline,
+   so lit and unlit still differ where colour cannot say which. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-status-led {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+
+  [data-ag-theme] .ag-status-led[data-ag-tone='idle'] {
+    background-color: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
   }
 }
 
@@ -940,6 +1155,25 @@
 [data-ag-motion='reduced'] .ag-progress[data-state='indeterminate'] .ag-progress-fill {
   animation: ag-pulse var(--ag-motion-loop-indeterminate) var(--ag-motion-ease-in-out) infinite
     alternate;
+}
+
+/* The words an indeterminate bar carries, drawn only at Minimal, where its
+   segment stands still: above it, the moving segment says the same. */
+.ag-progress-field {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-progress-pending {
+  display: none;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+[data-ag-motion='minimal'] .ag-progress-pending {
+  display: block;
 }
 
 /* From just before the track's start to just past its end: the segment is

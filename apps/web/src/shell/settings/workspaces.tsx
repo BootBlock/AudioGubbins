@@ -14,11 +14,12 @@
 
 import { useState, type ReactNode } from 'react';
 
-import { ButtonTone, OptionSelect, TextField } from '@audiogubbins/design-system';
+import { Button, ButtonTone, OptionSelect, TextField } from '@audiogubbins/design-system';
 import { LONGEST_WORKSPACE_NAME, listedName, type WorkspaceLayout } from '@audiogubbins/workspace';
 
 import type { UnreadText } from '../../state/text-custody.js';
-import { ReasonedButton } from './reasoned-button.js';
+import { CommandButton } from '../command-button.js';
+import { optionalReason } from '../optional-reason.js';
 import type { RunCommand } from './section.js';
 import { UnreadTexts } from './unread-text.js';
 import { quoted } from '@audiogubbins/text';
@@ -145,45 +146,43 @@ export function Workspaces({
           }}
         />
 
-        <ReasonedButton
-          reason={renameProblem}
-          onPress={() => {
+        <Button
+          {...optionalReason(renameProblem)}
+          onClick={() => {
             renameFrom('the button');
           }}
         >
           Rename
-        </ReasonedButton>
+        </Button>
 
-        <ReasonedButton
-          reason={duplicateProblem}
-          onPress={() => {
+        <Button
+          {...optionalReason(duplicateProblem)}
+          onClick={() => {
             emptyWhenRan(run('workspace.duplicate', duplicateArguments(layout.id, chosen)));
           }}
         >
           Duplicate
-        </ReasonedButton>
+        </Button>
       </div>
 
       <div className="ag-settings-row">
-        <ReasonedButton
-          reason={unavailableReason('workspace.reset')}
-          onPress={() => {
-            run('workspace.reset', { layoutId: layout.id });
-          }}
-        >
-          Reset to how it ships
-        </ReasonedButton>
+        <CommandButton
+          id="workspace.reset"
+          label="Reset to how it ships"
+          commands={{ run, unavailableReason }}
+          args={{ layoutId: layout.id }}
+        />
 
-        <ReasonedButton
+        <Button
           tone={ButtonTone.Destructive}
-          reason={unavailableReason('workspace.delete')}
-          onPress={() => {
+          {...optionalReason(unavailableReason('workspace.delete'))}
+          onClick={() => {
             run('workspace.delete', { layoutId: layout.id });
             setName('');
           }}
         >
           Delete
-        </ReasonedButton>
+        </Button>
       </div>
 
       <RestoreDeleted deleted={deleted} run={run} unavailableReason={unavailableReason} />
@@ -211,14 +210,12 @@ function RestoreDeleted({
   if (newest === undefined) return null;
   return (
     <div className="ag-settings-row">
-      <ReasonedButton
-        reason={unavailableReason('workspace.restore')}
-        onPress={() => {
-          run('workspace.restore', { layoutId: newest.id });
-        }}
-      >
-        {`Restore ${quoted(newest.displayName)}`}
-      </ReasonedButton>
+      <CommandButton
+        id="workspace.restore"
+        label={`Restore ${quoted(newest.displayName)}`}
+        commands={{ run, unavailableReason }}
+        args={{ layoutId: newest.id }}
+      />
     </div>
   );
 }

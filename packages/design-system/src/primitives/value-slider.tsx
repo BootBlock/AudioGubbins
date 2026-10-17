@@ -19,6 +19,11 @@
 import { Slider } from 'radix-ui';
 import { useId, type CSSProperties, type ReactNode } from 'react';
 
+import {
+  type ControlDescription,
+  DescriptionHint,
+  DescriptionText,
+} from './control-description.js';
 import { ControlHint, describedBy } from './control-hint.js';
 import {
   fractionOf,
@@ -39,10 +44,37 @@ interface SliderFields {
    * from the minimum.
    */
   readonly detent?: number;
+
+  /**
+   * A sentence saying what the value does: standing under the slider, or
+   * behind an (i) beside its label.
+   */
+  readonly description?: ControlDescription;
 }
 
+/**
+ * What the slider shows of its name: `label`, which is always its accessible
+ * name, or a shorter word in its place, or nothing where what surrounds it
+ * already says what it sets.
+ */
+type SliderLabelling =
+  | {
+      /**
+       * The word drawn in place of the label, where a row of sliders has room
+       * for one word each, such as "Mix" for "Mix of the reverb": the label
+       * stays the name a screen reader says.
+       */
+      readonly visibleLabel?: string;
+      readonly labelHidden?: false;
+    }
+  | {
+      /** Keeps the label for a screen reader alone. */
+      readonly labelHidden: true;
+      readonly visibleLabel?: undefined;
+    };
+
 /** What a slider takes. */
-export type ValueSliderProps = DialProps & SliderFields;
+export type ValueSliderProps = DialProps & SliderFields & SliderLabelling;
 
 /** Where a centred fill runs along the groove, as fractions of it, for its stylesheet. */
 type FillStyle = CSSProperties & {
@@ -77,18 +109,57 @@ function SliderFill({
   );
 }
 
+/**
+ * The slider's name: the label, drawn, or said alone with a shorter word drawn
+ * in its place, or said alone; and the (i) of a description behind one.
+ */
+function SliderHeading({
+  props,
+  labelId,
+}: {
+  readonly props: ValueSliderProps;
+  readonly labelId: string;
+}): ReactNode {
+  const { label, visibleLabel, labelHidden = false, description } = props;
+  const hint = <DescriptionHint description={description} />;
+  if (labelHidden) {
+    return (
+      <>
+        <span className="ag-visually-hidden" id={labelId}>
+          {label}
+        </span>
+        {hint}
+      </>
+    );
+  }
+  return (
+    <span className="ag-labelled ag-slider-label">
+      {visibleLabel === undefined ? (
+        <span id={labelId}>{label}</span>
+      ) : (
+        <>
+          <span className="ag-visually-hidden" id={labelId}>
+            {label}
+          </span>
+          <span aria-hidden="true">{visibleLabel}</span>
+        </>
+      )}
+      {hint}
+    </span>
+  );
+}
+
 /** A control for a continuous value. */
 export function ValueSlider(props: ValueSliderProps): ReactNode {
-  const { label, value, describeValue, displayValue, unavailableReason } = props;
+  const { value, describeValue, displayValue, unavailableReason, description } = props;
   const labelId = useId();
+  const descriptionId = useId();
   const travel = travelOf(props);
   const unavailable = unavailableReason !== undefined;
 
   return (
     <div className="ag-slider-field" data-ag-locked={isLocked(props) ? '' : undefined}>
-      <span className="ag-slider-label" id={labelId}>
-        {label}
-      </span>
+      <SliderHeading props={props} labelId={labelId} />
       <Slider.Root
         className="ag-slider"
         value={[travel.at]}
@@ -114,12 +185,17 @@ export function ValueSlider(props: ValueSliderProps): ReactNode {
               aria-labelledby={labelId}
               aria-valuetext={describeValue(value)}
               aria-disabled={unavailable ? true : undefined}
-              {...describedBy(reasonId)}
+              {...describedBy(description === undefined ? undefined : descriptionId, reasonId)}
             />
           )}
         </ControlHint>
       </Slider.Root>
       {displayValue !== undefined && <span className="ag-slider-value">{displayValue}</span>}
+      <DescriptionText
+        description={description}
+        id={descriptionId}
+        className="ag-slider-description"
+      />
     </div>
   );
 }

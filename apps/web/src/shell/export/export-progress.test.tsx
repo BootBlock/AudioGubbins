@@ -62,8 +62,8 @@ describe('the export under way (ADR-0092)', () => {
     const dialog = screen.getByRole('dialog', { name: 'Exporting' });
 
     expect(within(dialog).getByRole('progressbar', { name: 'Export progress' })).toHaveAttribute(
-      'value',
-      String(FRAMES / 2),
+      'aria-valuenow',
+      '25',
     );
     const files = within(dialog).getByRole('list', { name: 'Files being exported' });
     expect(

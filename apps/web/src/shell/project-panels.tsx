@@ -46,7 +46,7 @@ export function ProjectPanel({
   if (projects === undefined) {
     return (
       <section className="ag-panel">
-        <h2 className="ag-panel-title">{title}</h2>
+        <h2 className="ag-visually-hidden">{title}</h2>
         <p>{projectsUnavailable ?? 'This browser cannot keep projects.'}</p>
       </section>
     );

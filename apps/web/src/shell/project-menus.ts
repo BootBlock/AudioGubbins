@@ -15,6 +15,7 @@ import { redoTarget, undoTarget } from '@audiogubbins/history';
 import { ExportCommand, ImportCommand } from '../commands/import-export-ids.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { ProjectsSection } from '../state/interaction-store.js';
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 
 /** The menu bar's builders, as the project menus use them. */
 export interface MenuBuilders {
@@ -42,20 +43,27 @@ interface ProjectMenu {
   readonly groups: readonly MenuGroup[];
 }
 
-/** An entry opening the Projects dialogue at a section. */
+/**
+ * An entry opening the Projects dialogue at a section, drawn with the glyph of
+ * `drawnAs`, the command that section's form runs: New project and Open
+ * project are one command here, and the same glyph on both would say so.
+ */
 function dialogueEntry(
   builders: MenuBuilders,
   section: ProjectsSection,
   label: string,
+  drawnAs: string,
 ): MenuItemDescriptor {
   const opening = builders.entry('file.projects');
-  return builders.targetEntry(
+  const entry = builders.targetEntry(
     'file.projects',
     `projects:${section}`,
     label,
     opening.unavailableReason,
     { section },
   );
+  const icon = COMMAND_GLYPHS.get(drawnAs);
+  return icon === undefined ? entry : { ...entry, icon };
 }
 
 /** The Undo or Redo entry, naming the change it would undo or redo. */
@@ -77,8 +85,8 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
       {
         key: 'projects',
         items: [
-          dialogueEntry(builders, ProjectsSection.New, 'New project…'),
-          dialogueEntry(builders, ProjectsSection.Open, 'Open project…'),
+          dialogueEntry(builders, ProjectsSection.New, 'New project…', 'file.create-project'),
+          dialogueEntry(builders, ProjectsSection.Open, 'Open project…', 'file.open'),
           entry('file.quick-edit'),
           entry('file.close-project'),
         ],
@@ -87,7 +95,12 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
         key: 'this-project',
         label: 'This project',
         items: [
-          dialogueEntry(builders, ProjectsSection.Current, 'Rename, fork or export…'),
+          dialogueEntry(
+            builders,
+            ProjectsSection.Current,
+            'Rename, fork or export…',
+            'file.projects',
+          ),
           entry(ImportCommand.Files),
           entry(ImportCommand.Folder),
           entry(ExportCommand.Audio),

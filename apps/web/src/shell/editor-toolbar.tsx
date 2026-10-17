@@ -6,6 +6,12 @@
  * (ADR-0082). Every control runs the command of the same name, naming this
  * view, so the toolbar, a key and the palette are one action; a control shows
  * the view's state and holds none.
+ *
+ * Drawn as one row (design language, section 11, "Toolbar"): the tools as a
+ * tool group whose chosen tool is lit as a call to action, the spectral tools
+ * after a separator, zoom and snapping as icon buttons, and the choices at the
+ * row's trailing end. Each icon button keeps the name it had as text, and says
+ * what it does on hover or focus.
  */
 
 import type { ReactNode } from 'react';
@@ -16,7 +22,10 @@ import {
   ControlBar,
   ControlBarButton,
   ControlBarItem,
+  ControlBarSeparator,
+  IconButton,
   OptionSelect,
+  type IconName,
 } from '@audiogubbins/design-system';
 import {
   DisplayMode,
@@ -32,10 +41,47 @@ import { DISPLAY_MODES, TOOLS } from '../commands/editor-presentation-commands.j
 import { TIME_FORMATS } from '../commands/editor-option-commands.js';
 import { COMBINATIONS } from '../commands/spectral-tool-commands.js';
 
-/** How the toolbar runs a command, and reads its shortcut and why it cannot run. */
+/** How the toolbar runs a command, and reads its shortcut and its name. */
 export interface ToolbarCommands {
   readonly run: (id: string, args?: Readonly<Record<string, string | number | boolean>>) => void;
   readonly shortcutFor: (id: string) => string | undefined;
+  /** The command's name, as the menus and the palette say it: an icon button's hint. */
+  readonly labelFor: (id: string) => string;
+}
+
+/** Each tool's glyph. */
+const TOOL_GLYPHS: Readonly<Record<ToolId, IconName>> = {
+  [ToolId.Select]: 'selection-tool',
+  [ToolId.TimeSelect]: 'time-selection',
+  [ToolId.Hand]: 'hand-tool',
+  [ToolId.Zoom]: 'zoom',
+  [ToolId.Razor]: 'razor',
+  [ToolId.Marker]: 'marker',
+  [ToolId.Region]: 'region',
+  [ToolId.SpectralMarquee]: 'spectral-marquee',
+  [ToolId.SpectralLasso]: 'spectral-lasso',
+  [ToolId.SpectralBrush]: 'spectral-brush',
+};
+
+/** Each combination mode's glyph. */
+const COMBINATION_GLYPHS: Readonly<Record<SpectralCombination, IconName>> = {
+  [SpectralCombination.Replace]: 'replace-selection',
+  [SpectralCombination.Add]: 'add-to-selection',
+  [SpectralCombination.Subtract]: 'take-from-selection',
+};
+
+/** Each display mode's glyph, drawn in the select beside its name. */
+const DISPLAY_GLYPHS: Readonly<Record<DisplayMode, IconName>> = {
+  [DisplayMode.Waveform]: 'waveform',
+  [DisplayMode.Spectrogram]: 'spectrogram',
+  [DisplayMode.Stacked]: 'waveform-above-spectrogram',
+  [DisplayMode.Overlay]: 'waveform-over-spectrogram',
+};
+
+/** The shortcut of the command `id`, as a button's optional prop. */
+function shortcutOf(commands: ToolbarCommands, id: string): { readonly shortcut?: string } {
+  const shortcut = commands.shortcutFor(id);
+  return shortcut === undefined ? {} : { shortcut };
 }
 
 function ToolButtons({
@@ -47,25 +93,32 @@ function ToolButtons({
   readonly state: EditorViewState;
   readonly commands: ToolbarCommands;
 }): ReactNode {
-  // Every tool, in the order they are declared, so a new one is never left off.
-  return Object.values(ToolId).map((tool) => {
+  // Every tool, in the order they are declared, so a new one is never left off;
+  // the spectral tools after a separator, as a group of their own.
+  const tools = Object.values(ToolId);
+  return tools.map((tool, index) => {
     const id = `editor.tool-${tool}`;
-    const shortcut = commands.shortcutFor(id);
-    return (
+    const chosen = state.tool === tool;
+    const previous = tools[index - 1];
+    const startsSpectral =
+      previous !== undefined && isSpectralTool(tool) && !isSpectralTool(previous);
+    return [
+      startsSpectral && <ControlBarSeparator key={`${tool}-separator`} />,
       <ControlBarItem key={tool}>
-        <Button
+        <IconButton
           compact
-          tone={state.tool === tool ? ButtonTone.Primary : ButtonTone.Quiet}
-          aria-pressed={state.tool === tool}
-          title={shortcut === undefined ? TOOLS[tool].does : `${TOOLS[tool].does} (${shortcut})`}
+          icon={TOOL_GLYPHS[tool]}
+          label={TOOLS[tool].name}
+          tone={chosen ? ButtonTone.Primary : ButtonTone.Quiet}
+          pressed={chosen}
+          hint={TOOLS[tool].does}
+          {...shortcutOf(commands, id)}
           onClick={() => {
             commands.run(id, { view: panel });
           }}
-        >
-          {TOOLS[tool].name}
-        </Button>
-      </ControlBarItem>
-    );
+        />
+      </ControlBarItem>,
+    ];
   });
 }
 
@@ -81,22 +134,21 @@ function CombinationButtons({
 }): ReactNode {
   return Object.values(SpectralCombination).map((combination) => {
     const id = `editor.spectral-combination-${combination}`;
-    const shortcut = commands.shortcutFor(id);
     const chosen = state.spectralTools.combination === combination;
-    const does = `A shape drawn with no modifier held ${COMBINATIONS[combination].does} the spectral selection.`;
     return (
       <ControlBarItem key={combination}>
-        <Button
+        <IconButton
           compact
+          icon={COMBINATION_GLYPHS[combination]}
+          label={COMBINATIONS[combination].name}
           tone={chosen ? ButtonTone.Primary : ButtonTone.Quiet}
-          aria-pressed={chosen}
-          title={shortcut === undefined ? does : `${does} (${shortcut})`}
+          pressed={chosen}
+          hint={`A shape drawn with no modifier held ${COMBINATIONS[combination].does} the spectral selection.`}
+          {...shortcutOf(commands, id)}
           onClick={() => {
             commands.run(id, { view: panel });
           }}
-        >
-          {COMBINATIONS[combination].name}
-        </Button>
+        />
       </ControlBarItem>
     );
   });
@@ -145,36 +197,26 @@ function ZoomBar({
   readonly state: EditorViewState;
   readonly commands: ToolbarCommands;
 }): ReactNode {
-  const zoom = (id: string, label: string): ReactNode => {
-    const shortcut = commands.shortcutFor(id);
-    return (
-      <ControlBarButton
-        label={label}
-        {...(shortcut === undefined ? {} : { shortcut })}
-        onPress={() => {
-          commands.run(id, { view: panel });
-        }}
-      />
-    );
-  };
+  const button = (id: string, label: string, icon: IconName, pressed?: boolean): ReactNode => (
+    <ControlBarButton
+      label={label}
+      icon={icon}
+      hint={commands.labelFor(id)}
+      {...shortcutOf(commands, id)}
+      {...(pressed === undefined ? {} : { pressed })}
+      onPress={() => {
+        commands.run(id, { view: panel });
+      }}
+    />
+  );
   return (
     <ControlBar label="Zoom">
-      {zoom('editor.zoom-in', 'Zoom in')}
-      {zoom('editor.zoom-out', 'Zoom out')}
-      {zoom('editor.zoom-to-fit', 'Fit')}
-      {zoom('editor.zoom-to-selection', 'Selection')}
-      <ControlBarItem>
-        <Button
-          compact
-          tone={ButtonTone.Quiet}
-          aria-pressed={state.snapping.enabled}
-          onClick={() => {
-            commands.run('editor.toggle-snapping', { view: panel });
-          }}
-        >
-          Snap
-        </Button>
-      </ControlBarItem>
+      {button('editor.zoom-in', 'Zoom in', 'zoom-in')}
+      {button('editor.zoom-out', 'Zoom out', 'zoom-out')}
+      {button('editor.zoom-to-fit', 'Fit', 'zoom-to-fit')}
+      {button('editor.zoom-to-selection', 'Selection', 'zoom-to-selection')}
+      <ControlBarSeparator />
+      {button('editor.toggle-snapping', 'Snap', 'snap', state.snapping.enabled)}
     </ControlBar>
   );
 }
@@ -197,6 +239,7 @@ function Choices({
         options={Object.values(DisplayMode).map((mode) => ({
           value: mode,
           label: DISPLAY_MODES[mode],
+          icon: DISPLAY_GLYPHS[mode],
         }))}
         onValueChange={(mode) => {
           commands.run(`editor.display-${mode}`, { view: panel });
@@ -240,10 +283,10 @@ export function EditorToolbar({
         </ControlBar>
       )}
       <ZoomBar panel={panel} state={state} commands={commands} />
-      <Choices panel={panel} state={state} commands={commands} />
       <ControlBar label="Channels shown">
         <ChannelButtons panel={panel} asset={asset} state={state} commands={commands} />
       </ControlBar>
+      <Choices panel={panel} state={state} commands={commands} />
     </div>
   );
 }

@@ -15,17 +15,44 @@ import type { IconName } from '../../icons/vocabulary.js';
 import { DialogueNotice, useDialogueOpen } from '../announcement.js';
 import { Button, ButtonTone } from '../button.js';
 import { useFocusReturn } from '../focus-return.js';
+import { Hint, type HintProps } from './hint.js';
 
-/** What a dialogue takes. */
-export interface ModalDialogProps {
+/**
+ * What kind of dialogue it is, which sets its width from the density's
+ * `--ag-dialogue-width-*` token: a dialogue is as wide as what it holds needs.
+ */
+export const DialogueVariant = {
+  /** One thing under way, such as a file exporting. */
+  Narrow: 'narrow',
+
+  /** A prompt or a confirmation: a sentence or two and its actions. */
+  Standard: 'standard',
+
+  /** Sections and forms, such as Projects or Export. */
+  Wide: 'wide',
+
+  /** Pages of its own, such as Settings or a guided workflow. */
+  Spacious: 'spacious',
+
+  /**
+   * The command palette: its field is its head, so the title and the
+   * description are said to a screen reader and not drawn, what it holds runs
+   * to its edges, and it hangs from a fixed place near the top of the window,
+   * so its field stays where it was as the list under it grows and shrinks.
+   */
+  Palette: 'palette',
+} as const;
+
+/** What kind of dialogue it is. */
+export type DialogueVariant = (typeof DialogueVariant)[keyof typeof DialogueVariant];
+
+/** What every dialogue takes, whatever its kind. */
+export interface DialogueFields {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 
   /** The dialogue's heading, a few words such as "File already exists". Also its accessible name. */
   readonly title: string;
-
-  /** The glyph before the title, in the accent. */
-  readonly icon?: IconName;
 
   /**
    * A sentence describing what the dialogue is for: the explanation the terse
@@ -38,19 +65,12 @@ export interface ModalDialogProps {
    */
   readonly description: string;
 
-  /**
-   * The accessible name of a close button at the header's far end, where the
-   * dialogue has one. Without it the dialogue closes by Escape and by its own
-   * actions alone.
-   */
-  readonly closeLabel?: string;
-
   readonly children: ReactNode;
 
   /**
    * The footer's leading side: a status, or the reason the main action cannot
    * be taken. Where the dialogue is too narrow for it beside the actions, it
-   * sits above them.
+   * sits above them. The palette's key hints go here.
    */
   readonly status?: ReactNode;
 
@@ -61,6 +81,50 @@ export interface ModalDialogProps {
    */
   readonly actions?: ReactNode;
 }
+
+/** The head a dialogue draws: every kind but the palette. */
+export interface DrawnDialogueHead {
+  /** What kind of dialogue it is, which sets its width. Standard when left out. */
+  readonly variant?: Exclude<DialogueVariant, typeof DialogueVariant.Palette>;
+
+  /** The glyph before the title, in the accent. */
+  readonly icon?: IconName;
+
+  /**
+   * An (i) beside the title, holding what the dialogue as a whole is for where
+   * that needs more than its description (design language, section 13).
+   */
+  readonly hint?: HintProps;
+
+  /**
+   * The dialogue's own controls in its header, between the title and the close
+   * button: the segmented choice of its sections, as Projects has.
+   */
+  readonly headerControls?: ReactNode;
+
+  /**
+   * The accessible name of a close button at the header's far end, where the
+   * dialogue has one. Without it the dialogue closes by Escape and by its own
+   * actions alone.
+   */
+  readonly closeLabel?: string;
+}
+
+/**
+ * The palette's head, which is said and not drawn, so it holds nothing a
+ * reader would have to see or press: a control in it would be reached by Tab
+ * and be invisible.
+ */
+export interface PaletteDialogueHead {
+  readonly variant: typeof DialogueVariant.Palette;
+  readonly icon?: never;
+  readonly hint?: never;
+  readonly headerControls?: never;
+  readonly closeLabel?: never;
+}
+
+/** What a dialogue takes. */
+export type ModalDialogProps = DialogueFields & (DrawnDialogueHead | PaletteDialogueHead);
 
 /**
  * Leaves Escape to a control that records key presses while it listens.
@@ -78,16 +142,27 @@ function leaveEscapeToRecorder(event: KeyboardEvent): void {
   }
 }
 
-/** The glyph in the accent, the terse title, and the close button at the far end. */
+/**
+ * The glyph in the accent, the terse title and its hint, the dialogue's own
+ * controls, and the close button at the far end.
+ */
 function DialogueHeader({
   title,
   icon,
+  hint,
+  headerControls,
   closeLabel,
-}: Pick<ModalDialogProps, 'title' | 'icon' | 'closeLabel'>): ReactNode {
+}: Pick<DialogueFields, 'title'> & Omit<DrawnDialogueHead, 'variant'>): ReactNode {
   return (
     <header className="ag-dialog-header">
-      {icon !== undefined && <Icon name={icon} />}
-      <Dialog.Title className="ag-dialog-title">{title}</Dialog.Title>
+      <div className="ag-dialog-heading">
+        {icon !== undefined && <Icon name={icon} />}
+        <Dialog.Title className="ag-dialog-title">{title}</Dialog.Title>
+        {hint !== undefined && <Hint {...hint} />}
+      </div>
+      {headerControls !== undefined && (
+        <div className="ag-dialog-header-controls">{headerControls}</div>
+      )}
       {closeLabel !== undefined && (
         <Dialog.Close asChild>
           <Button tone={ButtonTone.Quiet} iconOnly label={closeLabel}>
@@ -96,6 +171,44 @@ function DialogueHeader({
         </Dialog.Close>
       )}
     </header>
+  );
+}
+
+/**
+ * The dialogue's head: the palette's title, said and not drawn, or the header
+ * of every other kind.
+ */
+function DialogueHead({ props }: { readonly props: ModalDialogProps }): ReactNode {
+  if (props.variant === DialogueVariant.Palette) {
+    return <Dialog.Title className="ag-visually-hidden">{props.title}</Dialog.Title>;
+  }
+  return (
+    <DialogueHeader
+      title={props.title}
+      {...(props.icon === undefined ? {} : { icon: props.icon })}
+      {...(props.hint === undefined ? {} : { hint: props.hint })}
+      {...(props.headerControls === undefined ? {} : { headerControls: props.headerControls })}
+      {...(props.closeLabel === undefined ? {} : { closeLabel: props.closeLabel })}
+    />
+  );
+}
+
+/** The refusal raised while the dialogue is open, its status and its actions. */
+function DialogueFooter({
+  dialogue,
+  status,
+  actions,
+}: {
+  readonly dialogue: string;
+  readonly status: ReactNode;
+  readonly actions: ReactNode;
+}): ReactNode {
+  return (
+    <div className="ag-dialog-footer">
+      <DialogueNotice dialogue={dialogue} />
+      {status !== undefined && <div className="ag-dialog-status">{status}</div>}
+      {actions !== undefined && <div className="ag-dialog-actions">{actions}</div>}
+    </div>
   );
 }
 
@@ -113,17 +226,10 @@ function DialogueHeader({
  * scrolls as a whole, and the reader can scroll to the part of a refusal the
  * control they are on leaves out of sight.
  */
-export function ModalDialog({
-  open,
-  onOpenChange,
-  title,
-  icon,
-  description,
-  closeLabel,
-  children,
-  status,
-  actions,
-}: ModalDialogProps): ReactNode {
+export function ModalDialog(props: ModalDialogProps): ReactNode {
+  const { open, onOpenChange, description, children, status, actions } = props;
+  const variant = props.variant ?? DialogueVariant.Standard;
+
   const content = useRef<HTMLDivElement | null>(null);
 
   const restoreFocus = useFocusReturn(content);
@@ -138,6 +244,7 @@ export function ModalDialog({
         <Dialog.Content
           ref={content}
           className="ag-dialog"
+          data-ag-variant={variant}
           // Said of itself, as Radix leaves unsaid: the page behind is inert
           // while it is open, which assistive technology is told by this and
           // the application's shortcuts read from it.
@@ -151,20 +258,18 @@ export function ModalDialog({
             if (restoreFocus()) event.preventDefault();
           }}
         >
-          <DialogueHeader
-            title={title}
-            {...(icon === undefined ? {} : { icon })}
-            {...(closeLabel === undefined ? {} : { closeLabel })}
-          />
+          <DialogueHead props={props} />
           <div className="ag-dialog-scroll">
-            <Dialog.Description className="ag-dialog-description">{description}</Dialog.Description>
+            <Dialog.Description
+              className={
+                variant === DialogueVariant.Palette ? 'ag-visually-hidden' : 'ag-dialog-description'
+              }
+            >
+              {description}
+            </Dialog.Description>
             <div className="ag-dialog-body">{children}</div>
           </div>
-          <div className="ag-dialog-footer">
-            <DialogueNotice dialogue={dialogue} />
-            {status !== undefined && <div className="ag-dialog-status">{status}</div>}
-            {actions !== undefined && <div className="ag-dialog-actions">{actions}</div>}
-          </div>
+          <DialogueFooter dialogue={dialogue} status={status} actions={actions} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

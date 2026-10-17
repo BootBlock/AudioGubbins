@@ -9,6 +9,7 @@
 
 import { useId, type ReactNode } from 'react';
 
+import { ButtonTone, Section } from '@audiogubbins/design-system';
 import type { LoopCandidate } from '@audiogubbins/loop-analysis';
 
 import { judgedWords } from '../../analysis/loop-analysing.js';
@@ -24,8 +25,8 @@ export interface CandidateTarget {
   readonly refusal: string | undefined;
 }
 
-/** A candidate's controls: hear it and apply it, each with its suggested crossfade where it has one. */
-function CandidateActions({
+/** A candidate's hearing: alone, and with its suggested crossfade where it has one. */
+function CandidateHearing({
   candidate,
   target,
   commands,
@@ -36,36 +37,73 @@ function CandidateActions({
 }): ReactNode {
   const rank = String(candidate.rank);
   const args = { view: target.view, region: target.region, rank: candidate.rank };
-  const faded = candidate.crossfade !== undefined;
-  const actions = [
-    ['loop.audition-candidate', `Hear candidate ${rank}`, args],
-    ...(faded
-      ? ([
-          [
-            'loop.audition-candidate',
-            `Hear candidate ${rank} with its crossfade`,
-            { ...args, crossfade: true },
-          ],
-        ] as const)
-      : []),
-    ['loop.apply-candidate', `Apply candidate ${rank}`, args],
-    ...(faded
-      ? ([['loop.apply-crossfade', `Apply candidate ${rank} with its crossfade`, args]] as const)
-      : []),
-  ] as const;
   return (
-    <div className="ag-loop-actions" role="group" aria-label={`Candidate ${rank}`}>
-      {actions.map(([id, label, given]) => (
+    <span className="ag-loop-candidate-hearing">
+      <CommandButton
+        id="loop.audition-candidate"
+        label={`Hear candidate ${rank}`}
+        commands={commands}
+        args={args}
+        refusal={target.refusal}
+        compact
+        iconOnly
+      />
+      {candidate.crossfade !== undefined && (
         <CommandButton
-          key={label}
-          id={id}
-          label={label}
+          id="loop.audition-candidate"
+          icon="audition-crossfade"
+          label={`Hear candidate ${rank} with its crossfade`}
           commands={commands}
-          args={given}
+          args={{ ...args, crossfade: true }}
+          refusal={target.refusal}
+          compact
+          iconOnly
+        />
+      )}
+    </span>
+  );
+}
+
+/**
+ * A candidate's applying, alone and with its suggested crossfade where it has
+ * one; the best candidate's Apply is the call to action.
+ */
+function CandidateApplying({
+  candidate,
+  best,
+  target,
+  commands,
+}: {
+  readonly candidate: LoopCandidate;
+  readonly best: boolean;
+  readonly target: CandidateTarget;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const rank = String(candidate.rank);
+  const args = { view: target.view, region: target.region, rank: candidate.rank };
+  return (
+    <div className="ag-control-row" role="group" aria-label={`Candidate ${rank}`}>
+      <CommandButton
+        id="loop.apply-candidate"
+        label="Apply"
+        name={`Apply candidate ${rank}`}
+        commands={commands}
+        args={args}
+        refusal={target.refusal}
+        {...(best ? { tone: ButtonTone.Primary } : {})}
+        compact
+      />
+      {candidate.crossfade !== undefined && (
+        <CommandButton
+          id="loop.apply-crossfade"
+          label="Apply with its crossfade"
+          name={`Apply candidate ${rank} with its crossfade`}
+          commands={commands}
+          args={args}
           refusal={target.refusal}
           compact
         />
-      ))}
+      )}
     </div>
   );
 }
@@ -73,6 +111,7 @@ function CandidateActions({
 /** One candidate: where it loops, how it is judged, its suggestion, and its controls. */
 function Candidate({
   candidate,
+  best,
   sampleRate,
   channels,
   position,
@@ -80,6 +119,8 @@ function Candidate({
   commands,
 }: {
   readonly candidate: LoopCandidate;
+  /** Whether it is the best found, drawn as the chosen card. */
+  readonly best: boolean;
   readonly sampleRate: number;
   readonly channels: readonly string[];
   readonly position: (frames: number) => string;
@@ -88,21 +129,29 @@ function Candidate({
 }): ReactNode {
   const rank = String(candidate.rank);
   return (
-    <li className="ag-loop-candidate">
-      <h4 className="ag-analysis-heading">
-        {`Candidate ${rank}: ${position(candidate.start)} to ${position(candidate.end)}`}
-      </h4>
-      <p>{`${candidateMoveWords(candidate)}. Without a crossfade it ${judgedWords(candidate.metrics)}.`}</p>
-      <p>{`Suggested crossfade: ${suggestionWords(candidate, sampleRate)}`}</p>
-      <CandidateActions candidate={candidate} target={target} commands={commands} />
-      <details>
-        <summary>{`Candidate ${rank}’s checks`}</summary>
+    <li className="ag-loop-candidate" data-ag-best={best ? '' : undefined}>
+      <div className="ag-loop-candidate-head">
+        <span className="ag-loop-candidate-rank" aria-hidden="true">
+          {rank}
+        </span>
+        <h4 className="ag-loop-candidate-name">
+          <span className="ag-visually-hidden">{`Candidate ${rank}: `}</span>
+          <span className="ag-figure">{`${position(candidate.start)} to ${position(candidate.end)}`}</span>
+        </h4>
+        <CandidateHearing candidate={candidate} target={target} commands={commands} />
+      </div>
+      <p className="ag-loop-candidate-text">{`${candidateMoveWords(candidate)}. Without a crossfade it ${judgedWords(candidate.metrics)}.`}</p>
+      <p className="ag-loop-candidate-text" data-ag-quiet="">
+        {`Suggested crossfade: ${suggestionWords(candidate, sampleRate)}`}
+      </p>
+      <CandidateApplying candidate={candidate} best={best} target={target} commands={commands} />
+      <Section title={`Candidate ${rank}’s checks`} defaultOpen={false}>
         <ChecksTable
           metrics={candidate.metrics}
           channels={channels}
           caption={`The checks of candidate ${rank}, measured without a crossfade`}
         />
-      </details>
+      </Section>
     </li>
   );
 }
@@ -125,18 +174,19 @@ export function LoopCandidates({
 }): ReactNode {
   const heading = useId();
   return (
-    <section aria-labelledby={heading}>
-      <h3 className="ag-analysis-heading" id={heading}>
+    <section className="ag-loop-candidates" aria-labelledby={heading}>
+      <h3 className="ag-loop-group-title" id={heading}>
         Candidate loop points, best first
       </h3>
       {candidates.length === 0 ? (
-        <p className="ag-panel-note">No loop points near these were found.</p>
+        <p className="ag-loop-heard">No loop points near these were found.</p>
       ) : (
-        <ol className="ag-loop-candidates">
-          {candidates.map((candidate) => (
+        <ol className="ag-loop-candidate-list">
+          {candidates.map((candidate, index) => (
             <Candidate
               key={`${String(candidate.start)}:${String(candidate.end)}`}
               candidate={candidate}
+              best={index === 0}
               sampleRate={sampleRate}
               channels={channels}
               position={position}

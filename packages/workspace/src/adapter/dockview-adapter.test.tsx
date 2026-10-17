@@ -6,6 +6,7 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { DockRegion, type PanelDescriptor, type WorkspaceLayout } from '../panel.js';
 import { createDockMemory } from './dock-memory.js';
+import { DockMotionLevel, type DockMotion } from './dock-motion.js';
 import { DockHost } from './dockview-adapter.js';
 
 /**
@@ -32,13 +33,34 @@ interface AddedPanel {
   readonly minimumHeight?: number;
 }
 
+/** A structural change the engine brackets, as it reports one. */
+interface MutationEvent {
+  readonly kind: string;
+  readonly origin: 'user' | 'api';
+}
+
 /** What the replacement engine exposes to a test. */
 const engine = {
   changed: undefined as (() => void) | undefined,
   disposed: 0,
   groups: [] as unknown[],
   added: [] as AddedPanel[],
+  willMutate: new Set<(event: MutationEvent) => void>(),
+  didMutate: new Set<(event: MutationEvent) => void>(),
 };
+
+/** A subscription to an event the engine raises that no test here raises. */
+const QUIET = { dispose: () => undefined };
+
+/** Adds a listener to one of the engine's events, until its subscription is disposed. */
+function listening<T>(listeners: Set<(event: T) => void>, listener: (event: T) => void) {
+  listeners.add(listener);
+  return {
+    dispose: () => {
+      listeners.delete(listener);
+    },
+  };
+}
 
 vi.mock('dockview-react', () => ({
   DockviewReact: ({ onReady }: { onReady: (event: { api: unknown }) => void }): ReactNode => {
@@ -56,6 +78,14 @@ vi.mock('dockview-react', () => ({
             return { id: options.id };
           },
           getPanel: () => undefined,
+          onWillMutateLayout: (listener: (event: MutationEvent) => void) =>
+            listening(engine.willMutate, listener),
+          onDidMutateLayout: (listener: (event: MutationEvent) => void) =>
+            listening(engine.didMutate, listener),
+          onDidAddGroup: () => QUIET,
+          onDidRemoveGroup: () => QUIET,
+          onWillDragPanel: () => QUIET,
+          onWillDragGroup: () => QUIET,
           onDidLayoutChange: (listener: () => void) => {
             engine.changed = listener;
             return {
@@ -87,6 +117,8 @@ beforeEach(() => {
   engine.disposed = 0;
   engine.groups = [];
   engine.added = [];
+  engine.willMutate.clear();
+  engine.didMutate.clear();
   frames.clear();
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     nextFrame += 1;
@@ -102,6 +134,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+/** The full motion level, at the language's timings. */
+const FULL_MOTION: DockMotion = {
+  level: DockMotionLevel.Full,
+  move: { duration: 240, easing: 'ease-in-out' },
+  enter: { duration: 240, easing: 'ease-out' },
+  enterScale: 0.98,
+};
 
 const EMPTY: WorkspaceLayout = {
   schemaVersion: SCHEMA_VERSIONS.workspaceLayout,
@@ -124,12 +164,45 @@ function mountDock(
       onArrangementChange={onArrangementChange}
       dark
       memory={createDockMemory()}
+      motion={FULL_MOTION}
     />,
   );
   return { ...mounted, onArrangementChange };
 }
 
 describe('DockHost', () => {
+  it('settles the groups a drop the user made moved, and none a change of its own moved', () => {
+    // The engine brackets every structural change, its own as the dock is built
+    // as well as a drop: one built by the adapter is the stage's transition to
+    // draw, and easing it here as well would move each group twice.
+    mountDock();
+    const element = document.createElement('div');
+    let drawn = { x: 300, y: 0, width: 200, height: 400 };
+    element.getBoundingClientRect = () => DOMRectReadOnly.fromRect(drawn);
+    const animate = vi.fn();
+    element.animate = animate;
+    engine.groups = [
+      {
+        element,
+        panels: [{ id: 'inspector' }],
+        activePanel: { id: 'inspector' },
+        api: { location: { type: 'grid' } },
+      },
+    ];
+
+    const mutate = (origin: 'user' | 'api', to: typeof drawn): void => {
+      for (const listener of engine.willMutate) listener({ kind: 'move', origin });
+      drawn = to;
+      for (const listener of engine.didMutate) listener({ kind: 'move', origin });
+    };
+
+    mutate('api', { x: 100, y: 0, width: 400, height: 400 });
+    expect(animate).not.toHaveBeenCalled();
+
+    mutate('user', { x: 300, y: 0, width: 200, height: 400 });
+    expect(animate).toHaveBeenCalledTimes(1);
+  });
+
   it('reports nothing once it has gone, and leaves no frame or subscription behind', () => {
     const { unmount, onArrangementChange } = mountDock();
 

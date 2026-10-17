@@ -139,10 +139,15 @@ async function measureFaderDrag(page: Page): Promise<readonly number[]> {
   await page.getByRole('menuitem', { name: 'Gain', exact: true }).click();
   await said(page, 'Gave “Tone” a rack, with “Gain” in it.');
   await rack.getByRole('button', { name: 'Gain', exact: true }).click();
-  const track = rack.locator('.ag-slider').first();
+  // The baseline dragged the slot's Mix slider, the first slider the rack drew
+  // then, so the comparison holds only while this drags the same control:
+  // found by its name, since the rack draws other sliders before it now. The
+  // drag runs along its track, which holds the thumb the name is on.
+  const mix = rack.getByRole('slider', { name: 'Mix of “Gain”', exact: true });
+  const track = rack.locator('.ag-slider').filter({ has: mix });
   await expect(track).toBeVisible();
   const box = await track.boundingBox();
-  if (box === null) throw new Error('The gain fader has no box on the page.');
+  if (box === null) throw new Error('The Mix slider has no box on the page.');
   const y = box.y + box.height / 2;
   return await measureDrag(
     page,

@@ -1,0 +1,243 @@
+/*
+ * A guided workflow's dialogue (design language, sections 10 and 11): what it
+ * runs on, its options each with its label over its control and where its
+ * value came from at the label line's end, numbers side by side, the analyses
+ * on one line, a loop chosen for each region in a well, every item of the plan
+ * in a well with its standing, and once applied, the step said under a mark.
+ */
+
+.ag-workflow {
+  display: flex;
+  flex-direction: column;
+  gap: calc(1.5 * var(--ag-space-inset));
+  min-inline-size: 0;
+}
+
+.ag-workflow-subject,
+.ag-workflow-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+  min-inline-size: 0;
+}
+
+/* An option: its label over its control, so a long label and a long value each have the line. */
+.ag-workflow-option {
+  display: grid;
+  align-content: start;
+  gap: var(--ag-space-tiny);
+  min-inline-size: 0;
+}
+
+.ag-workflow .ag-select-field {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-workflow :is(.ag-select-label, .ag-text-field-label) {
+  min-inline-size: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-regular);
+}
+
+/*
+ * Where the value came from: at the end of the label's line. The field's own
+ * parts are laid on the option's grid, so the label and the chip share the
+ * first line and the control and what it says take the whole width under them.
+ */
+.ag-workflow-option[data-ag-source-place='heading'] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--ag-space-small);
+}
+
+.ag-workflow-option[data-ag-source-place='heading'] > :is(.ag-select-field, .ag-text-field) {
+  display: contents;
+}
+
+.ag-workflow-option[data-ag-source-place='heading'] :is(.ag-select-label, .ag-text-field-label) {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.ag-workflow-option[data-ag-source-place='heading'] > .ag-workflow-source {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.ag-workflow-option[data-ag-source-place='heading']
+  :is(.ag-select-trigger, .ag-text-field-box, .ag-text-field-description, .ag-text-field-error) {
+  grid-column: 1 / -1;
+}
+
+/* A switch's chip sits on its line, after it. */
+.ag-workflow-option[data-ag-source-place='heading'] > .ag-switch-field {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+/* Under a number, the chip starts where the field starts. */
+.ag-workflow-option[data-ag-source-place='under'] > .ag-workflow-source {
+  justify-self: start;
+}
+
+/* Two options side by side, such as a destination and its new group's name. */
+.ag-workflow-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(110 * var(--ag-grid-unit)), 1fr));
+  gap: var(--ag-space-inset);
+}
+
+/* The number options, side by side, their fields kept level. */
+.ag-workflow-numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(56 * var(--ag-grid-unit)), 1fr));
+  align-items: end;
+  gap: var(--ag-space-inset);
+}
+
+/* A number's field is as narrow as its cell, whatever width the browser gives a text input. */
+.ag-workflow-numbers :is(.ag-text-field, .ag-text-field-box) {
+  min-inline-size: 0;
+}
+
+.ag-workflow-numbers .ag-text-field-input {
+  inline-size: 0;
+}
+
+/* The analyses: a mark, how many are analysed, and the button that runs or stops them. */
+.ag-workflow-analyses {
+  display: grid;
+  gap: var(--ag-space-small);
+  font-size: var(--ag-text-label);
+}
+
+.ag-workflow-analyses[data-ag-running] {
+  padding: var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  box-shadow: inset 0 0 0 var(--ag-space-hair) var(--ag-chrome-edge-accent);
+}
+
+.ag-workflow-analyses-line {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-workflow-progress {
+  flex: 1 1 auto;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-workflow-analysed {
+  color: var(--ag-chrome-status-success);
+}
+
+/* A region's loop, chosen in a well of its own. */
+.ag-workflow-loop-choice {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  padding: var(--ag-space-inset);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+/* What it will do: how many items, then each item in a well. */
+.ag-workflow-section {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-workflow-summary {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-workflow-items {
+  display: grid;
+  margin: 0;
+  padding: var(--ag-space-tiny);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+  list-style: none;
+}
+
+.ag-workflow-items:empty {
+  display: none;
+}
+
+.ag-workflow-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ag-space-micro) var(--ag-space-small);
+  padding: var(--ag-space-small) var(--ag-space-inset);
+  font-size: var(--ag-text-label);
+}
+
+.ag-workflow-item + .ag-workflow-item {
+  border-block-start: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+}
+
+.ag-workflow-item-name {
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.ag-workflow-changes {
+  grid-column: 1 / -1;
+  margin: 0;
+  list-style: disc;
+  padding-inline-start: var(--ag-space-large);
+  color: var(--ag-chrome-text-secondary);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* Applied: the step said under a lit mark, in the middle of the dialogue. */
+.ag-workflow-done {
+  display: grid;
+  justify-items: center;
+  gap: var(--ag-space-inset);
+  padding-block: calc(2 * var(--ag-space-inset));
+  text-align: center;
+}
+
+.ag-workflow-done-mark {
+  display: grid;
+  place-items: center;
+  inline-size: calc(26 * var(--ag-grid-unit));
+  block-size: calc(26 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  color: var(--ag-chrome-status-success);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--ag-chrome-status-success) 24%, transparent),
+    transparent 70%
+  );
+  box-shadow:
+    inset 0 0 0 var(--ag-space-hair)
+      color-mix(in oklch, var(--ag-chrome-status-success) 40%, transparent),
+    0 0 var(--ag-space-huge) calc(-3 * var(--ag-grid-unit)) var(--ag-chrome-status-success);
+}
+
+.ag-workflow-done-text {
+  max-inline-size: calc(210 * var(--ag-grid-unit));
+  margin: 0;
+  line-height: var(--ag-text-line-height-body);
+}
+
+/* Why nothing can be planned yet, each reason a line of the banner that takes the plan's place. */
+.ag-workflow-reasons {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

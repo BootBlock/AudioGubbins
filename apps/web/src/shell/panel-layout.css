@@ -1,0 +1,71 @@
+/*
+ * The layout a panel's body shares with its neighbours (design language,
+ * section 11): its parts stacked one inset apart under its header, a row of
+ * controls that wraps, a figure in the numeric family, and a table whose rows
+ * are headed by their first cell.
+ */
+
+/* A panel's parts, one inset apart under its header. */
+.ag-stacked-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+}
+
+/* The panel's padding is the one inset round its header: the header, which
+   insets itself where it stands alone, adds none inside it. */
+.ag-stacked-panel > .ag-panel-header {
+  padding: 0;
+}
+
+/* A row of controls that wraps rather than overflowing a narrow panel. */
+.ag-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* A figure, a target or a path, in the numeric family, wrapping anywhere. */
+.ag-figure {
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * A table whose rows are headed by their first cell, in the design system's
+ * table frame. The design system's table heads its columns only, and draws
+ * every header cell as its head row, so a row's own header is drawn here as a
+ * body cell.
+ */
+.ag-row-headed-table {
+  font-size: var(--ag-text-label);
+}
+
+.ag-row-headed-table tbody th[scope='row'] {
+  block-size: calc(var(--ag-control-height) + var(--ag-grid-unit) * 2);
+  padding-block: calc(var(--ag-grid-unit) * 2);
+  background-color: transparent;
+  color: var(--ag-chrome-text-primary);
+  font-size: inherit;
+  font-weight: var(--ag-text-weight-regular);
+  letter-spacing: normal;
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: none;
+}
+
+.ag-row-headed-table tbody tr + tr th[scope='row'] {
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-row-headed-table td[data-ag-quiet] {
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* A row's small actions, at its trailing end and no wider than they are. */
+.ag-row-headed-table td[data-ag-kind='action'] {
+  inline-size: 0;
+  text-align: end;
+  white-space: nowrap;
+}

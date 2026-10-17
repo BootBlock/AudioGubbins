@@ -32,9 +32,9 @@ import {
   type KeyPress,
   type KeyboardLayout,
 } from '@audiogubbins/input';
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { Button, ButtonTone, IconButton, ShortcutKeys } from '@audiogubbins/design-system';
 
-import { ReasonedButton } from './reasoned-button.js';
+import { optionalReason } from '../optional-reason.js';
 
 /** How many presses a recorded chord may have. */
 const MAXIMUM_PRESSES = 3;
@@ -150,11 +150,17 @@ export function ShortcutRecorder({
         }}
         onKeyDown={onKeyDown}
       >
-        {recorded === undefined
-          ? listening
-            ? 'Press the keys'
-            : 'Nothing recorded'
-          : describeShortcut(recorded, convention, layout)}
+        {recorded === undefined ? (
+          listening ? (
+            'Press the keys'
+          ) : (
+            'Nothing recorded'
+          )
+        ) : (
+          // The caps keep the platform's own writing as their text, so the
+          // field reads as `describeShortcut` writes the combination.
+          <ShortcutKeys shortcut={describeShortcut(recorded, convention, layout)} />
+        )}
       </div>
 
       {/*
@@ -195,45 +201,46 @@ export function ShortcutRecorder({
       </p>
 
       {/*
-        One visible copy of a refusal at a time. Once the recorder stops, Save
-        carries the reason itself and draws it, so the note here would be the
-        same sentence twice on screen and a third reading for anyone listening.
-        While the recorder is still going, Save's reason is that the
-        combination is unfinished, so this is the only place the refusal is
-        shown.
+        The refusal stays on screen while there is one. Save opens its reason
+        only on hover or focus, and while the recorder is still going, Save's
+        reason is that the combination is unfinished, so this is the one place
+        the refusal is always shown.
       */}
-      {refusal !== undefined && listening && (
+      {refusal !== undefined && (
         <p className="ag-settings-note" data-ag-status="unavailable">
           {refusal}
         </p>
       )}
 
-      <div className="ag-settings-row">
+      <div className="ag-shortcut-recorder-actions">
         {/*
-          Reachable while it cannot be used, with the reason tied to it, which
-          is what `ReasonedButton` is for. Given the native `disabled`, Save
-          would leave the tab order whenever a recorded combination was one the
-          platform takes, so a keyboard user would tab from the field straight
-          past it to Record again with no sign that it was there.
+          Reachable while it cannot be used, with the reason tied to it, as an
+          unavailable button is. Given the native `disabled`, Save would leave
+          the tab order whenever a recorded combination was one the platform
+          takes, so a keyboard user would tab from the field straight past it
+          to Record again with no sign that it was there.
         */}
-        <ReasonedButton
+        <Button
           tone={ButtonTone.Primary}
-          reason={whySaveCannotRun(recorded, listening, refusal)}
-          onPress={() => {
+          compact
+          {...optionalReason(whySaveCannotRun(recorded, listening, refusal))}
+          onClick={() => {
             if (recorded !== undefined) onSave(shortcutKey(recorded));
           }}
         >
           Save
-        </ReasonedButton>
-        <Button
+        </Button>
+        <IconButton
+          icon="record-again"
+          label="Record again"
+          hint="Record again"
+          compact
           onClick={() => {
             setPresses([]);
             setListening(true);
           }}
-        >
-          Record again
-        </Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        />
+        <IconButton icon="cancel" label="Cancel" hint="Cancel" compact onClick={onCancel} />
       </div>
     </div>
   );

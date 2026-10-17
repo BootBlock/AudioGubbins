@@ -8,6 +8,7 @@ import {
   meetsContrast,
   mix,
   oklch,
+  oklchToCanvasColour,
   oklchToCss,
   oklchToHex,
   oklchToSrgb,
@@ -263,6 +264,19 @@ describe('CSS output', () => {
     expect(oklchToHex(srgbToOklch(srgb(1, 1, 1)))).toBe('#ffffff');
     expect(oklchToHex(srgbToOklch(srgb(0, 0, 0)))).toBe('#000000');
     expect(oklchToHex(srgbToOklch(srgb(1, 0, 0)))).toBe('#ff0000');
+  });
+
+  it('keeps a translucent colour’s alpha for a canvas, as a fourth pair of digits', () => {
+    // A canvas given `oklchToHex` drew a fill meant at a fifth as a solid
+    // block, unless it appended an alpha of its own.
+    expect(oklchToCanvasColour(withAlpha(srgbToOklch(srgb(1, 0, 0)), 0.2))).toBe('#ff000033');
+    expect(oklchToCanvasColour(withAlpha(srgbToOklch(srgb(0, 0, 0)), 0))).toBe('#00000000');
+  });
+
+  it('writes an opaque colour for a canvas as the page’s hexadecimal value', () => {
+    const red = srgbToOklch(srgb(1, 0, 0));
+    expect(oklchToCanvasColour(red)).toBe('#ff0000');
+    expect(oklchToCanvasColour(red)).toBe(oklchToHex(red));
   });
 });
 

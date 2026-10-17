@@ -1,140 +1,254 @@
 /*
- * The workspace stylesheet.
+ * The workspace stylesheet: the dock chrome, and the dock's motion.
  *
  * Re-exports the docking engine's own stylesheet so that the application never
  * names the engine. REQ-ARCH-151 keeps Dockview behind AudioGubbins-owned
  * contracts, and an application that imported the engine's CSS by name would
  * have to be edited to replace it, which is exactly what the containment is
- * for.
+ * for. This is the only place the engine is restyled (ADR-0010): through its
+ * own custom properties where it offers one, and by its classes where not.
  *
- * The overrides below map the engine's appearance onto the AudioGubbins tokens,
- * so the dock follows the theme, the density and the contrast settings like
- * everything else (REQ-UX-155).
+ * Every value reads a token (REQ-UX-155 clause 155.1). A length the design
+ * language states that no token carries is a multiple of `--ag-grid-unit`, a
+ * share of a colour a percentage given to `color-mix`. What moves names what it
+ * moves and takes its duration and easing from the motion tokens, which are 0
+ * and `linear` at the Minimal level; a loop is selected only at the full level
+ * (design language, MotionSpec).
  */
 
 @import 'dockview/dist/styles/dockview.css';
 
+/*
+ * The engine's own properties, set on its shell, which holds the floating
+ * groups as well as the grid, and on its themed element inside it, whose
+ * theme's values they take the place of.
+ */
+.dv-shell,
 .dockview-theme-dark,
 .dockview-theme-light {
-  --dv-background-color: var(--ag-chrome-surface-base);
+  /* The groups are glass over the application's backdrop, so the engine's own
+     surfaces are clear and each group draws its sheet below. */
+  --dv-background-color: transparent;
+  --dv-group-view-background-color: transparent;
   --dv-paneview-active-outline-color: var(--ag-chrome-border-focus);
 
-  --dv-tabs-and-actions-container-background-color: var(--ag-chrome-surface-raised);
-  --dv-tabs-and-actions-container-height: var(--ag-control-height);
-  --dv-tabs-container-scrollbar-color: var(--ag-chrome-border-default);
+  /* The tab strip sits in the group's inset (design language, section 11):
+     one inset above the tabs, and below them one inset less the focus ring's
+     reach, which the panel's body gives back above its first control. */
+  --dv-tabs-and-actions-container-background-color: transparent;
+  --dv-tabs-and-actions-container-height: calc(
+    var(--ag-control-height) + 2 * var(--ag-space-inset) - var(--ag-focus-ring-reach)
+  );
+  --dv-tabs-and-actions-container-font-size: var(--ag-text-body);
+  --dv-tabs-container-scrollbar-color: var(--ag-chrome-edge-quiet);
 
-  --dv-activegroup-visiblepanel-tab-background-color: var(--ag-chrome-surface-raised);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--ag-chrome-surface-sunken);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--ag-chrome-surface-raised);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--ag-chrome-surface-sunken);
+  /* A tab is clear until it is the one shown, which takes the accent wash
+     below, so the engine's four tab colours carry text alone. */
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
 
   --dv-activegroup-visiblepanel-tab-color: var(--ag-chrome-text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--ag-chrome-text-secondary);
-  --dv-inactivegroup-visiblepanel-tab-color: var(--ag-chrome-text-secondary);
-  --dv-inactivegroup-hiddenpanel-tab-color: var(--ag-chrome-text-disabled);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--ag-chrome-text-primary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--ag-chrome-text-secondary);
 
-  --dv-separator-border: var(--ag-chrome-border-subtle);
+  /* The tabs stand two pixels apart, so no divider is drawn between them. */
+  --dv-tab-divider-color: transparent;
+  --dv-tab-margin: 0;
+  --dv-separator-border: transparent;
   --dv-paneview-header-border-color: var(--ag-chrome-border-subtle);
-  --dv-tab-divider-color: var(--ag-chrome-border-subtle);
 
-  --dv-drag-over-background-color: var(--ag-chrome-accent-subtle);
+  --dv-drag-over-background-color: color-mix(in oklch, var(--ag-chrome-accent) 26%, transparent);
   --dv-drag-over-border-color: var(--ag-chrome-accent);
+  --dv-drag-over-border: 1px solid var(--ag-chrome-accent);
 
-  --dv-group-view-background-color: var(--ag-chrome-surface-raised);
-  --dv-active-sash-color: var(--ag-chrome-accent);
+  /* The splitter draws its own line and grip below. */
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: transparent;
+
+  /* A floating group draws its own sheet, shadow and halo. */
+  --dv-floating-border: none;
+  --dv-floating-box-shadow: none;
 
   --dv-font-family: inherit;
-  --dv-font-size: var(--ag-text-label);
+  --dv-font-size: var(--ag-text-body);
+  --dv-tab-font-size: var(--ag-text-body);
+}
+
+/* The stage the dock is built on fills the workspace. */
+.ag-dock-stage {
+  block-size: 100%;
 }
 
 /*
- * A dock tab must be reachable with a finger as well as a pointer. The engine
- * sizes its tabs from its own variable, which the density already drives, so
- * this only widens the hit area (REQ-UX-067).
+ * The gutter between groups: each group stands half of it in from every side
+ * of the view the engine lays it out in, so two groups stand one gutter apart
+ * with the splitter in the middle of it, and the workspace pads the other half
+ * round the whole dock. The engine sizes a group to its view with an inline
+ * style, which only an important rule outranks. A floating group's view is its
+ * own box, so it stands in nothing.
  */
-.dockview-theme-dark .dv-tab,
-.dockview-theme-light .dv-tab {
-  min-inline-size: var(--ag-control-minimum-touch-target);
+.dv-view > .dv-groupview {
+  margin: calc(var(--ag-space-gutter) / 2);
+  inline-size: calc(100% - var(--ag-space-gutter)) !important;
+  block-size: calc(100% - var(--ag-space-gutter)) !important;
+}
+
+.dv-resize-container .dv-view > .dv-groupview {
+  margin: 0;
+  inline-size: 100% !important;
+  block-size: 100% !important;
 }
 
 /*
- * The AudioGubbins tab.
+ * A group: one sheet of glass (design language, section 6), its corners
+ * nested round its tab strip's, and positioned, so the border over the group
+ * in use and the drop guide are drawn over it.
+ */
+[data-ag-theme] .dv-groupview {
+  /* The surface a focus ring's gap is painted in. */
+  --ag-focus-ring-surface: var(--ag-chrome-surface-base);
+  --ag-group-in-use-border-width: calc(var(--ag-grid-unit) * 1);
+
+  position: relative;
+  box-sizing: border-box;
+  border: 1px solid var(--ag-elevation-panel-edge);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-panel-fill);
+  box-shadow: var(--ag-elevation-panel-shadow);
+  backdrop-filter: var(--ag-elevation-panel-backdrop);
+  color: var(--ag-chrome-text-primary);
+}
+
+/* The tab strip, in the group's inset. */
+.dv-shell .dv-tabs-and-actions-container {
+  padding: var(--ag-space-inset) var(--ag-space-inset)
+    calc(var(--ag-space-inset) - var(--ag-focus-ring-reach));
+}
+
+.dv-shell .dv-tabs-container {
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+/*
+ * A tab (design language, "Tabs and panel headers"): h tall, 10 px in, the
+ * glyph 8 px from the title, body size at the control weight, text secondary;
+ * under the pointer the fill hover; shown, the accent wash with a faint accent
+ * edge and its glyph in the accent.
  *
- * The engine's default tab nests a close control inside the element carrying
- * `role="tab"`, which axe reports as a serious violation and which is rendered
- * unreachable by keyboard anyway. This one is the title alone; closing a panel
- * is a command, so it reaches everyone.
+ * Its mark as the shown tab is also a line along its foot, two pixels in the
+ * accent, which every tab reserves in a transparent border so a label never
+ * moves when its tab is shown: the wash alone would tell the shown tab from
+ * the others by colour, which WCAG 1.4.1 does not allow, and five menu entries
+ * act on "this panel". A tab must also be reachable with a finger as well as a
+ * pointer, so it is never narrower than the touch target (REQ-UX-067).
+ */
+.dv-shell .dv-tab {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  block-size: var(--ag-control-height);
+  min-inline-size: var(--ag-control-minimum-touch-target);
+  padding: 0 calc(var(--ag-grid-unit) * 5);
+  border: 1px solid transparent;
+  border-block-end: calc(var(--ag-grid-unit) * 1) solid transparent;
+  border-radius: var(--ag-radius-control);
+  font-weight: var(--ag-text-weight-control);
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+/* The engine paints a tab's fill and text from its own properties, in rules
+   that name the group and the strip, so each state is given as those
+   properties on the tab itself, which its own fill reads. */
+.dv-shell .dv-tab:hover {
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--ag-chrome-fill-hover);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--ag-chrome-fill-hover);
+  --dv-activegroup-hiddenpanel-tab-color: var(--ag-chrome-text-primary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--ag-chrome-text-primary);
+}
+
+.dv-shell .dv-tab.dv-active-tab {
+  --dv-activegroup-visiblepanel-tab-background-color: color-mix(
+    in oklch,
+    var(--ag-chrome-accent) 24%,
+    transparent
+  );
+  --dv-inactivegroup-visiblepanel-tab-background-color: color-mix(
+    in oklch,
+    var(--ag-chrome-accent) 24%,
+    transparent
+  );
+
+  border-color: color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent);
+  border-block-end-color: var(--ag-chrome-accent);
+  transition-duration: var(--ag-motion-quick);
+}
+
+[data-ag-theme='light'] .dv-tab.dv-active-tab {
+  --dv-activegroup-visiblepanel-tab-background-color: color-mix(
+    in oklch,
+    var(--ag-chrome-accent) 16%,
+    transparent
+  );
+  --dv-inactivegroup-visiblepanel-tab-background-color: color-mix(
+    in oklch,
+    var(--ag-chrome-accent) 16%,
+    transparent
+  );
+}
+
+/*
+ * The AudioGubbins tab: the panel's glyph and its title, and nothing that
+ * takes focus of its own (see `AudioGubbinsTab`).
  */
 .ag-dock-tab {
   display: inline-flex;
   align-items: center;
+  gap: calc(var(--ag-grid-unit) * 4);
   block-size: 100%;
-  padding-inline: var(--ag-space-small);
   white-space: nowrap;
+}
+
+.ag-dock-tab > .ag-icon {
+  color: var(--ag-chrome-text-secondary);
+  transition: color var(--ag-motion-quick) var(--ag-motion-ease-out);
+}
+
+.dv-tab.dv-active-tab .ag-dock-tab > .ag-icon {
+  color: var(--ag-chrome-accent);
 }
 
 /*
  * A group's contents scroll inside the group, in the element the keyboard can
- * reach, which the adapter puts in the tab order.
+ * reach, which the adapter puts in the tab order. Its lower corners follow
+ * the group's, so the ring drawn inside it is never cut by the group's.
  */
 .dv-content-container {
   overscroll-behavior: contain;
   overflow: auto;
+  border-end-start-radius: calc(var(--ag-radius-container) - 1px);
+  border-end-end-radius: calc(var(--ag-radius-container) - 1px);
 }
 
 /*
- * Which tab each group is showing, and which group the user is working in.
- *
- * The engine tells both apart by colour alone. Its two groups' tab
- * backgrounds resolve to the same token here, so the only difference between
- * the group in use and the one beside it is primary text against secondary,
- * and the only difference between a shown tab and a hidden one is its
- * background. WCAG 1.4.1 does not allow colour, lightness included, to be the
- * only visual means, and five menu entries act on "this panel": which group
- * is in use is something the user has to be able to see. The Workspace menu
- * names the panel in its heading, which the user sees only after opening it.
- *
- * So the shown tab is underlined and the group in use is outlined, in every
- * theme. In forced colours the same two marks take the platform's selection
- * colour, which the browser keeps: with the engine's own backgrounds and text
- * replaced by the user's, every tab would otherwise look alike there and
- * nothing on screen would say which panel "this panel" is.
- *
- * The first rule is the reserve: an ordinary tab keeps the same two pixels in a
- * transparent border. The shown tab's underline comes out of the tab's content
- * box, because the engine draws a tab as a stretched flex item with no height
- * of its own, so without the reserve a label would move up two pixels the
- * moment its tab became the shown one. The reserve applies in every session, as
- * the underline does, not only in forced colours.
+ * The group in use: its edge drawn again over it, in the accent. A border
+ * drawn over the group rather than an outline on it: an outline is clipped by
+ * what encloses it, or painted over by its own tabs, and the engine's rule
+ * taking the outline away on focus does not outrank this one. Two pixels, so
+ * it reads as a mark and not as a hairline (WCAG 1.4.1, as the tab's line).
  */
-.dockview-theme-dark .dv-tab,
-.dockview-theme-light .dv-tab {
-  border-block-end: 2px solid transparent;
-}
-
-.dockview-theme-dark .dv-tab.dv-active-tab,
-.dockview-theme-light .dv-tab.dv-active-tab {
-  border-block-end: 2px solid var(--ag-chrome-accent);
-}
-
-/* A border drawn over the group rather than an outline on it: an outline on
-   the group is clipped by what encloses it, or painted over by its own tabs.
-   The engine's rule taking the outline away on focus does not outrank this
-   one. Its width is a property of the group, because the ring of the group's
-   contents is drawn inside it. */
-[data-ag-theme] .dv-groupview {
-  --ag-group-in-use-border-width: 2px;
-}
-
-[data-ag-theme] .dv-groupview.dv-active-group {
-  position: relative;
-}
-
 [data-ag-theme] .dv-groupview.dv-active-group::after {
   content: '';
   position: absolute;
-  inset: 0;
-  border: var(--ag-group-in-use-border-width) solid var(--ag-chrome-border-strong);
+  inset: -1px;
+  border: var(--ag-group-in-use-border-width) solid
+    color-mix(in oklch, var(--ag-chrome-accent) 55%, transparent);
+  border-radius: inherit;
   pointer-events: none;
 }
 
@@ -166,20 +280,23 @@
 }
 
 /* The shown tab's second mark, while it holds focus. Its ring is drawn over
-   the underline then, and a focused tab not shown would look the same, so the
-   shown tab is filled with the accent, its label and ring in the text drawn on
+   its line, and a focused tab not shown would look the same, so the shown tab
+   is filled with the accent, its label, glyph and ring in the text drawn on
    the accent. A fill needs no room inside the ring, which a compact tab has
    none of for a line under its label. The engine colours a tab from its own
    properties, so they are set on the tab itself, for a group in use and for
    one not. */
-.dockview-theme-dark .dv-tab.dv-active-tab:focus-visible,
-.dockview-theme-light .dv-tab.dv-active-tab:focus-visible {
+.dv-shell .dv-tab.dv-active-tab:focus-visible {
   --dv-activegroup-visiblepanel-tab-background-color: var(--ag-chrome-accent);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(--ag-chrome-accent);
   --dv-activegroup-visiblepanel-tab-color: var(--ag-chrome-text-on-accent);
   --dv-inactivegroup-visiblepanel-tab-color: var(--ag-chrome-text-on-accent);
 
   box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-text-on-accent);
+}
+
+.dv-tab.dv-active-tab:focus-visible .ag-dock-tab > .ag-icon {
+  color: var(--ag-chrome-text-on-accent);
 }
 
 /* The band starts inside the border over the group: the shadow on top paints
@@ -196,16 +313,646 @@
       var(--ag-chrome-border-focus);
 }
 
+/*
+ * The splitter (design language, "Dock chrome"): the gutter's width, nothing
+ * drawn at rest. Under the pointer, a line of the accent its full length with
+ * an accent glow, at 70 %, and a grip on the overlay surface with an accent
+ * edge, the line pulsing at the full level; dragged, the line at full strength
+ * and the grip filled with the accent. The engine's own colour change, after
+ * half a second, is replaced, so the splitter answers the pointer at once.
+ */
+.dv-split-view-container .dv-sash-container .dv-sash::after,
+.dv-split-view-container .dv-sash-container .dv-sash::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  translate: -50% -50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ag-motion-instant) var(--ag-motion-ease-out);
+}
+
+/* The line: two pixels across the sash, its full length along it. */
+.dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
+  inline-size: calc(var(--ag-grid-unit) * 1);
+  block-size: 100%;
+}
+
+.dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
+  inline-size: 100%;
+  block-size: calc(var(--ag-grid-unit) * 1);
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash::after {
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-accent);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 5) var(--ag-chrome-accent);
+}
+
+/* The grip: 6 by 28 px, across the sash at its middle. */
+.dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::before {
+  inline-size: calc(var(--ag-grid-unit) * 3);
+  block-size: calc(var(--ag-grid-unit) * 14);
+}
+
+.dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::before {
+  inline-size: calc(var(--ag-grid-unit) * 14);
+  block-size: calc(var(--ag-grid-unit) * 3);
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash::before {
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1px solid var(--ag-chrome-accent);
+  border-radius: calc(var(--ag-grid-unit) * 1.5);
+  background-color: var(--ag-chrome-surface-overlay);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 5) calc(var(--ag-grid-unit) * -1)
+    var(--ag-chrome-accent);
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash:not(.dv-disabled):hover::after {
+  opacity: 0.7;
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash:not(.dv-disabled):hover::before,
+.dv-split-view-container .dv-sash-container .dv-sash:not(.dv-disabled):active::before {
+  opacity: 1;
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash:not(.dv-disabled):active::after {
+  opacity: 1;
+  animation: none;
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash:not(.dv-disabled):active::before {
+  background-color: var(--ag-chrome-accent);
+}
+
+[data-ag-motion='full']
+  .dv-split-view-container
+  .dv-sash-container
+  .dv-sash:not(.dv-disabled):hover::after {
+  animation: ag-dock-splitter-pulse var(--ag-motion-loop-splitter) var(--ag-motion-ease-in-out)
+    infinite;
+}
+
+@keyframes ag-dock-splitter-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 calc(var(--ag-grid-unit) * 3) var(--ag-chrome-accent);
+  }
+
+  50% {
+    box-shadow: 0 0 calc(var(--ag-grid-unit) * 8) var(--ag-chrome-accent);
+  }
+}
+
+/*
+ * A floating group: the floating level of glass (design language, section 6),
+ * lifted by its shadow, with an accent halo that breathes at the full level
+ * and holds at its resting value below it. The sheet is the engine's floating
+ * box, which holds the strip a floating group is moved by above the group;
+ * the group itself is clear inside it.
+ */
+[data-ag-theme] .dv-resize-container {
+  box-sizing: border-box;
+  border: 1px solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-floating-fill);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+  box-shadow:
+    var(--ag-elevation-floating-shadow),
+    0 0 0 1px color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent),
+    0 0 calc(var(--ag-grid-unit) * 15) calc(var(--ag-grid-unit) * -7) var(--ag-chrome-accent);
+}
+
+[data-ag-motion='full'] .dv-resize-container {
+  animation: ag-dock-float-halo var(--ag-motion-loop-float) var(--ag-motion-ease-in-out) infinite;
+}
+
+/* The strip it is moved by: part of the sheet, with no surface of its own,
+   half an inset tall over the group's own inset. */
+[data-ag-theme] .dv-floating-titlebar {
+  --dv-floating-titlebar-height: var(--ag-space-inset);
+
+  background-color: transparent;
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+
+[data-ag-theme] .dv-resize-container .dv-groupview {
+  border-color: transparent;
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  background-color: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+[data-ag-theme] .dv-resize-container .dv-tabs-and-actions-container {
+  padding-block-start: 0;
+}
+
+@keyframes ag-dock-float-halo {
+  0%,
+  100% {
+    box-shadow:
+      var(--ag-elevation-floating-shadow),
+      0 0 0 1px color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent),
+      0 0 calc(var(--ag-grid-unit) * 15) calc(var(--ag-grid-unit) * -7) var(--ag-chrome-accent);
+  }
+
+  50% {
+    box-shadow:
+      var(--ag-elevation-floating-shadow),
+      0 0 0 1px color-mix(in oklch, var(--ag-chrome-accent) 40%, transparent),
+      0 0 calc(var(--ag-grid-unit) * 27) calc(var(--ag-grid-unit) * -5) var(--ag-chrome-accent);
+  }
+}
+
+/*
+ * The landing area: where the panel would land, for the target under the
+ * pointer (design language, "Dock chrome"). The engine draws it, in place over
+ * a group or anchored to the dock, and moves it between targets; it is drawn
+ * here as a lit field of the accent that grows out of its target and glows,
+ * its glow breathing at the full level.
+ */
+.dv-drop-target-container {
+  --dv-transition-duration: var(--ag-motion-moderate);
+}
+
+.dv-drop-target {
+  --dv-transition-duration: var(--ag-motion-instant);
+}
+
+.dv-drop-target > .dv-drop-target-dropzone > .dv-drop-target-selection,
+.dv-drop-target-container .dv-drop-target-anchor {
+  border: 1px solid var(--ag-chrome-accent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 26%, transparent);
+  box-shadow:
+    0 0 calc(var(--ag-grid-unit) * 12) calc(var(--ag-grid-unit) * -2) var(--ag-chrome-accent),
+    inset 0 0 calc(var(--ag-grid-unit) * 10) calc(var(--ag-grid-unit) * -3) var(--ag-chrome-accent);
+  transition-property: top, left, width, height, opacity, clip-path;
+  transition-duration: var(--dv-transition-duration);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+@starting-style {
+  .dv-drop-target > .dv-drop-target-dropzone > .dv-drop-target-selection,
+  .dv-drop-target-container .dv-drop-target-anchor {
+    opacity: 0;
+  }
+}
+
+/* At the full level it opens out of the middle of its place, as the target
+   that lit it does, over the moderate duration. */
+[data-ag-motion='full'] .dv-drop-target > .dv-drop-target-dropzone > .dv-drop-target-selection {
+  transition-duration: var(--ag-motion-moderate);
+  animation: ag-dock-landing-glow var(--ag-motion-loop-landing) var(--ag-motion-ease-in-out)
+    infinite;
+}
+
+[data-ag-motion='full'] .dv-drop-target-container .dv-drop-target-anchor {
+  animation: ag-dock-landing-glow var(--ag-motion-loop-landing) var(--ag-motion-ease-in-out)
+    infinite;
+}
+
+@starting-style {
+  [data-ag-motion='full'] .dv-drop-target > .dv-drop-target-dropzone > .dv-drop-target-selection,
+  [data-ag-motion='full'] .dv-drop-target-container .dv-drop-target-anchor {
+    clip-path: inset(30% round var(--ag-radius-control));
+  }
+}
+
+@keyframes ag-dock-landing-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 calc(var(--ag-grid-unit) * 9) calc(var(--ag-grid-unit) * -3) var(--ag-chrome-accent),
+      inset 0 0 calc(var(--ag-grid-unit) * 8) calc(var(--ag-grid-unit) * -4) var(--ag-chrome-accent);
+  }
+
+  50% {
+    box-shadow:
+      0 0 calc(var(--ag-grid-unit) * 15) calc(var(--ag-grid-unit) * -1) var(--ag-chrome-accent),
+      inset 0 0 calc(var(--ag-grid-unit) * 13) calc(var(--ag-grid-unit) * -3)
+        var(--ag-chrome-accent);
+  }
+}
+
+/*
+ * The drop guide the adapter draws in every group: the compass of its drop
+ * targets and the dragged panel's name, shown only while the engine draws a
+ * landing area over the group's contents, and lit by the engine's own reading
+ * of the pointer, read from the landing area's classes.
+ */
+.ag-dock-drop-guide {
+  position: absolute;
+  inset: var(--dv-tabs-and-actions-container-height) 0 0;
+  z-index: 1001;
+  pointer-events: none;
+}
+
+/*
+ * The compass (design language, "Dock chrome"): a 3 by 3 grid of 34 px cells,
+ * 5 px apart in 7 px of padding, on overlay glass with an accent glow. It
+ * springs in from `--ag-motion-scale-spring` over the deliberate duration and
+ * out, quicker, to 0.92, twice an overlay's shrink, so that it too is 1 below
+ * the full level; there the spring is linear as well, so it only fades.
+ */
+.ag-dock-compass {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  display: none;
+  grid-template-columns: repeat(3, calc(var(--ag-grid-unit) * 17));
+  grid-template-rows: repeat(3, calc(var(--ag-grid-unit) * 17));
+  gap: calc(var(--ag-grid-unit) * 2.5);
+  padding: calc(var(--ag-grid-unit) * 3.5);
+  border: 1px solid var(--ag-elevation-overlay-edge);
+  border-radius: calc(var(--ag-radius-control) + var(--ag-grid-unit) * 3.5);
+  background-color: color-mix(in oklch, var(--ag-chrome-surface-overlay) 62%, transparent);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+  box-shadow:
+    var(--ag-elevation-overlay-shadow),
+    0 0 calc(var(--ag-grid-unit) * 15) calc(var(--ag-grid-unit) * -5) var(--ag-chrome-accent);
+  translate: -50% -50%;
+  opacity: 0;
+  scale: calc(2 * var(--ag-motion-scale-overlay) - 1);
+  transition:
+    opacity var(--ag-motion-quick) var(--ag-motion-ease-in),
+    scale var(--ag-motion-quick) var(--ag-motion-ease-in),
+    display var(--ag-motion-quick) allow-discrete;
+}
+
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection)
+  > .ag-dock-drop-guide
+  > .ag-dock-compass {
+  display: grid;
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity var(--ag-motion-deliberate) var(--ag-motion-ease-spring),
+    scale var(--ag-motion-deliberate) var(--ag-motion-ease-spring),
+    display var(--ag-motion-deliberate) allow-discrete;
+}
+
+@starting-style {
+  .dv-groupview:has(> .dv-content-container .dv-drop-target-selection)
+    > .ag-dock-drop-guide
+    > .ag-dock-compass {
+    opacity: 0;
+    scale: var(--ag-motion-scale-spring);
+  }
+}
+
+.ag-dock-compass-cell {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-secondary);
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-dock-compass-cell[data-zone='top'] {
+  grid-area: 1 / 2;
+}
+
+.ag-dock-compass-cell[data-zone='left'] {
+  grid-area: 2 / 1;
+}
+
+.ag-dock-compass-cell[data-zone='centre'] {
+  grid-area: 2 / 2;
+}
+
+.ag-dock-compass-cell[data-zone='right'] {
+  grid-area: 2 / 3;
+}
+
+.ag-dock-compass-cell[data-zone='bottom'] {
+  grid-area: 3 / 2;
+}
+
+/*
+ * Each target drawn as the group it would make: a 22 px frame of the group,
+ * and the part the panel would take filled in it; the middle target, a tab
+ * among the group's, is the group's body under a line of tabs.
+ */
+.ag-dock-compass-diagram {
+  position: relative;
+  box-sizing: border-box;
+  inline-size: calc(var(--ag-grid-unit) * 9.5);
+  block-size: calc(var(--ag-grid-unit) * 9.5);
+  border: calc(var(--ag-grid-unit) * 0.75) solid currentcolor;
+  border-radius: calc(var(--ag-grid-unit) * 1.5);
+  opacity: 0.7;
+}
+
+.ag-dock-compass-part {
+  position: absolute;
+  inset: calc(var(--ag-grid-unit) * 0.75);
+  border-radius: calc(var(--ag-grid-unit) * 0.75);
+  background-color: currentcolor;
+  opacity: 0.8;
+}
+
+[data-zone='top'] .ag-dock-compass-part {
+  inset-block-end: 50%;
+}
+
+[data-zone='bottom'] .ag-dock-compass-part {
+  inset-block-start: 50%;
+}
+
+[data-zone='left'] .ag-dock-compass-part {
+  inset-inline-end: 50%;
+}
+
+[data-zone='right'] .ag-dock-compass-part {
+  inset-inline-start: 50%;
+}
+
+[data-zone='centre'] .ag-dock-compass-part {
+  inset-block-start: calc(var(--ag-grid-unit) * 2.25);
+}
+
+/* The lit target: the call to action's fill, lit from above, with its diagram
+   in the text drawn on it, and an accent glow. Which is lit is the side of the
+   group the engine's landing area takes, or none of them for the middle. */
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-top)
+  .ag-dock-compass-cell[data-zone='top'],
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-left)
+  .ag-dock-compass-cell[data-zone='left'],
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-right)
+  .ag-dock-compass-cell[data-zone='right'],
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-bottom)
+  .ag-dock-compass-cell[data-zone='bottom'],
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-center)
+  .ag-dock-compass-cell[data-zone='centre'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 70%, transparent);
+  background: var(--ag-effect-cta-gloss), var(--ag-effect-cta-fill);
+  color: var(--ag-chrome-text-on-accent);
+  box-shadow:
+    var(--ag-effect-cta-edge),
+    0 0 calc(var(--ag-grid-unit) * 8) calc(var(--ag-grid-unit) * -1) var(--ag-chrome-accent);
+}
+
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-top)
+  .ag-dock-compass-cell[data-zone='top']
+  > .ag-dock-compass-diagram,
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-left)
+  .ag-dock-compass-cell[data-zone='left']
+  > .ag-dock-compass-diagram,
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-right)
+  .ag-dock-compass-cell[data-zone='right']
+  > .ag-dock-compass-diagram,
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-bottom)
+  .ag-dock-compass-cell[data-zone='bottom']
+  > .ag-dock-compass-diagram,
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-center)
+  .ag-dock-compass-cell[data-zone='centre']
+  > .ag-dock-compass-diagram {
+  color: var(--ag-hardware-light);
+  opacity: 1;
+  filter: drop-shadow(0 1px 1px var(--ag-hardware-cutout));
+}
+
+/*
+ * The dragged panel's glyph and name, centred in the landing area: caption
+ * size at 600, the glyph at the feature size in the accent. Placed in the half
+ * of the group the landing area takes, which is half the group whichever side
+ * it is, or all of it for the middle; a landing area too thin for words, a
+ * line along the edge of a narrow group, shows none.
+ */
+.ag-dock-landing-label {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  place-content: center;
+  place-items: center;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  text-align: center;
+}
+
+.ag-dock-landing-label > .ag-icon {
+  inline-size: var(--ag-icon-size-feature);
+  block-size: var(--ag-icon-size-feature);
+  color: var(--ag-chrome-accent);
+}
+
+.dv-groupview:has(
+    > .dv-content-container .dv-drop-target-selection:not(.dv-drop-target-selection-line)
+  )
+  .ag-dock-landing-label {
+  display: flex;
+}
+
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-top)
+  .ag-dock-landing-label {
+  inset-block-end: 50%;
+}
+
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-bottom)
+  .ag-dock-landing-label {
+  inset-block-start: 50%;
+}
+
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-left)
+  .ag-dock-landing-label {
+  inset-inline-end: 50%;
+}
+
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-right)
+  .ag-dock-landing-label {
+  inset-inline-start: 50%;
+}
+
+/* The compass sits over the middle of a group, so where the landing area is
+   the whole group the name moves below the compass rather than under it. */
+.dv-groupview:has(> .dv-content-container .dv-drop-target-selection.dv-drop-target-center)
+  .ag-dock-landing-label {
+  inset-block-start: calc(50% + var(--ag-grid-unit) * 36);
+  place-content: start center;
+}
+
+/*
+ * The engine's own motion, taken over (design language, "How the levels reach
+ * the docking engine"). Its tabs shift, collapse and open over the quick
+ * duration on the language's easing; its drop target moves over the instant
+ * duration and its anchored overlay over the moderate one (set above); its
+ * active sash takes no delay.
+ *
+ * Each tab rule names every property it moves, the colours of a tab's states
+ * as well as the engine's movement, because a tab's own rule above names only
+ * the colours and would otherwise take the movement away.
+ */
+.dv-shell .dv-tab.dv-tab--shifting {
+  transition-property:
+    transform, margin-left, margin-right, margin-top, margin-bottom, background-color, border-color,
+    color;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.dv-shell .dv-tab:is(.dv-tab--dragging, .dv-tab--group-collapsed, .dv-tab--group-expanding),
+.dv-shell .dv-tab-group-chip:is(.dv-tab-group-chip--shifting, .dv-tab-group-chip--dragging) {
+  transition-property: width, height, padding, margin, opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.dv-shell {
+  --dv-active-sash-transition-duration: var(--ag-motion-instant);
+  --dv-active-sash-transition-delay: 0s;
+}
+
+/* The engine's scrollbars fade in and out over a second of their own. */
+.dv-scrollable .dv-scrollbar {
+  transition-duration: var(--ag-motion-deliberate);
+  transition-timing-function: var(--ag-motion-ease-in-out);
+}
+
+/* The engine's tab movement at the reduced level: the tabs move at once and
+   only their colours ease, as Reduced asks. */
+[data-ag-motion='reduced'] .dv-shell .dv-tab:is(.dv-tab--shifting, .dv-tab--dragging) {
+  transition-property: background-color, border-color, color;
+}
+
+/*
+ * The engine switches every transition of its tabs off under the system's
+ * request for reduced motion, whatever the user chose. A user who chose the
+ * full level gets them back; at the reduced level they stay off, which is what
+ * Reduced asks, and at Minimal the guard in `tokens.css` holds everything
+ * still.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-ag-motion='full'] .dv-shell .dv-tab {
+    transition-property: background-color, border-color, color !important;
+    transition-duration: var(--ag-motion-instant) !important;
+    transition-timing-function: var(--ag-motion-ease-out) !important;
+  }
+
+  [data-ag-motion='full'] .dv-shell .dv-tab.dv-tab--shifting {
+    transition-property:
+      transform, margin-left, margin-right, margin-top, margin-bottom, background-color,
+      border-color, color !important;
+    transition-duration: var(--ag-motion-quick) !important;
+  }
+
+  [data-ag-motion='full']
+    .dv-shell
+    .dv-tab:is(.dv-tab--dragging, .dv-tab--group-collapsed, .dv-tab--group-expanding) {
+    transition-property: width, height, padding, margin, opacity !important;
+    transition-duration: var(--ag-motion-quick) !important;
+  }
+}
+
+/*
+ * The dock's view transitions (`DockStage`): a panel opened, closed, docked,
+ * floated or moved by a command, and a workspace switched. Only the dock is
+ * captured: the rest of the page stays live and takes input, and the
+ * transition's own layer takes no pointer events.
+ */
+::view-transition {
+  pointer-events: none;
+}
+
+html[data-ag-dock-transition] {
+  view-transition-name: none;
+}
+
+html[data-ag-dock-transition] .ag-dock-stage {
+  view-transition-name: ag-dock;
+}
+
+/* A group docked, floated or moved morphs from its old box to its new one. */
+html[data-ag-dock-transition]::view-transition-group(*) {
+  animation-duration: var(--ag-motion-moderate);
+  animation-timing-function: var(--ag-motion-ease-in-out);
+}
+
+/* The dock's two pictures cross over the same duration, on the easing of
+   something moving; at the reduced level that is the whole of it. */
+html[data-ag-dock-transition]::view-transition-old(*),
+html[data-ag-dock-transition]::view-transition-new(*) {
+  animation-duration: var(--ag-motion-moderate);
+  animation-timing-function: var(--ag-motion-ease-in-out);
+}
+
+/* A group arriving grows in from `--ag-motion-scale-dialogue`, transparent;
+   one leaving shrinks back to it and fades, quicker. */
+html[data-ag-dock-transition]::view-transition-new(*):only-child {
+  animation: ag-dock-group-open var(--ag-motion-moderate) var(--ag-motion-ease-out) both;
+}
+
+html[data-ag-dock-transition]::view-transition-old(*):only-child {
+  animation: ag-dock-group-close var(--ag-motion-quick) var(--ag-motion-ease-in) both;
+}
+
+@keyframes ag-dock-group-open {
+  from {
+    opacity: 0;
+    scale: var(--ag-motion-scale-dialogue);
+  }
+}
+
+@keyframes ag-dock-group-close {
+  to {
+    opacity: 0;
+    scale: var(--ag-motion-scale-dialogue);
+  }
+}
+
+/* A workspace switched: the old workspace fades and settles back while the
+   new one fades in from just in front, over the deliberate duration. Below the
+   full level, the cross-fade alone, over the reduced deliberate duration. */
+html[data-ag-dock-transition='workspace']::view-transition-group(ag-dock),
+html[data-ag-dock-transition='workspace']::view-transition-old(ag-dock),
+html[data-ag-dock-transition='workspace']::view-transition-new(ag-dock) {
+  animation-duration: var(--ag-motion-deliberate);
+}
+
+html[data-ag-motion='full'][data-ag-dock-transition='workspace']::view-transition-old(ag-dock) {
+  animation: ag-dock-workspace-out var(--ag-motion-deliberate) var(--ag-motion-ease-in-out) both;
+}
+
+html[data-ag-motion='full'][data-ag-dock-transition='workspace']::view-transition-new(ag-dock) {
+  animation: ag-dock-workspace-in var(--ag-motion-deliberate) var(--ag-motion-ease-in-out) both;
+}
+
+@keyframes ag-dock-workspace-out {
+  to {
+    opacity: 0;
+    scale: 0.99;
+  }
+}
+
+@keyframes ag-dock-workspace-in {
+  from {
+    opacity: 0;
+    scale: 1.01;
+  }
+}
+
 @media (forced-colors: active) {
-  .dockview-theme-dark .dv-tab.dv-active-tab,
-  .dockview-theme-light .dv-tab.dv-active-tab {
+  .dv-shell .dv-tab.dv-active-tab {
     border-block-end-color: Highlight;
   }
 
   /* The same fill in the pair the platform keeps for a selection, which the
      browser would otherwise replace with the canvas. */
-  .dockview-theme-dark .dv-tab.dv-active-tab:focus-visible,
-  .dockview-theme-light .dv-tab.dv-active-tab:focus-visible {
+  .dv-shell .dv-tab.dv-active-tab:focus-visible {
     forced-color-adjust: none;
     --dv-activegroup-visiblepanel-tab-background-color: Highlight;
     --dv-inactivegroup-visiblepanel-tab-background-color: Highlight;
@@ -239,6 +986,13 @@
 @media (any-pointer: coarse) {
   .ag-theme-root .dv-tabs-and-actions-container,
   [data-ag-theme] .dv-tabs-and-actions-container {
-    --dv-tabs-and-actions-container-height: var(--ag-control-minimum-touch-target, 44px);
+    --dv-tabs-and-actions-container-height: calc(
+      var(--ag-control-minimum-touch-target) + 2 * var(--ag-space-inset) -
+        var(--ag-focus-ring-reach)
+    );
+  }
+
+  .dv-shell .dv-tab {
+    block-size: var(--ag-control-minimum-touch-target);
   }
 }

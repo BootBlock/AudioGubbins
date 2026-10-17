@@ -71,7 +71,10 @@ describe('whether the open project is saved', () => {
       />,
     );
 
-    expect(screen.getByText(`Not saved. ${FULL.summary}`)).toBeVisible();
+    // Said in two words, with why in the hint beside them.
+    expect(screen.getByText('Not saved')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Why your changes are not saved' }));
+    expect(await screen.findByText(FULL.summary)).toBeVisible();
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith(
       `Your changes are not being saved. ${FULL.summary}`,

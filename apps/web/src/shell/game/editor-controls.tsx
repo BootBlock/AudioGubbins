@@ -116,7 +116,7 @@ export function TextEditor({
   const [typed, setTyped] = useDraft(initial);
   const edited = make(typed);
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-policy-edit">
       <TextField
         label={label}
         value={typed}
@@ -153,7 +153,7 @@ export function NumbersEditor({
   );
   const edited: EditedValue = missing ? { refused: 'Type a number in each field.' } : make(numbers);
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-policy-edit">
       {fields.map((one, index) => (
         <TextField
           key={one.label}

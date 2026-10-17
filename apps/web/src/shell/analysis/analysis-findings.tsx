@@ -6,11 +6,14 @@
  *
  * A report holds the first findings of each kind and says how many there
  * were (`MOST_FINDINGS_SHOWN`), and the list says how many it leaves out. A
- * list's rows are made only once it is opened, so a closed list of hundreds
- * costs the page nothing.
+ * kind is a section, whose rows are made only once it is opened (a closed
+ * section holds no content), so a closed list of hundreds costs the page
+ * nothing.
  */
 
 import { useState, type ReactNode } from 'react';
+
+import { IconButton, List, ListRow, Section } from '@audiogubbins/design-system';
 
 import type { KindCount } from '@audiogubbins/detection-runtime';
 import type { DetectorFinding, FindingKind } from '@audiogubbins/domain';
@@ -21,7 +24,8 @@ import { formatPosition } from '@audiogubbins/timeline';
 import { kindHeading, measureWords } from '../../analysis/detection-words.js';
 import { channelNames } from '../../assets/channel-names.js';
 import type { EditorAsset } from '../../assets/editor-asset.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 
 /** A list of findings of one kind open at first only while it is this short. */
 const OPEN_UP_TO = 12;
@@ -62,23 +66,27 @@ function FindingRow({
   const channels = every
     ? 'every channel'
     : finding.channels.map((index) => names[index] ?? String(index + 1)).join(', ');
+  const start = at(finding.range.start);
+  const { onPress: select, ...reason } = commandPress(commands, 'editor.select-time', {
+    view: shown.panel,
+    start: finding.range.start,
+    end: finding.range.end,
+    ...(every ? {} : { channels: finding.channels.join(',') }),
+  });
   return (
-    <li className="ag-analysis-finding">
-      <CommandButton
-        id="editor.select-time"
-        label={spanLabel(at(finding.range.start), at(finding.range.end))}
-        commands={commands}
-        tone="quiet"
-        compact
-        args={{
-          view: shown.panel,
-          start: finding.range.start,
-          end: finding.range.end,
-          ...(every ? {} : { channels: finding.channels.join(',') }),
-        }}
-      />
-      <span>{`On ${channels}: ${measureWords(finding)}.`}</span>
-    </li>
+    <ListRow
+      name={start}
+      detail={`On ${channels}: ${measureWords(finding)}.`}
+      actions={
+        <IconButton
+          compact
+          icon="locate"
+          label={spanLabel(start, at(finding.range.end))}
+          {...reason}
+          onClick={select}
+        />
+      }
+    />
   );
 }
 
@@ -99,34 +107,25 @@ function KindList({
   const [open, setOpen] = useState(count <= OPEN_UP_TO);
   const left = count - ofKind.length;
   return (
-    <details
-      className="ag-analysis-kind"
-      open={open}
-      onToggle={(event) => {
-        setOpen(event.currentTarget.open);
-      }}
-    >
-      <summary>{`${kindHeading(kind)}: ${String(count)}`}</summary>
-      {open ? (
-        <>
-          <ul className="ag-analysis-findings">
-            {ofKind.map((finding) => (
-              <FindingRow
-                key={`${String(finding.range.start)}:${String(finding.range.end)}:${finding.channels.join(',')}`}
-                finding={finding}
-                shown={shown}
-                commands={commands}
-              />
-            ))}
-          </ul>
-          {left > 0 ? (
-            <p className="ag-panel-note">
-              {`The first ${String(ofKind.length)} are listed, and ${counted(left, 'more is', 'more are')} left out. Analyse a shorter range to list them.`}
-            </p>
-          ) : null}
-        </>
-      ) : null}
-    </details>
+    <Section title={`${kindHeading(kind)}: ${String(count)}`} open={open} onOpenChange={setOpen}>
+      <div className="ag-analysis-kind">
+        <List label={kindHeading(kind)}>
+          {ofKind.map((finding) => (
+            <FindingRow
+              key={`${String(finding.range.start)}:${String(finding.range.end)}:${finding.channels.join(',')}`}
+              finding={finding}
+              shown={shown}
+              commands={commands}
+            />
+          ))}
+        </List>
+        {left > 0 ? (
+          <p className="ag-analysis-note">
+            {`The first ${String(ofKind.length)} are listed, and ${counted(left, 'more is', 'more are')} left out. Analyse a shorter range to list them.`}
+          </p>
+        ) : null}
+      </div>
+    </Section>
   );
 }
 
@@ -142,7 +141,7 @@ export function Findings({
   readonly shown: Shown;
   readonly commands: PanelCommands;
 }): ReactNode {
-  if (found.length === 0) return <p>It found nothing.</p>;
+  if (found.length === 0) return <p className="ag-analysis-note">It found nothing.</p>;
   return (
     <>
       {found.map(({ kind, count }) => (

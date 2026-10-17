@@ -1,14 +1,15 @@
 /**
- * The scenario set up, as the person changes it (ADR-0104): its name, space,
- * seed and panning, the listener, the bus levels and each emitter, with every
- * reason it cannot be played as it stands. A change is the session's until the
- * scenario is kept; while a run plays it, what can be heard moving is heard at
- * once and the rest from the next run, which the panel says.
+ * The scenario set up, as the person changes it (ADR-0104): each emitter, with
+ * every reason it cannot be played as it stands; and, behind its settings
+ * section, its name, space, seed and panning, the listener and the bus levels.
+ * A change is the session's until the scenario is kept; while a run plays it,
+ * what can be heard moving is heard at once and the rest from the next run,
+ * which the panel says.
  */
 
-import { useId, useMemo, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
-import { Button, TextField } from '@audiogubbins/design-system';
+import { Button, Icon, Section, TextField } from '@audiogubbins/design-system';
 import type { IdGenerator, Project } from '@audiogubbins/domain';
 import {
   busName,
@@ -107,7 +108,7 @@ function BusLevels({
 }): ReactNode {
   if (buses.length === 0) return null;
   return (
-    <div className="ag-preview-buses" role="group" aria-label="Bus levels">
+    <div className="ag-preview-fields" role="group" aria-label="Bus levels">
       {buses.map((bus) => (
         <NumberField
           key={bus}
@@ -210,21 +211,46 @@ function ListenerFields({ scenario, onScenario }: Editing): ReactNode {
   );
 }
 
+/** Adds an emitter playing what the first plays, while the scenario has room for one. */
+function AddEmitter({
+  scenario,
+  ids,
+  onScenario,
+}: Editing & { readonly ids: IdGenerator }): ReactNode {
+  const { emitters } = scenario;
+  const first = emitters[0]?.subject;
+  if (first === undefined || emitters.length >= MOST_EMITTERS) return null;
+  return (
+    <span>
+      <Button
+        compact
+        onClick={() => {
+          const added = newEmitter(ids, first, emitters.length + 1, scenario.space);
+          onScenario({ ...scenario, emitters: [...emitters, added] });
+        }}
+      >
+        <Icon name="add" />
+        Add an emitter
+      </Button>
+    </span>
+  );
+}
+
 /** Each emitter's editor, and adding one more. */
-function EmitterList({
+export function EmitterList({
   scenario,
   onScenario,
   parts,
 }: Editing & { readonly parts: ScenarioParts }): ReactNode {
   const { emitters } = scenario;
-  const first = emitters[0]?.subject;
   const { project, game, ids, commands, voices } = parts;
   return (
-    <>
+    <div className="ag-preview-emitters">
       {emitters.map((emitter, index) => (
         <EmitterEditor
           key={emitter.id}
           emitter={emitter}
+          place={index}
           parts={{
             project,
             game,
@@ -247,47 +273,46 @@ function EmitterList({
           }
         />
       ))}
-      {first === undefined || emitters.length >= MOST_EMITTERS ? null : (
-        <Button
-          compact
-          onClick={() => {
-            const added = newEmitter(ids, first, emitters.length + 1, scenario.space);
-            onScenario({ ...scenario, emitters: [...emitters, added] });
-          }}
-        >
-          Add an emitter
-        </Button>
-      )}
-    </>
+      <AddEmitter scenario={scenario} ids={ids} onScenario={onScenario} />
+    </div>
   );
 }
 
-/** The editor of `scenario`, which `onScenario` changes. */
-export function ScenarioEditor({
+/** Every reason `scenario` cannot be played as it stands, where it has any. */
+export function ScenarioProblems({
+  scenario,
+}: {
+  readonly scenario: GamePreviewScenario;
+}): ReactNode {
+  const problems = useMemo(() => previewScenarioProblems(scenario), [scenario]);
+  if (problems.length === 0) return null;
+  return (
+    <ul className="ag-preview-problems" aria-label="Why this scenario cannot be played yet">
+      {problems.map((problem, index) => (
+        <li key={index}>
+          <Icon name="warning" className="ag-preview-problem-glyph" />
+          {problem.summary}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The scenario's own settings, the listener and the bus levels, behind their section. */
+export function ScenarioSettings({
   scenario,
   parts,
   onScenario,
-}: Editing & { readonly parts: ScenarioParts }): ReactNode {
-  const heading = useId();
+}: Editing & { readonly parts: Pick<ScenarioParts, 'project' | 'game'> }): ReactNode {
   const { project, game } = parts;
-  const problems = useMemo(() => previewScenarioProblems(scenario), [scenario]);
   const buses = useMemo(() => busesOf(project, game, scenario), [project, game, scenario]);
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
-        {scenario.name}
-      </h3>
-      <ScenarioFields scenario={scenario} onScenario={onScenario} />
-      <ListenerFields scenario={scenario} onScenario={onScenario} />
+    <Section title={`Settings for ${scenario.name}`} defaultOpen={false}>
+      <div className="ag-preview-fields">
+        <ScenarioFields scenario={scenario} onScenario={onScenario} />
+        <ListenerFields scenario={scenario} onScenario={onScenario} />
+      </div>
       <BusLevels buses={buses} scenario={scenario} onScenario={onScenario} />
-      {problems.length === 0 ? null : (
-        <ul className="ag-preview-problems" aria-label="Why this scenario cannot be played yet">
-          {problems.map((problem, index) => (
-            <li key={index}>{problem.summary}</li>
-          ))}
-        </ul>
-      )}
-      <EmitterList scenario={scenario} onScenario={onScenario} parts={parts} />
-    </section>
+    </Section>
   );
 }

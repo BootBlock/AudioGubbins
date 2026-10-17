@@ -6,6 +6,7 @@ import {
   expectLabelled,
   expectSpectrogramDrawn,
   openWithCapabilities,
+  rendererAttempts,
   rendererReport,
 } from './renderer.js';
 import {
@@ -33,7 +34,7 @@ test.describe('the editor renderer', () => {
     const panel = await openWithCapabilities(page);
 
     await expect(rendererReport(page)).toContainText('Drawn with Canvas 2D.');
-    await expect(rendererReport(page)).toContainText('WebGL 2: not available');
+    expect(await rendererAttempts(page)).toContain('WebGL 2: not available');
     await expectDrawnAsShown(page, panel);
     await expectLabelled(page, panel);
   });

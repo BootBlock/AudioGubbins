@@ -251,7 +251,7 @@ test.describe('a display with a notch and rounded corners', () => {
     if (viewport === null) return;
 
     const menu = await page.getByRole('menubar').getByRole('menuitem').first().boundingBox();
-    const status = await page.locator('.ag-status-item').first().boundingBox();
+    const status = await page.locator('.ag-status-chip').first().boundingBox();
     const workspace = await page.locator('.ag-workspace > *').first().boundingBox();
     const bar = await page.locator('.ag-menu-bar').boundingBox();
 

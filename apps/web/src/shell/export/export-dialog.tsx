@@ -10,9 +10,18 @@
  * runs a command, so the palette and a shortcut reach the same action.
  */
 
-import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, ModalDialog, TextField } from '@audiogubbins/design-system';
+import {
+  Banner,
+  BannerTone,
+  Button,
+  ButtonTone,
+  Icon,
+  ModalDialog,
+  Section,
+  TextField,
+} from '@audiogubbins/design-system';
 
 import { ExportCommand } from '../../commands/import-export-ids.js';
 import { exportBlockers, keptFolders } from '../../export/export-blockers.js';
@@ -21,7 +30,6 @@ import { EXPORT_DIALOG_WORDS } from '../../import-export-words.js';
 import type { ExportDialogStore, OpenExportDialog } from '../../state/export-dialog-store.js';
 import type { OwnExportPreset } from '../../state/stored-export-presets.js';
 import type { TrustedFoldersStore } from '../../state/trusted-folders-store.js';
-import { NotedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 import { CommonControls } from './common-controls.js';
 import { DestinationControls } from './destination-controls.js';
@@ -30,6 +38,7 @@ import { whatWillHappen } from './export-words.js';
 import { FormatControl } from './format-control.js';
 import { Presets } from './preset-choice.js';
 import { RangeControl } from './range-control.js';
+import { SettingGroup } from './setting-fields.js';
 
 /** What the dialog reads and runs. */
 export interface ExportDialogProps {
@@ -55,7 +64,7 @@ function SavePreset({ run }: { readonly run: RunCommand }): ReactNode {
     if (run(ExportCommand.SavePreset, { name })) setName('');
   };
   return (
-    <div className="ag-export-save-preset">
+    <div className="ag-dialogue-with-action ag-export-save-preset">
       <TextField
         label="Preset name"
         description="Keeps these settings, but what is exported, as a preset of yours."
@@ -63,9 +72,7 @@ function SavePreset({ run }: { readonly run: RunCommand }): ReactNode {
         onValueChange={setName}
         onSubmit={save}
       />
-      <Button compact onClick={save}>
-        Save as a preset
-      </Button>
+      <Button onClick={save}>Save as a preset</Button>
     </div>
   );
 }
@@ -84,15 +91,17 @@ function EverySetting({
     dialog.edit(() => settings);
   };
   return (
-    <details className="ag-export-every-setting">
-      <summary>{EXPORT_DIALOG_WORDS.everySetting}</summary>
-      <fieldset className="ag-settings-group">
-        <legend>Encoding</legend>
-        <EncodingControls settings={open.settings} context={open.context} onSettings={set} />
-      </fieldset>
-      <CommonControls settings={open.settings} context={open.context} onSettings={set} />
-      <SavePreset run={run} />
-    </details>
+    <Section title={EXPORT_DIALOG_WORDS.everySetting} defaultOpen={false}>
+      <div className="ag-dialogue-stack">
+        <SettingGroup title="Encoding">
+          <EncodingControls settings={open.settings} context={open.context} onSettings={set} />
+        </SettingGroup>
+        <CommonControls settings={open.settings} context={open.context} onSettings={set} />
+        <div className="ag-dialogue-form" data-ag-labels="wide">
+          <SavePreset run={run} />
+        </div>
+      </div>
+    </Section>
   );
 }
 
@@ -120,19 +129,23 @@ function OpenDialogBody({
         )
       : undefined;
   return (
-    <>
-      <RangeControl
-        settings={open.settings}
-        context={open.context}
-        selection={open.selection}
-        onRange={dialog.chooseRange}
-      />
+    <div className="ag-dialogue-stack ag-export-body">
+      <div className="ag-dialogue-form">
+        <RangeControl
+          settings={open.settings}
+          context={open.context}
+          selection={open.selection}
+          onRange={dialog.chooseRange}
+        />
+      </div>
       <Presets open={open} own={presets} dialog={dialog} />
-      <FormatControl open={open} codecs={codecs} dialog={dialog} />
+      <div className="ag-dialogue-form">
+        <FormatControl open={open} codecs={codecs} dialog={dialog} />
+      </div>
       <EverySetting open={open} dialog={dialog} run={props.run} />
       <DestinationControls open={open} trusted={trusted} dialog={dialog} />
       <Outcome blockers={blockers} sentence={sentence} />
-    </>
+    </div>
   );
 }
 
@@ -146,33 +159,29 @@ function Outcome({
 }): ReactNode {
   return (
     <div className="ag-export-outcome" aria-live="polite">
-      {sentence !== undefined && <p className="ag-export-sentence">{sentence}</p>}
+      {sentence !== undefined && (
+        <Banner tone={BannerTone.Success} icon="export-summary">
+          {sentence}
+        </Banner>
+      )}
       {blockers.length > 0 && (
-        <ul
-          id={OUTCOME_ID}
-          className="ag-export-blockers"
-          aria-label="Why this cannot be exported yet"
-        >
-          {blockers.map((reason) => (
-            <li key={reason} data-ag-status="unavailable">
-              {reason}
-            </li>
-          ))}
-        </ul>
+        <Banner tone={BannerTone.Warning} icon="warning">
+          <ul className="ag-export-blockers" aria-label="Why this cannot be exported yet">
+            {blockers.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </Banner>
       )}
     </div>
   );
 }
-
-/** The list of reasons, which the Export button is described by while it cannot be pressed. */
-const OUTCOME_ID = 'ag-export-blockers';
 
 /** The Export dialog (see the module comment). */
 export function ExportDialog(props: ExportDialogProps): ReactNode {
   const { dialog, run, unavailableReason } = props;
   const state = useSyncExternalStore(dialog.subscribe, dialog.get);
   const startReason = unavailableReason(ExportCommand.Start);
-  const reasonId = useId();
   return (
     <ModalDialog
       open={state.kind === 'open'}
@@ -180,14 +189,12 @@ export function ExportDialog(props: ExportDialogProps): ReactNode {
         if (!open) run(ExportCommand.CloseDialog);
       }}
       title={EXPORT_DIALOG_WORDS.title}
+      icon="export"
       description="Choose a preset, or set every value yourself; what the export will do is said before it starts."
+      closeLabel="Close"
+      status={startReason}
       actions={
         <>
-          {startReason !== undefined && (
-            <p id={reasonId} className="ag-panel-note" data-ag-status="unavailable">
-              {startReason}
-            </p>
-          )}
           <Button
             onClick={() => {
               run(ExportCommand.CloseDialog);
@@ -195,15 +202,16 @@ export function ExportDialog(props: ExportDialogProps): ReactNode {
           >
             Cancel
           </Button>
-          <NotedButton
+          <Button
             tone={ButtonTone.Primary}
-            reasonId={startReason === undefined ? undefined : reasonId}
-            onPress={() => {
+            {...(startReason === undefined ? {} : { unavailableReason: startReason })}
+            onClick={() => {
               run(ExportCommand.Start);
             }}
           >
+            <Icon name="export" />
             {EXPORT_DIALOG_WORDS.start}
-          </NotedButton>
+          </Button>
         </>
       }
     >

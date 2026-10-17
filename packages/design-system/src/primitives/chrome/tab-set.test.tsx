@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { TabSet } from './tab-set.js';
+import { TabOrientation, TabSet } from './tab-set.js';
 
 describe('TabSet', () => {
   it('names its tab list and shows only the selected panel', () => {
@@ -64,5 +64,37 @@ describe('TabSet', () => {
 
     const tab = screen.getByRole('tab', { name: 'Appearance' });
     expect(tab.querySelector('svg[data-icon="appearance"]')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('runs as a column of lit rows when vertical, moved through with the up and down arrows', async () => {
+    // Settings lists its pages down its side: as a horizontal set, the down
+    // arrow did nothing, and its chosen page was drawn as a panel's tab rather
+    // than lit as a chosen row.
+    const onValueChange = vi.fn();
+    render(
+      <TabSet
+        label="Settings pages"
+        value="appearance"
+        onValueChange={onValueChange}
+        orientation={TabOrientation.Vertical}
+        tabs={[
+          { value: 'appearance', label: 'Appearance', icon: 'appearance', content: <p>A</p> },
+          { value: 'shortcuts', label: 'Shortcuts', icon: 'shortcuts', content: <p>B</p> },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('tablist', { name: 'Settings pages' })).toHaveAttribute(
+      'aria-orientation',
+      'vertical',
+    );
+    const chosen = screen.getByRole('tab', { name: 'Appearance' });
+    expect(chosen).toHaveClass('ag-lit-row');
+    expect(chosen).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.tab();
+    await userEvent.keyboard('{ArrowDown}');
+
+    expect(onValueChange).toHaveBeenCalledWith('shortcuts');
   });
 });

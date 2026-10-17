@@ -16,6 +16,7 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
+  type ControlDescription,
   CorrelationMeter,
   Fader,
   type FaderMark,
@@ -25,6 +26,7 @@ import {
   type MeterScale,
   MeterOrientation,
   type SliderScale,
+  ThresholdMeter,
   ValueSlider,
 } from '@audiogubbins/design-system';
 
@@ -48,7 +50,13 @@ function Dragged({ children }: { readonly children: ReactNode }): ReactNode {
 
 // ---------- The slider ----------
 
-function slider(extra: { readonly disabled?: boolean; readonly unavailableReason?: string } = {}) {
+function slider(
+  extra: {
+    readonly disabled?: boolean;
+    readonly unavailableReason?: string;
+    readonly description?: ControlDescription;
+  } & ({ readonly visibleLabel?: string } | { readonly labelHidden: true }) = {},
+) {
   return (
     <ValueSlider
       label="Mix"
@@ -365,6 +373,25 @@ const specimens: readonly Specimen[] = [
     state: 'unavailable',
     render: () => slider({ unavailableReason: REASON }),
   },
+  {
+    component: 'ValueSlider',
+    state: 'short label',
+    render: () => slider({ visibleLabel: 'Wet' }),
+  },
+  { component: 'ValueSlider', state: 'label hidden', render: () => slider({ labelHidden: true }) },
+  {
+    component: 'ValueSlider',
+    state: 'description',
+    render: () => slider({ description: 'How much of the reverb is heard.' }),
+  },
+  {
+    component: 'ValueSlider',
+    state: 'description behind a hint',
+    render: () =>
+      slider({
+        description: { hintLabel: 'About the mix', text: 'How much of the reverb is heard.' },
+      }),
+  },
   { component: 'ValueSlider', state: 'centred, right', render: () => centredSlider(40) },
   { component: 'ValueSlider', state: 'centred, left', render: () => centredSlider(-25) },
 
@@ -410,6 +437,42 @@ const specimens: readonly Specimen[] = [
   { component: 'CorrelationMeter', state: 'in phase', render: () => correlation(0.72) },
   { component: 'CorrelationMeter', state: 'unrelated', render: () => correlation(0) },
   { component: 'CorrelationMeter', state: 'out of phase', render: () => correlation(-0.6) },
+  ...(
+    [
+      ['passes', 0.1, '−62 dBFS; passes at −60 dBFS or less, warns to −40 dBFS'],
+      ['warns', 0.55, '1.9 dB; passes at 1 dB or less, warns to 3 dB'],
+      ['fails', 0.82, '11.4 deviations; passes at 4 or less, warns to 8'],
+    ] as const
+  ).map(([state, value, words]): Specimen => ({
+    component: 'ThresholdMeter',
+    state,
+    render: () => (
+      <div style={{ inlineSize: 'calc(60 * var(--ag-grid-unit))' }}>
+        <ThresholdMeter
+          label="Loop check"
+          value={value}
+          passUntil={0.3}
+          warnUntil={0.6}
+          valueText={words}
+        />
+      </div>
+    ),
+  })),
+  {
+    component: 'ThresholdMeter',
+    state: 'warns, never fails',
+    render: () => (
+      <div style={{ inlineSize: 'calc(60 * var(--ag-grid-unit))' }}>
+        <ThresholdMeter
+          label="Seam on a zero crossing"
+          value={0.7}
+          passUntil={0.25}
+          warnUntil={1}
+          valueText="3 frames from a zero crossing; passes at 1 or less"
+        />
+      </div>
+    ),
+  },
 ];
 
 export default specimens;

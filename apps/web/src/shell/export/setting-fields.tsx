@@ -9,7 +9,7 @@
  * keystrokes are not lost.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 import { OptionSelect, TextField } from '@audiogubbins/design-system';
 import type {
@@ -40,6 +40,26 @@ export interface EncodingProps<F extends ExportFormat> {
 export type EncodingRows = {
   readonly [F in ExportFormat]: (props: EncodingProps<F>) => ReactNode;
 };
+
+/**
+ * A group of settings under a quiet heading, as a form: each control's label in
+ * a column of its own. A fieldset, so a screen reader hears the group's name as
+ * it enters it.
+ */
+export function SettingGroup({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <fieldset className="ag-dialogue-form ag-export-group" data-ag-labels="wide">
+      <legend className="ag-dialogue-heading">{title}</legend>
+      {children}
+    </fieldset>
+  );
+}
 
 /** One value of a choice, and what it is called. */
 export interface Choice<T> {
@@ -89,39 +109,57 @@ export function wholeNumbers(lowest: number, highest: number): readonly number[]
 /** Text that is a number as a person writes one: digits, a point, and a minus before them. */
 const NUMBER = /^\s*-?(\d+(\.\d*)?|\.\d+)\s*$/u;
 
-/** A number the person types, with `unit` after it where it has one. */
+/**
+ * A number the person types, in `unit` where it has one.
+ *
+ * Where the unit has a symbol to show inside the field, such as ms, the field
+ * shows it and a screen reader is told the unit's name; otherwise the field's
+ * description names it.
+ */
 export function NumberField({
   label,
   value,
   unit,
+  shownUnit,
   description,
   onNumber,
 }: {
   readonly label: string;
   readonly value: number;
   readonly unit?: string;
+  readonly shownUnit?: string;
   readonly description?: string;
   readonly onNumber: (value: number) => void;
 }): ReactNode {
   const [typed, setTyped] = useState<string | undefined>(undefined);
+  const unitSaid = useId();
   const wrong = typed !== undefined && !NUMBER.test(typed);
   // The text typed is shown while it is the value, or is not a number yet;
   // a value changed elsewhere, as by a preset, is shown as it now is.
   const shown = typed !== undefined && (wrong || Number(typed) === value) ? typed : String(value);
+  const inUnit = unit === undefined ? undefined : `In ${unit}.`;
   const said = [
-    ...(unit === undefined ? [] : [`In ${unit}.`]),
+    ...(inUnit === undefined || shownUnit !== undefined ? [] : [inUnit]),
     ...(description === undefined ? [] : [description]),
-    ...(wrong ? ['Write a number.'] : []),
   ].join(' ');
   return (
-    <TextField
-      label={label}
-      value={shown}
-      {...(said === '' ? {} : { description: said })}
-      onValueChange={(text) => {
-        setTyped(text);
-        if (NUMBER.test(text)) onNumber(Number(text));
-      }}
-    />
+    <>
+      {inUnit !== undefined && shownUnit !== undefined && (
+        <span id={unitSaid} className="ag-visually-hidden">
+          {inUnit}
+        </span>
+      )}
+      <TextField
+        label={label}
+        value={shown}
+        {...(said === '' ? {} : { description: said })}
+        {...(shownUnit === undefined ? {} : { unit: shownUnit, describedBy: unitSaid })}
+        {...(wrong ? { error: 'Write a number.' } : {})}
+        onValueChange={(text) => {
+          setTyped(text);
+          if (NUMBER.test(text)) onNumber(Number(text));
+        }}
+      />
+    </>
   );
 }

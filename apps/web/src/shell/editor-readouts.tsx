@@ -11,7 +11,7 @@
 
 import type { ReactNode, RefObject } from 'react';
 
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon } from '@audiogubbins/design-system';
 import type { PlacedMarker } from '@audiogubbins/domain';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { formatPosition, visibleRange, type SelectionSet, type Zoom } from '@audiogubbins/timeline';
@@ -62,18 +62,18 @@ export function EditorReadouts({
   };
   useReadingsSaid(surface, readings, parts.announce);
   return (
-    <dl id={id} className="ag-readings ag-editor-readings">
-      <div className="ag-reading">
+    <dl id={id} className="ag-editor-readings">
+      <div className="ag-editor-reading">
         <dt>Playhead</dt>
         <dd role="timer" aria-label="Playhead">
           {readings.playhead}
         </dd>
       </div>
-      <div className="ag-reading">
+      <div className="ag-editor-reading">
         <dt>Zoom</dt>
         <dd>{readings.zoom}</dd>
       </div>
-      <div className="ag-reading">
+      <div className="ag-editor-reading">
         <dt>Showing</dt>
         <dd>{readings.showing}</dd>
       </div>
@@ -113,6 +113,7 @@ export function MarkerList({
               parts.run('editor.select-marker', { view: panel, marker: marker.id });
             }}
           >
+            <Icon name="marker" />
             {`${marker.displayName} at ${formatPosition(marker.position, asset.sampleRate, state.timeFormat)}`}
           </Button>
         </li>

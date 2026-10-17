@@ -1,0 +1,36 @@
+/*
+ * The diagnostic report (design language, sections 10 and 11): the switches
+ * for what it holds, close together, what redaction did to the note beside
+ * its glyph, and the contents listed under a quiet heading.
+ */
+
+.ag-diagnostic-contents {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+/* What redaction did to the note: its glyph, then the two lines, once there is anything to say. */
+.ag-diagnostic-redaction {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-diagnostic-redaction > .ag-icon {
+  margin-block-start: var(--ag-space-micro);
+}
+
+.ag-diagnostic-redaction-text {
+  display: grid;
+  gap: var(--ag-space-micro);
+  min-inline-size: 0;
+}
+
+.ag-diagnostic-list {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}

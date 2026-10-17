@@ -16,7 +16,13 @@ import {
 } from 'react';
 
 import { commandId, type CommandId } from '@audiogubbins/commands';
-import { usePublishedBlockSize } from '@audiogubbins/design-system';
+import {
+  Hint,
+  KeyCap,
+  StatusChip,
+  StatusTone,
+  usePublishedBlockSize,
+} from '@audiogubbins/design-system';
 import { PanelKinds } from '@audiogubbins/workspace';
 
 import { showPanelCommandId } from '../commands/panel-commands.js';
@@ -188,25 +194,33 @@ export function StatusBar({
 
   return (
     <footer className="ag-status-bar" ref={bar} tabIndex={focus.tabIndex} aria-label="Status">
-      <span className="ag-status-item">{workspaceName}</span>
+      <StatusChip tone={StatusTone.Neutral} icon="workspace">
+        {workspaceName}
+      </StatusChip>
       {saving}
       {input}
 
       {pendingChord !== undefined && (
-        <span className="ag-status-item" data-ag-status="reduced">
-          {`${pendingChord} …`}
-        </span>
+        <StatusChip tone={StatusTone.Neutral}>
+          <KeyCap>{pendingChord}</KeyCap> …
+        </StatusChip>
       )}
 
       {diagnosticModeActive && (
-        <span className="ag-status-item" data-ag-status="reduced">
+        <StatusChip tone={StatusTone.Accent} icon="diagnostic-mode">
           Diagnostic mode
-        </span>
+        </StatusChip>
       )}
 
       {persistence.unsaved.length > 0 && (
-        <span className="ag-status-item" data-ag-status="unavailable">
-          {describeUnsaved(persistence)}
+        // Said in a few words, with the parts and the remedy behind the hint:
+        // the whole sentence standing in a one-line bar would push everything
+        // after it onto lines of its own.
+        <span className="ag-status-notice">
+          <StatusChip tone={StatusTone.Warning} icon="settings">
+            Settings not being saved
+          </StatusChip>
+          <Hint label="Why settings are not being saved">{describeUnsaved(persistence)}</Hint>
         </span>
       )}
 
@@ -215,9 +229,9 @@ export function StatusBar({
         // siblings in the bar, a Dismiss could wrap to the start of the next
         // line, beside the next notice, which it does not dismiss.
         <span key={about} className="ag-status-notice">
-          <span className="ag-status-item" data-ag-status="unavailable">
+          <StatusChip tone={StatusTone.Neutral} icon="recovered">
             {wholeNotice(notice)}
-          </span>
+          </StatusChip>
           <QuickAction
             // Drawn short, named in full: eight words on a button in a one-line
             // bar would spill over the workspace on a narrow screen.
@@ -234,9 +248,9 @@ export function StatusBar({
       {recovery.waitsForRoom && (
         // After the notices it advises on, once for them all, with nothing to
         // dismiss it: it stands while text waits for room, notices or not.
-        <span className="ag-status-item" data-ag-status="unavailable">
+        <StatusChip tone={StatusTone.Warning} icon="warning">
           {MAKING_ROOM_SAFELY}
-        </span>
+        </StatusChip>
       )}
 
       <span className="ag-status-spacer" />
@@ -247,22 +261,24 @@ export function StatusBar({
         unavailable" and one that lacks one never reads "1 capabilities
         unavailable". It carries the action that opens the panel it speaks of,
         named as the menu names that panel, so the user who presses it knows the
-        tab they are looking for.
+        tab they are looking for, and drawn as the start of that name. One
+        element for the two, so they wrap together.
       */}
       {missingCapabilities > 0 && (
-        <>
-          <span className="ag-status-item" data-ag-status="reduced">
+        <span className="ag-status-notice">
+          <StatusChip tone={StatusTone.Warning} icon="warning">
             {missingCapabilities === 1
               ? 'One capability is unavailable'
               : `${String(missingCapabilities)} capabilities are unavailable`}
-          </span>
+          </StatusChip>
           <QuickAction
             label="Show the Capabilities panel"
+            shown="Show"
             onPress={() => {
               run(commandId(showPanelCommandId(PanelKinds.Capabilities)));
             }}
           />
-        </>
+        </span>
       )}
     </footer>
   );

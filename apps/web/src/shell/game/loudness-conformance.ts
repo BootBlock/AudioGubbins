@@ -4,12 +4,13 @@
  * this session and the identity of the member's audio now.
  *
  * A member conforms where its integrated loudness is within the target's
- * tolerance and, where the target sets a ceiling, its true peak is under it.
- * A reading of audio that has changed since is stale and says so, rather than
- * standing for audio it did not read. Every verdict is a word and a sign
- * written as text, never a colour alone.
+ * tolerance and, where the target sets a ceiling, its true peak is under it. A
+ * reading of audio that has changed since is stale and says so, rather than
+ * standing for audio it did not read. Every verdict is told in words and by the
+ * glyph of its kind, never by a colour alone.
  */
 
+import { VerdictKind } from '@audiogubbins/design-system';
 import type { LoudnessTarget } from '@audiogubbins/game-audio';
 
 import type { LoudnessReading } from '../../state/loudness-store.js';
@@ -68,28 +69,46 @@ export function conformance(
   return { kind: 'conforms', lufs: integratedLufs };
 }
 
-/** A verdict in words, its sign written first as text. */
+/** A verdict in words, which say it without the glyph or the colour beside them. */
 export function conformanceWords(verdict: Conformance): string {
   switch (verdict.kind) {
     case 'no-target':
-      return '— No loudness target';
+      return 'No loudness target';
     case 'unmeasured':
-      return '? Not measured';
+      return 'Not measured';
     case 'measuring':
-      return `… Measuring, ${String(verdict.percent)}%`;
+      return `Measuring, ${String(verdict.percent)}%`;
     case 'failed':
-      return `! Not measured: ${verdict.reason}`;
+      return `Not measured: ${verdict.reason}`;
     case 'stale':
-      return '? Changed since it was measured; measure again';
+      return 'Changed since it was measured; measure again';
     case 'silent':
-      return '! Too quiet to measure';
+      return 'Too quiet to measure';
     case 'conforms':
-      return `✓ Conforms at ${signed(verdict.lufs)} LUFS`;
+      return `Conforms at ${signed(verdict.lufs)} LUFS`;
     case 'too-loud':
-      return `✗ Too loud: ${signed(verdict.lufs)} LUFS, ${signed(verdict.by)} LU over`;
+      return `Too loud: ${signed(verdict.lufs)} LUFS, ${signed(verdict.by)} LU over`;
     case 'too-quiet':
-      return `✗ Too quiet: ${signed(verdict.lufs)} LUFS, ${signed(verdict.by)} LU under`;
+      return `Too quiet: ${signed(verdict.lufs)} LUFS, ${signed(verdict.by)} LU under`;
     case 'peaks-over':
-      return `✗ Peaks at ${signed(verdict.peak)} dBTP, ${signed(verdict.by)} dB over the ceiling`;
+      return `Peaks at ${signed(verdict.peak)} dBTP, ${signed(verdict.by)} dB over the ceiling`;
   }
 }
+
+/**
+ * The kind of check a verdict is, whose glyph is drawn before its words: a
+ * reading that cannot stand for the audio now, or could not be taken, warns,
+ * and nothing to measure against is no verdict at all.
+ */
+export const CONFORMANCE_VERDICTS: Readonly<Record<Conformance['kind'], VerdictKind>> = {
+  'no-target': VerdictKind.None,
+  unmeasured: VerdictKind.None,
+  measuring: VerdictKind.Running,
+  failed: VerdictKind.Warns,
+  stale: VerdictKind.Warns,
+  silent: VerdictKind.Warns,
+  conforms: VerdictKind.Passes,
+  'too-loud': VerdictKind.Fails,
+  'too-quiet': VerdictKind.Fails,
+  'peaks-over': VerdictKind.Fails,
+};

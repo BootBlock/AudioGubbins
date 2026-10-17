@@ -213,6 +213,29 @@ export type StateScale = {
   readonly markSize: number;
 };
 
+/**
+ * A modal dialogue's widths, in pixels, one per kind of dialogue, from the
+ * approved dialogue references. A dialogue is as wide as what it holds needs,
+ * not one width for every dialogue: a prompt of two sentences in the width a
+ * page of settings needs reads as a line too long to follow.
+ */
+export type DialogueScale = {
+  /** A dialogue that reports one thing under way, such as a file exporting. */
+  readonly widthNarrow: number;
+
+  /** A prompt or a confirmation: a sentence or two and its actions. */
+  readonly widthStandard: number;
+
+  /** A dialogue of sections and forms, such as Projects or Export. */
+  readonly widthWide: number;
+
+  /** A dialogue that holds pages of its own, such as Settings or a guided workflow. */
+  readonly widthSpacious: number;
+
+  /** The command palette. */
+  readonly widthPalette: number;
+};
+
 /** Everything the layout depends on, for one density. */
 export interface Metrics {
   readonly grid: GridScale;
@@ -227,6 +250,7 @@ export interface Metrics {
   readonly hardware: HardwareScale;
   readonly display: DisplayScale;
   readonly state: StateScale;
+  readonly dialogue: DialogueScale;
 }
 
 const GRID: GridScale = { unit: 2 };
@@ -344,6 +368,13 @@ const COMFORTABLE: Metrics = {
   hardware: { knobSize: 52, switchWidth: 38, switchHeight: 22, meterSegment: 4, meterGap: 1 },
   display: { rulerHeight: 26, regionLaneHeight: 20, overviewHeight: 22 },
   state: { markSize: 52 },
+  dialogue: {
+    widthNarrow: 460,
+    widthStandard: 520,
+    widthWide: 640,
+    widthSpacious: 760,
+    widthPalette: 560,
+  },
 };
 
 const COMPACT: Metrics = {
@@ -371,6 +402,13 @@ const COMPACT: Metrics = {
   hardware: { knobSize: 44, switchWidth: 32, switchHeight: 20, meterSegment: 4, meterGap: 1 },
   display: { rulerHeight: 22, regionLaneHeight: 16, overviewHeight: 22 },
   state: { markSize: 52 },
+  dialogue: {
+    widthNarrow: 460,
+    widthStandard: 480,
+    widthWide: 600,
+    widthSpacious: 700,
+    widthPalette: 500,
+  },
 };
 
 /** The metrics for a density. */

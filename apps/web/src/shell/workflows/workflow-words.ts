@@ -4,6 +4,7 @@
  * item is about and how it stands, and the names of the choices.
  */
 
+import { ValueSource } from '@audiogubbins/design-system';
 import { FadeShape } from '@audiogubbins/domain';
 import {
   groupPath,
@@ -70,6 +71,40 @@ export function sourceWords(source: DraftSource | OptionSource): string {
     }
   }
 }
+
+/**
+ * How a source chip draws where an option's value came from: set here or on
+ * the member it runs on, taken from the workflow, what it runs on or a group
+ * above, or set nowhere.
+ */
+export function sourceKind(source: DraftSource | OptionSource): ValueSource {
+  switch (source.kind) {
+    case 'chosen':
+      return ValueSource.Set;
+    case 'workflow':
+    case 'targets':
+      return ValueSource.Inherited;
+    case 'policy':
+      switch (source.source.kind) {
+        case 'override':
+          return ValueSource.Set;
+        case 'group':
+          return ValueSource.Inherited;
+        case 'unset':
+          return ValueSource.Unset;
+      }
+  }
+}
+
+/** The units a workflow's numbers are in, each named as said and shown as its symbol. */
+export const UNITS = {
+  milliseconds: { name: 'milliseconds', symbol: 'ms' },
+  seconds: { name: 'seconds', symbol: 's' },
+  dbfs: { name: 'dBFS', symbol: 'dBFS' },
+  lufs: { name: 'LUFS', symbol: 'LUFS' },
+  lu: { name: 'LU', symbol: 'LU' },
+  dbtp: { name: 'dBTP', symbol: 'dBTP' },
+} as const;
 
 /** What a member is called in `state`, or what it was where the project no longer has it. */
 export function memberName(member: GroupMember, state: ProjectState): string {

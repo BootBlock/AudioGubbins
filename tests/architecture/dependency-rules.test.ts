@@ -1047,11 +1047,11 @@ describe('third-party libraries stay behind their adapters', () => {
 
   it("draws on the docking engine's own class names in four places, all of them listed", () => {
     // The containment above is about imports, and the browser suite imports
-    // nothing from the engine while driving nineteen of its private class
-    // names. Counting them is what makes the claim above measurable: the
-    // adapter, the stylesheet that reaches the engine's own by `@import`, the
-    // adapter's own test, which stands in for the engine, and the one helper
-    // the browser suite asks for a group, a tab or a splitter through.
+    // nothing from the engine while driving its private class names. Counting
+    // them is what makes the claim above measurable: the adapter, the
+    // stylesheet that reaches the engine's own by `@import`, the adapter's own
+    // test, which stands in for the engine, and the one helper the browser
+    // suite asks for a group, a tab or a splitter through.
     const engineClass = /['"`.][\w-]*\bdv-[\w-]+/;
     const knowing = EVERY_WRITTEN_FILE.filter((path) => engineClass.test(read(path)));
 
@@ -2494,7 +2494,7 @@ describe('one fact, held the same in every place it is written', () => {
     const declared = /export const SMALLEST_WORKSPACE_WIDTH = (\d+);/.exec(
       read('apps/web/src/shell/too-narrow.tsx'),
     );
-    const fires = /@media \(width < (\d+)px\)/.exec(read('apps/web/src/shell/shell.css'));
+    const fires = /@media \(width < (\d+)px\)/.exec(read('apps/web/src/shell/too-narrow.css'));
     const suite = /const DECLARED = (\d+);/.exec(read('tests/e2e/smoke.spec.ts'));
 
     expect([fires?.[1], suite?.[1]]).toEqual([declared?.[1], declared?.[1]]);
@@ -3140,8 +3140,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, letting the context go for another rate, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes, and whether it plays.",
     ],
     'apps/web/src/app.tsx': [
-      315,
-      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface, the props each surface is handed, and one import per stylesheet of the design system in cascade order, which a stylesheet of imports alone would only move behind a barrel.",
+      335,
+      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface, the props each surface is handed, and one import per stylesheet of the design system in cascade order, which a stylesheet of imports alone would only move behind a barrel. Reviewed again when the redesigned panels each brought a stylesheet of their own: the growth is one import per panel's sheet, after the frame's in cascade order, and the component is unchanged.",
     ],
     'apps/web/src/application.ts': [
       395,
@@ -3160,8 +3160,12 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "Every command that acts on the panels on screen, each a small builder over one list: opening a panel per kind, closing the one in use, the arrangement the dock reports, and the four families that stand in for the engine's pointer gestures \u2014 moving a panel to a region, sizing its group, nudging a floating group and moving a panel along its group's tabs. The four share one builder, so what is left of each family is a table: an identifier, a label, keywords, the store method it calls and the sentence it says. Split by family, the four files would each hold one table and the shared builder and helpers would move to a fifth.",
     ],
     'apps/web/src/shell/settings/shortcuts.tsx': [
-      313,
-      'One settings section: the profile in force and what is done to it as a whole, then one table of every command a user can bind, with the row being edited holding the recorder. Each part is already a component of its own \u2014 the header, which says once why a control that names something cannot be used, the profile actions, the conflict, reserved and waiting notes, and the row \u2014 and what is left in the section is the props they share, the reasons the header and every row read, and the one piece of state that says which row is being edited. The notes are `shortcut-notes.tsx`, the recorder is `shortcut-recorder.tsx` and the control that reads a profile from a file is `import-profile.tsx`; splitting the table from the header would separate the row from the state that decides which row is open.',
+      329,
+      'One settings section: the profile in force and what is done to it as a whole, then one table of every command a user can bind, with the row being edited holding the recorder. Each part is already a component of its own \u2014 the header, which says once why a control that names something cannot be used, the profile actions, the conflict, reserved and waiting notes, and the row \u2014 and what is left in the section is the props they share, the reasons the header and every row read, and the one piece of state that says which row is being edited. The notes are `shortcut-notes.tsx`, the recorder is `shortcut-recorder.tsx` and the control that reads a profile from a file is `import-profile.tsx`; splitting the table from the header would separate the row from the state that decides which row is open. Reviewed again when each binding came to be drawn as key caps, a component of a few lines beside the row that draws them.',
+    ],
+    'apps/web/src/shell/command-glyphs.ts': [
+      377,
+      "A table and nothing else: one line for each command that has a glyph, naming the glyph in the icon vocabulary's words, grouped by what the commands act on, and the one map every menu, the palette and every command button read it through, with a command that shows a panel taking the panel's own glyph from `panel-glyphs.tsx`. There is no logic to separate. Split by area, a command's glyph would be found in whichever part its area was filed under, and a command that moved between areas would be drawn with two glyphs until both were found; one table is what makes one command one glyph wherever it is offered.",
     ],
     'apps/web/src/state/workspace-store.ts': [
       361,
@@ -3184,8 +3188,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it; and the text read as written before it is read through its percent-encoding, so an address keeps the extent it is written with. The finding of each is elsewhere \u2014 credentials in `credentials.ts`, every location in `path-finding.ts` and the layers of encoding in `percent-decoding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
     ],
     'packages/workspace/src/adapter/dockview-adapter.tsx': [
-      328,
-      "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
+      397,
+      "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; naming its tab lists and letting the keyboard into its groups on each report; starting a mount with the drops it settles and the stage it is built on, which may silence it before it goes; reading each group by the box it is drawn in; and the tab it draws. What reads no engine type is a module of its own: the pairing with what it drew (`baseline.ts`), what a panel was mounted with (`panel-parameters.ts`), the dock's own chrome and drop guides (`dock-chrome.tsx`), its motion and the drops it settles (`dock-motion.ts`) and the stage that rebuilds it in a view transition (`dock-stage.tsx`). Split further, each part would be another module that names the engine. Reviewed again when the stage, the drop guides and the tab's glyph arrived.",
     ],
     'packages/audio-engine/src/pcm/plan-readers.ts': [
       373,
@@ -3202,10 +3206,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/game-audio/src/export/game-export-plan.ts': [
       300,
       "The game export plan: each member planned alone from its effective profile, naming and destination, each refusal re-stated with the owner of the value refused, and the planned items whose files would land on one another refused together. A member's policy, naming and export settings are modules of their own (`policy-resolution.ts`, `member-names.ts`, `member-export-settings.ts`); what is left is planning one member and settling the drafts against each other. The collision check is the one seam, and split out it would need this module's item and draft types and the words a refusal names a member by, which a collision and an unset value share. It entered the band when its refusals took the text package's quoting.",
-    ],
-    'packages/design-system/src/icons/vocabulary.ts': [
-      390,
-      "The icon vocabulary: one static import per glyph and one line per name, with no logic of its own. Measuring and placing a glyph is `placed-glyph.ts`, its ink `ink-box.ts` and `path-box.ts`, and the glyphs AudioGubbins draws `custom-glyphs.ts`; what is left is the one map whose keys are `IconName`, which split by area would let two areas give one name to two glyphs with no type error, since a spread takes the last silently, and would leave no one place that says what the application can draw. It entered the band whole, as the vocabulary was first written from the design language's mock-ups.",
     ],
   };
 
@@ -3417,13 +3417,9 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       52,
       'One list of four readings, the output, the input, the round trip and what a take is placed by, each worded where it is shown so a figure and what it rests on are read together.',
     ],
-    'apps/web/src/shell/recording/recording-configuration.tsx: RecordingConfiguration': [
-      58,
-      "One list of readings of the recording configuration, each a line of the settings or the input, with the grant's disclosure, which is a component of its own, beneath it.",
-    ],
     'apps/web/src/shell/settings/audio.tsx: Audio': [
-      53,
-      'One settings section of parts that are components of their own, the profile choice, the Custom form, the quality settings and the recording input; what remains are the two selects that run one command each.',
+      67,
+      'One settings section of parts that are components of their own, the profile choice, the Custom form, the quality settings and the recording input; what remains are the two selects that run one command each. Reviewed again when the explanation of the profiles moved behind a hint and Background priority became a segmented choice under its heading; the Custom form moved to `custom-profile.tsx`.',
     ],
     'apps/web/src/shell/settings/capture-profile-form.tsx: CaptureProfileForm': [
       67,
@@ -3475,8 +3471,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic. Reviewed again when the region and the marker were anchored to the footstep (ADR-0051): the growth is their basis and loop fields, still data.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
-      146,
-      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table. Reviewed again when the asset groups’, the workflows’ and the Game preview’s groups met: the growth is registration lines for the Phase 10 commands, still a declarative table.',
+      152,
+      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table. Reviewed again when the asset groups’, the workflows’ and the Game preview’s groups met: the growth is registration lines for the Phase 10 commands, still a declarative table. Reviewed again when every entry came to carry the glyph of its command, read from the one table the palette and the buttons read (`command-glyphs.ts`): one local function and one line in each entry builder, still a declarative table.',
     ],
 
     // Factories: private state closed over, with each returned method a unit.
@@ -3523,20 +3519,20 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      236,
-      "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
+      223,
+      "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces. Reviewed again when the menu bar row became a component of its own (`menu-bar-row.tsx`) and the dock came to be built on the stage that rebuilds it in a view transition: smaller, with the same surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [
       122,
       'One combobox: a field and its Enter handler, which read one query and one highlight, and the results they produce. The key navigation is `palette-navigation.ts` and the wait before the result count is said is `use-settled.ts`.',
     ],
     'apps/web/src/shell/settings/shortcut-recorder.tsx: ShortcutRecorder': [
-      110,
-      'One control whose key handler, spoken feedback and buttons all read the same presses and listening state.',
+      122,
+      'One control whose key handler, spoken feedback and buttons all read the same presses and listening state. Reviewed again when its buttons became icon buttons and the presses it has read so far key caps: the same presses and listening state, drawn as the language draws them.',
     ],
     'apps/web/src/shell/diagnostic-export.tsx: DiagnosticExportDialog': [
-      130,
-      'One consent dialogue whose switches, notes, redacted note and contents preview all read one selection and one set of redaction options, so what is shown is what is saved. What is said of the redaction and what is shown of it are two elements, because the note is as long as the reader made it and only a sentence can be read out; both are that one preview, said and shown.',
+      95,
+      'One consent dialogue whose switches, notes, redacted note and contents preview all read one selection and one set of redaction options, so what is shown is what is saved. The redaction preview and the contents list are drawn by their own components from what this one reads.',
     ],
     'apps/web/src/shell/settings/workspaces.tsx: Workspaces': [
       85,
@@ -3547,16 +3543,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "One panel whose filter controls and record list share the reader's chosen level and subsystem, kept beside the dock as well so a remount keeps them.",
     ],
     'apps/web/src/shell/status-bar.tsx: StatusBar': [
-      70,
-      "A strip of short independent statements, with one focus effect for a dismissed notice. The bar's own height is published through the hook the notice surface publishes its height with, rather than by an effect written out here as well.",
+      78,
+      "A strip of short independent statements, with one focus effect for a dismissed notice. The bar's own height is published through the hook the notice surface publishes its height with, rather than by an effect written out here as well. Reviewed again when each statement came to be drawn as a status chip of its tone, with its reason behind a hint: the growth is that markup, and each statement is still independent.",
     ],
     'apps/web/src/shell/settings-dialog.tsx: SettingsDialog': [
-      82,
-      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, the project system's tabs, which `projectTabs` builds, and the Export tab, which `exportTab` builds.",
+      97,
+      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, the project system's tabs, which `projectTabs` builds, and the Export tab, which `exportTab` builds. Reviewed again when the sections became a list of pages, each with its glyph, beside the page shown, and the dialogue gained its titled header: the growth is the markup of that layout, with no new state.",
     ],
     'apps/web/src/shell/settings/appearance.tsx: Appearance': [
-      66,
-      'Four independent controls, each running one appearance command.',
+      81,
+      'Four independent controls, each running one appearance command. Reviewed again when the theme and the density became preview cards and the accent a row of swatches, each choice under a visible heading: still independent controls, each running one appearance command.',
     ],
     'apps/web/src/shell/settings/diagnostics.tsx: Diagnostics': [
       51,

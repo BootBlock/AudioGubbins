@@ -12,7 +12,16 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, ModalDialog } from '@audiogubbins/design-system';
+import {
+  Banner,
+  BannerTone,
+  Button,
+  ButtonTone,
+  Icon,
+  IconSize,
+  ModalDialog,
+  Spinner,
+} from '@audiogubbins/design-system';
 
 import type { StoredSchema } from '@audiogubbins/storage';
 
@@ -35,6 +44,19 @@ function foundSentence(data: BlockingData): string {
   return `The projects stored in this browser were saved in ${words} ${String(data.found)}, and this version of AudioGubbins reads ${words} ${String(data.current)}.`;
 }
 
+/** The format found and the one this version reads, side by side, where the two are known. */
+function FormatChange({ data }: { readonly data: BlockingData }): ReactNode {
+  if (data.kind !== 'incompatible') return null;
+  const words = SCHEMA_WORDS[data.schema];
+  return (
+    <p className="ag-stored-formats" aria-hidden="true">
+      <span>{`${words} ${String(data.found)}`}</span>
+      <Icon name="leads-to" size={IconSize.Inline} />
+      <span>{`${words} ${String(data.current)}`}</span>
+    </p>
+  );
+}
+
 /**
  * The second confirmation of a wipe. Focus goes to keeping the data as it
  * appears, since the button pressed to reach it has gone, and keeping is the
@@ -52,20 +74,20 @@ function WipeConfirmation({
     keep.current?.focus();
   }, []);
   return (
-    <div className="ag-settings-section" role="group" aria-label="Remove the stored data">
-      <p data-ag-status="unavailable">
+    <div className="ag-dialogue-group" role="group" aria-label="Remove the stored data">
+      <Banner tone={BannerTone.Error} icon="warning">
         Removing the stored data deletes every project, backup and piece of media kept in this
         browser for good. Save a copy first if you might want any of it.
-      </p>
-      <div className="ag-settings-row">
+      </Banner>
+      <div className="ag-dialogue-row ag-stored-decisions">
+        <Button ref={keep} onClick={onKeep}>
+          Keep it
+        </Button>
         <Button
           tone={ButtonTone.Destructive}
           onClick={() => run('storage.wipe', { confirmed: 'yes' })}
         >
           Remove everything for good
-        </Button>
-        <Button ref={keep} onClick={onKeep}>
-          Keep it
         </Button>
       </div>
     </div>
@@ -86,7 +108,7 @@ function Decisions({ run }: { readonly run: RunCommand }): ReactNode {
     );
   }
   return (
-    <div className="ag-settings-row">
+    <div className="ag-dialogue-row ag-stored-decisions">
       <Button tone={ButtonTone.Primary} onClick={() => run('storage.export-raw')}>
         Save a copy of the stored data
       </Button>
@@ -121,18 +143,25 @@ export function CompatibilityScreen({
       onOpenChange={(open) => {
         if (!open) run('storage.set-aside');
       }}
-      title="Your stored projects need a decision"
+      title="Stored projects"
+      icon="stored-projects"
       description="This version of AudioGubbins cannot open the projects stored in this browser, and changes nothing until you decide."
     >
-      <div className="ag-settings-section">
-        {blocked !== undefined && <p>{foundSentence(blocked.data)}</p>}
-        <p className="ag-settings-note">
+      <div className="ag-dialogue-stack">
+        {blocked !== undefined && (
+          <>
+            <p className="ag-dialogue-text">{foundSentence(blocked.data)}</p>
+            <FormatChange data={blocked.data} />
+          </>
+        )}
+        <p className="ag-dialogue-note">
           You can save a copy of the stored data to keep it safe, decide later and leave it as it
           is, or remove it and start afresh. Until you decide, no project can be made or opened
           here.
         </p>
         {working !== undefined && (
-          <p role="status">
+          <p role="status" className="ag-dialogue-note ag-dialogue-working">
+            <Spinner size={IconSize.Inline} />
             {working === 'exporting'
               ? 'Saving a copy of the stored data…'
               : 'Removing the stored data…'}

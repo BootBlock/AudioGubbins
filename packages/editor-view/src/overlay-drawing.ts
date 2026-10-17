@@ -167,7 +167,7 @@ function drawContent(
   style: OverlayStyle,
   out: RenderBatch[],
 ): void {
-  const regions = pool.rectangles(style.palette.region);
+  const regions = pool.rectangles(style.palette.regionBoundary);
   const loops = pool.rectangles(style.palette.loop);
   for (const region of overlay.regions) {
     across(regions, style, lane, region.start);

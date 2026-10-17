@@ -15,7 +15,15 @@
 
 import type { DockviewApi, DockviewGroupPanel, IDockviewPanelHeaderProps } from 'dockview';
 import { DockviewReact, type IDockviewPanelProps } from 'dockview-react';
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import {
   DockRegion,
@@ -29,6 +37,10 @@ import {
 import { keepBaseline } from './baseline.js';
 import { remember, type DockMemory } from './dock-memory.js';
 import { createChangeCoalescer, type FrameScheduler } from './coalescer.js';
+import { DropGuides, PanelGlyphContext, type PanelGlyph } from './dock-chrome.js';
+import { watchDrops, type DockMotion, type DrawnDockGroup } from './dock-motion.js';
+import { DockStageContext, type AttachDock } from './dock-stage.js';
+import { kindOf, parametersOf } from './panel-parameters.js';
 import {
   arrangementFrom,
   type DrawnGroup,
@@ -72,12 +84,12 @@ export type PanelRenderer = (panel: OpenPanel) => ReactNode;
  * `tabindex="-1"`, so a keyboard user cannot reach it at all. An accessibility
  * audit of the running application would report both.
  *
- * This tab therefore renders the title and nothing else, which leaves one
- * interactive element per tab and nothing unreachable. Closing a panel is a
- * command like every other action (REQ-EDIT-073), so it is available from the
- * palette, from a menu and from a shortcut, to pointer and keyboard users
- * alike. That is a wider affordance than the control it replaces, not a
- * narrower one.
+ * This tab therefore renders the panel's glyph and title and nothing else,
+ * which leaves one interactive element per tab and nothing unreachable. Closing
+ * a panel is a command like every other action (REQ-EDIT-073), so it is
+ * available from the palette, from a menu and from a shortcut, to pointer and
+ * keyboard users alike. That is a wider affordance than the control it
+ * replaces, not a narrower one.
  *
  * It is not the only way, and the other is the engine's: `dockview@8.3.1` binds
  * Backspace and Delete on the tab that has focus to closing its panel, which
@@ -90,8 +102,16 @@ export type PanelRenderer = (panel: OpenPanel) => ReactNode;
  * what a user can destroy without being asked.
  */
 function AudioGubbinsTab(props: IDockviewPanelHeaderProps): ReactNode {
-  return <span className="ag-dock-tab">{props.api.title ?? props.api.id}</span>;
+  const glyph = useContext(PanelGlyphContext);
+  return (
+    <span className="ag-dock-tab">
+      {glyph?.(kindOf(props.params) ?? props.api.id)}
+      <span className="ag-dock-tab-title">{props.api.title ?? props.api.id}</span>
+    </span>
+  );
 }
+
+export type { PanelGlyph };
 
 /** What the adapter needs. */
 export interface DockHostProps {
@@ -117,6 +137,12 @@ export interface DockHostProps {
 
   /** What outlives this mount: each panel's scroll, and the keyboard's place. */
   readonly memory: DockMemory;
+
+  /** How the dock moves, as the motion level the theme resolves asks. */
+  readonly motion: DockMotion;
+
+  /** Draws a panel's glyph for its tab and for the landing area of a drag. */
+  readonly glyph?: PanelGlyph;
 }
 
 /** Dockview's own name for each docked region. */
@@ -135,34 +161,6 @@ const REGION_NAMES: Readonly<Record<DockRegion, string>> = {
   [DockRegion.Bottom]: 'Bottom panels',
   [DockRegion.Floating]: 'Floating panels',
 };
-
-/**
- * The panel kind a panel was mounted with, from the parameters the engine hands
- * back untyped.
- */
-function kindOf(parameters: unknown): string | undefined {
-  return typeof parameters === 'object' &&
-    parameters !== null &&
-    'kind' in parameters &&
-    typeof parameters.kind === 'string'
-    ? parameters.kind
-    : undefined;
-}
-
-/**
- * The parameters a panel was mounted with besides its kind, from what the
- * engine hands back untyped, or none. Read back with the panel, since a panel's
- * parameters say which thing it shows, and an arrangement without them would
- * show something else after the next reload.
- */
-function parametersOf(parameters: unknown): Pick<OpenPanel, 'parameters'> {
-  if (typeof parameters !== 'object' || parameters === null) return {};
-  const kept = Object.entries(parameters).filter(
-    (entry): entry is [string, string | number | boolean] =>
-      entry[0] !== 'kind' && ['string', 'number', 'boolean'].includes(typeof entry[1]),
-  );
-  return kept.length === 0 ? {} : { parameters: Object.fromEntries(kept) };
-}
 
 /** One group of the engine's, measured, with the element it draws in. */
 interface MeasuredEngineGroup {
@@ -521,6 +519,90 @@ function watchArrangement(
   };
 }
 
+/**
+ * Every group the engine draws, as the dock's motion reads them: each by the
+ * box it is drawn in, which for a floating group is the engine's floating box
+ * round it, the sheet that lifts and glows.
+ */
+function drawnGroups(api: DockviewApi): readonly DrawnDockGroup[] {
+  return api.groups.map((group) => ({
+    element:
+      group.api.location.type === 'floating'
+        ? (group.element.closest<HTMLElement>('.dv-resize-container') ?? group.element)
+        : group.element,
+    panels: group.panels.map((panel) => panel.id),
+    activePanel: group.activePanel?.id,
+  }));
+}
+
+/** What a mount of the dock is given to start with, besides the engine. */
+interface DockStart {
+  readonly layout: WorkspaceLayout;
+  readonly descriptors: ReadonlyMap<PanelKind, PanelDescriptor>;
+  readonly memory: DockMemory;
+  readonly onArrangementChange: (arrangement: WorkspaceArrangement) => void;
+
+  /** The motion level in force when a drop lands. */
+  readonly motion: () => DockMotion;
+
+  /** The stage the dock is built on, where there is one. */
+  readonly attach: AttachDock | undefined;
+}
+
+/**
+ * Fills the engine with its layout and starts everything that follows it: the
+ * arrangement it reports, what it remembers across mounts, the drops it
+ * settles, and the stage it tells it is built. Answers what stops all of it.
+ *
+ * The stage may silence it first, as it is about to be replaced: from then on
+ * it reports and remembers nothing, though it stays drawn until the browser
+ * has captured it.
+ */
+function startDock(api: DockviewApi, start: DockStart): { readonly stop: () => void } {
+  const { layout, descriptors, memory, onArrangementChange } = start;
+  mountLayout(api, layout, descriptors);
+  const forget = remember(api, memory, layout.activePanelId);
+  const watching = watchArrangement(api, layout, descriptors, onArrangementChange);
+  const settling = watchDrops(api, () => drawnGroups(api), start.motion);
+
+  let silenced = false;
+  const silence = (): void => {
+    if (silenced) return;
+    silenced = true;
+    watching.stop();
+    settling.stop();
+    forget();
+  };
+  const detach = start.attach?.({ groups: () => drawnGroups(api), halt: silence });
+
+  return {
+    stop: () => {
+      silence();
+      detach?.();
+    },
+  };
+}
+
+/**
+ * The components the engine draws panels with. Dockview takes a map of
+ * component name to component. AudioGubbins has one component that renders any
+ * panel, because which panel is a parameter rather than a different component,
+ * so the map has a single entry.
+ */
+function useEngineComponents(renderPanel: PanelRenderer) {
+  return useMemo(
+    () => ({
+      panel: (props: IDockviewPanelProps) =>
+        renderPanel({
+          id: props.api.id,
+          kind: kindOf(props.params) ?? '',
+          ...(props.api.title === undefined ? {} : { title: props.api.title }),
+        }),
+    }),
+    [renderPanel],
+  );
+}
+
 /** Mounts the workspace. */
 export function DockHost({
   layout,
@@ -529,6 +611,8 @@ export function DockHost({
   onArrangementChange,
   dark,
   memory,
+  motion,
+  glyph,
 }: DockHostProps): ReactNode {
   /**
    * What this mount has to undo when it goes.
@@ -551,47 +635,49 @@ export function DockHost({
     },
     [],
   );
-  // Dockview takes a map of component name to component. AudioGubbins has one
-  // component that renders any panel, because which panel is a parameter rather
-  // than a different component, so the map has a single entry.
-  const components = useMemo(
-    () => ({
-      panel: (props: IDockviewPanelProps) =>
-        renderPanel({
-          id: props.api.id,
-          kind: kindOf(props.params) ?? '',
-          ...(props.api.title === undefined ? {} : { title: props.api.title }),
-        }),
-    }),
-    [renderPanel],
-  );
+
+  // Read when a drop lands, so a level changed while the dock is mounted
+  // applies to the next drop without building the dock again.
+  const motionNow = useRef(motion);
+  useEffect(() => {
+    motionNow.current = motion;
+  }, [motion]);
+
+  const attach = useContext(DockStageContext);
+
+  // The engine, once it is built, for the drop guides drawn in its groups.
+  const [engine, setEngine] = useState<DockviewApi | undefined>(undefined);
+
+  const components = useEngineComponents(renderPanel);
 
   const onReady = useCallback(
     (event: { api: DockviewApi }) => {
-      mountLayout(event.api, layout, descriptors);
-      const forget = remember(event.api, memory, layout.activePanelId);
-
       running.current?.stop();
-      const watching = watchArrangement(event.api, layout, descriptors, onArrangementChange);
-      running.current = {
-        stop: () => {
-          watching.stop();
-          forget();
-        },
-      };
+      running.current = startDock(event.api, {
+        layout,
+        descriptors,
+        memory,
+        onArrangementChange,
+        motion: () => motionNow.current,
+        attach,
+      });
+      setEngine(event.api);
     },
     // Listed for the linter's sake and nothing else: the engine calls this
     // once, when it mounts, and never takes a new one. What makes the dock
     // follow a changed layout is the key the shell mounts it under, not these.
-    [layout, descriptors, onArrangementChange, memory],
+    [layout, descriptors, onArrangementChange, memory, attach],
   );
 
   return (
-    <DockviewReact
-      components={components}
-      defaultTabComponent={AudioGubbinsTab}
-      onReady={onReady}
-      className={dark ? 'dockview-theme-dark' : 'dockview-theme-light'}
-    />
+    <PanelGlyphContext.Provider value={glyph}>
+      <DockviewReact
+        components={components}
+        defaultTabComponent={AudioGubbinsTab}
+        onReady={onReady}
+        className={dark ? 'dockview-theme-dark' : 'dockview-theme-light'}
+      />
+      {engine !== undefined && <DropGuides engine={engine} />}
+    </PanelGlyphContext.Provider>
   );
 }

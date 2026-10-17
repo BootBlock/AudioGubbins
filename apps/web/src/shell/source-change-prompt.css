@@ -1,0 +1,72 @@
+/*
+ * The linked files that changed (design language, sections 10 and 11): each
+ * file a card with a mark of what became of it in its tone, what it says, the
+ * choices for it and what it does the next time its file changes.
+ */
+
+.ag-source-changes {
+  display: grid;
+  gap: var(--ag-space-inset);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-source-change {
+  --ag-source-change-tone: var(--ag-chrome-accent);
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ag-space-medium);
+  padding: var(--ag-space-inset) var(--ag-space-inset-leading);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-quiet);
+}
+
+.ag-source-change[data-ag-tone='warning'] {
+  --ag-source-change-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-source-change[data-ag-tone='error'] {
+  --ag-source-change-tone: var(--ag-chrome-status-error);
+
+  border-color: color-mix(in oklch, var(--ag-chrome-status-error) 45%, transparent);
+}
+
+.ag-source-change[data-ag-tone='success'] {
+  --ag-source-change-tone: var(--ag-chrome-status-success);
+}
+
+/* What became of the file: its glyph on a tile of its tone. */
+.ag-source-change-mark {
+  display: grid;
+  place-items: center;
+  inline-size: var(--ag-control-height);
+  block-size: var(--ag-control-height);
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-source-change-tone);
+  background-color: color-mix(in oklch, var(--ag-source-change-tone) 16%, transparent);
+}
+
+.ag-source-change-body {
+  display: grid;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+}
+
+/* What the asset does the next time: its label, then the choice, on one line. */
+.ag-source-change-policy .ag-select-field {
+  justify-content: flex-start;
+}
+
+.ag-source-change-policy .ag-select-label {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-source-change-policy .ag-select-trigger {
+  flex: 0 1 auto;
+}

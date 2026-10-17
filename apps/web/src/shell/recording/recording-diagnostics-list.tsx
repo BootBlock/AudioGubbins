@@ -12,6 +12,8 @@
 
 import type { ReactNode } from 'react';
 
+import { Badge, BadgeTone } from '@audiogubbins/design-system';
+
 import {
   DiagnosticSeverity,
   type DiagnosticAction,
@@ -25,13 +27,13 @@ import { CommandButton, type PanelCommands } from '../command-button.js';
 /** Hertz, on a button. */
 const HERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
-/** What each severity is shown as, and the status it is drawn with. */
+/** What each severity is shown as, and the tone of its badge. */
 const SEVERITY: Readonly<
-  Record<DiagnosticSeverity, { readonly label: string; readonly status: string }>
+  Record<DiagnosticSeverity, { readonly label: string; readonly tone: BadgeTone }>
 > = {
-  [DiagnosticSeverity.Blocking]: { label: 'Needs you', status: 'unavailable' },
-  [DiagnosticSeverity.Warning]: { label: 'Reduced', status: 'reduced' },
-  [DiagnosticSeverity.Information]: { label: 'Note', status: 'available' },
+  [DiagnosticSeverity.Blocking]: { label: 'Needs you', tone: BadgeTone.Error },
+  [DiagnosticSeverity.Warning]: { label: 'Reduced', tone: BadgeTone.Warning },
+  [DiagnosticSeverity.Information]: { label: 'Note', tone: BadgeTone.Neutral },
 };
 
 /**
@@ -72,15 +74,19 @@ function Entry({
 }): ReactNode {
   const severity = SEVERITY[entry.severity];
   return (
-    <li className="ag-capability">
-      <span className="ag-capability-name">{entry.affects}</span>
-      <span className="ag-capability-status" data-ag-status={severity.status}>
-        {severity.label}
-      </span>
-      <p className="ag-capability-explanation">{entry.why}</p>
-      <p className="ag-capability-explanation">{entry.impact}</p>
-      <p className="ag-capability-remedy">{entry.improve}</p>
-      {entry.action !== undefined && <ActionButton action={entry.action} commands={commands} />}
+    <li className="ag-recording-diagnostic">
+      <div className="ag-recording-diagnostic-header">
+        <span className="ag-recording-diagnostic-name">{entry.affects}</span>
+        <Badge tone={severity.tone}>{severity.label}</Badge>
+      </div>
+      <p className="ag-recording-caption">{entry.why}</p>
+      <p className="ag-recording-caption">{entry.impact}</p>
+      <p className="ag-recording-diagnostic-remedy">{entry.improve}</p>
+      {entry.action !== undefined && (
+        <div className="ag-recording-actions">
+          <ActionButton action={entry.action} commands={commands} />
+        </div>
+      )}
     </li>
   );
 }
@@ -97,7 +103,7 @@ export function RecordingDiagnosticsList({
   return (
     <>
       {entries.length > 0 && (
-        <ul className="ag-capability-list" aria-label="Recording diagnostics">
+        <ul className="ag-recording-diagnostics" aria-label="Recording diagnostics">
           {entries.map((entry) => (
             <Entry key={entry.kind} entry={entry} commands={commands} />
           ))}
@@ -105,10 +111,12 @@ export function RecordingDiagnosticsList({
       )}
       {complete ? (
         entries.length === 0 && (
-          <p>Recording runs at full capability with this browser and hardware.</p>
+          <p className="ag-recording-caption">
+            Recording runs at full capability with this browser and hardware.
+          </p>
         )
       ) : (
-        <p className="ag-panel-note">
+        <p className="ag-recording-caption">
           What the input and the output can do is checked once an input is armed or something plays.
         </p>
       )}

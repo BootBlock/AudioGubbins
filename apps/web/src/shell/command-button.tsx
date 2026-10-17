@@ -1,27 +1,24 @@
 /**
- * A button that runs a command, unavailable with the command's own reason, so
- * a panel's control and the palette entry of the same name are one action and
- * refuse for one reason.
+ * The button that runs a command: the one way a panel offers a command, so a
+ * panel's control and the palette entry of the same name are one action,
+ * drawn with one glyph, refusing for one reason.
  *
- * It stays in the tab order while it cannot be used, with its reason said on
- * screen and tied to it, as every control that can be unavailable is
- * (`reasoned-button.tsx`): disabled, it would leave the tab order, and a
- * reason kept in a tooltip reaches no screen reader and no touch.
+ * It leads with the command's glyph, as its menu entry and its palette row
+ * draw it, and has an accessible name. While the command cannot run, it is
+ * unavailable in the design system's own way (ADR-0013; design language,
+ * section 13): it keeps its place and its focus, says it is unavailable, is
+ * described by the reason, opens the reason on hover or focus, and runs
+ * nothing when pressed. The reason is never written beside it as standing
+ * text, which a row of buttons would repeat at every one.
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
-import type { ButtonTone } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon, type IconName } from '@audiogubbins/design-system';
 import type { CommandInvocation } from '@audiogubbins/commands';
 
 import type { VoicedOptions } from '../state/interaction-store.js';
-
-import {
-  NotedButton,
-  ReasonedButton,
-  useSharedReasons,
-  type SharedReasons,
-} from './settings/reasoned-button.js';
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 
 /** How a panel runs a command, and asks why one cannot run. */
 export interface PanelCommands {
@@ -37,19 +34,6 @@ export interface PanelCommands {
   ) => string | undefined;
 }
 
-/**
- * The reasons of the commands `ids`, each said once, for a row of buttons
- * that would otherwise say one reason at each (`useSharedReasons`).
- */
-export function useCommandReasons(
-  commands: PanelCommands,
-  ids: readonly string[],
-): SharedReasons<string> {
-  return useSharedReasons(
-    Object.fromEntries(ids.map((id) => [id, commands.unavailableReason(id)])),
-  );
-}
-
 /** A button that runs the command `id`, with `args`, as `commands` does. */
 export function CommandButton({
   id,
@@ -58,29 +42,53 @@ export function CommandButton({
   args,
   tone,
   compact = false,
+  iconOnly = false,
+  name,
+  icon,
   refusal,
-  shared,
   sayWhenUnchanged = false,
+  ref,
 }: {
   readonly id: string;
+
+  /**
+   * Its words, and its accessible name unless `name` gives a fuller one. An
+   * icon-only button shows them as its hint.
+   */
   readonly label: string;
+
   readonly commands: PanelCommands;
   readonly args?: CommandInvocation['arguments'];
+  /** How prominent it is: an icon-only one is quiet unless told otherwise. */
   readonly tone?: ButtonTone;
+
+  /** The small control height, for a row or a toolbar; full size is a header's. */
   readonly compact?: boolean;
 
   /**
-   * Why the command refuses the arguments this button gives, where the panel
-   * knows before it runs: said as the command's own reason is, after it.
+   * Whether it draws the glyph alone, named by `label`. A command with no
+   * glyph is drawn with its words instead, never with a blank button.
    */
-  readonly refusal?: string | undefined;
+  readonly iconOnly?: boolean;
 
   /**
-   * The reasons of the row this button is in, said once above it, where they
-   * are; its own is said beside it otherwise. A row's are its commands' own,
-   * so a button given them is given no `refusal`.
+   * The accessible name, where the words lean on what is beside them: "Apply"
+   * on a candidate's card is "Apply candidate 2".
    */
-  readonly shared?: SharedReasons<string>;
+  readonly name?: string;
+
+  /**
+   * A glyph in place of the command's own, where the arguments make the
+   * command a different action: auditioning a loop candidate with its
+   * crossfade rather than without.
+   */
+  readonly icon?: IconName;
+
+  /**
+   * Why the command refuses the arguments this button gives, where the panel
+   * knows before it runs: given after the command's own reason.
+   */
+  readonly refusal?: string | undefined;
 
   /**
    * Whether the command says so when it finds nothing to do, for a button
@@ -88,28 +96,46 @@ export function CommandButton({
    * with before it, whose comparison is the History panel's.
    */
   readonly sayWhenUnchanged?: boolean;
+
+  readonly ref?: Ref<HTMLButtonElement>;
 }): ReactNode {
   const run = (): void => {
     if (sayWhenUnchanged) commands.run(id, args, { sayWhenUnchanged });
     else if (args === undefined) commands.run(id);
     else commands.run(id, args);
   };
-  const toned = tone === undefined ? {} : { tone };
-  if (shared !== undefined) {
+  const reason = commands.unavailableReason(id, args) ?? refusal;
+  const common = {
+    compact,
+    ...(reason === undefined ? {} : { unavailableReason: reason }),
+    ...(ref === undefined ? {} : { ref }),
+    onClick: run,
+  };
+  const glyph = icon ?? COMMAND_GLYPHS.get(id);
+
+  // One element either way, so a button that changes how it is drawn keeps
+  // its focus. Bare, it is drawn as the icon button is: quiet until hovered.
+  if (iconOnly && glyph !== undefined) {
     return (
-      <NotedButton {...toned} compact={compact} reasonId={shared.idOf(id)} onPress={run}>
-        {label}
-      </NotedButton>
+      <Button
+        {...common}
+        tone={tone ?? ButtonTone.Quiet}
+        iconOnly
+        label={name ?? label}
+        hint={label}
+      >
+        <Icon name={glyph} />
+      </Button>
     );
   }
   return (
-    <ReasonedButton
-      {...toned}
-      compact={compact}
-      reason={commands.unavailableReason(id, args) ?? refusal}
-      onPress={run}
+    <Button
+      {...common}
+      {...(tone === undefined ? {} : { tone })}
+      {...(name === undefined ? {} : { label: name })}
     >
+      {glyph !== undefined && <Icon name={glyph} />}
       {label}
-    </ReasonedButton>
+    </Button>
   );
 }

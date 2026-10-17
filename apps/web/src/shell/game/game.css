@@ -1,0 +1,358 @@
+/*
+ * The Asset groups panel and a group's policy in the Inspector (ADR-0101), in
+ * the design language: the tree in a well, the chosen group's actions, its
+ * members in the language's table, its export plan, and the policy field by
+ * field with each value's source chip (sections 10 and 11).
+ */
+
+/* The chosen group's actions, wrapping rather than overflowing a narrow panel. */
+.ag-game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* A hairline between a row's worded actions and its glyphs. */
+.ag-game-separator {
+  align-self: stretch;
+  inline-size: 1px;
+  margin-block: var(--ag-space-tiny);
+  background-color: var(--ag-chrome-border-subtle);
+}
+
+/* The tree beside the chosen group; the group drops under the tree where the
+   panel is too narrow for both. */
+.ag-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ag-space-inset);
+}
+
+.ag-groups > .ag-group-well,
+.ag-groups > .ag-empty-state:first-child {
+  flex: 1 1 calc(var(--ag-grid-unit) * 50);
+  max-inline-size: calc(var(--ag-grid-unit) * 70);
+}
+
+.ag-groups > .ag-groups-chosen,
+.ag-groups > .ag-empty-state:last-child {
+  flex: 999 1 calc(var(--ag-grid-unit) * 120);
+  min-inline-size: 0;
+}
+
+/* The tree: a well with an inset (section 10, "Lists"). */
+.ag-group-well {
+  /* The ring's gap is painted in the well's own surface. */
+  --ag-focus-ring-surface: var(--ag-chrome-surface-sunken);
+
+  align-self: stretch;
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+.ag-group-tree {
+  display: grid;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A node: h − 2 tall, a 14 px twisty, each level indented 22 px. */
+.ag-group-item {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ag-grid-unit) * 1.5);
+  min-block-size: calc(var(--ag-control-height) - 2 * var(--ag-space-hair));
+  padding-inline: var(--ag-space-tiny) var(--ag-space-small);
+  padding-inline-start: calc(
+    var(--ag-space-tiny) + var(--ag-group-depth, 0) * var(--ag-grid-unit) * 5.5
+  );
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  cursor: pointer;
+}
+
+.ag-group-item:hover:not([aria-selected='true']) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-group-twisty {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-grid-unit) * 3.5);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-group-glyph {
+  flex: none;
+  color: var(--ag-category-amber);
+}
+
+.ag-group-name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-group-count {
+  color: var(--ag-chrome-text-disabled);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A chosen node that has the focus keeps its lit glow under the one ring. */
+[data-ag-theme] .ag-group-item[aria-selected='true']:focus-visible {
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo),
+    var(--ag-effect-lit-glow);
+}
+
+/* The chosen group: its path and actions, its move, members and plan. */
+.ag-groups-chosen {
+  display: grid;
+  gap: var(--ag-space-inset);
+  align-content: start;
+}
+
+.ag-groups-chosen-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+}
+
+.ag-groups-path {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+/* The export plan: a quiet header with its action, a sentence, and the items. */
+.ag-plan {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding-block-start: var(--ag-space-inset);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-plan-heading {
+  margin: 0;
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-plan-export {
+  margin-inline-start: auto;
+}
+
+.ag-plan-summary {
+  margin: 0;
+  font-size: var(--ag-text-label);
+}
+
+.ag-plan-items {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-plan-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+}
+
+/* A planned item's words keep the text colour: only its glyph is the verdict's. */
+.ag-plan-item .ag-verdict-text {
+  color: var(--ag-chrome-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ag-plan-arrow {
+  margin-inline: var(--ag-space-tiny);
+  vertical-align: middle;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-plan-item[data-ag-refused] .ag-plan-name {
+  display: block;
+}
+
+.ag-plan-reason {
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* A group's policy in the Inspector: the subject, then each field's row. */
+.ag-policy {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+/* The subject: a glyph tile, its title, and its scope (section 11, item 3). */
+.ag-policy-subject {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+}
+
+.ag-policy-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-grid-unit) * 9);
+  block-size: calc(var(--ag-grid-unit) * 9);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent);
+}
+
+[data-ag-density='compact'] .ag-policy-tile {
+  inline-size: calc(var(--ag-grid-unit) * 7.5);
+  block-size: calc(var(--ag-grid-unit) * 7.5);
+}
+
+.ag-policy-subject-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ag-policy-subject-title {
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-policy-scope,
+.ag-policy-heading {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-regular);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-policy-scope {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-policy-heading {
+  font-weight: var(--ag-text-weight-strong);
+}
+
+/* A policy, field by field: rows split by hairlines (section 10). */
+.ag-policy-rows {
+  display: grid;
+  gap: var(--ag-space-hair);
+}
+
+.ag-policy-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  padding: calc(var(--ag-grid-unit) * 1.25) var(--ag-space-inset);
+  border: 1px solid transparent;
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-policy-row + .ag-policy-row {
+  border-block-start-color: var(--ag-chrome-border-subtle);
+}
+
+/* The row whose editor is shown is a card holding it. */
+.ag-policy-row[data-ag-open] {
+  border-color: var(--ag-chrome-edge-quiet);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-policy-row[data-ag-open] + .ag-policy-row {
+  border-block-start-color: transparent;
+}
+
+.ag-policy-name {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-policy-source {
+  justify-self: start;
+}
+
+.ag-policy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-policy-facts,
+.ag-policy-editor {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.ag-policy-facts {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-policy-value,
+.ag-policy-note,
+.ag-policy-hidden {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-policy-value[data-ag-unset] {
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-policy-tags,
+.ag-policy-hidden {
+  padding: 0;
+  list-style: none;
+}
+
+.ag-policy-editor {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin-block-start: var(--ag-space-tiny);
+}
+
+/* A field's editor: its fields and the control that sets them, wrapping. */
+.ag-policy-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+}

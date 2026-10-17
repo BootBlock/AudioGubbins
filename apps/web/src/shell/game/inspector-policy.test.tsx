@@ -109,9 +109,12 @@ describe("the Inspector's game policy (ADR-0101)", { timeout: 30_000 }, () => {
     inspectorOver(audio);
 
     expect(screen.getByRole('heading', { name: 'Asset group: Sfx/Footsteps' })).toBeInTheDocument();
-    expect(field('Naming template')).toHaveTextContent('“sfx_{number}”. Inherited from Sfx.');
+    // The value, and where it comes from in the field's source chip.
+    expect(field('Naming template')).toHaveTextContent('“sfx_{number}”');
+    expect(field('Naming template')).toHaveTextContent('Inherited from Sfx');
+    expect(field('Loudness target')).toHaveTextContent('Not set');
     expect(field('Loudness target')).toHaveTextContent(
-      'Not set. Its members are measured against no target.',
+      'Its members are measured against no target.',
     );
     expect(
       within(field('Naming template')).queryByRole('button', { name: 'Reset to inherited' }),
@@ -123,7 +126,8 @@ describe("the Inspector's game policy (ADR-0101)", { timeout: 30_000 }, () => {
       value: policyValueArgument('naming', expectSuccess(namingTemplate('step_{number}'))),
     });
 
-    expect(field('Naming template')).toHaveTextContent('“step_{number}”. Set on this group.');
+    expect(field('Naming template')).toHaveTextContent('“step_{number}”');
+    expect(field('Naming template')).toHaveTextContent('Set on this group');
     expect(field('Naming template')).toHaveTextContent('It hides “sfx_{number}”, set on Sfx.');
     expect(
       within(field('Naming template')).getByRole('button', { name: 'Reset to inherited' }),
@@ -148,7 +152,8 @@ describe("the Inspector's game policy (ADR-0101)", { timeout: 30_000 }, () => {
     expect(
       screen.getByRole('heading', { name: 'Game policy, in “Sfx/Footsteps”' }),
     ).toBeInTheDocument();
-    expect(field('Naming template')).toHaveTextContent('“sfx_{number}”. Inherited from Sfx.');
+    expect(field('Naming template')).toHaveTextContent('“sfx_{number}”');
+    expect(field('Naming template')).toHaveTextContent('Inherited from Sfx');
     expect(field('Processing')).toHaveTextContent('It inherits its group’s processing.');
 
     await user.click(within(field('Naming template')).getByRole('button', { name: 'Override…' }));
@@ -164,15 +169,15 @@ describe("the Inspector's game policy (ADR-0101)", { timeout: 30_000 }, () => {
     );
     await expect
       .poll(() => field('Naming template').textContent)
-      .toContain('“hero”. Overridden on this region.');
+      .toContain('Overridden on this region');
+    expect(field('Naming template')).toHaveTextContent('“hero”');
     expect(field('Naming template')).toHaveTextContent('It hides “sfx_{number}”, set on Sfx.');
 
     await user.click(
       within(field('Naming template')).getByRole('button', { name: 'Reset to inherited' }),
     );
-    await expect
-      .poll(() => field('Naming template').textContent)
-      .toContain('“sfx_{number}”. Inherited from Sfx.');
+    await expect.poll(() => field('Naming template').textContent).toContain('Inherited from Sfx');
+    expect(field('Naming template')).toHaveTextContent('“sfx_{number}”');
     expect(ran.map(([id]) => id)).toEqual(['game.set-override', 'game.reset-override']);
   });
 

@@ -56,5 +56,12 @@ export { type PlacedLayouts, placedLayouts } from './held-layouts.js';
 
 export { DEFAULT_PRESET_ID, PanelKinds, buildPresets } from './presets.js';
 
-export { DockHost, type DockHostProps, type PanelRenderer } from './adapter/dockview-adapter.js';
+export {
+  DockHost,
+  type DockHostProps,
+  type PanelGlyph,
+  type PanelRenderer,
+} from './adapter/dockview-adapter.js';
+export { DockStage, type DockStageProps, type StagedArrangement } from './adapter/dock-stage.js';
+export { type DockMotion, DockMotionLevel, type DockTiming } from './adapter/dock-motion.js';
 export { type DockMemory, KEYBOARD_HOME, createDockMemory } from './adapter/dock-memory.js';
