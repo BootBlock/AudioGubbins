@@ -113,8 +113,9 @@ describe('ListRow', () => {
       </List>,
     );
 
-    const row = screen.getByRole('button', { name: 'Harbour ambience Opened today' });
+    const row = screen.getByRole('button', { name: 'Harbour ambience' });
     const remove = screen.getByRole('button', { name: 'Remove' });
+    expect(row).toHaveAccessibleDescription('Opened today');
     expect(row).not.toContainElement(remove);
     expect(row).toHaveAttribute('aria-current', 'true');
 

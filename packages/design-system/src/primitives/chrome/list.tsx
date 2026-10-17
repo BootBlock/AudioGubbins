@@ -9,7 +9,7 @@
  * second line moves up beside its name.
  */
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 /** What a list takes. */
 export interface ListProps {
@@ -76,12 +76,20 @@ export function ListRow({
   nested = false,
   onPress,
 }: ListRowProps): ReactNode {
+  const nameId = useId();
+  const detailId = useId();
   const body = (
     <>
       {leading !== undefined && <span className="ag-list-row-leading">{leading}</span>}
       <span className="ag-list-row-text">
-        <span className="ag-list-row-name">{name}</span>
-        {detail !== undefined && <span className="ag-list-row-detail">{detail}</span>}
+        <span className="ag-list-row-name" id={nameId}>
+          {name}
+        </span>
+        {detail !== undefined && (
+          <span className="ag-list-row-detail" id={detailId}>
+            {detail}
+          </span>
+        )}
       </span>
     </>
   );
@@ -103,6 +111,11 @@ export function ListRow({
         <button
           type="button"
           className="ag-list-row-press ag-touch-sized"
+          // Named by the row's name and described by its second line, so a
+          // reader hears what the row is before its details, and the two are
+          // not run together into one word.
+          aria-labelledby={nameId}
+          {...(detail === undefined ? {} : { 'aria-describedby': detailId })}
           aria-current={current}
           onClick={onPress}
         >
