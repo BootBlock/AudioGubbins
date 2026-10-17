@@ -374,6 +374,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
       ['InfoPopover', 'InfoPopoverProps'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
+    "The icon the Phase 16 contract requires, its sizes, its props and the vocabulary's names, which every panel draws its glyphs with as the panels are redesigned to the design language; until then the application still draws its stand-ins.":
+      ['Icon', 'IconName', 'IconProps', 'IconSize'],
   },
   '@audiogubbins/capabilities': {
     "How a probe states its answer, which the application's tests state a browser's answers with rather than probing one.":

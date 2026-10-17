@@ -115,6 +115,10 @@ export {
 
 export { Button, type ButtonProps, ButtonTone } from './primitives/button.js';
 
+// Every icon is drawn by `Icon` and named in the vocabulary's own words
+// (ADR-0108), so the icon set is reached through the design system alone.
+export { Icon, IconSize, type IconProps } from './icons/icon.js';
+export { type IconName } from './icons/vocabulary.js';
 
 // The menu, dialogue and popover primitives WU-01.B requires. `Menu` opens from
 // a control and `ContextActions` from a right click or a long press, which

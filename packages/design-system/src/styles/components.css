@@ -106,6 +106,42 @@
   border-color: var(--ag-chrome-border-default);
 }
 
+/* Icons.
+
+   An icon's size and stroke come from the tokens alone. The stroke is in units
+   of the glyph's 24-unit grid, so it scales with the icon and is never a pixel
+   width. */
+
+.ag-icon {
+  flex: none;
+  stroke-width: var(--ag-icon-stroke);
+}
+
+.ag-icon-small {
+  inline-size: var(--ag-icon-size-small);
+  block-size: var(--ag-icon-size-small);
+}
+
+.ag-icon-inline {
+  inline-size: var(--ag-icon-size-inline);
+  block-size: var(--ag-icon-size-inline);
+}
+
+.ag-icon-control {
+  inline-size: var(--ag-control-icon-size);
+  block-size: var(--ag-control-icon-size);
+}
+
+.ag-icon-feature {
+  inline-size: var(--ag-icon-size-feature);
+  block-size: var(--ag-icon-size-feature);
+}
+
+.ag-icon-mark {
+  inline-size: var(--ag-icon-size-mark);
+  block-size: var(--ag-icon-size-mark);
+}
+
 /* Overlay surfaces. */
 
 .ag-dialog-overlay {

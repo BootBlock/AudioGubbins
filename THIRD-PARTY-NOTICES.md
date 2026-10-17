@@ -119,45 +119,46 @@ ESLint, Playwright, TypeScript and Vite, are not shipped and are not listed.
 | lazy_static | 1.5.1 | MIT OR Apache-2.0 | — | [10](#text-10), [31](#text-31) |
 | log | 0.4.34 | MIT OR Apache-2.0 | Copyright (c) 2014 The Rust Project Developers | [10](#text-10), [11](#text-11) |
 | long | 5.3.2 | Apache-2.0 | — | [10](#text-10) |
-| md-5 | 0.10.6 | MIT OR Apache-2.0 | Copyright (c) 2006-2009 Graydon Hoare<br>Copyright (c) 2009-2013 Mozilla Foundation<br>Copyright (c) 2016 Artyom Pavlov | [10](#text-10), [32](#text-32) |
+| lucide-react | 1.58.0 | ISC | Copyright (c) 2026 Lucide Icons and Contributors<br>Copyright (c) 2013-present Cole Bemis | [32](#text-32) |
+| md-5 | 0.10.6 | MIT OR Apache-2.0 | Copyright (c) 2006-2009 Graydon Hoare<br>Copyright (c) 2009-2013 Mozilla Foundation<br>Copyright (c) 2016 Artyom Pavlov | [10](#text-10), [33](#text-33) |
 | num-complex | 0.4.6 | MIT OR Apache-2.0 | Copyright (c) 2014 The Rust Project Developers | [10](#text-10), [11](#text-11) |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 | Copyright (c) 2014 The Rust Project Developers | [10](#text-10), [11](#text-11) |
 | onnxruntime-common | 1.30.0 | MIT | — | [21](#text-21) (standard text: the package ships none) |
 | onnxruntime-web | 1.30.0 | MIT | — | [21](#text-21) (standard text: the package ships none) |
-| platform | 1.3.6 | MIT | Copyright 2014-2020 Benjamin Tan<br>Copyright 2011-2013 John-David Dalton | [33](#text-33) |
-| protobufjs | 7.6.6 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [34](#text-34) |
+| platform | 1.3.6 | MIT | Copyright 2014-2020 Benjamin Tan<br>Copyright 2011-2013 John-David Dalton | [34](#text-34) |
+| protobufjs | 7.6.6 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [35](#text-35) |
 | radix-ui | 1.6.7 | MIT | Copyright (c) 2022 WorkOS | [6](#text-6) |
-| react | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [35](#text-35) |
-| react-dom | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [35](#text-35) |
+| react | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [36](#text-36) |
+| react-dom | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [36](#text-36) |
 | react-remove-scroll | 2.7.2 | MIT | Copyright (c) 2017 Anton Korzunov | [9](#text-9) |
 | react-remove-scroll-bar | 2.3.8 | MIT | — | [21](#text-21) (standard text: the package ships none) |
 | react-style-singleton | 2.2.3 | MIT | Copyright (c) 2017 Anton Korzunov | [9](#text-9) |
 | regex-lite | 0.1.9 | MIT OR Apache-2.0 | Copyright (c) 2014 The Rust Project Developers | [10](#text-10), [11](#text-11) |
-| ropus | 0.12.18 | BSD-3-Clause | Copyright 2001-2023 Xiph.Org, Skype Limited, Octasic,<br>Copyright (c) 2026 Martin Davidson (Rust port additions) | [36](#text-36) |
-| rustversion | 1.0.23 | MIT OR Apache-2.0 | — | [37](#text-37), [31](#text-31) |
-| safe_arch | 0.7.4 | Zlib OR Apache-2.0 OR MIT | Copyright (c) 2023 Daniel "Lokathor" Gee.<br>Copyright (c) 2020 Daniel "Lokathor" Gee. | [13](#text-13), [38](#text-38), [39](#text-39) |
-| scheduler | 0.28.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [35](#text-35) |
-| seq-macro | 0.3.6 | MIT OR Apache-2.0 | — | [37](#text-37), [31](#text-31) |
-| smallvec | 1.16.3 | MIT OR Apache-2.0 | Copyright (c) 2018 The Servo Project Developers | [10](#text-10), [40](#text-40) |
-| stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | Copyright (c) 2017 Robert Grosse | [10](#text-10), [41](#text-41) |
-| symphonia | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-bundle-flac | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-bundle-mp3 | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-codec-aac | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-codec-alac | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-codec-vorbis | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-common | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-core | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-format-isomp4 | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-format-mkv | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-format-ogg | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| symphonia-metadata | 0.6.1 | MPL-2.0 | — | [42](#text-42) |
-| tslib | 2.8.1 | 0BSD | Copyright (c) Microsoft Corporation. | [43](#text-43) |
-| typenum | 1.20.1 | MIT OR Apache-2.0 | Copyright 2014 Paho Lurie-Gregg<br>Copyright (c) 2014 Paho Lurie-Gregg | [44](#text-44), [45](#text-45), [46](#text-46) |
-| undici-types | 8.9.0 | MIT | Copyright (c) Matteo Collina and Undici contributors | [47](#text-47) |
+| ropus | 0.12.18 | BSD-3-Clause | Copyright 2001-2023 Xiph.Org, Skype Limited, Octasic,<br>Copyright (c) 2026 Martin Davidson (Rust port additions) | [37](#text-37) |
+| rustversion | 1.0.23 | MIT OR Apache-2.0 | — | [38](#text-38), [31](#text-31) |
+| safe_arch | 0.7.4 | Zlib OR Apache-2.0 OR MIT | Copyright (c) 2023 Daniel "Lokathor" Gee.<br>Copyright (c) 2020 Daniel "Lokathor" Gee. | [13](#text-13), [39](#text-39), [40](#text-40) |
+| scheduler | 0.28.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [36](#text-36) |
+| seq-macro | 0.3.6 | MIT OR Apache-2.0 | — | [38](#text-38), [31](#text-31) |
+| smallvec | 1.16.3 | MIT OR Apache-2.0 | Copyright (c) 2018 The Servo Project Developers | [10](#text-10), [41](#text-41) |
+| stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | Copyright (c) 2017 Robert Grosse | [10](#text-10), [42](#text-42) |
+| symphonia | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-bundle-flac | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-bundle-mp3 | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-codec-aac | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-codec-alac | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-codec-vorbis | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-common | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-core | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-format-isomp4 | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-format-mkv | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-format-ogg | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| symphonia-metadata | 0.6.1 | MPL-2.0 | — | [43](#text-43) |
+| tslib | 2.8.1 | 0BSD | Copyright (c) Microsoft Corporation. | [44](#text-44) |
+| typenum | 1.20.1 | MIT OR Apache-2.0 | Copyright 2014 Paho Lurie-Gregg<br>Copyright (c) 2014 Paho Lurie-Gregg | [45](#text-45), [46](#text-46), [47](#text-47) |
+| undici-types | 8.9.0 | MIT | Copyright (c) Matteo Collina and Undici contributors | [48](#text-48) |
 | use-callback-ref | 1.3.3 | MIT | Copyright (c) 2017 Anton Korzunov | [9](#text-9) |
 | use-sidecar | 1.1.3 | MIT | Copyright (c) 2017 Anton Korzunov | [9](#text-9) |
-| wide | 0.7.33 | Zlib OR Apache-2.0 OR MIT | Copyright (c) 2020 Daniel "Lokathor" Gee. | [39](#text-39) |
+| wide | 0.7.33 | Zlib OR Apache-2.0 OR MIT | Copyright (c) 2020 Daniel "Lokathor" Gee. | [40](#text-40) |
 
 ## Source of the packages under the Mozilla Public License
 
@@ -196,11 +197,11 @@ standard text for the compiler's.
 
 | Library | Version | Licence | Copyright | Modules | Source | Release archive | Licence text |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| LAME | 3.100 | LGPL-2.0-or-later | Copyright (c) 1999-2000 Mark Taylor<br>Copyright (c) 1999 Albert L Faber<br>Copyright (c) 1999-2005 Takehiro Tominaga<br>Copyright (c) 2000-2017 Robert Hegemann<br>Copyright (c) 2000-2008 Gabriel Bouvigne<br>Copyright (c) 2000-2005 Alexander Leidinger<br>Copyright (c) 2000 Don Melton<br>Copyright (c) 2001 David Robinson and Glen Sawyer<br>Copyright (c) 2001-2002 Naoki Shibata<br>Copyright (c) 2001 Jonathan Dee<br>Copyright (c) 2001 John Dahlstrom<br>Copyright (c) 2003 Olcios<br>Copyright 1988, 1993; Ron Mayer | `audiogubbins-mp3.wasm` | `third_party/lame` | <https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz><br>SHA-256 `ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e` | [50](#text-50), [51](#text-51) |
+| LAME | 3.100 | LGPL-2.0-or-later | Copyright (c) 1999-2000 Mark Taylor<br>Copyright (c) 1999 Albert L Faber<br>Copyright (c) 1999-2005 Takehiro Tominaga<br>Copyright (c) 2000-2017 Robert Hegemann<br>Copyright (c) 2000-2008 Gabriel Bouvigne<br>Copyright (c) 2000-2005 Alexander Leidinger<br>Copyright (c) 2000 Don Melton<br>Copyright (c) 2001 David Robinson and Glen Sawyer<br>Copyright (c) 2001-2002 Naoki Shibata<br>Copyright (c) 2001 Jonathan Dee<br>Copyright (c) 2001 John Dahlstrom<br>Copyright (c) 2003 Olcios<br>Copyright 1988, 1993; Ron Mayer | `audiogubbins-mp3.wasm` | `third_party/lame` | <https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz><br>SHA-256 `ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e` | [51](#text-51), [52](#text-52) |
 | Zig's standard library and compiler-rt | 0.17.0 | MIT | Copyright (c) Zig contributors | `audiogubbins-mp3.wasm`<br>`audiogubbins-vorbis.wasm` | bundled by Zig 0.17.0 | <https://ziglang.org/download/0.17.0/zig-0.17.0.tar.xz><br>SHA-256 `b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8abd` | [21](#text-21) |
-| libogg | 1.3.6 | BSD-3-Clause | Copyright (c) 2002, Xiph.org Foundation | `audiogubbins-vorbis.wasm` | `third_party/libogg` | <https://downloads.xiph.org/releases/ogg/libogg-1.3.6.tar.xz><br>SHA-256 `5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061` | [52](#text-52) |
-| libvorbis | 1.3.7 | BSD-3-Clause | Copyright (c) 2002-2020 Xiph.org Foundation<br>Copyright 1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin | `audiogubbins-vorbis.wasm` | `third_party/libvorbis` | <https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz><br>SHA-256 `b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b` | [53](#text-53) |
-| wasi-libc, with musl and cloudlibc | as Zig 0.17.0 bundles it | (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND MIT AND BSD-2-Clause | Copyright © 2005-2020 Rich Felker, et al.<br>Copyright (c) 2015-2017 Nuxi (https://nuxi.nl/) and contributors. | `audiogubbins-mp3.wasm`<br>`audiogubbins-vorbis.wasm` | bundled by Zig 0.17.0 | <https://ziglang.org/download/0.17.0/zig-0.17.0.tar.xz><br>SHA-256 `b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8abd` | [13](#text-13), [21](#text-21), [49](#text-49) |
+| libogg | 1.3.6 | BSD-3-Clause | Copyright (c) 2002, Xiph.org Foundation | `audiogubbins-vorbis.wasm` | `third_party/libogg` | <https://downloads.xiph.org/releases/ogg/libogg-1.3.6.tar.xz><br>SHA-256 `5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061` | [53](#text-53) |
+| libvorbis | 1.3.7 | BSD-3-Clause | Copyright (c) 2002-2020 Xiph.org Foundation<br>Copyright 1992, 1993, 1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin | `audiogubbins-vorbis.wasm` | `third_party/libvorbis` | <https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz><br>SHA-256 `b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b` | [54](#text-54) |
+| wasi-libc, with musl and cloudlibc | as Zig 0.17.0 bundles it | (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND MIT AND BSD-2-Clause | Copyright © 2005-2020 Rich Felker, et al.<br>Copyright (c) 2015-2017 Nuxi (https://nuxi.nl/) and contributors. | `audiogubbins-mp3.wasm`<br>`audiogubbins-vorbis.wasm` | bundled by Zig 0.17.0 | <https://ziglang.org/download/0.17.0/zig-0.17.0.tar.xz><br>SHA-256 `b6c7f1728f043700d6529bac980800792f824256a9d2f1839b3d62beed0b8abd` | [13](#text-13), [21](#text-21), [50](#text-50) |
 
 ## Ported source code
 
@@ -214,9 +215,9 @@ in this repository it lives, and the standard text of its licence.
 | [ClearerVoice-Studio](https://github.com/modelscope/ClearerVoice-Studio) | `6b3774dc79c46ae8bed2a4fa5f706f0ac8c75c61` | Apache-2.0 | — | MossFormer2 SE 48K's 48 kHz decode (decode_one_audio_mossformer2_se_48k of clearvoice/utils/decode.py, and stft, istft and compute_fbank of clearvoice/utils/misc.py): the segments, the features and the masked spectrum around the graph. The repository states no copyright; its files name Shengkui Zhao and Zexu Pan as their authors. | `packages/processors/src/ml/mossformer2` | [13](#text-13) |
 | [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) | `d375b2d8309e0935d165700c91da9de862a99c31` | MIT OR Apache-2.0 | Copyright (c) 2021 Hendrik Schröter | The processing around DeepFilterNet 3's graphs, from libDF (libDF/src/lib.rs) and its Python pipeline (DeepFilterNet/df/enhance.py): the STFT and its Vorbis window, the ERB and spectral features and their running normalisation, the ERB gains, the deep filter, the post-filter and the attenuation limit. | `packages/processors/src/ml/deepfilternet` | [21](#text-21) |
 | [Kaldi](https://github.com/kaldi-asr/kaldi) | `e02e35f0254bb033fab73d1df99fc34123e31d56` | Apache-2.0 | Copyright 2009-2012 Microsoft Corporation<br>Copyright 2009-2012 Karel Vesely; 2016 Johns Hopkins University (author: Daniel Povey)<br>Copyright 2009-2011 Phonexia s.r.o.; Karel Vesely; Microsoft Corporation<br>Copyright 2009-2011 Karel Vesely; Petr Motlicek; Microsoft Corporation; 2013-2016 Johns Hopkins University (author: Daniel Povey); 2014 IMSL, PKU-HKUST (author: Wei Shi) | The log mel filter bank of compute-fbank-feats (src/featbin/compute-fbank-feats.cc, src/feat/feature-fbank.cc, src/feat/mel-computations.cc and src/feat/feature-window.cc), which torchaudio's filter bank reproduces and the port follows. | `packages/processors/src/ml/mossformer2/kaldi-fbank.ts` | [13](#text-13) |
-| [PyTorch](https://github.com/pytorch/pytorch) | `d38164a545b4a4e4e0cf73ce67173f70574890b6` | BSD-3-Clause | Copyright (c) 2016- Facebook, Inc (Adam Paszke)<br>Copyright (c) 2014- Facebook, Inc (Soumith Chintala)<br>Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)<br>Copyright (c) 2012-2014 Deepmind Technologies (Koray Kavukcuoglu)<br>Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)<br>Copyright (c) 2011-2013 NYU (Clement Farabet)<br>Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)<br>Copyright (c) 2006 Idiap Research Institute (Samy Bengio)<br>Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)<br>Copyright (c) 2016-present, Facebook Inc. All rights reserved.<br>Copyright (c) 2016 Facebook Inc.<br>Copyright (c) 2015 Google Inc.<br>Copyright (c) 2015 Yangqing Jia<br>Copyright 2019-2020 Kakao Brain<br>Copyright (c) 2022 Cruise LLC.<br>Copyright (c) 2024 Tri Dao.<br>Copyright (c) 2021, 2023-2024 Arm Limited and/or its affiliates<br>Copyright(c) 2013, 2014, 2015, the respective contributors<br>Copyright(c) 2015, 2016 the respective contributors | The short-time Fourier transform and its inverse (torch.stft and torch.istft, without centring or normalisation, one-sided) that ClearerVoice-Studio's decode masks MossFormer2 SE 48K's spectrum through. | `packages/processors/src/ml/mossformer2/masked-stft.ts` | [48](#text-48) |
+| [PyTorch](https://github.com/pytorch/pytorch) | `d38164a545b4a4e4e0cf73ce67173f70574890b6` | BSD-3-Clause | Copyright (c) 2016- Facebook, Inc (Adam Paszke)<br>Copyright (c) 2014- Facebook, Inc (Soumith Chintala)<br>Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)<br>Copyright (c) 2012-2014 Deepmind Technologies (Koray Kavukcuoglu)<br>Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)<br>Copyright (c) 2011-2013 NYU (Clement Farabet)<br>Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)<br>Copyright (c) 2006 Idiap Research Institute (Samy Bengio)<br>Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)<br>Copyright (c) 2016-present, Facebook Inc. All rights reserved.<br>Copyright (c) 2016 Facebook Inc.<br>Copyright (c) 2015 Google Inc.<br>Copyright (c) 2015 Yangqing Jia<br>Copyright 2019-2020 Kakao Brain<br>Copyright (c) 2022 Cruise LLC.<br>Copyright (c) 2024 Tri Dao.<br>Copyright (c) 2021, 2023-2024 Arm Limited and/or its affiliates<br>Copyright(c) 2013, 2014, 2015, the respective contributors<br>Copyright(c) 2015, 2016 the respective contributors | The short-time Fourier transform and its inverse (torch.stft and torch.istft, without centring or normalisation, one-sided) that ClearerVoice-Studio's decode masks MossFormer2 SE 48K's spectrum through. | `packages/processors/src/ml/mossformer2/masked-stft.ts` | [49](#text-49) |
 | [Spleeter](https://github.com/deezer/spleeter) | `c8854001ac8acad34a9bc2bd15f28475541828b1` | MIT | Copyright (c) 2019-present, Deezer SA. | The processing around Spleeter's networks (spleeter/model/__init__.py and pad_and_partition of spleeter/utils/tensor.py): the STFT, the ratio masks and their extension above the bins the networks hear, the inverse STFT, the segments and the frame of silence before the stream. | `packages/processors/src/ml/spleeter` | [21](#text-21) |
-| [torchaudio](https://github.com/pytorch/audio) | `a224ab24a7f4797f6707051257265e223e12576f` | BSD-2-Clause | Copyright (c) 2017 Facebook Inc. (Soumith Chintala) | The Kaldi-compatible filter bank (torchaudio.compliance.kaldi.fbank) and the deltas (torchaudio.functional.compute_deltas) that MossFormer2 SE 48K's features are taken with. | `packages/processors/src/ml/mossformer2/features.ts`<br>`packages/processors/src/ml/mossformer2/kaldi-fbank.ts` | [49](#text-49) |
+| [torchaudio](https://github.com/pytorch/audio) | `a224ab24a7f4797f6707051257265e223e12576f` | BSD-2-Clause | Copyright (c) 2017 Facebook Inc. (Soumith Chintala) | The Kaldi-compatible filter bank (torchaudio.compliance.kaldi.fbank) and the deltas (torchaudio.functional.compute_deltas) that MossFormer2 SE 48K's features are taken with. | `packages/processors/src/ml/mossformer2/features.ts`<br>`packages/processors/src/ml/mossformer2/kaldi-fbank.ts` | [50](#text-50) |
 
 ## Licence texts
 
@@ -1612,6 +1613,56 @@ DEALINGS IN THE SOFTWARE.
 
 ### Text 32
 
+Shipped by lucide-react 1.58.0.
+
+```text
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+---
+
+The following Lucide icons are derived from the Feather project:
+
+airplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out
+
+The MIT License (MIT) (for the icons listed above)
+
+Copyright (c) 2013-present Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 33
+
 Shipped by md-5 0.10.6.
 
 ```text
@@ -1644,7 +1695,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 33
+### Text 34
 
 Shipped by platform 1.3.6.
 
@@ -1672,7 +1723,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 34
+### Text 35
 
 Shipped by protobufjs 7.6.6.
 
@@ -1718,7 +1769,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-### Text 35
+### Text 36
 
 Shipped by react 19.3.0, react-dom 19.3.0, scheduler 0.28.0.
 
@@ -1746,7 +1797,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 36
+### Text 37
 
 Shipped by ropus 0.12.18.
 
@@ -1799,7 +1850,7 @@ Broadcom Corporation:
 https://datatracker.ietf.org/ipr/1526/
 ```
 
-### Text 37
+### Text 38
 
 Shipped by rustversion 1.0.23, seq-macro 0.3.6.
 
@@ -1982,7 +2033,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 END OF TERMS AND CONDITIONS
 ```
 
-### Text 38
+### Text 39
 
 Shipped by safe_arch 0.7.4.
 
@@ -1998,7 +2049,7 @@ The above copyright notice and this permission notice (including the next paragr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 39
+### Text 40
 
 Shipped by safe_arch 0.7.4, wide 0.7.33.
 
@@ -2016,7 +2067,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Text 40
+### Text 41
 
 Shipped by smallvec 1.16.3.
 
@@ -2048,7 +2099,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 41
+### Text 42
 
 Shipped by stable_deref_trait 1.2.1.
 
@@ -2080,7 +2131,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 42
+### Text 43
 
 Shipped by symphonia 0.6.1, symphonia-bundle-flac 0.6.1, symphonia-bundle-mp3 0.6.1, symphonia-codec-aac 0.6.1, symphonia-codec-alac 0.6.1, symphonia-codec-vorbis 0.6.1, symphonia-common 0.6.1, symphonia-core 0.6.1, symphonia-format-isomp4 0.6.1, symphonia-format-mkv 0.6.1, symphonia-format-ogg 0.6.1, symphonia-metadata 0.6.1.
 
@@ -2460,7 +2511,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Text 43
+### Text 44
 
 Shipped by tslib 2.8.1.
 
@@ -2479,7 +2530,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 44
+### Text 45
 
 Shipped by typenum 1.20.1.
 
@@ -2487,7 +2538,7 @@ Shipped by typenum 1.20.1.
 MIT OR Apache-2.0
 ```
 
-### Text 45
+### Text 46
 
 Shipped by typenum 1.20.1.
 
@@ -2695,7 +2746,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Text 46
+### Text 47
 
 Shipped by typenum 1.20.1.
 
@@ -2723,7 +2774,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 47
+### Text 48
 
 Shipped by undici-types 8.9.0.
 
@@ -2751,7 +2802,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 48
+### Text 49
 
 Shipped by the code ported from PyTorch.
 
@@ -2768,7 +2819,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 49
+### Text 50
 
 Shipped by the code ported from torchaudio, wasi-libc, with musl and cloudlibc as Zig 0.17.0 bundles it.
 
@@ -2783,7 +2834,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 50
+### Text 51
 
 Shipped by LAME 3.100.
 
@@ -3271,7 +3322,7 @@ necessary.  Here is a sample; alter the names:
 That's all there is to it!
 ```
 
-### Text 51
+### Text 52
 
 Shipped by LAME 3.100.
 
@@ -3291,7 +3342,7 @@ in this folder). The easiest way to do this is to:
    modifications back to the LAME project, under the LGPL.
 ```
 
-### Text 52
+### Text 53
 
 Shipped by libogg 1.3.6.
 
@@ -3326,7 +3377,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 53
+### Text 54
 
 Shipped by libvorbis 1.3.7.
 

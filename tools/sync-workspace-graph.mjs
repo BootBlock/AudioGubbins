@@ -669,11 +669,12 @@ const PACKAGES = [
     // until something imports it. A dependency a package does not use is an
     // install and a supply-chain surface it does not need, and the themes'
     // motion levels are carried by CSS transitions today.
-    // The two interface faces (ADR-0108), declared by the design system's
-    // stylesheet and reached through it alone.
+    // The icon set and the two interface faces (ADR-0108), reached through
+    // the design system alone: its Icon component and its stylesheet.
     external: {
       '@fontsource-variable/inter': '5.3.0',
       '@fontsource-variable/jetbrains-mono': '5.3.0',
+      'lucide-react': '1.58.0',
       'radix-ui': '1.6.7',
       react: '19.3.0',
       'react-dom': '19.3.0',
