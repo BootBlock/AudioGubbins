@@ -250,6 +250,10 @@ describe('the Spectral panel', { timeout: 30_000 }, () => {
   it('says how the spectrogram is analysed and drawn, and changes it through its commands', async () => {
     const audio = await selectedLoop();
     const ran = panelOver(audio);
+    // The settings sit in a section that starts closed, its summary saying them in short.
+    const settings = screen.getByRole('button', { name: 'Spectrogram' });
+    expect(settings).toHaveAccessibleDescription('2,048 · Blackman–Harris · 4× · theme colours');
+    await userEvent.click(settings);
 
     expect(
       screen.getByText(

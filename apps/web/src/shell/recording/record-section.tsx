@@ -11,7 +11,15 @@
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, TextField } from '@audiogubbins/design-system';
+import {
+  Banner,
+  BannerTone,
+  Button,
+  IconButton,
+  RecordButton,
+  Section,
+  TextField,
+} from '@audiogubbins/design-system';
 import { SUSPENSION_CAUTION } from '@audiogubbins/recording';
 import { quoted } from '@audiogubbins/text';
 
@@ -33,7 +41,8 @@ import {
   LONGEST_TIMED_SECONDS,
   type RecordingSettings,
 } from '../../state/recording-settings.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 import { typed } from '../settings/recording-input.js';
 
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
@@ -105,37 +114,53 @@ function TakeTiming({
     commands.run(RECORD_AT, { time: startAt });
   };
   return (
-    <details>
-      <summary>Pre-roll, post-roll and timed recording</summary>
-      <TextField
-        label={`Punch pre-roll, in seconds, up to ${String(LONGEST_PUNCH_ROLL_SECONDS)}`}
-        value={preRoll}
-        onValueChange={setPreRoll}
-        onSubmit={applyRolls}
-      />
-      <TextField
-        label={`Punch post-roll, in seconds, up to ${String(LONGEST_PUNCH_ROLL_SECONDS)}`}
-        value={postRoll}
-        onValueChange={setPostRoll}
-        onSubmit={applyRolls}
-      />
-      <Button onClick={applyRolls}>Apply the pre-roll and post-roll</Button>
-      <TextField
-        label={`Stop recording after, in seconds, up to ${String(LONGEST_TIMED_SECONDS)}; 0 for no timed stop`}
-        value={stopAfter}
-        onValueChange={setStopAfter}
-        onSubmit={applyStop}
-      />
-      <Button onClick={applyStop}>Apply the timed stop</Button>
-      <TextField
-        label="Start recording at, as hours and minutes"
-        value={startAt}
-        onValueChange={setStartAt}
-        onSubmit={recordAt}
-      />
-      <Button onClick={recordAt}>Record at this time</Button>
-      <p className="ag-panel-note">{SUSPENSION_CAUTION}</p>
-    </details>
+    <Section title="Pre-roll, post-roll and timed recording" defaultOpen={false}>
+      <div className="ag-recording-form">
+        <TextField
+          label={`Punch pre-roll, in seconds, up to ${String(LONGEST_PUNCH_ROLL_SECONDS)}`}
+          unit="s"
+          value={preRoll}
+          onValueChange={setPreRoll}
+          onSubmit={applyRolls}
+        />
+        <TextField
+          label={`Punch post-roll, in seconds, up to ${String(LONGEST_PUNCH_ROLL_SECONDS)}`}
+          unit="s"
+          value={postRoll}
+          onValueChange={setPostRoll}
+          onSubmit={applyRolls}
+        />
+        <div className="ag-recording-actions">
+          <Button compact onClick={applyRolls}>
+            Apply the pre-roll and post-roll
+          </Button>
+        </div>
+        <TextField
+          label={`Stop recording after, in seconds, up to ${String(LONGEST_TIMED_SECONDS)}; 0 for no timed stop`}
+          unit="s"
+          value={stopAfter}
+          onValueChange={setStopAfter}
+          onSubmit={applyStop}
+        />
+        <div className="ag-recording-actions">
+          <Button compact onClick={applyStop}>
+            Apply the timed stop
+          </Button>
+        </div>
+        <TextField
+          label="Start recording at, as hours and minutes"
+          value={startAt}
+          onValueChange={setStartAt}
+          onSubmit={recordAt}
+        />
+        <div className="ag-recording-actions">
+          <Button compact onClick={recordAt}>
+            Record at this time
+          </Button>
+        </div>
+      </div>
+      <p className="ag-recording-caption">{SUSPENSION_CAUTION}</p>
+    </Section>
   );
 }
 
@@ -172,31 +197,44 @@ export function RecordSection({
   useEffect(() => {
     if (writable && projects !== undefined) recording.arming.read(projects.recordings);
   }, [writable, projects, recording]);
-  const shared = useCommandReasons(commands, [RECORD, STOP_RECORDING]);
   const said = progressText(progress);
   const warning = progress.kind === 'recording' ? undefined : timeLeftWarning(timeLeft);
+  const { onPress: record, ...recordReason } = commandPress(commands, RECORD);
+  const { onPress: stop, ...stopReason } = commandPress(commands, STOP_RECORDING);
+  const { onPress: punch, ...punchReason } = commandPress(commands, ARM_PUNCH);
   return (
-    <div>
-      <h3>Takes</h3>
-      <p>{purposeText(view, stacks) ?? 'Arm the input to record a take.'}</p>
-      <div className="ag-settings-row">
-        <CommandButton
-          id={RECORD}
+    <div className="ag-recording-takes">
+      <div className="ag-recording-deck">
+        {/* Lit while a take is being recorded: the lamp is Record, and Stop sits beside it,
+            each its own command with its own reason. */}
+        <RecordButton
           label="Record"
-          commands={commands}
-          shared={shared}
-          tone="primary"
+          recording={progress.kind === 'recording'}
+          {...recordReason}
+          onPress={record}
         />
-        <CommandButton id={STOP_RECORDING} label="Stop" commands={commands} shared={shared} />
+        <div className="ag-recording-deck-text">
+          <p className="ag-recording-purpose">
+            {purposeText(view, stacks) ?? 'Arm the input to record a take.'}
+          </p>
+          {said !== undefined && <p className="ag-recording-progress">{said}</p>}
+        </div>
+        <div className="ag-recording-buttons">
+          <IconButton icon="stop" label="Stop" hint="Stop" {...stopReason} onClick={stop} />
+          <IconButton
+            icon="punch-in"
+            label="Arm a punch over the selection"
+            hint="Arm a punch over the selection"
+            {...punchReason}
+            onClick={punch}
+          />
+        </div>
       </div>
-      <CommandButton
-        id={ARM_PUNCH}
-        label="Arm a punch over the selection"
-        commands={commands}
-        compact
-      />
-      {said !== undefined && <p>{said}</p>}
-      {warning !== undefined && <p data-ag-status="reduced">{warning}</p>}
+      {warning !== undefined && (
+        <Banner tone={BannerTone.Warning} icon="storage">
+          {warning}
+        </Banner>
+      )}
       <TakeTiming settings={settings} commands={commands} />
     </div>
   );

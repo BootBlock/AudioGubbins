@@ -7,7 +7,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Hint, OptionSelect, Section } from '@audiogubbins/design-system';
 import { monitoringLatency } from '@audiogubbins/recording';
 
 import { MONITOR_THROUGH, TOGGLE_MONITORING } from '../../commands/recording-commands.js';
@@ -15,7 +15,8 @@ import type { MonitoringView } from '../../recording/monitoring-control.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import { millisecondsText, monitoringText } from '../../recording/recording-words.js';
 import type { ProjectStores } from '../../state/project-stores.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
@@ -67,26 +68,37 @@ export function MonitoringSection({
   );
   const racked = useRackedAssets(projects);
   const latency = latencyText(view);
+  const on = view.monitoring.kind === 'on';
+  const { onPress: toggle, ...toggleReason } = commandPress(commands, TOGGLE_MONITORING);
+  const { onPress: confirm, ...confirmReason } = commandPress(
+    commands,
+    'recording.confirm-monitoring',
+  );
   return (
-    <div>
-      <h3>Monitoring</h3>
-      <p data-ag-status={view.monitoring.kind === 'on' ? 'reduced' : undefined}>
+    <Section
+      title="Monitoring"
+      icon="monitoring"
+      actions={
+        <>
+          <Hint label="About monitoring">
+            What is monitored is never recorded: the recording is the dry input.
+          </Hint>
+          <Button compact {...toggleReason} onClick={toggle}>
+            {on ? 'Turn monitoring off' : 'Turn monitoring on'}
+          </Button>
+        </>
+      }
+    >
+      <p className="ag-recording-state" data-ag-status={on ? 'reduced' : undefined}>
         {monitoringText(view)}
       </p>
-      <div className="ag-settings-row">
-        <CommandButton
-          id={TOGGLE_MONITORING}
-          label={view.monitoring.kind === 'on' ? 'Turn monitoring off' : 'Turn monitoring on'}
-          commands={commands}
-        />
-        {view.monitoring.kind === 'confirming' && (
-          <CommandButton
-            id="recording.confirm-monitoring"
-            label="Monitor anyway"
-            commands={commands}
-          />
-        )}
-      </div>
+      {view.monitoring.kind === 'confirming' && (
+        <div className="ag-recording-actions">
+          <Button compact tone={ButtonTone.Primary} {...confirmReason} onClick={confirm}>
+            Monitor anyway
+          </Button>
+        </div>
+      )}
       {racked.length > 0 && (
         <OptionSelect
           label="Monitor through"
@@ -102,10 +114,7 @@ export function MonitoringSection({
           }}
         />
       )}
-      {latency !== undefined && <p className="ag-panel-note">{latency}</p>}
-      <p className="ag-panel-note">
-        What is monitored is never recorded: the recording is the dry input.
-      </p>
-    </div>
+      {latency !== undefined && <p className="ag-recording-caption">{latency}</p>}
+    </Section>
   );
 }

@@ -11,7 +11,16 @@
 
 import type { ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import {
+  Badge,
+  Button,
+  ButtonTone,
+  Icon,
+  type IconName,
+  IconSize,
+  OptionSelect,
+  VisuallyHidden,
+} from '@audiogubbins/design-system';
 import type { CaptureComparison } from '@audiogubbins/recording';
 
 import { CHOOSE_INPUT } from '../../commands/recording-commands.js';
@@ -24,7 +33,8 @@ import {
   bufferShortfallText,
 } from '../../recording/recording-words.js';
 import type { RecordingSettings } from '../../state/recording-settings.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 import { LevelGroup } from '../engine-readouts.js';
 import { useDisplayFrame } from '../use-display-frame.js';
 
@@ -65,6 +75,16 @@ function bufferText(settings: RecordingSettings, view: InputView): string {
     : `${kept} It holds ${String(view.bufferedSeconds)} seconds now.`;
 }
 
+/** The glyph of what the microphone permission is, and whether it stands in recording's way. */
+const PERMISSION_LOOKS: Readonly<
+  Record<InputView['permission'], { readonly icon: IconName; readonly refused: boolean }>
+> = {
+  granted: { icon: 'checked', refused: false },
+  prompt: { icon: 'information', refused: false },
+  denied: { icon: 'refused', refused: true },
+  unknown: { icon: 'information', refused: false },
+};
+
 /** What the browser granted against what was asked, disclosed on request. */
 export function GrantDisclosure({
   comparison,
@@ -73,7 +93,9 @@ export function GrantDisclosure({
 }): ReactNode {
   if (comparison === undefined) {
     return (
-      <p className="ag-panel-note">What the browser grants is known once the input is armed.</p>
+      <p className="ag-recording-caption">
+        What the browser grants is known once the input is armed.
+      </p>
     );
   }
   const meanings = [
@@ -81,11 +103,14 @@ export function GrantDisclosure({
     ...comparison.uncontrollable.map((one) => one.meaning),
   ];
   if (meanings.length === 0) {
-    return <p>The browser granted everything the profile asked for.</p>;
+    return (
+      <p className="ag-recording-caption">The browser granted everything the profile asked for.</p>
+    );
   }
   return (
-    <details>
+    <details className="ag-recording-disclosure">
       <summary>
+        <Icon name="expand" size={IconSize.Inline} className="ag-recording-disclosure-chevron" />
         {meanings.length === 1
           ? 'The browser granted one thing other than asked'
           : `The browser granted ${String(meanings.length)} things other than asked`}
@@ -99,7 +124,28 @@ export function GrantDisclosure({
   );
 }
 
-/** The input's levels, read once a display frame while it is open, and the control that says them. */
+/** One line of what is known of the input, led by its glyph. */
+function Fact({
+  icon,
+  status,
+  children,
+}: {
+  readonly icon: IconName;
+  readonly status?: 'reduced';
+  readonly children: string;
+}): ReactNode {
+  return (
+    <li className="ag-recording-fact" data-ag-status={status}>
+      <Icon name={icon} size={IconSize.Inline} />
+      <span>{children}</span>
+    </li>
+  );
+}
+
+/**
+ * The input's levels, read once a display frame while it is open, in a well
+ * with the control that says them.
+ */
 function InputLevels({
   recording,
   open,
@@ -111,14 +157,22 @@ function InputLevels({
 }): ReactNode {
   const levels = useDisplayFrame(() => recording.input.meters(), open);
   return (
-    <>
+    <div className="ag-recording-meters">
       {levels === undefined ? (
-        <p className="ag-panel-note">No levels until an input is armed.</p>
+        <p className="ag-recording-caption">No levels until an input is armed.</p>
       ) : (
         <LevelGroup label="Input levels" levels={levels} />
       )}
-      <CommandButton id="recording.say-levels" label="Say the levels" commands={commands} compact />
-    </>
+      <div className="ag-recording-meters-actions">
+        <CommandButton
+          id="recording.say-levels"
+          label="Say the levels"
+          tone={ButtonTone.Quiet}
+          commands={commands}
+          compact
+        />
+      </div>
+    </div>
   );
 }
 
@@ -134,37 +188,61 @@ export function InputSection({
   readonly settings: RecordingSettings;
   readonly commands: PanelCommands;
 }): ReactNode {
-  const shared = useCommandReasons(commands, ['recording.arm', 'recording.disarm']);
   const listed = view.devices.flatMap((device) => identityOfDevice(device) ?? []);
   const chosen = view.opened?.device ?? settings.input;
+  const { onPress: arm, ...armReason } = commandPress(commands, 'recording.arm');
+  const { onPress: disarm, ...disarmReason } = commandPress(commands, 'recording.disarm');
+  const permission = PERMISSION_LOOKS[view.permission];
   return (
-    <div>
-      <h3>Input</h3>
-      {listed.length > 0 ? (
-        <OptionSelect
-          label="Input"
-          value={chosen?.id ?? ''}
-          options={[
-            ...(chosen === undefined ? [{ value: '', label: deviceName(undefined) }] : []),
-            ...listed.map((device) => ({ value: device.id, label: deviceName(device) })),
-          ]}
-          onValueChange={(device) => {
-            if (device !== '' && device !== chosen?.id) commands.run(CHOOSE_INPUT, { device });
-          }}
-        />
-      ) : (
-        <p>{deviceName(chosen)}</p>
-      )}
-      <p className="ag-panel-note">{permissionText(view.permission)}</p>
-      <p>{sessionText(view)}</p>
-      {view.problem !== undefined && <p data-ag-status="reduced">{view.problem}</p>}
-      <div className="ag-settings-row">
-        <CommandButton id="recording.arm" label="Arm" commands={commands} shared={shared} />
-        <CommandButton id="recording.disarm" label="Disarm" commands={commands} shared={shared} />
+    <div className="ag-recording-input">
+      <div className="ag-recording-device">
+        {listed.length > 0 ? (
+          <OptionSelect
+            label="Input"
+            value={chosen?.id ?? ''}
+            options={[
+              ...(chosen === undefined ? [{ value: '', label: deviceName(undefined) }] : []),
+              ...listed.map((device) => ({ value: device.id, label: deviceName(device) })),
+            ]}
+            onValueChange={(device) => {
+              if (device !== '' && device !== chosen?.id) commands.run(CHOOSE_INPUT, { device });
+            }}
+          />
+        ) : (
+          <p className="ag-recording-device-name">{deviceName(chosen)}</p>
+        )}
+        <div className="ag-recording-buttons">
+          <Button compact {...armReason} onClick={arm}>
+            <Icon name="armed" />
+            Arm
+          </Button>
+          <Button compact {...disarmReason} onClick={disarm}>
+            Disarm
+          </Button>
+        </div>
       </div>
-      <p>{`Capture profile: ${settings.chosenProfile}.`}</p>
+      <div className="ag-recording-chips">
+        <Badge>
+          <VisuallyHidden>Capture profile: </VisuallyHidden>
+          {settings.chosenProfile}
+        </Badge>
+      </div>
+      <ul className="ag-recording-facts">
+        <Fact
+          icon={permission.icon}
+          {...(permission.refused ? { status: 'reduced' as const } : {})}
+        >
+          {permissionText(view.permission)}
+        </Fact>
+        <Fact icon="recorder">{sessionText(view)}</Fact>
+        {view.problem !== undefined && (
+          <Fact icon="warning" status="reduced">
+            {view.problem}
+          </Fact>
+        )}
+        <Fact icon="pre-record">{bufferText(settings, view)}</Fact>
+      </ul>
       <GrantDisclosure comparison={view.opened?.comparison} />
-      <p>{bufferText(settings, view)}</p>
       <InputLevels recording={recording} open={view.opened !== undefined} commands={commands} />
     </div>
   );

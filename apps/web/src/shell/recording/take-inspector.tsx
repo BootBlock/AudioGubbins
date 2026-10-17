@@ -9,12 +9,13 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, TextField } from '@audiogubbins/design-system';
+import { Button, IconButton, TextField } from '@audiogubbins/design-system';
 import { takeOf, type Project, type Take, type TakeStack } from '@audiogubbins/domain';
 
 import type { TakeSubject } from '../../recording/recording-focus.js';
 import type { ProjectStores } from '../../state/project-stores.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 import { typed } from '../settings/recording-input.js';
 import { takeFacts } from './take-stacks-section.js';
 
@@ -46,28 +47,52 @@ function TakeProperties({
     commands.run('take.set-compensation', { ...args, frames: typed(placement) });
   };
   const asset = project.assets.get(take.asset);
+  const { onPress: hear, ...hearReason } = commandPress(commands, 'take.audition', args);
   return (
-    <div>
-      <h3>{`Take in ${stack.name}`}</h3>
-      <TextField label="Name" value={name} onValueChange={setName} onSubmit={rename} />
-      <Button onClick={rename}>Rename the take</Button>
-      <TextField label="Note" value={note} onValueChange={setNote} onSubmit={annotate} />
-      <Button onClick={annotate}>Keep the note</Button>
-      <TextField
-        label="Placement, in frames earlier; below zero for later"
-        value={placement}
-        onValueChange={setPlacement}
-        onSubmit={place}
-      />
-      <Button onClick={place}>Place the take</Button>
-      <p className="ag-panel-note">
-        The placement moves where the take is read from, never its samples.
-      </p>
-      <p>{takeFacts(project, take)}</p>
-      <p>{stack.chosen === take.id ? 'It is the chosen take.' : 'It is not the chosen take.'}</p>
-      {asset !== undefined && <p>{`Its recording is the asset ${asset.displayName}.`}</p>}
-      <div className="ag-settings-row">
-        <CommandButton id="take.audition" label="Hear" commands={commands} args={args} compact />
+    <div className="ag-recording-subject">
+      <h3 className="ag-recording-subject-title">{`Take in ${stack.name}`}</h3>
+      <div className="ag-recording-form">
+        <div className="ag-recording-field-row">
+          <TextField label="Name" value={name} onValueChange={setName} onSubmit={rename} />
+          <Button compact onClick={rename}>
+            Rename the take
+          </Button>
+        </div>
+        <div className="ag-recording-field-row">
+          <TextField label="Note" value={note} onValueChange={setNote} onSubmit={annotate} />
+          <Button compact onClick={annotate}>
+            Keep the note
+          </Button>
+        </div>
+        <div className="ag-recording-field-row">
+          <TextField
+            label="Placement, in frames earlier; below zero for later"
+            value={placement}
+            onValueChange={setPlacement}
+            onSubmit={place}
+          />
+          <Button compact onClick={place}>
+            Place the take
+          </Button>
+        </div>
+        <p className="ag-recording-caption">
+          The placement moves where the take is read from, never its samples.
+        </p>
+      </div>
+      <div className="ag-recording-subject-facts">
+        <p>{takeFacts(project, take)}</p>
+        <p>{stack.chosen === take.id ? 'It is the chosen take.' : 'It is not the chosen take.'}</p>
+        {asset !== undefined && <p>{`Its recording is the asset ${asset.displayName}.`}</p>}
+      </div>
+      <div className="ag-recording-buttons">
+        <IconButton
+          icon="audition"
+          label="Hear"
+          hint="Hear"
+          compact
+          {...hearReason}
+          onClick={hear}
+        />
         <CommandButton id="take.choose" label="Choose" commands={commands} args={args} compact />
       </div>
     </div>
@@ -88,18 +113,24 @@ function StackProperties({
   };
   const chosen = stack.chosen === undefined ? undefined : takeOf(stack, stack.chosen);
   return (
-    <div>
-      <h3>Take stack</h3>
-      <TextField label="Name" value={name} onValueChange={setName} onSubmit={rename} />
-      <Button onClick={rename}>Rename the stack</Button>
-      <p>
-        {`${String(stack.takes.length)} ${stack.takes.length === 1 ? 'take' : 'takes'}; ${
-          chosen === undefined ? 'none is chosen' : `${chosen.name} is chosen`
-        }.`}
-      </p>
-      {stack.punch !== undefined && (
-        <p>{`It is a punch's stack: its chosen take replaces ${String(stack.punch.length)} frames, read after a pre-roll of ${String(stack.punch.preRoll)} frames.`}</p>
-      )}
+    <div className="ag-recording-subject">
+      <h3 className="ag-recording-subject-title">Take stack</h3>
+      <div className="ag-recording-field-row">
+        <TextField label="Name" value={name} onValueChange={setName} onSubmit={rename} />
+        <Button compact onClick={rename}>
+          Rename the stack
+        </Button>
+      </div>
+      <div className="ag-recording-subject-facts">
+        <p>
+          {`${String(stack.takes.length)} ${stack.takes.length === 1 ? 'take' : 'takes'}; ${
+            chosen === undefined ? 'none is chosen' : `${chosen.name} is chosen`
+          }.`}
+        </p>
+        {stack.punch !== undefined && (
+          <p>{`It is a punch's stack: its chosen take replaces ${String(stack.punch.length)} frames, read after a pre-roll of ${String(stack.punch.preRoll)} frames.`}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -126,13 +157,15 @@ export function TakeInspector({
       compact
     />
   );
-  if (open?.kind !== 'open') return <p>No project is open.</p>;
+  if (open?.kind !== 'open') return <p className="ag-recording-caption">No project is open.</p>;
   const { project } = open.snapshot.model.state;
   const stack = project.takeStacks.get(subject.stack);
-  if (stack === undefined) return <p>That take stack is no longer in the project.</p>;
+  if (stack === undefined) {
+    return <p className="ag-recording-caption">That take stack is no longer in the project.</p>;
+  }
   const take = subject.take === undefined ? undefined : takeOf(stack, subject.take);
   if (subject.take !== undefined && take === undefined) {
-    return <p>That take is no longer in its stack.</p>;
+    return <p className="ag-recording-caption">That take is no longer in its stack.</p>;
   }
   return take === undefined ? (
     // Keyed by what the fields show, so an undo shows its name and note.

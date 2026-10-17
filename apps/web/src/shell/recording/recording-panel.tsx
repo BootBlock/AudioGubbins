@@ -10,6 +10,8 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
+import { Section } from '@audiogubbins/design-system';
+
 import type { RecordingParts } from '../../recording/recording-part.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
 import type { Observable } from '../../state/observable.js';
@@ -48,25 +50,30 @@ export function RecordingPanel({
   return (
     <section className="ag-panel ag-recording">
       <h2 className="ag-panel-title">{title}</h2>
-      <InputSection recording={recording} view={view} settings={settings} commands={commands} />
-      <RecordSection
-        recording={recording}
-        view={view}
-        settings={settings}
-        projects={parts.projects}
-        commands={commands}
-      />
-      <TakeStacksSection projects={parts.projects} commands={commands} />
-      <MonitoringSection recording={recording} projects={parts.projects} commands={commands} />
-      <LatencySection recording={recording} view={view} settings={settings} commands={commands} />
-      <details>
-        <summary>
-          {diagnostics.entries.length === 0
-            ? 'Recording diagnostics'
-            : `Recording diagnostics: ${String(diagnostics.entries.length)}`}
-        </summary>
-        <RecordingDiagnosticsList reading={diagnostics} commands={commands} />
-      </details>
+      <div className="ag-recording-body">
+        <InputSection recording={recording} view={view} settings={settings} commands={commands} />
+        <RecordSection
+          recording={recording}
+          view={view}
+          settings={settings}
+          projects={parts.projects}
+          commands={commands}
+        />
+        <TakeStacksSection projects={parts.projects} commands={commands} />
+        <MonitoringSection recording={recording} projects={parts.projects} commands={commands} />
+        <LatencySection recording={recording} view={view} settings={settings} commands={commands} />
+        {/* Closed: the list informs, and never stands between the person and a take. */}
+        <Section
+          title="Recording diagnostics"
+          icon="diagnostics"
+          {...(diagnostics.entries.length === 0
+            ? {}
+            : { summary: String(diagnostics.entries.length) })}
+          defaultOpen={false}
+        >
+          <RecordingDiagnosticsList reading={diagnostics} commands={commands} />
+        </Section>
+      </div>
     </section>
   );
 }

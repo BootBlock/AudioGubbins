@@ -50,6 +50,11 @@ function commandsOver(context: ShellContext) {
   };
 }
 
+/** Opens the Recording panel's diagnostics, a section that starts closed. */
+async function openDiagnostics(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Recording diagnostics' }));
+}
+
 describe("the status bar's input state", () => {
   function statusOver() {
     const built = buildShellContext();
@@ -193,6 +198,7 @@ describe('the Recording panel', () => {
     recording.media.granted = grantedSettings({ sampleRate: 44_100 });
     const commands = panelOver(context);
     await arm(context);
+    await openDiagnostics();
     const restart = screen.getByRole('button', {
       name: 'Restart the audio engine at 44,100 Hz',
     });
@@ -247,6 +253,7 @@ describe('the Recording panel', () => {
     await act(async () => {
       await everythingQueued();
     });
+    await openDiagnostics();
     expect(
       screen.getByText('The input chosen for recording is no longer connected.'),
     ).toBeInTheDocument();
@@ -259,6 +266,7 @@ describe('the Recording panel', () => {
   it('lists the recording diagnostics once the context has reported its latency', async () => {
     const { context } = buildShellContext();
     panelOver(context);
+    await openDiagnostics();
     expect(
       screen.getByText(/checked once an input is armed or something plays/u),
     ).toBeInTheDocument();
