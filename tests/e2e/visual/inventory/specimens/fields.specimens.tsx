@@ -275,7 +275,7 @@ const IN_PLACE = {
   translate: 'none',
 } as const;
 
-const specimens: ReadonlyArray<Specimen> = [
+const specimens: readonly Specimen[] = [
   // The text field.
   {
     component: 'TextField',

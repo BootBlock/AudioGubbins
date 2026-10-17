@@ -7,7 +7,7 @@
  * Every value reads a token. A length the language states that no token
  * carries is written as a multiple of `--ag-grid-unit`, the 2 px every box is
  * laid out in; a hairline is 1px, and a share of a token colour is a
- * percentage inside `color-mix()`, as the language states it.
+ * percentage given to `color-mix`, as the language states it.
  *
  * A state the inventory forces is matched beside the real one: each hover,
  * press and active rule names the pseudo-class and the `data-ag-force-state`

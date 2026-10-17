@@ -13,7 +13,7 @@
  * meter appears.
  */
 
-import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
   CorrelationMeter,
@@ -227,6 +227,35 @@ const LOUD: Readings = { now: [gain(-6), gain(-8)] };
 const PEAK_HELD: Readings = { before: [gain(-3), gain(-4)], now: [gain(-14), gain(-16)] };
 const CLIPPING: Readings = { now: [1.4, gain(-2)] };
 
+/** The reading a still meter shows, moved from a moment ago to now once. */
+interface ReadingsInTurn {
+  readonly shown: () => readonly [number, number];
+  readonly subscribe: (changed: () => void) => () => void;
+  readonly moveOn: () => void;
+}
+
+/**
+ * `readings` shown in turn: the one of a moment ago, if any, until `moveOn`,
+ * then the present one. Held outside React, as the still clock is, so the
+ * meter is drawn again from the specimen's own time rather than from a state
+ * an effect sets.
+ */
+function readingsInTurn(readings: Readings): ReadingsInTurn {
+  let shown = readings.before ?? readings.now;
+  const watchers = new Set<() => void>();
+  return {
+    shown: () => shown,
+    subscribe: (changed) => {
+      watchers.add(changed);
+      return () => watchers.delete(changed);
+    },
+    moveOn: () => {
+      shown = readings.now;
+      for (const changed of watchers) changed();
+    },
+  };
+}
+
 /**
  * A stereo meter at `readings`: a reading of a moment ago is shown first and
  * the present one 0.3 s later, before the first paint, so its peak is held.
@@ -241,13 +270,13 @@ function StillMeter({
   readonly prominent?: boolean;
 }): ReactNode {
   const [clock] = useState(stillClock);
-  const [shown, setShown] = useState(readings.before ?? readings.now);
+  const [turn] = useState(() => readingsInTurn(readings));
+  const [left, right] = useSyncExternalStore(turn.subscribe, turn.shown);
   useLayoutEffect(() => {
     if (readings.before === undefined) return;
     clock.advance(300);
-    setShown(readings.now);
-  }, [clock, readings]);
-  const [left, right] = shown;
+    turn.moveOn();
+  }, [clock, readings, turn]);
   const meter = (
     <LevelMeter
       label="Levels at the output"

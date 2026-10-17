@@ -205,7 +205,7 @@ function assetsPanel(body: ReactNode): ReactNode {
   );
 }
 
-const specimens: ReadonlyArray<Specimen> = [
+const specimens: readonly Specimen[] = [
   // Tabs.
   { component: 'TabSet', state: 'default', render: () => tabs() },
   { component: 'TabSet', state: 'with glyphs', render: () => tabs(TABS_WITH_GLYPHS) },
