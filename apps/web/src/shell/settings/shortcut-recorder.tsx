@@ -32,7 +32,7 @@ import {
   type KeyPress,
   type KeyboardLayout,
 } from '@audiogubbins/input';
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { ButtonTone, IconButton, ShortcutKeys } from '@audiogubbins/design-system';
 
 import { ReasonedButton } from './reasoned-button.js';
 
@@ -150,11 +150,17 @@ export function ShortcutRecorder({
         }}
         onKeyDown={onKeyDown}
       >
-        {recorded === undefined
-          ? listening
-            ? 'Press the keys'
-            : 'Nothing recorded'
-          : describeShortcut(recorded, convention, layout)}
+        {recorded === undefined ? (
+          listening ? (
+            'Press the keys'
+          ) : (
+            'Nothing recorded'
+          )
+        ) : (
+          // The caps keep the platform's own writing as their text, so the
+          // field reads as `describeShortcut` writes the combination.
+          <ShortcutKeys shortcut={describeShortcut(recorded, convention, layout)} />
+        )}
       </div>
 
       {/*
@@ -208,7 +214,7 @@ export function ShortcutRecorder({
         </p>
       )}
 
-      <div className="ag-settings-row">
+      <div className="ag-shortcut-recorder-actions">
         {/*
           Reachable while it cannot be used, with the reason tied to it, which
           is what `ReasonedButton` is for. Given the native `disabled`, Save
@@ -218,6 +224,7 @@ export function ShortcutRecorder({
         */}
         <ReasonedButton
           tone={ButtonTone.Primary}
+          compact
           reason={whySaveCannotRun(recorded, listening, refusal)}
           onPress={() => {
             if (recorded !== undefined) onSave(shortcutKey(recorded));
@@ -225,15 +232,17 @@ export function ShortcutRecorder({
         >
           Save
         </ReasonedButton>
-        <Button
+        <IconButton
+          icon="record-again"
+          label="Record again"
+          hint="Record again"
+          compact
           onClick={() => {
             setPresses([]);
             setListening(true);
           }}
-        >
-          Record again
-        </Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        />
+        <IconButton icon="cancel" label="Cancel" hint="Cancel" compact onClick={onCancel} />
       </div>
     </div>
   );

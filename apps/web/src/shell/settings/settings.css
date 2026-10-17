@@ -1,0 +1,780 @@
+/*
+ * The Settings dialogue and its pages (design language, sections 7, 10, 11
+ * and 13, and MotionSpec).
+ *
+ * The dialogue is the design system's, with its header's glyph and close
+ * button; this sheet sets it out as a list of pages beside the page showing,
+ * and draws each page's controls as the approved Settings board does. Every
+ * control is one of the set: a theme or a density drawn as cards and an accent
+ * as a glass bead are the segmented control under another look, so each keeps
+ * the control's roles, keyboard and unavailable reason.
+ *
+ * Every value reads a token. A length the language states that no token
+ * carries is a multiple of `--ag-grid-unit`; a hairline is 1px. The focus ring
+ * is the one ring of `tokens.css`, a band of box shadow, so nothing that takes
+ * focus is given a box shadow here: a glow or a bead is drawn on a
+ * pseudo-element instead, and the ring stays whole.
+ */
+
+/* ---------- The dialogue ---------- */
+
+/* Wider and taller than a plain dialogue, so a page sits beside the list of
+   pages; never past the window, which the design system's own cap keeps. */
+.ag-dialog:has(.ag-settings) {
+  inline-size: min(calc(100vw - 2 * var(--ag-space-inset-wide)), calc(370 * var(--ag-grid-unit)));
+  block-size: min(calc(100dvh - 2 * var(--ag-space-inset-wide)), calc(280 * var(--ag-grid-unit)));
+}
+
+[data-ag-density='compact'] .ag-dialog:has(.ag-settings) {
+  inline-size: min(calc(100vw - 2 * var(--ag-space-inset-wide)), calc(340 * var(--ag-grid-unit)));
+  block-size: min(calc(100dvh - 2 * var(--ag-space-inset-wide)), calc(250 * var(--ag-grid-unit)));
+}
+
+/* The header split from the body by a hairline (section 6). */
+.ag-dialog:has(.ag-settings) > .ag-dialog-header {
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+/* The list and the page each scroll on their own, so the list stays in sight
+   however long the page is; the part that scrolls as a whole only lays them
+   out. */
+.ag-dialog-scroll:has(.ag-settings) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The dialogue's description, the sentence a screen reader meets it with, is
+   kept for that reader and out of sight, as the approved board has it: the
+   page list says what the dialogue holds. */
+.ag-dialog-scroll:has(.ag-settings) > .ag-dialog-description {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ag-dialog-scroll:has(.ag-settings) > .ag-dialog-body,
+.ag-settings {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.ag-settings > .ag-tabs {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: calc(100 * var(--ag-grid-unit)) minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+[data-ag-density='compact'] .ag-settings > .ag-tabs {
+  grid-template-columns: calc(86 * var(--ag-grid-unit)) minmax(0, 1fr);
+}
+
+/* ---------- The list of pages ---------- */
+
+.ag-settings .ag-tab-list {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 1px;
+  padding: var(--ag-space-inset);
+  border-inline-end: 1px solid var(--ag-chrome-border-subtle);
+  overflow: auto;
+  scroll-padding: var(--ag-focus-ring-reach);
+}
+
+.ag-settings .ag-tab {
+  position: relative;
+  flex: none;
+  justify-content: flex-start;
+  padding-inline: var(--ag-space-inset);
+  color: var(--ag-chrome-text-primary);
+  font-weight: var(--ag-text-weight-regular);
+  text-align: start;
+}
+
+.ag-settings .ag-tab > .ag-icon {
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* The chosen page: the lit edge (section 7). Its own outline is lit, bright at
+   the leading side and fading round it, over a wash that fades the same way,
+   with a glow under it and its glyph in the accent. The edge is a one-pixel
+   border cut from a gradient by a mask, drawn by `::before`: the tab's
+   `::after` is its touch target's hit area (`.ag-touch-target`), taller than
+   the row, which an edge drawn there would take the size of. The glow is the
+   tab's own shadow, given up to the focus ring while the tab holds focus. */
+.ag-settings .ag-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: var(--ag-space-hair);
+  border-radius: inherit;
+  background: var(--ag-effect-lit-edge);
+  pointer-events: none;
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+
+  /* Both forms: the engines of the support floor before Chromium 120 read only
+     the prefixed composite. The mask's colour is never seen, only its
+     coverage, so it is any opaque token. */
+  -webkit-mask:
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary)) content-box,
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary));
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary)) content-box
+      exclude,
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary));
+}
+
+.ag-settings .ag-tab[data-state='active'] {
+  border-color: transparent;
+  background-color: transparent;
+  background-image: var(--ag-effect-lit-wash);
+}
+
+.ag-settings .ag-tab[data-state='active']:not(:focus-visible) {
+  box-shadow: var(--ag-effect-lit-glow);
+}
+
+[data-ag-theme='light'] .ag-settings .ag-tab[data-state='active'] {
+  background-color: transparent;
+}
+
+.ag-settings .ag-tab[data-state='active']::before {
+  opacity: 1;
+}
+
+.ag-settings .ag-tab[data-state='active'] > .ag-icon {
+  color: var(--ag-chrome-accent);
+  filter: drop-shadow(
+    0 0 calc(2 * var(--ag-grid-unit)) color-mix(in oklch, var(--ag-chrome-accent) 70%, transparent)
+  );
+}
+
+/* At the full motion level the edge sweeps in from the leading side as the
+   page is chosen (MotionSpec, selection feedback); below it the edge fades. */
+[data-ag-motion='full'] .ag-settings .ag-tab::before {
+  clip-path: inset(0 100% 0 0);
+  transition-property: opacity, clip-path;
+}
+
+[data-ag-motion='full'] [dir='rtl'] .ag-settings .ag-tab::before,
+[data-ag-motion='full'][dir='rtl'] .ag-settings .ag-tab::before {
+  clip-path: inset(0 0 0 100%);
+}
+
+[data-ag-motion='full'] .ag-settings .ag-tab[data-state='active']::before {
+  clip-path: inset(0 0 0 0);
+}
+
+/* ---------- A page ---------- */
+
+/* Two insets in from the dialogue's sides (section 11), one from the list. */
+.ag-settings .ag-tab-panel {
+  padding: var(--ag-space-inset) calc(2 * var(--ag-space-inset)) calc(2 * var(--ag-space-inset));
+  overflow: auto;
+  scroll-padding: var(--ag-focus-ring-reach);
+}
+
+.ag-settings .ag-tab-panel > .ag-settings-section {
+  gap: calc(2 * var(--ag-space-inset));
+  min-block-size: 0;
+}
+
+/* A set of settings: a quiet heading over its controls, with no box round it. */
+.ag-settings .ag-settings-group {
+  gap: var(--ag-space-inset);
+  padding: 0;
+  border: 0;
+}
+
+.ag-settings .ag-settings-group > legend {
+  margin-block-end: var(--ag-space-inset);
+  padding: 0;
+  color: var(--ag-chrome-text-primary);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+/* A choice under a heading in sight, with the chosen choice's name at the
+   heading's trailing end. */
+.ag-settings-choice {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-settings-choice-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-primary);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-settings-choice-value {
+  margin-inline-start: auto;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-regular);
+}
+
+/* A form of settings, each a label beside its control, the labels in one
+   column. A select and a choice field give their label and their control to
+   the grid, so the labels line up whichever control follows. */
+.ag-settings-form {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  gap: var(--ag-space-inset) var(--ag-space-inset-wide);
+}
+
+.ag-settings-form > :is(.ag-settings-choice, .ag-select-field) {
+  display: contents;
+}
+
+.ag-settings-form .ag-settings-choice-heading,
+.ag-settings-form .ag-select-label {
+  min-inline-size: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-regular);
+}
+
+/* What a profile is, beside the profile: the (i) or the profile's actions. */
+.ag-settings-profile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-inset);
+}
+
+.ag-settings-profile > .ag-select-field {
+  flex: 1 1 calc(120 * var(--ag-grid-unit));
+}
+
+.ag-settings-profile > .ag-select-field > .ag-select-trigger {
+  flex: 1 1 auto;
+}
+
+.ag-settings details > summary {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+  cursor: pointer;
+}
+
+/* ---------- Cards: a choice shown as what it makes ---------- */
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segmented {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(60 * var(--ag-grid-unit)), 1fr));
+  gap: var(--ag-space-inset);
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segmented-wash {
+  display: none;
+}
+
+/* A card's corners nest round its preview's: the preview's radius plus the
+   card's inset (section 3). */
+.ag-settings-choice[data-ag-look='previews'] .ag-segment {
+  display: grid;
+  justify-content: stretch;
+  justify-items: stretch;
+  gap: var(--ag-space-small);
+  block-size: auto;
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: calc(var(--ag-radius-small) + var(--ag-space-inset));
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-control);
+  text-align: start;
+  transition-property: background-color, border-color;
+}
+
+.ag-settings-choice[data-ag-look='previews']
+  .ag-segment:hover[aria-checked='false']:not([data-disabled]) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+/* The chosen card: an accent edge and the glow (section 7), the glow on a
+   pseudo-element so the card's own shadow stays the focus ring's. */
+.ag-settings-choice[data-ag-look='previews'] .ag-segment::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: var(--ag-effect-glow);
+  pointer-events: none;
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segment[aria-checked='true'] {
+  border-color: var(--ag-chrome-accent);
+  background-color: var(--ag-chrome-fill-accent);
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segment[aria-checked='true']::after {
+  opacity: 1;
+}
+
+/* The preview: a miniature of what the choice makes, drawn from the theme's
+   own colours. A dark miniature in the light theme, and a light one in the
+   dark theme, are drawn from the text colour, which is the other theme's
+   ground. */
+.ag-settings-choice[data-ag-look='previews'] {
+  --ag-settings-dark-ground: var(--ag-chrome-surface-sunken);
+  --ag-settings-dark-pane: var(--ag-chrome-surface-raised);
+  --ag-settings-light-ground: color-mix(
+    in oklch,
+    var(--ag-chrome-text-primary) 82%,
+    var(--ag-chrome-text-secondary)
+  );
+  --ag-settings-light-pane: var(--ag-chrome-text-primary);
+}
+
+[data-ag-theme='light'] .ag-settings-choice[data-ag-look='previews'] {
+  --ag-settings-dark-ground: var(--ag-chrome-text-primary);
+  --ag-settings-dark-pane: color-mix(
+    in oklch,
+    var(--ag-chrome-text-primary) 75%,
+    var(--ag-chrome-text-secondary)
+  );
+  --ag-settings-light-ground: var(--ag-chrome-surface-sunken);
+  --ag-settings-light-pane: var(--ag-chrome-surface-base);
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segment::before {
+  content: '';
+  block-size: calc(26 * var(--ag-grid-unit));
+  padding: var(--ag-space-tiny);
+  border-radius: var(--ag-radius-small);
+}
+
+/* A theme: three panes over its backdrop, lit by the accent and the rose. */
+.ag-settings-choice[data-ag-look='previews']
+  .ag-segment:is([value='dark'], [value='light'])::before {
+  background:
+    linear-gradient(var(--ag-settings-pane), var(--ag-settings-pane)) left / 20% 100% no-repeat
+      content-box,
+    linear-gradient(var(--ag-settings-pane), var(--ag-settings-pane)) center / 54% 100% no-repeat
+      content-box,
+    linear-gradient(var(--ag-settings-pane), var(--ag-settings-pane)) right / 20% 100% no-repeat
+      content-box,
+    linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--ag-chrome-accent) 35%, var(--ag-settings-ground)),
+      var(--ag-settings-ground) 60%,
+      color-mix(in oklch, var(--ag-category-rose) 30%, var(--ag-settings-ground))
+    );
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segment[value='dark'] {
+  --ag-settings-ground: var(--ag-settings-dark-ground);
+  --ag-settings-pane: var(--ag-settings-dark-pane);
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segment[value='light'] {
+  --ag-settings-ground: var(--ag-settings-light-ground);
+  --ag-settings-pane: var(--ag-settings-light-pane);
+}
+
+/* Following the system: the two themes split across the corner. */
+.ag-settings-choice[data-ag-look='previews'] .ag-segment[value='system']::before {
+  background:
+    linear-gradient(
+        color-mix(in oklch, var(--ag-chrome-text-secondary) 50%, transparent),
+        color-mix(in oklch, var(--ag-chrome-text-secondary) 50%, transparent)
+      )
+      left / 20% 100% no-repeat content-box,
+    linear-gradient(
+        color-mix(in oklch, var(--ag-chrome-text-secondary) 50%, transparent),
+        color-mix(in oklch, var(--ag-chrome-text-secondary) 50%, transparent)
+      )
+      center / 54% 100% no-repeat content-box,
+    linear-gradient(
+        color-mix(in oklch, var(--ag-chrome-text-secondary) 50%, transparent),
+        color-mix(in oklch, var(--ag-chrome-text-secondary) 50%, transparent)
+      )
+      right / 20% 100% no-repeat content-box,
+    linear-gradient(
+      135deg,
+      var(--ag-settings-dark-ground) 50%,
+      var(--ag-settings-light-ground) 50%
+    );
+}
+
+/* A density: rows of a list at that density, the first one chosen. */
+.ag-settings-choice[data-ag-look='previews']
+  .ag-segment:is([value='comfortable'], [value='compact'])::before {
+  --ag-settings-row: calc(4 * var(--ag-grid-unit));
+  --ag-settings-row-gap: calc(2.5 * var(--ag-grid-unit));
+
+  padding: calc(3 * var(--ag-grid-unit));
+  background:
+    linear-gradient(
+        color-mix(in oklch, var(--ag-chrome-accent) 45%, transparent),
+        color-mix(in oklch, var(--ag-chrome-accent) 45%, transparent)
+      )
+      top / 100% var(--ag-settings-row) no-repeat content-box,
+    repeating-linear-gradient(
+        to bottom,
+        color-mix(in oklch, var(--ag-chrome-text-primary) 18%, transparent) 0 var(--ag-settings-row),
+        transparent var(--ag-settings-row) calc(var(--ag-settings-row) + var(--ag-settings-row-gap))
+      )
+      content-box,
+    var(--ag-chrome-fill-well);
+}
+
+.ag-settings-choice[data-ag-look='previews'] .ag-segment[value='compact']::before {
+  --ag-settings-row: calc(2.5 * var(--ag-grid-unit));
+  --ag-settings-row-gap: calc(1.5 * var(--ag-grid-unit));
+}
+
+/* ---------- Swatches: each accent a glass bead of its colour ---------- */
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segmented {
+  flex-wrap: wrap;
+  gap: 0;
+
+  /* Room round the beads for the chosen one's halo, which is never clipped
+     (section 12). */
+  padding: calc(2 * var(--ag-grid-unit));
+  border: 0;
+  background-color: transparent;
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segmented-wash {
+  display: none;
+}
+
+/* Each choice is the bead and the room for its rings, so the chosen bead's
+   rings sit inside the choice and the focus ring outside them, whole. Named
+   with the well, to outweigh the glyph variant's own size. */
+.ag-settings-choice[data-ag-look='swatches'] .ag-segmented .ag-segment {
+  inline-size: calc(21 * var(--ag-grid-unit));
+  block-size: calc(21 * var(--ag-grid-unit));
+  padding: 0;
+  border-radius: var(--ag-radius-full);
+  color: var(--ag-chrome-text-on-accent);
+}
+
+.ag-settings-choice[data-ag-look='swatches']
+  .ag-segment:hover[aria-checked='false']:not([data-disabled]) {
+  background-color: transparent;
+}
+
+/* The bead, 32 pixels, under the tick: the accent's own fill and edges, which
+   the theme computes for every accent the settings offer. */
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment::before {
+  content: '';
+  position: absolute;
+  inset: calc(2.5 * var(--ag-grid-unit));
+  border-radius: inherit;
+  background: var(--ag-settings-bead);
+  box-shadow: var(--ag-settings-bead-edge);
+  transition-property: box-shadow, filter;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment:hover::before {
+  filter: brightness(1.08);
+}
+
+/* The chosen bead gains a gap ring, a ring of its colour and a halo. The
+   chosen accent is the accent in force, so its colour is the accent's. */
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[aria-checked='true']::before {
+  box-shadow:
+    var(--ag-settings-bead-edge),
+    0 0 0 calc(1.5 * var(--ag-grid-unit))
+      color-mix(in oklch, var(--ag-chrome-surface-overlay) 80%, transparent),
+    0 0 0 calc(2.5 * var(--ag-grid-unit)) var(--ag-chrome-accent),
+    0 0 calc(11 * var(--ag-grid-unit)) var(--ag-grid-unit)
+      color-mix(in oklch, var(--ag-chrome-accent) 70%, transparent);
+  transition-duration: var(--ag-motion-quick);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment > .ag-icon {
+  position: relative;
+  filter: drop-shadow(0 1px 1px var(--ag-chrome-shadow));
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[aria-checked='true'] > .ag-icon {
+  opacity: 1;
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='blue'] {
+  --ag-settings-bead: var(--ag-effect-swatch-blue);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-blue-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='teal'] {
+  --ag-settings-bead: var(--ag-effect-swatch-teal);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-teal-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='green'] {
+  --ag-settings-bead: var(--ag-effect-swatch-green);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-green-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='amber'] {
+  --ag-settings-bead: var(--ag-effect-swatch-amber);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-amber-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='orange'] {
+  --ag-settings-bead: var(--ag-effect-swatch-orange);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-orange-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='red'] {
+  --ag-settings-bead: var(--ag-effect-swatch-red);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-red-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='magenta'] {
+  --ag-settings-bead: var(--ag-effect-swatch-magenta);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-magenta-edge);
+}
+
+.ag-settings-choice[data-ag-look='swatches'] .ag-segment[value='violet'] {
+  --ag-settings-bead: var(--ag-effect-swatch-violet);
+  --ag-settings-bead-edge: var(--ag-effect-swatch-violet-edge);
+}
+
+/* ---------- Shortcuts ---------- */
+
+.ag-shortcut-table {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 0 1px;
+}
+
+.ag-shortcut-table th,
+.ag-shortcut-table td {
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  font-weight: var(--ag-text-weight-regular);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.ag-shortcut-table thead th {
+  padding-block: var(--ag-space-inset) var(--ag-space-tiny);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+.ag-shortcut-table tbody > tr > * {
+  transition-property: background-color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-shortcut-table tbody > tr:hover > * {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-shortcut-table tbody > tr > :first-child {
+  border-start-start-radius: var(--ag-radius-control);
+  border-end-start-radius: var(--ag-radius-control);
+}
+
+.ag-shortcut-table tbody > tr > :last-child {
+  border-start-end-radius: var(--ag-radius-control);
+  border-end-end-radius: var(--ag-radius-control);
+}
+
+/* A row recording a shortcut, in the recording colour whatever the accent. */
+.ag-shortcut-table tbody > tr[data-ag-recording] > *,
+.ag-shortcut-table tbody > tr[data-ag-recording]:hover > * {
+  background-color: color-mix(in oklch, var(--ag-chrome-status-recording) 10%, transparent);
+}
+
+.ag-shortcut-table tbody > tr[data-ag-recording] {
+  outline: 1px solid color-mix(in oklch, var(--ag-chrome-status-recording) 35%, transparent);
+  outline-offset: -1px;
+}
+
+.ag-shortcut-keys {
+  white-space: nowrap;
+}
+
+.ag-shortcut-table tbody > tr > td:last-child > .ag-settings-row {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-micro);
+}
+
+.ag-shortcut-or {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-shortcut-none {
+  color: var(--ag-chrome-text-disabled);
+  font-size: var(--ag-text-label);
+}
+
+/* The shortcut editor. */
+
+.ag-shortcut-recorder {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  white-space: normal;
+}
+
+.ag-shortcut-recorder-field {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-block-size: calc(var(--ag-control-height) - 4 * var(--ag-grid-unit));
+  padding-inline: var(--ag-space-small);
+  border: 1px dashed color-mix(in oklch, var(--ag-chrome-status-recording) 60%, transparent);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-fill-well);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* Listening: the edge in the recording colour and its lamp lit before the
+   keys, breathing at the full motion level (MotionSpec, recording
+   indicator). */
+.ag-shortcut-recorder-field[data-ag-listening] {
+  border-style: solid;
+  border-color: var(--ag-chrome-status-recording);
+}
+
+.ag-shortcut-recorder-field[data-ag-listening]::before {
+  content: '';
+  flex: none;
+  inline-size: calc(3.5 * var(--ag-grid-unit));
+  block-size: calc(3.5 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-status-recording);
+  box-shadow: 0 0 calc(3 * var(--ag-grid-unit)) var(--ag-chrome-status-recording);
+}
+
+@keyframes ag-shortcut-recording {
+  50% {
+    box-shadow: 0 0 calc(4.5 * var(--ag-grid-unit)) var(--ag-chrome-status-recording);
+  }
+}
+
+[data-ag-motion='full'] .ag-shortcut-recorder-field[data-ag-listening]::before {
+  animation: ag-shortcut-recording var(--ag-motion-loop-recording) var(--ag-motion-ease-in-out)
+    infinite;
+}
+
+.ag-shortcut-recorder > .ag-settings-note {
+  font-size: var(--ag-text-caption);
+}
+
+.ag-shortcut-recorder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+.ag-shortcut-notes ul {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+}
+
+/* A file chooser that looks like the buttons beside it. The input itself is
+   visually hidden and stays in the label, so the label is what is pressed and
+   what a screen reader names. */
+.ag-file-button {
+  cursor: pointer;
+}
+
+/* The same ring as every other control, drawn on the label because the input
+   that holds focus is visually hidden: the band, and the transparent outline
+   forced colours draw, in longhands, for the reasons the shared focus rule
+   gives. */
+.ag-file-button:focus-within {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: transparent;
+  outline-offset: var(--ag-focus-ring-offset);
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+/* ---------- A narrow window ---------- */
+
+/* Too narrow for the list beside the page: the pages wrap in a row above it,
+   as a tab strip does, and a form's labels sit over their controls. */
+@media (width < 40rem) {
+  .ag-settings > .ag-tabs {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  [data-ag-density='compact'] .ag-settings > .ag-tabs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ag-settings .ag-tab-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--ag-chrome-border-subtle);
+  }
+
+  .ag-settings-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Forced colours ---------- */
+
+/* The wash, the edge, the glow and the beads are light alone, which forced
+   colours remove: the chosen page and card take the platform's selection
+   boundary instead, and each bead keeps its name and its tick. */
+@media (forced-colors: active) {
+  .ag-settings .ag-tab::before,
+  .ag-settings-choice[data-ag-look='previews'] .ag-segment::after {
+    display: none;
+  }
+
+  .ag-settings .ag-tab[data-state='active'],
+  .ag-settings-choice[data-ag-look='previews'] .ag-segment[aria-checked='true'] {
+    border-color: Highlight;
+  }
+
+  .ag-settings-choice[data-ag-look='swatches'] .ag-segment::before {
+    border: 1px solid ButtonText;
+  }
+}

@@ -640,8 +640,10 @@ test.describe('the settings dialogue', () => {
     await openFresh(page);
     await openSettings(page);
 
-    await page.getByRole('combobox', { name: 'Theme' }).click();
-    await page.getByRole('option', { name: 'Light' }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Theme' })
+      .getByRole('radio', { name: /^Light/ })
+      .click();
 
     await expect(themeRoot(page)).toHaveAttribute('data-ag-theme', 'light');
   });
@@ -651,8 +653,10 @@ test.describe('the settings dialogue', () => {
     await openSettings(page);
 
     await page.getByRole('tab', { name: 'Accessibility' }).click();
-    await page.getByRole('combobox', { name: 'Contrast' }).click();
-    await page.getByRole('option', { name: /^High/ }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Contrast' })
+      .getByRole('radio', { name: /^High/ })
+      .click();
 
     await expect(themeRoot(page)).toHaveAttribute('data-ag-contrast', 'high');
   });

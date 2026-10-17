@@ -13,7 +13,7 @@
  * the recorder only says so early.
  */
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import {
   describeShortcut,
@@ -22,7 +22,7 @@ import {
   type ShortcutConflict,
   type ShortcutProfile,
 } from '@audiogubbins/commands';
-import { Button, ButtonTone, OptionSelect } from '@audiogubbins/design-system';
+import { Button, ButtonTone, OptionSelect, ShortcutKeys } from '@audiogubbins/design-system';
 import type { KeyEventReading, KeyboardLayout } from '@audiogubbins/input';
 
 import type { Announce } from '../../commands/voiced-execution.js';
@@ -239,21 +239,23 @@ function ProfileHeader(props: {
       </p>
       <SharedReasonNotes reasons={naming} />
 
-      <OptionSelect
-        label="Shortcut profile"
-        value={profile.id}
-        options={available.map((one) => ({ value: one.id, label: one.displayName }))}
-        onValueChange={(profileId) => {
-          run('shortcuts.switch-to', { profileId });
-        }}
-      />
+      <div className="ag-settings-profile">
+        <OptionSelect
+          label="Shortcut profile"
+          value={profile.id}
+          options={available.map((one) => ({ value: one.id, label: one.displayName }))}
+          onValueChange={(profileId) => {
+            run('shortcuts.switch-to', { profileId });
+          }}
+        />
 
-      <ProfileActions
-        run={run}
-        announce={announce}
-        unavailableReason={unavailableReason}
-        importReasonId={naming.idOf('import')}
-      />
+        <ProfileActions
+          run={run}
+          announce={announce}
+          unavailableReason={unavailableReason}
+          importReasonId={naming.idOf('import')}
+        />
+      </div>
     </>
   );
 }
@@ -373,6 +375,21 @@ function useFocusBackToChange(
   };
 }
 
+/**
+ * A command's bindings as key caps, each binding its own and joined by "or",
+ * so the row reads as the platform writes each one.
+ */
+function BoundKeys({ bound }: { readonly bound: readonly string[] }): ReactNode {
+  return bound.map((written, index) => (
+    // Two bindings can be written alike on a layout not yet known, so the
+    // place is part of the key.
+    <Fragment key={`${String(index)}-${written}`}>
+      {index > 0 && <span className="ag-shortcut-or"> or </span>}
+      <ShortcutKeys shortcut={written} />
+    </Fragment>
+  ));
+}
+
 /** One command, its bindings, and the controls that change them. */
 function ShortcutRow(props: ShortcutRowProps): ReactNode {
   const { command, bound, editing, convention, layout, learnKey, onEdit, run, naming } = props;
@@ -380,7 +397,7 @@ function ShortcutRow(props: ShortcutRowProps): ReactNode {
   const { changeButton, closing } = useFocusBackToChange(editing, bound.length);
 
   return (
-    <tr>
+    <tr data-ag-recording={editing ? '' : undefined}>
       <th scope="row">{command.label}</th>
       <td className="ag-shortcut-keys">
         {editing ? (
@@ -411,7 +428,7 @@ function ShortcutRow(props: ShortcutRowProps): ReactNode {
         ) : bound.length === 0 ? (
           <span className="ag-shortcut-none">None</span>
         ) : (
-          bound.join(' or ')
+          <BoundKeys bound={bound} />
         )}
       </td>
       <td>

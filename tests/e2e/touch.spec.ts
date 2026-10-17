@@ -185,9 +185,9 @@ test.describe('a finger in compact density', () => {
     await expect(page.getByRole('dialog', { name: 'Run a command' })).toBeHidden();
 
     await openSettings(page);
-    await page.getByRole('combobox', { name: 'Density' }).click();
-    await expect(page.getByRole('listbox')).toBeVisible();
-    const options = await heightsOf(page.getByRole('option'));
+    const options = await heightsOf(
+      page.getByRole('radiogroup', { name: 'Density' }).getByRole('radio'),
+    );
     expect(options.length).toBe(2);
     for (const height of options) expect(height).toBeGreaterThanOrEqual(44);
   });
@@ -206,6 +206,9 @@ test.describe('a finger in compact density', () => {
 
     await openSettings(page);
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    // The Appearance page's choices are radios now; the Shortcuts page keeps
+    // a list, the profile in force.
+    await page.getByRole('tab', { name: 'Shortcuts' }).click();
     const lists = await heightsOf(page.getByRole('combobox'));
     expect(lists.length).toBeGreaterThan(0);
     for (const height of lists) expect(height).toBeGreaterThanOrEqual(44);

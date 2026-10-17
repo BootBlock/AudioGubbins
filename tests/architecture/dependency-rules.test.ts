@@ -3426,8 +3426,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "One list of readings of the recording configuration, each a line of the settings or the input, with the grant's disclosure, which is a component of its own, beneath it.",
     ],
     'apps/web/src/shell/settings/audio.tsx: Audio': [
-      53,
-      'One settings section of parts that are components of their own, the profile choice, the Custom form, the quality settings and the recording input; what remains are the two selects that run one command each.',
+      67,
+      'One settings section of parts that are components of their own, the profile choice, the Custom form, the quality settings and the recording input; what remains are the two selects that run one command each. Reviewed again when the explanation of the profiles moved behind a hint and Background priority became a segmented choice under its heading; the Custom form moved to `custom-profile.tsx`.',
     ],
     'apps/web/src/shell/settings/capture-profile-form.tsx: CaptureProfileForm': [
       67,
@@ -3527,16 +3527,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      236,
-      "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
+      223,
+      "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces. Reviewed again when the menu bar row became a component of its own (`menu-bar-row.tsx`) and the dock came to be built on the stage that rebuilds it in a view transition: smaller, with the same surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [
       122,
       'One combobox: a field and its Enter handler, which read one query and one highlight, and the results they produce. The key navigation is `palette-navigation.ts` and the wait before the result count is said is `use-settled.ts`.',
     ],
     'apps/web/src/shell/settings/shortcut-recorder.tsx: ShortcutRecorder': [
-      110,
-      'One control whose key handler, spoken feedback and buttons all read the same presses and listening state.',
+      122,
+      'One control whose key handler, spoken feedback and buttons all read the same presses and listening state. Reviewed again when its buttons became icon buttons and the presses it has read so far key caps: the same presses and listening state, drawn as the language draws them.',
     ],
     'apps/web/src/shell/diagnostic-export.tsx: DiagnosticExportDialog': [
       130,
@@ -3551,16 +3551,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "One panel whose filter controls and record list share the reader's chosen level and subsystem, kept beside the dock as well so a remount keeps them.",
     ],
     'apps/web/src/shell/status-bar.tsx: StatusBar': [
-      70,
-      "A strip of short independent statements, with one focus effect for a dismissed notice. The bar's own height is published through the hook the notice surface publishes its height with, rather than by an effect written out here as well.",
+      78,
+      "A strip of short independent statements, with one focus effect for a dismissed notice. The bar's own height is published through the hook the notice surface publishes its height with, rather than by an effect written out here as well. Reviewed again when each statement came to be drawn as a status chip of its tone, with its reason behind a hint: the growth is that markup, and each statement is still independent.",
     ],
     'apps/web/src/shell/settings-dialog.tsx: SettingsDialog': [
-      82,
-      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, the project system's tabs, which `projectTabs` builds, and the Export tab, which `exportTab` builds.",
+      97,
+      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, the project system's tabs, which `projectTabs` builds, and the Export tab, which `exportTab` builds. Reviewed again when the sections became a list of pages, each with its glyph, beside the page shown, and the dialogue gained its titled header: the growth is the markup of that layout, with no new state.",
     ],
     'apps/web/src/shell/settings/appearance.tsx: Appearance': [
-      66,
-      'Four independent controls, each running one appearance command.',
+      81,
+      'Four independent controls, each running one appearance command. Reviewed again when the theme and the density became preview cards and the accent a row of swatches, each choice under a visible heading: still independent controls, each running one appearance command.',
     ],
     'apps/web/src/shell/settings/diagnostics.tsx: Diagnostics': [
       51,

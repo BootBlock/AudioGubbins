@@ -40,6 +40,7 @@ const STYLESHEETS = [
   createRequire(import.meta.url).resolve('@audiogubbins/design-system/styles/fields.css'),
   createRequire(import.meta.url).resolve('@audiogubbins/design-system/styles/chrome.css'),
   join(import.meta.dirname, '..', 'shell.css'),
+  join(import.meta.dirname, 'settings.css'),
 ].map((path) => readFileSync(path, 'utf8'));
 
 /** A style element holding `text`, added to the page. */

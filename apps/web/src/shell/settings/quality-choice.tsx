@@ -10,7 +10,7 @@
 
 import type { ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import { OptionSelect, SegmentedControl } from '@audiogubbins/design-system';
 import { QualityLevel, type QualityMode, type QualitySettingKey } from '@audiogubbins/domain';
 
 import {
@@ -55,16 +55,20 @@ const SETTING_VALUES: Readonly<Record<QualitySettingKey, Readonly<Record<string,
 /** The settings given as numbers, whose select values are their text. */
 const NUMERIC: ReadonlySet<QualitySettingKey> = new Set(['oversampling', 'spectralOverlap']);
 
-/** A level, and every value it sets, each run through its command. */
+/**
+ * A level, as one row of choices in sight, and every value it sets, each run
+ * through its command. Custom is a choice only while it is what is in force:
+ * it is reached by setting a value, never chosen as a level.
+ */
 export function QualityChoice(props: QualityChoiceProps): ReactNode {
   const levels = props.options.map(({ value, label }) => ({ value, label }));
   const custom = props.chosen === QualityLevel.Custom;
   return (
     <fieldset className="ag-settings-group">
       <legend>{props.legend}</legend>
-      <p className="ag-settings-note">{props.note}</p>
-      <OptionSelect
+      <SegmentedControl
         label={`${props.legend} level`}
+        small
         value={props.chosen}
         options={
           custom
@@ -76,21 +80,24 @@ export function QualityChoice(props: QualityChoiceProps): ReactNode {
           if (option !== undefined && option.value !== props.chosen) props.run(option.command);
         }}
       />
-      {QUALITY_SETTING_KEYS.map((key) => (
-        <OptionSelect
-          key={key}
-          label={QUALITY_SETTING_NAMES[key]}
-          value={String(props.mode.settings[key])}
-          options={Object.entries(SETTING_VALUES[key]).map(([value, label]) => ({
-            value,
-            label,
-          }))}
-          onValueChange={(value) => {
-            if (value === String(props.mode.settings[key])) return;
-            props.run(props.customCommand, { [key]: NUMERIC.has(key) ? Number(value) : value });
-          }}
-        />
-      ))}
+      <p className="ag-settings-note">{props.note}</p>
+      <div className="ag-settings-form">
+        {QUALITY_SETTING_KEYS.map((key) => (
+          <OptionSelect
+            key={key}
+            label={QUALITY_SETTING_NAMES[key]}
+            value={String(props.mode.settings[key])}
+            options={Object.entries(SETTING_VALUES[key]).map(([value, label]) => ({
+              value,
+              label,
+            }))}
+            onValueChange={(value) => {
+              if (value === String(props.mode.settings[key])) return;
+              props.run(props.customCommand, { [key]: NUMERIC.has(key) ? Number(value) : value });
+            }}
+          />
+        ))}
+      </div>
     </fieldset>
   );
 }
