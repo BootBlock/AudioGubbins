@@ -1,0 +1,158 @@
+/*
+ * The Transport panel (design language, sections 10 and 11): the transport
+ * buttons, the position in a recessed readout with its state under it and
+ * hearing the original in one row; the levels beside the profile, the
+ * processing and the closed Engine and Offline render sections once the
+ * panel is wide enough for two columns, and stacked below that.
+ *
+ * The dock draws the panel's tab strip, so the body pads nothing at the top
+ * and one inset on the other sides, with one inset between its parts.
+ */
+
+.ag-panel.ag-transport {
+  container-type: inline-size;
+  padding-block-start: 0;
+}
+
+.ag-transport-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--ag-space-inset);
+}
+
+.ag-transport-body > *,
+.ag-transport-side > * {
+  margin-block: 0;
+}
+
+/* Two columns, the levels and the settings, where they fit side by side;
+   everything else spans both. */
+@container (min-width: 40rem) {
+  .ag-transport-body {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    column-gap: calc(var(--ag-space-inset) * 2);
+  }
+
+  .ag-transport-body > :not(.ag-transport-levels, .ag-transport-side) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The row of buttons, the readout and the original. The call to action's
+   glow has room above and below it, and nothing here clips it. */
+.ag-transport-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-inset) calc(var(--ag-space-inset) * 2);
+  padding-block: var(--ag-space-inset);
+}
+
+.ag-transport-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-transport-about {
+  margin-inline-start: auto;
+}
+
+/* The position in a well, in the numeric family's tabular figures, so it
+   does not shuffle sideways as it counts. */
+.ag-transport-readout {
+  display: grid;
+  margin-inline-start: var(--ag-space-inset);
+  padding-block: var(--ag-space-tiny);
+  padding-inline: var(--ag-space-large);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+  line-height: var(--ag-text-line-height-readout);
+}
+
+.ag-transport-time {
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-readout);
+  font-weight: var(--ag-text-weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ag-text-tracking-readout);
+  color: var(--ag-chrome-text-primary);
+  text-shadow: var(--ag-effect-readout-glow);
+}
+
+/* Holds its line while it says nothing, so the readout keeps its height. */
+.ag-transport-state {
+  min-block-size: 1lh;
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-quiet);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-transport-levels {
+  padding-block-start: var(--ag-space-tiny);
+}
+
+.ag-transport-side {
+  display: grid;
+  align-content: start;
+  gap: var(--ag-space-inset);
+  min-inline-size: 0;
+}
+
+.ag-transport-render {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+}
+
+/* The processing: its readings, the render mode, the quality and what the
+   render was warned of. */
+.ag-transport-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+}
+
+.ag-transport-heading {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-reading-note {
+  display: block;
+  margin-block-start: var(--ag-space-tiny);
+}
+
+/* What a render's resources warned of, each naming the resource that limits it. */
+.ag-render-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-label);
+}
+
+/* The two ways a render waiting on a warning can go. */
+.ag-render-decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-render-decision > .ag-panel-note {
+  flex-basis: 100%;
+}
+
+.ag-audio-problems {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-label);
+}

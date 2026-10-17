@@ -7,11 +7,22 @@
  * (REQ-EDIT-073); the panel reads the engine's view and changes nothing
  * itself. A control whose feature this browser lacks stays on screen,
  * unavailable, with the reason beside it (WU-03.E).
+ *
+ * The engine's readings and the offline render sit in closed sections, as
+ * advanced settings do (REQ-UX-071); what a render is doing and why it
+ * failed is said outside its section, so it is seen and heard either way.
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { ButtonTone } from '@audiogubbins/design-system';
+import {
+  ButtonTone,
+  Hint,
+  IconButton,
+  ProgressBar,
+  Section,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
@@ -25,6 +36,7 @@ import { RenderStage, type AudioView, type RenderResult } from '../state/audio-v
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import { durationText, dspText, fingerprintText, framesText } from '../audio-format.js';
+import { sampleRateWords } from '../wording.js';
 import {
   AudioDegradations,
   EngineState,
@@ -35,7 +47,7 @@ import { CommandButton, useCommandReasons, type PanelCommands } from './command-
 import { PerformanceChoice } from './performance-choice.js';
 import { HearingSwitch } from './rack/hearing-switch.js';
 import { ProcessingModes } from './processing-modes.js';
-import { SharedReasonNotes } from './settings/reasoned-button.js';
+import { SharedReasonNotes, type SharedReasons } from './settings/reasoned-button.js';
 import type { Hearing } from '../state/hearing-store.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
@@ -80,23 +92,81 @@ function positionOf(frame: number | undefined, rate: number | undefined): string
     : formatPosition(frame, read.value, { kind: TimeFormatKind.Clock });
 }
 
-/** The commands of the transport's buttons, whose reasons are said once above them. */
-const TRANSPORT_COMMANDS: readonly string[] = [
-  'transport.play',
-  'transport.play-test-signal',
-  'transport.pause',
-  'transport.stop',
+/** The transport's buttons, in the order they stand: each command, its name and its glyph. */
+const TRANSPORT_BUTTONS: readonly {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: IconName;
+  readonly tone?: ButtonTone;
+}[] = [
+  { id: 'transport.stop', label: 'Stop', icon: 'stop' },
+  { id: 'transport.play', label: 'Play', icon: 'play', tone: ButtonTone.Primary },
+  { id: 'transport.pause', label: 'Pause', icon: 'pause' },
+  { id: 'transport.play-test-signal', label: 'Play the test signal', icon: 'test-signal' },
 ];
 
-/** Play, Pause and Stop, and where playback is. */
+/** The commands of the transport's buttons, whose reasons are said once above them. */
+const TRANSPORT_COMMANDS: readonly string[] = TRANSPORT_BUTTONS.map((button) => button.id);
+
+/**
+ * A transport button: the command's glyph, named for a screen reader. It
+ * stays in the tab order while its command cannot run, described by the
+ * reason said once above the row, and runs nothing then.
+ */
+function TransportButton({
+  id,
+  label,
+  icon,
+  tone = ButtonTone.Neutral,
+  commands,
+  shared,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: IconName;
+  readonly tone?: ButtonTone;
+  readonly commands: PanelCommands;
+  readonly shared: SharedReasons<string>;
+}): ReactNode {
+  const reasonId = shared.idOf(id);
+  return (
+    <IconButton
+      icon={icon}
+      label={label}
+      hint={label}
+      tone={tone}
+      aria-disabled={reasonId !== undefined}
+      {...(reasonId === undefined ? {} : { 'aria-describedby': reasonId })}
+      onClick={() => {
+        if (reasonId === undefined) commands.run(id);
+      }}
+    />
+  );
+}
+
+/** What the readout says under the position: whether the context is starting, and its rate. */
+function playbackState(view: AudioView): string {
+  const rate = view.playback?.device?.sampleRate;
+  return [
+    ...(view.starting ? ['Starting…'] : []),
+    ...(rate === undefined ? [] : [sampleRateWords(rate)]),
+  ].join(' · ');
+}
+
+/**
+ * Stop, Play, Pause and the test signal, the position in its readout with the
+ * state of playback under it, and hearing the original beside them.
+ */
 function TransportControls({
   view,
   playhead,
   commands,
+  hearing,
 }: {
   readonly view: AudioView;
   readonly playhead: () => number | undefined;
   readonly commands: PanelCommands;
+  readonly hearing: Observable<Hearing>;
 }): ReactNode {
   const mode = view.playback?.transport.mode;
   const frame = useDisplayFrame(playhead, mode === TransportMode.Playing);
@@ -105,33 +175,26 @@ function TransportControls({
   return (
     <>
       <SharedReasonNotes reasons={reasons} />
-      <div className="ag-transport-controls" role="group" aria-label="Transport">
-        <CommandButton
-          id="transport.play"
-          label="Play"
-          tone={ButtonTone.Primary}
-          commands={commands}
-          shared={reasons}
-        />
-        <CommandButton
-          id="transport.play-test-signal"
-          label="Play the test signal"
-          commands={commands}
-          shared={reasons}
-        />
-        <CommandButton id="transport.pause" label="Pause" commands={commands} shared={reasons} />
-        <CommandButton id="transport.stop" label="Stop" commands={commands} shared={reasons} />
-        <span className="ag-transport-position">
-          <span className="ag-panel-note" aria-hidden="true">
-            Position{' '}
-          </span>
-          {/* A timer, whose changes a screen reader does not read out as they
-            come, as a status would be every frame; it is read when reached. */}
-          <span role="timer" aria-label="Position">
-            {positionOf(frame, rate)}
-          </span>
+      <div className="ag-transport-main">
+        <div className="ag-transport-controls" role="group" aria-label="Transport">
+          {TRANSPORT_BUTTONS.map((button) => (
+            <TransportButton key={button.id} {...button} commands={commands} shared={reasons} />
+          ))}
+          <div className="ag-transport-readout">
+            {/* A timer, whose changes a screen reader does not read out as they
+              come, as a status would be every frame; it is read when reached. */}
+            <span className="ag-transport-time" role="timer" aria-label="Position">
+              {positionOf(frame, rate)}
+            </span>
+            <span className="ag-transport-state">{playbackState(view)}</span>
+          </div>
+        </div>
+        <HearingSwitch hearing={hearing} commands={commands} />
+        <span className="ag-transport-about">
+          <Hint label="About the transport">
+            {`Play plays the asset in the editor in use, at its own rate. The test signal is a ${String(TEST_SIGNAL.frequency)} Hz tone through the audio engine.`}
+          </Hint>
         </span>
-        {view.starting && <span className="ag-panel-note">Starting…</span>}
       </div>
     </>
   );
@@ -170,7 +233,11 @@ function RenderSummary({ result }: { readonly result: RenderResult }): ReactNode
   );
 }
 
-/** The offline render: the command, its progress, and what it produced. */
+/**
+ * The offline render: the command and what it produced, in a closed section,
+ * and its progress and failure under it, so a render the palette started is
+ * seen and heard whether the section is open or not.
+ */
 function OfflineRender({
   view,
   framesRendered,
@@ -181,35 +248,30 @@ function OfflineRender({
   readonly commands: PanelCommands;
 }): ReactNode {
   const { render } = view;
-  const rendered = useDisplayFrame(framesRendered, render.stage === RenderStage.Running);
+  const running = render.stage === RenderStage.Running;
+  const rendered = useDisplayFrame(framesRendered, running);
+  const share = running && render.framesTotal > 0 ? rendered / render.framesTotal : undefined;
   // Said in tenths, so a screen reader hears the render move without being
   // read every chunk.
-  const tenths =
-    render.stage === RenderStage.Running && render.framesTotal > 0
-      ? Math.floor((rendered / render.framesTotal) * 10) * 10
-      : undefined;
+  const tenths = share === undefined ? undefined : Math.floor(share * 10) * 10;
   return (
-    <div className="ag-transport-section">
-      <h3 className="ag-transport-heading">Offline render</h3>
-      <CommandButton
-        id="transport.render-test-signal"
-        label="Render the test signal offline"
-        commands={commands}
-      />
-      {render.stage === RenderStage.Running && (
-        <progress
-          className="ag-render-progress"
-          aria-label="Render progress"
-          max={render.framesTotal}
-          value={rendered}
-        />
-      )}
+    <>
+      <Section title="Offline render" defaultOpen={false}>
+        <div className="ag-transport-render">
+          <CommandButton
+            id="transport.render-test-signal"
+            label="Render the test signal offline"
+            commands={commands}
+          />
+          {render.stage === RenderStage.Finished && <RenderSummary result={render.result} />}
+        </div>
+      </Section>
+      {running && <ProgressBar label="Render progress" value={share ?? null} />}
       <p role="status" className="ag-panel-note">
         {tenths === undefined ? '' : `Rendering: ${String(tenths)}%`}
       </p>
-      {render.stage === RenderStage.Finished && <RenderSummary result={render.result} />}
       {render.stage === RenderStage.Failed && <PlaybackProblems problems={render.reasons} />}
-    </div>
+    </>
   );
 }
 
@@ -235,25 +297,35 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (
     <section className="ag-panel ag-transport">
-      <h2 className="ag-panel-title">{title}</h2>
-      <p className="ag-panel-note">
-        {`Play plays the asset in the editor in use, at its own rate. The test signal is a ${String(TEST_SIGNAL.frequency)} Hz tone through the audio engine and its processing graph.`}
-      </p>
-      <TransportControls view={view} playhead={playhead} commands={props} />
-      <HearingSwitch hearing={props.hearing} commands={props} />
-      <PlaybackProblems problems={problems} />
-      <Levels view={view} meters={meters} />
-      <PerformanceChoice profile={chosen.profile} run={props.run} />
-      <EngineState status={view.playback} />
-      <OfflineRender view={view} framesRendered={props.framesRendered} commands={props} />
-      <ProcessingModes
-        audio={props.audio}
-        settings={props.audioSettings}
-        strategy={props.renderStrategy}
-        run={props.run}
-        unavailableReason={props.unavailableReason}
-      />
-      <AudioDegradations capabilities={capabilities} />
+      {/* Named for a screen reader: the dock's tab shows the title. */}
+      <h2 className="ag-visually-hidden">{title}</h2>
+      <div className="ag-transport-body">
+        <TransportControls
+          view={view}
+          playhead={playhead}
+          commands={props}
+          hearing={props.hearing}
+        />
+        <PlaybackProblems problems={problems} />
+        <div className="ag-transport-levels">
+          <Levels view={view} meters={meters} />
+        </div>
+        <div className="ag-transport-side">
+          <PerformanceChoice profile={chosen.profile} run={props.run} />
+          <ProcessingModes
+            audio={props.audio}
+            settings={props.audioSettings}
+            strategy={props.renderStrategy}
+            run={props.run}
+            unavailableReason={props.unavailableReason}
+          />
+          <Section title="Engine" defaultOpen={false}>
+            <EngineState status={view.playback} />
+          </Section>
+          <OfflineRender view={view} framesRendered={props.framesRendered} commands={props} />
+        </div>
+        <AudioDegradations capabilities={capabilities} />
+      </div>
     </section>
   );
 }

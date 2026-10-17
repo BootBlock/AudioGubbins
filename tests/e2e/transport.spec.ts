@@ -87,6 +87,10 @@ async function openTransport(page: Page): Promise<void> {
   // pressed so the test holds whichever panel the group opens on.
   await page.getByRole('tab', { name: 'Transport', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Transport', exact: true })).toBeVisible();
+  // The engine's readings and the offline render stand behind their
+  // disclosures, closed until a person opens them.
+  await page.getByRole('button', { name: 'Engine', exact: true }).click();
+  await page.getByRole('button', { name: 'Offline render', exact: true }).click();
 }
 
 test.describe('the Transport panel', () => {

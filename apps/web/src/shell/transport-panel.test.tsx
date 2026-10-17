@@ -91,6 +91,11 @@ function draw(
   return { run };
 }
 
+/** Opens the panel's closed section headed `title`: the engine's readings, or the offline render. */
+async function open(title: 'Engine' | 'Offline render'): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: title }));
+}
+
 /** The text a description list gives for `term`. */
 function reading(term: string): string {
   const title = screen.getByText(term, { selector: 'dt' });
@@ -136,8 +141,9 @@ function playingStatus(): PlaybackStatus {
 }
 
 describe('the Transport panel before anything plays', () => {
-  it('says the context starts with Play, and has no levels yet', () => {
+  it('says the context starts with Play, and has no levels yet', async () => {
     draw();
+    await open('Engine');
 
     expect(screen.getByRole('heading', { level: 2, name: 'Transport' })).toBeInTheDocument();
     expect(reading('Audio context')).toBe('Not started; it starts when you press Play');
@@ -152,6 +158,7 @@ describe('the Transport panel before anything plays', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Play' }));
     await userEvent.click(screen.getByRole('button', { name: 'Play the test signal' }));
+    await open('Offline render');
     await userEvent.click(screen.getByRole('button', { name: 'Render the test signal offline' }));
 
     expect(run.mock.calls).toEqual([
@@ -346,10 +353,11 @@ describe('the Transport panel’s quality modes', () => {
 });
 
 describe('the Transport panel while the test signal plays', () => {
-  it('shows the context, the transport, each thread’s DSP path, the device rate and each latency in milliseconds and frames', () => {
+  it('shows the context, the transport, each thread’s DSP path, the device rate and each latency in milliseconds and frames', async () => {
     const audio = createAudioViewStore();
     audio.showPlayback(playingStatus());
     draw(audio);
+    await open('Engine');
 
     expect(reading('Audio context')).toBe('Running');
     expect(reading('Transport')).toBe('Playing');
@@ -364,6 +372,15 @@ describe('the Transport panel while the test signal plays', () => {
     expect(reading('Output latency')).toBe('20.0 ms (960 frames)');
     expect(reading('Graph latency')).toBe('2.7 ms (128 frames)');
     expect(reading('Underruns')).toBe('0. No underruns in the last 10 seconds.');
+  });
+
+  it('says the device’s rate under the position, as the readout’s state', () => {
+    const audio = createAudioViewStore();
+    audio.showPlayback(playingStatus());
+    draw(audio);
+
+    const controls = screen.getByRole('group', { name: 'Transport' });
+    expect(within(controls).getByText('48 kHz')).toBeInTheDocument();
   });
 
   it('says there are no levels while a loaded graph has reported none', () => {
@@ -460,7 +477,7 @@ describe('the Transport panel while the test signal plays', () => {
 });
 
 describe('the Transport panel where the engine is degraded', () => {
-  it('names the reference path and why it runs, and what the browser does not report', () => {
+  it('names the reference path and why it runs, and what the browser does not report', async () => {
     const audio = createAudioViewStore();
     const status = playingStatus();
     const reference = {
@@ -475,6 +492,7 @@ describe('the Transport panel where the engine is degraded', () => {
       device: { ...FAKE_DEVICE, outputLatencySeconds: undefined },
     });
     draw(audio);
+    await open('Engine');
 
     for (const term of ['Graph on the audio thread', 'Sources in the feeder thread']) {
       expect(reading(term)).toBe('Reference pathThis page cannot compile WebAssembly.');
@@ -486,7 +504,7 @@ describe('the Transport panel where the engine is degraded', () => {
     expect(reading('Graph latency')).toBe('Not known: a node on the way cannot say its own');
   });
 
-  it('explains the underruns and recommends a steadier profile', () => {
+  it('explains the underruns and recommends a steadier profile', async () => {
     const audio = createAudioViewStore();
     audio.showPlayback({
       ...playingStatus(),
@@ -498,6 +516,7 @@ describe('the Transport panel where the engine is degraded', () => {
       },
     });
     draw(audio);
+    await open('Engine');
 
     expect(reading('Underruns')).toBe(
       '3. The audio ran out 3 times.Recommended profile: Maximum stability.',
@@ -534,9 +553,10 @@ describe('the Transport panel’s offline render', () => {
     audio.renderStarted(480_000);
     draw(audio, { framesRendered: () => 200_000 });
 
-    const progress = screen.getByRole('progressbar', { name: 'Render progress' });
-    expect(progress).toHaveAttribute('value', '200000');
-    expect(progress).toHaveAttribute('max', '480000');
+    expect(screen.getByRole('progressbar', { name: 'Render progress' })).toHaveAttribute(
+      'aria-valuetext',
+      '42%',
+    );
     expect(screen.getByRole('status')).toHaveTextContent('Rendering: 40%');
   });
 
@@ -552,18 +572,18 @@ describe('the Transport panel’s offline render', () => {
       // Several chunks reported between two frames redraw nothing until the frame.
       rendered = 24_000;
       rendered = 240_000;
-      expect(progress()).toHaveAttribute('value', '0');
+      expect(progress()).toHaveAttribute('aria-valuetext', '0%');
       act(() => {
         vi.advanceTimersToNextFrame();
       });
-      expect(progress()).toHaveAttribute('value', '240000');
+      expect(progress()).toHaveAttribute('aria-valuetext', '50%');
       expect(screen.getByRole('status')).toHaveTextContent('Rendering: 50%');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('shows what a finished render produced, its fingerprint in hexadecimal', () => {
+  it('shows what a finished render produced, its fingerprint in hexadecimal', async () => {
     const audio = createAudioViewStore();
     audio.renderFinished({
       frames: 480_000,
@@ -574,6 +594,7 @@ describe('the Transport panel’s offline render', () => {
       fingerprint: 0x00ab_cdef_0123_4567n,
     });
     draw(audio);
+    await open('Offline render');
 
     expect(reading('Frames')).toBe('480,000 at 48,000 Hz');
     expect(reading('Time taken')).toBe('0.8 s');
@@ -597,18 +618,21 @@ describe('the Transport panel’s word on the GPU', () => {
     [{ kind: GpuUseKind.Unavailable }, 'Not available: this browser offers no GPU through WebGPU.'],
     [{ kind: GpuUseKind.Unused }, 'Available; no processor in this graph uses it.'],
     [{ kind: GpuUseKind.Used, nodes: [expectSuccess(nodeId('reverb'))] }, 'Used by reverb.'],
-  ] as const)('says what the engine chose: %o', (gpu, said) => {
+  ] as const)('says what the engine chose: %o', async (gpu, said) => {
     const audio = createAudioViewStore();
     audio.showPlayback({ ...playingStatus(), gpu });
     draw(audio);
+    await open('Engine');
 
     expect(reading('GPU')).toBe(said);
   });
 
-  it('says nothing of the GPU before a graph is loaded', () => {
+  it('says nothing of the GPU before a graph is loaded', async () => {
     const audio = createAudioViewStore();
     audio.showPlayback({ ...playingStatus(), gpu: undefined });
     draw(audio);
+    await open('Engine');
+    expect(reading('Transport')).toBe('Playing');
 
     expect(screen.queryByText('GPU')).toBeNull();
   });
