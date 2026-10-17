@@ -20,6 +20,12 @@
 
 import '@audiogubbins/design-system/styles/tokens.css';
 import '@audiogubbins/design-system/styles/components.css';
+import '@audiogubbins/design-system/styles/buttons.css';
+import '@audiogubbins/design-system/styles/dials.css';
+import '@audiogubbins/design-system/styles/lit-edge.css';
+import '@audiogubbins/design-system/styles/overlays.css';
+import '@audiogubbins/design-system/styles/fields.css';
+import '@audiogubbins/design-system/styles/chrome.css';
 import './inventory.css';
 
 import {
