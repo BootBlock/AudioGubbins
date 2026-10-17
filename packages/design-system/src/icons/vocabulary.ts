@@ -9,7 +9,8 @@
  * is built, once, when the module loads.
  *
  * The geometry comes from Lucide's per-glyph modules, one static import each,
- * which keeps the bundle to the glyphs named here. The knob, meter and
+ * which keeps the bundle to the glyphs named here; the glyphs Lucide lacks
+ * are drawn beside this module in the same node data. The knob, meter and
  * spectrogram glyphs are still to be drawn, and nothing stands in for them.
  */
 
@@ -183,7 +184,24 @@ import { __iconData as zapGlyph } from 'lucide-react/dist/esm/icons/zap.mjs';
 import { __iconData as zoomInGlyph } from 'lucide-react/dist/esm/icons/zoom-in.mjs';
 import { __iconData as zoomOutGlyph } from 'lucide-react/dist/esm/icons/zoom-out.mjs';
 
-import { FADE_IN, FADE_OUT } from './custom-glyphs.js';
+import { CHANNELS, PANEL_FAILURE, SAMPLE_RATE } from './custom-glyphs.js';
+import {
+  EQUAL_POWER_FADE,
+  FADE_IN,
+  FADE_OUT,
+  LINEAR_FADE,
+  S_CURVE_FADE,
+  SQUARE_FADE,
+} from './fade-glyphs.js';
+import {
+  BAND_PASS_BAND,
+  BELL_BAND,
+  HIGH_CUT_BAND,
+  HIGH_SHELF_BAND,
+  LOW_CUT_BAND,
+  LOW_SHELF_BAND,
+  NOTCH_BAND,
+} from './filter-band-glyphs.js';
 import { filled, stroked, type PlacedGlyph } from './placed-glyph.js';
 
 const VOCABULARY = {
@@ -238,6 +256,7 @@ const VOCABULARY = {
   recovered: stroked(lifeBuoyGlyph),
   verified: stroked(shieldCheckGlyph),
   'diagnostic-mode': stroked(radioGlyph),
+  'panel-failure': stroked(PANEL_FAILURE),
 
   // Transport and listening
   play: filled(playGlyph),
@@ -277,6 +296,10 @@ const VOCABULARY = {
   split: stroked(splitGlyph),
   'fade-in': stroked(FADE_IN),
   'fade-out': stroked(FADE_OUT),
+  'linear-fade': stroked(LINEAR_FADE),
+  'equal-power-fade': stroked(EQUAL_POWER_FADE),
+  's-curve-fade': stroked(S_CURVE_FADE),
+  'square-fade': stroked(SQUARE_FADE),
   reverse: stroked(trianglesCenterlineDashedVerticalGlyph),
   invert: stroked(trianglesCenterlineDashedHorizontalGlyph),
   stretch: stroked(unfoldHorizontalGlyph),
@@ -312,6 +335,8 @@ const VOCABULARY = {
   'waveform-over-spectrogram': stroked(layers2Glyph),
   'time-format': stroked(clockGlyph),
   'frame-rate': stroked(clapperboardGlyph),
+  'sample-rate': stroked(SAMPLE_RATE),
+  channels: stroked(CHANNELS),
 
   // Spectral editing
   spectral: stroked(chartAreaGlyph),
@@ -383,6 +408,13 @@ const VOCABULARY = {
   'loudness-normalisation': stroked(chevronsUpGlyph),
   equaliser: stroked(audioLinesGlyph),
   filter: stroked(funnelGlyph),
+  bell: stroked(BELL_BAND),
+  'low-shelf': stroked(LOW_SHELF_BAND),
+  'high-shelf': stroked(HIGH_SHELF_BAND),
+  'low-cut': stroked(LOW_CUT_BAND),
+  'high-cut': stroked(HIGH_CUT_BAND),
+  notch: stroked(NOTCH_BAND),
+  'band-pass': stroked(BAND_PASS_BAND),
   compressor: stroked(gaugeGlyph),
   limiter: stroked(shieldGlyph),
   gate: stroked(doorClosedGlyph),
