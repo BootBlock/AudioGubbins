@@ -9,6 +9,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -47,7 +48,9 @@ function applied(rules: CSSRuleList, device: Device): readonly CSSStyleRule[] {
 /** The base stylesheet, as the page's object model holds it. */
 function baseStylesheet(): CSSStyleSheet {
   const style = document.createElement('style');
-  style.textContent = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
+  // By path: jsdom puts its own `URL` in place of Node's, which the file
+  // system does not take.
+  style.textContent = readFileSync(join(import.meta.dirname, 'tokens.css'), 'utf8');
   document.head.append(style);
   const sheet = style.sheet;
   if (sheet === null) throw new Error('The base stylesheet was not parsed');
