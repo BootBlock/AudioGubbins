@@ -104,7 +104,7 @@
 /* The field draws the ring (above), so the input inside it draws none. The
    transparent outline stays for forced colours, which draw the field's
    instead (below). */
-[data-ag-theme] .ag-text-field-input:focus-visible {
+[data-ag-theme] .ag-text-field-input:is(:focus-visible, [data-ag-force-state='focus-visible'] *) {
   outline-color: transparent;
   box-shadow: none;
 }
@@ -512,11 +512,7 @@
     border: var(--ag-space-hair) solid CanvasText;
   }
 
-  [data-ag-theme] .ag-text-field-input {
-    border: none;
-  }
-
-  [data-ag-theme] .ag-text-field-input:focus-visible {
+  [data-ag-theme] .ag-text-field-input:is(:focus-visible, [data-ag-force-state='focus-visible'] *) {
     outline-color: transparent;
   }
 

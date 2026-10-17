@@ -167,12 +167,24 @@ html {
  * A transparent outline of the same width and offset stays on the control.
  * Forced colours draw no shadow, and there the system paints that outline in
  * its own focus colour (below), so the ring is still where the band would be.
+ *
+ * The component inventory shows the ring without a keyboard: it sets
+ * `data-ag-force-state='focus-visible'` on a specimen's wrapper, and the ring
+ * is drawn on what in it would take focus, each element in the tab order (a
+ * roving group keeps one of its items there). That selector weighs no more than
+ * the theme attribute, so a rule that moves or redraws the ring for one control,
+ * written for `:focus-visible` and the forced state alike, wins over it.
  */
 [data-ag-theme] {
   --ag-focus-ring-surface: var(--ag-chrome-surface-base);
 }
 
-[data-ag-theme] :focus-visible {
+[data-ag-theme] :focus-visible,
+[data-ag-theme]
+  :where([data-ag-force-state='focus-visible'])
+  :where(button, input, select, textarea, summary, a[href], [tabindex]):where(
+    :not([tabindex='-1'], :disabled, [type='hidden'])
+  ) {
   /* Longhands rather than the `outline` shorthand. The build's CSS pass
      rewrites a shorthand carrying a custom property into a second copy inside
      an `@supports` block, and the copy it emits drops the width and the colour,
@@ -310,15 +322,19 @@ html {
   [data-ag-theme] .ag-panel,
   [data-ag-theme] .ag-menu-bar,
   [data-ag-theme] .ag-status-bar,
-  [data-ag-theme] .ag-palette-field,
-  [data-ag-theme] .ag-text-field-input {
+  [data-ag-theme] .ag-palette-field {
     border: 1px solid CanvasText;
   }
 
   /* No shadow is drawn in forced colours, so the band is not there: the ring is
      the outline under it, drawn by the browser in the system's own focus
      colour, as a ring in a token colour would be invisible here. */
-  [data-ag-theme] :focus-visible {
+  [data-ag-theme] :focus-visible,
+  [data-ag-theme]
+    :where([data-ag-force-state='focus-visible'])
+    :where(button, input, select, textarea, summary, a[href], [tabindex]):where(
+      :not([tabindex='-1'], :disabled, [type='hidden'])
+    ) {
     outline-style: solid;
     outline-width: var(--ag-focus-ring-width);
     outline-color: Highlight;
