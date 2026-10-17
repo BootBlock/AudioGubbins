@@ -188,6 +188,7 @@ function emitMetrics(metrics: Metrics, into: Record<string, string>): void {
   emitValues('hardware', metrics.hardware, 'px', into);
   emitValues('waveform', metrics.display, 'px', into);
   emitValues('state', metrics.state, 'px', into);
+  emitValues('dialogue', metrics.dialogue, 'px', into);
 }
 
 /** The faces, and the parts of the type scale that are the same at every density. */

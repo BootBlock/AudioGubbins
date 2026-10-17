@@ -11,7 +11,7 @@ import { Button } from '../button.js';
 import { InfoPopover } from './info-popover.js';
 import { Menu } from './menu.js';
 import type { MenuGroup } from './menu-entries.js';
-import { ModalDialog } from './modal-dialog.js';
+import { DialogueVariant, ModalDialog } from './modal-dialog.js';
 
 describe('ModalDialog', () => {
   const dialog = (onOpenChange = vi.fn()): ReactNode => (
@@ -344,6 +344,92 @@ describe('ModalDialog, as the design language lays it out', () => {
     );
 
     expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('ModalDialog, its header and its kinds', () => {
+  it('puts its own controls and the hint between the title and the close button, in the order Tab meets them', async () => {
+    // Projects chooses its section in its header, beside an (i) on its title:
+    // with no slot, a caller drew them in the body, under the description, and
+    // the reader met the section choice after what it chose between.
+    renderThemed(
+      <ModalDialog
+        open
+        onOpenChange={vi.fn()}
+        title="Projects"
+        description="Choose a project to open."
+        hint={{ label: 'About projects', children: <p>Make, open and bring in projects.</p> }}
+        headerControls={<Button>Open</Button>}
+        closeLabel="Close"
+      >
+        <p>No projects yet.</p>
+      </ModalDialog>,
+    );
+
+    const hint = screen.getByRole('button', { name: 'About projects' });
+    const section = screen.getByRole('button', { name: 'Open' });
+    const close = screen.getByRole('button', { name: 'Close' });
+    const title = screen.getByRole('heading', { name: 'Projects' });
+    const following = (first: Element, second: Element): boolean =>
+      (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(following(title, hint) && following(hint, section) && following(section, close)).toBe(
+      true,
+    );
+    expect(title.closest('header')).toBe(close.closest('header'));
+    expect(section.closest('header')).toBe(close.closest('header'));
+
+    await userEvent.click(hint);
+    expect(await screen.findByText('Make, open and bring in projects.')).toBeVisible();
+  });
+
+  it.each([
+    [undefined, 'standard'],
+    [DialogueVariant.Narrow, 'narrow'],
+    [DialogueVariant.Wide, 'wide'],
+    [DialogueVariant.Spacious, 'spacious'],
+  ] as const)('draws a %s dialogue at the %s width', (variant, drawn) => {
+    // The width is the stylesheet's, from the density's token for the kind;
+    // a dialogue that named no kind took a prompt's width.
+    renderThemed(
+      <ModalDialog
+        open
+        onOpenChange={vi.fn()}
+        title="Export"
+        description="Choose how to export."
+        {...(variant === undefined ? {} : { variant })}
+      >
+        <p>One file.</p>
+      </ModalDialog>,
+    );
+
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-ag-variant', drawn);
+  });
+
+  it('says the palette’s title and description without drawing a header over its field', () => {
+    // The palette's field is its head: a drawn title would push the field down
+    // and say what the field's own placeholder says, but a reader who cannot
+    // see the page still needs both.
+    renderThemed(
+      <ModalDialog
+        open
+        onOpenChange={vi.fn()}
+        variant={DialogueVariant.Palette}
+        title="Run a command"
+        description="Type part of a command name."
+      >
+        <input aria-label="Search commands" />
+      </ModalDialog>,
+    );
+
+    const palette = screen.getByRole('dialog', { name: 'Run a command' });
+    expect(palette).toHaveAttribute('data-ag-variant', 'palette');
+    expect(palette.querySelector('header')).toBeNull();
+    const description = document.getElementById(palette.getAttribute('aria-describedby') ?? '');
+    expect(description?.textContent).toBe('Type part of a command name.');
+    expect(description).toHaveClass('ag-visually-hidden');
+    expect(screen.getByRole('heading', { name: 'Run a command' })).toHaveClass(
+      'ag-visually-hidden',
+    );
   });
 });
 

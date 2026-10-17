@@ -344,6 +344,12 @@ const SIZES: Readonly<Record<string, readonly [string, string]>> = {
   '--ag-waveform-region-lane-height': ['20px', '16px'],
   '--ag-waveform-overview-height': ['22px', '22px'],
   '--ag-state-mark-size': ['52px', '52px'],
+  // The approved dialogue references draw each kind of dialogue at its own width.
+  '--ag-dialogue-width-narrow': ['460px', '460px'],
+  '--ag-dialogue-width-standard': ['520px', '480px'],
+  '--ag-dialogue-width-wide': ['640px', '600px'],
+  '--ag-dialogue-width-spacious': ['760px', '700px'],
+  '--ag-dialogue-width-palette': ['560px', '500px'],
 };
 
 describe('the sizes, at each density', () => {
@@ -380,6 +386,7 @@ describe('the sizes, at each density', () => {
         ...metrics.hardware,
         ...metrics.display,
         ...metrics.state,
+        ...metrics.dialogue,
       };
       const off = Object.entries(boxes).filter(
         ([token, value]) => !exempt.has(token) && value % metrics.grid.unit !== 0,

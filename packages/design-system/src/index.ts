@@ -73,6 +73,7 @@ export {
 
 export {
   type ControlScale,
+  type DialogueScale,
   type DisplayScale,
   type FocusScale,
   type GridScale,
@@ -206,7 +207,11 @@ export {
 } from './primitives/overlays/context-actions.js';
 export { type MenuGroup, type MenuItemDescriptor } from './primitives/overlays/menu-entries.js';
 export { ShortcutKeys, type ShortcutKeysProps } from './primitives/overlays/shortcut-keys.js';
-export { ModalDialog, type ModalDialogProps } from './primitives/overlays/modal-dialog.js';
+export {
+  DialogueVariant,
+  ModalDialog,
+  type ModalDialogProps,
+} from './primitives/overlays/modal-dialog.js';
 export {
   InfoPopover,
   type InfoPopoverProps,
