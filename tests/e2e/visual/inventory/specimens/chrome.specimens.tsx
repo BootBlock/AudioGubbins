@@ -513,6 +513,38 @@ const specimens: readonly Specimen[] = [
       </List>
     ),
   },
+  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map(
+    (state): Specimen => ({
+      component: 'ListRow (pressable)',
+      state,
+      render: () => (
+        <List label="Projects">
+          <ListRow
+            name="Harbour ambience"
+            detail="Opened today"
+            leading={<Icon name="project" />}
+            onPress={ignore}
+            actions={action('more', 'More')}
+          />
+        </List>
+      ),
+    }),
+  ),
+  {
+    component: 'ListRow (pressable)',
+    state: 'chosen',
+    render: () => (
+      <List label="Projects">
+        <ListRow
+          name="Harbour ambience"
+          detail="Opened today"
+          leading={<Icon name="project" />}
+          chosen
+          onPress={ignore}
+        />
+      </List>
+    ),
+  },
   {
     component: 'List',
     state: 'default',

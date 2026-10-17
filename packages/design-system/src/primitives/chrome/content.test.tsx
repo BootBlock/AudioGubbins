@@ -4,7 +4,8 @@
  */
 
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 
 import { List, ListRow } from './list.js';
 import { PropertyGrid } from './property-grid.js';
@@ -89,6 +90,42 @@ describe('ListRow', () => {
     const [two, one] = screen.getAllByRole('listitem');
     expect(two).toHaveAttribute('data-ag-lines', 'two');
     expect(one).toHaveAttribute('data-ag-lines', 'one');
+  });
+
+  it('is pressed by pointer and by keyboard where it is itself a button, its actions apart', async () => {
+    // A project to open is a row that is pressed: drawn as a plain row with a
+    // click handler, a keyboard could not reach it at all.
+    const onPress = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <List label="Projects">
+        <ListRow
+          name="Harbour ambience"
+          detail="Opened today"
+          chosen
+          onPress={onPress}
+          actions={
+            <button type="button" onClick={onRemove}>
+              Remove
+            </button>
+          }
+        />
+      </List>,
+    );
+
+    const row = screen.getByRole('button', { name: 'Harbour ambience Opened today' });
+    const remove = screen.getByRole('button', { name: 'Remove' });
+    expect(row).not.toContainElement(remove);
+    expect(row).toHaveAttribute('aria-current', 'true');
+
+    await userEvent.click(row);
+    row.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onPress).toHaveBeenCalledTimes(2);
+
+    await userEvent.click(remove);
+    expect(onRemove).toHaveBeenCalledOnce();
+    expect(onPress).toHaveBeenCalledTimes(2);
   });
 });
 

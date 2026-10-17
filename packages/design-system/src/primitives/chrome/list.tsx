@@ -54,6 +54,15 @@ export interface ListRowProps {
 
   /** Whether it sits under the row before it, indented one step. */
   readonly nested?: boolean;
+
+  /**
+   * What pressing the row does, for a row that is itself a button, such as a
+   * project to open or a page to go to. The whole row takes the press, by
+   * pointer or by keyboard, and its actions stay buttons of their own beside
+   * it, never inside it, where a button in a button is neither reachable nor
+   * said.
+   */
+  readonly onPress?: () => void;
 }
 
 /** A row of a list. */
@@ -65,7 +74,19 @@ export function ListRow({
   chosen = false,
   refused = false,
   nested = false,
+  onPress,
 }: ListRowProps): ReactNode {
+  const body = (
+    <>
+      {leading !== undefined && <span className="ag-list-row-leading">{leading}</span>}
+      <span className="ag-list-row-text">
+        <span className="ag-list-row-name">{name}</span>
+        {detail !== undefined && <span className="ag-list-row-detail">{detail}</span>}
+      </span>
+    </>
+  );
+  // Said by what a reader lands on: the row's button where it has one.
+  const current = chosen ? 'true' : undefined;
   return (
     <li
       className="ag-list-row ag-lit-row"
@@ -73,13 +94,21 @@ export function ListRow({
       data-ag-lit={chosen ? '' : undefined}
       data-ag-refused={refused ? '' : undefined}
       data-ag-nested={nested ? '' : undefined}
-      aria-current={chosen ? 'true' : undefined}
+      data-ag-pressable={onPress === undefined ? undefined : ''}
+      aria-current={onPress === undefined ? current : undefined}
     >
-      {leading !== undefined && <span className="ag-list-row-leading">{leading}</span>}
-      <span className="ag-list-row-text">
-        <span className="ag-list-row-name">{name}</span>
-        {detail !== undefined && <span className="ag-list-row-detail">{detail}</span>}
-      </span>
+      {onPress === undefined ? (
+        body
+      ) : (
+        <button
+          type="button"
+          className="ag-list-row-press ag-touch-sized"
+          aria-current={current}
+          onClick={onPress}
+        >
+          {body}
+        </button>
+      )}
       {actions !== undefined && <span className="ag-list-row-actions">{actions}</span>}
     </li>
   );
