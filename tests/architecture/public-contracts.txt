@@ -8779,12 +8779,29 @@ Published paths
   readonly DockHostProps.onArrangementChange: (arrangement: WorkspaceArrangement) => void
   readonly DockHostProps.dark: boolean
   readonly DockHostProps.memory: DockMemory
+  readonly DockHostProps.motion: DockMotion
+  readonly DockHostProps.glyph?: PanelGlyph
   interface DockMemory
   readonly DockMemory.scrolls: Map<string, Scrolled>
   DockMemory.focus: FocusPlace | undefined
   DockMemory.mounts: number
+  interface DockMotion
+  readonly DockMotion.level: DockMotionLevel
+  readonly DockMotion.move: DockTiming
+  readonly DockMotion.enter: DockTiming
+  readonly DockMotion.enterScale: number
+  const DockMotionLevel: { readonly Full: "full"; readonly Reduced: "reduced"; readonly Off: "off"; }
+  type DockMotionLevel = "full" | "off" | "reduced"
   const DockRegion: { readonly Centre: "centre"; readonly Left: "left"; readonly Right: "right"; readonly Bottom: "bottom"; readonly Floating: "floating"; }
   type DockRegion = "bottom" | "centre" | "floating" | "left" | "right"
+  function DockStage(props: DockStageProps): ReactNode
+  interface DockStageProps
+  readonly DockStageProps.arrangement: StagedArrangement
+  readonly DockStageProps.motion: DockMotion
+  readonly DockStageProps.children: (shown: StagedArrangement) => ReactNode
+  interface DockTiming
+  readonly DockTiming.duration: number
+  readonly DockTiming.easing: string
   const KEYBOARD_HOME: "data-ag-keyboard-home"
   const LONGEST_WORKSPACE_NAME: 120
   interface LayoutProblem
@@ -8819,6 +8836,7 @@ Published paths
   readonly PanelDescriptor.allowsMultiple: boolean
   readonly PanelDescriptor.closable: boolean
   readonly PanelDescriptor.minimumSize?: { readonly width: number; readonly height: number; }
+  type PanelGlyph = (kind: PanelKind) => ReactNode
   interface PanelGroup
   readonly PanelGroup.region: DockRegion
   readonly PanelGroup.placement?: FloatingPlacement
@@ -8836,6 +8854,9 @@ Published paths
   interface SavingProblem
   readonly SavingProblem.kind: "built-in" | "refused"
   readonly SavingProblem.text: string
+  interface StagedArrangement
+  readonly StagedArrangement.key: string
+  readonly StagedArrangement.layout: WorkspaceLayout
   interface WorkspaceArrangement
   readonly WorkspaceArrangement.groups: readonly PanelGroup[]
   readonly WorkspaceArrangement.activePanelId?: string

@@ -33,8 +33,6 @@ const TOKEN_DEFINITIONS = 'packages/design-system/src/styles/tokens.css';
  * Phase 16 passes.
  */
 const NOT_YET_IN_THE_LANGUAGE: Readonly<Record<string, string>> = {
-  'packages/workspace/src/styles/workspace.css':
-    "WU-16.C: the dock chrome and tabs, restyled through the workspace adapter and the engine's theming hooks.",
   'apps/web/src/shell/shell.css':
     'WU-16.C for the shell, WU-16.D for the editing panels and WU-16.E for the processing, export and game-audio panels and every dialogue, whose rules this stylesheet holds.',
 };
