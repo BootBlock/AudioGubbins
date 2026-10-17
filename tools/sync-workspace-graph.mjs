@@ -669,6 +669,7 @@ const PACKAGES = [
     // until something imports it. A dependency a package does not use is an
     // install and a supply-chain surface it does not need, and the themes'
     // motion levels are carried by CSS transitions today.
+    //
     // The icon set and the two interface faces (ADR-0108), reached through
     // the design system alone: its Icon component and its stylesheet.
     external: {

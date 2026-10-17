@@ -172,8 +172,8 @@ html {
  * `data-ag-force-state='focus-visible'` on a specimen's wrapper, and the ring
  * is drawn on what in it would take focus, each element in the tab order (a
  * roving group keeps one of its items there). That selector weighs no more than
- * the theme attribute, so a rule that moves or redraws the ring for one control,
- * written for `:focus-visible` and the forced state alike, wins over it.
+ * the theme attribute, so it gives way to a rule that moves or redraws the ring
+ * for one control, written for `:focus-visible` and the forced state.
  */
 [data-ag-theme] {
   --ag-focus-ring-surface: var(--ag-chrome-surface-base);

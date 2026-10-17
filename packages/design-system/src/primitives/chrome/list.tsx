@@ -1,12 +1,12 @@
 /**
  * A list and its rows (design language, section 10, "Lists").
  *
- * A row is one line, or two where it has a second line, at the control's
- * height or the two-line row's. A chosen row is drawn with the lit edge, the
- * language's one indicator for a chosen row (`styles/lit-edge.css`, which
- * every lit row shares), and says it is the current one
- * to a screen reader as well, so the choice is never told by light alone. At
- * the compact density a row's second line moves up beside its name.
+ * A row is one line, or two where it has a second line, at the control's height
+ * or the two-line row's. A chosen row is drawn with the lit edge, the
+ * language's one indicator for a chosen row (`styles/lit-edge.css`, which every
+ * lit row shares), and says it is the current one to a screen reader as well,
+ * so the choice is never told by light alone. At the compact density a row's
+ * second line moves up beside its name.
  */
 
 import type { ReactNode } from 'react';

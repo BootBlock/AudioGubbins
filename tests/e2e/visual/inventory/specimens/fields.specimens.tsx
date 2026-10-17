@@ -5,8 +5,8 @@
  *
  * A control is drawn by the component itself, its hover, focus and press forced
  * by the harness on the specimen's wrapper. A surface that floats over the page
- * once open (a menu, a list, a tooltip, a popover, a dialogue) is drawn open and
- * in place, as the markup its component renders with the classes that style
+ * once open (a menu, a list, a tooltip, a popover, a dialogue) is drawn open
+ * and in place, as the markup its component renders with the classes that style
  * it, so every state can be seen at once on one page.
  */
 

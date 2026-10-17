@@ -1,12 +1,12 @@
 /**
  * The switch: a control for something that is on or off.
  *
- * Hardware (design language, section 10): a track recessed into the panel
- * with a glossy bead whose LED lights in the accent when it is on. Radix
- * supplies the role, the state and the keyboard; the drawing is the track, the
- * bead and the LED, which the stylesheet lights from the state the control
- * reports (`aria-checked`), so the drawing can never disagree with what a
- * screen reader hears.
+ * Hardware (design language, section 10): a track recessed into the panel with
+ * a glossy bead whose LED lights in the accent when it is on. Radix supplies
+ * the role, the state and the keyboard; the drawing is the track, the bead and
+ * the LED, which the stylesheet lights from the state the control reports
+ * (`aria-checked`), so the drawing can never disagree with what a screen reader
+ * hears.
  */
 
 import { Switch } from 'radix-ui';

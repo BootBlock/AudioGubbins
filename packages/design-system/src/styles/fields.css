@@ -111,8 +111,8 @@
 
 /*
  * The placeholder in the theme's supporting text, which is solved for body-text
- * contrast on every theme, brightness and contrast mode. Left to the browser, it
- * would be drawn in a grey of the browser's own, with no contrast the theme
+ * contrast on every theme, brightness and contrast mode. Left to the browser,
+ * it would be drawn in a grey of the browser's own, with no contrast the theme
  * answered for, and WCAG 1.4.3 applies to it. Firefox draws a placeholder at
  * half opacity unless told otherwise.
  */

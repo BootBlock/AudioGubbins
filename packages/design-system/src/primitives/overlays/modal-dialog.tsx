@@ -1,8 +1,8 @@
 /**
  * The modal dialogue.
  *
- * Focus moves into it and comes back out to where it started, Escape closes
- * it, a screen reader is told what appeared, and the rest of the application is
+ * Focus moves into it and comes back out to where it started, Escape closes it,
+ * a screen reader is told what appeared, and the rest of the application is
  * inert while it is open. Radix solves those; this applies the solution the
  * same way to every dialogue, in the design language's frosted glass.
  */

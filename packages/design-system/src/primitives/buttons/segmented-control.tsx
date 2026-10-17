@@ -3,10 +3,10 @@
  *
  * A radio group to a screen reader and the keyboard (Radix): one Tab stop, the
  * arrow keys move to and choose the next choice, as native radios do. Drawn as
- * the design language's segmented control (section 10): a well with the
- * choices two pixels apart, the chosen one under a translucent accent wash with
- * a faint accent edge (section 7), or, for a tool group, lit as a call to
- * action. The wash is one element that moves to the chosen choice.
+ * the design language's segmented control (section 10): a well with the choices
+ * two pixels apart, the chosen one under a translucent accent wash with a faint
+ * accent edge (section 7), or, for a tool group, lit as a call to action. The
+ * wash is one element that moves to the chosen choice.
  */
 
 import { RadioGroup } from 'radix-ui';

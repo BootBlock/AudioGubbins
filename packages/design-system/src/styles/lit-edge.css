@@ -11,9 +11,9 @@
  * lit: it takes the quieter mark below, so a reader cannot mistake a command
  * that will not run for one that will.
  *
- * The row's own outline is lit, bright at its leading side and fading round
- * it, over a wash that fades the same way: the edge is a one-pixel border drawn
- * by a masked pseudo-element, so it follows the row's radius and takes no room.
+ * The row's own outline is lit, bright at its leading side and fading round it,
+ * over a wash that fades the same way: the edge is a one-pixel border drawn by
+ * a masked pseudo-element, so it follows the row's radius and takes no room.
  */
 
 .ag-lit-row {

@@ -2,9 +2,9 @@
  * The record button: a backlit red lamp that starts and stops a recording.
  *
  * A button to a screen reader and the keyboard, pressed (`aria-pressed`) while
- * it is recording, so a reader hears both what it does and whether it is
- * doing it. The lamp is lit while recording, and at the full motion level its
- * rim glow breathes; the lens stays fully lit, so a recording never looks off
+ * it is recording, so a reader hears both what it does and whether it is doing
+ * it. The lamp is lit while recording, and at the full motion level its rim
+ * glow breathes; the lens stays fully lit, so a recording never looks off
  * (MotionSpec, recording indicator).
  */
 

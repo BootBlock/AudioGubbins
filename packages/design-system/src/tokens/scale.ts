@@ -133,8 +133,8 @@ export type ControlScale = {
   /**
    * The least size a text input's text is drawn at where a finger is among the
    * inputs. Safari on an iPhone zooms the page into a field drawn smaller as it
-   * takes focus, and leaves it zoomed, with the surface round it partly off
-   * the screen; the page keeps zoom for the reader, so the field grows instead.
+   * takes focus, and leaves it zoomed, with the surface round it partly off the
+   * screen; the page keeps zoom for the reader, so the field grows instead.
    */
   readonly minimumTouchText: number;
 };

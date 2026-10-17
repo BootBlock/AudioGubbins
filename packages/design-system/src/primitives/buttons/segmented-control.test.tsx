@@ -79,8 +79,9 @@ describe('SegmentedControl', () => {
 });
 
 describe('the chosen choice’s wash', () => {
-  // jsdom lays nothing out, so each choice is given the box a browser would:
-  // 60 pixels wide, side by side, the well's two-pixel padding before the first.
+  // jsdom lays nothing out, so each choice is given the box a browser would
+  // give it: 60 pixels wide, side by side, the well's two-pixel padding before
+  // the first.
   const descriptors = (['offsetLeft', 'offsetTop', 'offsetWidth', 'offsetHeight'] as const).map(
     (name) => [name, Object.getOwnPropertyDescriptor(HTMLElement.prototype, name)] as const,
   );

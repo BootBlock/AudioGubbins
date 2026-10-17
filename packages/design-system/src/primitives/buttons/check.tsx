@@ -4,8 +4,8 @@
  * Hardware, as the switch is (design language, section 10): a small well
  * recessed into the panel that, checked, fills with the call to action's light,
  * lit from above, with a tick drawn in the text colour on the accent. Radix
- * supplies the role, the state and the keyboard; the stylesheet draws the
- * state the control reports (`aria-checked`).
+ * supplies the role, the state and the keyboard; the stylesheet draws the state
+ * the control reports (`aria-checked`).
  */
 
 import { Checkbox } from 'radix-ui';
