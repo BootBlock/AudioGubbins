@@ -1,0 +1,5 @@
+/** The design system, which alone may reach the icon set and the fonts. */
+import '@fontsource-variable/inter';
+import { __iconData } from 'lucide-react/dist/esm/icons/play.mjs';
+
+export const glyph = __iconData;

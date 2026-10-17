@@ -782,6 +782,20 @@ module.exports = {
       to: { dependencyTypes: THIRD_PARTY, path: thirdParty('radix-ui|@radix-ui/[^/]+') },
     },
     {
+      name: 'icons-and-fonts-stay-behind-design-system',
+      severity: 'error',
+      comment:
+        'ADR-0108 and REQ-UX-221: the icon set and the fonts are reached only through the ' +
+        'design system, which names icons by its own vocabulary and declares the font faces. ' +
+        'A feature importing either draws an icon or sets a face the design language never ' +
+        'measured, and a second set or a font from elsewhere could follow it in.',
+      from: { pathNot: '^packages/design-system/src/' },
+      to: {
+        dependencyTypes: THIRD_PARTY,
+        path: thirdParty('lucide-react|@fontsource-variable/[^/]+|@fontsource/[^/]+'),
+      },
+    },
+    {
       name: 'no-deep-cross-package-imports',
       severity: 'error',
       comment:

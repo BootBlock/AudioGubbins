@@ -1092,6 +1092,21 @@ describe('third-party libraries stay behind their adapters', () => {
     expect(importsRadix.length).toBeGreaterThan(0);
   });
 
+  it('imports the icon set and the fonts only from the design system', () => {
+    // ADR-0108: the design system names icons by its own vocabulary and
+    // declares the font faces, so a feature that imported either would draw an
+    // icon or set a face the design language never measured. Stylesheets are
+    // read with the code, because a font is reached by a CSS `@import`.
+    const importsIconsOrFonts = [...ALL_SOURCES, ...ALL_STYLESHEETS].filter((path) =>
+      importsPackage(path, /^(lucide-react|@fontsource-variable\/.+|@fontsource\/.+)$/),
+    );
+
+    for (const path of importsIconsOrFonts) {
+      expect(path.startsWith('packages/design-system/src/'), path).toBe(true);
+    }
+    expect(importsIconsOrFonts.length).toBeGreaterThan(0);
+  });
+
   /**
    * A name that is a browser global, or stands in for one.
    *
