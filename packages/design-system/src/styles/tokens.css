@@ -170,10 +170,13 @@ html {
  *
  * The component inventory shows the ring without a keyboard: it sets
  * `data-ag-force-state='focus-visible'` on a specimen's wrapper, and the ring
- * is drawn on what in it would take focus, each element in the tab order (a
- * roving group keeps one of its items there). That selector weighs no more than
- * the theme attribute, so it gives way to a rule that moves or redraws the ring
- * for one control, written for `:focus-visible` and the forced state.
+ * is drawn on what in it would take focus, each element in the tab order. A
+ * roving group's container, which only passes the focus on to one of its
+ * items, never draws it; a tab list passes it to its chosen tab, which draws
+ * it, and its panel, reached after the tab, does not. That selector weighs no
+ * more than the theme attribute, so it gives way to a rule that moves or
+ * redraws the ring for one control, written for `:focus-visible` and the
+ * forced state.
  */
 [data-ag-theme] {
   --ag-focus-ring-surface: var(--ag-chrome-surface-base);
@@ -183,8 +186,20 @@ html {
 [data-ag-theme]
   :where([data-ag-force-state='focus-visible'])
   :where(button, input, select, textarea, summary, a[href], [tabindex]):where(
-    :not([tabindex='-1'], :disabled, [type='hidden'])
-  ) {
+    :not(
+      [tabindex='-1'],
+      :disabled,
+      [type='hidden'],
+      [role='radiogroup'],
+      [role='toolbar'],
+      [role='tablist'],
+      [role='tabpanel'],
+      [role='menubar']
+    )
+  ),
+[data-ag-theme]
+  :where([data-ag-force-state='focus-visible'])
+  :where([role='tab'][aria-selected='true']) {
   /* Longhands rather than the `outline` shorthand. The build's CSS pass
      rewrites a shorthand carrying a custom property into a second copy inside
      an `@supports` block, and the copy it emits drops the width and the colour,
@@ -333,8 +348,20 @@ html {
   [data-ag-theme]
     :where([data-ag-force-state='focus-visible'])
     :where(button, input, select, textarea, summary, a[href], [tabindex]):where(
-      :not([tabindex='-1'], :disabled, [type='hidden'])
-    ) {
+      :not(
+        [tabindex='-1'],
+        :disabled,
+        [type='hidden'],
+        [role='radiogroup'],
+        [role='toolbar'],
+        [role='tablist'],
+        [role='tabpanel'],
+        [role='menubar']
+      )
+    ),
+  [data-ag-theme]
+    :where([data-ag-force-state='focus-visible'])
+    :where([role='tab'][aria-selected='true']) {
     outline-style: solid;
     outline-width: var(--ag-focus-ring-width);
     outline-color: Highlight;
