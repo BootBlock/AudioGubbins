@@ -20,10 +20,10 @@ import { ICON_GLYPHS } from '../../icons/vocabulary.js';
 import { useSvgIds } from './svg-id.js';
 
 /** The centre of the switch's 32-unit grid, where the glyph's ink is centred. */
-export const POWER_GRID_CENTRE = 16;
+const POWER_GRID_CENTRE = 16;
 
 /** The glyph's scale on the cap, from its 24-unit grid. */
-export const POWER_GLYPH_SCALE = 0.62;
+const POWER_GLYPH_SCALE = 0.62;
 
 /** The centre of the glyph's own grid. */
 const GLYPH_GRID_CENTRE = 12;

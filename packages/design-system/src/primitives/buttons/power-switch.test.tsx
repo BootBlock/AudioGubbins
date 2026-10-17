@@ -5,10 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { renderThemed } from '../../testing/render-themed.js';
 import { sampledBoxOf } from '../../testing/shape-sampler.js';
 import { PowerSwitch } from './power-switch.js';
-import { POWER_GRID_CENTRE } from './power-switch-drawing.js';
 
 /** The switch's drawn size in pixels, on its 32-unit grid (design language, section 10). */
 const PIXELS_PER_UNIT = 26 / 32;
+
+/** The centre of that grid, which the glyph's ink is held to. */
+const GRID_CENTRE = 32 / 2;
 
 /** The design language's tolerance for the power glyph's centring. */
 const TOLERANCE_PIXELS = 0.02;
@@ -61,8 +63,8 @@ describe('PowerSwitch', () => {
     const centre = (low: number, high: number, shift: number | undefined): number =>
       (shift ?? Number.NaN) + (scale ?? Number.NaN) * ((low + high) / 2);
 
-    const missX = (centre(box.left, box.right, x) - POWER_GRID_CENTRE) * PIXELS_PER_UNIT;
-    const missY = (centre(box.top, box.bottom, y) - POWER_GRID_CENTRE) * PIXELS_PER_UNIT;
+    const missX = (centre(box.left, box.right, x) - GRID_CENTRE) * PIXELS_PER_UNIT;
+    const missY = (centre(box.top, box.bottom, y) - GRID_CENTRE) * PIXELS_PER_UNIT;
     expect(Math.abs(missX)).toBeLessThanOrEqual(TOLERANCE_PIXELS);
     expect(Math.abs(missY)).toBeLessThanOrEqual(TOLERANCE_PIXELS);
   });

@@ -111,7 +111,7 @@ export function readInventorySettings(search: string): SettingsReading {
  * fraction is antialiased differently, so one component's change would fail
  * the comparison of every component after it.
  */
-export const COMPONENT_PARAMETER = 'component';
+const COMPONENT_PARAMETER = 'component';
 
 /** The component an address narrows the page to, or nothing for every component. */
 export function readInventoryComponent(search: string): string | undefined {
