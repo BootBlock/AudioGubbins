@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { Icon, IconSize, Section } from '@audiogubbins/design-system';
+
 /**
  * The smallest viewport width AudioGubbins draws a docking workspace at, in CSS
  * pixels (REQ-UX-057.1).
@@ -37,9 +39,13 @@ export const SMALLEST_WORKSPACE_WIDTH = 640;
 export function TooNarrowNotice(): ReactNode {
   return (
     <div className="ag-too-narrow" role="note">
+      <span className="ag-too-narrow-mark">
+        <Icon name="too-narrow" size={IconSize.Mark} />
+      </span>
       {/* Focusable, so that crossing the width can put the reader at the head
           of what has replaced the workspace rather than at the top of the
-          document (`use-workspace-width.ts`).
+          document (`use-workspace-width.ts`). The mark before it is
+          decoration, hidden from a screen reader.
 
           The page rather than the window, here and in every sentence below. The
           rule fires on the width of the page, which a high zoom shrinks while
@@ -50,10 +56,7 @@ export function TooNarrowNotice(): ReactNode {
       <h2 className="ag-too-narrow-heading" tabIndex={-1}>
         The page is too narrow for the workspace
       </h2>
-      <p>
-        AudioGubbins arranges panels side by side, and the page is not wide enough for that. Your
-        panels are still here, and come back as soon as there is room.
-      </p>
+      <p>Your panels are still here, and come back as soon as there is room.</p>
       {/*
         Written for a width rather than for a device. The rule fires on width
         alone, so this is reached on a desktop with a restored window and at a
@@ -61,10 +64,15 @@ export function TooNarrowNotice(): ReactNode {
         have no device to turn, and told to zoom out, a reader at 200 per cent
         would be told to give up the magnification they need. The zoom is named
         as what it is, and the rotation is offered as the conditional it is.
+        Open from the start, so the way out is read with the heading.
       */}
-      <p>
-        {`It is the width of the page that counts, so a high zoom leaves less of it: ${String(SMALLEST_WORKSPACE_WIDTH)} pixels of page width is what a workspace needs. Make the window wider or zoom out a step. On a phone or a tablet, turning it to landscape may be enough.`}
-      </p>
+      <div className="ag-too-narrow-help">
+        <Section title="How to make room">
+          <p>
+            {`It is the width of the page that counts, so a high zoom leaves less of it: ${String(SMALLEST_WORKSPACE_WIDTH)} pixels of page width is what a workspace needs. Make the window wider or zoom out a step. On a phone or a tablet, turning it to landscape may be enough.`}
+          </p>
+        </Section>
+      </div>
       <p>The menus, the command palette and the settings all still work.</p>
     </div>
   );

@@ -231,7 +231,7 @@ test.describe('starting up', () => {
     });
     await openFresh(page);
 
-    const item = page.locator('.ag-status-item', { hasText: /capabilit/ });
+    const item = page.locator('.ag-status-chip', { hasText: /capabilit/ });
     await expect(item).toHaveText(/^(One capability is|[0-9]+ capabilities are) unavailable$/);
 
     await page.getByRole('button', { name: 'Show the Capabilities panel' }).click();
@@ -1954,7 +1954,7 @@ test.describe('one rule for when two names are one, in every engine', () => {
 
   /** The name of the workspace on screen, as the status bar shows it. */
   function nameOnScreen(page: Page): Locator {
-    return page.getByRole('contentinfo', { name: 'Status' }).locator('.ag-status-item').first();
+    return page.getByRole('contentinfo', { name: 'Status' }).locator('.ag-status-chip').first();
   }
 
   /** Saves the workspace on screen as a new one, from the Workspace menu. */

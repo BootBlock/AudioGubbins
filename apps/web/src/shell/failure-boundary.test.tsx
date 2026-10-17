@@ -80,7 +80,7 @@ describe('a panel that fails', () => {
     );
   }
 
-  it('is replaced by a notice, and everything around it stays', () => {
+  it('is replaced by a notice, and everything around it stays', async () => {
     quietConsole();
     const { logger } = logsAndLogger();
 
@@ -89,6 +89,8 @@ describe('a panel that fails', () => {
     expect(
       screen.getByRole('heading', { name: 'The Editor panel stopped working' }),
     ).toBeInTheDocument();
+    // What went wrong is kept under Details, closed until asked for.
+    await userEvent.click(screen.getByRole('button', { name: 'Details' }));
     expect(screen.getByText('Error: The waveform could not be drawn.')).toBeInTheDocument();
     expect(screen.getByText('The menus still work.')).toBeInTheDocument();
   });

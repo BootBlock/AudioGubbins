@@ -220,7 +220,7 @@ async function barHoldingTheAdvice(
   await openFresh(page);
 
   const bar = page.getByRole('contentinfo', { name: 'Status' });
-  const advice = bar.locator('.ag-status-item', {
+  const advice = bar.locator('.ag-status-chip', {
     hasText: 'To make room without losing anything',
   });
   const dismiss = bar.getByRole('button', {
@@ -850,7 +850,7 @@ test.describe('forced colours keep what the user needs to see', () => {
     });
     await openFresh(page);
 
-    const notice = page.locator('.ag-status-item[data-ag-status="unavailable"]').first();
+    const notice = page.locator('.ag-status-chip[data-ag-tone="warning"]').first();
     await expect(notice).toBeVisible();
     expect(await notice.evaluate((element) => getComputedStyle(element).color)).toBe(
       await systemColour(page, 'MarkText'),
@@ -1744,7 +1744,7 @@ test.describe('the shell is operable from the keyboard alone', () => {
       await expect(dialog).toBeHidden();
 
       const bar = page.getByRole('contentinfo', { name: 'Status' });
-      const named = bar.locator('.ag-status-item').first();
+      const named = bar.locator('.ag-status-chip').first();
       await expect(named).toHaveText(name);
       await expect(bar.getByRole('button', { name: /^Dismiss/u }), 'a notice stands').toHaveCount(
         0,

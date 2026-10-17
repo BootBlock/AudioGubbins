@@ -1,0 +1,173 @@
+/*
+ * What is shown in place of a part that failed (design language, section 9,
+ * "Error"): the empty state's parts in the error colour for a panel, and the
+ * failure screen for the whole application.
+ */
+
+/* The parts both share: a terse title, a line in secondary text, and what went
+   wrong in a well of the numeric face, which wraps rather than being cut. */
+.ag-failure-text {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary, CanvasText);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-failure-code {
+  display: block;
+  box-sizing: border-box;
+  inline-size: 100%;
+  margin: 0;
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-border-subtle, CanvasText);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well, Canvas);
+  color: var(--ag-chrome-text-secondary, CanvasText);
+  font-family: var(--ag-font-numeric, monospace);
+  font-size: var(--ag-text-label);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * A panel that failed: centred in the panel's body, a mark of the error
+ * colour, the title, one line, and the way to try again, with what went wrong
+ * under Details.
+ */
+.ag-panel-failure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: calc(var(--ag-grid-unit) * 4);
+  padding: var(--ag-space-huge) calc(var(--ag-grid-unit) * 10);
+  text-align: center;
+}
+
+.ag-failure-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ag-state-mark-size);
+  block-size: var(--ag-state-mark-size);
+  border-radius: var(--ag-radius-full);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--ag-chrome-status-error) 22%, transparent),
+    transparent 70%
+  );
+  color: var(--ag-chrome-status-error);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ag-chrome-status-error) 30%, transparent);
+}
+
+.ag-failure-title {
+  margin: 0;
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-strong);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-panel-failure .ag-failure-text {
+  max-inline-size: calc(var(--ag-grid-unit) * 150);
+  font-size: var(--ag-text-label);
+}
+
+.ag-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--ag-grid-unit) * 4);
+  margin-block-start: var(--ag-space-small);
+}
+
+.ag-panel-failure-details {
+  align-self: stretch;
+  max-inline-size: calc(var(--ag-grid-unit) * 180);
+  margin-inline: auto;
+  text-align: start;
+}
+
+.ag-panel-failure-details .ag-section {
+  border-block-start: 0;
+}
+
+/*
+ * The failure screen: a card on the backdrop, under a glow of the error colour
+ * from the top centre.
+ *
+ * It reads a token where one is set and falls back to the platform's own
+ * colours, which are not literal colours but the ones the user's platform
+ * chose. It is shown because something outside every panel failed, which may
+ * have been the theme, so it cannot rely on the theme having been applied:
+ * where it was not, the lengths fall away and the screen is the browser's own
+ * plain text and button, still readable and still working.
+ */
+.ag-application-failure {
+  display: grid;
+  box-sizing: border-box;
+  place-items: center;
+  min-block-size: 100dvh;
+  padding: var(--ag-space-huge);
+  background:
+    radial-gradient(
+      60% 60% at 50% 30%,
+      color-mix(in oklch, var(--ag-chrome-status-error) 22%, transparent),
+      transparent 70%
+    ),
+    var(--ag-effect-backdrop);
+  background-color: var(--ag-chrome-surface-sunken, Canvas);
+  color: var(--ag-chrome-text-primary, CanvasText);
+  font-family: var(--ag-font-ui, system-ui, sans-serif);
+  font-size: var(--ag-text-body);
+}
+
+.ag-application-failure-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--ag-space-medium);
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: calc(var(--ag-grid-unit) * 220);
+  padding: var(--ag-space-inset-feature);
+  text-align: center;
+}
+
+.ag-application-failure-title {
+  margin: 0;
+  font-size: var(--ag-text-display);
+  font-weight: var(--ag-text-weight-heading);
+  letter-spacing: var(--ag-text-tracking-tight);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Reload, drawn as the call to action where the theme is there to draw it, and
+ * as the platform's own button where it is not. The design system's button is
+ * a primitive, which this screen does without.
+ */
+.ag-failure-action {
+  min-block-size: var(--ag-control-minimum-touch-target);
+  padding-inline: var(--ag-space-inset-wide);
+  border: 1px solid var(--ag-chrome-edge-accent, ButtonBorder);
+  border-radius: var(--ag-radius-control);
+  background: var(--ag-effect-cta-gloss), var(--ag-effect-cta-fill);
+  background-color: var(--ag-chrome-fill-quiet, ButtonFace);
+  color: var(--ag-chrome-text-on-accent, ButtonText);
+  box-shadow: var(--ag-effect-cta-edge), var(--ag-effect-glow-cta);
+  font: inherit;
+  font-weight: var(--ag-text-weight-control);
+}
+
+/*
+ * The ring's width and offset are the theme's; its colour is the platform's,
+ * like the rest of this screen where the theme did not load.
+ */
+.ag-failure-action:focus-visible {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: var(--ag-chrome-border-focus, Highlight);
+  outline-offset: var(--ag-focus-ring-offset);
+}

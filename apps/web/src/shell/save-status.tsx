@@ -3,13 +3,15 @@
  * (REQ-STOR-021, REQ-EXEC-136.15).
  *
  * Every change is written as it is made, so there is no Save: the status bar
- * says the project is saved, is being saved, or is not being saved and why,
- * with the action that tries again. Changes that stop being saved are said
+ * says the project is saved, is being saved, or is not being saved, with why
+ * behind a hint and the action that tries again. Changes that stop being saved are said
  * aloud as well, once, since the person is still working and would otherwise
  * lose them unawares.
  */
 
 import { useEffect, useRef, type ReactNode } from 'react';
+
+import { Hint, IconSize, Spinner, StatusChip, StatusTone } from '@audiogubbins/design-system';
 
 import type { Announce } from '../commands/voiced-execution.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
@@ -41,21 +43,31 @@ export function SaveStatus({
   if (save === undefined) return null;
   switch (save.kind) {
     case 'saved':
-      return <span className="ag-status-item">Saved</span>;
+      return (
+        <StatusChip tone={StatusTone.Success} icon="saved">
+          Saved
+        </StatusChip>
+      );
     case 'saving':
-      return <span className="ag-status-item">Saving…</span>;
+      return (
+        <StatusChip tone={StatusTone.Neutral}>
+          <Spinner size={IconSize.Small} />
+          Saving…
+        </StatusChip>
+      );
     case 'stopped':
       return (
-        <span className="ag-status-item" data-ag-status="unavailable">
+        <StatusChip tone={StatusTone.Error} icon="not-saved">
           Changes are no longer saved here.
-        </span>
+        </StatusChip>
       );
     case 'not-saved':
       return (
         <span className="ag-status-notice">
-          <span className="ag-status-item" data-ag-status="unavailable">
-            {`Not saved. ${save.cause.summary}`}
-          </span>
+          <StatusChip tone={StatusTone.Error} icon="not-saved">
+            Not saved
+          </StatusChip>
+          <Hint label="Why your changes are not saved">{save.cause.summary}</Hint>
           <QuickAction
             label="Try saving again"
             shown="Try again"

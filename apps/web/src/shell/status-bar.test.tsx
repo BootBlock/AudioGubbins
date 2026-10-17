@@ -177,19 +177,23 @@ async function tabFromTheTop(): Promise<void> {
 }
 
 describe('StatusBar', () => {
-  it('says why the browser refuses to keep a part, and what the user can do, beside the part', () => {
-    // It said what was not being saved, and neither why nor what to do.
+  it('says why the browser refuses to keep a part, and what the user can do, beside the part', async () => {
+    // It said what was not being saved, and neither why nor what to do. Said
+    // in a few words in the bar, with the parts, the cause and the remedy in
+    // the hint beside them.
     render(
       <StatusBar
         {...propsWith({ persistence: { unsaved: ['workspace', 'shortcuts'], cause: 'refused' } })}
       />,
     );
 
+    expect(screen.getByText('Settings not being saved')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Why settings are not being saved' }));
     expect(
-      screen.getByText(
+      await screen.findByText(
         'Not being saved: workspaces, shortcut profiles. The browser refuses this site storage; its settings can allow it. AudioGubbins tries again with your next change.',
       ),
-    ).toBeInTheDocument();
+    ).toBeVisible();
   });
 
   it('says nothing about capabilities on a browser that has them all', () => {

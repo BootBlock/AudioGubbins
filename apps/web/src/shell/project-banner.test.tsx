@@ -135,9 +135,8 @@ describe('the project strip, with projects to reach', () => {
       });
     });
 
-    expect(
-      within(strip).getByText('Quick Edit of “Harbour.wav”, kept in the project “Harbour”'),
-    ).toBeVisible();
+    expect(within(strip).getByText('Quick Edit')).toBeVisible();
+    expect(within(strip).getByText('“Harbour.wav”, kept in the project “Harbour”')).toBeVisible();
   });
 
   it('offers a Quick Edit’s export, and nothing to export for a project alone', async () => {

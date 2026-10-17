@@ -53,7 +53,7 @@ describe('whether the backups the policy asks for are made', () => {
     const run = vi.fn((_id: string, _args?: unknown) => true);
     const announce = vi.fn();
     render(<BackupStatus backups={window.projects.backups} run={run} announce={announce} />);
-    expect(screen.queryByText(/^Backup not made\./u)).toBeNull();
+    expect(screen.queryByText('Backup not made')).toBeNull();
 
     await act(async () => {
       await window.projects.backups.tick();
@@ -63,7 +63,10 @@ describe('whether the backups the policy asks for are made', () => {
     // Said for the backup, never as the save status says a change kept in memory.
     const reason =
       "This site's storage is full. Delete what you no longer need in the Storage panel, then back up again.";
-    expect(screen.getByText(`Backup not made. ${reason}`)).toBeVisible();
+    // Said in three words, with why in the hint beside them.
+    expect(screen.getByText('Backup not made')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Why the backup was not made' }));
+    expect(await screen.findByText(reason)).toBeVisible();
     expect(screen.queryByText(/kept in memory/u)).toBeNull();
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith(`A backup was not made. ${reason}`, true);
@@ -76,7 +79,7 @@ describe('whether the backups the policy asks for are made', () => {
       await window.projects.backups.tick();
     });
     expect(window.projects.backups.get().generations).toHaveLength(1);
-    expect(screen.queryByText(/^Backup not made\./u)).toBeNull();
+    expect(screen.queryByText('Backup not made')).toBeNull();
   });
 
   it('says why a backup asked for now was not made in words of the backup', async () => {
@@ -111,9 +114,11 @@ describe('whether the backups the policy asks for are made', () => {
       await window.projects.backups.tick();
     });
 
+    expect(screen.getByText('Backup not made')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Why the backup was not made' }));
     expect(
-      screen.getByText(
-        'Backup not made. The state the snapshot “Before the mix” keeps cannot be read, so a backup would lack it.',
+      await screen.findByText(
+        'The state the snapshot “Before the mix” keeps cannot be read, so a backup would lack it.',
       ),
     ).toBeVisible();
     expect(window.projects.backups.get().generations).toEqual([]);
