@@ -7,7 +7,8 @@
 import type { ReactNode } from 'react';
 
 import { withChosen, type DraftFields, type GodotDraft } from '../../state/workflow-drafts.js';
-import { NAMING_HELP, type DraftChange, type Setter } from './option-rows.js';
+import { NAMING_FIELD } from '../template-vocabularies.js';
+import type { DraftChange, Setter } from './option-rows.js';
 import { SourcedChoice, SourcedText } from './workflow-fields.js';
 import { GODOT_FORMATS, GODOT_LOOPS } from './workflow-words.js';
 
@@ -35,10 +36,10 @@ export function GodotOptions({
           set('format', value);
         }}
       />
-      <p className="ag-panel-note">{GODOT_LOOPS}</p>
+      <p className="ag-dialogue-note">{GODOT_LOOPS}</p>
       <SourcedText
         label="Naming"
-        description={NAMING_HELP}
+        template={NAMING_FIELD}
         field={fields.naming}
         onText={(value) => {
           set('naming', value);

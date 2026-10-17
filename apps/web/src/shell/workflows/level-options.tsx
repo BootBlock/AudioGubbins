@@ -17,7 +17,8 @@ import {
   type NumberRow,
   type Setter,
 } from './option-rows.js';
-import { SourcedSwitch } from './workflow-fields.js';
+import { SourcedSwitch, type WorkflowUnit } from './workflow-fields.js';
+import { UNITS } from './workflow-words.js';
 
 /** The loudness target a group is given once the person asks to set one. */
 const OFFERED_TARGET: LoudnessTarget = {
@@ -34,7 +35,7 @@ function targetRows(
 ): readonly NumberRow[] {
   const row = (
     label: string,
-    unit: string,
+    unit: WorkflowUnit,
     value: number,
     to: (value: number) => LoudnessTarget,
   ) => ({
@@ -46,15 +47,20 @@ function targetRows(
     },
   });
   return [
-    row('Integrated loudness', 'LUFS', target.integratedLufs, (integratedLufs) => ({
+    row('Integrated loudness', UNITS.lufs, target.integratedLufs, (integratedLufs) => ({
       ...target,
       integratedLufs,
     })),
-    row('Tolerance', 'LU', target.toleranceLu, (toleranceLu) => ({ ...target, toleranceLu })),
-    row('True-peak ceiling', 'dBTP', target.truePeakCeilingDbtp ?? -1, (truePeakCeilingDbtp) => ({
-      ...target,
-      truePeakCeilingDbtp,
-    })),
+    row('Tolerance', UNITS.lu, target.toleranceLu, (toleranceLu) => ({ ...target, toleranceLu })),
+    row(
+      'True-peak ceiling',
+      UNITS.dbtp,
+      target.truePeakCeilingDbtp ?? -1,
+      (truePeakCeilingDbtp) => ({
+        ...target,
+        truePeakCeilingDbtp,
+      }),
+    ),
   ];
 }
 

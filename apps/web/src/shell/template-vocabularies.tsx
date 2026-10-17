@@ -1,13 +1,13 @@
 /**
- * What a template field is told about the kinds of name template
- * AudioGubbins reads (ADR-0092, ADR-0102): an export's file name. Each is the
- * domain's own vocabulary, which says what the
+ * What a template field is told about the two kinds of name template
+ * AudioGubbins reads (ADR-0092, ADR-0102): an export's file name, and a game
+ * group's naming. Each is the domain's own vocabulary, which says what the
  * template may name and which modifiers each token takes, given the words a
  * reader sees for every token, and the domain's own refusal for a token it
  * does not read, so the field marks red exactly what the export would refuse,
  * and says why in the same words.
  *
- * Every grammar is `readTemplate`'s, where a brace typed twice is one brace,
+ * Both grammars are `readTemplate`'s, where a brace typed twice is one brace,
  * which is what the field draws an escape as.
  */
 
@@ -19,6 +19,7 @@ import {
   type TemplateToken,
   type TemplateVocabulary,
 } from '@audiogubbins/design-system';
+import { NAMING_VOCABULARY, type NamingToken } from '@audiogubbins/game-audio';
 import {
   FILE_NAME_VOCABULARY,
   readTemplate,
@@ -142,8 +143,108 @@ const FILE_NAME_WORDS: Readonly<Record<FileNameToken, TokenWords>> = {
   },
 };
 
+/** What a case modifier does, said once for every token that takes one. */
+function caseNote(token: string): ReactNode {
+  return (
+    <p>
+      <TemplateText text={`{${token}:snake}`} /> writes it in lower case, with an underscore between
+      words. You can also use <code>:lower</code>, <code>:upper</code>, <code>:kebab</code> or{' '}
+      <code>:pascal</code>, or leave the case as it is.
+    </p>
+  );
+}
+
+/** The words of a game naming template's tokens. */
+const NAMING_WORDS: Readonly<Record<NamingToken, TokenWords>> = {
+  project: {
+    summary: 'The project’s name',
+    description: (
+      <>
+        <p>The project’s name.</p>
+        {caseNote('project')}
+      </>
+    ),
+  },
+  asset: {
+    summary: 'The sound’s name',
+    description: (
+      <>
+        <p>The name the sound has in the project.</p>
+        {caseNote('asset')}
+      </>
+    ),
+    examples: [
+      <>
+        “Footsteps take 2” gives <code>footsteps_take_2</code>.
+      </>,
+    ],
+  },
+  region: {
+    summary: 'The region’s name',
+    description: (
+      <>
+        <p>The region’s name, for a sound that is a region.</p>
+        {caseNote('region')}
+      </>
+    ),
+  },
+  group: {
+    summary: 'The group’s name',
+    description: (
+      <>
+        <p>The name of the group the sound is in.</p>
+        {caseNote('group')}
+      </>
+    ),
+  },
+  'group-path': {
+    summary: 'Each group down to this one',
+    description: (
+      <>
+        <p>The names of the groups from the top down to the sound’s own, joined by underscores.</p>
+        {caseNote('group-path')}
+      </>
+    ),
+  },
+  number: {
+    summary: 'Its place in the group',
+    description: (
+      <>
+        <p>
+          Counts the sounds in the group from 1, so a sound keeps its number whatever else you
+          export.
+        </p>
+        <ul>
+          <li>
+            <TemplateText text="{number}" /> pads with zeros to the digits the group needs
+          </li>
+          <li>
+            <TemplateText text="{number:2}" /> always uses at least two digits
+          </li>
+        </ul>
+      </>
+    ),
+    examples: [
+      <>
+        <TemplateText text="step_{number:3}" /> gives <code>step_007</code> for the seventh sound.
+      </>,
+    ],
+  },
+  date: {
+    summary: 'The day you export',
+    description: <p>The day the export was asked for, written year, month and day.</p>,
+  },
+  format: {
+    summary: 'The file’s extension',
+    description: <p>The extension of the format it is written in, such as wav or ogg.</p>,
+  },
+};
+
 /** The template field's vocabulary for an export's file name. */
 export const FILE_NAME_FIELD: TemplateVocabulary = fieldVocabulary(
   FILE_NAME_VOCABULARY,
   FILE_NAME_WORDS,
 );
+
+/** The template field's vocabulary for a game group's naming. */
+export const NAMING_FIELD: TemplateVocabulary = fieldVocabulary(NAMING_VOCABULARY, NAMING_WORDS);

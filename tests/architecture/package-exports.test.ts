@@ -418,9 +418,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     "The chrome round a panel's content that no panel takes yet (the panel and its header, sections, property grids and source chips, lists, tables and verdicts, badges, status chips and key caps, the empty, loading and error states, notices and banners), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
-        'Badge',
-        'BadgeProps',
-        'BadgeTone',
         'EmptyState',
         'EmptyStateProps',
         'KeyCap',
@@ -438,8 +435,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'PropertyRow',
         'Skeleton',
         'SkeletonProps',
-        'SourceChip',
-        'SourceChipProps',
         'StatusChip',
         'StatusChipProps',
         'StatusTone',
@@ -447,7 +442,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'TableColumn',
         'TableProps',
         'TableRow',
-        'ValueSource',
         'Verdict',
         'VerdictKind',
         'VerdictProps',

@@ -17,16 +17,42 @@ import {
   type Setter,
 } from './option-rows.js';
 import { SourcedChoice, SourcedOptionalNumber } from './workflow-fields.js';
-import { FADE_SHAPES } from './workflow-words.js';
+import { FADE_SHAPES, UNITS } from './workflow-words.js';
 
 /** The number options, each with its label and unit. */
 const NUMBERS = [
-  ['leadInMilliseconds', 'Lead-in', 'milliseconds'],
-  ['tailMilliseconds', 'Tail', 'milliseconds'],
-  ['fadeInMilliseconds', 'Fade in', 'milliseconds'],
-  ['fadeOutMilliseconds', 'Fade out', 'milliseconds'],
-  ['peakDbtp', 'True peak, where no loudness target is set', 'dBTP'],
+  ['leadInMilliseconds', 'Lead-in', UNITS.milliseconds],
+  ['tailMilliseconds', 'Tail', UNITS.milliseconds],
+  ['fadeInMilliseconds', 'Fade in', UNITS.milliseconds],
+  ['fadeOutMilliseconds', 'Fade out', UNITS.milliseconds],
+  ['peakDbtp', 'True peak, where no loudness target is set', UNITS.dbtp],
 ] as const;
+
+/** The shapes of the fades at the sound's new edges, side by side. */
+function FadeShapes({
+  fields,
+  set,
+}: {
+  readonly fields: DraftFields<PrepareOneShotOptions>;
+  readonly set: Setter<PrepareOneShotOptions>;
+}): ReactNode {
+  const shape = (label: string, field: 'fadeInShape' | 'fadeOutShape') => (
+    <SourcedChoice
+      label={label}
+      field={fields[field]}
+      choices={FADE_SHAPES}
+      onChoose={(value) => {
+        set(field, value);
+      }}
+    />
+  );
+  return (
+    <div className="ag-workflow-pair">
+      {shape('Fade-in shape', 'fadeInShape')}
+      {shape('Fade-out shape', 'fadeOutShape')}
+    </div>
+  );
+}
 
 export function OneShotOptions({
   fields,
@@ -50,29 +76,19 @@ export function OneShotOptions({
       set(field, value);
     },
   }));
-  const shape = (label: string, field: 'fadeInShape' | 'fadeOutShape') => (
-    <SourcedChoice
-      label={label}
-      field={fields[field]}
-      choices={FADE_SHAPES}
-      onChoose={(value) => {
-        set(field, value);
-      }}
-    />
-  );
   return (
     <>
-      <SourcedOptionalNumber
-        label="Silence threshold"
-        unit="dBFS"
-        field={fields.threshold}
-        onNumber={(value) => {
-          set('threshold', value);
-        }}
-      />
-      <NumberRows rows={rows} />
-      {shape('Fade-in shape', 'fadeInShape')}
-      {shape('Fade-out shape', 'fadeOutShape')}
+      <NumberRows rows={rows}>
+        <SourcedOptionalNumber
+          label="Silence threshold"
+          unit={UNITS.dbfs}
+          field={fields.threshold}
+          onNumber={(value) => {
+            set('threshold', value);
+          }}
+        />
+      </NumberRows>
+      <FadeShapes fields={fields} set={set} />
       <PlacementChoice
         field={fields.placement}
         set={(value) => {

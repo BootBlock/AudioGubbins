@@ -11,8 +11,15 @@ import type { ProjectState } from '@audiogubbins/project-format';
 
 import { withChosen, type CutDraft, type DraftFields } from '../../state/workflow-drafts.js';
 import type { Choice } from '../export/setting-fields.js';
-import { NAMING_HELP, NumberRows, type DraftChange, type Setter } from './option-rows.js';
-import { SourcedChoice, SourcedOptionalNumber, SourcedText } from './workflow-fields.js';
+import { NAMING_FIELD } from '../template-vocabularies.js';
+import { NumberRows, type DraftChange, type Setter } from './option-rows.js';
+import {
+  SourcedChoice,
+  SourcedOptionalNumber,
+  SourcedText,
+  type WorkflowUnit,
+} from './workflow-fields.js';
+import { UNITS } from './workflow-words.js';
 
 /** The choice of a new group, which no group's identifier can be. */
 const NEW_GROUP = '\u0000new';
@@ -47,7 +54,7 @@ function Destination({
   const { choices, chosen } = destinationChoices(fields, state);
   const destination = fields.destination.value;
   return (
-    <>
+    <div className="ag-workflow-pair">
       <SourcedChoice
         label="Put the sounds in"
         field={{ value: chosen, source: fields.destination.source }}
@@ -68,7 +75,7 @@ function Destination({
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -88,7 +95,7 @@ export function CutOptions({
         : now,
     );
   };
-  const optional = (label: string, unit: string, field: 'threshold' | 'shortestPause') => (
+  const optional = (label: string, unit: WorkflowUnit, field: 'threshold' | 'shortestPause') => (
     <SourcedOptionalNumber
       label={label}
       unit={unit}
@@ -103,24 +110,25 @@ export function CutOptions({
       <Destination fields={fields} state={state} set={set} />
       <SourcedText
         label="Naming"
-        description={NAMING_HELP}
+        template={NAMING_FIELD}
         field={fields.naming}
         onText={(value) => {
           set('naming', value);
         }}
       />
-      {optional('Silence threshold', 'dBFS', 'threshold')}
-      {optional('Shortest pause between sounds', 'seconds', 'shortestPause')}
       <NumberRows
         rows={(['leadInMilliseconds', 'tailMilliseconds'] as const).map((field) => ({
           label: field === 'leadInMilliseconds' ? 'Lead-in' : 'Tail',
-          unit: 'milliseconds',
+          unit: UNITS.milliseconds,
           field: fields[field],
           set: (value: number) => {
             set(field, value);
           },
         }))}
-      />
+      >
+        {optional('Silence threshold', UNITS.dbfs, 'threshold')}
+        {optional('Shortest pause between sounds', UNITS.seconds, 'shortestPause')}
+      </NumberRows>
     </>
   );
 }

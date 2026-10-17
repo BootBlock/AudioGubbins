@@ -4461,10 +4461,12 @@ Published paths
   readonly MemberSound.length: number
   readonly MemberSound.loop?: { readonly start: number; readonly end: number; }
   type Motion = { readonly kind: "still"; readonly at: Position; } | { readonly kind: "waypoints"; readonly points: readonly Waypoint[]; readonly repeat: "back-and-forth" | "loop" | "once"; }
+  const NAMING_VOCABULARY: TemplateVocabulary<"asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region">
   const NO_GAME_AUDIO: GameAudioState
   interface NamingTemplate
   readonly NamingTemplate.source: string
   readonly NamingTemplate.parts: readonly TemplatePart<"asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region">[]
+  type NamingToken = "asset" | "date" | "format" | "group" | "group-path" | "number" | "project" | "region"
   const OVERRIDABLE_FIELDS: readonly OverridableField[]
   type OverridableField = "bus" | "destination" | "exportProfile" | "loudness" | "naming" | "variation"
   const POLICY_FIELDS: readonly ["processing", "loudness", "exportProfile", "naming", "destination", "emitter", "variation", "bus", "tags"]
