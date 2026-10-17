@@ -176,6 +176,70 @@ Decision: **approved**. The findings returned on the way, each now a rule of the
 The shell references above are rendered again with these rules applied, with the lit edge chosen on
 the same day.
 
+### 2026-10-17: the processing and game-audio panels, approved as references
+
+Shown: two boards in direction C, in both themes at the comfortable density. The processing board
+holds the Effects rack with a parallel group, the parametric equaliser and the compressor selected,
+the menu that adds a processor, Library, Storage with a cleanup planned, and Picture. The game-audio
+board holds Asset groups with a group's members, loudness and export plan, the Inspector showing the
+group's policy field by field, Loop with its checks and candidates, Game preview running, Model
+packs, Diagnostics and Capabilities. Each board's every label, value and control is one the
+application has, in its own wording; a rack meter and a gain-reduction reading, which the
+application does not have, were left out.
+
+| Theme and density  | Processing panels                                                                                    | Game-audio panels                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Dark, comfortable  | [processing-panels-dark-comfortable.png](references/panels/processing-panels-dark-comfortable.png)   | [game-panels-dark-comfortable.png](references/panels/game-panels-dark-comfortable.png)   |
+| Light, comfortable | [processing-panels-light-comfortable.png](references/panels/processing-panels-light-comfortable.png) | [game-panels-light-comfortable.png](references/panels/game-panels-light-comfortable.png) |
+| Dark, compact      | [processing-panels-dark-compact.png](references/panels/processing-panels-dark-compact.png)           | [game-panels-dark-compact.png](references/panels/game-panels-dark-compact.png)           |
+| Light, compact     | [processing-panels-light-compact.png](references/panels/processing-panels-light-compact.png)         | [game-panels-light-compact.png](references/panels/game-panels-light-compact.png)         |
+
+Decision: **approved**. The finding returned on the way, now a rule of the language:
+
+- **The light falls from one place on the page.** A knob's shadows and highlights never turn with
+  it: its skirt, grip and cap stay still, and only what is printed or moulded on them turns, the
+  skirt's pointer, the grip's ribs and the cap's index line.
+
+The Editing workspace references are rendered again with this rule applied.
+
+### 2026-10-17: the dialogues, approved as references
+
+Shown: three boards in direction C, in both themes at the comfortable density. The projects and
+export board holds the Projects dialogue (Open with a project that cannot be read and a deleted one,
+New with its unavailable reason, This project exporting into a folder that holds another project),
+the Export dialogue, a file exporting and the prompt for a name already taken. The workflows board
+holds all six guided workflows and the template field's specimens. The third board holds the stored
+data decision with its confirmation and its copy being saved, the linked files that changed, and
+the diagnostic report.
+
+| Theme and density  | Projects and Export                                                                               | Guided workflows                                                                      | Stored data, linked files, report                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Dark, comfortable  | [projects-export-dark-comfortable.png](references/dialogs/projects-export-dark-comfortable.png)   | [workflows-dark-comfortable.png](references/dialogs/workflows-dark-comfortable.png)   | [other-dark-comfortable.png](references/dialogs/other-dark-comfortable.png)   |
+| Light, comfortable | [projects-export-light-comfortable.png](references/dialogs/projects-export-light-comfortable.png) | [workflows-light-comfortable.png](references/dialogs/workflows-light-comfortable.png) | [other-light-comfortable.png](references/dialogs/other-light-comfortable.png) |
+| Dark, compact      | [projects-export-dark-compact.png](references/dialogs/projects-export-dark-compact.png)           | [workflows-dark-compact.png](references/dialogs/workflows-dark-compact.png)           | [other-dark-compact.png](references/dialogs/other-dark-compact.png)           |
+| Light, compact     | [projects-export-light-compact.png](references/dialogs/projects-export-light-compact.png)         | [workflows-light-compact.png](references/dialogs/workflows-light-compact.png)         | [other-light-compact.png](references/dialogs/other-light-compact.png)         |
+
+Decision: **approved**. The findings returned on the way, each now a rule of the language:
+
+- **Every word is natural British English**, written as a person would say it, plainly and kindly,
+  with none of the tropes of machine writing.
+- **A dialogue's title is terse**, a few words such as "File already exists"; its explanation is
+  body text, never the title.
+- **Button positions are the same everywhere**: the safe action first, and a destructive action
+  last, at the trailing end, after Cancel or Keep.
+- **A template field highlights its tokens.** Opt-in on the text field: each known token is drawn
+  as an accent token at the text's own metrics, its modifier after the colon in the accent turned
+  towards violet and a step quieter, and an unknown token in the danger colour with a wavy
+  underline. A brace typed twice is one literal brace, drawn as plain text.
+- **A template field lists and explains its tokens.** A braces button inside its trailing end opens
+  the tokens its caller gives it, in two columns, the token and a short description; choosing one
+  inserts it at the caret. The highlighted row, and any token in the field under the pointer, shows
+  a rich tooltip with the full description and an example; an unknown token's tooltip says why it is
+  red and how to write a brace itself.
+
+The game-audio references are rendered again with the token rules applied to the Inspector's naming
+template.
+
 ## Editing-latency baseline
 
 Recorded on 2026-10-16 from the unchanged application, before any Phase 16 change to a surface:
