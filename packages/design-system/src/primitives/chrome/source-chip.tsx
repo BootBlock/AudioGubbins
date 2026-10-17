@@ -5,12 +5,14 @@
 
 import type { ReactNode } from 'react';
 
+import { Icon, IconSize } from '../../icons/icon.js';
+
 /** Where a value comes from. */
 export const ValueSource = {
   /** Set on the thing being inspected: the accent on its fill. */
   Set: 'set',
 
-  /** Taken from something above it: quiet. */
+  /** Taken from something above it: quiet, after an up arrow. */
   Inherited: 'inherited',
 
   /** Not set anywhere: disabled text in a dashed edge. */
@@ -32,6 +34,7 @@ export interface SourceChipProps {
 export function SourceChip({ source, children }: SourceChipProps): ReactNode {
   return (
     <span className="ag-source-chip" data-ag-source={source}>
+      {source === ValueSource.Inherited && <Icon name="inherited" size={IconSize.Inline} />}
       {children}
     </span>
   );

@@ -26,6 +26,7 @@ import { __iconData as appWindowGlyph } from 'lucide-react/dist/esm/icons/app-wi
 import { __iconData as archiveGlyph } from 'lucide-react/dist/esm/icons/archive.mjs';
 import { __iconData as archiveXGlyph } from 'lucide-react/dist/esm/icons/archive-x.mjs';
 import { __iconData as arrowRightGlyph } from 'lucide-react/dist/esm/icons/arrow-right.mjs';
+import { __iconData as arrowUpGlyph } from 'lucide-react/dist/esm/icons/arrow-up.mjs';
 import { __iconData as arrowUpRightGlyph } from 'lucide-react/dist/esm/icons/arrow-up-right.mjs';
 import { __iconData as audioLinesGlyph } from 'lucide-react/dist/esm/icons/audio-lines.mjs';
 import { __iconData as audioWaveformGlyph } from 'lucide-react/dist/esm/icons/audio-waveform.mjs';
@@ -228,6 +229,7 @@ const VOCABULARY = {
   saved: stroked(checkGlyph),
   'not-saved': stroked(circleXGlyph),
   'read-only': stroked(lockGlyph),
+  inherited: stroked(arrowUpGlyph),
   recovered: stroked(lifeBuoyGlyph),
   verified: stroked(shieldCheckGlyph),
   'diagnostic-mode': stroked(radioGlyph),

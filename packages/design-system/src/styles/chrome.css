@@ -356,6 +356,7 @@
 .ag-source-chip {
   display: inline-flex;
   align-items: center;
+  gap: var(--ag-space-micro);
   padding: 0 calc(var(--ag-grid-unit) * 3.5);
   border: 1px solid transparent;
   border-radius: var(--ag-radius-full);

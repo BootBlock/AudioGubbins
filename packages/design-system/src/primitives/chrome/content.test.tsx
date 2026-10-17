@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { List, ListRow } from './list.js';
 import { PropertyGrid } from './property-grid.js';
+import { SourceChip, ValueSource } from './source-chip.js';
 import { Table } from './table.js';
 import { Verdict } from './verdict.js';
 
@@ -35,6 +36,24 @@ describe('PropertyGrid', () => {
     const chip = screen.getByText('Inherited from Footsteps');
     expect(chip).toHaveAttribute('data-ag-source', 'inherited');
     expect(chip.closest('dd')).toBe(values[1]);
+  });
+});
+
+describe('SourceChip', () => {
+  it('draws an up arrow before an inherited value, and none before a set or an unset one', () => {
+    // The language tells an inherited value by its glyph as well as by its
+    // quiet fill, which a reader in forced colours or with low colour vision
+    // may not see.
+    const glyphIn = (source: ValueSource): Element | null => {
+      const { container, unmount } = render(<SourceChip source={source}>Value</SourceChip>);
+      const glyph = container.querySelector('.ag-source-chip > svg.ag-icon');
+      unmount();
+      return glyph;
+    };
+
+    expect(glyphIn(ValueSource.Inherited)).not.toBeNull();
+    expect(glyphIn(ValueSource.Set)).toBeNull();
+    expect(glyphIn(ValueSource.Unset)).toBeNull();
   });
 });
 
