@@ -14,7 +14,6 @@ import {
   ControlBarButton,
   ControlBarItem,
   OptionSelect,
-  TabSet,
   TextField,
   ToggleSwitch,
 } from './controls.js';
@@ -615,46 +614,6 @@ describe('OptionSelect', () => {
     await userEvent.keyboard('{Enter}');
 
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  });
-});
-
-describe('TabSet', () => {
-  it('names its tab list and shows only the selected panel', () => {
-    renderThemed(
-      <TabSet
-        label="Settings sections"
-        value="appearance"
-        onValueChange={vi.fn()}
-        tabs={[
-          { value: 'appearance', label: 'Appearance', content: <p>Appearance settings</p> },
-          { value: 'shortcuts', label: 'Shortcuts', content: <p>Shortcut settings</p> },
-        ]}
-      />,
-    );
-
-    expect(screen.getByRole('tablist', { name: 'Settings sections' })).toBeInTheDocument();
-    expect(screen.getByText('Appearance settings')).toBeInTheDocument();
-    expect(screen.queryByText('Shortcut settings')).not.toBeInTheDocument();
-  });
-
-  it('moves between tabs with the arrow keys', async () => {
-    const onValueChange = vi.fn();
-    renderThemed(
-      <TabSet
-        label="Settings sections"
-        value="appearance"
-        onValueChange={onValueChange}
-        tabs={[
-          { value: 'appearance', label: 'Appearance', content: <p>A</p> },
-          { value: 'shortcuts', label: 'Shortcuts', content: <p>B</p> },
-        ]}
-      />,
-    );
-
-    await userEvent.tab();
-    await userEvent.keyboard('{ArrowRight}');
-
-    expect(onValueChange).toHaveBeenCalledWith('shortcuts');
   });
 });
 

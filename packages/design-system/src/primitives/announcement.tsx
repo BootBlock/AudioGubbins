@@ -24,6 +24,11 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { Icon } from '../icons/icon.js';
+import type { IconName } from '../icons/vocabulary.js';
+import { afterAnimations } from './chrome/after-animations.js';
+import { Notice, NoticeTone } from './chrome/notice.js';
+
 /** Something to say to a screen reader. */
 export interface LiveAnnouncement {
   /** British-English text, a sentence. */
@@ -315,6 +320,11 @@ export function NoticeSurface({ durationMs }: NoticeSurfaceProps): ReactNode {
   // put into a state the channel already describes.
   const [dismissed, setDismissed] = useState<number | undefined>(undefined);
 
+  // Which notice is on its way out: drawn sliding away until its leaving
+  // animation has run, and only then taken away.
+  const [leaving, setLeaving] = useState<number | undefined>(undefined);
+  const card = useRef<HTMLDivElement>(null);
+
   const shown =
     notice !== undefined &&
     owner?.by === 'the page' &&
@@ -326,29 +336,77 @@ export function NoticeSurface({ durationMs }: NoticeSurfaceProps): ReactNode {
   useEffect(() => {
     if (shown === undefined) return undefined;
 
-    const lasting = shown.urgent || shown.refusal === true;
-    const stay = durationMs ?? noticeDuration(shown.text, lasting);
-    const timer = setTimeout(() => {
-      setDismissed(shown.sequence);
-    }, stay);
+    const timer = setTimeout(
+      () => {
+        setLeaving(shown.sequence);
+      },
+      stayOf(shown, durationMs),
+    );
 
     return () => {
       clearTimeout(timer);
     };
   }, [shown, durationMs]);
 
+  // A layout effect, so the closing state is on the element, and its leaving
+  // animation started, before the animations are read.
+  useLayoutEffect(() => {
+    if (shown === undefined || leaving !== shown.sequence) return undefined;
+    const sequence = shown.sequence;
+    return afterAnimations(card.current, () => {
+      setDismissed(sequence);
+    });
+  }, [shown, leaving]);
+
   if (shown === undefined) return null;
 
   return createPortal(
-    <div
-      className="ag-notice"
-      data-ag-notice={shown.urgent ? 'urgent' : 'ordinary'}
-      aria-hidden="true"
-    >
-      {shown.text}
+    // Placed by an element of its own, so the card slides and fades within a
+    // box that stays where the page put it. Keyed by the notice, so a new one
+    // enters afresh rather than taking over the card of the one before.
+    <div className="ag-notice-place" key={shown.sequence}>
+      <Notice
+        ref={card}
+        tone={noticeTone(shown)}
+        urgent={shown.urgent}
+        icon={noticeGlyph(shown)}
+        title={shown.text}
+        durationMs={stayOf(shown, durationMs)}
+        leaving={leaving === shown.sequence}
+        hidden
+        onDismiss={() => {
+          setLeaving(shown.sequence);
+        }}
+      />
     </div>,
     document.body,
   );
+}
+
+/** How long a notice stays: as long as its caller says, or as it takes to read. */
+function stayOf(announcement: LiveAnnouncement, durationMs: number | undefined): number {
+  return (
+    durationMs ??
+    noticeDuration(announcement.text, announcement.urgent || announcement.refusal === true)
+  );
+}
+
+/**
+ * How an announcement is drawn: an urgent one as an error, a refusal spoken
+ * politely as the warning an unavailable command's reason is drawn in, and
+ * anything else as information.
+ */
+function noticeTone(announcement: LiveAnnouncement): NoticeTone {
+  if (announcement.urgent) return NoticeTone.Error;
+  if (announcement.refusal === true) return NoticeTone.Warning;
+  return NoticeTone.Information;
+}
+
+/** The glyph an announcement is drawn with: a refusal's is the refused mark. */
+function noticeGlyph(announcement: LiveAnnouncement): IconName {
+  if (announcement.refusal === true) return 'refused';
+  if (announcement.urgent) return 'error';
+  return 'information';
 }
 
 /**
@@ -427,8 +485,10 @@ export function DialogueNotice({ dialogue }: { readonly dialogue: string }): Rea
       ref={line}
       className="ag-dialog-notice"
       data-ag-notice={shown.urgent ? 'urgent' : 'ordinary'}
+      data-ag-tone={noticeTone(shown)}
     >
-      {shown.text}
+      <Icon name={noticeGlyph(shown)} className="ag-dialog-notice-glyph" />
+      <span className="ag-dialog-notice-text">{shown.text}</span>
     </p>
   );
 }

@@ -1,0 +1,1329 @@
+/*
+ * The chrome around content: tabs, panels and their headers, sections,
+ * property grids, lists, tables, badges and chips, the empty, loading and
+ * error states, notices and banners (design language, sections 6, 9, 10 and
+ * 11, and MotionSpec).
+ *
+ * Every value reads a token. A length the language states that no token
+ * carries is written as a multiple of `--ag-grid-unit`, the 2 px every box is
+ * laid out in; a hairline is 1px, and a share of a token colour is a
+ * percentage inside `color-mix()`, as the language states it.
+ *
+ * A state the inventory forces is matched beside the real one: each hover,
+ * press and active rule names the pseudo-class and the `data-ag-force-state`
+ * the inventory sets on a specimen's wrapper, so the forced state is drawn by
+ * the same rule as the real one. The focus ring is the one ring of
+ * `tokens.css`, which no rule here redraws: an edge on a control that takes
+ * focus is a border, never a box shadow, so the ring's band is never lost.
+ *
+ * What moves names the properties it moves and takes its duration from the
+ * motion tokens, which are 0 at the Minimal level; a loop is selected only at
+ * the level the language gives it.
+ */
+
+/* Tabs. */
+
+/* Wrapped, because a dialogue is as wide as the window lets it be. Five
+   triggers padded on both sides are wider than the content box of a dialogue at
+   a 320-pixel viewport, and a flex row with no wrap and no scroller would
+   overflow it in both directions at once: the tab a reader wanted would be off
+   the side, and the only thing that could scroll to it would be the dialogue,
+   which is what WCAG 1.4.10 is about. Wrapping needs no scroller and leaves the
+   keyboard order alone. */
+.ag-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+.ag-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ag-grid-unit) * 4);
+  block-size: var(--ag-control-height);
+  padding-inline: calc(var(--ag-grid-unit) * 5);
+  border: 1px solid transparent;
+  border-radius: var(--ag-radius-control);
+  background-color: transparent;
+  color: var(--ag-chrome-text-secondary);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-control);
+  cursor: pointer;
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-tab:is(:hover, [data-ag-force-state='hover'] *) {
+  background-color: var(--ag-chrome-fill-hover);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-tab:is(:active, [data-ag-force-state='pressed'] *) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
+/* The active tab: a translucent wash of the accent with a faint accent edge,
+   its glyph in the accent (design language, section 6). The wash is a stronger
+   share in the dark theme, where the accent is lighter than its surface. */
+.ag-tab[data-state='active'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 24%, transparent);
+  color: var(--ag-chrome-text-primary);
+  transition-duration: var(--ag-motion-quick);
+}
+
+[data-ag-theme='light'] .ag-tab[data-state='active'] {
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 16%, transparent);
+}
+
+.ag-tab > .ag-icon {
+  transition: color var(--ag-motion-quick) var(--ag-motion-ease-out);
+}
+
+.ag-tab[data-state='active'] > .ag-icon {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-tab-panel {
+  padding-block-start: var(--ag-space-inset);
+}
+
+/* Panels: glass, one inset on every side, and nested corners. */
+
+.ag-glass-panel {
+  /* The surface a focus ring's gap is painted in, so the gap reads as space
+     round the control rather than as a second ring. */
+  --ag-focus-ring-surface: var(--ag-chrome-surface-base);
+
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+  border: 1px solid var(--ag-elevation-panel-edge);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-panel-fill);
+  color: var(--ag-chrome-text-primary);
+  box-shadow: var(--ag-elevation-panel-shadow);
+  backdrop-filter: var(--ag-elevation-panel-backdrop);
+}
+
+/* The header in the panel's inset. Its foot gives up the focus ring's reach
+   to the body, which pads its top by that reach so a ring on its first control
+   is not cut by the body's scrolling: the space between them is still one
+   inset. */
+.ag-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  padding: var(--ag-space-inset);
+  padding-block-end: calc(var(--ag-space-inset) - var(--ag-focus-ring-reach));
+}
+
+/* The panel's title, drawn as its own active tab. */
+.ag-panel-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ag-grid-unit) * 4);
+  block-size: var(--ag-control-height);
+  margin: 0;
+  padding-inline: calc(var(--ag-grid-unit) * 5);
+  border: 1px solid color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 24%, transparent);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-control);
+  line-height: var(--ag-text-line-height-heading);
+}
+
+[data-ag-theme='light'] .ag-panel-heading {
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 16%, transparent);
+}
+
+.ag-panel-heading > .ag-icon {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-panel-sub-label {
+  min-inline-size: 0;
+  margin-inline-start: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+.ag-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  margin-inline-start: auto;
+}
+
+.ag-panel-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+  min-block-size: 0;
+  padding: var(--ag-focus-ring-reach) var(--ag-space-inset) var(--ag-space-inset);
+  overflow: auto;
+}
+
+.ag-glass-panel > .ag-panel-body:first-child {
+  padding-block-start: var(--ag-space-inset);
+}
+
+/* A state in the body is centred in what is left of the panel. */
+.ag-panel-body > .ag-empty-state:only-child {
+  flex: 1;
+}
+
+/* Sections: a hairline above a quiet header, opening and closing. */
+
+.ag-section {
+  display: grid;
+  padding-block-start: var(--ag-space-inset);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-block-size: calc(var(--ag-grid-unit) * 11);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-section-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ag-radius-small);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--ag-motion-instant) var(--ag-motion-ease-out);
+}
+
+.ag-section-trigger:is(:hover, [data-ag-force-state='hover'] *) {
+  color: var(--ag-chrome-text-primary);
+}
+
+/* The chevron points along the line while closed, so towards the start of a
+   right-to-left line, and down while open. It turns only at the full level:
+   below it, a state change is colour and opacity alone. */
+.ag-section-chevron:dir(rtl) {
+  scale: -1 1;
+}
+
+.ag-section[data-state='open'] .ag-section-chevron {
+  rotate: 90deg;
+}
+
+[data-ag-motion='full'] .ag-section-chevron {
+  transition: rotate var(--ag-motion-quick) var(--ag-motion-ease-out);
+}
+
+/* A summary is never cut short: it wraps under the title where it must. */
+.ag-section-summary {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  color: var(--ag-chrome-text-disabled);
+  font-weight: var(--ag-text-weight-quiet);
+  overflow-wrap: anywhere;
+}
+
+.ag-section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin-inline-start: auto;
+}
+
+.ag-section-inner {
+  display: grid;
+  gap: var(--ag-space-inset);
+  padding-block: var(--ag-space-inset) var(--ag-space-tiny);
+}
+
+/* Opening and closing. Radix keeps closed content in place until its
+   animation ends and measures the open height for it. Clipped only while it
+   moves, so a glow or a focus ring inside is never cut once it rests. */
+[data-ag-motion='full'] .ag-section-content[data-state='open'] {
+  animation: ag-section-open var(--ag-motion-moderate) var(--ag-motion-ease-out);
+}
+
+[data-ag-motion='full'] .ag-section-content[data-state='closed'] {
+  animation: ag-section-close var(--ag-motion-quick) var(--ag-motion-ease-in);
+}
+
+[data-ag-motion='reduced'] .ag-section-content[data-state='open'] {
+  animation: ag-fade-in var(--ag-motion-moderate) var(--ag-motion-ease-out);
+}
+
+[data-ag-motion='reduced'] .ag-section-content[data-state='closed'] {
+  animation: ag-fade-out var(--ag-motion-quick) var(--ag-motion-ease-in);
+}
+
+@keyframes ag-section-open {
+  from {
+    block-size: 0;
+    opacity: 0;
+    overflow: clip;
+  }
+
+  to {
+    block-size: var(--radix-collapsible-content-height);
+    overflow: clip;
+  }
+}
+
+@keyframes ag-section-close {
+  from {
+    block-size: var(--radix-collapsible-content-height);
+    overflow: clip;
+  }
+
+  to {
+    block-size: 0;
+    opacity: 0;
+    overflow: clip;
+  }
+}
+
+@keyframes ag-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ag-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Property grids: labels down one edge, values down the other. */
+
+.ag-property-grid {
+  display: grid;
+  grid-template-columns: fit-content(50%) minmax(0, 1fr);
+  gap: var(--ag-space-small) calc(var(--ag-grid-unit) * 6);
+  margin: 0;
+}
+
+.ag-property-row {
+  display: contents;
+}
+
+.ag-property-label {
+  min-inline-size: 0;
+  color: var(--ag-chrome-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* A value is never cut short: it wraps, breaking a long path or token
+   anywhere, and its source chip follows it. */
+.ag-property-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--ag-space-tiny);
+  min-inline-size: 0;
+  margin: 0;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.ag-property-value-text {
+  min-inline-size: 0;
+}
+
+/* Source chips. The padding centres one line of text in the chip, which the
+   language exempts from the grid (section 1). */
+
+.ag-source-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 calc(var(--ag-grid-unit) * 3.5);
+  border: 1px solid transparent;
+  border-radius: var(--ag-radius-full);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  line-height: var(--ag-text-line-height-tight);
+  text-align: start;
+}
+
+.ag-source-chip[data-ag-source='set'] {
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent-text);
+}
+
+.ag-source-chip[data-ag-source='inherited'] {
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-source-chip[data-ag-source='unset'] {
+  border-style: dashed;
+  border-color: var(--ag-chrome-edge-quiet);
+  color: var(--ag-chrome-text-disabled);
+}
+
+/* Lists. */
+
+.ag-list {
+  display: grid;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-list-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+  padding: calc(var(--ag-grid-unit) * 2) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  transition-property: background-color, opacity, translate;
+  transition-duration:
+    var(--ag-motion-instant), var(--ag-motion-moderate), var(--ag-motion-moderate);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+/* A row that arrives fades in from just above its place. Below the full level
+   the travel token is 0, so it only fades; at Minimal it is there at once. */
+@starting-style {
+  .ag-list-row {
+    opacity: 0;
+    translate: 0 calc(var(--ag-motion-distance-small) * -1);
+  }
+}
+
+.ag-list-row[data-ag-lines='two'] {
+  min-block-size: var(--ag-control-row-height);
+}
+
+.ag-list-row[data-ag-nested] {
+  margin-inline-start: calc(var(--ag-space-inset) + var(--ag-grid-unit) * 9);
+}
+
+.ag-list-row:is(:hover, [data-ag-force-state='hover'] *):not([data-ag-chosen]) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-list-row-leading {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-list-row[data-ag-chosen] .ag-list-row-leading {
+  color: var(--ag-chrome-accent);
+  filter: drop-shadow(
+    0 0 calc(var(--ag-grid-unit) * 2) color-mix(in oklch, var(--ag-chrome-accent) 70%, transparent)
+  );
+}
+
+.ag-list-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+/* A name wraps rather than being cut short (design language, section 13). */
+.ag-list-row-name {
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+.ag-list-row-detail {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ag-list-row[data-ag-refused] .ag-list-row-leading,
+.ag-list-row[data-ag-refused] .ag-list-row-detail {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-list-row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  margin-inline-start: auto;
+}
+
+/* The compact density sets a row on one line, its second line beside its
+   name (design language, section 10). */
+[data-ag-density='compact'] .ag-list-row[data-ag-lines='two'] {
+  min-block-size: var(--ag-control-height);
+}
+
+[data-ag-density='compact'] .ag-list-row-text {
+  flex-flow: row wrap;
+  align-items: baseline;
+  column-gap: var(--ag-space-small);
+}
+
+/*
+ * PROVISIONAL, to be replaced at the merge: the lit edge of a chosen row is
+ * the shared rule of `styles/lit-edge.css`, which another part of this work
+ * writes. Until it is here, this draws the same thing from the same tokens,
+ * so a chosen row is not drawn unchosen. Delete this block, the rule below it
+ * and its forced-colours twin when `lit-edge.css` arrives.
+ */
+.ag-lit-edge {
+  background-image: var(--ag-effect-lit-wash);
+  box-shadow: var(--ag-effect-lit-glow);
+}
+
+.ag-lit-edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--ag-effect-lit-edge);
+  mask:
+    linear-gradient(currentColor, currentColor) content-box exclude,
+    linear-gradient(currentColor, currentColor);
+  pointer-events: none;
+}
+
+/* Tables. */
+
+/* Wider than its panel, a table scrolls in its frame rather than being cut
+   or pushing the panel wider. */
+.ag-table-frame {
+  max-inline-size: 100%;
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  overflow-x: auto;
+}
+
+.ag-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: inherit;
+}
+
+/* Columns sit one medium space apart, and the first and last one inset from
+   the frame's sides. */
+.ag-table :is(th, td) {
+  padding-inline: 0 var(--ag-space-medium);
+  text-align: start;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.ag-table :is(th, td):first-child {
+  padding-inline-start: var(--ag-space-inset);
+}
+
+.ag-table :is(th, td):last-child {
+  padding-inline-end: var(--ag-space-inset);
+}
+
+.ag-table th {
+  padding-block: calc(var(--ag-grid-unit) * 3);
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+.ag-table td {
+  block-size: calc(var(--ag-control-height) + var(--ag-grid-unit) * 2);
+  padding-block: calc(var(--ag-grid-unit) * 2);
+}
+
+.ag-table tbody tr + tr td {
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-table [data-ag-kind='numeric'] {
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.ag-table td[data-ag-kind='verdict'] {
+  line-height: var(--ag-text-line-height-tight);
+}
+
+/* A verdict: its glyph held at the first line, its words wrapping. */
+
+.ag-verdict {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-verdict > :is(.ag-icon, .ag-spinner) {
+  flex: none;
+  margin-block-start: calc((1lh - var(--ag-icon-size-inline)) / 2);
+}
+
+.ag-verdict[data-ag-verdict='passes'] {
+  color: var(--ag-chrome-status-success);
+}
+
+.ag-verdict[data-ag-verdict='warns'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-verdict[data-ag-verdict='fails'] {
+  color: var(--ag-chrome-status-error);
+}
+
+/* Badges. The padding centres one line of text in the pill, which the
+   language exempts from the grid (section 1). */
+
+.ag-badge {
+  --ag-badge-tone: var(--ag-chrome-text-secondary);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  padding: 1px calc(var(--ag-grid-unit) * 3.5);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  line-height: var(--ag-text-line-height-tight);
+  white-space: nowrap;
+}
+
+.ag-badge:not([data-ag-tone='neutral']) {
+  border-color: color-mix(in oklch, var(--ag-badge-tone) 35%, transparent);
+  background-color: color-mix(in oklch, var(--ag-badge-tone) 14%, transparent);
+  color: var(--ag-badge-tone);
+}
+
+/* The accent as small text is held to body contrast by its own token. */
+.ag-badge[data-ag-tone='accent'] {
+  --ag-badge-tone: var(--ag-chrome-accent);
+
+  color: var(--ag-chrome-accent-text);
+}
+
+.ag-badge[data-ag-tone='success'] {
+  --ag-badge-tone: var(--ag-chrome-status-success);
+}
+
+.ag-badge[data-ag-tone='warning'] {
+  --ag-badge-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-badge[data-ag-tone='error'] {
+  --ag-badge-tone: var(--ag-chrome-status-error);
+}
+
+/* Status chips: a state in its colour at about a fifth, with a translucent
+   edge (design language, section 10, "Status item"). */
+
+.ag-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-block-size: calc(var(--ag-grid-unit) * 11);
+  padding-inline: calc(var(--ag-grid-unit) * 4);
+  border: 1px solid transparent;
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-status-chip[data-ag-tone='success'] {
+  color: var(--ag-chrome-status-success);
+}
+
+.ag-status-chip[data-ag-tone='accent'] {
+  border-color: var(--ag-chrome-edge-accent);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent-text);
+}
+
+.ag-status-chip[data-ag-tone='warning'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-warning) 30%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-status-warning) 12%, transparent);
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-status-chip[data-ag-tone='error'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-error) 30%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 12%, transparent);
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-status-chip[data-ag-tone='recording'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-recording) 38%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-status-recording) 20%, transparent);
+  color: var(--ag-chrome-text-primary);
+}
+
+/* The recording lamp: lit whatever the level, so recording never looks off;
+   its glow breathes at the full level only. */
+.ag-status-chip-lamp {
+  flex: none;
+  inline-size: calc(var(--ag-grid-unit) * 4);
+  block-size: calc(var(--ag-grid-unit) * 4);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-status-recording);
+  box-shadow:
+    0 0 0 calc(var(--ag-grid-unit) * 1.5)
+      color-mix(in oklch, var(--ag-chrome-status-recording) 25%, transparent),
+    0 0 calc(var(--ag-grid-unit) * 5) var(--ag-chrome-status-recording);
+}
+
+[data-ag-motion='full'] .ag-status-chip-lamp {
+  animation: ag-recording-breath var(--ag-motion-loop-recording) var(--ag-motion-ease-in-out)
+    infinite alternate;
+}
+
+@keyframes ag-recording-breath {
+  to {
+    box-shadow:
+      0 0 0 calc(var(--ag-grid-unit) * 1.5)
+        color-mix(in oklch, var(--ag-chrome-status-recording) 25%, transparent),
+      0 0 calc(var(--ag-grid-unit) * 7.5) var(--ag-chrome-status-recording);
+  }
+}
+
+/* Key caps. The padding centres one character in the cap, which the language
+   exempts from the grid (section 1); a shortcut's tracking is a third of the
+   capitals'. */
+
+.ag-key-cap {
+  display: inline-block;
+  padding: 0 calc(var(--ag-grid-unit) * 2.5);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-secondary);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  letter-spacing: calc(var(--ag-text-tracking-caps) / 3);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+/* Empty, warning and error states: one layout in three colours. */
+
+.ag-empty-state {
+  --ag-empty-state-tone: var(--ag-chrome-accent);
+
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: calc(var(--ag-grid-unit) * 4);
+  padding: var(--ag-space-huge) calc(var(--ag-grid-unit) * 10);
+  text-align: center;
+}
+
+.ag-empty-state[data-ag-tone='warning'] {
+  --ag-empty-state-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-empty-state[data-ag-tone='error'] {
+  --ag-empty-state-tone: var(--ag-chrome-status-error);
+}
+
+.ag-empty-state-mark {
+  display: grid;
+  place-items: center;
+  inline-size: var(--ag-state-mark-size);
+  block-size: var(--ag-state-mark-size);
+  border-radius: var(--ag-radius-full);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--ag-empty-state-tone) 22%, transparent),
+    transparent 70%
+  );
+  color: var(--ag-empty-state-tone);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ag-empty-state-tone) 30%, transparent);
+}
+
+.ag-empty-state-title {
+  margin: 0;
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-strong);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-empty-state-text {
+  max-inline-size: calc(var(--ag-grid-unit) * 150);
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--ag-grid-unit) * 4);
+  margin-block-start: var(--ag-space-small);
+}
+
+/* Skeletons: the content's shape, shimmering at the full level and pulsing in
+   place at Reduced. */
+
+.ag-skeleton {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-skeleton-line {
+  display: block;
+  inline-size: calc(var(--ag-skeleton-width) * 100%);
+  block-size: var(--ag-text-label);
+  border-radius: var(--ag-radius-small);
+  background-image: var(--ag-effect-skeleton);
+  background-size: 200% 100%;
+}
+
+[data-ag-motion='full'] .ag-skeleton-line {
+  animation: ag-shimmer var(--ag-motion-loop-shimmer) linear infinite;
+}
+
+[data-ag-motion='reduced'] .ag-skeleton-line {
+  animation: ag-pulse var(--ag-motion-loop-shimmer) var(--ag-motion-ease-in-out) infinite alternate;
+}
+
+@keyframes ag-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes ag-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+
+/* Spinners: a ring of the accent at a fifth with the accent on its top
+   quarter, at an icon's size. */
+
+.ag-spinner {
+  --ag-spinner-size: var(--ag-control-icon-size);
+
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  inline-size: var(--ag-spinner-size);
+  block-size: var(--ag-spinner-size);
+  border: var(--ag-grid-unit) solid color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent);
+  border-block-start-color: var(--ag-chrome-accent);
+  border-radius: var(--ag-radius-full);
+}
+
+/* In a status item: smaller, with a finer ring. */
+.ag-spinner[data-ag-size='small'] {
+  --ag-spinner-size: var(--ag-icon-size-small);
+
+  border-width: calc(var(--ag-grid-unit) * 0.75);
+}
+
+.ag-spinner[data-ag-size='inline'] {
+  --ag-spinner-size: var(--ag-icon-size-inline);
+}
+
+.ag-spinner[data-ag-size='feature'] {
+  --ag-spinner-size: var(--ag-icon-size-feature);
+}
+
+.ag-spinner[data-ag-size='mark'] {
+  --ag-spinner-size: var(--ag-icon-size-mark);
+}
+
+[data-ag-motion='full'] .ag-spinner {
+  animation: ag-spin var(--ag-motion-loop-spinner) linear infinite;
+}
+
+/* At half speed: it turns in place and never moves across the screen. */
+[data-ag-motion='reduced'] .ag-spinner {
+  animation: ag-spin calc(var(--ag-motion-loop-spinner) * 2) linear infinite;
+}
+
+@keyframes ag-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Progress bars: a recessed track and a fill of the call to action's gradient
+   with a sheen and an accent glow. The glow is not clipped: only an
+   indeterminate bar clips along its length, where its segment passes out of
+   the track. */
+
+.ag-progress {
+  --ag-progress-track: calc(var(--ag-grid-unit) * 3);
+  --ag-progress-sign: 1;
+
+  position: relative;
+  block-size: var(--ag-progress-track);
+  border-radius: calc(var(--ag-progress-track) / 2);
+  background-color: color-mix(in oklch, var(--ag-chrome-surface-sunken) 75%, black);
+  box-shadow: inset 0 1px var(--ag-grid-unit) var(--ag-chrome-shadow);
+}
+
+[data-ag-theme='light'] .ag-progress {
+  background-color: color-mix(in oklch, var(--ag-chrome-surface-sunken) 90%, black);
+}
+
+.ag-progress:dir(rtl) {
+  --ag-progress-sign: -1;
+}
+
+.ag-progress[data-ag-place='row'] {
+  --ag-progress-track: calc(var(--ag-grid-unit) * 1.5);
+}
+
+.ag-progress[data-ag-place='dialogue'] {
+  --ag-progress-track: calc(var(--ag-grid-unit) * 4);
+}
+
+.ag-progress-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: calc(var(--ag-progress-value, 0) * 100%);
+  border-radius: inherit;
+  background-image: var(--ag-effect-progress-sheen), var(--ag-effect-cta-fill);
+  background-size:
+    200% 100%,
+    100% 100%;
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 5) var(--ag-chrome-accent);
+  transition: inline-size var(--ag-motion-moderate) var(--ag-motion-ease-out);
+}
+
+[data-ag-motion='full'] .ag-progress-fill {
+  animation: ag-sheen var(--ag-motion-loop-shimmer) linear infinite;
+}
+
+@keyframes ag-sheen {
+  from {
+    background-position:
+      100% 0,
+      0 0;
+  }
+
+  to {
+    background-position:
+      -100% 0,
+      0 0;
+  }
+}
+
+/* Indeterminate: a segment a little over a third of the track. It passes
+   along the track at the full level, pulses in place at Reduced, and stands
+   still at Minimal, where the words beside it say what is happening. */
+.ag-progress[data-state='indeterminate'] {
+  overflow-x: clip;
+}
+
+.ag-progress[data-state='indeterminate'] .ag-progress-fill {
+  inline-size: 35%;
+  inset-inline-start: 32.5%;
+}
+
+[data-ag-motion='full'] .ag-progress[data-state='indeterminate'] .ag-progress-fill {
+  inset-inline-start: 0;
+  animation:
+    ag-progress-pass var(--ag-motion-loop-indeterminate) var(--ag-motion-ease-in-out) infinite,
+    ag-sheen var(--ag-motion-loop-shimmer) linear infinite;
+}
+
+[data-ag-motion='reduced'] .ag-progress[data-state='indeterminate'] .ag-progress-fill {
+  animation: ag-pulse var(--ag-motion-loop-indeterminate) var(--ag-motion-ease-in-out) infinite
+    alternate;
+}
+
+/* From just before the track's start to just past its end: the segment is
+   35% of the track, so the track's end is 100% / 0.35 of the segment along. */
+@keyframes ag-progress-pass {
+  from {
+    translate: calc(-100% * var(--ag-progress-sign)) 0;
+  }
+
+  to {
+    translate: calc(100% / 0.35 * var(--ag-progress-sign)) 0;
+  }
+}
+
+/* Notices. */
+
+/*
+ * Where the notice over the page is placed: its own box, so the card slides
+ * and fades within a place that stays put.
+ *
+ * Portalled into the document body and given a stacking order, so it is drawn
+ * above the workspace and clear of the status bar, at the trailing edge it
+ * slides in from. A notice raised while a dialogue is open is the dialogue's,
+ * and is shown in its footer (`.ag-dialog-notice` below).
+ */
+.ag-notice-place {
+  position: fixed;
+
+  /* Clear of the home indicator, and of the status bar. The bars around the
+     workspace reserve the safe area, and the notice is drawn over the workspace
+     rather than in them. Placed at the bottom with no room kept for the bar,
+     it would cover the status bar and the Dismiss buttons in it for as long as
+     it stayed, which is WCAG 2.4.11 for anything focused there. The bar's
+     drawn height is written to `--ag-status-bar-drawn-block-size` as it
+     changes, because the bar wraps and can grow to a third of the screen,
+     where the strip's designed height, `--ag-status-bar-block-size`, is only
+     its least. Absent while no bar is drawn, so no room is kept for one. */
+  inset-block-end: calc(
+    var(--ag-status-bar-drawn-block-size, 0px) + var(--ag-space-large) +
+      env(safe-area-inset-bottom, 0px)
+  );
+  inset-inline-end: var(--ag-space-gutter);
+  max-inline-size: calc(100% - var(--ag-space-gutter) * 2);
+
+  /* Above the workspace. The workspace keeps the docking engine's own
+     stacking orders inside it (`.ag-workspace` in the shell's stylesheet),
+     so a floating panel, which the engine stacks at 999, is drawn under the
+     notice. A notice raised while a dialogue is open is shown in the
+     dialogue, so this one is never over a dialogue. */
+  z-index: 100;
+
+  /* The pointer goes through it, but for its close button. A notice that
+     swallowed a click would take the one the user aimed at whatever it
+     happens to be covering. */
+  pointer-events: none;
+}
+
+/* The card: overlay glass, a glyph, what happened, and its close button. */
+.ag-notice {
+  --ag-notice-tone: var(--ag-chrome-accent);
+  --ag-notice-sign: 1;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--ag-space-medium);
+  inline-size: calc(var(--ag-grid-unit) * 190);
+  max-inline-size: 100%;
+  box-sizing: border-box;
+  padding: var(--ag-space-inset);
+  padding-inline-start: var(--ag-space-inset-leading);
+  border: 1px solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-overlay-fill);
+  color: var(--ag-chrome-text-primary);
+  box-shadow: var(--ag-elevation-overlay-shadow);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+}
+
+.ag-notice:dir(rtl) {
+  --ag-notice-sign: -1;
+}
+
+.ag-notice[data-ag-tone='success'] {
+  --ag-notice-tone: var(--ag-chrome-status-success);
+}
+
+.ag-notice[data-ag-tone='warning'] {
+  --ag-notice-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-notice[data-ag-tone='error'] {
+  --ag-notice-tone: var(--ag-chrome-status-error);
+}
+
+/* Entering, it slides in from the trailing edge from a little smaller and
+   settles on a spring; leaving, it slides back out and fades. Below the full
+   level the travel token is 0, the scale token 1 and the spring linear, so the
+   same rules only fade it; at Minimal it is there and gone at once. */
+.ag-notice[data-state='open'] {
+  animation: ag-notice-enter var(--ag-motion-moderate) var(--ag-motion-ease-spring) both;
+}
+
+.ag-notice[data-state='closed'] {
+  animation: ag-notice-leave var(--ag-motion-quick) var(--ag-motion-ease-in) forwards;
+}
+
+@keyframes ag-notice-enter {
+  from {
+    opacity: 0;
+    translate: calc(var(--ag-motion-distance-large) * var(--ag-notice-sign)) 0;
+    scale: var(--ag-motion-scale-dialogue);
+  }
+}
+
+@keyframes ag-notice-leave {
+  to {
+    opacity: 0;
+    translate: calc(var(--ag-motion-distance-large) * var(--ag-notice-sign)) 0;
+  }
+}
+
+.ag-notice-glyph {
+  margin-block-start: calc(var(--ag-grid-unit) * 2 + (1lh - var(--ag-control-icon-size)) / 2);
+  color: var(--ag-notice-tone);
+}
+
+.ag-notice-body {
+  display: grid;
+  gap: var(--ag-grid-unit);
+  min-inline-size: 0;
+  padding-block: calc(var(--ag-grid-unit) * 2);
+
+  /* A name the reader typed can be one long word, and a word that does not
+     break widens the notice past the page. */
+  overflow-wrap: anywhere;
+}
+
+.ag-notice-title {
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-notice-text {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  margin-block-start: var(--ag-space-small);
+}
+
+.ag-notice-close {
+  pointer-events: auto;
+}
+
+/* The edges inside the card, clipped by its corners: the leading bar of an
+   error, an urgent or a warning notice, and the time bar along the foot. */
+.ag-notice-edges {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--ag-radius-container) - 1px);
+  overflow: clip;
+  pointer-events: none;
+}
+
+.ag-notice:is([data-ag-notice='urgent'], [data-ag-tone='warning'], [data-ag-tone='error'])
+  > .ag-notice-edges::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: calc(var(--ag-grid-unit) * 1.5);
+  background-color: var(--ag-notice-tone);
+}
+
+/* An urgent notice of another tone takes the error's bar. */
+.ag-notice[data-ag-notice='urgent']:not([data-ag-tone='warning']) > .ag-notice-edges::before {
+  background-color: var(--ag-chrome-status-error);
+}
+
+/* The time bar runs down over the notice's time. It does at every level, since
+   it carries the time left: smoothly at the full and the reduced level, and in
+   steps of a second at Minimal, where the guard in `tokens.css` would
+   otherwise end it in a millisecond. */
+.ag-notice-time {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: var(--ag-grid-unit);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 70%, transparent);
+  transform-origin: 0 50%;
+  animation: ag-notice-time var(--ag-notice-duration) linear forwards;
+}
+
+.ag-notice-time:dir(rtl) {
+  transform-origin: 100% 50%;
+}
+
+[data-ag-motion='minimal'] .ag-notice-time {
+  animation-duration: var(--ag-notice-duration) !important;
+  animation-timing-function: steps(var(--ag-notice-seconds), end);
+}
+
+@keyframes ag-notice-time {
+  to {
+    scale: 0 1;
+  }
+}
+
+/* Banners, and the notice a dialogue shows in its own flow: its tone at a
+   high translucency over glass, a translucent edge and a soft glow of the
+   same colour. The sentence wraps and is never cut short. */
+
+.ag-banner,
+.ag-dialog-notice {
+  --ag-banner-tone: var(--ag-chrome-accent);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+  padding: var(--ag-space-inset);
+  padding-inline-start: var(--ag-space-inset-leading);
+  border: 1px solid color-mix(in oklch, var(--ag-banner-tone) 40%, transparent);
+  border-radius: var(--ag-radius-container);
+  background-color: color-mix(
+    in oklch,
+    var(--ag-banner-tone) 14%,
+    color-mix(in oklch, var(--ag-chrome-surface-base) 70%, transparent)
+  );
+  color: var(--ag-chrome-text-primary);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 12) calc(var(--ag-grid-unit) * -5)
+    var(--ag-banner-tone);
+  backdrop-filter: var(--ag-elevation-panel-backdrop);
+}
+
+:is(.ag-banner, .ag-dialog-notice)[data-ag-tone='success'] {
+  --ag-banner-tone: var(--ag-chrome-status-success);
+}
+
+:is(.ag-banner, .ag-dialog-notice)[data-ag-tone='warning'] {
+  --ag-banner-tone: var(--ag-chrome-status-warning);
+}
+
+:is(.ag-banner, .ag-dialog-notice)[data-ag-tone='error'] {
+  --ag-banner-tone: var(--ag-chrome-status-error);
+}
+
+:is(.ag-banner-glyph, .ag-dialog-notice-glyph) {
+  flex: none;
+  color: var(--ag-banner-tone);
+}
+
+.ag-banner-text,
+.ag-dialog-notice-text {
+  flex: 1 1 calc(var(--ag-grid-unit) * 60);
+  min-inline-size: 0;
+  margin: 0;
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-banner-title {
+  margin-inline-end: calc(var(--ag-grid-unit) * 4);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-banner-sentence {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  margin-inline-start: auto;
+}
+
+/* A notice raised while a dialogue is open, in the dialogue's own flow above
+   its actions rather than over the page. Over the page it would lie over part
+   of the dialogue wherever it was put, and every place covers something: the
+   actions at the foot, the title or a control at the top, and, measured beside
+   the reader's focus, it would be squeezed to a sliver once the dialogue itself
+   held focus. In the flow it covers nothing and it is as tall as what it says,
+   and in the footer it stays put while the part above it scrolls. */
+.ag-dialog-notice {
+  flex-wrap: nowrap;
+}
+
+/* Without weight, so the dialogue's own rule for a short page, which gives the
+   space round its parts up first, still takes it in. */
+:where(.ag-dialog-notice) {
+  margin: var(--ag-space-large) 0 0;
+}
+
+/*
+ * Forced colours. The browser replaces every colour with the user's own, so a
+ * state drawn by a translucent fill alone would vanish: each is given back a
+ * boundary or the pair the platform keeps for a selection.
+ */
+@media (forced-colors: active) {
+  .ag-tab[data-state='active'],
+  .ag-panel-heading {
+    border-color: Highlight;
+  }
+
+  .ag-badge,
+  .ag-status-chip,
+  .ag-source-chip,
+  .ag-key-cap,
+  .ag-glass-panel,
+  .ag-banner,
+  .ag-dialog-notice,
+  .ag-table-frame {
+    border-color: CanvasText;
+  }
+
+  /* The chosen row, which the lit edge marks in light the browser removes. */
+  .ag-list-row[data-ag-chosen] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  .ag-list-row[data-ag-chosen] * {
+    color: inherit;
+  }
+
+  .ag-spinner {
+    border-color: GrayText;
+    border-block-start-color: Highlight;
+  }
+
+  .ag-progress {
+    border: 1px solid CanvasText;
+  }
+
+  .ag-progress-fill,
+  .ag-notice-time,
+  .ag-skeleton-line {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  .ag-skeleton-line {
+    background: GrayText;
+  }
+}
