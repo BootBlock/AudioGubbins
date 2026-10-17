@@ -150,6 +150,43 @@ function Differences({
   );
 }
 
+/** What is being done, and the way to stop comparing. */
+function ComparisonHeader({ commands }: { readonly commands: PanelCommands }): ReactNode {
+  return (
+    <div className="ag-history-comparison-header">
+      <Icon name="compare" className="ag-history-comparison-glyph" />
+      <h3 className="ag-history-comparison-title">Comparing two states</h3>
+      <IconButton
+        icon="close"
+        compact
+        label="Stop comparing"
+        onClick={() => {
+          commands.run('history.close-comparison');
+        }}
+      />
+    </div>
+  );
+}
+
+/** Keeping either side, which moves the project to it with the other left in the history. */
+function Keeping({ commands }: { readonly commands: PanelCommands }): ReactNode {
+  return (
+    <div className="ag-history-buttons">
+      {SIDES.map((side) => (
+        <Button
+          key={`keep-${side}`}
+          compact
+          onClick={() => {
+            commands.run('history.promote', { side });
+          }}
+        >
+          {`Keep ${side.toUpperCase()}`}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 /** The comparison (see the module comment). */
 export function ComparisonView({
   history,
@@ -166,23 +203,11 @@ export function ComparisonView({
   readonly commands: PanelCommands;
   readonly labelFor: (id: string) => string;
 }): ReactNode {
-  const { run } = commands;
   const heard = comparison.listening.toUpperCase();
   const heardState = sideOf(history, listenedSide(comparison));
   return (
     <div role="group" className="ag-history-comparison" aria-label="Comparison">
-      <div className="ag-history-comparison-header">
-        <Icon name="compare" className="ag-history-comparison-glyph" />
-        <h3 className="ag-history-comparison-title">Comparing two states</h3>
-        <IconButton
-          icon="close"
-          compact
-          label="Stop comparing"
-          onClick={() => {
-            run('history.close-comparison');
-          }}
-        />
-      </div>
+      <ComparisonHeader commands={commands} />
       <div className="ag-history-sides">
         {SIDES.map((side) => (
           <SideCard
@@ -200,19 +225,7 @@ export function ComparisonView({
       <Hearing listening={comparison.listening} commands={commands} labelFor={labelFor} />
       <h4 className="ag-history-group-title">What differs</h4>
       <Differences comparison={comparison} difference={difference} />
-      <div className="ag-history-buttons">
-        {SIDES.map((side) => (
-          <Button
-            key={`keep-${side}`}
-            compact
-            onClick={() => {
-              run('history.promote', { side });
-            }}
-          >
-            {`Keep ${side.toUpperCase()}`}
-          </Button>
-        ))}
-      </div>
+      <Keeping commands={commands} />
     </div>
   );
 }

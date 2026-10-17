@@ -45,9 +45,9 @@ import type { RunCommand } from '../settings/section.js';
 import { CompactionReview } from './compaction-review.js';
 import { ComparisonView } from './comparison-view.js';
 import { entityNamesOf, type EntityNames } from './entity-names.js';
-import { HistoryActions } from './history-actions.js';
+import { HistoryActions, type HistoryActionsProps } from './history-actions.js';
 import { HistoryList } from './history-list.js';
-import { AffectingFilter, PointDetails } from './point-details.js';
+import { AffectingFilter, PointDetails, type PointDetailsProps } from './point-details.js';
 import { SnapshotField } from './snapshot-field.js';
 
 /** What the panel reads and runs. */
@@ -171,6 +171,52 @@ function Summary({ order, run }: { readonly order: HistoryRowOrder; readonly run
   );
 }
 
+/** The words to find points by, and the scope they are found in. */
+function FindBar({
+  text,
+  onText,
+  scope,
+  onScope,
+}: {
+  readonly text: string;
+  readonly onText: (text: string) => void;
+  readonly scope: string;
+  readonly onScope: (scope: string) => void;
+}): ReactNode {
+  return (
+    <div className="ag-history-find" role="group" aria-label="Find in the history">
+      <TextField label="Find" value={text} onValueChange={onText} />
+      <SegmentedControl
+        label="Show"
+        small
+        variant={SegmentedVariant.Icons}
+        value={scope}
+        options={SCOPES}
+        onValueChange={onScope}
+      />
+    </div>
+  );
+}
+
+/** The chosen point's card: what it affected, and what can be done at it. */
+function ChosenPoint({
+  row,
+  names,
+  affecting,
+  onAffecting,
+  ...actions
+}: PointDetailsProps & Omit<HistoryActionsProps, 'row'>): ReactNode {
+  return (
+    <HistoryActions
+      row={row}
+      {...actions}
+      details={
+        <PointDetails row={row} names={names} affecting={affecting} onAffecting={onAffecting} />
+      }
+    />
+  );
+}
+
 /** The history of the project open, found by words and a scope. */
 function OpenHistory({
   title,
@@ -200,33 +246,18 @@ function OpenHistory({
     <section className="ag-panel ag-history">
       <h2 className="ag-panel-title">{title}</h2>
       <Summary order={order} run={run} />
-      <div className="ag-history-find" role="group" aria-label="Find in the history">
-        <TextField label="Find" value={text} onValueChange={setText} />
-        <SegmentedControl
-          label="Show"
-          small
-          variant={SegmentedVariant.Icons}
-          value={scope}
-          options={SCOPES}
-          onValueChange={setScope}
-        />
-      </div>
+      <FindBar text={text} onText={setText} scope={scope} onScope={setScope} />
       <AffectingFilter affecting={affecting} names={names} onAffecting={setAffecting} />
       <Points rows={rows} names={names} chosen={row?.node.id} onChoose={setChosen} run={run} />
       {row !== undefined && (
-        <HistoryActions
+        <ChosenPoint
           row={row}
+          names={names}
+          affecting={affecting}
+          onAffecting={setAffecting}
           chosen={reviewing.chosen}
           run={run}
           unavailableReason={unavailableReason}
-          details={
-            <PointDetails
-              row={row}
-              names={names}
-              affecting={affecting}
-              onAffecting={setAffecting}
-            />
-          }
         />
       )}
       <Reviewing

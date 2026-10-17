@@ -15,16 +15,21 @@ import { LONGEST_HISTORY_LABEL, LONGEST_SNAPSHOT_NOTES } from '@audiogubbins/pro
 
 import type { RunCommand } from '../settings/section.js';
 
-/** The fields and their button. */
-export function SnapshotField({
-  run,
-  unavailable,
-}: {
-  readonly run: RunCommand;
+/** The name and notes being typed, keeping them as a snapshot, and why it cannot be kept now. */
+interface SnapshotDraft {
+  readonly name: string;
+  readonly setName: (name: string) => void;
+  readonly notes: string;
+  readonly setNotes: (notes: string) => void;
+  readonly keep: () => void;
+  readonly reason: string | undefined;
+}
 
-  /** Why no snapshot can be kept now, or `undefined` where one can. */
-  readonly unavailable: string | undefined;
-}): ReactNode {
+/**
+ * What is typed for a snapshot, kept by `history.snapshot` and cleared only
+ * where the command keeps it; `unavailable` is the command's own reason.
+ */
+function useSnapshotDraft(run: RunCommand, unavailable: string | undefined): SnapshotDraft {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const chosen = name.trim();
@@ -36,6 +41,20 @@ export function SnapshotField({
     }
   };
   const reason = unavailable ?? (chosen === '' ? 'Type a name for the snapshot.' : undefined);
+  return { name, setName, notes, setNotes, keep, reason };
+}
+
+/** The fields and their button. */
+export function SnapshotField({
+  run,
+  unavailable,
+}: {
+  readonly run: RunCommand;
+
+  /** Why no snapshot can be kept now, or `undefined` where one can. */
+  readonly unavailable: string | undefined;
+}): ReactNode {
+  const { name, setName, notes, setNotes, keep, reason } = useSnapshotDraft(run, unavailable);
   return (
     <Section
       title="Snapshot"
