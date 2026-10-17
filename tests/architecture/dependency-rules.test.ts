@@ -2697,6 +2697,10 @@ describe('the architecture rules are written the way they claim', () => {
     ['a directory name read as a member', 'const where = bundle.__dirname;'],
     ['a process of its own', "const process = { cwd: () => '/srv' };\nprocess.cwd();"],
     ['another variable of the environment', 'const home = process.env.HOME;'],
+    [
+      "the bundler's glob, which it expands against the module",
+      "const modules = import.meta.glob('./specimens/*.tsx', { eager: true });",
+    ],
   ])('does not mistake %s for a way to the repository root', (_form, code) => {
     expect(pathUses(code).readsTheRoot).toBe(false);
   });
