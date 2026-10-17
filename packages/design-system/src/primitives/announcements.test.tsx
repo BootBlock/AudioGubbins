@@ -299,6 +299,75 @@ describe('the visible notice', () => {
     // inheriting what was left of the first one's.
     expect(document.querySelector('.ag-notice')).toHaveTextContent(text);
   });
+
+  it('takes the notice away when its close button is pressed', () => {
+    render(surface(announcement('The panel is closed.', 1)));
+
+    // Pointer-only: the card is hidden from assistive technology, where the
+    // live region holds the same sentence, so its button takes no focus.
+    const close = screen.getByRole('button', { name: 'Dismiss', hidden: true });
+    expect(close).toHaveAttribute('tabindex', '-1');
+    act(() => {
+      close.click();
+    });
+
+    expect(document.querySelector('.ag-notice')).toBeNull();
+  });
+
+  it('runs its time bar down over the time it stays', () => {
+    // The bar and the timer were two clocks: drawn over a fixed time, the bar
+    // of a long notice ran out while the notice was still being read.
+    const long = Array.from({ length: 40 }, () => 'word').join(' ');
+    render(surface(announcement(long, 1, true)));
+
+    const bar = document.querySelector<HTMLElement>('.ag-notice-time');
+    expect(bar?.style.getPropertyValue('--ag-notice-duration')).toBe('12000ms');
+    expect(bar?.style.getPropertyValue('--ag-notice-seconds')).toBe('12');
+  });
+
+  it('draws an urgent notice as an error, a refusal as a warning, and anything else as information', () => {
+    const view = render(surface(announcement('Your changes are not being saved.', 1, true)));
+    expect(document.querySelector('.ag-notice')).toHaveAttribute('data-ag-tone', 'error');
+
+    view.rerender(surface({ ...announcement('It is already so.', 2), refusal: true }));
+    expect(document.querySelector('.ag-notice')).toHaveAttribute('data-ag-tone', 'warning');
+    expect(document.querySelector('.ag-notice svg[data-icon="refused"]')).not.toBeNull();
+
+    view.rerender(surface(announcement('Switched to Editing.', 3)));
+    expect(document.querySelector('.ag-notice')).toHaveAttribute('data-ag-tone', 'information');
+  });
+
+  it('stays drawn leaving until its leaving animation has run, and then goes', async () => {
+    // Taken away the moment its time was up, a notice vanished mid-frame at
+    // every motion level, where the language has it slide out and fade.
+    let finish: () => void = () => undefined;
+    const finished = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    // jsdom draws nothing and has no Web Animations API: the card's leaving
+    // animation is stood in for by one that finishes when the test says.
+    const leaving = vi.fn(() => [{ finished }]);
+    Object.defineProperty(Element.prototype, 'getAnimations', {
+      configurable: true,
+      value: leaving,
+    });
+    onTestFinished(() => {
+      Reflect.deleteProperty(Element.prototype, 'getAnimations');
+    });
+
+    render(surface(announcement('Saved.', 1)));
+    act(() => {
+      vi.advanceTimersByTime(NOTICE_DURATION.ordinary);
+    });
+
+    expect(document.querySelector('.ag-notice')).toHaveAttribute('data-state', 'closed');
+
+    await act(async () => {
+      finish();
+      await finished;
+    });
+    expect(document.querySelector('.ag-notice')).toBeNull();
+  });
 });
 
 /**

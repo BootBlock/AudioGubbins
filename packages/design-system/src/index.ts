@@ -134,12 +134,7 @@ export { usePublishedBlockSize } from './primitives/published-size.js';
 
 export { WINDOW_ROW, useRowWindow } from './primitives/row-window.js';
 
-export {
-  type TabDescriptor,
-  TabSet,
-  type TabSetProps,
-  VisuallyHidden,
-} from './primitives/controls.js';
+export { VisuallyHidden } from './primitives/visually-hidden.js';
 
 // Buttons: the controls a user presses or turns over. `ControlBarItem` is the
 // toolbar's slot for a control other than its own button, which a toolbar
@@ -245,3 +240,42 @@ export {
   type TemplateVocabulary,
 } from './primitives/fields/template-vocabulary.js';
 export { TemplateText, type TemplateTextProps } from './primitives/fields/template-text.js';
+
+// ds-chrome: the chrome around content. Tabs, the panel and its header,
+// sections, property grids, lists, tables, badges and chips, the empty,
+// loading and error states, notices and banners.
+export { type TabDescriptor, TabSet, type TabSetProps } from './primitives/chrome/tab-set.js';
+export { Panel, type PanelProps } from './primitives/chrome/panel.js';
+export { PanelHeader, type PanelHeaderProps } from './primitives/chrome/panel-header.js';
+export { Section, type SectionProps } from './primitives/chrome/section.js';
+export {
+  PropertyGrid,
+  type PropertyGridProps,
+  type PropertyRow,
+} from './primitives/chrome/property-grid.js';
+export { SourceChip, type SourceChipProps, ValueSource } from './primitives/chrome/source-chip.js';
+export { List, type ListProps, ListRow, type ListRowProps } from './primitives/chrome/list.js';
+export {
+  Table,
+  type TableColumn,
+  type TableProps,
+  type TableRow,
+} from './primitives/chrome/table.js';
+export { Verdict, VerdictKind, type VerdictProps } from './primitives/chrome/verdict.js';
+export { Badge, type BadgeProps, BadgeTone } from './primitives/chrome/badge.js';
+export { StatusChip, type StatusChipProps, StatusTone } from './primitives/chrome/status-chip.js';
+export { KeyCap, type KeyCapProps } from './primitives/chrome/key-cap.js';
+export {
+  EmptyState,
+  type EmptyStateProps,
+  PanelStateTone,
+} from './primitives/chrome/empty-state.js';
+export { Skeleton, type SkeletonProps } from './primitives/chrome/skeleton.js';
+export { Spinner, type SpinnerProps } from './primitives/chrome/spinner.js';
+export {
+  ProgressBar,
+  type ProgressBarProps,
+  ProgressPlace,
+} from './primitives/chrome/progress-bar.js';
+export { Notice, type NoticeProps, NoticeTone } from './primitives/chrome/notice.js';
+export { Banner, type BannerProps, BannerTone } from './primitives/chrome/banner.js';

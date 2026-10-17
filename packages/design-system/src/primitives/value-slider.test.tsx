@@ -3,7 +3,6 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { renderThemed } from '../testing/render-themed.js';
-import { TabSet } from './controls.js';
 import { ValueSlider } from './value-slider.js';
 
 describe('ValueSlider', () => {
@@ -99,45 +98,5 @@ describe('ValueSlider', () => {
     const slider = screen.getByRole('slider', { name: 'Gain' });
     expect(slider).toHaveAttribute('aria-valuemin', '-60');
     expect(slider).toHaveAttribute('aria-valuemax', '12');
-  });
-});
-
-describe('TabSet', () => {
-  it('names its tab list and shows only the selected panel', () => {
-    renderThemed(
-      <TabSet
-        label="Settings sections"
-        value="appearance"
-        onValueChange={vi.fn()}
-        tabs={[
-          { value: 'appearance', label: 'Appearance', content: <p>Appearance settings</p> },
-          { value: 'shortcuts', label: 'Shortcuts', content: <p>Shortcut settings</p> },
-        ]}
-      />,
-    );
-
-    expect(screen.getByRole('tablist', { name: 'Settings sections' })).toBeInTheDocument();
-    expect(screen.getByText('Appearance settings')).toBeInTheDocument();
-    expect(screen.queryByText('Shortcut settings')).not.toBeInTheDocument();
-  });
-
-  it('moves between tabs with the arrow keys', async () => {
-    const onValueChange = vi.fn();
-    renderThemed(
-      <TabSet
-        label="Settings sections"
-        value="appearance"
-        onValueChange={onValueChange}
-        tabs={[
-          { value: 'appearance', label: 'Appearance', content: <p>A</p> },
-          { value: 'shortcuts', label: 'Shortcuts', content: <p>B</p> },
-        ]}
-      />,
-    );
-
-    await userEvent.tab();
-    await userEvent.keyboard('{ArrowRight}');
-
-    expect(onValueChange).toHaveBeenCalledWith('shortcuts');
   });
 });

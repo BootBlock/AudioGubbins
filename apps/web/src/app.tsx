@@ -55,6 +55,7 @@ import '@audiogubbins/design-system/styles/dials.css';
 import '@audiogubbins/design-system/styles/lit-edge.css';
 import '@audiogubbins/design-system/styles/overlays.css';
 import '@audiogubbins/design-system/styles/fields.css';
+import '@audiogubbins/design-system/styles/chrome.css';
 import '@audiogubbins/workspace/styles/workspace.css';
 import './shell/shell.css';
 import { timeOfDay } from '@audiogubbins/text';
