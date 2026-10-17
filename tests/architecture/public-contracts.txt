@@ -2479,6 +2479,7 @@ Published paths
   const ACCENT_HUES: { readonly blue: 250; readonly teal: 195; readonly green: 145; readonly amber: 75; readonly orange: 50; readonly red: 25; readonly magenta: 340; readonly violet: 295; }
   const ACCENT_NAMES: readonly ("amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet")[]
   type AccentName = "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"
+  type AnalysisPalette = { readonly grid: Oklch; readonly curve: Oklch; readonly area: Oklch; readonly threshold: Oklch; readonly signal: Oklch; }
   const BRIGHTNESS_RANGE: { readonly minimum: -1; readonly maximum: 1; }
   const Button: import("@types/react").ForwardRefExoticComponent<(ButtonProps & IconOnlyRequiresLabel) & import("@types/react").RefAttributes<HTMLButtonElement>>
   interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className">
@@ -2490,7 +2491,7 @@ Published paths
   const ButtonTone: { readonly Primary: "primary"; readonly Neutral: "neutral"; readonly Quiet: "quiet"; readonly Destructive: "destructive"; }
   type ButtonTone = "destructive" | "neutral" | "primary" | "quiet"
   type CategoryPalette = { readonly [x: string]: Oklch; }
-  type ChromePalette = { readonly surfaceBase: Oklch; readonly surfaceRaised: Oklch; readonly surfaceOverlay: Oklch; readonly surfaceSunken: Oklch; readonly surfaceHover: Oklch; readonly surfaceActive: Oklch; readonly borderSubtle: Oklch; readonly borderDefault: Oklch; readonly borderStrong: Oklch; readonly borderFocus: Oklch; readonly textPrimary: Oklch; readonly textSecondary: Oklch; readonly textDisabled: Oklch; readonly textOnAccent: Oklch; readonly accent: Oklch; readonly accentHover: Oklch; readonly accentActive: Oklch; readonly accentSubtle: Oklch; readonly statusError: Oklch; readonly statusWarning: Oklch; readonly statusSuccess: Oklch; readonly statusInfo: Oklch; readonly scrim: Oklch; readonly shadow: Oklch; }
+  type ChromePalette = { readonly surfaceBase: Oklch; readonly surfaceRaised: Oklch; readonly surfaceOverlay: Oklch; readonly surfaceSunken: Oklch; readonly surfaceHover: Oklch; readonly surfaceActive: Oklch; readonly borderSubtle: Oklch; readonly borderDefault: Oklch; readonly borderStrong: Oklch; readonly borderFocus: Oklch; readonly textPrimary: Oklch; readonly textSecondary: Oklch; readonly textDisabled: Oklch; readonly textOnAccent: Oklch; readonly accent: Oklch; readonly accentHover: Oklch; readonly accentActive: Oklch; readonly accentSubtle: Oklch; readonly accentText: Oklch; readonly accentPartner: Oklch; readonly fillQuiet: Oklch; readonly fillHover: Oklch; readonly fillPress: Oklch; readonly fillWell: Oklch; readonly fillAccent: Oklch; readonly edgeQuiet: Oklch; readonly edgeAccent: Oklch; readonly statusError: Oklch; readonly statusWarning: Oklch; readonly statusSuccess: Oklch; readonly statusInfo: Oklch; readonly statusRecording: Oklch; readonly scrim: Oklch; readonly shadow: Oklch; }
   function ContextActions(props: ContextMenuProps): ReactNode
   interface ContextActionsOpener
   readonly ContextActionsOpener.openAt: (clientX: number, clientY: number) => void
@@ -2515,11 +2516,25 @@ Published paths
   readonly ControlBarButtonProps.shortcut?: string
   readonly ControlBarButtonProps.onPress: () => void
   function ControlBarItem(props: { readonly children: ReactNode; }): ReactNode
-  type ControlScale = { readonly height: number; readonly compactHeight: number; readonly iconSize: number; readonly minimumTouchTarget: number; }
+  type ControlScale = { readonly height: number; readonly rowHeight: number; readonly iconSize: number; readonly minimumTouchTarget: number; }
   const DEFAULT_THEME_PREFERENCES: ThemePreferences
   const Density: { readonly Comfortable: "comfortable"; readonly Compact: "compact"; }
   type Density = "comfortable" | "compact"
+  type DisplayScale = { readonly rulerHeight: number; readonly regionLaneHeight: number; readonly overviewHeight: number; }
+  type ElevationPalette = { readonly panelFill: Oklch; readonly panelEdge: Oklch; readonly stripFill: Oklch; readonly cardFill: Oklch; readonly overlayFill: Oklch; readonly overlayEdge: Oklch; readonly tooltipFill: Oklch; readonly floatingFill: Oklch; }
+  type EntryScale = { readonly overlay: number; readonly dialogue: number; readonly spring: number; }
+  type FocusScale = { readonly ringWidth: number; readonly ringOffset: number; readonly ringReach: number; }
+  type FontFamilies = { readonly ui: string; readonly numeric: string; readonly features: string; }
+  type FontWeights = { readonly regular: number; readonly quiet: number; readonly medium: number; readonly control: number; readonly strong: number; readonly heading: number; readonly bold: number; }
+  type GridScale = { readonly unit: number; }
+  type HardwareMaterials = { readonly metalHighlight: Oklch; readonly metalMid: Oklch; readonly metalShade: Oklch; readonly chamferDark: Oklch; readonly chamferLight: Oklch; readonly cutout: Oklch; readonly ledOff: Oklch; readonly gloss: Oklch; readonly powerLitCap: Oklch; }
+  interface HardwarePalette
+  readonly HardwarePalette.materials: HardwareMaterials
+  readonly HardwarePalette.ramps: HardwareRamps
+  type HardwareRamps = { readonly capUnlit: readonly Oklch[]; readonly recordLit: readonly Oklch[]; readonly recordUnlit: readonly Oklch[]; }
+  type HardwareScale = { readonly knobSize: number; readonly switchWidth: number; readonly switchHeight: number; readonly meterSegment: number; readonly meterGap: number; }
   function HintProvider(props: { readonly children: ReactNode; }): ReactNode
+  type IconScale = { readonly stroke: number; readonly sizeSmall: number; readonly sizeInline: number; readonly sizeFeature: number; readonly sizeMark: number; }
   function InfoPopover(props: InfoPopoverProps): ReactNode
   interface InfoPopoverProps
   readonly InfoPopoverProps.trigger: ReactNode
@@ -2527,12 +2542,15 @@ Published paths
   readonly InfoPopoverProps.children: ReactNode
   readonly InfoPopoverProps.open?: boolean
   readonly InfoPopoverProps.onOpenChange?: (open: boolean) => void
+  type LineHeights = { readonly body: number; readonly tight: number; readonly heading: number; readonly readout: number; }
   interface LiveAnnouncement
   readonly LiveAnnouncement.text: string
   readonly LiveAnnouncement.urgent: boolean
   readonly LiveAnnouncement.sequence: number
   readonly LiveAnnouncement.shown?: boolean
   readonly LiveAnnouncement.refusal?: boolean
+  type LoopScale = { readonly focus: number; readonly float: number; readonly splitter: number; readonly landing: number; readonly recording: number; readonly shimmer: number; readonly spinner: number; readonly indeterminate: number; }
+  type MarkerPalette = { readonly default: Oklch; }
   function Menu(props: DropdownMenuProps): ReactNode
   function MenuBar(props: MenuBarProps): ReactNode
   function MenuBarMenu(props: MenuBarMenuProps): ReactNode
@@ -2552,12 +2570,21 @@ Published paths
   readonly MenuItemDescriptor.shortcut?: string
   readonly MenuItemDescriptor.unavailableReason?: string
   readonly MenuItemDescriptor.onSelect: () => void
+  type MeterBallistics = { readonly fallRate: number; readonly peakHold: number; readonly peakFallRate: number; readonly clipHold: number; readonly correlationTime: number; }
   type MeterPalette = { readonly background: Oklch; readonly low: Oklch; readonly mid: Oklch; readonly high: Oklch; readonly clip: Oklch; }
   interface Metrics
+  readonly Metrics.grid: GridScale
   readonly Metrics.space: SpacingScale
   readonly Metrics.radius: RadiusScale
   readonly Metrics.text: TypographyScale
   readonly Metrics.control: ControlScale
+  readonly Metrics.icon: IconScale
+  readonly Metrics.shell: ShellScale
+  readonly Metrics.statusBar: StatusBarScale
+  readonly Metrics.focus: FocusScale
+  readonly Metrics.hardware: HardwareScale
+  readonly Metrics.display: DisplayScale
+  readonly Metrics.state: StateScale
   function ModalDialog(props: ModalDialogProps): ReactNode
   interface ModalDialogProps
   readonly ModalDialogProps.open: boolean
@@ -2568,7 +2595,7 @@ Published paths
   readonly ModalDialogProps.actions?: ReactNode
   const MotionLevel: { readonly Full: "full"; readonly Reduced: "reduced"; readonly Minimal: "minimal"; }
   type MotionLevel = "full" | "minimal" | "reduced"
-  type MotionScale = { readonly instant: number; readonly quick: number; readonly moderate: number; readonly deliberate: number; readonly easeOut: string; readonly easeIn: string; readonly easeInOut: string; }
+  type MotionScale = { readonly instant: number; readonly quick: number; readonly moderate: number; readonly deliberate: number; readonly easeOut: string; readonly easeIn: string; readonly easeInOut: string; readonly easeSpring: string; readonly loop: LoopScale; readonly distance: TravelScale; readonly scale: EntryScale; readonly ballistics: MeterBallistics; }
   function NoticeProvider(props: NoticeProviderProps): ReactNode
   interface NoticeProviderProps
   readonly NoticeProviderProps.notice: LiveAnnouncement | undefined
@@ -2590,29 +2617,35 @@ Published paths
   readonly OptionSelectProps.disabled?: boolean
   interface Palette
   readonly Palette.chrome: ChromePalette
+  readonly Palette.elevation: ElevationPalette
   readonly Palette.waveform: WaveformPalette
   readonly Palette.selection: SelectionPalette
   readonly Palette.meter: MeterPalette
   readonly Palette.spectrogram: SpectrogramRamp
   readonly Palette.category: Readonly<Record<string, Oklch>>
-  readonly Palette.analysisGrid: Oklch
+  readonly Palette.marker: MarkerPalette
+  readonly Palette.analysis: AnalysisPalette
+  readonly Palette.hardware: HardwarePalette
   readonly Palette.contrastShortfalls: readonly ContrastShortfall[]
-  type RadiusScale = { readonly none: number; readonly small: number; readonly medium: number; readonly large: number; readonly full: number; }
+  type RadiusScale = { readonly none: number; readonly hairline: number; readonly small: number; readonly control: number; readonly container: number; readonly frame: number; readonly full: number; }
   interface SelectOption
   readonly SelectOption.value: string
   readonly SelectOption.label: string
   type SelectionPalette = { readonly fill: Oklch; readonly border: Oklch; readonly handle: Oklch; }
+  type ShellScale = { readonly topBarBlockSize: number; readonly transportBlockSize: number; }
   interface SliderScale
   readonly SliderScale.steps: number
   readonly SliderScale.positionOf: (value: number) => number
   readonly SliderScale.valueAt: (position: number) => number
-  type SpacingScale = { readonly none: number; readonly tiny: number; readonly small: number; readonly medium: number; readonly large: number; readonly huge: number; }
+  type SpacingScale = { readonly none: number; readonly hair: number; readonly micro: number; readonly tiny: number; readonly small: number; readonly medium: number; readonly large: number; readonly huge: number; readonly inset: number; readonly gutter: number; readonly insetLeading: number; readonly insetWide: number; readonly insetFeature: number; }
   type SpectrogramRamp = readonly [Oklch, ...Oklch[]]
   interface Srgb
   readonly Srgb.red: number
   readonly Srgb.green: number
   readonly Srgb.blue: number
   readonly Srgb.alpha: number
+  type StateScale = { readonly markSize: number; }
+  type StatusBarScale = { readonly blockSize: number; }
   interface SystemAppearance
   readonly SystemAppearance.prefersDark: boolean
   readonly SystemAppearance.prefersReducedMotion: boolean
@@ -2646,8 +2679,10 @@ Published paths
   readonly Theme.density: Density
   readonly Theme.motionLevel: MotionLevel
   readonly Theme.contrast: ContrastLevel
+  readonly Theme.brightness: number
   readonly Theme.palette: Palette
   readonly Theme.metrics: Metrics
+  readonly Theme.typeface: Typeface
   readonly Theme.motion: MotionScale
   const ThemeMode: { readonly Dark: "dark"; readonly Light: "light"; readonly System: "system"; }
   type ThemeMode = "dark" | "light" | "system"
@@ -2671,13 +2706,21 @@ Published paths
   readonly ToggleSwitchProps.onCheckedChange: (checked: boolean) => void
   readonly ToggleSwitchProps.description?: string
   readonly ToggleSwitchProps.disabled?: boolean
-  type TypographyScale = { readonly tiny: number; readonly small: number; readonly body: number; readonly large: number; readonly heading: number; readonly lineHeight: number; readonly monospaceBody: number; }
+  type Tracking = { readonly tight: number; readonly readout: number; readonly caps: number; }
+  type TravelScale = { readonly small: number; readonly medium: number; readonly large: number; }
+  interface Typeface
+  readonly Typeface.family: FontFamilies
+  readonly Typeface.weight: FontWeights
+  readonly Typeface.lineHeight: LineHeights
+  readonly Typeface.tracking: Tracking
+  readonly Typeface.numericRatio: number
+  type TypographyScale = { readonly display: number; readonly heading: number; readonly body: number; readonly label: number; readonly caption: number; readonly readout: number; readonly scale: number; readonly ruler: number; }
   const UNKNOWN_SYSTEM_APPEARANCE: SystemAppearance
   function ValueSlider(props: ValueSliderProps): ReactNode
   type ValueSliderProps = SliderFields & SliderTravel
   function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
   const WINDOW_ROW: "data-ag-window-row"
-  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; }
+  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; readonly grid: Oklch; }
   function accentLabel(accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"): string
   function clampBrightness(value: number): number
   function contrastRatio(foreground: Oklch, background: Oklch): number
@@ -6666,7 +6709,7 @@ Published paths
   interface OverlayEvents
   readonly OverlayEvents.lost: () => void
   readonly OverlayEvents.restored: () => void
-  type Painter = { stroke: { (): void; (path: Path2D): void; }; moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; save: () => void; rect: (x: number, y: number, w: number, h: number) => void; font: string; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
+  type Painter = { stroke: { (): void; (path: Path2D): void; }; moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; save: () => void; font: string; rect: (x: number, y: number, w: number, h: number) => void; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
   interface PlacedImage
   readonly PlacedImage.image: CanvasImageSource
   readonly PlacedImage.at: Rectangle

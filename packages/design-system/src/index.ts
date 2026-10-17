@@ -52,8 +52,18 @@ export {
 
 export { type ChromePalette } from './tokens/chrome.js';
 
+export { type ElevationPalette } from './tokens/elevation.js';
+
 export {
+  type HardwareMaterials,
+  type HardwarePalette,
+  type HardwareRamps,
+} from './tokens/hardware.js';
+
+export {
+  type AnalysisPalette,
   type CategoryPalette,
+  type MarkerPalette,
   type MeterPalette,
   type Palette,
   type SelectionPalette,
@@ -63,12 +73,35 @@ export {
 
 export {
   type ControlScale,
+  type DisplayScale,
+  type FocusScale,
+  type GridScale,
+  type HardwareScale,
+  type IconScale,
   type Metrics,
-  type MotionScale,
   type RadiusScale,
+  type ShellScale,
   type SpacingScale,
+  type StateScale,
+  type StatusBarScale,
   type TypographyScale,
 } from './tokens/scale.js';
+
+export {
+  type EntryScale,
+  type LoopScale,
+  type MeterBallistics,
+  type MotionScale,
+  type TravelScale,
+} from './tokens/motion.js';
+
+export {
+  type FontFamilies,
+  type FontWeights,
+  type LineHeights,
+  type Tracking,
+  type Typeface,
+} from './tokens/typeface.js';
 
 export { type Theme, resolveTheme } from './tokens/theme.js';
 
@@ -81,6 +114,7 @@ export {
 } from './theme/theme-provider.js';
 
 export { Button, type ButtonProps, ButtonTone } from './primitives/button.js';
+
 
 // The menu, dialogue and popover primitives WU-01.B requires. `Menu` opens from
 // a control and `ContextActions` from a right click or a long press, which

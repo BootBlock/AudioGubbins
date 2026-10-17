@@ -347,7 +347,7 @@ test.describe('the text a floating surface is written in', () => {
           return {
             face: body?.style.fontFamily.split(',')[0]?.trim() ?? '',
             size: tokens.getPropertyValue('--ag-text-body').trim(),
-            lineHeight: Number.parseFloat(tokens.getPropertyValue('--ag-text-line-height')),
+            lineHeight: Number.parseFloat(tokens.getPropertyValue('--ag-text-line-height-body')),
           };
         });
 

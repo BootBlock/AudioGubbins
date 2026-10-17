@@ -83,8 +83,8 @@ html[data-ag-theme] body {
     'Segoe UI',
     Roboto,
     sans-serif;
-  font-size: var(--ag-text-body, 14px);
-  line-height: var(--ag-text-line-height, 1.5);
+  font-size: var(--ag-text-body);
+  line-height: var(--ag-text-line-height-body);
 
   /* A text editor's selection colour is wrong over a waveform, and the browser
      default is wrong over the chrome. The accent is right for both. */
@@ -130,38 +130,64 @@ html {
  * Applied through :focus-visible, so a pointer user does not see a ring they
  * did not ask for while a keyboard user always does. REQ-UX-005 makes keyboard
  * operation first-class, and an invisible focus position makes it impossible.
+ *
+ * Two pixels wide, two outside the control, following its radius, with a halo
+ * round it (design language, section 7). The theme writes the width, the
+ * offset and their sum, `--ag-focus-ring-reach`: a container that scrolls
+ * clips whatever reaches past its padding, so one that holds a control pads by
+ * the reach, or the ring loses its edges.
+ *
+ * Drawn as a band of shadow rather than as an outline, because an engine that
+ * draws an outline in whole device pixels rounds its width down, as Firefox
+ * does. At a scale of s device pixels to a CSS pixel, an outline declared w
+ * wide is drawn floor(w * s) / s CSS pixels wide. Firefox lays a page out in
+ * sixtieths of a CSS pixel, a whole number of them to a device pixel, so its s
+ * is 60 over that number: 55 at a text size of 110 per cent, where an outline
+ * declared two wide is floor(2 * 60/55) * 55/60 = 1.83 wide, and 48 at 125 per
+ * cent, where it is floor(2 * 1.25) / 1.25 = 1.6 wide. A box shadow's spread is
+ * painted at its fractional width, so a band two pixels wide is two pixels wide
+ * at every scale. The band is a gap of the offset in the surface the control
+ * sits on, `--ag-focus-ring-surface`, then the width in the focus colour, then
+ * the halo.
+ *
+ * A transparent outline of the same width and offset stays on the control.
+ * Forced colours draw no shadow, and there the system paints that outline in
+ * its own focus colour (below), so the ring is still where the band would be.
  */
 [data-ag-theme] {
-  /* How far the ring reaches past an element's edge: its width and its offset.
-     A container that scrolls clips whatever reaches past its padding, so one
-     that holds a control pads by the reach, or the ring loses its edges.
-
-     Three pixels wide, so that it is drawn at least two wide, which is what a
-     reader needs, at every scale. An engine that draws a ring in whole device
-     pixels rounds its width down, as Firefox does: at a scale of s device
-     pixels to a CSS pixel, a ring declared w wide is floor(w * s) / s CSS
-     pixels, which for three is two or more at every scale from one up. Firefox
-     lays a page out in sixtieths of a CSS pixel, a whole number of them to a
-     device pixel, so its s is 60 over that number: 55 at a text size of 110 per
-     cent, where s is 60/55 rather than 1.1, and a ring declared two wide is
-     floor(2 * 60/55) * 55/60 = 1.83 wide; 48 at 125 per cent, where s is 1.25
-     and it is floor(2 * 1.25) / 1.25 = 1.6 wide. */
-  --ag-focus-ring-width: 3px;
-  --ag-focus-ring-offset: 2px;
-  --ag-focus-ring-reach: calc(var(--ag-focus-ring-width) + var(--ag-focus-ring-offset));
+  --ag-focus-ring-surface: var(--ag-chrome-surface-base);
 }
 
 [data-ag-theme] :focus-visible {
   /* Longhands rather than the `outline` shorthand. The build's CSS pass
      rewrites a shorthand carrying a custom property into a second copy inside
      an `@supports` block, and the copy it emits drops the width and the colour,
-     so a ring written as a shorthand would render at the browser's own width in
-     the text colour, as measured in Chromium against the production build. */
+     as measured in Chromium against the production build. */
   outline-style: solid;
   outline-width: var(--ag-focus-ring-width);
-  outline-color: var(--ag-chrome-border-focus);
+  outline-color: transparent;
   outline-offset: var(--ag-focus-ring-offset);
-  border-radius: var(--ag-radius-small, 3px);
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+/*
+ * A surface that is not the base names itself as the surface the ring's gap is
+ * painted in, so the gap reads as space round the control rather than as a
+ * second ring of another colour.
+ */
+[data-ag-theme] .ag-panel {
+  --ag-focus-ring-surface: var(--ag-chrome-surface-raised);
+}
+
+[data-ag-theme] .ag-menu,
+[data-ag-theme] .ag-popover,
+[data-ag-theme] .ag-select-content,
+[data-ag-theme] .ag-dialog,
+[data-ag-theme] .ag-notice {
+  --ag-focus-ring-surface: var(--ag-chrome-surface-overlay);
 }
 
 /*
@@ -275,8 +301,9 @@ html {
     border: 1px solid CanvasText;
   }
 
-  /* The focus ring is drawn by the browser in its own colour, and a ring drawn
-     in a token colour is invisible against forced colours. */
+  /* No shadow is drawn in forced colours, so the band is not there: the ring is
+     the outline under it, drawn by the browser in the system's own focus
+     colour, as a ring in a token colour would be invisible here. */
   [data-ag-theme] :focus-visible {
     outline-style: solid;
     outline-width: var(--ag-focus-ring-width);

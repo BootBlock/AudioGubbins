@@ -16,7 +16,7 @@
   padding-inline: var(--ag-space-medium);
 
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
   background-color: var(--ag-chrome-surface-raised);
   color: var(--ag-chrome-text-primary);
 
@@ -29,8 +29,10 @@
   transition-timing-function: var(--ag-motion-ease-out);
 }
 
+/* The small variant: the control's height less two grid units (design
+   language, section 10), stated from the height so the two never drift. */
 .ag-button[data-ag-compact] {
-  block-size: var(--ag-control-compact-height);
+  block-size: calc(var(--ag-control-height) - 2 * var(--ag-grid-unit));
   padding-inline: var(--ag-space-small);
 }
 
@@ -139,9 +141,9 @@
   max-block-size: 85dvh;
   overflow: auto;
 
-  padding: var(--ag-space-large);
+  padding: var(--ag-space-inset-wide);
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-large);
+  border-radius: var(--ag-radius-container);
   background-color: var(--ag-chrome-surface-overlay);
   color: var(--ag-chrome-text-primary);
 }
@@ -213,7 +215,7 @@
    the dialogue's parts is what gives way first, before what they say. */
 @media (height < 30rem) {
   .ag-dialog {
-    padding: var(--ag-space-medium);
+    padding: var(--ag-space-inset);
   }
 
   .ag-dialog-title {
@@ -232,7 +234,7 @@
   min-inline-size: 12rem;
   padding: var(--ag-space-tiny);
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
   background-color: var(--ag-chrome-surface-overlay);
   color: var(--ag-chrome-text-primary);
 
@@ -255,7 +257,7 @@
   justify-content: space-between;
   gap: var(--ag-space-large);
 
-  min-block-size: var(--ag-control-compact-height);
+  min-block-size: var(--ag-control-height);
   padding-inline: var(--ag-space-small);
   border-radius: var(--ag-radius-small);
   cursor: pointer;
@@ -271,18 +273,21 @@
    draw it either. A menu entry and a select option do take focus, so the ring a
    focused control draws can stand in for this block and hide its loss: the
    offset tells them apart, this one drawn inside the entry and that one outside
-   it, and the browser suite reads it. Longhands, and the ring drawn inside the
-   entry: an `outline` shorthand holding a custom property loses its width in
-   the build's CSS pass, and an outline outside a row is clipped by the list
-   that scrolls it. */
+   it, and the browser suite reads it. The ring is drawn inside the entry,
+   because a ring outside a row is clipped by the list that scrolls it, as a
+   band of inset shadow for the reason `tokens.css` gives. The transparent
+   outline over the band is what forced colours draw, in longhands because an
+   `outline` shorthand holding a custom property loses its width in the build's
+   CSS pass. */
 .ag-menu-item[data-highlighted],
 .ag-select-item[data-highlighted],
 .ag-palette-result[data-ag-highlighted] {
   background-color: var(--ag-chrome-surface-hover);
   outline-style: solid;
-  outline-width: var(--ag-focus-ring-width, 3px);
-  outline-color: var(--ag-chrome-border-focus);
-  outline-offset: calc(var(--ag-focus-ring-width, 3px) * -1);
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: transparent;
+  outline-offset: calc(var(--ag-focus-ring-width) * -1);
+  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
 }
 
 .ag-menu-item[data-ag-unavailable] {
@@ -302,13 +307,13 @@
   display: block;
   inline-size: 100%;
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-menu-item-shortcut,
 .ag-tooltip-shortcut {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -317,7 +322,7 @@
   padding-inline: var(--ag-space-small);
   padding-block: var(--ag-space-tiny);
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-menu-separator {
@@ -336,7 +341,7 @@
   background-color: var(--ag-chrome-surface-overlay);
   border: 1px solid var(--ag-chrome-border-default);
   color: var(--ag-chrome-text-primary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-tooltip-arrow,
@@ -371,7 +376,7 @@
 .ag-switch-description {
   display: block;
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-slider {
@@ -473,7 +478,7 @@
   padding-inline: var(--ag-space-small);
 
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
   background-color: var(--ag-chrome-surface-raised);
   color: var(--ag-chrome-text-primary);
   font: inherit;
@@ -558,10 +563,13 @@
      rather than in them. Bottom-centred over the whole page with no room kept
      for the bar, it would cover the status bar and the Dismiss buttons in it
      for as long as it stayed, which is WCAG 2.4.11 for anything focused there.
-     The bar's own height is written to `--ag-status-bar-block-size` as it
-     changes, because the bar wraps and can grow to a third of the screen. */
+     The bar's drawn height is written to `--ag-status-bar-drawn-block-size` as
+     it changes, because the bar wraps and can grow to a third of the screen,
+     where the strip's designed height, `--ag-status-bar-block-size`, is only
+     its least. Absent while no bar is drawn, so no room is kept for one. */
   inset-block-end: calc(
-    var(--ag-status-bar-block-size, 0px) + var(--ag-space-large) + env(safe-area-inset-bottom, 0px)
+    var(--ag-status-bar-drawn-block-size, 0px) + var(--ag-space-large) +
+      env(safe-area-inset-bottom, 0px)
   );
   inset-inline: 0;
   margin-inline: auto;
@@ -575,12 +583,13 @@
      dialogue, so this one is never over a dialogue. */
   z-index: 100;
 
-  padding: var(--ag-space-small) var(--ag-space-medium);
+  padding: var(--ag-space-inset);
+  padding-inline-start: var(--ag-space-inset-leading);
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
   background-color: var(--ag-chrome-surface-overlay);
   color: var(--ag-chrome-text-primary);
-  box-shadow: 0 0.5rem 1.5rem var(--ag-chrome-shadow);
+  box-shadow: var(--ag-elevation-overlay-shadow);
 
   /* The pointer goes through it. A notice that swallowed a click would take
      the one the user aimed at whatever it happens to be covering. */
@@ -596,9 +605,10 @@
    and in the footer it stays put while the part above it scrolls. */
 .ag-dialog-notice {
   margin: var(--ag-space-large) 0 0;
-  padding: var(--ag-space-small) var(--ag-space-medium);
+  padding: var(--ag-space-inset);
+  padding-inline-start: var(--ag-space-inset-leading);
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
 
   /* A name the reader typed can be one long word, and a word that does not
      break widens the dialogue past the page. */
@@ -627,7 +637,7 @@
 
 .ag-text-field-description {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-text-field-input {

@@ -589,8 +589,8 @@ test.describe('the command palette', () => {
     await openFresh(page);
     await openPalette(page);
 
-    // Blue is already the accent, so its command cannot run.
-    await page.getByRole('combobox').fill('Accent colour: Blue');
+    // Teal is already the accent, so its command cannot run.
+    await page.getByRole('combobox').fill('Accent colour: Teal');
 
     const option = page.getByRole('option').first();
     await expect(option).toContainText('already in use');

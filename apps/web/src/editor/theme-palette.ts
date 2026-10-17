@@ -77,7 +77,7 @@ function spectrogramRamps(stops: SpectrogramRamp): EditorPalette['spectrogramRam
 
 /** The editor's colours in `theme`. */
 export function editorPaletteOf(theme: Theme): EditorPalette {
-  const { waveform, selection, chrome, analysisGrid, spectrogram } = theme.palette;
+  const { waveform, selection, chrome, spectrogram } = theme.palette;
   const fill = oklchToSrgb(selection.fill);
   return {
     background: colour(waveform.background),
@@ -87,7 +87,7 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
     rms: colour(waveform.rms),
     clipped: colour(waveform.clipped),
     pending: colour(waveform.pending),
-    grid: colour(analysisGrid, 0.5),
+    grid: colour(waveform.grid),
     rulerBackground: colour(chrome.surfaceRaised),
     rulerTick: colour(chrome.borderStrong),
     rulerText: colour(chrome.textPrimary),
@@ -119,7 +119,7 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
 export function editorTypeOf(theme: Theme): EditorType {
   const { text } = theme.metrics;
   return {
-    label: `${String(text.small)}px ${FONT_FAMILY}`,
-    small: `${String(text.tiny)}px ${FONT_FAMILY}`,
+    label: `${String(text.label)}px ${FONT_FAMILY}`,
+    small: `${String(text.caption)}px ${FONT_FAMILY}`,
   };
 }

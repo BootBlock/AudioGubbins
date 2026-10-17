@@ -3554,8 +3554,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
     // Procedures: one algorithm, or one validation step by step.
     'packages/design-system/src/tokens/chrome.ts: buildChrome': [
-      111,
-      'One derivation in which each token depends on those before it: base lightness, surfaces, the list of every surface a colour may be solved against, text, accent, status.',
+      96,
+      "One derivation in which each token depends on those before it: base lightness, surfaces, the list of every surface a colour may be solved against, text, the accent's family (`accent.ts`), status, and the fills and edges at their translucencies.",
     ],
     'packages/domain/src/processing/parameter.ts: validateParameterValue': [
       82,

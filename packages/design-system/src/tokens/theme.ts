@@ -12,10 +12,15 @@
  * same property names.
  */
 
+import { buildChrome } from './chrome.js';
 import { oklchToCss, type Oklch } from './colour.js';
+import { buildEffects, buildSwatch } from './effects.js';
 import { buildPalette, type Palette } from './palette.js';
-import { metricsFor, motionFor, type Metrics, type MotionScale } from './scale.js';
+import { motionFor, type MotionScale } from './motion.js';
+import { metricsFor, type Metrics } from './scale.js';
+import { TYPEFACE, type Typeface } from './typeface.js';
 import {
+  ACCENT_NAMES,
   clampBrightness,
   resolveContrast,
   resolveDarkness,
@@ -36,8 +41,12 @@ export interface Theme {
   readonly motionLevel: MotionLevel;
   readonly contrast: ContrastLevel;
 
+  /** The brightness the palette was built at, within the range the control offers. */
+  readonly brightness: number;
+
   readonly palette: Palette;
   readonly metrics: Metrics;
+  readonly typeface: Typeface;
   readonly motion: MotionScale;
 }
 
@@ -53,19 +62,17 @@ export function resolveTheme(preferences: ThemePreferences, system: SystemAppear
   const dark = resolveDarkness(preferences, system);
   const contrast = resolveContrast(preferences, system);
   const motionLevel = resolveMotion(preferences, system);
+  const brightness = clampBrightness(preferences.brightness);
 
   return {
     dark,
     density: preferences.density,
     motionLevel,
     contrast,
-    palette: buildPalette({
-      dark,
-      accent: preferences.accent,
-      brightness: clampBrightness(preferences.brightness),
-      contrast,
-    }),
+    brightness,
+    palette: buildPalette({ dark, accent: preferences.accent, brightness, contrast }),
     metrics: metricsFor(preferences.density),
+    typeface: TYPEFACE,
     motion: motionFor(motionLevel),
   };
 }
@@ -94,15 +101,119 @@ function emitColours(
   }
 }
 
-/** Emits one group of numeric tokens, in pixels. */
-function emitPixels(
+/**
+ * Emits a ramp of colours, indexed rather than named: a continuous scale or a
+ * gradient's stops, which a renderer or an SVG gradient reads in order.
+ */
+function emitRamp(prefix: string, stops: readonly Oklch[], into: Record<string, string>): void {
+  stops.forEach((stop, index) => {
+    into[`${prefix}-${String(index)}`] = oklchToCss(stop);
+  });
+}
+
+/** Emits one group of values written with a unit, or with none. */
+function emitValues(
   group: string,
   values: Readonly<Record<string, number>>,
+  unit: 'px' | 'ms' | 'em' | '',
   into: Record<string, string>,
 ): void {
   for (const [token, value] of Object.entries(values)) {
-    into[propertyName(group, token)] = `${String(value)}px`;
+    into[propertyName(group, token)] = `${String(value)}${unit}`;
   }
+}
+
+/** Emits one group of values that are already CSS. */
+function emitCss(
+  group: string,
+  values: Readonly<Record<string, string>>,
+  into: Record<string, string>,
+): void {
+  for (const [token, value] of Object.entries(values)) {
+    into[propertyName(group, token)] = value;
+  }
+}
+
+/** Every colour token, and the composite values written from them. */
+function emitPalette(theme: Theme, into: Record<string, string>): void {
+  const { palette } = theme;
+  emitColours('chrome', palette.chrome, into);
+  emitColours('elevation', palette.elevation, into);
+  emitColours('waveform', palette.waveform, into);
+  emitColours('selection', palette.selection, into);
+  emitColours('meter', palette.meter, into);
+  emitColours('category', palette.category, into);
+  emitColours('marker', palette.marker, into);
+  emitColours('analysis', palette.analysis, into);
+  emitColours('hardware', palette.hardware.materials, into);
+  for (const [token, stops] of Object.entries(palette.hardware.ramps)) {
+    emitRamp(propertyName('hardware', token), stops, into);
+  }
+
+  // The spectrogram ramp is a continuous scale, and a renderer interpolates
+  // between the stops, so it says how many there are.
+  emitRamp(`${PREFIX}-spectrogram`, palette.spectrogram, into);
+  into[`${PREFIX}-spectrogram-stops`] = String(palette.spectrogram.length);
+
+  const options = { dark: theme.dark, brightness: theme.brightness, contrast: theme.contrast };
+  const effects = buildEffects(palette, options);
+  emitCss('effect', effects.effect, into);
+  emitCss('elevation', effects.elevation, into);
+  emitCss('focus', effects.focus, into);
+  emitCss('hardware', effects.hardware, into);
+
+  // Every accent the settings offer is shown as its own swatch at once, so each
+  // is built from the chrome of that accent in the theme's own light, rather
+  // than from the theme's one accent.
+  for (const accent of ACCENT_NAMES) {
+    const swatch = buildSwatch(buildChrome({ ...options, accent }));
+    into[`${PREFIX}-effect-swatch-${accent}`] = swatch.fill;
+    into[`${PREFIX}-effect-swatch-${accent}-edge`] = swatch.edge;
+  }
+}
+
+/** Every size, in pixels, and the icon stroke, in units of the icon's grid. */
+function emitMetrics(metrics: Metrics, into: Record<string, string>): void {
+  emitValues('grid', metrics.grid, 'px', into);
+  emitValues('space', metrics.space, 'px', into);
+  emitValues('radius', metrics.radius, 'px', into);
+  emitValues('control', metrics.control, 'px', into);
+  emitValues('text', metrics.text, 'px', into);
+  const { stroke, ...iconSizes } = metrics.icon;
+  emitValues('icon', iconSizes, 'px', into);
+  into[`${PREFIX}-icon-stroke`] = String(stroke);
+  emitValues('shell', metrics.shell, 'px', into);
+  emitValues('status-bar', metrics.statusBar, 'px', into);
+  emitValues('focus', metrics.focus, 'px', into);
+  emitValues('hardware', metrics.hardware, 'px', into);
+  emitValues('waveform', metrics.display, 'px', into);
+  emitValues('state', metrics.state, 'px', into);
+}
+
+/** The faces, and the parts of the type scale that are the same at every density. */
+function emitTypeface(typeface: Typeface, into: Record<string, string>): void {
+  emitCss('font', typeface.family, into);
+  into[`${PREFIX}-text-numeric-ratio`] = String(typeface.numericRatio);
+  emitValues('text-weight', typeface.weight, '', into);
+  emitValues('text-line-height', typeface.lineHeight, '', into);
+  emitValues('text-tracking', typeface.tracking, 'em', into);
+}
+
+/** Durations, easings, the loops, travel, entry scales and the meter's ballistics. */
+function emitMotion(motion: MotionScale, into: Record<string, string>): void {
+  const { instant, quick, moderate, deliberate } = motion;
+  emitValues('motion', { instant, quick, moderate, deliberate }, 'ms', into);
+  const { easeOut, easeIn, easeInOut, easeSpring } = motion;
+  emitCss('motion', { easeOut, easeIn, easeInOut, easeSpring }, into);
+  emitValues('motion-loop', motion.loop, 'ms', into);
+  emitValues('motion-distance', motion.distance, 'px', into);
+  emitValues('motion-scale', motion.scale, '', into);
+
+  // A rate in decibels a second has no CSS unit, so it is a bare number; the
+  // holds and the time constant are durations like every other.
+  const { peakHold, clipHold, correlationTime, fallRate, peakFallRate } = motion.ballistics;
+  emitValues('ballistics', { peakHold, clipHold, correlationTime }, 'ms', into);
+  emitValues('ballistics', { fallRate, peakFallRate }, '', into);
 }
 
 /**
@@ -114,38 +225,10 @@ function emitPixels(
  */
 export function themeCustomProperties(theme: Theme): Readonly<Record<string, string>> {
   const properties: Record<string, string> = {};
-
-  emitColours('chrome', theme.palette.chrome, properties);
-  emitColours('waveform', theme.palette.waveform, properties);
-  emitColours('selection', theme.palette.selection, properties);
-  emitColours('meter', theme.palette.meter, properties);
-  emitColours('category', theme.palette.category, properties);
-
-  properties[`${PREFIX}-analysis-grid`] = oklchToCss(theme.palette.analysisGrid);
-
-  // The spectrogram ramp is indexed rather than named: it is a continuous
-  // scale, and a renderer interpolates between the stops.
-  theme.palette.spectrogram.forEach((stop, index) => {
-    properties[`${PREFIX}-spectrogram-${String(index)}`] = oklchToCss(stop);
-  });
-  properties[`${PREFIX}-spectrogram-stops`] = String(theme.palette.spectrogram.length);
-
-  emitPixels('space', theme.metrics.space, properties);
-  emitPixels('radius', theme.metrics.radius, properties);
-  emitPixels('control', theme.metrics.control, properties);
-
-  const { lineHeight, ...textSizes } = theme.metrics.text;
-  emitPixels('text', textSizes, properties);
-  properties[`${PREFIX}-text-line-height`] = String(lineHeight);
-
-  const { easeIn, easeOut, easeInOut, ...durations } = theme.motion;
-  for (const [token, value] of Object.entries(durations)) {
-    properties[propertyName('motion', token)] = `${String(value)}ms`;
-  }
-  properties[`${PREFIX}-motion-ease-out`] = easeOut;
-  properties[`${PREFIX}-motion-ease-in`] = easeIn;
-  properties[`${PREFIX}-motion-ease-in-out`] = easeInOut;
-
+  emitPalette(theme, properties);
+  emitMetrics(theme.metrics, properties);
+  emitTypeface(theme.typeface, properties);
+  emitMotion(theme.motion, properties);
   return properties;
 }
 

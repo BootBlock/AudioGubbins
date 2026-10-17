@@ -643,7 +643,7 @@ export async function fieldTextSizes(
   await openPalette(page);
   const palette = await sizes(
     page.getByRole('dialog', { name: 'Run a command' }).getByRole('combobox'),
-    '--ag-text-large',
+    '--ag-text-heading',
   );
   await page.keyboard.press('Escape');
 

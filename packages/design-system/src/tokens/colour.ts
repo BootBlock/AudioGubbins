@@ -368,6 +368,43 @@ export function contrastSolver(): {
   };
 }
 
+/**
+ * The colour at a translucency.
+ *
+ * A fill in the design language is a token colour at a high translucency, so
+ * it takes up whatever is behind it; the colour is still the token's, computed
+ * like every other, and only its opacity is stated.
+ */
+export function withAlpha(colour: Oklch, alpha: number): Oklch {
+  return { ...colour, alpha: clamp(alpha, 0, 1) };
+}
+
+/**
+ * Mixes two colours, `share` of the first and the rest of the second.
+ *
+ * Mixed in Oklab, where lightness is perceptual and the straight line between
+ * two colours never swings through a hue neither holds, as an interpolation of
+ * OKLCH hue angles would for two hues far apart. The result is opaque: a mix
+ * is a colour, and its translucency is stated where it is used.
+ */
+export function mix(first: Oklch, second: Oklch, share: number): Oklch {
+  const weight = clamp(share, 0, 1);
+  const toLab = (colour: Oklch): { readonly a: number; readonly b: number } => {
+    const radians = (colour.hue * Math.PI) / 180;
+    return { a: colour.chroma * Math.cos(radians), b: colour.chroma * Math.sin(radians) };
+  };
+  const one = toLab(first);
+  const two = toLab(second);
+  const a = one.a * weight + two.a * (1 - weight);
+  const b = one.b * weight + two.b * (1 - weight);
+  const chroma = Math.hypot(a, b);
+  return oklch(
+    first.lightness * weight + second.lightness * (1 - weight),
+    chroma,
+    chroma === 0 ? first.hue : (Math.atan2(b, a) * 180) / Math.PI,
+  );
+}
+
 /** Builds a colour, normalising the hue into 0 to 360. */
 export function oklch(lightness: number, chroma: number, hue: number, alpha?: number): Oklch {
   return {

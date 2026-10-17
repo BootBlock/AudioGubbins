@@ -20,7 +20,7 @@
   --dv-paneview-active-outline-color: var(--ag-chrome-border-focus);
 
   --dv-tabs-and-actions-container-background-color: var(--ag-chrome-surface-raised);
-  --dv-tabs-and-actions-container-height: var(--ag-control-compact-height);
+  --dv-tabs-and-actions-container-height: var(--ag-control-height);
   --dv-tabs-container-scrollbar-color: var(--ag-chrome-border-default);
 
   --dv-activegroup-visiblepanel-tab-background-color: var(--ag-chrome-surface-raised);
@@ -44,7 +44,7 @@
   --dv-active-sash-color: var(--ag-chrome-accent);
 
   --dv-font-family: inherit;
-  --dv-font-size: var(--ag-text-small);
+  --dv-font-size: var(--ag-text-label);
 }
 
 /*
@@ -146,7 +146,9 @@
  * clips whatever reaches past it, and a group's contents fill a group that
  * does, so a ring drawn outside either would lose its edges. The contents' ring
  * is drawn inside the border over the group in use as well, so neither covers
- * the other. Longhands, as the theme's ring is written.
+ * the other. Each is the theme's band of inset shadow, with the transparent
+ * outline over it that forced colours draw, in longhands as the theme's ring is
+ * written.
  *
  * The engine takes the outline away from a group's contents in a rule that
  * ties with the theme's ring and comes after it, so the contents' rule names
@@ -156,6 +158,7 @@
  */
 [data-ag-theme] .dv-tab:focus-visible {
   outline-offset: calc(-1 * var(--ag-focus-ring-width));
+  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
 }
 
 [data-ag-theme] .dv-tab:focus-visible::after {
@@ -176,14 +179,21 @@
   --dv-activegroup-visiblepanel-tab-color: var(--ag-chrome-text-on-accent);
   --dv-inactivegroup-visiblepanel-tab-color: var(--ag-chrome-text-on-accent);
 
-  outline-color: var(--ag-chrome-text-on-accent);
+  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-text-on-accent);
 }
 
+/* The band starts inside the border over the group: the shadow on top paints
+   the border's width in the surface, which the border then covers, and the
+   one under it shows the ring's width inside that. */
 [data-ag-theme] .dv-groupview > .dv-content-container:focus-visible {
   outline-style: solid;
   outline-width: var(--ag-focus-ring-width);
-  outline-color: var(--ag-chrome-border-focus);
+  outline-color: transparent;
   outline-offset: calc(-1 * (var(--ag-focus-ring-width) + var(--ag-group-in-use-border-width)));
+  box-shadow:
+    inset 0 0 0 var(--ag-group-in-use-border-width) var(--ag-focus-ring-surface),
+    inset 0 0 0 calc(var(--ag-group-in-use-border-width) + var(--ag-focus-ring-width))
+      var(--ag-chrome-border-focus);
 }
 
 @media (forced-colors: active) {
