@@ -30,6 +30,13 @@ export const SegmentedVariant = {
 
   /** The full width, each choice its label over a caption line. */
   Wide: 'wide',
+
+  /**
+   * Each choice a card: a preview of what it chooses over its label, the
+   * chosen card glowing (design language, section 7, a chosen card), as
+   * Settings shows its themes and densities.
+   */
+  Cards: 'cards',
 } as const;
 
 /** How the choices are drawn. */
@@ -47,6 +54,12 @@ export interface SegmentedOption {
 
   /** The caption line under the label, for the wide variant. */
   readonly caption?: string;
+
+  /**
+   * What the choice looks like, drawn over its label in the cards variant: a
+   * picture for the eye, which the label names for everyone.
+   */
+  readonly preview?: ReactNode;
 }
 
 /** What a segmented control takes. */
@@ -82,6 +95,18 @@ function face(option: SegmentedOption, variant: SegmentedVariant): ReactNode {
       <>
         <Icon name={option.icon} />
         <span className="ag-visually-hidden">{option.label}</span>
+      </>
+    );
+  }
+  if (variant === SegmentedVariant.Cards) {
+    return (
+      <>
+        {option.preview !== undefined && (
+          <span className="ag-segment-preview" aria-hidden="true">
+            {option.preview}
+          </span>
+        )}
+        <span className="ag-segment-label">{option.label}</span>
       </>
     );
   }
@@ -149,12 +174,16 @@ export function SegmentedControl({
           {...(unavailable ? { 'aria-disabled': true, 'data-ag-unavailable': '' } : {})}
           {...describedBy(reasonId)}
         >
-          <span
-            className="ag-segmented-wash"
-            aria-hidden="true"
-            data-ag-placed={box === undefined ? undefined : ''}
-            style={washPlace}
-          />
+          {/* A card glows where it is rather than taking a wash that
+              travels between cards laid out in rows. */}
+          {variant !== SegmentedVariant.Cards && (
+            <span
+              className="ag-segmented-wash"
+              aria-hidden="true"
+              data-ag-placed={box === undefined ? undefined : ''}
+              style={washPlace}
+            />
+          )}
           {options.map((option) => (
             <RadioGroup.Item
               key={option.value}

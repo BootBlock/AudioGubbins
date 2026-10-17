@@ -57,6 +57,31 @@ describe('SegmentedControl', () => {
     expect(waveform.querySelector('svg[data-icon="waveform"]')).not.toBeNull();
   });
 
+  it('draws each card’s preview over its label, named by the label alone', () => {
+    // A theme's preview is a picture: read out, its parts would be a string of
+    // nothing before "Dark".
+    renderThemed(
+      <SegmentedControl
+        label="Theme"
+        value="dark"
+        variant={SegmentedVariant.Cards}
+        options={[
+          { value: 'dark', label: 'Dark', preview: <span data-testid="dark-preview">▮▮▮</span> },
+          { value: 'light', label: 'Light', preview: <span>▯▯▯</span> },
+        ]}
+        onValueChange={vi.fn()}
+      />,
+    );
+
+    const dark = screen.getByRole('radio', { name: 'Dark' });
+    expect(dark).toBeChecked();
+    expect(dark).toContainElement(screen.getByTestId('dark-preview'));
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toHaveAttribute(
+      'data-ag-variant',
+      'cards',
+    );
+  });
+
   it('changes nothing while unavailable, and says why', async () => {
     const onValueChange = vi.fn();
     renderThemed(

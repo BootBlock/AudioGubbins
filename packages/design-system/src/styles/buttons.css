@@ -454,6 +454,57 @@
   color: var(--ag-chrome-text-secondary);
 }
 
+/* Cards: each choice a card holding a preview over its label, as many to a
+   row as fit at a readable width, the row's cards one inset apart. A chosen
+   card takes an accent edge and the glow of a chosen card (section 7); it
+   needs no wash, so the well and its padding go. */
+.ag-segmented[data-ag-variant='cards'] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(48 * var(--ag-grid-unit)), 1fr));
+  gap: var(--ag-space-inset);
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+}
+
+.ag-segmented[data-ag-variant='cards'] .ag-segment {
+  display: grid;
+  align-content: start;
+  justify-content: stretch;
+  gap: var(--ag-space-small);
+  block-size: auto;
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: calc(var(--ag-radius-control) + var(--ag-grid-unit));
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-control);
+  text-align: start;
+  transition-property: background-color, border-color, box-shadow, color;
+  transition-duration: var(--ag-motion-quick);
+}
+
+.ag-segmented[data-ag-variant='cards'] .ag-segment[aria-checked='true'] {
+  border-color: var(--ag-chrome-accent);
+  background-color: var(--ag-chrome-fill-accent);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-segmented[data-ag-variant='cards']:is([data-disabled], [data-ag-unavailable])
+  .ag-segment[aria-checked='true'] {
+  border-color: var(--ag-chrome-edge-quiet);
+  background-color: var(--ag-chrome-fill-press);
+  box-shadow: none;
+}
+
+/* The preview fills the card's width; what it draws is its caller's. */
+.ag-segment-preview {
+  display: grid;
+  min-inline-size: 0;
+}
+
 /* Small choices for a dense row: shorter, narrower padding, label-sized words
    and the small glyphs. */
 .ag-segmented[data-ag-small] .ag-segment {

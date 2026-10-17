@@ -182,6 +182,46 @@ const TOOLS: readonly SegmentedOption[] = [
   { value: 'brush', label: 'Brush', icon: 'spectral-brush' },
 ];
 
+/** A density's rows in miniature, in the theme's own colours, for a card's preview. */
+function rowsPreview(rows: number) {
+  return (
+    <span
+      style={{
+        display: 'grid',
+        alignContent: 'start',
+        gap: 'var(--ag-space-tiny)',
+        blockSize: 'calc(26 * var(--ag-grid-unit))',
+        padding: 'var(--ag-space-small)',
+        borderRadius: 'var(--ag-radius-small)',
+        backgroundColor: 'var(--ag-chrome-fill-well)',
+      }}
+    >
+      {Array.from({ length: rows }, (_, row) => (
+        <span
+          key={row}
+          style={{
+            blockSize: 'calc(2 * var(--ag-grid-unit))',
+            borderRadius: 'var(--ag-radius-hairline)',
+            backgroundColor: 'var(--ag-chrome-fill-hover)',
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+const DENSITIES: readonly SegmentedOption[] = [
+  { value: 'comfortable', label: 'Comfortable', preview: rowsPreview(3) },
+  { value: 'compact', label: 'Compact', preview: rowsPreview(5) },
+];
+
+/** The choices each variant shows. */
+function optionsOf(variant: SegmentedVariant): readonly SegmentedOption[] {
+  if (variant === SegmentedVariant.Tools) return TOOLS;
+  if (variant === SegmentedVariant.Cards) return DENSITIES;
+  return DISPLAY;
+}
+
 /** A segmented control in one variant, the first choice chosen. */
 function segmented(
   variant: SegmentedVariant,
@@ -191,11 +231,17 @@ function segmented(
     readonly disabled?: boolean;
   } = {},
 ): ReactNode {
-  const options = variant === SegmentedVariant.Tools ? TOOLS : DISPLAY;
+  const options = optionsOf(variant);
   const first = options[0]?.value ?? '';
   return (
     <SegmentedControl
-      label={variant === SegmentedVariant.Tools ? 'Tools' : 'Display'}
+      label={
+        variant === SegmentedVariant.Tools
+          ? 'Tools'
+          : variant === SegmentedVariant.Cards
+            ? 'Density'
+            : 'Display'
+      }
       value={first}
       options={options}
       variant={variant}
@@ -227,6 +273,11 @@ const segmentedSpecimens: readonly Specimen[] = [
     component: 'SegmentedControl (text)',
     state: 'disabled',
     render: () => segmented(SegmentedVariant.Text, { disabled: true }),
+  },
+  {
+    component: 'SegmentedControl (cards)',
+    state: 'disabled',
+    render: () => segmented(SegmentedVariant.Cards, { disabled: true }),
   },
   {
     component: 'SegmentedControl (text)',
