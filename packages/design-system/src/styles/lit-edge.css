@@ -108,3 +108,23 @@
   background-color: color-mix(in oklch, var(--ag-chrome-text-primary) 6%, transparent);
   box-shadow: inset 0 0 0 var(--ag-space-hair) var(--ag-chrome-border-subtle);
 }
+
+/* Forced colours remove the wash, the edge and the glow, which are light
+   alone. A row its own component marks (`data-ag-lit`, a chosen list row)
+   takes the pair the platform uses for a selection instead; its parts take its
+   colour, and a glyph loses its glow, which would be in the accent
+   `forced-color-adjust` keeps. The entry the keyboard is on
+   (`data-highlighted`) has its pair from `tokens.css`, and a chosen option is
+   left to it, so an open list never shows two rows in the selection's pair. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-lit-row[data-ag-lit]:not([data-ag-unavailable], [aria-disabled='true']) {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  [data-ag-theme] .ag-lit-row[data-ag-lit]:not([data-ag-unavailable], [aria-disabled='true']) * {
+    color: inherit;
+    filter: none;
+  }
+}

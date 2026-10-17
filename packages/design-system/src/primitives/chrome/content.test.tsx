@@ -53,9 +53,10 @@ describe('ListRow', () => {
       'listitem',
     );
     expect(chosen).toHaveAttribute('aria-current', 'true');
-    expect(chosen).toHaveClass('ag-lit-edge');
+    expect(chosen).toHaveClass('ag-lit-row');
+    expect(chosen).toHaveAttribute('data-ag-lit');
     expect(other).not.toHaveAttribute('aria-current');
-    expect(other).not.toHaveClass('ag-lit-edge');
+    expect(other).not.toHaveAttribute('data-ag-lit');
   });
 
   it('is a two-line row where it has a second line, and a one-line row where it has not', () => {

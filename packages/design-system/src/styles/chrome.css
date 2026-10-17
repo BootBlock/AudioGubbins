@@ -422,7 +422,7 @@
   margin-inline-start: calc(var(--ag-space-inset) + var(--ag-grid-unit) * 9);
 }
 
-.ag-list-row:is(:hover, [data-ag-force-state='hover'] *):not([data-ag-chosen]) {
+.ag-list-row:is(:hover, [data-ag-force-state='hover'] *):not([data-ag-lit]) {
   background-color: var(--ag-chrome-fill-hover);
 }
 
@@ -431,13 +431,6 @@
   flex: none;
   place-items: center;
   color: var(--ag-chrome-text-secondary);
-}
-
-.ag-list-row[data-ag-chosen] .ag-list-row-leading {
-  color: var(--ag-chrome-accent);
-  filter: drop-shadow(
-    0 0 calc(var(--ag-grid-unit) * 2) color-mix(in oklch, var(--ag-chrome-accent) 70%, transparent)
-  );
 }
 
 .ag-list-row-text {
@@ -483,31 +476,6 @@
   flex-flow: row wrap;
   align-items: baseline;
   column-gap: var(--ag-space-small);
-}
-
-/*
- * PROVISIONAL, to be replaced at the merge: the lit edge of a chosen row is
- * the shared rule of `styles/lit-edge.css`, which another part of this work
- * writes. Until it is here, this draws the same thing from the same tokens,
- * so a chosen row is not drawn unchosen. Delete this block, the rule below it
- * and its forced-colours twin when `lit-edge.css` arrives.
- */
-.ag-lit-edge {
-  background-image: var(--ag-effect-lit-wash);
-  box-shadow: var(--ag-effect-lit-glow);
-}
-
-.ag-lit-edge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  background: var(--ag-effect-lit-edge);
-  mask:
-    linear-gradient(currentColor, currentColor) content-box exclude,
-    linear-gradient(currentColor, currentColor);
-  pointer-events: none;
 }
 
 /* Tables. */
@@ -1290,17 +1258,6 @@
   .ag-dialog-notice,
   .ag-table-frame {
     border-color: CanvasText;
-  }
-
-  /* The chosen row, which the lit edge marks in light the browser removes. */
-  .ag-list-row[data-ag-chosen] {
-    forced-color-adjust: none;
-    background-color: Highlight;
-    color: HighlightText;
-  }
-
-  .ag-list-row[data-ag-chosen] * {
-    color: inherit;
   }
 
   .ag-spinner {
