@@ -534,44 +534,6 @@
   font-size: var(--ag-text-label);
 }
 
-/* The diagnostic log. */
-
-.ag-log {
-  margin: var(--ag-space-small) 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--ag-text-label);
-}
-
-.ag-log-record {
-  display: grid;
-  grid-template-columns: auto auto auto 1fr;
-  gap: var(--ag-space-small);
-  padding-block: 2px;
-  border-block-end: 1px solid var(--ag-chrome-border-subtle);
-}
-
-.ag-log-time,
-.ag-log-category {
-  color: var(--ag-chrome-text-secondary);
-  font-family: var(--ag-font-numeric);
-  font-variant-numeric: tabular-nums;
-}
-
-.ag-log-severity {
-  text-transform: uppercase;
-  font-size: var(--ag-text-caption);
-  letter-spacing: 0.04em;
-}
-
-.ag-log-severity[data-ag-severity='error'] {
-  color: var(--ag-chrome-status-error);
-}
-
-.ag-log-severity[data-ag-severity='warning'] {
-  color: var(--ag-chrome-status-warning);
-}
-
 /* The command palette. */
 
 .ag-palette {
@@ -959,97 +921,6 @@
   font-size: var(--ag-text-label);
 }
 
-/* The Loop panel: the loop's verdict, its checks as a table, the seam drawn
-   tail over head in the text colour with the jump marked, the search's
-   controls, and each candidate set apart with its actions in a row. */
-.ag-loop {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-medium);
-}
-
-.ag-loop-verdict {
-  margin: 0;
-  font-weight: 600;
-}
-
-.ag-loop-checks {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--ag-text-label);
-}
-
-.ag-loop-checks caption {
-  margin-block-end: var(--ag-space-tiny);
-  text-align: start;
-  color: var(--ag-chrome-text-secondary);
-}
-
-.ag-loop-checks th,
-.ag-loop-checks td {
-  padding: var(--ag-space-tiny) var(--ag-space-small);
-  border-block-end: 1px solid var(--ag-chrome-border-subtle);
-  text-align: start;
-  vertical-align: baseline;
-}
-
-.ag-loop-seam {
-  margin: 0;
-  padding: var(--ag-space-small);
-  border: 1px solid var(--ag-chrome-border-subtle);
-  border-radius: var(--ag-radius-small);
-  background: var(--ag-chrome-surface-sunken);
-  color: var(--ag-chrome-text-primary);
-}
-
-.ag-loop-seam > svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.ag-loop-seam > figcaption,
-.ag-loop-seam-words {
-  font-size: var(--ag-text-label);
-  color: var(--ag-chrome-text-secondary);
-}
-
-.ag-loop-seam-words {
-  margin: var(--ag-space-tiny) 0 0;
-  padding-inline-start: var(--ag-space-medium);
-}
-
-.ag-loop-search {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-small);
-  align-items: end;
-  margin: 0;
-  padding: var(--ag-space-small);
-  border: 1px solid var(--ag-chrome-border-subtle);
-  border-radius: var(--ag-radius-small);
-}
-
-.ag-loop-candidates {
-  display: grid;
-  gap: var(--ag-space-small);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ag-loop-candidate {
-  padding: var(--ag-space-small);
-  border: 1px solid var(--ag-chrome-border-subtle);
-  border-radius: var(--ag-radius-small);
-}
-
-.ag-loop-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-small);
-}
-
 /* A guided workflow's dialog: what it runs on, its options each with where
    its value came from, the analyses' progress, and every item of its plan
    with how it stands in words beside a mark that is never colour alone. */
@@ -1410,12 +1281,6 @@
   margin-block: var(--ag-space-small);
 }
 
-.ag-renderer-attempts {
-  margin: var(--ag-space-tiny) 0 0;
-  padding-inline-start: var(--ag-space-large);
-  color: var(--ag-chrome-text-secondary);
-}
-
 .ag-editor-asset-name {
   margin: 0;
   font-weight: 600;
@@ -1557,59 +1422,4 @@
   margin: 0;
   padding-inline-start: var(--ag-space-medium);
   color: var(--ag-chrome-text-secondary);
-}
-
-/* The Asset groups panel (ADR-0101). */
-
-.ag-group-tree {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ag-group-tree [role='treeitem'] {
-  /* Each level indented by its depth, which the item sets as a number. */
-  padding-block: var(--ag-space-tiny);
-  padding-inline-start: calc(
-    var(--ag-space-small) + var(--ag-group-depth, 0) * var(--ag-space-large)
-  );
-  cursor: pointer;
-}
-
-.ag-group-tree [role='treeitem'][aria-selected='true'] {
-  background-color: var(--ag-chrome-surface-sunken);
-  box-shadow: inset 3px 0 0 var(--ag-chrome-accent);
-}
-
-/* Drawn inside the node, so the tree that scrolls it never clips the ring, and
-   beside the chosen node's own mark rather than in place of it. */
-.ag-group-tree [role='treeitem']:focus-visible {
-  outline-style: solid;
-  outline-width: var(--ag-focus-ring-width);
-  outline-color: transparent;
-  outline-offset: calc(-1 * var(--ag-focus-ring-width));
-  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
-}
-
-.ag-group-tree [role='treeitem'][aria-selected='true']:focus-visible {
-  box-shadow:
-    inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus),
-    inset 3px 0 0 var(--ag-chrome-accent);
-}
-
-/* A table wider than the panel scrolls rather than crushing its columns. */
-.ag-group-members {
-  overflow-x: auto;
-}
-
-.ag-group-members table {
-  border-collapse: collapse;
-  min-inline-size: 36rem;
-}
-
-.ag-group-members th,
-.ag-group-members td {
-  padding: var(--ag-space-tiny) var(--ag-space-small);
-  text-align: start;
-  vertical-align: top;
 }
