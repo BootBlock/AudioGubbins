@@ -8,6 +8,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
+import { Hint } from '@audiogubbins/design-system';
 import { RendererKind, RendererState, type RendererReport } from '@audiogubbins/renderer';
 
 import type { RendererReports } from '../state/renderer-reports.js';
@@ -47,20 +48,26 @@ export function RendererReportList({ reports }: { readonly reports: RendererRepo
   const all = useSyncExternalStore(reports.subscribe, reports.get);
   if (all.size === 0) return null;
   return (
-    <>
+    <div className="ag-capability-group">
       <h3 className="ag-capability-heading">Editor drawing</h3>
-      <ul className="ag-capability-list">
+      <ul className="ag-capability-lines">
         {[...all].map(([panel, report]) => (
           <li key={panel} className="ag-capability" data-ag-renderer={report.active ?? 'none'}>
-            <span className="ag-capability-name">{rendererSentence(report)}</span>
-            <ul className="ag-renderer-attempts">
-              {report.attempts.map((attempt, index) => (
-                <li key={`${attempt.kind}-${String(index)}`}>
-                  {`${RENDERER_NAMES[attempt.kind]}: ${OUTCOMES[attempt.outcome]}`}
-                  {attempt.reason === undefined ? '' : ` (${attempt.reason})`}
-                </li>
-              ))}
-            </ul>
+            <p className="ag-capability-line">
+              {rendererSentence(report)}
+              {report.attempts.length > 0 && (
+                <Hint label="What was tried to draw the editor">
+                  <ul className="ag-renderer-attempts">
+                    {report.attempts.map((attempt, index) => (
+                      <li key={`${attempt.kind}-${String(index)}`}>
+                        {`${RENDERER_NAMES[attempt.kind]}: ${OUTCOMES[attempt.outcome]}`}
+                        {attempt.reason === undefined ? '' : ` (${attempt.reason})`}
+                      </li>
+                    ))}
+                  </ul>
+                </Hint>
+              )}
+            </p>
             {report.losses > 0 && (
               <p className="ag-capability-explanation">
                 {`Lost ${String(report.losses)} times, recovered ${String(report.recoveries)}.`}
@@ -69,6 +76,6 @@ export function RendererReportList({ reports }: { readonly reports: RendererRepo
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }
