@@ -4,7 +4,12 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { REPOSITORY_ROOT, forwardSlashes, inRepository } from '../repository.js';
-import { browserCompilerOptions, read, sourcesMatching } from './source-reading.js';
+import {
+  browserCompilerOptions,
+  productionSources,
+  read,
+  sourcesMatching,
+} from './source-reading.js';
 
 /**
  * What every package offers, held to the record written beside this rule.
@@ -79,9 +84,20 @@ const ENTRY_POINTS: readonly EntryPoint[] = MANIFESTS.flatMap(({ directory, mani
   }),
 ).toSorted((one, other) => inCodeOrder(one.specifier, other.specifier));
 
+/**
+ * The ambient declarations the packages compile with, such as the type of a
+ * dependency's modules that ship none. A package's own project takes them from
+ * its file list rather than from an import, so a program built from the entry
+ * points alone would read the modules they type as untyped. Test support's
+ * declarations are left out: no entry point reaches what they type.
+ */
+const AMBIENT_DECLARATIONS: readonly string[] = productionSources('packages/*/src/**/*.d.ts');
+
 /** Every entry point, compiled once for the rules below. */
 const PROGRAM = ts.createProgram(
-  ENTRY_POINTS.map((entry) => inRepository(entry.file)),
+  [...ENTRY_POINTS.map((entry) => entry.file), ...AMBIENT_DECLARATIONS].map((file) =>
+    inRepository(file),
+  ),
   browserCompilerOptions(),
 );
 

@@ -13,12 +13,6 @@
  * spectrogram glyphs are still to be drawn, and nothing stands in for them.
  */
 
-// The glyph modules' declaration, named here rather than left to the
-// compiler's file list, so every program that reads this module, the
-// public-contract record's among them, types the glyph modules alike.
-
-/// <reference path="./lucide-glyph-modules.d.ts" />
-
 import { __iconData as accessibilityGlyph } from 'lucide-react/dist/esm/icons/accessibility.mjs';
 import { __iconData as activityGlyph } from 'lucide-react/dist/esm/icons/activity.mjs';
 import { __iconData as alignCenterVerticalGlyph } from 'lucide-react/dist/esm/icons/align-center-vertical.mjs';
