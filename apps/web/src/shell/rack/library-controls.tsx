@@ -8,13 +8,15 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect, TextField } from '@audiogubbins/design-system';
+import { Button, OptionSelect, Section, TextField } from '@audiogubbins/design-system';
+import type { CommandInvocation } from '@audiogubbins/commands';
 import type { ProcessorId } from '@audiogubbins/domain';
 
 import { processorIn } from '../../commands/library-access.js';
 import type { Observable } from '../../state/observable.js';
 import type { SavedProcessingState } from '../../state/saved-processing-store.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { optionalReason } from '../optional-reason.js';
 import type { ShownRack } from './shown-rack.js';
 
 /** A library that lists nothing, where this browser keeps none. */
@@ -22,6 +24,31 @@ export const NO_LIBRARY: Observable<SavedProcessingState> = {
   get: () => ({ entries: [], loaded: true }),
   subscribe: () => () => undefined,
 };
+
+/** A button that runs the library command `id` with `args`, unavailable with its own reason. */
+function LibraryButton({
+  id,
+  label,
+  args,
+  commands,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly args: CommandInvocation['arguments'];
+  readonly commands: PanelCommands;
+}): ReactNode {
+  return (
+    <Button
+      compact
+      {...optionalReason(commands.unavailableReason(id, args))}
+      onClick={() => {
+        commands.run(id, args);
+      }}
+    >
+      {label}
+    </Button>
+  );
+}
 
 /** Saving the selected processor's settings as a preset, and applying one of its type. */
 function PresetControls({
@@ -50,27 +77,25 @@ function PresetControls({
   const args = { view: shown.panel, processorId: processor };
   return (
     <>
-      <div className="ag-inspector-row">
+      <div className="ag-rack-library-row">
         <TextField label="Save its settings as" value={name} onValueChange={setName} />
-        <CommandButton
+        <LibraryButton
           id="library.save-preset"
           label="Save as preset"
           commands={commands}
           args={{ ...args, name }}
-          compact
         />
       </div>
       {chosen === undefined ? (
         <p className="ag-panel-note">Your library keeps no preset of this processor.</p>
       ) : (
-        <div className="ag-inspector-row">
+        <div className="ag-rack-library-row">
           <OptionSelect label="Preset" value={chosen} options={presets} onValueChange={setPreset} />
-          <CommandButton
+          <LibraryButton
             id="library.apply-preset"
             label="Apply preset"
             commands={commands}
             args={{ ...args, entry: chosen }}
-            compact
           />
         </div>
       )}
@@ -92,25 +117,25 @@ export function LibraryControls({
   const [only, ...more] = shown.selected;
   const one = more.length === 0 ? only : undefined;
   return (
-    <section className="ag-inspector-section" aria-label="Your library">
-      <h3 className="ag-inspector-heading">Your library</h3>
-      <div className="ag-inspector-row">
-        <TextField label="Save the rack as" value={name} onValueChange={setName} />
-        <CommandButton
-          id="library.save-chain"
-          label="Save chain"
-          commands={commands}
-          args={{ view: shown.panel, name }}
-          compact
-        />
-      </div>
-      {one === undefined ? (
-        <p className="ag-panel-note">
-          Select one processor to save its settings or apply a preset.
-        </p>
-      ) : (
-        <PresetControls processor={one} shown={shown} library={library} commands={commands} />
-      )}
+    <section className="ag-rack-section" aria-label="Your library">
+      <Section title="Your library" icon="library">
+        <div className="ag-rack-library-row">
+          <TextField label="Save the rack as" value={name} onValueChange={setName} />
+          <LibraryButton
+            id="library.save-chain"
+            label="Save chain"
+            commands={commands}
+            args={{ view: shown.panel, name }}
+          />
+        </div>
+        {one === undefined ? (
+          <p className="ag-panel-note">
+            Select one processor to save its settings or apply a preset.
+          </p>
+        ) : (
+          <PresetControls processor={one} shown={shown} library={library} commands={commands} />
+        )}
+      </Section>
     </section>
   );
 }

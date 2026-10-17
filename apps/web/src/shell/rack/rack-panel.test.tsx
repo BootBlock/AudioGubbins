@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
+  DEFAULT_THEME_PREFERENCES,
+  ThemeProvider,
+  UNKNOWN_SYSTEM_APPEARANCE,
+  fixedSystemAppearance,
+} from '@audiogubbins/design-system';
+import {
   SummingLaw,
   derivedSampleCount,
   instantiateProcessor,
@@ -73,25 +79,32 @@ function panelOver(
 ): Ran {
   const { context, projects } = audio.window;
   const ran: Ran = [];
+  // The cards draw a fader and curves in the theme's colours, as the
+  // application draws them under its theme.
   render(
-    <RackPanel
-      title="Effects rack"
-      context={{
-        projects,
-        editor: {
-          stores: { editorViews: context.editorViews, selections: context.selections },
-          assets: context.assets,
-        },
-        modelGate: observable(gate),
-        audioSettings: context.audioSettings,
-        hearing: context.hearing,
-        run: (id, args, options) => {
-          ran.push([id, args]);
-          if (options !== undefined) voiced.push([id, options]);
-        },
-        unavailableReason: () => undefined,
-      }}
-    />,
+    <ThemeProvider
+      preferences={DEFAULT_THEME_PREFERENCES}
+      system={fixedSystemAppearance(UNKNOWN_SYSTEM_APPEARANCE)}
+    >
+      <RackPanel
+        title="Effects rack"
+        context={{
+          projects,
+          editor: {
+            stores: { editorViews: context.editorViews, selections: context.selections },
+            assets: context.assets,
+          },
+          modelGate: observable(gate),
+          audioSettings: context.audioSettings,
+          hearing: context.hearing,
+          run: (id, args, options) => {
+            ran.push([id, args]);
+            if (options !== undefined) voiced.push([id, options]);
+          },
+          unavailableReason: () => undefined,
+        }}
+      />
+    </ThemeProvider>,
   );
   return ran;
 }
@@ -129,8 +142,9 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
         .getAllByRole('listitem')
         .map(
           (row) =>
-            row.querySelector(':scope > .ag-rack-slot-head button[aria-pressed]')?.textContent ??
-            'group',
+            row.querySelector(
+              ':scope > .ag-rack-slot-head button[aria-pressed]:not([data-ag-icon-only])',
+            )?.textContent ?? 'group',
         ),
     ).toEqual(['Gain', 'group', 'Reverb', 'Peak normalisation']);
     expect(
@@ -141,8 +155,12 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
         'Empty: it passes the group’s input on, the dry path.',
       ),
     ).toBeInTheDocument();
+    // How it is heard is said in a word, with the whole of it behind a hint.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About how it is heard: heard from a render' }),
+    );
     expect(
-      screen.getByText(
+      await screen.findByText(
         'Heard from a render, made before it plays. Peak normalisation measures the whole of its input before it plays anything.',
       ),
     ).toBeInTheDocument();
@@ -162,14 +180,16 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
     const row = slotRow('Compressor');
 
     await user.click(within(row).getByRole('switch', { name: 'Use “Compressor”' }));
-    await user.click(within(row).getByRole('switch', { name: 'Solo “Compressor”' }));
+    await user.click(
+      within(row).getByRole('button', { name: 'Solo “Compressor”', pressed: false }),
+    );
     within(row)
       .getByRole('button', { name: /^Move “Compressor”/u })
       .focus();
     await user.keyboard('{ArrowUp}');
     await user.click(within(row).getByRole('button', { name: 'Remove' }));
     await user.click(within(row).getByRole('button', { name: 'Compressor' }));
-    await user.click(screen.getByRole('button', { name: 'Hear the original' }));
+    await user.click(screen.getByRole('switch', { name: 'Hear the original' }));
 
     expect(ran).toEqual([
       ['rack.set-enabled', { view: 'editor', slot: compressor.id, enabled: false }],
@@ -240,7 +260,10 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
     const ran = panelOver(audio);
     const user = userEvent.setup();
 
-    const cutoff = screen.getByRole('slider', { name: 'Cutoff' });
+    const cutoff = within(screen.getByRole('region', { name: 'Processor: Filter' })).getByRole(
+      'slider',
+      { name: 'Cutoff' },
+    );
     const descriptor = PROCESSOR_CATALOGUE.get('filter');
     const parameter = descriptor?.parameters.find((one) => one.key === 'cutoff');
     if (parameter?.kind !== 'numeric') throw new Error('A filter has a cutoff.');

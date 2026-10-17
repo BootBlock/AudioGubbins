@@ -103,15 +103,20 @@ function useInspected(
 /** The settings of each processor selected, by the controls the Effects rack shows them with. */
 function SelectedProcessors({
   ids,
+  of: subject,
   state,
-  panel,
   commands,
 }: {
   readonly ids: readonly ProcessorId[];
+  /**
+   * What they are selected in: the view the commands act in, and the audio
+   * whose rate a response is drawn at.
+   */
+  readonly of: Extract<Inspected, { readonly kind: 'project' }>;
   readonly state: ProjectState;
-  readonly panel: string;
   readonly commands: PanelCommands;
 }): ReactNode {
+  const { panel } = subject;
   return ids.map((id) => {
     const processor = processorIn(state, id);
     const descriptor =
@@ -130,6 +135,7 @@ function SelectedProcessors({
             descriptor={descriptor}
             panel={panel}
             commands={commands}
+            sampleRate={subject.view.sampleRate}
           />
         )}
       </section>
@@ -246,7 +252,7 @@ function ProjectSubject({
       <p>{`Acts on ${scope.text}`}</p>
       {state !== undefined &&
         (processors.length > 0 ? (
-          <SelectedProcessors ids={processors} state={state} panel={panel} commands={commands} />
+          <SelectedProcessors ids={processors} of={subject} state={state} commands={commands} />
         ) : (
           <RackSummary subject={subject} state={state} commands={commands} />
         ))}

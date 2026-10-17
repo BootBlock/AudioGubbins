@@ -523,6 +523,8 @@ describe('the Inspector panel (WU-05.D)', () => {
     const user = userEvent.setup();
 
     expect(screen.getByRole('heading', { name: 'Processor: Gain' })).toBeInTheDocument();
+    // A knob's value is a field a number is typed into once it is pressed.
+    await user.click(screen.getByRole('button', { name: 'Gain in dB, typed' }));
     const typed = screen.getByRole('textbox', { name: 'Gain in dB, typed' });
     await user.clear(typed);
     await user.type(typed, '-4.5{Enter}');

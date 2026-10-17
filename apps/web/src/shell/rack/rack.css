@@ -1,0 +1,463 @@
+/*
+ * The Effects rack (design language, sections 10 and 11): a chain as a row
+ * of processor cards, each with its power switch, solo and handle at its
+ * head, what it sets at a glance in its body and its mix at its foot, a
+ * parallel group's branches nested in its card, and the controls of the
+ * processor selected under the row, its curve drawn as a display.
+ */
+
+/* A processing panel's header and body inset themselves (section 11), so the
+   panel adds no padding of its own around them. */
+.ag-processing-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.ag-rack-sub,
+.ag-rack-hearing {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ag-rack-sub {
+  gap: var(--ag-space-medium);
+}
+
+.ag-rack-hearing {
+  gap: var(--ag-space-micro);
+}
+
+.ag-rack-hearing-word {
+  color: var(--ag-chrome-text-primary);
+}
+
+/* The row under the header of what is done with the rack as a whole. */
+.ag-rack-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-inset);
+}
+
+.ag-rack-tools-group {
+  display: flex;
+  gap: var(--ag-space-micro);
+}
+
+.ag-rack-tools > :last-child {
+  margin-inline-start: auto;
+}
+
+/* The chain: a row of cards that scrolls across, with room round each card
+   for its glow and a focus ring. Nested in a branch, a column. */
+.ag-rack-slots {
+  display: flex;
+  gap: var(--ag-space-inset);
+  margin: 0;
+  padding: var(--ag-focus-ring-reach);
+  list-style: none;
+  overflow-x: auto;
+}
+
+.ag-rack-slots[data-ag-nested] {
+  flex-direction: column;
+  padding: 0;
+  overflow: visible;
+}
+
+.ag-rack-slot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  inline-size: calc(var(--ag-grid-unit) * 115);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-rack-slot[data-ag-kind='group'] {
+  inline-size: calc(var(--ag-grid-unit) * 170);
+}
+
+.ag-rack-slots[data-ag-nested] > .ag-rack-slot {
+  inline-size: auto;
+  border-radius: var(--ag-radius-control);
+}
+
+/* A chosen card: an accent edge and the glow (section 7). */
+.ag-rack-slot[data-ag-selected='true'] {
+  border-color: var(--ag-chrome-edge-accent);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-rack-slot-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+/* The name, which selects the processor, takes what the head leaves. */
+.ag-rack-slot-head > .ag-button:not([data-ag-icon-only]) {
+  flex: 1;
+  justify-content: flex-start;
+  min-inline-size: 0;
+  font-weight: var(--ag-text-weight-heading);
+  text-align: start;
+  white-space: normal;
+}
+
+.ag-rack-slot-name {
+  flex: 1;
+  padding-inline: var(--ag-space-small);
+  font-weight: var(--ag-text-weight-heading);
+}
+
+.ag-rack-slot[data-ag-bypassed='true'] .ag-rack-slot-head {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-rack-slot-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-rack-slot-body > .ag-badge {
+  align-self: flex-start;
+}
+
+.ag-rack-slot-knobs {
+  display: flex;
+  justify-content: center;
+  gap: var(--ag-space-medium);
+}
+
+.ag-rack-slot-fader {
+  display: flex;
+  justify-content: center;
+  block-size: calc(var(--ag-grid-unit) * 70);
+}
+
+.ag-rack-eq-thumbnail {
+  inline-size: 100%;
+  block-size: calc(var(--ag-grid-unit) * 48);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+.ag-rack-slot-cannot {
+  display: flex;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+.ag-rack-slot-cannot > .ag-icon {
+  flex: none;
+  margin-block-start: calc((1lh - var(--ag-icon-size-inline)) / 2);
+}
+
+.ag-rack-slot-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-rack-slot-foot > .ag-slider-field {
+  flex: 1 1 100%;
+}
+
+.ag-rack-slot-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ag-space-micro);
+}
+
+/* A parallel group's branches, each a well holding its own column of cards. */
+.ag-rack-branches {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-rack-branch {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+.ag-rack-branch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ag-space-small);
+}
+
+.ag-rack-branch-name {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+/* An empty chain or branch: where a processor would go, drawn dashed. */
+.ag-rack-empty {
+  margin: 0;
+  padding: var(--ag-space-inset);
+  border: 1px dashed var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-rack-shared {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-small) var(--ag-space-inset);
+  border: 1px solid color-mix(in oklch, var(--ag-chrome-status-warning) 35%, transparent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-chrome-status-warning) 12%, transparent);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-rack-shared > .ag-icon {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-rack-shared > p {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+/* The processor selected: its name over its controls, set apart as a card. */
+.ag-rack-processor {
+  display: grid;
+  gap: var(--ag-space-inset);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-rack-processor-name {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  line-height: var(--ag-text-line-height-heading);
+}
+
+.ag-rack-processor-name > .ag-icon {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-rack-section {
+  display: grid;
+}
+
+.ag-rack-ranges {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-rack-range-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-rack-range-head > .ag-button:first-child {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  text-align: start;
+  white-space: normal;
+}
+
+.ag-rack-range-chain {
+  display: grid;
+  gap: var(--ag-space-inset);
+  padding-inline-start: var(--ag-space-inset);
+}
+
+.ag-rack-range-chain[hidden] {
+  display: none;
+}
+
+.ag-rack-range-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-rack-range-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  margin-inline-start: auto;
+}
+
+.ag-rack-library-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+/* A processor's controls, shared with the Inspector: its display, its knobs,
+   then its choices and switches, and its reset menu at the trailing end. */
+.ag-processor-controls {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+/* A display sits in a well with a subtle edge (section 11); light, it takes
+   the light display's own background, as the waveform does. */
+.ag-processor-display {
+  position: relative;
+  block-size: calc(var(--ag-control-height) * 7);
+  overflow: hidden;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+[data-ag-theme='light'] :is(.ag-processor-display, .ag-rack-eq-thumbnail) {
+  background-color: var(--ag-waveform-background);
+}
+
+.ag-processor-curve {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.ag-processor-knobs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ag-grid-unit) * 44), 1fr));
+  justify-items: center;
+  gap: var(--ag-space-medium);
+}
+
+.ag-processor-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-medium) var(--ag-space-inset-wide);
+}
+
+.ag-processor-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-processor-caption {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-processor-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The equaliser: a tab for each band, its colour lit in its dot, and the
+   chosen band's controls in a well. */
+.ag-eq-bands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ag-grid-unit) * 36), 1fr));
+  gap: var(--ag-space-tiny);
+}
+
+.ag-eq-bands > .ag-button {
+  block-size: auto;
+  padding: var(--ag-space-tiny) var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  background-color: var(--ag-chrome-fill-quiet);
+}
+
+.ag-eq-bands > .ag-button[aria-pressed='true'] {
+  border-color: var(--ag-chrome-edge-accent);
+  box-shadow: var(--ag-effect-lit-glow);
+}
+
+.ag-eq-band-tab {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--ag-space-small);
+  inline-size: 100%;
+  text-align: start;
+}
+
+.ag-eq-band-dot {
+  inline-size: calc(var(--ag-grid-unit) * 4);
+  block-size: calc(var(--ag-grid-unit) * 4);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-band-colour);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 3) var(--ag-band-colour);
+}
+
+.ag-eq-band-tab[data-ag-off] {
+  opacity: 0.5;
+}
+
+.ag-eq-band-tab[data-ag-off] .ag-eq-band-dot {
+  box-shadow: none;
+}
+
+.ag-eq-band-number {
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-eq-band-type {
+  grid-column: 1 / -1;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-quiet);
+}
+
+.ag-eq-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-inset-wide);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+.ag-eq-band-choices {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-eq-band > .ag-processor-knobs {
+  flex: 1 1 auto;
+}
