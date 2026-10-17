@@ -12,230 +12,28 @@
  * click or a long press on it opens the editor's context actions (REQ-UX-067).
  * The panel marks itself as an editor's, where the clipboard keys copy and
  * paste audio rather than the page's text.
+ *
+ * Laid out as the design language's panel composition (section 11): the
+ * toolbar in one row, the scope under it, the display reaching the panel's
+ * bottom inset with the waveform's progress over its bottom trailing corner,
+ * and the readings and markers in a quiet row beneath. With no asset shown,
+ * the panel's empty state offers the assets it can open.
  */
 
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-  type RefObject,
-} from 'react';
+import { useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
 
-import {
-  Button,
-  ContextActions,
-  useTheme,
-  type ContextActionsOpener,
-  type MenuGroup,
-} from '@audiogubbins/design-system';
-import { KEYBOARD_HOME } from '@audiogubbins/workspace';
+import { Banner, BannerTone } from '@audiogubbins/design-system';
 import type { EditorViewState } from '@audiogubbins/editor-view';
-import { visibleRange } from '@audiogubbins/timeline';
-import type { PeakStatus } from '@audiogubbins/waveform';
-import type { SpectrogramStatus } from '@audiogubbins/spectral-analysis';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { EDITOR_PANEL } from '../input/use-shortcuts.js';
-import { EditorSurface } from '../editor/editor-surface.js';
-import { editorPaletteOf, editorTypeOf } from '../editor/theme-palette.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
+import { AssetChooser } from './editor-panel-chooser.js';
+import { EditorDisplay } from './editor-panel-display.js';
+import { ScrollPosition } from './editor-panel-scroll.js';
 import { EditorReadouts, MarkerList } from './editor-readouts.js';
 import { EditorToolbar } from './editor-toolbar.js';
-import { PeaksNote } from './peaks-note.js';
 import { SelectionScope } from './selection-scope.js';
-import { SpectrogramNote } from './spectrogram-note.js';
-
-/** The editor's context actions, each a command run as the menus run it. */
-const CONTEXT_GROUPS: readonly (readonly string[])[] = [
-  ['transport.play', 'editor.add-marker', 'editor.remove-markers'],
-  ['editor.zoom-in', 'editor.zoom-out', 'editor.zoom-to-fit', 'editor.zoom-to-selection'],
-  ['editor.select-all', 'editor.clear-selection', 'editor.new-view'],
-];
-
-/** The assets a view can open, as buttons. */
-function AssetChooser({
-  panel,
-  parts,
-}: {
-  readonly panel: string;
-  readonly parts: EditorPanelParts;
-}): ReactNode {
-  const { assets, problems } = useSyncExternalStore(parts.assets.subscribe, parts.assets.get);
-  return (
-    <div className="ag-editor-chooser">
-      <p>Choose an asset to open in this view.</p>
-      <ul className="ag-editor-assets">
-        {assets.map((asset) => (
-          <li key={asset.id} className="ag-editor-asset">
-            <Button
-              onClick={() => {
-                parts.run('editor.open-asset', { view: panel, asset: asset.id });
-              }}
-            >
-              {asset.name}
-            </Button>
-            <p className="ag-panel-note">{asset.description}</p>
-          </li>
-        ))}
-      </ul>
-      {problems.map((problem) => (
-        <p key={problem} className="ag-panel-note" data-ag-status="unavailable">
-          {problem}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-/** The context actions, each entry the command it runs, named with the view. */
-function contextGroups(parts: EditorPanelParts, panel: string): readonly MenuGroup[] {
-  return CONTEXT_GROUPS.map((ids, index) => ({
-    key: String(index),
-    items: ids.map((id) => {
-      const reason = parts.unavailableReason(id);
-      return {
-        key: id,
-        label: parts.labelFor(id),
-        ...(reason === undefined ? {} : { unavailableReason: reason }),
-        onSelect: () => {
-          parts.run(id, { view: panel });
-        },
-      };
-    }),
-  }));
-}
-
-/** Where the view's peaks and spectrogram are told to, which the panel says beside the canvas. */
-interface SurfaceStatus {
-  readonly onPeaks: (status: PeakStatus) => void;
-  readonly onSpectrogram: (status: SpectrogramStatus | undefined) => void;
-}
-
-/**
- * Mounts the surface in `host` for panel `panel`, once, and hands it the
- * theme's colours as they change: a change of theme reaches its next frame.
- *
- * A press it recognises as held still opens the context actions through
- * `actions`.
- */
-function useEditorSurface(
-  host: RefObject<HTMLDivElement | null>,
-  panel: string,
-  parts: EditorPanelParts,
-  { onPeaks, onSpectrogram }: SurfaceStatus,
-  actions: RefObject<ContextActionsOpener | null>,
-): void {
-  const theme = useTheme();
-  const look = useRef({ palette: editorPaletteOf(theme), type: editorTypeOf(theme) });
-  const surface = useRef<EditorSurface | undefined>(undefined);
-
-  useEffect(() => {
-    look.current = { palette: editorPaletteOf(theme), type: editorTypeOf(theme) };
-    surface.current?.redraw();
-  }, [theme]);
-
-  useEffect(() => {
-    const element = host.current;
-    if (element === null) return undefined;
-    const made = new EditorSurface({
-      host: element,
-      panel,
-      stores: parts.stores,
-      peaks: parts.peaks,
-      spectrograms: parts.spectrograms,
-      graphics: parts.graphics,
-      look: () => look.current,
-      run: (command) => {
-        parts.run(command.id, command.args);
-      },
-      report: (report) => {
-        parts.rendererReports.report(panel, report);
-      },
-      peaksChanged: onPeaks,
-      spectrogramChanged: onSpectrogram,
-      contextActions: (clientX, clientY) => {
-        actions.current?.openAt(clientX, clientY);
-      },
-      logger: parts.logger,
-    });
-    surface.current = made;
-    return () => {
-      made.dispose();
-      surface.current = undefined;
-      parts.rendererReports.forget(panel);
-    };
-  }, [host, panel, parts, onPeaks, onSpectrogram, actions]);
-}
-
-/** The waveform surface, mounted once for the panel in `host`, and described by `describedBy`. */
-function Surface({
-  host,
-  describedBy,
-  panel,
-  asset,
-  parts,
-  status,
-}: {
-  readonly host: RefObject<HTMLDivElement | null>;
-  readonly describedBy: string;
-  readonly panel: string;
-  readonly asset: EditorAsset;
-  readonly parts: EditorPanelParts;
-  readonly status: SurfaceStatus;
-}): ReactNode {
-  const actions = useRef<ContextActionsOpener>(null);
-  useEditorSurface(host, panel, parts, status, actions);
-  return (
-    <ContextActions label="Editor actions" groups={contextGroups(parts, panel)} opener={actions}>
-      <div
-        ref={host}
-        className="ag-editor-surface"
-        role="application"
-        aria-roledescription="waveform editor"
-        aria-label={`Waveform of ${asset.name}`}
-        aria-describedby={describedBy}
-        // Where the keyboard goes when a command makes this view the one in
-        // use: the arrow keys are the surface's own, and nowhere else's.
-        {...{ [KEYBOARD_HOME]: '' }}
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- an application region takes the keyboard for its own keys, the held space bar among them, so it must be reachable by Tab
-        tabIndex={0}
-      />
-    </ContextActions>
-  );
-}
-
-/** The scroll position, as a slider over where the view's left edge can be. */
-function ScrollPosition({
-  panel,
-  asset,
-  state,
-  parts,
-}: {
-  readonly panel: string;
-  readonly asset: EditorAsset;
-  readonly state: EditorViewState;
-  readonly parts: EditorPanelParts;
-}): ReactNode {
-  const shown = visibleRange(state.viewport, asset.length);
-  return (
-    <input
-      className="ag-editor-scroll"
-      type="range"
-      aria-label="Position in the asset"
-      min={0}
-      max={Math.max(0, asset.length - (shown.end - shown.start))}
-      step={1}
-      value={shown.start}
-      onChange={(event) => {
-        parts.run('editor.scroll-to', { view: panel, position: Number(event.target.value) });
-      }}
-    />
-  );
-}
 
 /** A view of an asset. */
 function EditorView({
@@ -251,13 +49,6 @@ function EditorView({
   readonly state: EditorViewState;
   readonly parts: EditorPanelParts;
 }): ReactNode {
-  const [peaks, setPeaks] = useState<PeakStatus | undefined>(undefined);
-  const [spectrogram, setSpectrogram] = useState<SpectrogramStatus | undefined>(undefined);
-  // One value for the surface's life: a new one would mount the surface again.
-  const status = useMemo<SurfaceStatus>(
-    () => ({ onPeaks: setPeaks, onSpectrogram: setSpectrogram }),
-    [],
-  );
   const surface = useRef<HTMLDivElement>(null);
   const readings = useId();
   const selection = parts.stores.selections.of(asset.id);
@@ -265,34 +56,37 @@ function EditorView({
     <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       <p className="ag-editor-asset-name">{asset.name}</p>
-      {asset.owner.kind === 'session' && <p className="ag-panel-note">{asset.owner.reason}</p>}
+      {asset.owner.kind === 'session' && (
+        <Banner tone={BannerTone.Information} icon="read-only">
+          {asset.owner.reason}
+        </Banner>
+      )}
       <EditorToolbar
         panel={panel}
         asset={asset}
         state={state}
-        commands={{ run: parts.run, shortcutFor: parts.shortcutFor }}
+        commands={{ run: parts.run, shortcutFor: parts.shortcutFor, labelFor: parts.labelFor }}
       />
       <SelectionScope selection={selection} asset={asset} state={state} />
-      <Surface
+      <EditorDisplay
         host={surface}
         describedBy={readings}
         panel={panel}
         asset={asset}
         parts={parts}
-        status={status}
       />
       <ScrollPosition panel={panel} asset={asset} state={state} parts={parts} />
-      <EditorReadouts id={readings} surface={surface} asset={asset} state={state} parts={parts} />
-      <MarkerList
-        panel={panel}
-        asset={asset}
-        state={state}
-        markers={asset.markers}
-        selection={selection}
-        parts={parts}
-      />
-      <PeaksNote status={peaks} />
-      <SpectrogramNote status={spectrogram} />
+      <div className="ag-editor-footer">
+        <EditorReadouts id={readings} surface={surface} asset={asset} state={state} parts={parts} />
+        <MarkerList
+          panel={panel}
+          asset={asset}
+          state={state}
+          markers={asset.markers}
+          selection={selection}
+          parts={parts}
+        />
+      </div>
     </section>
   );
 }
@@ -334,12 +128,16 @@ export function EditorPanel({
     <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       {unopened !== undefined && (
-        <p className="ag-panel-note" role="status">
-          {unopened.name} cannot be shown yet. {unopened.reason}
-        </p>
+        <div role="status">
+          <Banner tone={BannerTone.Warning} icon="unavailable">
+            {`${unopened.name} cannot be shown yet. ${unopened.reason}`}
+          </Banner>
+        </div>
       )}
       {entry !== undefined && unopened === undefined && (
-        <p className="ag-panel-note">The asset this view showed is not open in this session.</p>
+        <Banner tone={BannerTone.Information} icon="information">
+          The asset this view showed is not open in this session.
+        </Banner>
       )}
       <AssetChooser panel={panel} parts={parts} />
     </section>

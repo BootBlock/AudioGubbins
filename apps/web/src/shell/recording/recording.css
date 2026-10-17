@@ -1,0 +1,339 @@
+/* The Recorder: the input, its meters, the take being recorded, the takes, monitoring and latency. */
+
+/* The panel's parts stacked one inset apart; each section draws its own hairline. */
+.ag-recording-body,
+.ag-recording-input,
+.ag-recording-takes {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+/* The input chosen, with Arm and Disarm at its trailing end. */
+.ag-recording-device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-recording-device > .ag-select-field,
+.ag-recording-device-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ag-recording-device-name {
+  margin: 0;
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+.ag-recording-buttons,
+.ag-recording-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-recording-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}
+
+/* What is known of the input, a line each, led by its glyph at the first line. */
+.ag-recording-facts {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-recording-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+.ag-recording-fact > .ag-icon {
+  flex: 0 0 auto;
+  block-size: 1lh;
+}
+
+.ag-recording-fact[data-ag-status='reduced'],
+.ag-recording-caption[data-ag-status='reduced'],
+.ag-recording-state[data-ag-status='reduced'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-recording-caption,
+.ag-recording-state {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-recording-caption {
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* What the browser granted, disclosed on request: a quiet header with its own chevron. */
+.ag-recording-disclosure {
+  font-size: var(--ag-text-label);
+}
+
+.ag-recording-disclosure > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-strong);
+  list-style: none;
+  cursor: pointer;
+}
+
+.ag-recording-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ag-recording-disclosure > summary:hover {
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-recording-disclosure[open] .ag-recording-disclosure-chevron {
+  rotate: 90deg;
+}
+
+[data-ag-motion='full'] .ag-recording-disclosure-chevron {
+  transition: rotate var(--ag-motion-quick) var(--ag-motion-ease-out);
+}
+
+.ag-recording-disclosure > ul {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: var(--ag-space-small) 0 0;
+  padding-inline-start: var(--ag-space-large);
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* The meters sit in a recessed well, as a meter's housing does. */
+.ag-recording-meters {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background: var(--ag-chrome-fill-well);
+}
+
+.ag-recording-meters-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The take being recorded: the lamp, what it records into and how far it has come, and Stop. */
+.ag-recording-deck {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+}
+
+.ag-recording-deck-text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--ag-space-micro);
+  min-inline-size: 0;
+}
+
+.ag-recording-purpose {
+  margin: 0;
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+.ag-recording-progress {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* A form in a panel: a typed value beside its label, one row an inset apart. */
+.ag-recording-form {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-recording-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-recording-field-row > .ag-text-field {
+  flex: 1 1 calc(60 * var(--ag-grid-unit));
+  min-inline-size: 0;
+}
+
+/* The take stacks: each stack under its name, its takes as rows. */
+.ag-recording-stacks,
+.ag-recording-take-list,
+.ag-recording-diagnostics {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-recording-stacks {
+  gap: var(--ag-space-inset);
+}
+
+.ag-recording-take-list {
+  gap: var(--ag-space-micro);
+}
+
+.ag-recording-stack {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-recording-stack-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-recording-stack-text {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ag-recording-stack-name {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+/* A take: a row of the list; the chosen one takes the set's lit edge (`ag-lit-row`). */
+.ag-recording-take {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-row-height);
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-recording-take:hover:not([data-ag-lit]) {
+  background: var(--ag-chrome-fill-hover);
+}
+
+/* A rejected or removed take stays in its place, quieter. */
+.ag-recording-take:is([data-ag-state='rejected'], [data-ag-state='removed'])
+  .ag-recording-take-text {
+  color: var(--ag-chrome-text-disabled);
+}
+
+/* The chosen take's lamp: unlit for the others, lit in the accent for the chosen one. */
+.ag-recording-take-lamp {
+  flex: 0 0 auto;
+  inline-size: calc(7 * var(--ag-grid-unit));
+  block-size: calc(7 * var(--ag-grid-unit));
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-full);
+  background: var(--ag-chrome-fill-well);
+}
+
+.ag-recording-take[data-ag-lit] .ag-recording-take-lamp {
+  border-color: var(--ag-chrome-edge-accent);
+  background: radial-gradient(circle, var(--ag-chrome-accent) 0 40%, transparent 45%);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-recording-take-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ag-recording-take-name,
+.ag-recording-take-facts {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-recording-take-name {
+  font-weight: var(--ag-text-weight-control);
+}
+
+.ag-recording-take-facts {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The recording diagnostics, each a card. */
+.ag-recording-diagnostics {
+  gap: var(--ag-space-small);
+}
+
+.ag-recording-diagnostic {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background: var(--ag-elevation-card-fill);
+}
+
+.ag-recording-diagnostic-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-recording-diagnostic-name {
+  flex: 1 1 auto;
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-recording-diagnostic-remedy {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+/* The Inspector's take and stack: the title, the fields and what is known of it. */
+.ag-recording-subject {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-recording-subject-title {
+  margin: 0;
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-recording-subject-facts {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-recording-subject-facts > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

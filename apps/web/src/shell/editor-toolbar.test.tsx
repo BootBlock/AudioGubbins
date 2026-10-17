@@ -26,7 +26,7 @@ describe('the channel buttons', () => {
           panel="editor"
           asset={TONES}
           state={{ ...newViewState(TONES.length, 1000), hiddenChannels: [1] }}
-          commands={{ run: vi.fn(), shortcutFor: () => undefined }}
+          commands={{ run: vi.fn(), shortcutFor: () => undefined, labelFor: (id) => id }}
         />
       </HintProvider>,
     );
@@ -52,7 +52,7 @@ describe('the tool buttons', () => {
           panel="editor"
           asset={TONES}
           state={newViewState(TONES.length, 1000)}
-          commands={{ run, shortcutFor: () => undefined }}
+          commands={{ run, shortcutFor: () => undefined, labelFor: (id) => id }}
         />
       </HintProvider>,
     );
@@ -82,7 +82,7 @@ describe('the combination mode', () => {
             ...state,
             spectralTools: { ...state.spectralTools, combination: SpectralCombination.Add },
           }}
-          commands={{ run, shortcutFor: () => undefined }}
+          commands={{ run, shortcutFor: () => undefined, labelFor: (id) => id }}
         />
       </HintProvider>,
     );
@@ -109,7 +109,7 @@ describe('the combination mode', () => {
           panel="editor"
           asset={TONES}
           state={newViewState(TONES.length, 1000)}
-          commands={{ run: vi.fn(), shortcutFor: () => undefined }}
+          commands={{ run: vi.fn(), shortcutFor: () => undefined, labelFor: (id) => id }}
         />
       </HintProvider>,
     );

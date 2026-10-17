@@ -11,14 +11,26 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { CaptureProfileKind, PROCESSING_CONTROLS, processingOf } from '@audiogubbins/recording';
+import { PropertyGrid, type PropertyRow } from '@audiogubbins/design-system';
+
+import {
+  CaptureProfileKind,
+  PROCESSING_CONTROLS,
+  processingOf,
+  type DeviceIdentity,
+} from '@audiogubbins/recording';
 
 import { calibrationStanding } from '../../recording/input-diagnostics.js';
+import type { MonitoringView } from '../../recording/monitoring-control.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import { PROCESSING_NAMES, deviceName, monitoringText } from '../../recording/recording-words.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
 import type { Observable } from '../../state/observable.js';
-import { chosenProfileOf, monitoringRemembered } from '../../state/recording-settings.js';
+import {
+  chosenProfileOf,
+  monitoringRemembered,
+  type RecordingSettings,
+} from '../../state/recording-settings.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { GrantDisclosure } from './input-section.js';
 import { calibrationPathOf } from '../../recording/calibration-path.js';
@@ -31,13 +43,78 @@ const KIND_NAMES: Readonly<Record<CaptureProfileKind, string>> = {
   [CaptureProfileKind.Custom]: 'your own',
 };
 
-function Reading({ term, children }: { readonly term: string; readonly children: ReactNode }) {
-  return (
-    <div className="ag-reading">
-      <dt>{term}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
+/** The profile a recording is set up with. */
+type Profile = ReturnType<typeof chosenProfileOf>;
+
+/** Which input, the profile and what it asks the browser for, as rows. */
+function captureRows(device: DeviceIdentity | undefined, profile: Profile): PropertyRow[] {
+  const processing = processingOf(profile);
+  return [
+    { id: 'input', label: 'Input', value: deviceName(device) },
+    {
+      id: 'profile',
+      label: 'Capture profile',
+      value: `${profile.name}, ${KIND_NAMES[profile.kind]}${profile.headphones ? ', used with headphones' : ''}`,
+    },
+    {
+      id: 'asks',
+      label: 'Asks the browser for',
+      value: PROCESSING_CONTROLS.map(
+        (control) => `${PROCESSING_NAMES[control]} ${processing[control] ? 'on' : 'off'}`,
+      ).join('; '),
+    },
+  ];
+}
+
+/** What is kept before Record, the count-in, monitoring and the calibration, as rows. */
+function behaviourRows({
+  settings,
+  monitoring,
+  device,
+  profile,
+  standing,
+}: {
+  readonly settings: RecordingSettings;
+  readonly monitoring: MonitoringView;
+  readonly device: DeviceIdentity | undefined;
+  readonly profile: Profile;
+  readonly standing: ReturnType<typeof calibrationStanding>;
+}): PropertyRow[] {
+  return [
+    {
+      id: 'kept',
+      label: 'Kept before Record',
+      value: settings.retrospective.on
+        ? `The last ${String(settings.retrospective.seconds)} seconds, while armed`
+        : 'Nothing',
+    },
+    {
+      id: 'count-in',
+      label: 'Count-in',
+      value: settings.countInSeconds === 0 ? 'None' : `${String(settings.countInSeconds)} seconds`,
+    },
+    { id: 'monitoring', label: 'Monitoring', value: monitoringText(monitoring) },
+    {
+      id: 'starts-monitoring',
+      label: 'Starts monitoring by itself',
+      value:
+        device !== undefined &&
+        profile.headphones &&
+        monitoringRemembered(settings, device, profile.name)
+          ? 'Yes, with this input and profile'
+          : 'No',
+    },
+    {
+      id: 'calibration',
+      label: 'Latency calibration',
+      value:
+        standing.kind === 'current'
+          ? 'Calibrated for this input, output and sample rate'
+          : standing.kind === 'missing'
+            ? 'Not calibrated'
+            : 'Taken with another path; calibrate again',
+    },
+  ];
 }
 
 /** The recording configuration, for the Inspector. */
@@ -57,46 +134,17 @@ export function RecordingConfiguration({
     recording.monitoring.view.get,
   );
   const profile = chosenProfileOf(settings);
-  const processing = processingOf(profile);
   const device = view.opened?.device ?? settings.input;
   const standing = calibrationStanding(settings, calibrationPathOf(view, settings));
   return (
     <>
       <p className="ag-editor-asset-name">Recording</p>
-      <dl className="ag-readings">
-        <Reading term="Input">{deviceName(device)}</Reading>
-        <Reading term="Capture profile">
-          {`${profile.name}, ${KIND_NAMES[profile.kind]}${profile.headphones ? ', used with headphones' : ''}`}
-        </Reading>
-        <Reading term="Asks the browser for">
-          {PROCESSING_CONTROLS.map(
-            (control) => `${PROCESSING_NAMES[control]} ${processing[control] ? 'on' : 'off'}`,
-          ).join('; ')}
-        </Reading>
-        <Reading term="Kept before Record">
-          {settings.retrospective.on
-            ? `The last ${String(settings.retrospective.seconds)} seconds, while armed`
-            : 'Nothing'}
-        </Reading>
-        <Reading term="Count-in">
-          {settings.countInSeconds === 0 ? 'None' : `${String(settings.countInSeconds)} seconds`}
-        </Reading>
-        <Reading term="Monitoring">{monitoringText(monitoring)}</Reading>
-        <Reading term="Starts monitoring by itself">
-          {device !== undefined &&
-          profile.headphones &&
-          monitoringRemembered(settings, device, profile.name)
-            ? 'Yes, with this input and profile'
-            : 'No'}
-        </Reading>
-        <Reading term="Latency calibration">
-          {standing.kind === 'current'
-            ? 'Calibrated for this input, output and sample rate'
-            : standing.kind === 'missing'
-              ? 'Not calibrated'
-              : 'Taken with another path; calibrate again'}
-        </Reading>
-      </dl>
+      <PropertyGrid
+        rows={[
+          ...captureRows(device, profile),
+          ...behaviourRows({ settings, monitoring, device, profile, standing }),
+        ]}
+      />
       <GrantDisclosure comparison={view.opened?.comparison} />
       <CommandButton
         id="settings.open"

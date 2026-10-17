@@ -15,6 +15,14 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
 
 import {
+  IconButton,
+  Menu,
+  type MenuItemDescriptor,
+  Section,
+  VisuallyHidden,
+} from '@audiogubbins/design-system';
+
+import {
   TakeState,
   punchTakeProblem,
   shapesOf,
@@ -30,6 +38,7 @@ import { punchPlaceOf } from '../../recording/take-target.js';
 import { TAKE_STATE_NAMES, compensationText, recordedText } from '../../recording/take-words.js';
 import type { ProjectStores } from '../../state/project-stores.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
@@ -53,7 +62,86 @@ function punchProblemOf(project: Project, stack: TakeStack, take: Take): string 
     : punchTakeProblem(take, stack.punch, target, project.assets);
 }
 
-/** One take, and what can be done with it. */
+/** A menu entry that runs the command `id` with `args`, unavailable with its reason. */
+function commandEntry(
+  commands: PanelCommands,
+  id: string,
+  label: string,
+  args: Readonly<Record<string, string>>,
+): MenuItemDescriptor {
+  const { onPress, ...reason } = commandPress(commands, id, args);
+  return { key: id, label, ...reason, onSelect: onPress };
+}
+
+/** The "more" button of a row, opening the actions it does not show. */
+function MoreMenu({
+  label,
+  items,
+}: {
+  readonly label: string;
+  readonly items: readonly MenuItemDescriptor[];
+}): ReactNode {
+  return (
+    <Menu
+      label={label}
+      groups={[{ key: 'more', items }]}
+      trigger={<IconButton icon="more" label={label} hint={label} compact />}
+    />
+  );
+}
+
+/** What can be done with a take besides hearing and choosing it, as the entries of its menu. */
+function takeMenu(
+  commands: PanelCommands,
+  take: Take,
+  args: Readonly<Record<string, string>>,
+): readonly MenuItemDescriptor[] {
+  const entry = (id: string, label: string): MenuItemDescriptor =>
+    commandEntry(commands, id, label, args);
+  return [
+    ...(take.state === TakeState.Kept ? [entry('take.reject', 'Reject')] : []),
+    ...(take.state === TakeState.Rejected ? [entry('take.keep', 'Keep')] : []),
+    take.state === TakeState.Removed
+      ? entry('take.restore', 'Restore')
+      : entry('take.remove', 'Remove'),
+    entry('take.duplicate', 'Duplicate'),
+    entry('take.branch', 'Branch'),
+    entry('take.inspect', 'Inspect'),
+  ];
+}
+
+/** A take's name, its facts, and why it cannot serve its punch where it cannot. */
+function TakeText({
+  take,
+  chosen,
+  facts,
+  problem,
+}: {
+  readonly take: Take;
+  readonly chosen: boolean;
+  readonly facts: string;
+  readonly problem: string | undefined;
+}): ReactNode {
+  return (
+    <div className="ag-recording-take-text">
+      <p className="ag-recording-take-name">
+        {take.name}
+        {chosen && <VisuallyHidden> (chosen)</VisuallyHidden>}
+      </p>
+      <p className="ag-recording-take-facts">{facts}</p>
+      {problem !== undefined && (
+        <p className="ag-recording-caption" data-ag-status="reduced">
+          {`It cannot serve the punch. ${problem}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One take, and what can be done with it: hearing it and choosing it at
+ * hand, as a take is judged, and the rest behind its "more" button.
+ */
 function TakeRow({
   stack,
   take,
@@ -67,32 +155,35 @@ function TakeRow({
 }): ReactNode {
   const args = { stack: stack.id, take: take.id };
   const chosen = stack.chosen === take.id;
-  const problem = punchProblemOf(project, stack, take);
-  const button = (id: string, label: string): ReactNode => (
-    <CommandButton id={id} label={label} commands={commands} args={args} compact />
-  );
+  const { onPress: hear, ...hearReason } = commandPress(commands, 'take.audition', args);
   return (
-    <li aria-current={chosen ? 'true' : undefined} data-ag-take={take.id}>
-      <p>
-        <strong>{take.name}</strong>
-        {chosen ? ' (chosen)' : ''}: {takeFacts(project, take)}
-      </p>
-      {problem !== undefined && (
-        <p className="ag-panel-note" data-ag-status="reduced">
-          {`It cannot serve the punch. ${problem}`}
-        </p>
-      )}
-      <div className="ag-settings-row" role="group" aria-label={`Take ${quoted(take.name)}`}>
-        {button('take.audition', 'Hear')}
-        {take.state === TakeState.Kept && !chosen && button('take.choose', 'Choose')}
-        {take.state === TakeState.Kept && button('take.reject', 'Reject')}
-        {take.state === TakeState.Rejected && button('take.keep', 'Keep')}
-        {take.state === TakeState.Removed
-          ? button('take.restore', 'Restore')
-          : button('take.remove', 'Remove')}
-        {button('take.duplicate', 'Duplicate')}
-        {button('take.branch', 'Branch')}
-        {button('take.inspect', 'Inspect')}
+    <li
+      className="ag-recording-take ag-lit-row"
+      aria-current={chosen ? 'true' : undefined}
+      data-ag-take={take.id}
+      data-ag-lit={chosen ? '' : undefined}
+      data-ag-state={take.state}
+    >
+      <span className="ag-recording-take-lamp" aria-hidden="true" />
+      <TakeText
+        take={take}
+        chosen={chosen}
+        facts={takeFacts(project, take)}
+        problem={punchProblemOf(project, stack, take)}
+      />
+      <div className="ag-recording-buttons" role="group" aria-label={`Take ${quoted(take.name)}`}>
+        <IconButton
+          icon="audition"
+          label="Hear"
+          hint="Hear"
+          compact
+          {...hearReason}
+          onClick={hear}
+        />
+        {take.state === TakeState.Kept && !chosen && (
+          <CommandButton id="take.choose" label="Choose" commands={commands} args={args} compact />
+        )}
+        <MoreMenu label={`More for ${quoted(take.name)}`} items={takeMenu(commands, take, args)} />
       </div>
     </li>
   );
@@ -119,39 +210,38 @@ function StackItem({
   readonly commands: PanelCommands;
 }): ReactNode {
   const args = { stack: stack.id };
+  const { onPress: arm, ...armReason } = commandPress(commands, ARM, args);
+  const more = [
+    commandEntry(commands, 'take-stack.consolidate', 'Keep only the chosen take', args),
+    stack.punch === undefined
+      ? commandEntry(commands, 'take-stack.remove', 'Remove the stack', args)
+      : commandEntry(commands, 'take-stack.remove-punch', 'Withdraw the punch', args),
+    commandEntry(commands, 'take.inspect', 'Inspect', args),
+  ];
   return (
-    <li data-ag-stack={stack.id}>
-      <h4>{stack.name}</h4>
-      <p className="ag-panel-note">{stackText(project, stack)}</p>
-      <div className="ag-settings-row" role="group" aria-label={`Stack ${quoted(stack.name)}`}>
-        <CommandButton id={ARM} label="Arm the next take" commands={commands} args={args} compact />
-        <CommandButton
-          id="take-stack.consolidate"
-          label="Keep only the chosen take"
-          commands={commands}
-          args={args}
-          compact
-        />
-        {stack.punch === undefined ? (
-          <CommandButton
-            id="take-stack.remove"
-            label="Remove the stack"
-            commands={commands}
-            args={args}
+    <li className="ag-recording-stack" data-ag-stack={stack.id}>
+      <div className="ag-recording-stack-header">
+        <div className="ag-recording-stack-text">
+          <h4 className="ag-recording-stack-name">{stack.name}</h4>
+          <p className="ag-recording-caption">{stackText(project, stack)}</p>
+        </div>
+        <div
+          className="ag-recording-buttons"
+          role="group"
+          aria-label={`Stack ${quoted(stack.name)}`}
+        >
+          <IconButton
+            icon="armed"
+            label="Arm the next take"
+            hint="Arm the next take"
             compact
+            {...armReason}
+            onClick={arm}
           />
-        ) : (
-          <CommandButton
-            id="take-stack.remove-punch"
-            label="Withdraw the punch"
-            commands={commands}
-            args={args}
-            compact
-          />
-        )}
-        <CommandButton id="take.inspect" label="Inspect" commands={commands} args={args} compact />
+          <MoreMenu label={`More for ${quoted(stack.name)}`} items={more} />
+        </div>
       </div>
-      <ol aria-label={`Takes of ${quoted(stack.name)}`}>
+      <ol className="ag-recording-take-list" aria-label={`Takes of ${quoted(stack.name)}`}>
         {stack.takes.map((take) => (
           <TakeRow key={take.id} stack={stack} take={take} project={project} commands={commands} />
         ))}
@@ -176,17 +266,23 @@ export function TakeStacksSection({
   const { project } = open.snapshot.model.state;
   const stacks = [...project.takeStacks.values()];
   return (
-    <div>
-      <h3>Take stacks</h3>
+    <Section
+      title="Takes"
+      {...(stacks.length === 0
+        ? {}
+        : {
+            summary: `${String(stacks.length)} ${stacks.length === 1 ? 'stack' : 'stacks'}`,
+          })}
+    >
       {stacks.length === 0 ? (
-        <p className="ag-panel-note">No takes are recorded in this project yet.</p>
+        <p className="ag-recording-caption">No takes are recorded in this project yet.</p>
       ) : (
-        <ul className="ag-take-stacks">
+        <ul className="ag-recording-stacks">
           {stacks.map((stack) => (
             <StackItem key={stack.id} stack={stack} project={project} commands={commands} />
           ))}
         </ul>
       )}
-    </div>
+    </Section>
   );
 }

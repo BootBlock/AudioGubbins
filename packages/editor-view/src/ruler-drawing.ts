@@ -47,17 +47,28 @@ function label(
   y: number,
   baseline: TextLabel['baseline'],
   colour: TextLabel['colour'],
+  font: string = style.type.small,
 ): TextLabel {
   return {
     text,
     x,
     y,
     colour,
-    font: style.type.small,
+    font,
     align: 'left',
     baseline,
   };
 }
+
+/** How tall the ruler's ticks rise from its foot, in CSS pixels (design language, section 8). */
+const TICK_RISE = { major: 9, minor: 3 } as const;
+
+/** Where a major tick's label sits: after its tick, and above the ruler's foot, in CSS pixels. */
+const LABEL_GAP = 4;
+const LABEL_RISE = 11;
+
+/** A region's leading bar in the strip, in CSS pixels. */
+const REGION_EDGE = 3;
 
 /** Draws the ruler: its ticks and labels, the playhead's handle and the snapped target. */
 export function drawRuler(
@@ -70,20 +81,33 @@ export function drawRuler(
 ): void {
   const { ruler } = layout;
   const hairline = 1 / style.pixelRatio;
+  const foot = ruler.y + ruler.height;
   const background = pool.rectangles(style.palette.rulerBackground);
   background.add(ruler.x, ruler.y, ruler.width, ruler.height);
+  const footLine = pool.rectangles(style.palette.laneSeparator);
+  footLine.add(ruler.x, foot - hairline, ruler.width, hairline);
   const tickMarks = pool.rectangles(style.palette.rulerTick);
+  const minorMarks = pool.rectangles(style.palette.rulerMinorTick);
   const labels: TextLabel[] = [];
   for (const tick of ticks.major) {
     const x = crispX(style, tick.position, ruler.width);
     if (x === undefined) continue;
-    tickMarks.add(x, ruler.y + ruler.height / 2, hairline, ruler.height / 2);
-    labels.push(label(style, tick.label, x + 3, ruler.y + 2, 'top', style.palette.rulerText));
+    tickMarks.add(x, foot - TICK_RISE.major, hairline, TICK_RISE.major);
+    labels.push(
+      label(
+        style,
+        tick.label,
+        x + LABEL_GAP,
+        foot - LABEL_RISE,
+        'bottom',
+        style.palette.rulerText,
+        style.type.ruler,
+      ),
+    );
   }
   for (const tick of ticks.minor) {
     const x = crispX(style, tick, ruler.width);
-    if (x !== undefined)
-      tickMarks.add(x, ruler.y + (ruler.height * 3) / 4, hairline, ruler.height / 4);
+    if (x !== undefined) minorMarks.add(x, foot - TICK_RISE.minor, hairline, TICK_RISE.minor);
   }
   const handle = pool.rectangles(style.palette.playhead);
   const playheadX =
@@ -93,10 +117,15 @@ export function drawRuler(
   const snapX =
     marks.snap === undefined ? undefined : crispX(style, marks.snap.position, ruler.width);
   if (snapX !== undefined) snap.add(snapX - 1, ruler.y, 3, ruler.height);
-  out.push(background.batch(), tickMarks.batch(), handle.batch(), snap.batch(), {
-    kind: 'text',
-    labels,
-  });
+  out.push(
+    background.batch(),
+    footLine.batch(),
+    minorMarks.batch(),
+    tickMarks.batch(),
+    handle.batch(),
+    snap.batch(),
+    { kind: 'text', labels },
+  );
 }
 
 /**
@@ -160,6 +189,7 @@ export function drawStrip(
   const middle = strip.y + strip.height / 2;
   const spans = pool.rectangles(style.palette.region);
   const chosenSpans = pool.rectangles(style.palette.selectedRegion);
+  const edges = pool.rectangles(style.palette.regionEdge);
   const flags = pool.rectangles(style.palette.marker);
   const chosen = pool.rectangles(style.palette.selectedMarker);
   const labels: TextLabel[] = [];
@@ -174,7 +204,19 @@ export function drawStrip(
       to - from,
       strip.height,
     );
-    labels.push(label(style, region.displayName, from + 4, middle, 'middle', style.palette.text));
+    if (from === pixelOf(style.viewport, span.start)) {
+      edges.add(from, strip.y, Math.min(REGION_EDGE, to - from), strip.height);
+    }
+    labels.push(
+      label(
+        style,
+        region.displayName,
+        from + REGION_EDGE + 6,
+        middle,
+        'middle',
+        style.palette.text,
+      ),
+    );
   }
   for (const marker of content.markers) {
     const moving = preview?.kind === 'marker' && preview.id === marker.id;
@@ -183,7 +225,7 @@ export function drawStrip(
     (selected.markers.has(marker.id) ? chosen : flags).add(x - 1, strip.y, 7, strip.height);
     labels.push(label(style, marker.displayName, x + 9, middle, 'middle', style.palette.text));
   }
-  out.push(spans.batch(), chosenSpans.batch(), flags.batch(), chosen.batch(), {
+  out.push(spans.batch(), chosenSpans.batch(), edges.batch(), flags.batch(), chosen.batch(), {
     kind: 'text',
     labels: spacedLabels(labels),
   });

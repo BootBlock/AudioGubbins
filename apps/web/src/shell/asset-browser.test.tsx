@@ -158,9 +158,8 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     const window = await projectWorld().window();
     await window.runAndHear('file.create-project', { name: 'Harbour' });
     const { ran } = browserOver(window);
-    expect(
-      screen.getByText('This project has no audio yet. Import audio files to add some.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('No audio yet')).toBeInTheDocument();
+    expect(screen.getByText('Import audio files to add some.')).toBeInTheDocument();
     window.files.mediaBatches.push([chosenWav()]);
     const control = screen.getByRole('button', { name: 'Import audio…' });
     control.focus();

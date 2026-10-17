@@ -7,7 +7,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Hint, OptionSelect, Section } from '@audiogubbins/design-system';
 import { monitoringLatency } from '@audiogubbins/recording';
 
 import { MONITOR_THROUGH, TOGGLE_MONITORING } from '../../commands/recording-commands.js';
@@ -15,7 +15,8 @@ import type { MonitoringView } from '../../recording/monitoring-control.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import { millisecondsText, monitoringText } from '../../recording/recording-words.js';
 import type { ProjectStores } from '../../state/project-stores.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
@@ -51,6 +52,66 @@ function latencyText(view: MonitoringView): string | undefined {
   return `The monitored signal is heard ${atLeast}${millisecondsText(latency.seconds)} after it is played.${chain}`;
 }
 
+/** The one control that turns monitoring on or off, beside what monitoring never does. */
+function MonitoringToggle({
+  on,
+  commands,
+}: {
+  readonly on: boolean;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const { onPress: toggle, ...reason } = commandPress(commands, TOGGLE_MONITORING);
+  return (
+    <>
+      <Hint label="About monitoring">
+        What is monitored is never recorded: the recording is the dry input.
+      </Hint>
+      <Button compact {...reason} onClick={toggle}>
+        {on ? 'Turn monitoring off' : 'Turn monitoring on'}
+      </Button>
+    </>
+  );
+}
+
+/** The confirmation a feedback risk asks for before monitoring starts. */
+function MonitorAnyway({ commands }: { readonly commands: PanelCommands }): ReactNode {
+  const { onPress: confirm, ...reason } = commandPress(commands, 'recording.confirm-monitoring');
+  return (
+    <div className="ag-recording-actions">
+      <Button compact tone={ButtonTone.Primary} {...reason} onClick={confirm}>
+        Monitor anyway
+      </Button>
+    </div>
+  );
+}
+
+/** The project's rack monitoring runs through, or the dry input. */
+function RackChoice({
+  view,
+  racked,
+  commands,
+}: {
+  readonly view: MonitoringView;
+  readonly racked: readonly { readonly id: string; readonly name: string }[];
+  readonly commands: PanelCommands;
+}): ReactNode {
+  return (
+    <OptionSelect
+      label="Monitor through"
+      value={view.chain?.asset ?? DRY}
+      options={[
+        { value: DRY, label: 'No rack: the dry input' },
+        ...racked.map((asset) => ({ value: asset.id, label: `The rack of ${asset.name}` })),
+      ]}
+      onValueChange={(asset) => {
+        if (asset === (view.chain?.asset ?? DRY)) return;
+        if (asset === DRY) commands.run('recording.monitor-dry');
+        else commands.run(MONITOR_THROUGH, { asset });
+      }}
+    />
+  );
+}
+
 /** The monitoring part of the Recording panel. */
 export function MonitoringSection({
   recording,
@@ -67,45 +128,19 @@ export function MonitoringSection({
   );
   const racked = useRackedAssets(projects);
   const latency = latencyText(view);
+  const on = view.monitoring.kind === 'on';
   return (
-    <div>
-      <h3>Monitoring</h3>
-      <p data-ag-status={view.monitoring.kind === 'on' ? 'reduced' : undefined}>
+    <Section
+      title="Monitoring"
+      icon="monitoring"
+      actions={<MonitoringToggle on={on} commands={commands} />}
+    >
+      <p className="ag-recording-state" data-ag-status={on ? 'reduced' : undefined}>
         {monitoringText(view)}
       </p>
-      <div className="ag-settings-row">
-        <CommandButton
-          id={TOGGLE_MONITORING}
-          label={view.monitoring.kind === 'on' ? 'Turn monitoring off' : 'Turn monitoring on'}
-          commands={commands}
-        />
-        {view.monitoring.kind === 'confirming' && (
-          <CommandButton
-            id="recording.confirm-monitoring"
-            label="Monitor anyway"
-            commands={commands}
-          />
-        )}
-      </div>
-      {racked.length > 0 && (
-        <OptionSelect
-          label="Monitor through"
-          value={view.chain?.asset ?? DRY}
-          options={[
-            { value: DRY, label: 'No rack: the dry input' },
-            ...racked.map((asset) => ({ value: asset.id, label: `The rack of ${asset.name}` })),
-          ]}
-          onValueChange={(asset) => {
-            if (asset === (view.chain?.asset ?? DRY)) return;
-            if (asset === DRY) commands.run('recording.monitor-dry');
-            else commands.run(MONITOR_THROUGH, { asset });
-          }}
-        />
-      )}
-      {latency !== undefined && <p className="ag-panel-note">{latency}</p>}
-      <p className="ag-panel-note">
-        What is monitored is never recorded: the recording is the dry input.
-      </p>
-    </div>
+      {view.monitoring.kind === 'confirming' && <MonitorAnyway commands={commands} />}
+      {racked.length > 0 && <RackChoice view={view} racked={racked} commands={commands} />}
+      {latency !== undefined && <p className="ag-recording-caption">{latency}</p>}
+    </Section>
   );
 }

@@ -4,27 +4,32 @@
  * the person writes any (REQ-STOR-194).
  *
  * The name and notes typed are the fields' own until the command runs, and stay
- * where the command refuses them.
+ * where the command refuses them. They are held here rather than in the
+ * section, so closing the section keeps what was typed.
  */
 
 import { useState, type ReactNode } from 'react';
 
-import { TextField } from '@audiogubbins/design-system';
+import { Button, Hint, Section, TextField } from '@audiogubbins/design-system';
 import { LONGEST_HISTORY_LABEL, LONGEST_SNAPSHOT_NOTES } from '@audiogubbins/project-format';
 
-import { ReasonedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 
-/** The field and its button. */
-export function SnapshotField({
-  run,
-  unavailable,
-}: {
-  readonly run: RunCommand;
+/** The name and notes being typed, keeping them as a snapshot, and why it cannot be kept now. */
+interface SnapshotDraft {
+  readonly name: string;
+  readonly setName: (name: string) => void;
+  readonly notes: string;
+  readonly setNotes: (notes: string) => void;
+  readonly keep: () => void;
+  readonly reason: string | undefined;
+}
 
-  /** Why no snapshot can be kept now, or `undefined` where one can. */
-  readonly unavailable: string | undefined;
-}): ReactNode {
+/**
+ * What is typed for a snapshot, kept by `history.snapshot` and cleared only
+ * where the command keeps it; `unavailable` is the command's own reason.
+ */
+function useSnapshotDraft(run: RunCommand, unavailable: string | undefined): SnapshotDraft {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const chosen = name.trim();
@@ -35,30 +40,57 @@ export function SnapshotField({
       setNotes('');
     }
   };
+  const reason = unavailable ?? (chosen === '' ? 'Type a name for the snapshot.' : undefined);
+  return { name, setName, notes, setNotes, keep, reason };
+}
+
+/** The fields and their button. */
+export function SnapshotField({
+  run,
+  unavailable,
+}: {
+  readonly run: RunCommand;
+
+  /** Why no snapshot can be kept now, or `undefined` where one can. */
+  readonly unavailable: string | undefined;
+}): ReactNode {
+  const { name, setName, notes, setNotes, keep, reason } = useSnapshotDraft(run, unavailable);
   return (
-    <div className="ag-settings-row">
-      <TextField
-        label="Snapshot name"
-        description="A named point of the current state, kept until you delete it."
-        value={name}
-        onValueChange={setName}
-        onSubmit={keep}
-        maxLength={LONGEST_HISTORY_LABEL}
-      />
-      <TextField
-        label="Notes"
-        description="Optional. Shown beside the snapshot in the history."
-        value={notes}
-        onValueChange={setNotes}
-        onSubmit={keep}
-        maxLength={LONGEST_SNAPSHOT_NOTES}
-      />
-      <ReasonedButton
-        reason={unavailable ?? (chosen === '' ? 'Type a name for the snapshot.' : undefined)}
-        onPress={keep}
-      >
-        Keep a snapshot
-      </ReasonedButton>
-    </div>
+    <Section
+      title="Snapshot"
+      icon="take-snapshot"
+      actions={
+        <Hint label="About snapshots">
+          A snapshot is a named point of the current state, kept until you delete it. Notes are
+          optional, and are shown beside the snapshot in the history.
+        </Hint>
+      }
+    >
+      <div className="ag-history-snapshot">
+        <TextField
+          label="Snapshot name"
+          placeholder="Name"
+          value={name}
+          onValueChange={setName}
+          onSubmit={keep}
+          maxLength={LONGEST_HISTORY_LABEL}
+        />
+        <TextField
+          label="Notes"
+          value={notes}
+          onValueChange={setNotes}
+          onSubmit={keep}
+          maxLength={LONGEST_SNAPSHOT_NOTES}
+        />
+        <Button
+          compact
+          label="Keep a snapshot"
+          {...(reason === undefined ? {} : { unavailableReason: reason })}
+          onClick={keep}
+        >
+          Keep
+        </Button>
+      </div>
+    </Section>
   );
 }

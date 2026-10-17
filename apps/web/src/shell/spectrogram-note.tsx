@@ -1,10 +1,11 @@
 /**
- * Why an editor view's spectrogram is not drawn, beside the canvas, whose
+ * Why an editor view's spectrogram is not drawn, above the display, whose
  * spectrogram lanes then show the reason only as text drawn in pixels.
  */
 
 import type { ReactNode } from 'react';
 
+import { Banner, BannerTone } from '@audiogubbins/design-system';
 import type { SpectrogramStatus } from '@audiogubbins/spectral-analysis';
 
 /**
@@ -19,8 +20,10 @@ export function SpectrogramNote({
   readonly status: SpectrogramStatus | undefined;
 }): ReactNode {
   return status?.kind === 'failed' ? (
-    <p className="ag-panel-note" role="alert">
-      {`The spectrogram could not be made: ${status.reason}`}
-    </p>
+    <div role="alert">
+      <Banner tone={BannerTone.Error} icon="error" title="The spectrogram could not be made">
+        {status.reason}
+      </Banner>
+    </div>
   ) : null;
 }

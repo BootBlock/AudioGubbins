@@ -19,7 +19,7 @@ import { viewSources } from './view-sources.js';
 
 const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor');
 const THEME = resolveTheme(DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE);
-const LOOK = { palette: editorPaletteOf(THEME), type: editorTypeOf(THEME) };
+const LOOK = { palette: editorPaletteOf(THEME, logger), type: editorTypeOf(THEME) };
 
 /** A view that shows no spectrogram. */
 const NO_SPECTROGRAM = {

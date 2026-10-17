@@ -466,12 +466,9 @@ test.describe('spectral editing', () => {
       const comparison = page.getByRole('group', { name: 'Comparison' });
       await expect(comparison).toContainText('Comparing two states');
       await expect(comparison).toContainText(/Side A, .+, is the one heard\./u);
-      await comparison.getByRole('button', { name: 'Hear B', exact: true }).click();
+      await comparison.getByRole('radio', { name: 'Hear B', exact: true }).click();
       await expect(comparison).toContainText(/Side B, .+, is the one heard\./u);
-      await expect(comparison.getByRole('button', { name: 'Hear B' })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      );
+      await expect(comparison.getByRole('radio', { name: 'Hear B', exact: true })).toBeChecked();
       // Switching sides changes neither: the project still holds both edits.
       await showTab(page, 'Spectral');
       await expect(spectralEditsListed(page)).toHaveText([attenuated, healed]);

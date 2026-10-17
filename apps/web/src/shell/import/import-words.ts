@@ -124,3 +124,10 @@ export function batchWords(job: ImportJob, ended: boolean): string {
   if (cancelled > 0) said.push(`${String(cancelled)} cancelled`);
   return `${said.join(', ')}.`;
 }
+
+/**
+ * The folder import's words where it is a call to action beside "Import
+ * audio…", which already says what is imported; its accessible name is still
+ * the command's own.
+ */
+export const FOLDER_CALL = 'Folder…';

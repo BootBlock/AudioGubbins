@@ -94,6 +94,11 @@ function editsUnder(heading: string): HTMLElement {
   return list;
 }
 
+/** Opens the Time and rate section, which starts closed. */
+async function openTimeAndRate(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole('button', { name: 'Time and rate' }));
+}
+
 describe('the Inspector panel (WU-05.D)', () => {
   it('says what to do where no editor shows audio', async () => {
     const audio = await windowWithAudio();
@@ -175,6 +180,7 @@ describe('the Inspector panel (WU-05.D)', () => {
     inspectorOver(audio.window, ran);
     const user = userEvent.setup();
 
+    await openTimeAndRate(user);
     const field = screen.getByRole('textbox', { name: 'Silence in seconds' });
     await user.clear(field);
     await user.type(field, '0.5');
@@ -191,6 +197,7 @@ describe('the Inspector panel (WU-05.D)', () => {
     const refusals = inspectorOver(audio.window);
     const user = userEvent.setup();
 
+    await openTimeAndRate(user);
     await user.clear(screen.getByRole('textbox', { name: 'Silence in seconds' }));
     await user.click(screen.getByRole('button', { name: 'Insert silence' }));
 
@@ -203,6 +210,7 @@ describe('the Inspector panel (WU-05.D)', () => {
     inspectorOver(audio.window, ran);
     const user = userEvent.setup();
 
+    await openTimeAndRate(user);
     const ratio = screen.getByRole('textbox', { name: 'New length over old' });
     await user.clear(ratio);
     await user.type(ratio, '1.25');
@@ -231,6 +239,7 @@ describe('the Inspector panel (WU-05.D)', () => {
     inspectorOver(audio.window, ran);
     const user = userEvent.setup();
 
+    await openTimeAndRate(user);
     screen.getByRole('combobox', { name: 'Sample rate' }).focus();
     await user.keyboard('{Enter}');
     await user.click(screen.getByRole('option', { name: '96 kHz' }));
@@ -539,8 +548,10 @@ describe('the Inspector panel (WU-05.D)', () => {
     audio.window.run('editor.open-asset', { view: 'editor', asset: 'test:loop' });
     inspectorOver(audio.window);
 
+    // The explanation sits behind the (i) beside the audio's name.
+    await userEvent.click(screen.getByRole('button', { name: 'Why it keeps no edits' }));
     expect(
-      screen.getByText(
+      await screen.findByText(
         'It is not part of the project, so it keeps no edits. Import a file to edit it.',
       ),
     ).toBeInTheDocument();

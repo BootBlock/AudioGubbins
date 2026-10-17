@@ -55,20 +55,22 @@ describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Importing 5 files.');
     expect(rows()).toEqual([
-      'Step.wavSize93.8 kBFormatWAV, uncompressed PCMStorage needed93.8 kBStageImported',
-      'Rain.oggSize402.3 kBFormatOgg, VorbisStorage needed1.1 MBStageDecoding',
-      'Wind.m4aSize2 kBFormatMPEG-4Storage neededAt least 2 kB: its stream does not state its length, so its decoded audio cannot be sizedStageCopying into the project',
-      'notes.txtSize19 bytesFormatNot recognisedStorage neededNone: nothing of it was storedStageRefused: This file is not in an audio format AudioGubbins recognises.',
-      'Hum.wavSize4.9 kBFormatNot known yetStorage neededNot known yetStageWaiting its turn',
+      'Step.wavImportedSize93.8 kBFormatWAV, uncompressed PCMStorage needed93.8 kB',
+      'Rain.oggDecoding · 24,000 frames decoded of 96,000Size402.3 kBFormatOgg, VorbisStorage needed1.1 MB',
+      'Wind.m4aCopying into the project · 1 kB of 2 kB copiedSize2 kBFormatMPEG-4Storage neededAt least 2 kB: its stream does not state its length, so its decoded audio cannot be sized',
+      'notes.txtRefused: This file is not in an audio format AudioGubbins recognises.Size19 bytesFormatNot recognisedStorage neededNone: nothing of it was stored',
+      'Hum.wavWaiting its turnSize4.9 kBFormatNot known yetStorage neededNot known yet',
     ]);
     const decoding = screen.getByRole('progressbar', { name: 'Import of Rain.ogg' });
-    expect(decoding).toHaveAttribute('max', '96000');
-    expect(decoding).toHaveAttribute('value', '24000');
+    // The bar counts to a hundred: a quarter of the frames is decoded.
+    expect(decoding).toHaveAttribute('aria-valuemax', '100');
+    expect(decoding).toHaveAttribute('aria-valuenow', '25');
     expect(decoding).toHaveAttribute('aria-valuetext', '24,000 frames decoded of 96,000');
     expect(screen.getByRole('progressbar', { name: 'Import of Wind.m4a' })).toHaveAttribute(
       'aria-valuetext',
       '1 kB of 2 kB copied',
     );
+    // The batch's spinner is decoration beside its words, not a third bar.
     expect(screen.getAllByRole('progressbar')).toHaveLength(2);
   });
 
@@ -89,9 +91,9 @@ describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
     };
     render(<ImportList job={linked} ended={false} />);
     const [step, rain] = rows();
-    expect(step).toContain('Storage neededNoneStage');
-    expect(rain).toContain(
-      'Storage neededNot known: its stream does not state its length, so its decoded audio cannot be sizedStage',
+    expect(step).toMatch(/Storage neededNone$/u);
+    expect(rain).toMatch(
+      /Storage neededNot known: its stream does not state its length, so its decoded audio cannot be sized$/u,
     );
   });
 
@@ -107,8 +109,11 @@ describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
     render(<ImportList job={unstated} ended={false} />);
 
     const bar = screen.getByRole('progressbar', { name: 'Import of Rain.ogg' });
-    expect(bar).not.toHaveAttribute('value');
-    expect(bar).toHaveAttribute('aria-valuetext', '4,800 frames decoded');
+    expect(bar).not.toHaveAttribute('aria-valuenow');
+    // An unmeasured bar has no value to word, so its file's row says how far it has got.
+    expect(rows()).toEqual([
+      'Rain.oggDecoding · 4,800 frames decodedSize402.3 kBFormatNot recognisedStorage neededNone: nothing of it was stored',
+    ]);
   });
 
   it('says what the batch came to once it ended, in a status there before', () => {

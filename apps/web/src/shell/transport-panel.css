@@ -150,9 +150,3 @@
 .ag-render-decision > .ag-panel-note {
   flex-basis: 100%;
 }
-
-.ag-audio-problems {
-  margin: 0;
-  padding-inline-start: var(--ag-space-large);
-  font-size: var(--ag-text-label);
-}

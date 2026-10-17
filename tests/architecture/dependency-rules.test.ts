@@ -3421,10 +3421,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       52,
       'One list of four readings, the output, the input, the round trip and what a take is placed by, each worded where it is shown so a figure and what it rests on are read together.',
     ],
-    'apps/web/src/shell/recording/recording-configuration.tsx: RecordingConfiguration': [
-      58,
-      "One list of readings of the recording configuration, each a line of the settings or the input, with the grant's disclosure, which is a component of its own, beneath it.",
-    ],
     'apps/web/src/shell/settings/audio.tsx: Audio': [
       67,
       'One settings section of parts that are components of their own, the profile choice, the Custom form, the quality settings and the recording input; what remains are the two selects that run one command each. Reviewed again when the explanation of the profiles moved behind a hint and Background priority became a segmented choice under its heading; the Custom form moved to `custom-profile.tsx`.',

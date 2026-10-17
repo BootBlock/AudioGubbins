@@ -2,6 +2,8 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { HintProvider } from '@audiogubbins/design-system';
+
 import { shellCommands } from '../../commands/shell-commands.js';
 import { HistoryRowOrders } from '../../state/history-row-orders.js';
 import { observable } from '../../state/observable.js';
@@ -47,6 +49,8 @@ function panelOver(
       unavailableReason={unavailableReason}
       labelFor={labelFor}
     />,
+    // The rows' tooltips take their timing from the provider the application's root holds.
+    { wrapper: HintProvider },
   );
   return { run, list: () => screen.getByRole('listbox', { name: 'Points in the history' }) };
 }
@@ -73,11 +77,11 @@ describe('the History panel', () => {
         unavailableReason={() => undefined}
         labelFor={labelFor}
       />,
+      { wrapper: HintProvider },
     );
 
-    expect(
-      screen.getByText('No project is open. Its history appears here once one is.'),
-    ).toBeVisible();
+    expect(screen.getByText('No project is open')).toBeVisible();
+    expect(screen.getByText('Its history appears here once one is.')).toBeVisible();
   });
 
   it('lists every point in plain words, the branch a step in, and the current one marked and chosen', async () => {
@@ -240,11 +244,8 @@ describe('the History panel', () => {
     const comparison = screen.getByRole('group', { name: 'Comparison' });
     expect(within(comparison).getByText('The project differs in its name.')).toBeVisible();
     expect(within(comparison).getByRole('list', { name: 'What differs' })).toBeVisible();
-    expect(within(comparison).getByRole('button', { name: 'Hear A' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    await userEvent.click(within(comparison).getByRole('button', { name: 'Hear B' }));
+    expect(within(comparison).getByRole('radio', { name: 'Hear A' })).toBeChecked();
+    await userEvent.click(within(comparison).getByRole('radio', { name: 'Hear B' }));
     await userEvent.click(within(comparison).getByRole('button', { name: 'Keep B' }));
     await userEvent.click(within(comparison).getByRole('button', { name: 'Stop comparing' }));
     expect(run.mock.calls).toEqual([
@@ -319,6 +320,7 @@ describe('the History panel', () => {
           unavailableReason={() => undefined}
           labelFor={labelFor}
         />,
+        { wrapper: HintProvider },
       );
       expect(screen.getByText(`${String(changes)} changes`, { exact: false })).toBeVisible();
       cleanup();

@@ -1,0 +1,17 @@
+/* What the Transport panel reports of the engine: its level meters and what stopped playback. */
+
+/* A meter's channels, and under them each pair's correlation, one inset apart. */
+.ag-level-group {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-audio-problems {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
