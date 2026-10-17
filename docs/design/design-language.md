@@ -318,8 +318,8 @@ contrast is computed.
 | An overlay's glass                                                              | `--ag-chrome-surface-overlay` at 66 % / 70 % (`--ag-elevation-overlay-fill`) |                      |                      |
 | A well (field, segmented control, readout, tree)                                | `--ag-chrome-fill-well`                                                      | Sunken at 55 %       | White at 45 %        |
 | Body text                                                                       | `--ag-chrome-text-primary`                                                   |                      |                      |
-| Supporting text, a resting glyph                                                | `--ag-chrome-text-secondary`                                                 |                      |                      |
-| Unavailable text, a placeholder, a minor scale mark                             | `--ag-chrome-text-disabled`                                                  |                      |                      |
+| Supporting text, a resting glyph, a placeholder                                 | `--ag-chrome-text-secondary`                                                 |                      |                      |
+| Unavailable text, a minor scale mark                                            | `--ag-chrome-text-disabled`                                                  |                      |                      |
 | Text on the accent or a call to action                                          | `--ag-chrome-text-on-accent`                                                 |                      |                      |
 | Accent used as text (a tag, an accent badge, a template token, a palette match) | `--ag-chrome-accent-text`                                                    | Solved to 4.5 : 1    | Solved to 4.5 : 1    |
 | A hairline between parts                                                        | `--ag-chrome-border-subtle`                                                  |                      |                      |
@@ -1061,10 +1061,11 @@ at line height 1.35 with its glyph or spinner at the first line.
 ### Text fields and the template field
 
 - **Text field**: h tall, one inset inline padding, `--ag-radius-control`, fill well, quiet edge.
-  Placeholder text disabled; a unit trailing at label size in text secondary. Editing: an accent
-  edge and a 3 px accent halo at 22 % (keyboard focus adds the ring). Invalid: an error edge, a
-  3 px error halo at 18 %, and the error under it at label size with a glyph at
-  `--ag-icon-size-inline`.
+  Placeholder text secondary, because a placeholder is text WCAG 1.4.3 holds to 4.5 : 1 and text
+  disabled is exempt from it only on a control that cannot be used; a unit trailing at label size in
+  text secondary. Editing: an accent edge and a 3 px accent halo at 22 % (keyboard focus adds the
+  ring). Invalid: an error edge, a 3 px error halo at 18 %, and the error under it at label size
+  with a glyph at `--ag-icon-size-inline`.
 - **Numeric field**: the value in the numeric family with tabular figures, at least 76 px (52 px in a
   panel form); steppers in a 20 px column split by a hairline, chevrons at `--ag-icon-size-small`.
 - **Tags field**: wraps; each tag at label size on accent subtle in `--ag-chrome-accent-text`,
