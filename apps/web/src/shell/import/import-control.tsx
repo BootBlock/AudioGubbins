@@ -18,19 +18,32 @@
  * another part of the tree would mount them again and drop the focus.
  */
 
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 
-import { Button, ButtonTone, Icon, IconButton } from '@audiogubbins/design-system';
+import { ButtonTone } from '@audiogubbins/design-system';
 
 import { ImportCommand } from '../../commands/import-export-ids.js';
 import type { ProjectStores } from '../../state/project-stores.js';
 import type { PanelCommands } from '../command-button.js';
+import { ClearImportsButton, ImportButton } from './import-buttons.js';
 import { FOLDER_CALL } from './import-words.js';
 import { ImportList } from './import-list.js';
 
-/** A button's reason, given only while it has one. */
-function unavailable(reason: string | undefined): { readonly unavailableReason?: string } {
-  return reason === undefined ? {} : { unavailableReason: reason };
+/**
+ * The element holding the import buttons, whose first takes the focus the
+ * clearing button held once the list it cleared, and the button, leave.
+ */
+function useFocusKeptOnClearing(listed: boolean): RefObject<HTMLDivElement | null> {
+  const actions = useRef<HTMLDivElement>(null);
+  const wasListed = useRef(listed);
+  useEffect(() => {
+    // A button that leaves the page drops its focus to the body.
+    if (wasListed.current && !listed && document.activeElement === document.body) {
+      actions.current?.querySelector('button')?.focus();
+    }
+    wasListed.current = listed;
+  }, [listed]);
+  return actions;
 }
 
 /** The import controls and the list of files being imported, over the open project. */
@@ -56,19 +69,8 @@ export function ImportControl({
   // decides: the dock mounts a panel once, so nothing above redraws it.
   useSyncExternalStore(projects.project.subscribe, projects.project.get);
   const files = imports.kind === 'importing' ? 'file.cancel-import' : ImportCommand.Files;
-  const actions = useRef<HTMLDivElement>(null);
   const listed = imports.kind === 'ended';
-  const wasListed = useRef(listed);
-  useEffect(() => {
-    // A button that leaves the page drops its focus to the body.
-    if (wasListed.current && !listed && document.activeElement === document.body) {
-      actions.current?.querySelector('button')?.focus();
-    }
-    wasListed.current = listed;
-  }, [listed]);
-  const filesReason = commands.unavailableReason(files);
-  const folderReason = commands.unavailableReason(ImportCommand.Folder);
-  const clearReason = commands.unavailableReason('file.clear-imports');
+  const actions = useFocusKeptOnClearing(listed);
   return (
     <div className="ag-assets-import" data-ag-calling={calling ? '' : undefined}>
       <ImportList
@@ -82,54 +84,30 @@ export function ImportControl({
         ended={imports.kind === 'ended'}
         actions={
           listed ? (
-            <IconButton
-              icon="clear"
-              label={labelFor('file.clear-imports')}
-              hint={labelFor('file.clear-imports')}
-              compact
-              {...unavailable(clearReason)}
-              onClick={() => {
-                commands.run('file.clear-imports');
-              }}
-            />
+            <ClearImportsButton label={labelFor('file.clear-imports')} commands={commands} />
           ) : null
         }
       />
       {state}
       <div className="ag-assets-import-actions" ref={actions}>
-        {/* One element whether it is drawn as a call to action or a glyph, so
-            the focus stays on it as the panel's state changes. Each says it
-            can be used as well as when it cannot, as the menus' entries do. */}
-        <Button
-          tone={calling ? ButtonTone.Primary : ButtonTone.Quiet}
-          compact
-          {...(calling ? { label: labelFor(files) } : { iconOnly: true, label: labelFor(files) })}
-          {...(calling ? {} : { hint: labelFor(files) })}
-          aria-disabled={filesReason !== undefined}
-          {...unavailable(filesReason)}
-          onClick={() => {
-            commands.run(files);
-          }}
-        >
-          <Icon name={imports.kind === 'importing' ? 'cancel' : 'import-audio'} />
-          {calling && labelFor(files)}
-        </Button>
-        <Button
-          tone={calling ? ButtonTone.Neutral : ButtonTone.Quiet}
-          compact
-          {...(calling
-            ? { label: labelFor(ImportCommand.Folder) }
-            : { iconOnly: true, label: labelFor(ImportCommand.Folder) })}
-          {...(calling ? {} : { hint: labelFor(ImportCommand.Folder) })}
-          aria-disabled={folderReason !== undefined}
-          {...unavailable(folderReason)}
-          onClick={() => {
-            commands.run(ImportCommand.Folder);
-          }}
-        >
-          <Icon name="import-folder" />
-          {calling && FOLDER_CALL}
-        </Button>
+        <ImportButton
+          id={files}
+          icon={imports.kind === 'importing' ? 'cancel' : 'import-audio'}
+          label={labelFor(files)}
+          call={labelFor(files)}
+          callTone={ButtonTone.Primary}
+          calling={calling}
+          commands={commands}
+        />
+        <ImportButton
+          id={ImportCommand.Folder}
+          icon="import-folder"
+          label={labelFor(ImportCommand.Folder)}
+          call={FOLDER_CALL}
+          callTone={ButtonTone.Neutral}
+          calling={calling}
+          commands={commands}
+        />
       </div>
     </div>
   );

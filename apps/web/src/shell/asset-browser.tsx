@@ -14,47 +14,18 @@
 
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
-import {
-  Badge,
-  BadgeTone,
-  Button,
-  ButtonTone,
-  EmptyState,
-  Icon,
-  IconSize,
-  PanelStateTone,
-  Skeleton,
-  Spinner,
-} from '@audiogubbins/design-system';
+import { EmptyState, PanelStateTone, Skeleton } from '@audiogubbins/design-system';
 import type { AssetId, Region } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
 
-import type { EditorAsset } from '../assets/editor-asset.js';
 import { assetEntryId, regionEntryId } from '../assets/project-entry.js';
-import type {
-  AssetCatalogue,
-  AssetCatalogueState,
-  UnopenedEntry,
-} from '../state/asset-catalogue.js';
+import type { AssetCatalogue, AssetCatalogueState } from '../state/asset-catalogue.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { ProjectStores } from '../state/project-stores.js';
-import { ExportCommand } from '../commands/import-export-ids.js';
-import { EXPORT_BUTTON } from '../import-export-words.js';
-import { CommandButton, type PanelCommands } from './command-button.js';
+import type { PanelCommands } from './command-button.js';
+import { EntryItem, type BrowserEntry } from './asset-entry.js';
 import { ImportControl } from './import/import-control.js';
 import { quoted } from '@audiogubbins/text';
-
-/** An asset or region of the project as the browser lists it. */
-interface BrowserEntry {
-  /** The identity a view names it by. */
-  readonly id: string;
-  /** What a view opens, or why it cannot open it yet. */
-  readonly shown: EditorAsset | UnopenedEntry;
-  /** The regions of an asset, in the project's order; none for a region. */
-  readonly regions: readonly BrowserEntry[];
-  /** Which takes an asset is the recording of, where it is a take's (ADR-0072). */
-  readonly takes?: string;
-}
 
 /** Which takes of `state` record `asset`, in a sentence, or nothing where none does. */
 function takesOf(state: ProjectState, asset: AssetId): string | undefined {
@@ -97,103 +68,6 @@ function browserEntries(state: ProjectState, shown: AssetCatalogueState): readon
     entries.push({ id, shown: entry, regions, ...(takes === undefined ? {} : { takes }) });
   }
   return entries;
-}
-
-/** The glyph a row leads with: what it is, or that it is still being read. */
-function EntryGlyph({ entry }: { readonly entry: BrowserEntry }): ReactNode {
-  const { shown } = entry;
-  if ('reason' in shown) {
-    return shown.kind === 'finding' ? (
-      <Spinner size={IconSize.Inline} />
-    ) : (
-      <Icon name="missing-file" />
-    );
-  }
-  // No region carries a colour of its own yet, so a region is told by its glyph.
-  return <Icon name={isRegion(shown) ? 'region' : 'audio-file'} />;
-}
-
-/** Whether `shown` is a region of the project rather than an asset. */
-function isRegion(shown: EditorAsset): boolean {
-  return shown.owner.kind === 'project' && shown.owner.region !== undefined;
-}
-
-/** One asset or region: a press opens it, or a sentence says why it cannot open yet. */
-function EntryItem({
-  entry,
-  inUse,
-  commands,
-  nested = false,
-}: {
-  readonly entry: BrowserEntry;
-  /** The identity the editor in use shows, where it shows one. */
-  readonly inUse: string | undefined;
-  readonly commands: PanelCommands;
-  readonly nested?: boolean;
-}): ReactNode {
-  const { shown } = entry;
-  const current = inUse === entry.id;
-  return (
-    <li className="ag-asset-entry">
-      <div
-        className="ag-asset-row ag-lit-row"
-        data-ag-lit={current ? '' : undefined}
-        data-ag-nested={nested ? '' : undefined}
-      >
-        <span className="ag-asset-glyph">
-          <EntryGlyph entry={entry} />
-        </span>
-        {'reason' in shown ? (
-          <>
-            <p className="ag-asset-name">{shown.name}</p>
-            <p
-              className="ag-asset-detail"
-              {...(shown.kind === 'unavailable' ? { 'data-ag-status': 'unavailable' } : {})}
-            >
-              {shown.reason}
-            </p>
-          </>
-        ) : (
-          <>
-            {/* The row's whole face opens the entry: the button reaches over
-                the row (asset-browser.css), and keeps the entry's name alone
-                as its name. */}
-            <Button
-              tone={ButtonTone.Quiet}
-              aria-current={current ? 'true' : undefined}
-              onClick={() => {
-                commands.run('editor.open-asset', { asset: entry.id });
-              }}
-            >
-              {shown.name}
-            </Button>
-            <p className="ag-asset-detail">{shown.description}</p>
-            {entry.takes !== undefined && <p className="ag-asset-detail">{entry.takes}</p>}
-            <span className="ag-asset-actions">
-              {entry.takes !== undefined && <Badge tone={BadgeTone.Accent}>Take</Badge>}
-              {shown.owner.kind === 'project' && shown.owner.region !== undefined && (
-                <CommandButton
-                  id={ExportCommand.Region}
-                  label={EXPORT_BUTTON}
-                  args={{ region: shown.owner.region.id }}
-                  commands={commands}
-                  tone={ButtonTone.Quiet}
-                  compact
-                />
-              )}
-            </span>
-          </>
-        )}
-      </div>
-      {entry.regions.length > 0 && (
-        <ul className="ag-asset-list ag-asset-sublist" aria-label={`Regions of ${shown.name}`}>
-          {entry.regions.map((region) => (
-            <EntryItem key={region.id} entry={region} inUse={inUse} commands={commands} nested />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
 }
 
 /** The project's audio as a list, its sounds counted over it. */

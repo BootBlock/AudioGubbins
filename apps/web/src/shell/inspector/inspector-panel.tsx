@@ -7,6 +7,7 @@
  * one change (REQ-EDIT-008). With processors selected it shows their settings,
  * by the controls the Effects rack shows them with; otherwise what the rack of
  * the asset or region runs, and the command that shows the rack (REQ-EDIT-072).
+ * A subject of the project is drawn by `project-subject.tsx`.
  *
  * For a region or an asset of the project it shows its game policy too: the
  * asset group it is in, and every field it resolves with where each value
@@ -20,52 +21,32 @@
  * G2), and it follows every change to them, an undo included.
  */
 
-import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { ButtonTone, EmptyState, Hint } from '@audiogubbins/design-system';
-import type { ProcessorId } from '@audiogubbins/domain';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
-import { targetChains } from '@audiogubbins/project-commands';
+import { EmptyState, Hint } from '@audiogubbins/design-system';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import type { EditorPanelParts } from '../../editor/panel-parts.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { ProjectStores } from '../../state/project-stores.js';
-import { processorIn } from '../../commands/library-access.js';
-import { showPanelCommandId } from '../../commands/panel-commands.js';
-import { targetName } from '../../commands/rack-target.js';
-import { chainWords, processorLabel } from '../../commands/rack-words.js';
-import { EditingPanelKinds } from '../../panel-kinds.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
-import { ProcessorControls } from '../rack/processor-controls.js';
-import { scopeOf } from '../selection-scope.js';
-import { editWording, operationWords, type EditWording } from './edit-words.js';
-import type { ModelGate } from '../../assets/model-gate.js';
-import type { Observable } from '../../state/observable.js';
-import { inspected, type Inspected } from './inspected.js';
-import { LevelControls } from './level-controls.js';
-import { OwnSubjectView, useOwnSubject, type OwnSubjectParts } from './own-subjects.js';
-import { RegionProperties } from './region-properties.js';
-import { AssetSourceFacts } from './asset-source.js';
-import { InspectorPart, InspectorSubject, InspectorSubpart } from './inspector-part.js';
-import { TimeControls } from './time-controls.js';
+import type { PanelCommands } from '../command-button.js';
 import { MemberPolicy } from '../game/member-policy.js';
+import { inspected, type Inspected } from './inspected.js';
+import { InspectorSubject } from './inspector-part.js';
+import { OwnSubjectView, useOwnSubject, type OwnSubjectParts } from './own-subjects.js';
+import { ProjectSubject, type ProjectSubjectParts } from './project-subject.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
 /**
- * What the Inspector reads: the editor's views, their selections and assets,
- * command labels, and what its subjects of their own are read from
- * (`own-subjects.tsx`).
+ * What the Inspector reads: the editor's views and assets, what a subject of
+ * the project is read from (`project-subject.tsx`), and what its subjects of
+ * their own are read from (`own-subjects.tsx`).
  */
-export interface InspectorParts extends OwnSubjectParts {
+export interface InspectorParts extends OwnSubjectParts, ProjectSubjectParts {
   readonly editorViews: EditorPanelParts['stores']['editorViews'];
-  readonly selections: EditorPanelParts['stores']['selections'];
   readonly assets: Pick<AssetCatalogue, 'get' | 'subscribe' | 'find'>;
-  readonly labelFor: (id: string) => string;
-  /** Why a processor cannot run for want of its model, which a spectral clean-up's words say. */
-  readonly modelGate: Observable<ModelGate>;
 }
 
 /**
@@ -100,199 +81,6 @@ function useInspected(
     ),
     state,
   };
-}
-
-/** The settings of each processor selected, by the controls the Effects rack shows them with. */
-function SelectedProcessors({
-  ids,
-  state,
-  panel,
-  commands,
-}: {
-  readonly ids: readonly ProcessorId[];
-  readonly state: ProjectState;
-  readonly panel: string;
-  readonly commands: PanelCommands;
-}): ReactNode {
-  return ids.map((id) => {
-    const processor = processorIn(state, id);
-    const descriptor =
-      processor === undefined ? undefined : PROCESSOR_CATALOGUE.get(processor.typeKey);
-    if (processor === undefined) {
-      return (
-        <InspectorPart
-          key={id}
-          heading="A processor no longer in the project"
-          title="Processor"
-          summary="No longer in the project"
-        >
-          {null}
-        </InspectorPart>
-      );
-    }
-    const label = processorLabel(processor.typeKey);
-    const bypassed = !processor.enabled;
-    return (
-      <InspectorPart
-        key={id}
-        heading={`Processor: ${label}${bypassed ? ', bypassed' : ''}`}
-        title={label}
-        summary={bypassed ? 'Bypassed' : undefined}
-      >
-        {descriptor !== undefined && (
-          <ProcessorControls
-            processor={processor}
-            descriptor={descriptor}
-            panel={panel}
-            commands={commands}
-          />
-        )}
-      </InspectorPart>
-    );
-  });
-}
-
-/** What the ranges a chain processes come to, in a sentence, or nothing where there are none. */
-function rangesWords(count: number): string {
-  if (count === 0) return '';
-  return count === 1
-    ? ' One of its ranges is processed by a chain of its own.'
-    : ` ${String(count)} of its ranges are processed by chains of their own.`;
-}
-
-/** What the rack of the asset or region shown runs, and the command that shows the rack. */
-function RackSummary({
-  subject,
-  state,
-  commands,
-}: {
-  readonly subject: Extract<Inspected, { readonly kind: 'project' }>;
-  readonly state: ProjectState;
-  readonly commands: PanelCommands;
-}): ReactNode {
-  const asset = state.project.assets.get(subject.asset.id) ?? subject.asset;
-  const target =
-    subject.region === undefined
-      ? ({ kind: 'asset', asset } as const)
-      : ({ kind: 'region', region: subject.region.region, asset } as const);
-  const { rack, ranges } = targetChains(target);
-  const chain = rack === undefined ? undefined : state.project.effectChains.get(rack);
-  const runs =
-    chain === undefined
-      ? 'It has no rack.'
-      : `It runs ${chainWords(chain)}${chain.slots.some((slot) => !slot.enabled) ? ', some of it bypassed' : ''}.`;
-  return (
-    <InspectorPart
-      heading={`Rack of ${targetName(target)}`}
-      title="Rack"
-      actions={
-        <CommandButton
-          id={showPanelCommandId(EditingPanelKinds.Rack)}
-          label="Show the rack"
-          commands={commands}
-          tone={ButtonTone.Quiet}
-          compact
-        />
-      }
-    >
-      <p className="ag-inspector-text">{`${runs}${rangesWords(ranges.length)}`}</p>
-    </InspectorPart>
-  );
-}
-
-/** The asset of the project: its source, its audio shape, its file's metadata and its edits. */
-function AssetProperties({
-  subject,
-  words,
-}: {
-  readonly subject: Extract<Inspected, { readonly kind: 'project' }>;
-  readonly words: EditWording;
-}): ReactNode {
-  const { asset } = subject;
-  return (
-    <InspectorPart
-      heading={`Asset: ${asset.displayName}`}
-      title="Asset"
-      summary={asset.displayName}
-    >
-      <AssetSourceFacts source={subject.source} asset={asset} />
-      <InspectorSubpart heading="Its edits" title="Edits" summary={String(asset.edits.length)}>
-        {asset.edits.length === 0 ? (
-          <p className="ag-inspector-detail">None. It plays as its source does.</p>
-        ) : (
-          <ol className="ag-inspector-steps">
-            {asset.edits.map((operation, basis) => (
-              <li key={operation.id}>{operationWords(operation, basis, words)}</li>
-            ))}
-          </ol>
-        )}
-      </InspectorSubpart>
-    </InspectorPart>
-  );
-}
-
-/** What the Inspector shows of a subject of the project. */
-function ProjectSubject({
-  subject,
-  state,
-  parts,
-  commands,
-}: {
-  readonly subject: Extract<Inspected, { readonly kind: 'project' }>;
-  readonly state: ProjectState | undefined;
-  readonly parts: InspectorParts;
-  readonly commands: PanelCommands;
-}): ReactNode {
-  const { view, state: viewState, panel } = subject;
-  const gate = useSyncExternalStore(parts.modelGate.subscribe, parts.modelGate.get);
-  const chains = state?.project.effectChains;
-  const words = useMemo(
-    () =>
-      editWording(
-        subject.asset,
-        { sampleRate: view.sampleRate, format: viewState.timeFormat },
-        chains,
-        gate,
-      ),
-    [subject.asset, view.sampleRate, viewState.timeFormat, chains, gate],
-  );
-  const selection = parts.selections.of(view.id);
-  const scope = scopeOf(selection, view, viewState);
-  const processors = selection.objects?.kind === 'processors' ? selection.objects.ids : [];
-  const region = subject.region?.region;
-  return (
-    <>
-      <InspectorSubject
-        icon={region === undefined ? 'asset' : 'region'}
-        title={region === undefined ? subject.asset.displayName : region.displayName}
-        detail={region === undefined ? view.description : `Region of ${subject.asset.displayName}`}
-        scope={`Acts on ${scope.text}`}
-      />
-      {state !== undefined &&
-        (processors.length > 0 ? (
-          <SelectedProcessors ids={processors} state={state} panel={panel} commands={commands} />
-        ) : (
-          <RackSummary subject={subject} state={state} commands={commands} />
-        ))}
-      <LevelControls panel={panel} commands={commands} labelFor={parts.labelFor} />
-      <TimeControls
-        panel={panel}
-        commands={commands}
-        labelFor={parts.labelFor}
-        sampleRate={view.sampleRate}
-      />
-      {subject.region !== undefined && (
-        <RegionProperties
-          panel={panel}
-          inspected={subject.region}
-          commands={commands}
-          labelFor={parts.labelFor}
-          words={words}
-        />
-      )}
-      <AssetProperties subject={subject} words={words} />
-    </>
-  );
 }
 
 /** What the Inspector shows of what the editor last in use acts on. */
