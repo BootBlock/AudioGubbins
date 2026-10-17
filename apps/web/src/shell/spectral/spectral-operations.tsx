@@ -159,6 +159,69 @@ function IsolateRow({
   );
 }
 
+/**
+ * The repairs that act on the whole area: removing, healing, and cleaning up
+ * with the processor chosen, knowingly where its model cannot run.
+ */
+function RepairActions({
+  base,
+  typeKey,
+  cannot,
+  context,
+}: {
+  readonly base: Base;
+  readonly typeKey: string;
+  readonly cannot: string | undefined;
+  readonly context: SpectralContext;
+}): ReactNode {
+  return (
+    <div className="ag-spectral-actions">
+      <OperationButton
+        id="spectral.remove"
+        args={base}
+        context={context}
+        tone={ButtonTone.QuietDestructive}
+        icon="spectral-remove"
+      >
+        Remove
+      </OperationButton>
+      <OperationButton id="spectral.heal" args={base} context={context} icon="spectral-heal">
+        Heal
+      </OperationButton>
+      <OperationButton
+        id="spectral.process"
+        args={cannot === undefined ? { ...base, typeKey } : { ...base, typeKey, knowingly: true }}
+        context={context}
+        tone={ButtonTone.Primary}
+        icon="clean-up"
+      >
+        {cannot === undefined ? 'Clean up' : 'Clean up anyway'}
+      </OperationButton>
+    </div>
+  );
+}
+
+/** A choice of the repair form: a short word in its column, the select named in full. */
+function ChoiceRow({
+  word,
+  label,
+  value,
+  options,
+  onValueChange,
+}: {
+  readonly word: string;
+  readonly label: string;
+  readonly value: string;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly onValueChange: (value: string) => void;
+}): ReactNode {
+  return (
+    <SpectralFormRow label={word}>
+      <OptionSelect label={label} value={value} options={options} onValueChange={onValueChange} />
+    </SpectralFormRow>
+  );
+}
+
 /** The spectral operations, with what each is given. */
 export function OperationsSection({
   shown,
@@ -175,53 +238,29 @@ export function OperationsSection({
   return (
     <Section title="Repair">
       <div className="ag-spectral-form">
-        <SpectralFormRow label="Frames">
-          <OptionSelect
-            label="Analysed in frames of"
-            value={resolution}
-            options={RESOLUTION_OPTIONS}
-            onValueChange={setResolution}
-          />
-        </SpectralFormRow>
+        <ChoiceRow
+          word="Frames"
+          label="Analysed in frames of"
+          value={resolution}
+          options={RESOLUTION_OPTIONS}
+          onValueChange={setResolution}
+        />
         <AttenuateRow base={base} context={context} />
         <IsolateRow base={base} context={context} />
-        <SpectralFormRow label="Clean up">
-          <OptionSelect
-            label="Clean up with"
-            value={typeKey}
-            options={CLEANUP_OPTIONS}
-            onValueChange={setTypeKey}
-          />
-        </SpectralFormRow>
+        <ChoiceRow
+          word="Clean up"
+          label="Clean up with"
+          value={typeKey}
+          options={CLEANUP_OPTIONS}
+          onValueChange={setTypeKey}
+        />
       </div>
       {cannot !== undefined && (
         <p className="ag-spectral-caption" data-ag-status="reduced">
           {`It can be applied, but it is not heard until it can run: ${cannot}`}
         </p>
       )}
-      <div className="ag-spectral-actions">
-        <OperationButton
-          id="spectral.remove"
-          args={base}
-          context={context}
-          tone={ButtonTone.QuietDestructive}
-          icon="spectral-remove"
-        >
-          Remove
-        </OperationButton>
-        <OperationButton id="spectral.heal" args={base} context={context} icon="spectral-heal">
-          Heal
-        </OperationButton>
-        <OperationButton
-          id="spectral.process"
-          args={cannot === undefined ? { ...base, typeKey } : { ...base, typeKey, knowingly: true }}
-          context={context}
-          tone={ButtonTone.Primary}
-          icon="clean-up"
-        >
-          {cannot === undefined ? 'Clean up' : 'Clean up anyway'}
-        </OperationButton>
-      </div>
+      <RepairActions base={base} typeKey={typeKey} cannot={cannot} context={context} />
     </Section>
   );
 }

@@ -9,41 +9,21 @@
  * the same take; what a take has come to is said as it changes.
  */
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 
-import {
-  Banner,
-  BannerTone,
-  Button,
-  IconButton,
-  RecordButton,
-  Section,
-  TextField,
-} from '@audiogubbins/design-system';
-import { SUSPENSION_CAUTION } from '@audiogubbins/recording';
+import { Banner, BannerTone, IconButton, RecordButton } from '@audiogubbins/design-system';
 import { quoted } from '@audiogubbins/text';
 
-import {
-  ARM_PUNCH,
-  RECORD,
-  RECORD_AT,
-  SET_PUNCH_ROLLS,
-  SET_TIMED_STOP,
-  STOP_RECORDING,
-} from '../../commands/take-recording-commands.js';
+import { ARM_PUNCH, RECORD, STOP_RECORDING } from '../../commands/take-recording-commands.js';
 import type { InputView } from '../../recording/input-view.js';
 import type { TakeProgress } from '../../recording/take-progress.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import { recordedText, timeLeftWarning } from '../../recording/take-words.js';
 import type { ProjectStores } from '../../state/project-stores.js';
-import {
-  LONGEST_PUNCH_ROLL_SECONDS,
-  LONGEST_TIMED_SECONDS,
-  type RecordingSettings,
-} from '../../state/recording-settings.js';
+import type { RecordingSettings } from '../../state/recording-settings.js';
 import type { PanelCommands } from '../command-button.js';
 import { commandPress } from '../command-press.js';
-import { typed } from '../settings/recording-input.js';
+import { TakeTiming } from './take-timing.js';
 
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
 
@@ -92,75 +72,66 @@ function progressText(progress: TakeProgress): string | undefined {
   }
 }
 
-/** The punch's rolls, the timed stop and a set start. */
-function TakeTiming({
-  settings,
+/**
+ * The open project's take stacks; and the storage left, read as the panel is
+ * shown, so a shortage is told before the input is armed, not only once it is.
+ */
+function useTakeStacks(
+  recording: RecordingParts,
+  projects: ProjectStores | undefined,
+): ReadonlyMap<string, { readonly name: string }> {
+  const open = useSyncExternalStore(
+    projects?.project.subscribe ?? NO_PROJECT.subscribe,
+    projects?.project.get ?? NO_PROJECT.get,
+  );
+  const writable = open?.kind === 'open' && open.snapshot.access.kind === 'writable';
+  useEffect(() => {
+    if (writable && projects !== undefined) recording.arming.read(projects.recordings);
+  }, [writable, projects, recording]);
+  return open?.kind === 'open' ? open.snapshot.model.state.project.takeStacks : new Map();
+}
+
+/**
+ * The record lamp, lit while a take is being recorded, what the take records
+ * into and how far it has come, and Stop and the punch beside it: the lamp is
+ * Record, and each button runs its own command with its own reason.
+ */
+function RecordDeck({
+  progress,
+  purpose,
   commands,
 }: {
-  readonly settings: RecordingSettings;
+  readonly progress: TakeProgress;
+  readonly purpose: string;
   readonly commands: PanelCommands;
 }): ReactNode {
-  const [preRoll, setPreRoll] = useState(String(settings.punchPreRollSeconds));
-  const [postRoll, setPostRoll] = useState(String(settings.punchPostRollSeconds));
-  const [stopAfter, setStopAfter] = useState(String(settings.stopAfterSeconds));
-  const [startAt, setStartAt] = useState('');
-  const applyRolls = (): void => {
-    commands.run(SET_PUNCH_ROLLS, { preRoll: typed(preRoll), postRoll: typed(postRoll) });
-  };
-  const applyStop = (): void => {
-    commands.run(SET_TIMED_STOP, { seconds: typed(stopAfter) });
-  };
-  const recordAt = (): void => {
-    commands.run(RECORD_AT, { time: startAt });
-  };
+  const said = progressText(progress);
+  const { onPress: record, ...recordReason } = commandPress(commands, RECORD);
+  const { onPress: stop, ...stopReason } = commandPress(commands, STOP_RECORDING);
+  const { onPress: punch, ...punchReason } = commandPress(commands, ARM_PUNCH);
   return (
-    <Section title="Pre-roll, post-roll and timed recording" defaultOpen={false}>
-      <div className="ag-recording-form">
-        <TextField
-          label={`Punch pre-roll, in seconds, up to ${String(LONGEST_PUNCH_ROLL_SECONDS)}`}
-          unit="s"
-          value={preRoll}
-          onValueChange={setPreRoll}
-          onSubmit={applyRolls}
-        />
-        <TextField
-          label={`Punch post-roll, in seconds, up to ${String(LONGEST_PUNCH_ROLL_SECONDS)}`}
-          unit="s"
-          value={postRoll}
-          onValueChange={setPostRoll}
-          onSubmit={applyRolls}
-        />
-        <div className="ag-recording-actions">
-          <Button compact onClick={applyRolls}>
-            Apply the pre-roll and post-roll
-          </Button>
-        </div>
-        <TextField
-          label={`Stop recording after, in seconds, up to ${String(LONGEST_TIMED_SECONDS)}; 0 for no timed stop`}
-          unit="s"
-          value={stopAfter}
-          onValueChange={setStopAfter}
-          onSubmit={applyStop}
-        />
-        <div className="ag-recording-actions">
-          <Button compact onClick={applyStop}>
-            Apply the timed stop
-          </Button>
-        </div>
-        <TextField
-          label="Start recording at, as hours and minutes"
-          value={startAt}
-          onValueChange={setStartAt}
-          onSubmit={recordAt}
-        />
-        <div className="ag-recording-actions">
-          <Button compact onClick={recordAt}>
-            Record at this time
-          </Button>
-        </div>
+    <div className="ag-recording-deck">
+      <RecordButton
+        label="Record"
+        recording={progress.kind === 'recording'}
+        {...recordReason}
+        onPress={record}
+      />
+      <div className="ag-recording-deck-text">
+        <p className="ag-recording-purpose">{purpose}</p>
+        {said !== undefined && <p className="ag-recording-progress">{said}</p>}
       </div>
-      <p className="ag-recording-caption">{SUSPENSION_CAUTION}</p>
-    </Section>
+      <div className="ag-recording-buttons">
+        <IconButton icon="stop" label="Stop" hint="Stop" {...stopReason} onClick={stop} />
+        <IconButton
+          icon="punch-in"
+          label="Arm a punch over the selection"
+          hint="Arm a punch over the selection"
+          {...punchReason}
+          onClick={punch}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -186,50 +157,15 @@ export function RecordSection({
     recording.arming.timeLeft.subscribe,
     recording.arming.timeLeft.get,
   );
-  const open = useSyncExternalStore(
-    projects?.project.subscribe ?? NO_PROJECT.subscribe,
-    projects?.project.get ?? NO_PROJECT.get,
-  );
-  const stacks = open?.kind === 'open' ? open.snapshot.model.state.project.takeStacks : new Map();
-  const writable = open?.kind === 'open' && open.snapshot.access.kind === 'writable';
-  // The storage left is read as the panel is shown, so a shortage is told
-  // before the input is armed, not only once it is.
-  useEffect(() => {
-    if (writable && projects !== undefined) recording.arming.read(projects.recordings);
-  }, [writable, projects, recording]);
-  const said = progressText(progress);
+  const stacks = useTakeStacks(recording, projects);
   const warning = progress.kind === 'recording' ? undefined : timeLeftWarning(timeLeft);
-  const { onPress: record, ...recordReason } = commandPress(commands, RECORD);
-  const { onPress: stop, ...stopReason } = commandPress(commands, STOP_RECORDING);
-  const { onPress: punch, ...punchReason } = commandPress(commands, ARM_PUNCH);
   return (
     <div className="ag-recording-takes">
-      <div className="ag-recording-deck">
-        {/* Lit while a take is being recorded: the lamp is Record, and Stop sits beside it,
-            each its own command with its own reason. */}
-        <RecordButton
-          label="Record"
-          recording={progress.kind === 'recording'}
-          {...recordReason}
-          onPress={record}
-        />
-        <div className="ag-recording-deck-text">
-          <p className="ag-recording-purpose">
-            {purposeText(view, stacks) ?? 'Arm the input to record a take.'}
-          </p>
-          {said !== undefined && <p className="ag-recording-progress">{said}</p>}
-        </div>
-        <div className="ag-recording-buttons">
-          <IconButton icon="stop" label="Stop" hint="Stop" {...stopReason} onClick={stop} />
-          <IconButton
-            icon="punch-in"
-            label="Arm a punch over the selection"
-            hint="Arm a punch over the selection"
-            {...punchReason}
-            onClick={punch}
-          />
-        </div>
-      </div>
+      <RecordDeck
+        progress={progress}
+        purpose={purposeText(view, stacks) ?? 'Arm the input to record a take.'}
+        commands={commands}
+      />
       {warning !== undefined && (
         <Banner tone={BannerTone.Warning} icon="storage">
           {warning}

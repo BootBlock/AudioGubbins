@@ -90,6 +90,54 @@ function MoreMenu({
   );
 }
 
+/** What can be done with a take besides hearing and choosing it, as the entries of its menu. */
+function takeMenu(
+  commands: PanelCommands,
+  take: Take,
+  args: Readonly<Record<string, string>>,
+): readonly MenuItemDescriptor[] {
+  const entry = (id: string, label: string): MenuItemDescriptor =>
+    commandEntry(commands, id, label, args);
+  return [
+    ...(take.state === TakeState.Kept ? [entry('take.reject', 'Reject')] : []),
+    ...(take.state === TakeState.Rejected ? [entry('take.keep', 'Keep')] : []),
+    take.state === TakeState.Removed
+      ? entry('take.restore', 'Restore')
+      : entry('take.remove', 'Remove'),
+    entry('take.duplicate', 'Duplicate'),
+    entry('take.branch', 'Branch'),
+    entry('take.inspect', 'Inspect'),
+  ];
+}
+
+/** A take's name, its facts, and why it cannot serve its punch where it cannot. */
+function TakeText({
+  take,
+  chosen,
+  facts,
+  problem,
+}: {
+  readonly take: Take;
+  readonly chosen: boolean;
+  readonly facts: string;
+  readonly problem: string | undefined;
+}): ReactNode {
+  return (
+    <div className="ag-recording-take-text">
+      <p className="ag-recording-take-name">
+        {take.name}
+        {chosen && <VisuallyHidden> (chosen)</VisuallyHidden>}
+      </p>
+      <p className="ag-recording-take-facts">{facts}</p>
+      {problem !== undefined && (
+        <p className="ag-recording-caption" data-ag-status="reduced">
+          {`It cannot serve the punch. ${problem}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * One take, and what can be done with it: hearing it and choosing it at
  * hand, as a take is judged, and the rest behind its "more" button.
@@ -107,20 +155,7 @@ function TakeRow({
 }): ReactNode {
   const args = { stack: stack.id, take: take.id };
   const chosen = stack.chosen === take.id;
-  const problem = punchProblemOf(project, stack, take);
   const { onPress: hear, ...hearReason } = commandPress(commands, 'take.audition', args);
-  const entry = (id: string, label: string): MenuItemDescriptor =>
-    commandEntry(commands, id, label, args);
-  const more = [
-    ...(take.state === TakeState.Kept ? [entry('take.reject', 'Reject')] : []),
-    ...(take.state === TakeState.Rejected ? [entry('take.keep', 'Keep')] : []),
-    take.state === TakeState.Removed
-      ? entry('take.restore', 'Restore')
-      : entry('take.remove', 'Remove'),
-    entry('take.duplicate', 'Duplicate'),
-    entry('take.branch', 'Branch'),
-    entry('take.inspect', 'Inspect'),
-  ];
   return (
     <li
       className="ag-recording-take ag-lit-row"
@@ -130,18 +165,12 @@ function TakeRow({
       data-ag-state={take.state}
     >
       <span className="ag-recording-take-lamp" aria-hidden="true" />
-      <div className="ag-recording-take-text">
-        <p className="ag-recording-take-name">
-          {take.name}
-          {chosen && <VisuallyHidden> (chosen)</VisuallyHidden>}
-        </p>
-        <p className="ag-recording-take-facts">{takeFacts(project, take)}</p>
-        {problem !== undefined && (
-          <p className="ag-recording-caption" data-ag-status="reduced">
-            {`It cannot serve the punch. ${problem}`}
-          </p>
-        )}
-      </div>
+      <TakeText
+        take={take}
+        chosen={chosen}
+        facts={takeFacts(project, take)}
+        problem={punchProblemOf(project, stack, take)}
+      />
       <div className="ag-recording-buttons" role="group" aria-label={`Take ${quoted(take.name)}`}>
         <IconButton
           icon="audition"
@@ -154,7 +183,7 @@ function TakeRow({
         {take.state === TakeState.Kept && !chosen && (
           <CommandButton id="take.choose" label="Choose" commands={commands} args={args} compact />
         )}
-        <MoreMenu label={`More for ${quoted(take.name)}`} items={more} />
+        <MoreMenu label={`More for ${quoted(take.name)}`} items={takeMenu(commands, take, args)} />
       </div>
     </li>
   );

@@ -176,6 +176,75 @@ function InputLevels({
   );
 }
 
+/** Which input records, and the controls that arm and disarm it. */
+function DeviceRow({
+  view,
+  settings,
+  commands,
+}: {
+  readonly view: InputView;
+  readonly settings: RecordingSettings;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const listed = view.devices.flatMap((device) => identityOfDevice(device) ?? []);
+  const chosen = view.opened?.device ?? settings.input;
+  const { onPress: arm, ...armReason } = commandPress(commands, 'recording.arm');
+  const { onPress: disarm, ...disarmReason } = commandPress(commands, 'recording.disarm');
+  return (
+    <div className="ag-recording-device">
+      {listed.length > 0 ? (
+        <OptionSelect
+          label="Input"
+          value={chosen?.id ?? ''}
+          options={[
+            ...(chosen === undefined ? [{ value: '', label: deviceName(undefined) }] : []),
+            ...listed.map((device) => ({ value: device.id, label: deviceName(device) })),
+          ]}
+          onValueChange={(device) => {
+            if (device !== '' && device !== chosen?.id) commands.run(CHOOSE_INPUT, { device });
+          }}
+        />
+      ) : (
+        <p className="ag-recording-device-name">{deviceName(chosen)}</p>
+      )}
+      <div className="ag-recording-buttons">
+        <Button compact {...armReason} onClick={arm}>
+          <Icon name="armed" />
+          Arm
+        </Button>
+        <Button compact {...disarmReason} onClick={disarm}>
+          Disarm
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** What is known of the input: the permission, the session, a problem and the buffer. */
+function InputFacts({
+  view,
+  settings,
+}: {
+  readonly view: InputView;
+  readonly settings: RecordingSettings;
+}): ReactNode {
+  const permission = PERMISSION_LOOKS[view.permission];
+  return (
+    <ul className="ag-recording-facts">
+      <Fact icon={permission.icon} {...(permission.refused ? { status: 'reduced' as const } : {})}>
+        {permissionText(view.permission)}
+      </Fact>
+      <Fact icon="recorder">{sessionText(view)}</Fact>
+      {view.problem !== undefined && (
+        <Fact icon="warning" status="reduced">
+          {view.problem}
+        </Fact>
+      )}
+      <Fact icon="pre-record">{bufferText(settings, view)}</Fact>
+    </ul>
+  );
+}
+
 /** The input part of the Recording panel. */
 export function InputSection({
   recording,
@@ -188,60 +257,16 @@ export function InputSection({
   readonly settings: RecordingSettings;
   readonly commands: PanelCommands;
 }): ReactNode {
-  const listed = view.devices.flatMap((device) => identityOfDevice(device) ?? []);
-  const chosen = view.opened?.device ?? settings.input;
-  const { onPress: arm, ...armReason } = commandPress(commands, 'recording.arm');
-  const { onPress: disarm, ...disarmReason } = commandPress(commands, 'recording.disarm');
-  const permission = PERMISSION_LOOKS[view.permission];
   return (
     <div className="ag-recording-input">
-      <div className="ag-recording-device">
-        {listed.length > 0 ? (
-          <OptionSelect
-            label="Input"
-            value={chosen?.id ?? ''}
-            options={[
-              ...(chosen === undefined ? [{ value: '', label: deviceName(undefined) }] : []),
-              ...listed.map((device) => ({ value: device.id, label: deviceName(device) })),
-            ]}
-            onValueChange={(device) => {
-              if (device !== '' && device !== chosen?.id) commands.run(CHOOSE_INPUT, { device });
-            }}
-          />
-        ) : (
-          <p className="ag-recording-device-name">{deviceName(chosen)}</p>
-        )}
-        <div className="ag-recording-buttons">
-          <Button compact {...armReason} onClick={arm}>
-            <Icon name="armed" />
-            Arm
-          </Button>
-          <Button compact {...disarmReason} onClick={disarm}>
-            Disarm
-          </Button>
-        </div>
-      </div>
+      <DeviceRow view={view} settings={settings} commands={commands} />
       <div className="ag-recording-chips">
         <Badge>
           <VisuallyHidden>Capture profile: </VisuallyHidden>
           {settings.chosenProfile}
         </Badge>
       </div>
-      <ul className="ag-recording-facts">
-        <Fact
-          icon={permission.icon}
-          {...(permission.refused ? { status: 'reduced' as const } : {})}
-        >
-          {permissionText(view.permission)}
-        </Fact>
-        <Fact icon="recorder">{sessionText(view)}</Fact>
-        {view.problem !== undefined && (
-          <Fact icon="warning" status="reduced">
-            {view.problem}
-          </Fact>
-        )}
-        <Fact icon="pre-record">{bufferText(settings, view)}</Fact>
-      </ul>
+      <InputFacts view={view} settings={settings} />
       <GrantDisclosure comparison={view.opened?.comparison} />
       <InputLevels recording={recording} open={view.opened !== undefined} commands={commands} />
     </div>
