@@ -130,12 +130,26 @@ function Field(props: {
 }
 
 /** A select that holds its choice. */
-function Select(props: { readonly disabled?: boolean; readonly icons?: boolean }): ReactNode {
+function Select(props: {
+  readonly disabled?: boolean;
+  readonly icons?: boolean;
+  readonly labelHidden?: boolean;
+  readonly hinted?: boolean;
+}): ReactNode {
   const [value, setValue] = useState('above');
   const icon = (name: IconName) => (props.icons === true ? { icon: name } : {});
   return (
     <OptionSelect
       label="Show"
+      labelHidden={props.labelHidden ?? false}
+      {...(props.hinted === true
+        ? {
+            description: {
+              hintLabel: 'About the display',
+              text: 'What the editor draws for the asset it shows.',
+            },
+          }
+        : {})}
       value={value}
       onValueChange={setValue}
       disabled={props.disabled ?? false}
@@ -409,6 +423,26 @@ const specimens: readonly Specimen[] = [
   },
   {
     component: 'TextField',
+    state: 'description behind a hint',
+    render: () => (
+      <TextField
+        label="Folder"
+        description={{
+          hintLabel: 'About the folder',
+          text: 'Where the files go, inside the export.',
+        }}
+        value="audio"
+        onValueChange={noop}
+      />
+    ),
+  },
+  {
+    component: 'TextField',
+    state: 'label hidden',
+    render: () => <TextField label="Search commands" labelHidden value="" onValueChange={noop} />,
+  },
+  {
+    component: 'TextField',
     state: 'error',
     render: () => (
       <Field label="Lead-in" initial="-4" unit="ms" error="A lead-in can’t be less than 0 ms." />
@@ -521,6 +555,12 @@ const specimens: readonly Specimen[] = [
   { component: 'OptionSelect', state: 'pressed', render: () => <Select icons /> },
   { component: 'OptionSelect', state: 'disabled', render: () => <Select disabled /> },
   { component: 'OptionSelect', state: 'icons', render: () => <Select icons /> },
+  { component: 'OptionSelect', state: 'label hidden', render: () => <Select labelHidden /> },
+  {
+    component: 'OptionSelect',
+    state: 'description behind a hint',
+    render: () => <Select hinted />,
+  },
   {
     component: 'OptionSelect',
     state: 'open-list',
@@ -795,7 +835,7 @@ const specimens: readonly Specimen[] = [
       >
         <div className="ag-dialog-scroll">
           <div className="ag-dialog-body">
-            <TextField label="Search commands" value="fade" onValueChange={noop} />
+            <TextField label="Search commands" labelHidden value="fade" onValueChange={noop} />
           </div>
         </div>
         <div className="ag-dialog-footer">

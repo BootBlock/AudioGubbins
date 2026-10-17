@@ -527,7 +527,10 @@
    lights the first choice alone, as it does a toolbar's first button. */
 :is(
     :is(.ag-power-switch, .ag-record-button):is(:hover, [data-ag-force-state='hover'] *),
-    .ag-radio-option:is(:hover, [data-ag-force-state='hover'] .ag-radio-option:first-of-type)
+    .ag-radio-option:is(
+        :hover,
+        [data-ag-force-state='hover'] .ag-radio-choice:first-of-type .ag-radio-option
+      )
   ):not(:disabled, [aria-disabled='true'], [data-disabled])
   .ag-hardware-hover {
   opacity: 0.08;
@@ -556,22 +559,21 @@
 
 .ag-switch-field {
   display: flex;
-
-  /* A long label cannot shrink, so where a narrow panel leaves the switch no
-     room beside it, the switch moves under it rather than being squeezed. */
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--ag-space-medium);
   min-block-size: var(--ag-control-height);
 }
 
 /* The words take the row and the switch its trailing edge, so a column of
-   switches shares one edge (section 1). */
+   switches shares one edge (section 1). A long label wraps its words beside
+   the switch rather than pushing the switch under it: a switch on a line of
+   its own, at the far side, reads as belonging to the row below. */
 .ag-switch-text {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
-  min-inline-size: calc(64 * var(--ag-grid-unit));
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .ag-switch-description {
@@ -846,6 +848,13 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: var(--ag-space-medium);
+}
+
+/* A choice and the (i) of a description kept behind one, side by side. */
+.ag-radio-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
 }
 
 .ag-radio-option {

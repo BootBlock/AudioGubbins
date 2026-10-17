@@ -8,6 +8,11 @@ import { useId, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/icon.js';
 import type { IconName } from '../../icons/vocabulary.js';
+import {
+  type ControlDescription,
+  DescriptionHint,
+  DescriptionText,
+} from '../control-description.js';
 
 /** One option of a select. */
 export interface SelectOption {
@@ -20,7 +25,21 @@ export interface SelectOption {
 
 /** What a select takes. */
 export interface OptionSelectProps {
+  /** The visible label, and the select's accessible name. */
   readonly label: string;
+
+  /**
+   * Keeps the label for a screen reader alone, where what surrounds the select
+   * already says what it chooses, such as a column heading over a row of them.
+   */
+  readonly labelHidden?: boolean;
+
+  /**
+   * A sentence saying what the choice does: standing under the select, or
+   * behind an (i) beside its label.
+   */
+  readonly description?: ControlDescription;
+
   readonly value: string;
   readonly options: readonly SelectOption[];
   readonly onValueChange: (value: string) => void;
@@ -71,24 +90,30 @@ function OptionRow({
 /** A control for choosing one of a fixed set. */
 export function OptionSelect({
   label,
+  labelHidden = false,
+  description,
   value,
   options,
   onValueChange,
   disabled = false,
 }: OptionSelectProps): ReactNode {
   const labelId = useId();
+  const descriptionId = useId();
   const glyphs = options.some((option) => option.icon !== undefined);
   const chosen = options.find((option) => option.value === value);
 
   return (
     <div className="ag-select-field">
-      <span className="ag-select-label" id={labelId}>
-        {label}
+      <span className={labelHidden ? 'ag-visually-hidden' : 'ag-labelled ag-select-label'}>
+        <span id={labelId}>{label}</span>
+        {!labelHidden && <DescriptionHint description={description} />}
       </span>
+      {labelHidden && <DescriptionHint description={description} />}
       <Select.Root value={value} onValueChange={onValueChange} disabled={disabled}>
         <Select.Trigger
           className="ag-select-trigger ag-touch-sized"
           aria-labelledby={labelId}
+          {...(description === undefined ? {} : { 'aria-describedby': descriptionId })}
           onKeyDown={chooseNothingWhileShut}
         >
           <span className="ag-select-value">
@@ -114,6 +139,11 @@ export function OptionSelect({
           </Select.Content>
         </Select.Portal>
       </Select.Root>
+      <DescriptionText
+        description={description}
+        id={descriptionId}
+        className="ag-select-description"
+      />
     </div>
   );
 }

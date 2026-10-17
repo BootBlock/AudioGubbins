@@ -137,6 +137,14 @@ export { WINDOW_ROW, useRowWindow } from './primitives/row-window.js';
 
 export { VisuallyHidden } from './primitives/visually-hidden.js';
 
+// A control's description stands under its label, or, opted in, waits behind
+// an (i) beside it (text economy): the switch, the check, a radio's choices,
+// the select, the slider and the text field each take one.
+export {
+  type ControlDescription,
+  type HintedDescription,
+} from './primitives/control-description.js';
+
 // Buttons: the controls a user presses or turns over. `ControlBarItem` is the
 // toolbar's slot for a control other than its own button, which a toolbar
 // needs as much as its buttons. The hardware controls (the switch, the radio's

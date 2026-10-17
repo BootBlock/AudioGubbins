@@ -60,6 +60,14 @@
   min-inline-size: calc(var(--ag-grid-unit) * 64);
 }
 
+/* A standing description takes a line of its own under the slider. */
+.ag-slider-description {
+  flex: 1 0 100%;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
 .ag-slider {
   position: relative;
   display: flex;

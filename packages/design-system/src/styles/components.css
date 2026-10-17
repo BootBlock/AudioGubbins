@@ -56,3 +56,18 @@
 .ag-settings-row > .ag-text-field {
   flex: 1 1 calc(96 * var(--ag-grid-unit));
 }
+
+/* A control's label with the (i) its description is kept behind, beside it,
+   so the (i) reads as part of the label. A label too long for its row wraps
+   its words and keeps the (i) beside it. */
+.ag-labelled {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.ag-labelled > .ag-hint {
+  flex: none;
+}

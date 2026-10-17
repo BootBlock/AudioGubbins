@@ -265,6 +265,36 @@ const switchSpecimens: readonly Specimen[] = [
     render: () => toggle(false),
   })),
   { component: 'ToggleSwitch', state: 'on', render: () => toggle(true) },
+  {
+    component: 'ToggleSwitch',
+    state: 'description behind a hint',
+    render: () => (
+      <ToggleSwitch
+        label="Diagnostic mode"
+        description={{
+          hintLabel: 'About diagnostic mode',
+          text: 'Collects more detail for a limited time.',
+        }}
+        checked
+        onCheckedChange={ignore}
+      />
+    ),
+  },
+  {
+    component: 'ToggleSwitch',
+    state: 'long label',
+    // The label wraps its words beside the switch, in a column as narrow as a
+    // settings page's on a phone.
+    render: () => (
+      <div style={{ inlineSize: 'calc(110 * var(--ag-grid-unit))' }}>
+        <ToggleSwitch
+          label="Keep the waveform and analysis caches with the project when it is exported"
+          checked={false}
+          onCheckedChange={ignore}
+        />
+      </div>
+    ),
+  },
   ...[false, true].flatMap((checked) => {
     const word = checked ? 'on' : 'off';
     return [
@@ -315,6 +345,18 @@ const checkSpecimens: readonly Specimen[] = [
     state: 'unavailable',
     render: () => check(false, { unavailableReason: 'This format has no markers.' }),
   },
+  {
+    component: 'Check',
+    state: 'description behind a hint',
+    render: () => (
+      <Check
+        label="Include markers"
+        description={{ hintLabel: 'About markers', text: 'Written into the file as cue points.' }}
+        checked
+        onCheckedChange={ignore}
+      />
+    ),
+  },
 ];
 
 /** A radio group of takes, the first chosen. */
@@ -348,6 +390,32 @@ const radioSpecimens: readonly Specimen[] = [
     component: 'RadioGroup',
     state: 'unavailable',
     render: () => takes({ unavailableReason: 'Stop recording to choose a take.' }),
+  },
+  {
+    component: 'RadioGroup',
+    state: 'descriptions behind hints',
+    render: () => (
+      <RadioGroup
+        label="Format"
+        value="wav"
+        options={[
+          {
+            value: 'wav',
+            label: 'WAV',
+            description: { hintLabel: 'About WAV', text: 'Every sample as it is, uncompressed.' },
+          },
+          {
+            value: 'ogg',
+            label: 'Ogg Vorbis',
+            description: {
+              hintLabel: 'About Ogg Vorbis',
+              text: 'Smaller, losing detail the ear is least likely to miss.',
+            },
+          },
+        ]}
+        onValueChange={ignore}
+      />
+    ),
   },
 ];
 

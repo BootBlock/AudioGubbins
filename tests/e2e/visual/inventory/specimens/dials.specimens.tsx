@@ -16,6 +16,7 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
+  type ControlDescription,
   CorrelationMeter,
   Fader,
   type FaderMark,
@@ -48,7 +49,13 @@ function Dragged({ children }: { readonly children: ReactNode }): ReactNode {
 
 // ---------- The slider ----------
 
-function slider(extra: { readonly disabled?: boolean; readonly unavailableReason?: string } = {}) {
+function slider(
+  extra: {
+    readonly disabled?: boolean;
+    readonly unavailableReason?: string;
+    readonly description?: ControlDescription;
+  } & ({ readonly visibleLabel?: string } | { readonly labelHidden: true }) = {},
+) {
   return (
     <ValueSlider
       label="Mix"
@@ -364,6 +371,25 @@ const specimens: readonly Specimen[] = [
     component: 'ValueSlider',
     state: 'unavailable',
     render: () => slider({ unavailableReason: REASON }),
+  },
+  {
+    component: 'ValueSlider',
+    state: 'short label',
+    render: () => slider({ visibleLabel: 'Wet' }),
+  },
+  { component: 'ValueSlider', state: 'label hidden', render: () => slider({ labelHidden: true }) },
+  {
+    component: 'ValueSlider',
+    state: 'description',
+    render: () => slider({ description: 'How much of the reverb is heard.' }),
+  },
+  {
+    component: 'ValueSlider',
+    state: 'description behind a hint',
+    render: () =>
+      slider({
+        description: { hintLabel: 'About the mix', text: 'How much of the reverb is heard.' },
+      }),
   },
   { component: 'ValueSlider', state: 'centred, right', render: () => centredSlider(40) },
   { component: 'ValueSlider', state: 'centred, left', render: () => centredSlider(-25) },
