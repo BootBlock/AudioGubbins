@@ -1,0 +1,239 @@
+/*
+ * The Editor panel (design language, section 11): its toolbar in one row, the scope, the display
+ * reaching the panel's bottom inset, and the readings beneath. The surface draws itself on
+ * stacked canvases the size of the surface; the browser neither pans nor zooms the page under a
+ * finger there, since two fingers pan and pinch the view (REQ-UX-067).
+ */
+.ag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+  block-size: 100%;
+}
+
+.ag-editor-asset-name {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+/* The toolbar: groups side by side, the choices at the row's trailing end. */
+.ag-editor-toolbars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+}
+
+.ag-editor-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin-inline-start: auto;
+}
+
+/*
+ * A select in a toolbar is named for a screen reader and shows only its value, as the toolbar's
+ * icon buttons show only their glyphs; the name stays in the page, tied to the trigger.
+ */
+.ag-editor-choices .ag-select-label,
+.ag-editor-scroll .ag-slider-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ag-editor-choices .ag-select-field {
+  gap: 0;
+}
+
+/* The scope: a quiet line, and a warning banner where it lies outside the view. */
+.ag-editor-scope {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-editor-scope-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-editor-scope-text {
+  color: var(--ag-chrome-text-primary);
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The display: the surface with a subtle edge and the control radius, and what is drawn over
+ * it, the waveform's progress and its failure.
+ */
+.ag-editor-display {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: calc(var(--ag-control-row-height) * 4);
+}
+
+.ag-editor-surface {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-waveform-background);
+  touch-action: none;
+  user-select: none;
+}
+
+.ag-editor-canvas {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* The waveform's progress: a note of overlay glass in the display's bottom trailing corner. */
+.ag-editor-note-place {
+  position: absolute;
+  inset-block-end: var(--ag-space-inset);
+  inset-inline-end: var(--ag-space-inset);
+  pointer-events: none;
+}
+
+.ag-editor-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-inset);
+  inline-size: calc(var(--ag-grid-unit) * 110);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-elevation-overlay-fill);
+  box-shadow: var(--ag-elevation-note-shadow);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+}
+
+.ag-editor-note-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-medium);
+}
+
+.ag-editor-note-share {
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-editor-note .ag-progress {
+  grid-column: 1 / -1;
+}
+
+/*
+ * The waveform's failure, centred over the display on glass, so whatever the canvas still draws
+ * shows through it; the pointer passes through to the surface.
+ */
+.ag-editor-display-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--ag-space-inset);
+  pointer-events: none;
+}
+
+.ag-editor-display-state .ag-empty-state {
+  border: 1px solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-overlay-fill);
+  box-shadow: var(--ag-elevation-note-shadow);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+}
+
+.ag-editor-scroll {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The readings and the markers: a quiet row under the display. */
+.ag-editor-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-large);
+}
+
+.ag-editor-readings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny) var(--ag-space-large);
+  margin: 0;
+  font-size: var(--ag-text-label);
+}
+
+.ag-editor-reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ag-space-small);
+}
+
+.ag-editor-reading dt {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+.ag-editor-reading dd {
+  margin: 0;
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ag-editor-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-micro);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* With no asset shown: the empty state, its assets as cards under its title. */
+.ag-editor-chooser {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--ag-space-inset);
+}
+
+.ag-editor-assets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--ag-space-inset);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

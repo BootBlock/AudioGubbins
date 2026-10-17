@@ -50,13 +50,20 @@ export const PALETTE: EditorPalette = {
   rulerText: named(23),
   selectedRegion: named(24),
   spectralEdit: named(25),
+  rulerMinorTick: named(26),
+  regionEdge: named(27),
+  regionBoundary: named(28),
   spectrogramRamps: {
     theme: Array.from({ length: 256 }, (_, index): Colour => [0, index / 255, 0, 1]),
     greyscale: Array.from({ length: 256 }, (_, index): Colour => [0, 0, index / 255, 1]),
   },
 };
 
-const TYPE: EditorType = { label: '12px sans-serif', small: '11px sans-serif' };
+const TYPE: EditorType = {
+  label: '12px sans-serif',
+  small: '11px sans-serif',
+  ruler: '500 10px monospace',
+};
 
 const NO_TICKS: RulerTicks = { major: [], minor: [] };
 

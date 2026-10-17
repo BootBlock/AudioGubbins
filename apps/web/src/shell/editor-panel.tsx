@@ -12,6 +12,12 @@
  * click or a long press on it opens the editor's context actions (REQ-UX-067).
  * The panel marks itself as an editor's, where the clipboard keys copy and
  * paste audio rather than the page's text.
+ *
+ * Laid out as the design language's panel composition (section 11): the
+ * toolbar in one row, the scope under it, the display reaching the panel's
+ * bottom inset with the waveform's progress over its bottom trailing corner,
+ * and the readings and markers in a quiet row beneath. With no asset shown,
+ * the panel's empty state offers the assets it can open.
  */
 
 import {
@@ -26,15 +32,20 @@ import {
 } from 'react';
 
 import {
+  Banner,
+  BannerTone,
   Button,
   ContextActions,
+  EmptyState,
+  Icon,
+  ValueSlider,
   useTheme,
   type ContextActionsOpener,
   type MenuGroup,
 } from '@audiogubbins/design-system';
 import { KEYBOARD_HOME } from '@audiogubbins/workspace';
 import type { EditorViewState } from '@audiogubbins/editor-view';
-import { visibleRange } from '@audiogubbins/timeline';
+import { formatPosition, visibleRange } from '@audiogubbins/timeline';
 import type { PeakStatus } from '@audiogubbins/waveform';
 import type { SpectrogramStatus } from '@audiogubbins/spectral-analysis';
 
@@ -56,7 +67,10 @@ const CONTEXT_GROUPS: readonly (readonly string[])[] = [
   ['editor.select-all', 'editor.clear-selection', 'editor.new-view'],
 ];
 
-/** The assets a view can open, as buttons. */
+/**
+ * The assets a view can open, as the panel's empty state: a button for each,
+ * named by the asset and saying what it holds on hover or focus.
+ */
 function AssetChooser({
   panel,
   parts,
@@ -67,25 +81,31 @@ function AssetChooser({
   const { assets, problems } = useSyncExternalStore(parts.assets.subscribe, parts.assets.get);
   return (
     <div className="ag-editor-chooser">
-      <p>Choose an asset to open in this view.</p>
-      <ul className="ag-editor-assets">
-        {assets.map((asset) => (
-          <li key={asset.id} className="ag-editor-asset">
-            <Button
-              onClick={() => {
-                parts.run('editor.open-asset', { view: panel, asset: asset.id });
-              }}
-            >
-              {asset.name}
-            </Button>
-            <p className="ag-panel-note">{asset.description}</p>
-          </li>
-        ))}
-      </ul>
+      <EmptyState
+        icon="waveform"
+        title="Choose an asset to open"
+        actions={
+          <ul className="ag-editor-assets" aria-label="Assets to open">
+            {assets.map((asset) => (
+              <li key={asset.id} className="ag-editor-asset">
+                <Button
+                  hint={asset.description}
+                  onClick={() => {
+                    parts.run('editor.open-asset', { view: panel, asset: asset.id });
+                  }}
+                >
+                  <Icon name="waveform" />
+                  {asset.name}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        }
+      />
       {problems.map((problem) => (
-        <p key={problem} className="ag-panel-note" data-ag-status="unavailable">
+        <Banner key={problem} tone={BannerTone.Error} icon="unavailable">
           {problem}
-        </p>
+        </Banner>
       ))}
     </div>
   );
@@ -130,13 +150,13 @@ function useEditorSurface(
   actions: RefObject<ContextActionsOpener | null>,
 ): void {
   const theme = useTheme();
-  const look = useRef({ palette: editorPaletteOf(theme), type: editorTypeOf(theme) });
+  const look = useRef({ palette: editorPaletteOf(theme, parts.logger), type: editorTypeOf(theme) });
   const surface = useRef<EditorSurface | undefined>(undefined);
 
   useEffect(() => {
-    look.current = { palette: editorPaletteOf(theme), type: editorTypeOf(theme) };
+    look.current = { palette: editorPaletteOf(theme, parts.logger), type: editorTypeOf(theme) };
     surface.current?.redraw();
-  }, [theme]);
+  }, [theme, parts.logger]);
 
   useEffect(() => {
     const element = host.current;
@@ -221,19 +241,25 @@ function ScrollPosition({
   readonly parts: EditorPanelParts;
 }): ReactNode {
   const shown = visibleRange(state.viewport, asset.length);
+  const furthest = Math.max(0, asset.length - (shown.end - shown.start));
+  const whole = furthest === 0;
   return (
-    <input
-      className="ag-editor-scroll"
-      type="range"
-      aria-label="Position in the asset"
-      min={0}
-      max={Math.max(0, asset.length - (shown.end - shown.start))}
-      step={1}
-      value={shown.start}
-      onChange={(event) => {
-        parts.run('editor.scroll-to', { view: panel, position: Number(event.target.value) });
-      }}
-    />
+    <div className="ag-editor-scroll">
+      <ValueSlider
+        label="Position in the asset"
+        value={shown.start}
+        minimum={0}
+        // A travel of no length has no place for the thumb, so the slider is
+        // given one sample of it and refuses every change while it shows all.
+        maximum={whole ? 1 : furthest}
+        step={1}
+        describeValue={(position) => formatPosition(position, asset.sampleRate, state.timeFormat)}
+        {...(whole ? { unavailableReason: 'The whole asset is in view.' } : {})}
+        onValueChange={(position) => {
+          parts.run('editor.scroll-to', { view: panel, position });
+        }}
+      />
+    </div>
   );
 }
 
@@ -265,34 +291,42 @@ function EditorView({
     <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       <p className="ag-editor-asset-name">{asset.name}</p>
-      {asset.owner.kind === 'session' && <p className="ag-panel-note">{asset.owner.reason}</p>}
+      {asset.owner.kind === 'session' && (
+        <Banner tone={BannerTone.Information} icon="read-only">
+          {asset.owner.reason}
+        </Banner>
+      )}
       <EditorToolbar
         panel={panel}
         asset={asset}
         state={state}
-        commands={{ run: parts.run, shortcutFor: parts.shortcutFor }}
+        commands={{ run: parts.run, shortcutFor: parts.shortcutFor, labelFor: parts.labelFor }}
       />
       <SelectionScope selection={selection} asset={asset} state={state} />
-      <Surface
-        host={surface}
-        describedBy={readings}
-        panel={panel}
-        asset={asset}
-        parts={parts}
-        status={status}
-      />
-      <ScrollPosition panel={panel} asset={asset} state={state} parts={parts} />
-      <EditorReadouts id={readings} surface={surface} asset={asset} state={state} parts={parts} />
-      <MarkerList
-        panel={panel}
-        asset={asset}
-        state={state}
-        markers={asset.markers}
-        selection={selection}
-        parts={parts}
-      />
-      <PeaksNote status={peaks} />
       <SpectrogramNote status={spectrogram} />
+      <div className="ag-editor-display">
+        <Surface
+          host={surface}
+          describedBy={readings}
+          panel={panel}
+          asset={asset}
+          parts={parts}
+          status={status}
+        />
+        <PeaksNote status={peaks} />
+      </div>
+      <ScrollPosition panel={panel} asset={asset} state={state} parts={parts} />
+      <div className="ag-editor-footer">
+        <EditorReadouts id={readings} surface={surface} asset={asset} state={state} parts={parts} />
+        <MarkerList
+          panel={panel}
+          asset={asset}
+          state={state}
+          markers={asset.markers}
+          selection={selection}
+          parts={parts}
+        />
+      </div>
     </section>
   );
 }
@@ -334,12 +368,16 @@ export function EditorPanel({
     <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       {unopened !== undefined && (
-        <p className="ag-panel-note" role="status">
-          {unopened.name} cannot be shown yet. {unopened.reason}
-        </p>
+        <div role="status">
+          <Banner tone={BannerTone.Warning} icon="unavailable">
+            {`${unopened.name} cannot be shown yet. ${unopened.reason}`}
+          </Banner>
+        </div>
       )}
       {entry !== undefined && unopened === undefined && (
-        <p className="ag-panel-note">The asset this view showed is not open in this session.</p>
+        <Banner tone={BannerTone.Information} icon="information">
+          The asset this view showed is not open in this session.
+        </Banner>
       )}
       <AssetChooser panel={panel} parts={parts} />
     </section>

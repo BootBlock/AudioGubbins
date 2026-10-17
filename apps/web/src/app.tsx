@@ -58,6 +58,7 @@ import '@audiogubbins/design-system/styles/fields.css';
 import '@audiogubbins/design-system/styles/chrome.css';
 import '@audiogubbins/workspace/styles/workspace.css';
 import './shell/shell.css';
+import './shell/editor-panel.css';
 import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */

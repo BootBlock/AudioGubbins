@@ -4155,6 +4155,7 @@ Published paths
   readonly EditorPalette.grid: Colour
   readonly EditorPalette.rulerBackground: Colour
   readonly EditorPalette.rulerTick: Colour
+  readonly EditorPalette.rulerMinorTick: Colour
   readonly EditorPalette.rulerText: Colour
   readonly EditorPalette.text: Colour
   readonly EditorPalette.quietText: Colour
@@ -4166,6 +4167,8 @@ Published paths
   readonly EditorPalette.selectedMarker: Colour
   readonly EditorPalette.region: Colour
   readonly EditorPalette.selectedRegion: Colour
+  readonly EditorPalette.regionEdge: Colour
+  readonly EditorPalette.regionBoundary: Colour
   readonly EditorPalette.loop: Colour
   readonly EditorPalette.snap: Colour
   readonly EditorPalette.spectrogramBackground: Colour
@@ -4174,6 +4177,7 @@ Published paths
   interface EditorType
   readonly EditorType.label: string
   readonly EditorType.small: string
+  readonly EditorType.ruler: string
   interface EditorViewState
   readonly EditorViewState.viewport: ViewportState
   readonly EditorViewState.displayMode: DisplayMode

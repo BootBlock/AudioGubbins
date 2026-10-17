@@ -58,12 +58,15 @@ function laidOutOnce(): void {
 
     observe(target: Element): void {
       const contentRect = new DOMRectReadOnly(0, 0, LAID_OUT, 200);
+      // Every box a browser reports, as it reports them: a control that reads
+      // its border box, as a slider's thumb does, finds one.
+      const size: ResizeObserverSize = { inlineSize: LAID_OUT, blockSize: 200 };
       const entry: ResizeObserverEntry = {
         target,
         contentRect,
-        borderBoxSize: [],
-        contentBoxSize: [],
-        devicePixelContentBoxSize: [],
+        borderBoxSize: [size],
+        contentBoxSize: [size],
+        devicePixelContentBoxSize: [size],
       };
       this.#callback([entry], this);
     }
@@ -150,9 +153,9 @@ describe('the Editor panel', () => {
       workers[0]?.fault('It ran out of memory.');
     });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The spectrogram could not be made: The spectrogram worker stopped: It ran out of memory.',
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('The spectrogram could not be made');
+    expect(alert).toHaveTextContent('The spectrogram worker stopped: It ran out of memory.');
   });
 
   it('says why an asset of the project cannot be shown yet, where its file is not held', () => {

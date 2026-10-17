@@ -12,6 +12,7 @@
 
 import type { ReactNode } from 'react';
 
+import { Banner, BannerTone, Icon, IconSize } from '@audiogubbins/design-system';
 import { channelCount } from '@audiogubbins/domain';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { counted } from '@audiogubbins/text';
@@ -79,15 +80,17 @@ export function SelectionScope({
 }): ReactNode {
   const scope = scopeOf(selection, asset, state);
   return (
-    <p className="ag-editor-scope" role="status">
-      <span className="ag-editor-scope-label">Scope: </span>
-      <span className="ag-editor-scope-text">{scope.text}</span>
+    <div className="ag-editor-scope" role="status">
+      <p className="ag-editor-scope-line">
+        <Icon name="locate" size={IconSize.Small} />
+        <span className="ag-editor-scope-label">Scope: </span>
+        <span className="ag-editor-scope-text">{scope.text}</span>
+      </p>
       {scope.outside && (
-        <span className="ag-editor-scope-warning" data-ag-status="reduced">
-          {' '}
+        <Banner tone={BannerTone.Warning} icon="warning">
           The selection is outside this view.
-        </span>
+        </Banner>
       )}
-    </p>
+    </div>
   );
 }

@@ -83,7 +83,7 @@ function style(viewport: ViewportState): OverlayStyle {
     viewport,
     pixelRatio: 1,
     palette: PALETTE,
-    type: { label: '12px sans-serif', small: '11px sans-serif' },
+    type: { label: '12px sans-serif', small: '11px sans-serif', ruler: '500 10px monospace' },
   };
 }
 

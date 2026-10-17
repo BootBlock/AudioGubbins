@@ -19,7 +19,10 @@ export interface EditorPalette {
   readonly pending: Colour;
   readonly grid: Colour;
   readonly rulerBackground: Colour;
+  /** The ruler's major ticks, at each labelled unit, and its middle ticks. */
   readonly rulerTick: Colour;
+  /** The ruler's minor ticks, a step quieter than its major ones. */
+  readonly rulerMinorTick: Colour;
   /** The ruler's labels, on its own background. */
   readonly rulerText: Colour;
   /** Names written on the display: a marker's, a region's. */
@@ -33,9 +36,14 @@ export interface EditorPalette {
   readonly playhead: Colour;
   readonly marker: Colour;
   readonly selectedMarker: Colour;
+  /** A region's span in the strip: its colour at a high translucency. */
   readonly region: Colour;
   /** A selected region's span in the strip, which stands out from the others. */
   readonly selectedRegion: Colour;
+  /** A region's leading bar in the strip, in its full colour. */
+  readonly regionEdge: Colour;
+  /** A region's boundaries, run down through the lanes. */
+  readonly regionBoundary: Colour;
   readonly loop: Colour;
   readonly snap: Colour;
   readonly spectrogramBackground: Colour;
@@ -53,6 +61,8 @@ export interface EditorPalette {
 export interface EditorType {
   readonly label: string;
   readonly small: string;
+  /** The ruler's labels, in the numeric family, so the times line up as they count. */
+  readonly ruler: string;
 }
 
 /** The colours each of a palette's spectrogram ramps holds: one for each byte a ramp maps. */
