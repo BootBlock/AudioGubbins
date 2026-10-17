@@ -1,0 +1,139 @@
+/*
+ * The Export dialogue and the export under way (design language, sections 10
+ * and 11): the presets two to a row, each group of settings under its quiet
+ * heading, the field edits as cards, what the export will do in its banner,
+ * and each file of an export under way on a row of its own with its mark and
+ * its stage.
+ */
+
+/* The presets, two to a row where the dialogue is wide enough. */
+.ag-export-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+}
+
+.ag-export-presets .ag-radio-group:not([data-ag-horizontal]) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(110 * var(--ag-grid-unit)), 1fr));
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+}
+
+/* A group of settings: no box of its own, its heading over its rows. */
+.ag-export-group {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.ag-export-group > legend {
+  float: inline-start;
+  padding: 0;
+}
+
+/* A note under the group's controls, in their column. */
+.ag-export-group > .ag-dialogue-note {
+  padding-inline-start: calc(var(--ag-dialogue-label-column) + var(--ag-space-medium));
+}
+
+/* A button of the group, such as setting a field, under the controls in their column. */
+.ag-export-group > .ag-button {
+  justify-self: start;
+  margin-inline-start: calc(var(--ag-dialogue-label-column) + var(--ag-space-medium));
+}
+
+/* The metadata fields set or removed, each a card of its own controls. */
+.ag-export-metadata-edits {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-export-metadata-edits > li {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-inset);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-quiet);
+}
+
+.ag-export-metadata-edits > li > .ag-button {
+  justify-self: end;
+}
+
+/* What the export will do, or why it cannot yet. */
+.ag-export-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+}
+
+.ag-export-outcome:empty {
+  display: none;
+}
+
+.ag-export-blockers {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The files of an export under way: a mark, the file's name, and its stage at the trailing end. */
+.ag-export-jobs {
+  display: grid;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-export-job {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--ag-space-medium);
+  row-gap: var(--ag-space-small);
+  min-block-size: calc(var(--ag-control-height) - 2 * var(--ag-grid-unit));
+  padding: var(--ag-space-micro) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-export-job[data-ag-active] {
+  background-color: var(--ag-chrome-fill-accent);
+}
+
+.ag-export-job-name {
+  color: var(--ag-chrome-text-primary);
+  font-family: var(--ag-font-numeric);
+  font-size: calc(var(--ag-text-body) * var(--ag-text-numeric-ratio));
+  overflow-wrap: anywhere;
+}
+
+.ag-export-job-stage {
+  font-size: var(--ag-text-label);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.ag-export-job-done {
+  color: var(--ag-chrome-status-success);
+}
+
+.ag-export-job-failed {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-export-job-held {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-export-job-actions {
+  grid-column: 2 / -1;
+}

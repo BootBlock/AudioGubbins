@@ -5071,6 +5071,8 @@ Published paths
   readonly ExportedFileRecord.name: string
   readonly ExportedFileRecord.size: number
   readonly ExportedFileRecord.hash: string
+  const FILE_NAME_VOCABULARY: TemplateVocabulary<FileNameToken>
+  type FileNameToken = "date" | "format" | "index" | "project" | "region"
   interface FlacEncoding
   readonly FlacEncoding.bits: number
   readonly FlacEncoding.compressionLevel: number

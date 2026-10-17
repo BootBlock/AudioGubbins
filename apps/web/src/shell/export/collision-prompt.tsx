@@ -11,21 +11,21 @@
  * elsewhere without a new render.
  */
 
-import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ModalDialog } from '@audiogubbins/design-system';
+import { Button, Check, ModalDialog } from '@audiogubbins/design-system';
 import { batchProgress, type CollisionAnswer } from '@audiogubbins/import-export';
 
 import { ExportCommand } from '../../commands/import-export-ids.js';
 import type { ExportRunState } from '../../export/export-types.js';
-import { COLLISION_PROMPT_WORDS, collisionPromptTitle } from '../../import-export-words.js';
+import { COLLISION_PROMPT_WORDS, collisionPromptSentence } from '../../import-export-words.js';
 import type { Observable } from '../../state/observable.js';
 import type { RunCommand } from '../settings/section.js';
 
 /** What each answer does, in the order the buttons are read. */
 const ANSWER_ORDER: readonly CollisionAnswer[] = ['rename', 'overwrite', 'skip'];
 
-/** The question's description: what each answer does. */
+/** What each answer does, said under the file's name. */
 const WHAT_EACH_DOES =
   'Keep both writes the export under a new name beside it. Replace writes over the file there. Skip leaves the folder as it is and keeps the export, so you can deliver it elsewhere.';
 
@@ -39,7 +39,6 @@ export function CollisionPrompt({
 }): ReactNode {
   const state = useSyncExternalStore(exports.subscribe, exports.get);
   const [forTheRest, setForTheRest] = useState(false);
-  const checkbox = useId();
   const asking = state.kind === 'running' ? state.asking : undefined;
   const progress = state.kind === 'running' ? batchProgress(state.batch) : undefined;
   // The rest of the batch: the files after this one, still to settle.
@@ -56,8 +55,10 @@ export function CollisionPrompt({
         run(ExportCommand.AnswerCollision);
         setForTheRest(false);
       }}
-      title={collisionPromptTitle(asking ?? '')}
-      description={WHAT_EACH_DOES}
+      title={COLLISION_PROMPT_WORDS.title}
+      icon="file-exists"
+      description={collisionPromptSentence(asking ?? '')}
+      closeLabel="Close"
       actions={ANSWER_ORDER.map((choice) => (
         <Button
           key={choice}
@@ -69,19 +70,16 @@ export function CollisionPrompt({
         </Button>
       ))}
     >
-      {more && (
-        <div className="ag-settings-row">
-          <input
-            id={checkbox}
-            type="checkbox"
+      <div className="ag-dialogue-stack">
+        <p className="ag-dialogue-note">{WHAT_EACH_DOES}</p>
+        {more && (
+          <Check
+            label={COLLISION_PROMPT_WORDS.forTheRest}
             checked={forTheRest}
-            onChange={(event) => {
-              setForTheRest(event.currentTarget.checked);
-            }}
+            onCheckedChange={setForTheRest}
           />
-          <label htmlFor={checkbox}>{COLLISION_PROMPT_WORDS.forTheRest}</label>
-        </div>
-      )}
+        )}
+      </div>
     </ModalDialog>
   );
 }

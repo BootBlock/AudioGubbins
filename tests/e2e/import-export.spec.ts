@@ -9,7 +9,7 @@ import {
   EXPORT_DIALOG_WORDS,
   IMPORT_EXPORT_MENU,
   IMPORT_LIST_LABEL,
-  collisionPromptTitle,
+  collisionPromptSentence,
 } from '../../apps/web/src/import-export-words.js';
 import { codecDescriptor } from '../../packages/codecs/src/codec-registry.js';
 import { formatSentence } from '../../packages/codecs/src/recognised-format.js';
@@ -348,7 +348,8 @@ test.describe('import and export', () => {
       );
       await dialog.getByRole('button', { name: EXPORT_DIALOG_WORDS.start, exact: true }).click();
 
-      const prompt = page.getByRole('dialog', { name: collisionPromptTitle(taken) });
+      const prompt = page.getByRole('dialog', { name: COLLISION_PROMPT_WORDS.title });
+      await expect(prompt).toHaveAccessibleDescription(collisionPromptSentence(taken));
       await prompt
         .getByRole('button', { name: COLLISION_PROMPT_WORDS.answers.rename, exact: true })
         .click();

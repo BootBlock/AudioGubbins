@@ -9,7 +9,13 @@ import type { ReactNode } from 'react';
 import type { DitherSettings, NoiseShaping } from '@audiogubbins/import-export';
 
 import { SHAPING_NAMES } from './export-words.js';
-import { ChoiceField, NumberField, type Choice, type SettingsProps } from './setting-fields.js';
+import {
+  ChoiceField,
+  SettingGroup,
+  NumberField,
+  type Choice,
+  type SettingsProps,
+} from './setting-fields.js';
 
 const DITHER_KINDS: readonly Choice<DitherSettings['kind']>[] = [
   { value: 'none', label: 'None' },
@@ -74,8 +80,7 @@ export function DitherControls({ settings, onSettings }: SettingsProps): ReactNo
     onSettings({ ...settings, dither: next });
   };
   return (
-    <fieldset className="ag-settings-group">
-      <legend>Dither</legend>
+    <SettingGroup title="Dither">
       <ChoiceField
         label="Kind of dither"
         value={dither.kind}
@@ -85,6 +90,6 @@ export function DitherControls({ settings, onSettings }: SettingsProps): ReactNo
         }}
       />
       {dither.kind !== 'none' && <NoiseControls dither={dither} onDither={set} />}
-    </fieldset>
+    </SettingGroup>
   );
 }

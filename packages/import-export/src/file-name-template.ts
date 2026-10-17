@@ -18,8 +18,12 @@ import { readTemplate, type TemplatePart, type TemplateVocabulary } from './temp
 /** The tokens a template may hold. */
 export type FileNameToken = 'project' | 'region' | 'index' | 'date' | 'format';
 
-/** The file name's vocabulary: its tokens, none of which takes a modifier. */
-const FILE_NAME_VOCABULARY: TemplateVocabulary<FileNameToken> = {
+/**
+ * The file name's vocabulary: its tokens, none of which takes a modifier.
+ * Published so a field that edits a file name template highlights and lists
+ * exactly the tokens this reads.
+ */
+export const FILE_NAME_VOCABULARY: TemplateVocabulary<FileNameToken> = {
   tokens: new Set<FileNameToken>(['project', 'region', 'index', 'date', 'format']),
   modifiers: new Map(),
   noun: 'file name template',

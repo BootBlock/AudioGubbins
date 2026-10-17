@@ -16,7 +16,7 @@ import type {
 } from '../../state/export-dialog-store.js';
 import type { KeptTrustedFolder } from '../../state/trusted-folders-store.js';
 import { POLICY_WORDS } from './export-words.js';
-import { ChoiceField, type Choice } from './setting-fields.js';
+import { ChoiceField, SettingGroup, type Choice } from './setting-fields.js';
 
 const POLICIES: readonly Choice<CollisionPolicy>[] = (
   ['prompt', 'rename', 'skip', 'overwrite'] as const
@@ -81,8 +81,7 @@ export function DestinationControls({
       : 'prompt';
   const key = destinationKey(destination);
   return (
-    <fieldset className="ag-settings-group">
-      <legend>Destination</legend>
+    <SettingGroup title="Destination">
       <ChoiceField
         label="Deliver to"
         value={choices.find((choice) => choice.key === key) ?? choices[0]}
@@ -101,6 +100,6 @@ export function DestinationControls({
           }}
         />
       )}
-    </fieldset>
+    </SettingGroup>
   );
 }

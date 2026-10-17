@@ -16,7 +16,7 @@ import {
 import type { ChannelConversion } from '@audiogubbins/import-export';
 
 import { LAYOUT_NAMES, MATRIX_NAMES } from './export-words.js';
-import { ChoiceField, type Choice, type SettingsProps } from './setting-fields.js';
+import { ChoiceField, SettingGroup, type Choice, type SettingsProps } from './setting-fields.js';
 
 /** The standard layouts, with what each is called. */
 const LAYOUTS: readonly Choice<ChannelLayout>[] = (
@@ -76,8 +76,7 @@ export function ChannelControls({ settings, context, onSettings }: SettingsProps
     onSettings({ ...settings, channels: next });
   };
   return (
-    <fieldset className="ag-settings-group">
-      <legend>Channel layout</legend>
+    <SettingGroup title="Channel layout">
       <ChoiceField
         label="Channels"
         value={channels.kind}
@@ -110,7 +109,7 @@ export function ChannelControls({ settings, context, onSettings }: SettingsProps
         />
       )}
       {channels.kind === 'map' && <MapControls channels={channels} onConversion={set} />}
-    </fieldset>
+    </SettingGroup>
   );
 }
 
@@ -135,7 +134,8 @@ function MapControls({
     <>
       <TextField
         label="Channels taken"
-        description={`By number from 1, in the order they are written, separated by commas.${wrong ? ' Write numbers and commas alone.' : ''}`}
+        description="By number from 1, in the order they are written, separated by commas."
+        {...(wrong ? { error: 'Write numbers and commas alone.' } : {})}
         value={shown}
         onValueChange={(text) => {
           setTyped(text);
