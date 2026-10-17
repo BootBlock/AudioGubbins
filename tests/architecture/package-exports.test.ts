@@ -374,12 +374,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
       ['InfoPopover', 'InfoPopoverProps'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
-    "The icon the Phase 16 contract requires, its sizes, its props and the vocabulary's names, which every panel draws its glyphs with as the panels are redesigned to the design language; until then the application still draws its stand-ins.":
-      ['Icon', 'IconProps', 'IconSize'],
     "The overlays and fields of the design language's control set that no panel takes yet (a hint, an ordinary and a rich tooltip, a shortcut's key caps, a template written out, and the bodies the component inventory draws open in place), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
-        'Hint',
-        'HintProps',
         'PopoverBody',
         'PopoverTone',
         'RichTooltip',
@@ -408,10 +404,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'RadioOption',
         'RecordButton',
         'RecordButtonProps',
-        'SegmentedControl',
-        'SegmentedControlProps',
-        'SegmentedOption',
-        'SegmentedVariant',
       ],
     "The dials and the meters of the design language's control set that no panel takes yet (the knob, the fader, the level and correlation meters, the typed entry a dial opens, and the clock a meter's ballistics run on), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
@@ -436,17 +428,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'Badge',
         'BadgeProps',
         'BadgeTone',
-        'Banner',
-        'BannerProps',
-        'BannerTone',
         'EmptyState',
         'EmptyStateProps',
         'KeyCap',
         'KeyCapProps',
-        'List',
-        'ListProps',
-        'ListRow',
-        'ListRowProps',
         'Notice',
         'NoticeProps',
         'NoticeTone',
@@ -467,8 +452,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'SkeletonProps',
         'SourceChip',
         'SourceChipProps',
-        'Spinner',
-        'SpinnerProps',
         'StatusChip',
         'StatusChipProps',
         'StatusTone',

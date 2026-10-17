@@ -9,8 +9,15 @@
 
 import type { ReactNode } from 'react';
 
-import { ReasonedButton } from '../settings/reasoned-button.js';
+import { Button, Spinner } from '@audiogubbins/design-system';
+
 import type { RunCommand } from '../settings/section.js';
+
+/** The two ways in, each a command and its button's words. */
+const IMPORTS = [
+  ['file.import-bundle', 'Import a bundle…'],
+  ['file.import-folder', 'Import a folder…'],
+] as const;
 
 /** The Import section. */
 export function ImportProjects({
@@ -25,25 +32,30 @@ export function ImportProjects({
   readonly working: boolean;
 }): ReactNode {
   return (
-    <div className="ag-settings-section">
-      <p className="ag-settings-note">
+    <div className="ag-dialogue-stack ag-projects-section">
+      <p className="ag-dialogue-note">
         A project comes in with its history, its snapshots and the audio it holds. One this browser
         keeps already comes in as a copy, and the one kept here is left as it was.
       </p>
-      {working && <p role="status">Bringing a project in…</p>}
-      <div className="ag-settings-row">
-        <ReasonedButton
-          reason={unavailableReason('file.import-bundle')}
-          onPress={() => run('file.import-bundle')}
-        >
-          Import a bundle…
-        </ReasonedButton>
-        <ReasonedButton
-          reason={unavailableReason('file.import-folder')}
-          onPress={() => run('file.import-folder')}
-        >
-          Import a folder…
-        </ReasonedButton>
+      {working && (
+        <p className="ag-dialogue-note ag-dialogue-working" role="status">
+          <Spinner />
+          Bringing a project in…
+        </p>
+      )}
+      <div className="ag-dialogue-row">
+        {IMPORTS.map(([id, label]) => {
+          const reason = unavailableReason(id);
+          return (
+            <Button
+              key={id}
+              {...(reason === undefined ? {} : { unavailableReason: reason })}
+              onClick={() => run(id)}
+            >
+              {label}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,0 +1,22 @@
+/*
+ * The Projects dialogue's own parts (design language, sections 10 and 11):
+ * a purge asked a second time inside its row, the warning beside the two
+ * buttons that answer it.
+ */
+
+/* The second question of a purge, in the row's actions: what goes, then Keep and Purge. */
+.ag-projects-purge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-projects-purge-warning {
+  flex: 1 1 calc(60 * var(--ag-grid-unit));
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}

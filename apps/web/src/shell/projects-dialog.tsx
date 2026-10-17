@@ -11,7 +11,12 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { ModalDialog, TabSet, type TabDescriptor } from '@audiogubbins/design-system';
+import {
+  ModalDialog,
+  TabSet,
+  type IconName,
+  type TabDescriptor,
+} from '@audiogubbins/design-system';
 import type { ProjectSnapshot } from '@audiogubbins/storage';
 
 import { ProjectsSection } from '../state/interaction-store.js';
@@ -21,7 +26,12 @@ import type { LibraryState } from '../state/project-library-store.js';
 import type { TransferState } from '../state/project-transfer-store.js';
 import { CurrentProject } from './projects/current-project.js';
 import { ImportProjects } from './projects/import-projects.js';
-import { NewProject } from './projects/new-project.js';
+import {
+  MakeProjectButton,
+  NewProject,
+  useNewProjectDraft,
+  type NewProjectDraft,
+} from './projects/new-project.js';
 import { ProjectList } from './projects/project-list.js';
 import type { RunCommand } from './settings/section.js';
 
@@ -43,6 +53,7 @@ function sectionsOf(
   { projects, run, unavailableReason }: ProjectsDialogProps,
   open: ProjectSnapshot | undefined,
   { working, replacing }: TransferState,
+  draft: NewProjectDraft,
 ): readonly TabDescriptor[] {
   return [
     {
@@ -53,7 +64,7 @@ function sectionsOf(
     {
       value: ProjectsSection.New,
       label: 'New',
-      content: <NewProject run={run} unavailable={unavailableReason('file.create-project')} />,
+      content: <NewProject draft={draft} />,
     },
     {
       value: ProjectsSection.Current,
@@ -84,12 +95,22 @@ function sectionsOf(
   ];
 }
 
+/** The glyph each section gives the dialogue's title. */
+const SECTION_ICONS: Readonly<Record<ProjectsSection, IconName>> = {
+  [ProjectsSection.Open]: 'open-project',
+  [ProjectsSection.New]: 'new-project',
+  [ProjectsSection.Current]: 'project',
+  [ProjectsSection.Import]: 'import',
+};
+
 /** The dialogue (see the module comment). */
 export function ProjectsDialog(props: ProjectsDialogProps): ReactNode {
-  const { section, projects, run } = props;
+  const { section, projects, run, unavailableReason } = props;
   const open = useSyncExternalStore(projects.project.subscribe, projects.project.get);
   const transfer = useSyncExternalStore(projects.transfer.subscribe, projects.transfer.get);
   const openNow = open.kind === 'open' ? open.snapshot : undefined;
+  const making = section === ProjectsSection.New;
+  const draft = useNewProjectDraft(making, run, unavailableReason('file.create-project'));
 
   return (
     <ModalDialog
@@ -98,13 +119,21 @@ export function ProjectsDialog(props: ProjectsDialogProps): ReactNode {
         if (!opened) run('file.close-projects');
       }}
       title="Projects"
+      icon={SECTION_ICONS[section ?? ProjectsSection.Open]}
       description="Make, open and bring in projects, and look after the one open."
+      closeLabel="Close"
+      {...(making
+        ? {
+            status: draft.reason,
+            actions: <MakeProjectButton draft={draft} />,
+          }
+        : {})}
     >
       <TabSet
         label="Projects sections"
         value={section ?? ProjectsSection.Open}
         onValueChange={(chosen) => run('file.projects', { section: chosen })}
-        tabs={sectionsOf(props, openNow, transfer)}
+        tabs={sectionsOf(props, openNow, transfer, draft)}
       />
     </ModalDialog>
   );
