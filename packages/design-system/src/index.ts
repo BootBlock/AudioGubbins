@@ -18,7 +18,8 @@
  * conversions are: `oklchToHex`, which the page's pre-paint colours are checked
  * against, so the check reads the theme's own arithmetic, and `oklchToSrgb`,
  * which gives the editor's renderer the theme's colours as the channels it
- * draws with.
+ * draws with. A canvas states a token at a translucency with `withAlpha` and
+ * takes it, its alpha kept, from `oklchToCanvasColour`.
  */
 
 export {
@@ -27,9 +28,11 @@ export {
   ContrastRequirement,
   type Srgb,
   contrastRatio,
+  oklchToCanvasColour,
   oklchToHex,
   oklchToSrgb,
   srgbToOklch,
+  withAlpha,
 } from './tokens/colour.js';
 
 export {

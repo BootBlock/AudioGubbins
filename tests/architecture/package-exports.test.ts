@@ -369,6 +369,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['UNKNOWN_SYSTEM_APPEARANCE', 'fixedSystemAppearance'],
     "The conversion the colour tokens are written in, which the application's test of the colours drawn before the first paint holds them to the tokens with.":
       ['oklchToHex'],
+    "The colour a canvas takes, its alpha kept, and the translucency a token is stated at, which the processors' curves, the meters and the editor's canvases draw their fills with in place of a hexadecimal value with an alpha appended by hand.":
+      ['oklchToCanvasColour', 'withAlpha'],
     "The contrast measure the tokens are solved by, what text must reach, and the conversion back from the channels a canvas is given, which the application's test of the editor's canvas colours holds every label a frame writes to, on what the frame draws under it.":
       ['ContrastRequirement', 'contrastRatio', 'srgbToOklch'],
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
