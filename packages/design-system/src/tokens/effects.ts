@@ -101,11 +101,19 @@ function selectionValues(accent: Oklch): EffectValues {
   };
 }
 
-/** A skeleton line, the progress bar's sheen and a template token's wash. */
-function stateValues(chrome: ChromePalette): EffectValues {
+/**
+ * How much of the sunken surface a progress bar's track keeps, the rest being
+ * black: a pale panel needs less shade for the track to read as recessed.
+ */
+const PROGRESS_TRACK_SHARE = { dark: 0.75, light: 0.9 } as const;
+
+/** A skeleton line, the progress bar's track and sheen, and a template token's wash. */
+function stateValues(chrome: ChromePalette, dark: boolean): EffectValues {
   const text = chrome.textPrimary;
+  const trackShare = dark ? PROGRESS_TRACK_SHARE.dark : PROGRESS_TRACK_SHARE.light;
   return {
     skeleton: `linear-gradient(90deg, ${at(text, 0.06)}, ${at(text, 0.12)}, ${at(text, 0.06)})`,
+    progressTrack: css(mix(chrome.surfaceSunken, oklch(0, 0, 0), trackShare)),
     progressSheen:
       `linear-gradient(90deg, ${white(0)} 60%, ${white(0.45)} 80%, ` + `${white(0)} 95%)`,
     tokenWash: tokenWash(chrome.accent),
@@ -140,10 +148,12 @@ function hardwareValues(dark: boolean): EffectValues {
     ? {
         dropShadow: `0 1.5px 1.5px ${black(0.45)}`,
         deepShadow: `0 3px 2px ${black(0.5)}, 0 8px 10px ${black(0.35)}`,
+        recordShadow: `0 2px 2px ${black(0.45)}`,
       }
     : {
         dropShadow: `0 1.5px 2px ${black(0.35)}`,
         deepShadow: `0 3px 2px ${black(0.35)}, 0 8px 12px ${black(0.35)}`,
+        recordShadow: `0 2px 3px ${black(0.3)}`,
       };
 }
 
@@ -158,7 +168,7 @@ export function buildEffects(palette: Palette, options: CategoryOptions): Effect
     effect: {
       ...actionValues(chrome, categoryColour('rose', options)),
       ...selectionValues(chrome.accent),
-      ...stateValues(chrome),
+      ...stateValues(chrome, options.dark),
     },
     elevation: elevationValues(chrome),
     focus: { halo: `0 0 0 6px ${at(focus, 0.22)}, 0 0 18px -2px ${at(focus, 0.55)}` },

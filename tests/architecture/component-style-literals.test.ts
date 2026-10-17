@@ -33,8 +33,6 @@ const TOKEN_DEFINITIONS = 'packages/design-system/src/styles/tokens.css';
  * Phase 16 passes.
  */
 const NOT_YET_IN_THE_LANGUAGE: Readonly<Record<string, string>> = {
-  'packages/design-system/src/styles/components.css':
-    'WU-16.B: each component group moves its components out into a stylesheet of its own, written to the language; what remains is restyled with its owner.',
   'packages/workspace/src/styles/workspace.css':
     "WU-16.C: the dock chrome and tabs, restyled through the workspace adapter and the engine's theming hooks.",
   'apps/web/src/shell/shell.css':
@@ -94,6 +92,7 @@ describe('a literal value in a component stylesheet (REQ-UX-155 clause 155.1)', 
       'zero',
       'hairline',
       'whole viewport',
+      'one line',
       'colour keyword',
       'system colour',
       'query condition',
@@ -105,6 +104,19 @@ describe('a literal value in a component stylesheet (REQ-UX-155 clause 155.1)', 
     expect(found('.a { border-width: 1px; transition-duration: 1ms; padding: 1rem; }')).toEqual([
       [1, 'duration', '1ms'],
       [1, 'length', '1rem'],
+    ]);
+  });
+
+  it('allows a hairline offset either way in a shadow, and never a wider offset', () => {
+    expect(found('.a { box-shadow: inset 0 -1px 0 var(--x), inset 0 -2px 0 var(--x); }')).toEqual([
+      [1, 'shadow', '-2px'],
+    ]);
+  });
+
+  it('allows one line of the text, and never a second', () => {
+    expect(found('.a { margin-block-start: calc((1lh - 1rem) / 2); inset: 2lh; }')).toEqual([
+      [1, 'length', '1rem'],
+      [1, 'length', '2lh'],
     ]);
   });
 

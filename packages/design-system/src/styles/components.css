@@ -1,5 +1,7 @@
 /*
- * Component styles.
+ * The styles every component shares: the icon's sizes, and the row the
+ * application's settings lay their controls out in. Each group of components
+ * has a stylesheet of its own beside this one.
  *
  * Every value reads a token. A literal colour or size here would be invisible
  * to the theme, the density and the contrast settings, which is the failure
@@ -52,5 +54,5 @@
 }
 
 .ag-settings-row > .ag-text-field {
-  flex: 1 1 12rem;
+  flex: 1 1 calc(96 * var(--ag-grid-unit));
 }

@@ -374,7 +374,7 @@
    the explanation looks as it does in the field. */
 .ag-rich-tooltip code {
   font-family: var(--ag-font-numeric);
-  font-size: calc(1em * var(--ag-text-numeric-ratio));
+  font-size: calc(100% * var(--ag-text-numeric-ratio));
   color: var(--ag-chrome-accent-text);
   border-radius: var(--ag-radius-hairline);
   box-shadow: var(--ag-effect-token-wash);
@@ -405,7 +405,10 @@
   display: grid;
   gap: var(--ag-space-small);
   box-sizing: border-box;
-  max-inline-size: min(calc(160 * var(--ag-grid-unit)), 90vw);
+  max-inline-size: min(
+    calc(160 * var(--ag-grid-unit)),
+    calc(100vw - 2 * var(--ag-space-inset-wide))
+  );
   padding: var(--ag-space-inset) var(--ag-space-inset-leading);
   color: var(--ag-chrome-text-secondary);
   font-size: var(--ag-text-label);
@@ -562,11 +565,12 @@
      `transform` without moving it off centre. */
   translate: -50% -50%;
 
-  /* The border counted in. Left as a content box, the declared 90vw would
-     become 90vw plus two borders, and a fixed, centred box has no scroll
-     position that brings its edges back. */
+  /* Clear of the window's edges by a wide inset on each side, and the border
+     counted in. Left as a content box, the declared width would grow by two
+     borders, and a fixed, centred box has no scroll position that brings its
+     edges back. */
   box-sizing: border-box;
-  inline-size: min(90vw, calc(256 * var(--ag-grid-unit)));
+  inline-size: min(calc(100vw - 2 * var(--ag-space-inset-wide)), calc(256 * var(--ag-grid-unit)));
 
   /* A column: the header, what the dialogue holds, which scrolls, and a footer,
      which does not. A refusal raised while it is open is in the footer
@@ -579,7 +583,7 @@
      off with nothing to scroll them back with. */
   display: flex;
   flex-direction: column;
-  max-block-size: 85dvh;
+  max-block-size: calc(100dvh - 2 * var(--ag-space-inset-wide));
   overflow: auto;
   padding: 0;
 }

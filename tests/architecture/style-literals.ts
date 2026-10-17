@@ -63,11 +63,11 @@ export const EXCEPTIONS: readonly LiteralException[] = [
   {
     name: 'hairline',
     reason:
-      'A hairline, a 1 px border, separator or lit edge, is the one width the design language exempts from the grid (section 1): the thinnest line a display draws, the same at both densities.',
+      'A hairline, a 1 px border, separator or lit edge, is the one width the design language exempts from the grid (section 1): the thinnest line a display draws, the same at both densities, and offset up or down by itself where a shadow draws one.',
     allows: (candidate) =>
       candidate.kind !== 'duration' &&
-      candidate.dimension?.value === 1 &&
-      candidate.dimension.unit === 'px',
+      Math.abs(candidate.dimension?.value ?? 0) === 1 &&
+      candidate.dimension?.unit === 'px',
   },
   {
     name: 'whole viewport',
@@ -75,6 +75,13 @@ export const EXCEPTIONS: readonly LiteralException[] = [
       'A hundred of a viewport or container unit is the whole of the viewport or container, as 100 % is the whole of a parent: a layout bound the page has, not a size the language states.',
     allows: (candidate) =>
       candidate.dimension?.value === 100 && WHOLE_UNITS.test(candidate.dimension.unit),
+  },
+  {
+    name: 'one line',
+    reason:
+      "One `lh` is the height of the element's own line of text, which places a glyph on a first line whatever the type size: a measure the text already has, not a size the language states.",
+    allows: (candidate) =>
+      candidate.dimension?.value === 1 && /^r?lh$/i.test(candidate.dimension.unit),
   },
   {
     name: 'colour keyword',

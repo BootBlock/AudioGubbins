@@ -129,6 +129,14 @@ export type ControlScale = {
    * toolbar usable on a tablet (REQ-UX-067).
    */
   readonly minimumTouchTarget: number;
+
+  /**
+   * The least size a text input's text is drawn at where a finger is among the
+   * inputs. Safari on an iPhone zooms the page into a field drawn smaller as it
+   * takes focus, and leaves it zoomed, with the surface round it partly off
+   * the screen; the page keeps zoom for the reader, so the field grows instead.
+   */
+  readonly minimumTouchText: number;
 };
 
 /** Icon sizes outside a control, in pixels, and the one stroke. */
@@ -294,6 +302,7 @@ const COMFORTABLE_CONTROL: ControlScale = {
   rowHeight: 44,
   iconSize: 16,
   minimumTouchTarget: 44,
+  minimumTouchText: 16,
 };
 
 // The drawn control shrinks; the hit area does not. REQ-UX-067 requires touch
@@ -307,6 +316,7 @@ const COMPACT_CONTROL: ControlScale = {
   rowHeight: 36,
   iconSize: 14,
   minimumTouchTarget: 44,
+  minimumTouchText: 16,
 };
 
 const COMFORTABLE: Metrics = {

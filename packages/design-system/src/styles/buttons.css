@@ -18,15 +18,6 @@
 
 /* ---------- What differs by theme and by motion level ---------- */
 
-[data-ag-theme] {
-  /* The light that falls on the hardware and the shade it casts, which are the
-     page's and not the theme's: the brightest the brushed metal shows and the
-     deepest its mouldings do, the nearest the palette carries to white and to
-     black. Named once, for every drawing below. */
-  --ag-buttons-light: var(--ag-hardware-metal-highlight);
-  --ag-buttons-shade: var(--ag-hardware-cap-unlit-1);
-}
-
 /* A recess cut into a dark panel shows a deeper shade than one cut into a
    light panel, whose lit lip catches more of the light. */
 [data-ag-theme='dark'] {
@@ -35,8 +26,6 @@
   --ag-buttons-recess-depth: 55%;
   --ag-buttons-recess-ring: 25%;
   --ag-buttons-recess-lip: 10%;
-  --ag-buttons-record-shadow-blur: var(--ag-grid-unit);
-  --ag-buttons-record-shadow-strength: 45%;
 }
 
 [data-ag-theme='light'] {
@@ -45,8 +34,6 @@
   --ag-buttons-recess-depth: 28%;
   --ag-buttons-recess-ring: 12%;
   --ag-buttons-recess-lip: 70%;
-  --ag-buttons-record-shadow-blur: calc(1.5 * var(--ag-grid-unit));
-  --ag-buttons-record-shadow-strength: 30%;
 }
 
 /* Something that travels (a switch's bead, a segmented control's wash)
@@ -529,11 +516,11 @@
 }
 
 .ag-hardware-hover {
-  fill: var(--ag-buttons-light);
+  fill: var(--ag-hardware-light);
 }
 
 .ag-hardware-press {
-  fill: var(--ag-buttons-shade);
+  fill: var(--ag-hardware-shade);
 }
 
 :is(.ag-power-switch, .ag-record-button, .ag-radio-option):is(
@@ -625,15 +612,15 @@
   background-color: var(--ag-chrome-fill-well);
   background-image: linear-gradient(
     to bottom,
-    color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-top), transparent),
-    color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-bottom), transparent)
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-top), transparent),
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-bottom), transparent)
   );
   box-shadow:
     inset 0 1px calc(1.5 * var(--ag-grid-unit))
-      color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-depth), transparent),
+      color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-depth), transparent),
     inset 0 0 0 1px
-      color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-ring), transparent),
-    0 1px 0 color-mix(in oklch, var(--ag-buttons-light) var(--ag-buttons-recess-lip), transparent);
+      color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-ring), transparent),
+    0 1px 0 color-mix(in oklch, var(--ag-hardware-light) var(--ag-buttons-recess-lip), transparent);
 }
 
 /* The track, on: filled with the call to action's light under a shade from
@@ -646,7 +633,7 @@
   background-image:
     linear-gradient(
       to bottom,
-      color-mix(in oklch, var(--ag-buttons-shade) 18%, transparent),
+      color-mix(in oklch, var(--ag-hardware-shade) 18%, transparent),
       transparent 60%
     ),
     var(--ag-effect-cta-fill);
@@ -677,17 +664,17 @@
   border-radius: var(--ag-radius-full);
   background-image: radial-gradient(
     circle at 38% 30%,
-    var(--ag-buttons-light),
-    color-mix(in oklch, var(--ag-buttons-light) 29%, var(--ag-hardware-chamfer-light)) 45%,
+    var(--ag-hardware-light),
+    color-mix(in oklch, var(--ag-hardware-light) 29%, var(--ag-hardware-chamfer-light)) 45%,
     color-mix(in oklch, var(--ag-hardware-chamfer-light) 37.5%, var(--ag-hardware-metal-mid))
   );
   box-shadow:
     inset 0 calc(-0.5 * var(--ag-grid-unit)) 1px
-      color-mix(in oklch, var(--ag-buttons-shade) 18%, transparent),
+      color-mix(in oklch, var(--ag-hardware-shade) 18%, transparent),
     0 0 0 calc(0.25 * var(--ag-grid-unit))
-      color-mix(in oklch, var(--ag-buttons-shade) 25%, transparent),
+      color-mix(in oklch, var(--ag-hardware-shade) 25%, transparent),
     0 var(--ag-grid-unit) calc(2 * var(--ag-grid-unit))
-      color-mix(in oklch, var(--ag-buttons-shade) 45%, transparent);
+      color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
 
   transition-property: translate, filter;
   transition-duration: var(--ag-buttons-travel-time), var(--ag-motion-instant);
@@ -771,12 +758,12 @@
   background-color: var(--ag-chrome-fill-well);
   background-image: linear-gradient(
     to bottom,
-    color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-top), transparent),
-    color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-bottom), transparent)
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-top), transparent),
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-bottom), transparent)
   );
   box-shadow:
     inset 0 1px var(--ag-grid-unit)
-      color-mix(in oklch, var(--ag-buttons-shade) var(--ag-buttons-recess-depth), transparent),
+      color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-depth), transparent),
     inset 0 0 0 1px var(--ag-chrome-edge-quiet);
   color: var(--ag-chrome-text-on-accent);
   cursor: pointer;
@@ -793,12 +780,12 @@
   background-image:
     linear-gradient(
       to bottom,
-      color-mix(in oklch, var(--ag-buttons-light) 28%, transparent),
+      color-mix(in oklch, var(--ag-hardware-light) 28%, transparent),
       transparent 55%
     ),
     var(--ag-effect-cta-fill);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklch, var(--ag-buttons-light) 50%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--ag-hardware-light) 50%, transparent),
     0 0 calc(5 * var(--ag-grid-unit)) calc(-1 * var(--ag-grid-unit)) var(--ag-chrome-accent);
   opacity: 0;
   transition-property: opacity;
@@ -899,7 +886,7 @@
 }
 
 .ag-lamp-cutout {
-  fill: color-mix(in oklch, var(--ag-buttons-shade) 45%, transparent);
+  fill: color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
 }
 
 .ag-lamp-bezel-light {
@@ -958,15 +945,15 @@
 /* The lens lit: the LED through the diffuser, white at the core to the accent
    at the rim. */
 .ag-lamp-led-core {
-  stop-color: var(--ag-buttons-light);
+  stop-color: var(--ag-hardware-light);
 }
 
 .ag-lamp-led-inner {
-  stop-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 45%, var(--ag-buttons-light));
+  stop-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 45%, var(--ag-hardware-light));
 }
 
 .ag-lamp-led-outer {
-  stop-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 85%, var(--ag-buttons-light));
+  stop-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 85%, var(--ag-hardware-light));
 }
 
 .ag-lamp-led-rim {
@@ -974,33 +961,33 @@
 }
 
 .ag-lamp-lens-ring {
-  stroke: color-mix(in oklch, var(--ag-buttons-shade) 45%, transparent);
+  stroke: color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
   transition-property: stroke;
   transition-duration: var(--ag-motion-quick);
   transition-timing-function: var(--ag-motion-ease-out);
 }
 
 [data-ag-lit] .ag-lamp-lens-ring {
-  stroke: color-mix(in oklch, var(--ag-buttons-shade) 20%, transparent);
+  stroke: color-mix(in oklch, var(--ag-hardware-shade) 20%, transparent);
 }
 
 .ag-lamp-bloom {
-  fill: var(--ag-buttons-light);
+  fill: var(--ag-hardware-light);
   fill-opacity: 0.55;
 }
 
 .ag-lamp-core-ring {
-  stroke: color-mix(in oklch, var(--ag-chrome-accent-hover) 60%, var(--ag-buttons-light));
+  stroke: color-mix(in oklch, var(--ag-chrome-accent-hover) 60%, var(--ag-hardware-light));
   stroke-opacity: 0.7;
 }
 
 /* The gloss: the page's light on the lens, a little brighter over a lit one. */
 .ag-lamp-gloss-light {
-  stop-color: var(--ag-buttons-light);
+  stop-color: var(--ag-hardware-light);
 }
 
 .ag-lamp-gloss-clear {
-  stop-color: var(--ag-buttons-light);
+  stop-color: var(--ag-hardware-light);
   stop-opacity: 0;
 }
 
@@ -1101,7 +1088,7 @@
 }
 
 .ag-power-cap-shade {
-  stroke: color-mix(in oklch, var(--ag-buttons-shade) 60%, transparent);
+  stroke: color-mix(in oklch, var(--ag-hardware-shade) 60%, transparent);
 }
 
 /* The glyph as an LED through frosted plastic: a wide halo, a tinted body and
@@ -1112,11 +1099,11 @@
 }
 
 .ag-power-led-body {
-  stroke: color-mix(in oklch, var(--ag-chrome-accent) 55%, var(--ag-buttons-light));
+  stroke: color-mix(in oklch, var(--ag-chrome-accent) 55%, var(--ag-hardware-light));
 }
 
 .ag-power-led-core {
-  stroke: var(--ag-buttons-light);
+  stroke: var(--ag-hardware-light);
 }
 
 .ag-power-led-off {
@@ -1124,7 +1111,7 @@
 }
 
 .ag-power-led-catch {
-  stroke: color-mix(in oklch, var(--ag-buttons-light) 12%, transparent);
+  stroke: color-mix(in oklch, var(--ag-hardware-light) 12%, transparent);
 }
 
 .ag-power-gloss-light {
@@ -1156,18 +1143,11 @@
   inline-size: 100%;
   block-size: 100%;
   overflow: visible;
-  filter: drop-shadow(
-    0 var(--ag-grid-unit) var(--ag-buttons-record-shadow-blur)
-      color-mix(
-        in oklch,
-        var(--ag-buttons-shade) var(--ag-buttons-record-shadow-strength),
-        transparent
-      )
-  );
+  filter: drop-shadow(var(--ag-hardware-record-shadow));
 }
 
 .ag-record-cutout {
-  fill: color-mix(in oklch, var(--ag-buttons-shade) 42%, transparent);
+  fill: color-mix(in oklch, var(--ag-hardware-shade) 42%, transparent);
 }
 
 .ag-record-bezel-light {
@@ -1210,7 +1190,7 @@
 }
 
 .ag-record-recess {
-  fill: color-mix(in oklch, var(--ag-buttons-shade) 45%, transparent);
+  fill: color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
 }
 
 /* The cap of red plastic, lit from behind: light scattered under its surface
@@ -1257,17 +1237,17 @@
 }
 
 .ag-record-ridge {
-  stroke: color-mix(in oklch, var(--ag-hardware-record-lit-1) 80%, var(--ag-buttons-light));
+  stroke: color-mix(in oklch, var(--ag-hardware-record-lit-1) 80%, var(--ag-hardware-light));
   stroke-opacity: 0.04;
 }
 
 [data-ag-lit] .ag-record-ridge {
-  stroke: color-mix(in oklch, var(--ag-hardware-record-lit-0) 60%, var(--ag-buttons-light));
+  stroke: color-mix(in oklch, var(--ag-hardware-record-lit-0) 60%, var(--ag-hardware-light));
   stroke-opacity: calc(0.1 + 0.45 * var(--ag-record-ridge-nearness));
 }
 
 .ag-record-ridge-back {
-  stroke: color-mix(in oklch, var(--ag-hardware-record-unlit-1) 40%, var(--ag-buttons-shade));
+  stroke: color-mix(in oklch, var(--ag-hardware-record-unlit-1) 40%, var(--ag-hardware-shade));
   stroke-opacity: 0.5;
 }
 
@@ -1276,34 +1256,34 @@
 }
 
 .ag-record-shade-clear {
-  stop-color: var(--ag-buttons-shade);
+  stop-color: var(--ag-hardware-shade);
   stop-opacity: 0;
 }
 
 .ag-record-shade-deep {
-  stop-color: var(--ag-buttons-shade);
+  stop-color: var(--ag-hardware-shade);
   stop-opacity: 0.35;
 }
 
 .ag-record-bloom {
-  fill: color-mix(in oklch, var(--ag-hardware-record-lit-0) 50%, var(--ag-buttons-light));
+  fill: color-mix(in oklch, var(--ag-hardware-record-lit-0) 50%, var(--ag-hardware-light));
   fill-opacity: 0.35;
 }
 
 /* The room's light, reflected once off the smooth front: a soft broad
    reflection and one small sharp highlight. */
 .ag-record-reflection-light {
-  stop-color: var(--ag-buttons-light);
+  stop-color: var(--ag-hardware-light);
   stop-opacity: 0.28;
 }
 
 .ag-record-reflection-clear {
-  stop-color: var(--ag-buttons-light);
+  stop-color: var(--ag-hardware-light);
   stop-opacity: 0;
 }
 
 .ag-record-highlight {
-  fill: var(--ag-buttons-light);
+  fill: var(--ag-hardware-light);
   fill-opacity: 0.53;
 }
 

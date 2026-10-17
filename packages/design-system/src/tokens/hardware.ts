@@ -18,6 +18,16 @@ import type { ContrastLevel } from './preferences.js';
 
 /** The hardware's single colours. */
 export type HardwareMaterials = {
+  /**
+   * The light falling on the hardware, which every highlight is a share of:
+   * white in both themes, because the theme's colours are what the light
+   * falls on, not the light (as `effects.ts` takes it).
+   */
+  readonly light: Oklch;
+
+  /** The shade the hardware casts and its mouldings hold: black in both themes, likewise. */
+  readonly shade: Oklch;
+
   /** Brushed metal where the light falls on it. */
   readonly metalHighlight: Oklch;
 
@@ -107,6 +117,8 @@ export function buildHardware(options: HardwareOptions, chrome: ChromePalette): 
 
   return {
     materials: {
+      light: oklch(1, 0, 0),
+      shade: oklch(0, 0, 0),
       metalHighlight: metal(0.95),
       metalMid: metal(0.7),
       metalShade: metal(0.38),

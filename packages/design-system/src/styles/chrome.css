@@ -901,12 +901,8 @@
   position: relative;
   block-size: var(--ag-progress-track);
   border-radius: calc(var(--ag-progress-track) / 2);
-  background-color: color-mix(in oklch, var(--ag-chrome-surface-sunken) 75%, black);
+  background-color: var(--ag-effect-progress-track);
   box-shadow: inset 0 1px var(--ag-grid-unit) var(--ag-chrome-shadow);
-}
-
-[data-ag-theme='light'] .ag-progress {
-  background-color: color-mix(in oklch, var(--ag-chrome-surface-sunken) 90%, black);
 }
 
 .ag-progress:dir(rtl) {

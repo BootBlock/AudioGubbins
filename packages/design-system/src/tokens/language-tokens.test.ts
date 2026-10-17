@@ -62,6 +62,7 @@ const NEW_TOKENS = {
     '--ag-shell-top-bar-block-size',
     '--ag-shell-transport-block-size',
     '--ag-control-row-height',
+    '--ag-control-minimum-touch-text',
   ],
   type: [
     '--ag-font-ui',
@@ -161,8 +162,15 @@ const NEW_TOKENS = {
     '--ag-analysis-threshold',
     '--ag-analysis-signal',
   ],
-  states: ['--ag-state-mark-size', '--ag-effect-skeleton', '--ag-effect-progress-sheen'],
+  states: [
+    '--ag-state-mark-size',
+    '--ag-effect-skeleton',
+    '--ag-effect-progress-track',
+    '--ag-effect-progress-sheen',
+  ],
   controls: [
+    '--ag-hardware-light',
+    '--ag-hardware-shade',
     '--ag-hardware-metal-highlight',
     '--ag-hardware-metal-mid',
     '--ag-hardware-metal-shade',
@@ -174,6 +182,7 @@ const NEW_TOKENS = {
     '--ag-hardware-gloss',
     '--ag-hardware-drop-shadow',
     '--ag-hardware-deep-shadow',
+    '--ag-hardware-record-shadow',
     '--ag-hardware-power-lit-cap',
     '--ag-hardware-record-lit-0',
     '--ag-hardware-record-unlit-0',
@@ -224,11 +233,11 @@ const RETIRED = [
 ];
 
 describe('the tokens the design language adds', () => {
-  it('lists the 137 tokens of the language’s summary', () => {
+  it('lists the 142 tokens of the language’s summary', () => {
     // Written as a number: counted from the lists above, an emptied list would
     // still agree with itself, and every assertion below would pass having
     // checked nothing.
-    expect(Object.values(NEW_TOKENS).flat()).toHaveLength(137);
+    expect(Object.values(NEW_TOKENS).flat()).toHaveLength(142);
   });
 
   it.each(COMBINATIONS)(
@@ -306,6 +315,7 @@ const SIZES: Readonly<Record<string, readonly [string, string]>> = {
   '--ag-control-row-height': ['44px', '36px'],
   '--ag-control-icon-size': ['16px', '14px'],
   '--ag-control-minimum-touch-target': ['44px', '44px'],
+  '--ag-control-minimum-touch-text': ['16px', '16px'],
   '--ag-shell-top-bar-block-size': ['44px', '36px'],
   '--ag-shell-transport-block-size': ['56px', '46px'],
   '--ag-status-bar-block-size': ['34px', '30px'],

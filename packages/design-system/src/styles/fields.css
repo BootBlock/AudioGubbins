@@ -138,7 +138,7 @@
 @media (any-pointer: coarse) {
   .ag-text-field-input,
   .ag-template-mirror {
-    font-size: max(16px, 1em);
+    font-size: max(var(--ag-control-minimum-touch-text), 100%);
   }
 }
 
@@ -288,7 +288,7 @@
    in the field's own type. */
 .ag-template-text {
   font-family: var(--ag-font-numeric);
-  font-size: calc(1em * var(--ag-text-numeric-ratio));
+  font-size: calc(100% * var(--ag-text-numeric-ratio));
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -311,7 +311,7 @@
 .ag-token-list {
   inline-size: max-content;
   min-inline-size: var(--ag-token-list-inline-size, calc(130 * var(--ag-grid-unit)));
-  max-inline-size: 90vw;
+  max-inline-size: calc(100vw - 2 * var(--ag-space-inset-wide));
 }
 
 .ag-token-row.ag-menu-item {
