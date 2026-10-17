@@ -104,6 +104,78 @@ Decision: **approved**. The findings returned on the way, each now a rule of the
   explanation becomes a hint behind an (i).
 - **A notice's time bar** runs along its bottom edge inside the notice, clipped by its corners.
 
+### 2026-10-17: Settings and the dock chrome, approved as references
+
+Shown: two boards in direction C. The Settings board holds four of its ten pages (Appearance,
+Accessibility, Shortcuts and Audio); the other pages are built from the same controls. The dock
+board holds a floating panel, a splitter under the pointer, a tab dragged over a group with its drop
+targets and landing area, an empty group, and the splitter and tab states. From this decision on,
+the owner reviews the comfortable density only; the compact renderings are stored beside them.
+
+| Theme and density  | Settings                                                                          | Dock chrome                                                               |
+| ------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Dark, comfortable  | [settings-dark-comfortable.png](references/shell/settings-dark-comfortable.png)   | [dock-dark-comfortable.png](references/shell/dock-dark-comfortable.png)   |
+| Light, comfortable | [settings-light-comfortable.png](references/shell/settings-light-comfortable.png) | [dock-light-comfortable.png](references/shell/dock-light-comfortable.png) |
+| Dark, compact      | [settings-dark-compact.png](references/shell/settings-dark-compact.png)           | [dock-dark-compact.png](references/shell/dock-dark-compact.png)           |
+| Light, compact     | [settings-light-compact.png](references/shell/settings-light-compact.png)         | [dock-light-compact.png](references/shell/dock-light-compact.png)         |
+
+Decision: **approved**. The findings returned on the way, each now a rule of the language:
+
+- **The lit edge.** A highlighted or chosen row (a menu or palette row, a navigation page, a list
+  row, the history's chosen point) has no separate mark: its own outline is lit, bright at the
+  leading side and fading round the row, over a wash that fades the same way. Chosen from four
+  variants (pooled light, an indicator LED, the lit edge, raised glass); it replaces the leading
+  line the menus board was first approved with, and the shell references are rendered with it.
+- **A chosen segment is a translucent accent wash** with a faint accent edge, never a solid grey.
+- **An accent swatch is a glass bead** of its colour with a subtle highlight; the chosen one gains a
+  ring and a halo.
+- **A drop target is drawn as the group it would make**: the group's outline with the part the
+  panel would take filled, the lit one in the call-to-action gradient with a white diagram.
+- **Nothing appears or leaves at once.** At the full motion level the drop-target compass springs
+  in and out, the landing area grows out of its target and glows, a dragged tab floats in, a
+  floating panel's halo breathes and a splitter under the pointer pulses.
+
+### 2026-10-17: the editing and audio panels, approved as references
+
+Shown: two boards in direction C, in both themes at the comfortable density. The editing board
+holds Assets (an import under way, and an empty project), the Inspector on a region, History (a
+chosen point, and two states compared) and the Editor's empty, loading and failed states. The audio
+board holds the Editor showing the waveform above the spectrogram with a spectral marquee and the
+brush, the Transport playing, Spectral, the Recorder recording a take, and Analysis.
+
+| Theme and density  | Editing panels                                                                                 | Audio panels                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Dark, comfortable  | [editing-panels-dark-comfortable.png](references/panels/editing-panels-dark-comfortable.png)   | [audio-panels-dark-comfortable.png](references/panels/audio-panels-dark-comfortable.png)   |
+| Light, comfortable | [editing-panels-light-comfortable.png](references/panels/editing-panels-light-comfortable.png) | [audio-panels-light-comfortable.png](references/panels/audio-panels-light-comfortable.png) |
+| Dark, compact      | [editing-panels-dark-compact.png](references/panels/editing-panels-dark-compact.png)           | [audio-panels-dark-compact.png](references/panels/audio-panels-dark-compact.png)           |
+| Light, compact     | [editing-panels-light-compact.png](references/panels/editing-panels-light-compact.png)         | [audio-panels-light-compact.png](references/panels/audio-panels-light-compact.png)         |
+
+Decision: **approved**. The findings returned on the way, each now a rule of the language:
+
+- **Meters move live, with their ballistics.** A level meter rises at once to a new peak and falls
+  back at about 20 dB a second; its peak hold waits 1.2 s and then falls; its clip LED lights on an
+  over and fades; a correlation pointer glides. This is the meter's own ballistics, which
+  `REQ-UX-222` requires in place of an animation's easing.
+- **A glow is never clipped**: a control that glows has the room round it to show the glow whole.
+- **Every glyph is centred by its ink** in its button, the box of its geometry moved to its grid's
+  centre, with no padding of the button's own; measured to within 0.25 px on every icon button.
+- **A header's actions are full-size targets**, so their ink sits as far from the panel's side as
+  from its top.
+- **Switches, radios and checks are hardware.** A switch is a recessed track with a glossy bead
+  whose LED lights in the accent when on. A radio is a panel lamp drawn as the power switch is: a
+  brushed bezel, a recessed socket and a domed lens; lit, the LED glows inside the lens, never round
+  the control.
+- **The record button is a backlit red lamp with a Fresnel lens**, chosen from three refinements of
+  the dome: a brushed bezel, and a smooth cap with the lens's concentric ridges moulded on its inner
+  face, lit from behind by the LED, evenly round each ring and brighter at the centre. The room's
+  light reflects once off the smooth front, softly.
+- **A value is never cut short**: where it does not fit, it wraps.
+- **The light display has its own spectrogram palette**: paper white for silence, deepening through
+  violet and magenta to a dark ember for the loudest energy.
+
+The shell references above are rendered again with these rules applied, with the lit edge chosen on
+the same day.
+
 ## Editing-latency baseline
 
 Recorded on 2026-10-16 from the unchanged application, before any Phase 16 change to a surface:
