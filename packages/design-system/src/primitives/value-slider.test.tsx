@@ -99,4 +99,32 @@ describe('ValueSlider', () => {
     expect(slider).toHaveAttribute('aria-valuemin', '-60');
     expect(slider).toHaveAttribute('aria-valuemax', '12');
   });
+
+  it('fills from its detent either way, where it has one, and marks the detent', () => {
+    // A balance or a brightness rests at its centre: filled from the minimum,
+    // a value just left of the centre would read as most of the way up.
+    const centred = (value: number): Element | null => {
+      const { container, unmount } = renderThemed(
+        <ValueSlider
+          label="Brightness"
+          value={value}
+          minimum={-1}
+          maximum={1}
+          step={0.1}
+          detent={0}
+          onValueChange={vi.fn()}
+          describeValue={String}
+        />,
+      );
+      const fill = container.querySelector('.ag-slider-range');
+      expect(container.querySelector('.ag-slider-detent')).toHaveStyle({
+        '--ag-slider-detent': '0.5',
+      });
+      unmount();
+      return fill;
+    };
+
+    expect(centred(0.5)).toHaveStyle({ '--ag-slider-from': '0.5', '--ag-slider-to': '0.75' });
+    expect(centred(-0.5)).toHaveStyle({ '--ag-slider-from': '0.25', '--ag-slider-to': '0.5' });
+  });
 });

@@ -100,6 +100,22 @@
     var(--ag-chrome-accent);
 }
 
+/* A centred slider's fill runs from its detent to the value, either way, and
+   the detent is marked across the groove in a hairline of supporting text. */
+.ag-slider-range[data-ag-centred] {
+  inset-inline-start: calc(var(--ag-slider-from) * 100%);
+  inline-size: calc((var(--ag-slider-to) - var(--ag-slider-from)) * 100%);
+}
+
+.ag-slider-detent {
+  position: absolute;
+  inset-block: calc(var(--ag-grid-unit) * -1);
+  inset-inline-start: calc(var(--ag-slider-detent) * 100%);
+  inline-size: 1px;
+  background: var(--ag-chrome-text-secondary);
+  pointer-events: none;
+}
+
 /* The thumb: a glossy bead ringed in the accent. Its place is Radix's, with no
    transition; only its ring changes under the pointer. */
 .ag-slider-thumb {
@@ -967,6 +983,10 @@ input.ag-dial-field {
   [data-ag-theme]
     :is(.ag-slider-track, .ag-fader-slot, .ag-level-meter-bar, .ag-correlation-meter-bar) {
     border: 1px solid CanvasText;
+  }
+
+  [data-ag-theme] .ag-slider-detent {
+    background: CanvasText;
   }
 
   [data-ag-theme] :is(.ag-slider-thumb, .ag-fader-cap, .ag-knob-skirt) {
