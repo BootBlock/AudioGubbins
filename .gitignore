@@ -64,3 +64,7 @@ Thumbs.db
 
 # The sub-path build the browser suite serves as a GitHub Pages project site.
 dist-pages/
+
+# Candidate renderings of the component inventory, written for the owner's
+# review; only a signed-off rendering, copied into its baselines, is kept.
+tests/e2e/visual/inventory/candidates/

@@ -178,6 +178,9 @@ importers:
       '@audiogubbins/commands':
         specifier: workspace:*
         version: link:packages/commands
+      '@audiogubbins/design-system':
+        specifier: workspace:*
+        version: link:packages/design-system
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:packages/input
@@ -205,6 +208,12 @@ importers:
       '@types/node':
         specifier: 26.6.1
         version: 26.6.1
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 19.3.0
+        version: 19.3.0(@types/react@19.3.0)
       '@vitest/coverage-v8':
         specifier: 5.0.1
         version: 5.0.1(vitest@5.0.1)
@@ -232,12 +241,21 @@ importers:
       prettier:
         specifier: 3.9.7
         version: 3.9.7
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
       typescript:
         specifier: 5.9.3
         version: 5.9.3
       typescript-eslint:
         specifier: 8.70.0
         version: 8.70.0(eslint@10.10.0(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
+      vite:
+        specifier: 8.3.0
+        version: 8.3.0(@types/node@26.6.1)(terser@5.51.2)
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))

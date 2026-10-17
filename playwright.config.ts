@@ -406,6 +406,31 @@ export default defineConfig<SuiteOptions>({
       testMatch: /(smoke|touch)\.spec\.ts/,
     },
     {
+      // The component inventory compared with its signed-off renderings, in the
+      // one pinned environment the comparison is valid in, which the spec
+      // states in full: this Chromium, this viewport and pixel ratio, greyscale
+      // text, and no system preference that a stylesheet could read. Each
+      // platform keeps baselines of its own, since each rasterises text its own
+      // way.
+      name: 'chromium-visual-inventory',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://127.0.0.1:4177',
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 1,
+        colorScheme: 'no-preference',
+        reducedMotion: 'no-preference',
+        forcedColors: 'none',
+        contrast: 'no-preference',
+        // Text antialiased in grey rather than in the display's subpixels,
+        // which tint small text by where it falls on a pixel and by the
+        // machine's own ClearType settings.
+        launchOptions: { args: ['--disable-lcd-text'] },
+      },
+      testMatch: /component-inventory\.spec\.ts/,
+      snapshotPathTemplate: '{testDir}/{testFileDir}/baselines/{platform}/{arg}{ext}',
+    },
+    {
       // The GitHub Pages deployment REQ-PWA-031 requires, which serves a
       // project site from a sub-path. Without this project, every asset URL,
       // the manifest link and the base path could be wrong there and every test
@@ -481,6 +506,20 @@ export default defineConfig<SuiteOptions>({
         'pnpm --filter @audiogubbins/web exec vite --config renderer-harness.vite.config.ts --host 127.0.0.1 --port 4176 --strictPort',
       url: 'http://127.0.0.1:4176/',
       name: 'renderer harness',
+      stdout: 'pipe',
+      stderr: 'pipe',
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // The component inventory (`tests/e2e/visual/inventory/`), on a
+      // development server of its own, which builds nothing: the design
+      // system's shared components in every state, drawn by its own
+      // stylesheets and faces for the screenshot comparison.
+      command:
+        'pnpm --filter @audiogubbins/web exec vite --config inventory.vite.config.ts --host 127.0.0.1 --port 4177 --strictPort',
+      url: 'http://127.0.0.1:4177/',
+      name: 'inventory harness',
       stdout: 'pipe',
       stderr: 'pipe',
       reuseExistingServer: false,
