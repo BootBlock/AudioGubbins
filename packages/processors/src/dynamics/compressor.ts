@@ -145,6 +145,9 @@ const link: ToggleParameterDescriptor = {
 
 const MOVING = [threshold, ratio, knee, attack, release, makeUp];
 
+/** The parameters the compressor's static curve is made of, as a panel draws the curve. */
+export const COMPRESSOR_CURVE = { threshold, ratio, knee, makeUp } as const;
+
 /** The compressor's curve, with its make-up gain, at each frame's parameter values. */
 class CompressorCurve implements StaticCurve {
   readonly #frames: CurveFrames;

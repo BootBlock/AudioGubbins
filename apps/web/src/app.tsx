@@ -73,6 +73,11 @@ import './shell/history/history.css';
 import './shell/spectral/spectral.css';
 import './shell/recording/recording.css';
 import './shell/analysis/analysis.css';
+import './shell/rack/rack.css';
+import './shell/library/library.css';
+import './shell/storage/storage.css';
+import './shell/picture-panel.css';
+import './shell/processing-modes.css';
 import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */

@@ -47,7 +47,7 @@ describe('the Picture panel', () => {
     expect(frames).not.toHaveBeenCalled();
   });
 
-  it('keeps an action it cannot run in the tab order, with the reason written above it', () => {
+  it('keeps an action it cannot run in the tab order, described by its reason', () => {
     const { parts } = openedPicture({
       'picture.full-screen': 'This browser cannot show an element full screen.',
     });
@@ -60,7 +60,7 @@ describe('the Picture panel', () => {
     expect(screen.getByText('This browser cannot show an element full screen.')).toBeVisible();
   });
 
-  it("says beside the control why the picture's sound cannot be opened", () => {
+  it("says why the picture's sound cannot be opened, as the control's description", () => {
     const { parts } = openedPicture({
       'picture.extract-sound': 'This page can spare 10 MB for it.',
     });

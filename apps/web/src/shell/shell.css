@@ -60,33 +60,6 @@
   margin-inline-start: auto;
 }
 
-.ag-cleanup-plan {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-small);
-  margin-block-end: var(--ag-space-medium);
-}
-
-/* The Storage panel. */
-.ag-usage {
-  margin: 0 0 var(--ag-space-medium);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--ag-space-tiny) var(--ag-space-medium);
-}
-
-.ag-usage-part {
-  display: contents;
-}
-
-.ag-usage dd {
-  margin: 0;
-  font-family: var(--ag-font-numeric);
-  font-variant-numeric: tabular-nums;
-  text-align: end;
-}
-
-.ag-cleanup-steps,
 .ag-source-changes {
   margin: 0;
   padding: 0;
@@ -94,13 +67,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--ag-space-small);
-}
-
-.ag-cleanup-lost {
-  margin: var(--ag-space-tiny) 0 0;
-  padding-inline-start: var(--ag-space-large);
-  color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-label);
 }
 
 /* Panels. */
@@ -520,25 +486,6 @@
   padding-inline-start: var(--ag-space-large);
 }
 
-/* The Picture panel: the reference picture as large as the panel allows. */
-.ag-picture-frame {
-  display: flex;
-  justify-content: center;
-  background-color: var(--ag-chrome-surface-sunken);
-}
-
-.ag-picture-video {
-  max-inline-size: 100%;
-  max-block-size: 60vh;
-}
-
-.ag-picture-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-tiny);
-  margin-block: var(--ag-space-small);
-}
-
 .ag-renderer-attempts {
   margin: var(--ag-space-tiny) 0 0;
   padding-inline-start: var(--ag-space-large);
@@ -549,49 +496,6 @@
   margin-block: var(--ag-space-medium) var(--ag-space-small);
   font-size: var(--ag-text-body);
   font-weight: 600;
-}
-
-.ag-analysis-step-name {
-  font-weight: 600;
-}
-
-/* The Effects rack: a chain's slots in signal order, a group's branches
-   nested under it, each slot set apart so its controls read as its own. */
-.ag-rack-slots,
-.ag-rack-ranges {
-  display: grid;
-  gap: var(--ag-space-small);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ag-rack-slot {
-  padding: var(--ag-space-small);
-  border: 1px solid var(--ag-chrome-border-subtle);
-  border-radius: var(--ag-radius-small);
-}
-
-.ag-rack-slot[data-ag-bypassed='true'] {
-  border-style: dashed;
-}
-
-.ag-rack-slot-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-small);
-  align-items: center;
-}
-
-.ag-rack-branch {
-  margin-block-start: var(--ag-space-small);
-  padding-inline-start: var(--ag-space-medium);
-  border-inline-start: 2px solid var(--ag-chrome-border-subtle);
-}
-
-.ag-rack-parameter {
-  display: grid;
-  gap: var(--ag-space-tiny);
 }
 
 /* The Export dialog: each preset a radio with what it sets beneath its name. */

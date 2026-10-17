@@ -1,16 +1,27 @@
 /**
  * One chain of a rack as the Effects rack panel shows it (ADR-0060,
  * ADR-0061): how it is heard, by the one rule the threads that play it follow
- * (`chainListening`), how its preview differs from a render where its
- * processors read a quality setting, whether it is shared and with what, its
- * slots (`chain-view.tsx`), and what adds to it; and the ranges of the target
- * a chain processes, each opened to show its chain the same way, and each
- * removed by the command that withdraws its rack edit.
+ * (`chainListening`), and how its preview differs from a render where its
+ * processors read a quality setting, said in a word with the whole of it
+ * behind a hint; whether it is shared and with what; its slots and the
+ * controls of each processor selected (`chain-view.tsx`); and what adds to
+ * it. And the ranges of the target a chain processes, each opened to show its
+ * chain the same way, and each removed by the command that withdraws its rack
+ * edit.
  */
 
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import {
+  Button,
+  ButtonTone,
+  Hint,
+  Icon,
+  IconButton,
+  Menu,
+  Section,
+  type MenuItemDescriptor,
+} from '@audiogubbins/design-system';
 import {
   appliedProcessors,
   chainListening,
@@ -19,18 +30,39 @@ import {
   type QualitySettingKey,
   type RangeRack,
 } from '@audiogubbins/domain';
+import type { CommandInvocation } from '@audiogubbins/commands';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { counted } from '@audiogubbins/text';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import { otherUsers } from '../../commands/rack-target.js';
 import { chainWords, listeningText } from '../../commands/rack-words.js';
 import { previewDifferenceText } from '../../quality-words.js';
 import { previewQualityOf } from '../../state/audio-settings-store.js';
-import { CommandButton } from '../command-button.js';
-import { AddProcessorMenu } from './add-processor-menu.js';
+import type { PanelCommands } from '../command-button.js';
+import { optionalReason } from '../optional-reason.js';
+import { AddLook, AddProcessorMenu } from './add-processor-menu.js';
 import type { ChainParts } from './chain-parts.js';
-import { SlotList } from './chain-view.js';
+import { SelectedProcessors, SlotList } from './chain-view.js';
 import type { RackContext, ShownRack } from './shown-rack.js';
+
+/** A menu entry that runs the command `id` with `args`, unavailable with its own reason. */
+export function commandItem(
+  commands: PanelCommands,
+  id: string,
+  label: string,
+  args?: CommandInvocation['arguments'],
+): MenuItemDescriptor {
+  const reason = commands.unavailableReason(id, args);
+  return {
+    key: `${id}:${label}`,
+    label,
+    ...(reason === undefined ? {} : { unavailableReason: reason }),
+    onSelect: () => {
+      commands.run(id, args);
+    },
+  };
+}
 
 /** The quality settings the processors `chain` applies read, for its preview's difference. */
 function settingsRead(chain: EffectChain): ReadonlySet<QualitySettingKey> {
@@ -43,8 +75,12 @@ function settingsRead(chain: EffectChain): ReadonlySet<QualitySettingKey> {
   return read;
 }
 
-/** How a chain is heard, and how its preview differs from a render where its processors read a setting. */
-function ListeningLines({
+/**
+ * How a chain is heard, in a word, live or from a render, with the whole of
+ * it behind a hint: why it is heard so, and how its preview differs from a
+ * render where its processors read a setting.
+ */
+export function ChainHearing({
   chain,
   shown,
   context,
@@ -61,15 +97,17 @@ function ListeningLines({
     quality: preview,
   });
   const read = settingsRead(chain);
+  const word = listening.kind === 'live' ? 'Heard live' : 'Heard from a render';
   return (
-    <>
-      <p className="ag-panel-note">{listeningText(listening)}</p>
-      {read.size > 0 && (
-        <p className="ag-panel-note">
-          {previewDifferenceText(preview, settings.renderQuality.settings, read)}
-        </p>
-      )}
-    </>
+    <span className="ag-rack-hearing">
+      <span className="ag-rack-hearing-word">{word}</span>
+      <Hint label={`About how it is heard: ${word.toLowerCase()}`} title={word}>
+        <p>{listeningText(listening)}</p>
+        {read.size > 0 && (
+          <p>{previewDifferenceText(preview, settings.renderQuality.settings, read)}</p>
+        )}
+      </Hint>
+    </span>
   );
 }
 
@@ -86,47 +124,65 @@ function SharedNotice({
   const others = otherUsers(shown.state, id, shown.target);
   if (others.length === 0) return undefined;
   const verb = others.length === 1 ? 'uses' : 'use';
+  const args = { view: shown.panel, chainId: id };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-rack-shared">
+      <Icon name="saved-chain" />
       <p>{`This chain is shared: ${others.join(', ')} ${verb} it too, so a change here is heard there.`}</p>
-      <CommandButton
-        id="rack.make-independent"
-        label="Make independent"
-        commands={context}
-        args={{ view: shown.panel, chainId: id }}
+      <Button
         compact
-      />
+        {...optionalReason(context.unavailableReason('rack.make-independent', args))}
+        onClick={() => {
+          context.run('rack.make-independent', args);
+        }}
+      >
+        Make independent
+      </Button>
     </div>
   );
 }
 
-/** What adds to the end of a chain: a processor, a parallel group, or what was copied. */
-function ChainActions({
+/**
+ * What adds to the end of a chain: a processor, by the menu that adds one, and
+ * a parallel group or what was copied, in the menu beside it, with whatever
+ * else the place it is drawn in adds there (`more`).
+ */
+export function ChainActions({
   id,
   shown,
   context,
+  look,
+  more = [],
 }: {
   readonly id: EffectChainId;
   readonly shown: ShownRack;
   readonly context: RackContext;
+  readonly look: AddLook;
+  readonly more?: readonly MenuItemDescriptor[];
 }): ReactNode {
   const args = { view: shown.panel, chainId: id };
   return (
-    <div className="ag-inspector-row">
-      <AddProcessorMenu label="Add a processor" args={args} commands={context} />
-      <CommandButton
-        id="rack.add-group"
-        label="Add a parallel group"
-        commands={context}
-        args={args}
-        compact
+    <>
+      <AddProcessorMenu label="Add a processor" args={args} commands={context} look={look} />
+      <Menu
+        label="More for this chain"
+        trigger={<IconButton icon="more" label="More for this chain" compact />}
+        groups={[
+          {
+            key: 'chain',
+            items: [
+              commandItem(context, 'rack.add-group', 'Add a parallel group', args),
+              commandItem(context, 'rack.paste', 'Paste', args),
+            ],
+          },
+          ...(more.length === 0 ? [] : [{ key: 'more', items: more }]),
+        ]}
       />
-      <CommandButton id="rack.paste" label="Paste" commands={context} args={args} compact />
-    </div>
+    </>
   );
 }
 
-/** One chain of the target, with how it is heard, whether it is shared, and its slots. */
+/** One chain of the target: whether it is shared, its slots, and the controls of each processor selected. */
 export function ChainSection({
   id,
   chain,
@@ -142,13 +198,13 @@ export function ChainSection({
   const parts: ChainParts = {
     panel: shown.panel,
     chain: id,
+    sampleRate: shown.view.sampleRate,
     selected: shown.selected,
     gate,
     commands: context,
   };
   return (
     <>
-      <ListeningLines chain={chain} shown={shown} context={context} />
       <SharedNotice id={id} shown={shown} context={context} />
       <SlotList
         slots={chain.slots}
@@ -156,7 +212,32 @@ export function ChainSection({
         parts={parts}
         empty="It runs no processor yet: add one."
       />
-      <ChainActions id={id} shown={shown} context={context} />
+      <SelectedProcessors slots={chain.slots} parts={parts} />
+    </>
+  );
+}
+
+/** The chain of a range opened: how it is heard, what adds to it, and its slots. */
+function RangeChain({
+  id,
+  chain,
+  shown,
+  context,
+}: {
+  readonly id: EffectChainId;
+  readonly chain: EffectChain;
+  readonly shown: ShownRack;
+  readonly context: RackContext;
+}): ReactNode {
+  return (
+    <>
+      <div className="ag-rack-range-bar">
+        <ChainHearing chain={chain} shown={shown} context={context} />
+        <span className="ag-rack-range-actions">
+          <ChainActions id={id} shown={shown} context={context} look={AddLook.Secondary} />
+        </span>
+      </div>
+      <ChainSection id={id} chain={chain} shown={shown} context={context} />
     </>
   );
 }
@@ -180,29 +261,36 @@ function RangeRow({
   const at = (frames: number): string =>
     formatPosition(frames, shown.view.sampleRate, shown.timeFormat);
   const runs = chain === undefined ? 'a chain the project does not hold' : chainWords(chain);
+  const remove = { view: shown.panel, operationId: range.operation };
   return (
-    <li className="ag-rack-range">
-      <Button
-        compact
-        tone="quiet"
-        aria-expanded={opened}
-        aria-controls={contentId}
-        onClick={() => {
-          setOpened(!opened);
-        }}
-      >
-        {`From ${at(range.range.start)} to ${at(range.range.end)}: ${runs}`}
-      </Button>
-      <CommandButton
-        id="rack.remove-range"
-        label="Remove this processing"
-        commands={context}
-        args={{ view: shown.panel, operationId: range.operation }}
-        compact
-      />
-      <div id={contentId} hidden={!opened}>
+    <li className="ag-rack-range" data-ag-open={opened ? '' : undefined}>
+      <div className="ag-rack-range-head">
+        <Button
+          compact
+          tone="quiet"
+          aria-expanded={opened}
+          aria-controls={contentId}
+          onClick={() => {
+            setOpened(!opened);
+          }}
+        >
+          <Icon name={opened ? 'collapse' : 'expand'} />
+          {`From ${at(range.range.start)} to ${at(range.range.end)}: ${runs}`}
+        </Button>
+        <Button
+          compact
+          tone={ButtonTone.QuietDestructive}
+          {...optionalReason(context.unavailableReason('rack.remove-range', remove))}
+          onClick={() => {
+            context.run('rack.remove-range', remove);
+          }}
+        >
+          Remove this processing
+        </Button>
+      </div>
+      <div id={contentId} hidden={!opened} className="ag-rack-range-chain">
         {opened && chain !== undefined && (
-          <ChainSection id={range.chain} chain={chain} shown={shown} context={context} />
+          <RangeChain id={range.chain} chain={chain} shown={shown} context={context} />
         )}
       </div>
     </li>
@@ -220,17 +308,22 @@ export function RangeRacks({
   readonly context: RackContext;
 }): ReactNode {
   return (
-    <section className="ag-inspector-section" aria-label="Ranges a chain processes">
-      <h3 className="ag-inspector-heading">Ranges a chain processes</h3>
-      {ranges.length === 0 ? (
-        <p className="ag-panel-note">None. Select a range and add a processor over it.</p>
-      ) : (
-        <ul className="ag-rack-ranges">
-          {ranges.map((range) => (
-            <RangeRow key={range.operation} range={range} shown={shown} context={context} />
-          ))}
-        </ul>
-      )}
+    <section className="ag-rack-section" aria-label="Ranges a chain processes">
+      <Section
+        title="Ranges a chain processes"
+        icon="region"
+        {...(ranges.length === 0 ? {} : { summary: counted(ranges.length, 'range', 'ranges') })}
+      >
+        {ranges.length === 0 ? (
+          <p className="ag-panel-note">None. Select a range and add a processor over it.</p>
+        ) : (
+          <ul className="ag-rack-ranges">
+            {ranges.map((range) => (
+              <RangeRow key={range.operation} range={range} shown={shown} context={context} />
+            ))}
+          </ul>
+        )}
+      </Section>
     </section>
   );
 }

@@ -12,6 +12,10 @@ export {
 } from './catalogue.js';
 export { BUILT_IN_LIBRARY } from './library/game-chains.js';
 export { DESIGN_INTERVAL } from './filters/cascade-kernel.js';
+export { EQUALISER_BANDS, type EqualiserBand } from './filters/parametric-equaliser.js';
+export { equaliserResponse } from './filters/equaliser-response.js';
+export { COMPRESSOR_CURVE } from './dynamics/compressor.js';
+export { compressorTransfer } from './dynamics/compressor-transfer.js';
 export { deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
 export { mossFormer2Se48k } from './ml/mossformer2/mossformer2.js';
 export { spleeter2Stems, spleeter4Stems } from './ml/spleeter/spleeter.js';

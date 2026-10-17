@@ -14,7 +14,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import { Button, OptionSelect, ProgressBar } from '@audiogubbins/design-system';
 import type { QualitySettings } from '@audiogubbins/domain';
 import {
   CachePurpose,
@@ -46,7 +46,7 @@ import {
   type RenderPlanning,
   type RenderStrategyView,
 } from '../state/render-strategy-store.js';
-import { ReasonedButton } from './settings/reasoned-button.js';
+import { optionalReason } from './optional-reason.js';
 
 /** What the panel reads, and how it runs a command. */
 export interface ProcessingModesProps {
@@ -131,11 +131,9 @@ function PreviewProgress({ render }: { readonly render: RenderReport }): ReactNo
   const tenths = Math.floor((render.reached / Math.max(1, render.length)) * 10) * 10;
   return (
     <>
-      <progress
-        className="ag-render-progress"
-        aria-label="Cached preview made"
-        max={render.length}
-        value={render.reached}
+      <ProgressBar
+        label="Cached preview made"
+        value={render.reached / Math.max(1, render.length)}
       />
       <p role="status" className="ag-panel-note">
         {render.phase === RenderPhase.Making ? `Making the preview: ${String(tenths)}%` : ''}
@@ -267,22 +265,24 @@ function Decision({
   return (
     <div className="ag-render-decision" role="group" aria-label="How to render">
       <p className="ag-panel-note">{safer.choice.reason}</p>
-      <ReasonedButton
-        reason={commands.unavailableReason('transport.render-safer')}
-        onPress={() => {
+      <Button
+        compact
+        {...optionalReason(commands.unavailableReason('transport.render-safer'))}
+        onClick={() => {
           commands.run('transport.render-safer');
         }}
       >
         Render in the background
-      </ReasonedButton>
-      <ReasonedButton
-        reason={commands.unavailableReason('transport.render-as-chosen')}
-        onPress={() => {
+      </Button>
+      <Button
+        compact
+        {...optionalReason(commands.unavailableReason('transport.render-as-chosen'))}
+        onClick={() => {
           commands.run('transport.render-as-chosen');
         }}
       >
         Render as chosen
-      </ReasonedButton>
+      </Button>
     </div>
   );
 }

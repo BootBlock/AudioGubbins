@@ -367,8 +367,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/design-system': {
     "A system appearance that does not follow the browser, which the application's tests render the theme with.":
       ['UNKNOWN_SYSTEM_APPEARANCE', 'fixedSystemAppearance'],
-    "The conversion the colour tokens are written in, which the application's test of the colours drawn before the first paint holds them to the tokens with.":
-      ['oklchToHex'],
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
       ['InfoPopover', 'InfoPopoverProps'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
@@ -389,22 +387,18 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'Check',
         'CheckProps',
         'IconButtonProps',
-        'PowerSwitch',
-        'PowerSwitchProps',
         'RadioGroup',
         'RadioGroupProps',
         'RadioOption',
       ],
     "The dials and the meters of the design language's control set that no panel takes yet (the knob, the fader, the level and correlation meters, the typed entry a dial opens, and the clock a meter's ballistics run on), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
-      ['DialTyping', 'Fader', 'FaderMark', 'FaderProps', 'Knob', 'KnobProps'],
+      ['DialTyping'],
     "The chrome round a panel's content that no panel takes yet (the panel and its header, sections, property grids and source chips, lists, tables and verdicts, badges, status chips and key caps, the empty, loading and error states, notices and banners), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
         'Notice',
         'NoticeProps',
         'NoticeTone',
         'Panel',
-        'PanelHeader',
-        'PanelHeaderProps',
         'PanelProps',
         'SourceChip',
         'SourceChipProps',

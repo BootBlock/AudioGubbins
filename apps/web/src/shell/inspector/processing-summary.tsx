@@ -29,15 +29,20 @@ type ProjectInspected = Extract<Inspected, { readonly kind: 'project' }>;
 /** The settings of each processor selected, by the controls the Effects rack shows them with. */
 function SelectedProcessors({
   ids,
+  of: subject,
   state,
-  panel,
   commands,
 }: {
   readonly ids: readonly ProcessorId[];
+  /**
+   * What they are selected in: the view the commands act in, and the audio
+   * whose rate a response is drawn at.
+   */
+  readonly of: ProjectInspected;
   readonly state: ProjectState;
-  readonly panel: string;
   readonly commands: PanelCommands;
 }): ReactNode {
+  const { panel } = subject;
   return ids.map((id) => {
     const processor = processorIn(state, id);
     const descriptor =
@@ -69,6 +74,7 @@ function SelectedProcessors({
             descriptor={descriptor}
             panel={panel}
             commands={commands}
+            sampleRate={subject.view.sampleRate}
           />
         )}
       </InspectorPart>
@@ -137,7 +143,7 @@ export function ProcessingSummary({
   readonly commands: PanelCommands;
 }): ReactNode {
   return processors.length > 0 ? (
-    <SelectedProcessors ids={processors} state={state} panel={subject.panel} commands={commands} />
+    <SelectedProcessors ids={processors} of={subject} state={state} commands={commands} />
   ) : (
     <RackSummary subject={subject} state={state} commands={commands} />
   );

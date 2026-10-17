@@ -1,0 +1,211 @@
+/*
+ * The Library panel (design language, sections 10 and 11): saving the rack
+ * under a name, then each kind of entry under a quiet heading with its count,
+ * each entry a row with its glyph in a tile, its name over a line on it, the
+ * controls that change it at its trailing end, and what applies it under it.
+ */
+
+.ag-library-save,
+.ag-library-rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-library-save > .ag-text-field,
+.ag-library-rename > .ag-text-field {
+  flex: 1 1 calc(var(--ag-grid-unit) * 80);
+}
+
+.ag-library-kind {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-library-kind-name {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+.ag-library-count {
+  color: var(--ag-chrome-text-disabled);
+  font-family: var(--ag-font-numeric);
+  letter-spacing: 0;
+}
+
+.ag-library-entries,
+.ag-library-targets,
+.ag-library-chain {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-library-entries {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-library-entry {
+  display: grid;
+  gap: var(--ag-space-inset);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-library-entry-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+}
+
+/* The entry's glyph in a tile of the accent. */
+.ag-library-glyph {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ag-control-height) + var(--ag-space-tiny));
+  block-size: calc(var(--ag-control-height) + var(--ag-space-tiny));
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent);
+}
+
+.ag-library-entry[data-ag-refused] .ag-library-glyph {
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 14%, transparent);
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-library-entry-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ag-library-entry-name {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+.ag-library-entry-detail {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-library-entry[data-ag-refused] .ag-library-entry-detail {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-library-entry-tools {
+  display: flex;
+  flex: none;
+  gap: var(--ag-space-micro);
+}
+
+/* What a built-in chain holds, as chips joined in signal order. */
+.ag-library-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-library-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-library-chip-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-hair) var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-control);
+}
+
+/* Each processor's LED: lit in the accent, unlit where it is bypassed. */
+.ag-library-chip-name::before {
+  content: '';
+  inline-size: calc(var(--ag-grid-unit) * 3);
+  block-size: calc(var(--ag-grid-unit) * 3);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-accent);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 3) var(--ag-chrome-accent);
+}
+
+.ag-library-chip[data-ag-off] .ag-library-chip-name {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-library-chip[data-ag-off] .ag-library-chip-name::before {
+  background-color: var(--ag-chrome-text-disabled);
+  box-shadow: none;
+}
+
+.ag-library-apply {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-library-share {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  margin-inline-end: auto;
+}
+
+.ag-library-chooser,
+.ag-library-confirm {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+.ag-library-chooser-name {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-library-targets {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-library-confirm-text {
+  margin: 0;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+}
+
+/* The safe action first and the one that removes last, at the trailing end. */
+.ag-library-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+}

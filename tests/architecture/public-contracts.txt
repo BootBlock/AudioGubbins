@@ -5951,6 +5951,7 @@ Published paths
   const CANONICAL_ASSISTANTS: readonly Assistant[]
   const CLICK_DETECTOR: AudioDetector
   const CLIPPING_DETECTOR: AudioDetector
+  const COMPRESSOR_CURVE: { readonly threshold: NumericParameterDescriptor; readonly ratio: NumericParameterDescriptor; readonly knee: NumericParameterDescriptor; readonly makeUp: NumericParameterDescriptor; }
   const DC_OFFSET_DETECTOR: AudioDetector
   const DESIGN_INTERVAL: 32
   type Detection = WholePass<readonly DetectorFinding[]>
@@ -5959,6 +5960,13 @@ Published paths
   readonly DetectionSettings.sampleRate: SampleRate
   readonly DetectionSettings.dsp: CanonicalDsp
   readonly DetectionSettings.values: ReadonlyMap<string, number>
+  const EQUALISER_BANDS: readonly EqualiserBand[]
+  interface EqualiserBand
+  readonly EqualiserBand.on: ToggleParameterDescriptor
+  readonly EqualiserBand.type: ChoiceParameterDescriptor
+  readonly EqualiserBand.frequency: NumericParameterDescriptor
+  readonly EqualiserBand.gain: NumericParameterDescriptor
+  readonly EqualiserBand.q: NumericParameterDescriptor
   const HUM_DETECTOR: AudioDetector
   interface LearningSettings
   readonly LearningSettings.values: ParameterValues
@@ -6026,8 +6034,10 @@ Published paths
   WholePass.add: (input: readonly Float32Array[], frames: number, signal?: CancellationSignal) => Promise<void>
   WholePass.result: (signal?: CancellationSignal) => Promise<DomainResult<TResult>>
   WholePass.release: () => void
+  function compressorTransfer(values: ParameterValues, levels: Float64Array<ArrayBufferLike>, into: Float64Array<ArrayBufferLike>): void
   function deepFilterNet3(services: ModelServices): ProcessorType
   function detectionValues(detectors: readonly AudioDetector[], values: Readonly<Record<string, Readonly<Record<string, number>>>>): DomainResult<ReadonlyMap<string, ReadonlyMap<string, number>>>
+  function equaliserResponse(values: ParameterValues, sampleRate: number, frequencies: Float64Array<ArrayBufferLike>, into: Float64Array<ArrayBufferLike>, band?: number | undefined): void
   function modelUnavailable(condition: ModelUnavailability, summary: string, where: { readonly pack: string; readonly version: string; readonly path?: string; }, reason?: DomainFailure | undefined): DomainFailureResult
   function mossFormer2Se48k(services: ModelServices): ProcessorType
   function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, start: number, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>

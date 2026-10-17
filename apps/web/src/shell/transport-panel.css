@@ -128,25 +128,3 @@
   display: block;
   margin-block-start: var(--ag-space-tiny);
 }
-
-/* What a render's resources warned of, each naming the resource that limits it. */
-.ag-render-warnings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-tiny);
-  margin: 0;
-  padding-inline-start: var(--ag-space-large);
-  font-size: var(--ag-text-label);
-}
-
-/* The two ways a render waiting on a warning can go. */
-.ag-render-decision {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ag-space-small);
-}
-
-.ag-render-decision > .ag-panel-note {
-  flex-basis: 100%;
-}

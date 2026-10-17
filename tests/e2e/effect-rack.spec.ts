@@ -100,10 +100,14 @@ function whole(value: number): string {
 async function setGain(rack: Locator, decibels: number): Promise<void> {
   await rack.getByRole('button', { name: 'Gain', exact: true }).click();
   await expect(rack.getByRole('button', { name: 'Gain, selected', exact: true })).toBeVisible();
+  // A knob's value is a field a number is typed into once it is pressed.
+  await rack.getByRole('button', { name: 'Gain in dB, typed' }).click();
   const field = rack.getByRole('textbox', { name: 'Gain in dB, typed' });
   await field.fill(String(decibels));
   await field.press('Enter');
-  await expect(field).toHaveValue(String(decibels));
+  await expect(rack.getByRole('button', { name: 'Gain in dB, typed' })).toHaveText(
+    `${String(decibels).replace('-', '−')} dB`,
+  );
 }
 
 /** A box on the page, as Playwright measures one. */
