@@ -13,7 +13,7 @@
  * meter appears.
  */
 
-import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
   CorrelationMeter,
@@ -64,7 +64,38 @@ function slider(extra: { readonly disabled?: boolean; readonly unavailableReason
   );
 }
 
+/** A balance, which rests at its centre and moves either way from it. */
+function centredSlider(value: number): ReactNode {
+  return (
+    <ValueSlider
+      label="Balance"
+      value={value}
+      minimum={-100}
+      maximum={100}
+      step={1}
+      detent={0}
+      onValueChange={ignore}
+      describeValue={(balance) =>
+        `${String(Math.abs(balance))} per cent ${balance < 0 ? 'left' : 'right'}`
+      }
+      displayValue={value < 0 ? `L ${String(-value)}` : `R ${String(value)}`}
+    />
+  );
+}
+
 // ---------- The knob ----------
+
+/**
+ * A dial with its value field open for typing. The field opens on a click on
+ * its value, which this makes once it is drawn, as the person would.
+ */
+function Typing({ children }: { readonly children: ReactNode }): ReactNode {
+  const stage = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    stage.current?.querySelector<HTMLButtonElement>('button.ag-dial-field')?.click();
+  }, []);
+  return <div ref={stage}>{children}</div>;
+}
 
 function knob(
   extra: {
@@ -334,6 +365,8 @@ const specimens: readonly Specimen[] = [
     state: 'unavailable',
     render: () => slider({ unavailableReason: REASON }),
   },
+  { component: 'ValueSlider', state: 'centred, right', render: () => centredSlider(40) },
+  { component: 'ValueSlider', state: 'centred, left', render: () => centredSlider(-25) },
 
   { component: 'Knob', state: 'default', render: () => knob() },
   { component: 'Knob', state: 'hover', render: () => knob() },
@@ -344,6 +377,7 @@ const specimens: readonly Specimen[] = [
   { component: 'Knob', state: 'disabled', render: () => knob({ disabled: true }) },
   { component: 'Knob', state: 'unavailable', render: () => knob({ unavailableReason: REASON }) },
   { component: 'Knob', state: 'value read only', render: () => knob({ typed: false }) },
+  { component: 'Knob', state: 'typing a value', render: () => <Typing>{knob()}</Typing> },
 
   { component: 'Fader', state: 'default', render: () => fader() },
   { component: 'Fader', state: 'hover', render: () => fader() },
