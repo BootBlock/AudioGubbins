@@ -214,9 +214,9 @@ describe('the project strip, with projects to reach', () => {
       ),
     ).toBeVisible();
     expect(run).not.toHaveBeenCalledWith('project.take-over');
-    // Focus stays in the strip as the button pressed goes.
+    // Focus stays in the strip as the button pressed goes, on the choice that loses nothing.
     await waitFor(() => {
-      expect(within(strip).getByRole('button', { name: 'Take over now' })).toHaveFocus();
+      expect(within(strip).getByRole('button', { name: 'Cancel' })).toHaveFocus();
     });
 
     await userEvent.click(within(strip).getByRole('button', { name: 'Take over now' }));

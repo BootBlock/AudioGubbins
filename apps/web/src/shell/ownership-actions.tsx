@@ -8,7 +8,9 @@
  * keep it, and taking over loses what it had not saved (REQ-STOR-098). Taking
  * over is explained before it is done: the button that takes it over is behind
  * a second one, beside the sentence saying the other tab stops at once and
- * loses what it had not saved. Every action runs a command.
+ * loses what it had not saved. Cancel comes first and taking over last, so the
+ * button focus comes to as the second one appears loses nothing. Every action
+ * runs a command.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -46,6 +48,9 @@ function TakeOverConfirmation({
       <p className="ag-project-banner-text" data-ag-status="unavailable">
         Taking over stops the other tab changing it at once. Anything it has not saved yet is lost.
       </p>
+      <Button compact onClick={onCancel}>
+        Cancel
+      </Button>
       <Button
         compact
         tone={ButtonTone.Destructive}
@@ -55,9 +60,6 @@ function TakeOverConfirmation({
         }}
       >
         Take over now
-      </Button>
-      <Button compact onClick={onCancel}>
-        Cancel
       </Button>
     </div>
   );
