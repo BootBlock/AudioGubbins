@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 
 import { MotionLevel } from '../../tokens/preferences.js';
-import { heldClock, renderThemed, type HeldClock } from '../../testing/dial-testing.js';
+import { heldClock, type HeldClock } from '../../testing/held-clock.js';
+import { renderThemed } from '../../testing/render-themed.js';
 import { LevelMeter, type MeterScale } from './level-meter.js';
 
 /**

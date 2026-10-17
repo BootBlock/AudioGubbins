@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 
 import { CorrelationMeter } from './correlation-meter.js';
-import { heldClock, renderThemed, type HeldClock } from '../../testing/dial-testing.js';
+import { heldClock, type HeldClock } from '../../testing/held-clock.js';
+import { renderThemed } from '../../testing/render-themed.js';
 
 /**
  * The correlation pointer glides to each reading with the ballistics' time

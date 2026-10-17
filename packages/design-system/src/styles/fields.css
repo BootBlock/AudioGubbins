@@ -1,0 +1,539 @@
+/*
+ * The controls a reader types or chooses a value in: the text field, its
+ * template variant with the token list, and the select with its open list
+ * (design language, section 10, "Text fields and the template field" and
+ * "Menus, selects and the command palette"; MotionSpec, animated feedback).
+ *
+ * The open list and the rich tooltips are overlays, drawn by `overlays.css`.
+ */
+
+/* ---------- The text field ---------- */
+
+.ag-text-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-text-field-label {
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-text-field-description {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+/*
+ * The field itself: a well with a quiet edge. The input inside it has no box
+ * of its own, so a unit or the token button sits inside the field's trailing
+ * end, and the field, not the input, carries the editing and invalid states.
+ *
+ * Sized rather than widened for a finger (`.ag-touch-sized`): a widened area is
+ * drawn with a pseudo-element, which a replaced control cannot have.
+ */
+.ag-text-field-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--ag-control-height);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+  color: var(--ag-chrome-text-primary);
+  cursor: text;
+  transition-property: border-color, box-shadow, background-color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-text-field-box:is(:hover, [data-ag-force-state='hover'] *):not([data-ag-disabled]) {
+  border-color: var(--ag-chrome-border-default);
+}
+
+/* Being edited: an accent edge and a soft accent halo. */
+.ag-text-field-box:is([data-ag-editing], [data-ag-force-state='active'] *) {
+  border-color: var(--ag-chrome-accent);
+  box-shadow: 0 0 0 calc(1.5 * var(--ag-grid-unit))
+    color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent);
+}
+
+/* Reached by the keyboard: the ring every control draws, round the field, over
+   the editing halo. A pointer that puts the caret in the field does not draw
+   it, though a browser counts every focused text input as focus-visible. */
+[data-ag-theme]
+  .ag-text-field-box:is([data-ag-editing='keyboard'], [data-ag-force-state='focus-visible'] *) {
+  border-color: var(--ag-chrome-accent);
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+/* Invalid: an error edge and an error halo, whatever else it is. */
+.ag-text-field-box[data-ag-invalid] {
+  border-color: var(--ag-chrome-status-error);
+  box-shadow: 0 0 0 calc(1.5 * var(--ag-grid-unit))
+    color-mix(in oklch, var(--ag-chrome-status-error) 18%, transparent);
+}
+
+.ag-text-field-box[data-ag-disabled] {
+  border-color: color-mix(in oklch, var(--ag-chrome-text-primary) 8%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-text-primary) 4%, transparent);
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-text-field-input {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  align-self: stretch;
+  margin: 0;
+  padding: 0 var(--ag-space-inset);
+  border: none;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: normal;
+}
+
+/* The field draws the ring (above), so the input inside it draws none. The
+   transparent outline stays for forced colours, which draw the field's
+   instead (below). */
+[data-ag-theme] .ag-text-field-input:focus-visible {
+  outline-color: transparent;
+  box-shadow: none;
+}
+
+/*
+ * The placeholder in the theme's supporting text, which is solved for body-text
+ * contrast on every theme, brightness and contrast mode. Left to the browser, it
+ * would be drawn in a grey of the browser's own, with no contrast the theme
+ * answered for, and WCAG 1.4.3 applies to it. Firefox draws a placeholder at
+ * half opacity unless told otherwise.
+ */
+.ag-text-field-input::placeholder {
+  color: var(--ag-chrome-text-secondary);
+  opacity: 1;
+}
+
+.ag-text-field-input:disabled {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+/*
+ * Never under 16 pixels where a finger is among the inputs. Safari on an iPhone
+ * zooms the page into a field drawn smaller as it takes focus, and leaves it
+ * zoomed, so the dialogue that holds the field is left partly off the screen.
+ * The page keeps zoom for the reader, so the field is what grows: it is drawn
+ * at 16 pixels at least, at its own size where that is larger, and at the
+ * density's with a mouse alone. A template field's highlighting is set at the
+ * same size, or it would drift from the text it lies under.
+ */
+@media (any-pointer: coarse) {
+  .ag-text-field-input,
+  .ag-template-mirror {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* A unit trailing the value. */
+.ag-text-field-unit {
+  flex: none;
+  padding-inline-end: var(--ag-space-inset);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* What is wrong with the value, under the field, with its glyph. */
+.ag-text-field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+  margin: 0;
+  color: var(--ag-chrome-status-error);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-text-field-error > .ag-icon {
+  margin-block-start: calc(var(--ag-grid-unit) / 2);
+}
+
+/* ---------- The template field ----------
+
+   The input's own text is drawn transparent over a copy of it that highlights
+   each token. The two are set in the same face, size, weight and padding, and
+   the copy is scrolled with the input, so the highlighting lies exactly under
+   the text and the caret never moves: a token's wash is a shadow and its weight
+   change is within a monospaced face, so nothing changes any advance. */
+
+.ag-template-editor {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-inline-size: 0;
+}
+
+.ag-template-editor .ag-text-field-input,
+.ag-template-mirror {
+  font-family: var(--ag-font-numeric);
+  font-size: calc(var(--ag-text-body) * var(--ag-text-numeric-ratio));
+  font-weight: var(--ag-text-weight-regular);
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.ag-template-editor .ag-text-field-input {
+  position: relative;
+  color: transparent;
+  caret-color: var(--ag-chrome-text-primary);
+}
+
+.ag-template-editor .ag-text-field-input::selection {
+  color: transparent;
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 32%, transparent);
+}
+
+.ag-template-mirror {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 var(--ag-space-inset);
+  overflow: hidden;
+  color: var(--ag-chrome-text-primary);
+  white-space: pre;
+  pointer-events: none;
+}
+
+.ag-text-field-box[data-ag-disabled] .ag-template-mirror {
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-template-mirror-text {
+  display: block;
+  white-space: pre;
+}
+
+/* A known token: the accent as text on its wash. */
+.ag-template-token {
+  border-radius: var(--ag-radius-hairline);
+  color: var(--ag-chrome-accent-text);
+  font-weight: var(--ag-text-weight-medium);
+  box-shadow: var(--ag-effect-token-wash);
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+/* Its modifier, after the colon: the accent turned towards violet, a step
+   quieter, so it differs in hue and weight in either theme. */
+.ag-template-modifier {
+  color: color-mix(in oklch, var(--ag-chrome-accent-text) 40%, var(--ag-category-violet));
+  font-weight: var(--ag-text-weight-regular);
+}
+
+/* Under the pointer the wash deepens. */
+.ag-template-token[data-ag-hovered] {
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 26%, transparent);
+  box-shadow: 0 0 0 var(--ag-grid-unit)
+    color-mix(in oklch, var(--ag-chrome-accent) 26%, transparent);
+}
+
+/* A token the template cannot read, or a brace on its own: the danger colour on
+   its wash, with a wavy underline. */
+.ag-template-token[data-ag-problem] {
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 12%, transparent);
+  box-shadow: 0 0 0 var(--ag-grid-unit)
+    color-mix(in oklch, var(--ag-chrome-status-error) 12%, transparent);
+  color: var(--ag-chrome-status-error);
+  text-decoration: underline wavy var(--ag-chrome-status-error);
+  text-decoration-thickness: var(--ag-space-hair);
+  text-underline-offset: calc(1.5 * var(--ag-grid-unit));
+}
+
+.ag-template-token[data-ag-problem] .ag-template-modifier {
+  color: color-mix(in oklch, var(--ag-chrome-status-error) 40%, var(--ag-chrome-text-secondary));
+}
+
+.ag-template-token[data-ag-problem][data-ag-hovered] {
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 22%, transparent);
+  box-shadow: 0 0 0 var(--ag-grid-unit)
+    color-mix(in oklch, var(--ag-chrome-status-error) 22%, transparent);
+}
+
+/* A brace typed twice: one literal brace, drawn as plain text, the second
+   brace dimmed and a dotted underline joining the pair. */
+.ag-template-escape {
+  color: var(--ag-chrome-text-primary);
+  text-decoration: underline dotted
+    color-mix(in oklch, var(--ag-chrome-text-secondary) 60%, transparent);
+  text-underline-offset: calc(1.5 * var(--ag-grid-unit));
+}
+
+.ag-template-escape-second {
+  opacity: 0.45;
+}
+
+/* A template written out in text (a token list's row, an explanation's code)
+   in the field's own type. */
+.ag-template-text {
+  font-family: var(--ag-font-numeric);
+  font-size: calc(1em * var(--ag-text-numeric-ratio));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The braces button, inside the field's trailing end. */
+.ag-template-tokens-button {
+  flex: none;
+  margin-inline-end: calc(1.5 * var(--ag-grid-unit));
+}
+
+/* ---------- The token list ---------- */
+
+/* The menu's own element holds the list and, beside it, the highlighted
+   token's explanation; it draws nothing itself. */
+.ag-token-menu {
+  position: relative;
+  outline: none;
+}
+
+.ag-token-list {
+  inline-size: max-content;
+  min-inline-size: var(--ag-token-list-inline-size, calc(130 * var(--ag-grid-unit)));
+  max-inline-size: 90vw;
+}
+
+.ag-token-row.ag-menu-item {
+  grid-template-columns: calc(56 * var(--ag-grid-unit)) minmax(0, 1fr);
+  grid-template-areas: 'label keys';
+  min-block-size: calc(var(--ag-control-height) - 2 * var(--ag-grid-unit));
+  padding-block: var(--ag-space-hair);
+}
+
+.ag-token-row .ag-template-token {
+  justify-self: start;
+}
+
+.ag-token-row-summary {
+  grid-area: keys;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+.ag-token-row[data-highlighted] .ag-token-row-summary {
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-token-list-footer {
+  margin: var(--ag-grid-unit) calc(-1 * var(--ag-space-inset)) 0;
+  padding: calc(3 * var(--ag-grid-unit)) calc(2 * var(--ag-space-inset))
+    calc(2 * var(--ag-grid-unit));
+  border-block-start: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
+/* The highlighted token's explanation, beside the list at its row. */
+.ag-token-tip {
+  position: absolute;
+  inset-block-start: var(--ag-token-tip-offset, 0);
+  inset-inline-start: calc(100% + var(--ag-space-inset));
+  inline-size: max-content;
+}
+
+/* ---------- The select ---------- */
+
+.ag-select-field {
+  display: flex;
+
+  /* A long label, such as a rack's "Mix of" and a processor's name, cannot
+     shrink, so where a narrow panel leaves the control no room beside it the
+     control moves under it rather than being squeezed under the label. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+}
+
+.ag-select-label {
+  /* Shrinks only where it is alone on its line, then wraps its words. */
+  flex: 0 1 auto;
+  min-inline-size: calc(64 * var(--ag-grid-unit));
+}
+
+/* A secondary button's fill and edge, over a blur, with a chevron at its end. */
+.ag-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ag-space-small);
+  flex: 1 1 auto;
+
+  /* Able to shrink below what it holds. A flex item's minimum is its content by
+     default, so a profile with a long name would make the trigger wider than
+     the dialogue around it at a 320-pixel page, and a fixed, centred dialogue
+     has no scroll position that brings its edge back. */
+  min-inline-size: 0;
+  box-sizing: border-box;
+
+  /* At least a control's height, and taller where the chosen value wraps: a
+     value is never cut short. */
+  min-block-size: var(--ag-control-height);
+  padding-inline: calc(5 * var(--ag-grid-unit)) var(--ag-space-inset);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-quiet);
+  -webkit-backdrop-filter: blur(calc(6 * var(--ag-grid-unit)));
+  backdrop-filter: blur(calc(6 * var(--ag-grid-unit)));
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+  font-weight: var(--ag-text-weight-medium);
+  cursor: pointer;
+  transition-property: background-color, border-color, box-shadow, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-select-value {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-inset);
+  min-inline-size: 0;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.ag-select-icon {
+  display: inline-flex;
+  color: var(--ag-chrome-text-secondary);
+  transition-property: rotate;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-select-trigger[data-state='open'] .ag-select-icon {
+  rotate: 0.5turn;
+}
+
+.ag-select-trigger:is(:hover, [data-ag-force-state='hover'] *):not(:disabled) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-select-trigger:is(:active, [data-ag-force-state='active'] *):not(:disabled) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
+/* Open: an accent edge and an accent halo. */
+.ag-select-trigger:is([data-state='open'], [data-ag-force-state='pressed'] *) {
+  border-color: var(--ag-chrome-accent);
+  box-shadow: 0 0 0 calc(1.5 * var(--ag-grid-unit))
+    color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent);
+}
+
+.ag-select-trigger:disabled {
+  border-color: color-mix(in oklch, var(--ag-chrome-text-primary) 8%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-text-primary) 4%, transparent);
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-select-trigger:disabled .ag-select-icon {
+  color: var(--ag-chrome-text-disabled);
+}
+
+/* The open list is a menu, at least as wide as its trigger. */
+.ag-select-content {
+  min-inline-size: max(var(--radix-select-trigger-width), calc(64 * var(--ag-grid-unit)));
+  max-block-size: var(--radix-select-content-available-height, 100dvh);
+}
+
+.ag-select-viewport {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-hair);
+}
+
+.ag-select-item {
+  grid-template-areas: 'label keys';
+}
+
+.ag-select-content[data-ag-glyphs] .ag-select-item {
+  grid-template-areas: 'glyph label keys';
+}
+
+.ag-select-item .ag-menu-item-glyph {
+  grid-area: glyph;
+}
+
+.ag-select-item-text {
+  grid-area: label;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The chosen option's tick, in the accent. */
+.ag-select-indicator {
+  display: inline-flex;
+  grid-area: keys;
+  color: var(--ag-chrome-accent);
+}
+
+.ag-select-item[data-disabled] {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+/* ---------- Forced states and forced colours ---------- */
+
+[data-ag-theme] [data-ag-force-state='focus-visible'] .ag-select-trigger {
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+@media (forced-colors: active) {
+  /* The boundary forced colours take away, on the field rather than the input
+     inside it, which draws no box. */
+  [data-ag-theme] .ag-text-field-box {
+    border: var(--ag-space-hair) solid CanvasText;
+  }
+
+  [data-ag-theme] .ag-text-field-input {
+    border: none;
+  }
+
+  [data-ag-theme] .ag-text-field-input:focus-visible {
+    outline-color: transparent;
+  }
+
+  [data-ag-theme] .ag-text-field-box[data-ag-editing] {
+    outline-style: solid;
+    outline-width: var(--ag-focus-ring-width);
+    outline-color: Highlight;
+    outline-offset: var(--ag-focus-ring-offset);
+  }
+
+  /* The highlighting is colour alone, which the system replaces: the input's
+     own text is drawn instead, in the system's colour. */
+  [data-ag-theme] .ag-template-mirror {
+    display: none;
+  }
+
+  [data-ag-theme] .ag-template-editor .ag-text-field-input {
+    color: CanvasText;
+  }
+}

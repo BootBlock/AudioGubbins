@@ -120,25 +120,6 @@ export { Button, type ButtonProps, ButtonTone } from './primitives/button.js';
 export { Icon, IconSize, type IconProps } from './icons/icon.js';
 export { type IconName } from './icons/vocabulary.js';
 
-// The menu, dialogue and popover primitives WU-01.B requires. `Menu` opens from
-// a control and `ContextActions` from a right click or a long press, which
-// REQ-UX-067 names as the context action of an editing canvas; the first canvas
-// is Phase 04's. `InfoPopover` is the popover the same work unit names, for the
-// explanation a later panel attaches to one of its controls.
-export {
-  ContextActions,
-  type ContextActionsOpener,
-  type ContextMenuProps,
-  HintProvider,
-  InfoPopover,
-  type InfoPopoverProps,
-  Menu,
-  type MenuGroup,
-  type MenuItemDescriptor,
-  ModalDialog,
-  type ModalDialogProps,
-} from './primitives/overlays.js';
-
 export {
   type LiveAnnouncement,
   NoticeProvider,
@@ -154,24 +135,11 @@ export { usePublishedBlockSize } from './primitives/published-size.js';
 export { WINDOW_ROW, useRowWindow } from './primitives/row-window.js';
 
 export {
-  MenuBar,
-  type MenuBarProps,
-  MenuBarMenu,
-  type MenuBarMenuProps,
-} from './primitives/menu-bar.js';
-
-export {
-  OptionSelect,
-  type OptionSelectProps,
-  type SelectOption,
   type TabDescriptor,
   TabSet,
   type TabSetProps,
-  TextField,
-  type TextFieldProps,
   VisuallyHidden,
 } from './primitives/controls.js';
-
 
 // Buttons: the controls a user presses or turns over. `ControlBarItem` is the
 // toolbar's slot for a control other than its own button, which a toolbar
@@ -203,6 +171,7 @@ export {
 } from './primitives/buttons/radio-group.js';
 export { PowerSwitch, type PowerSwitchProps } from './primitives/buttons/power-switch.js';
 export { RecordButton, type RecordButtonProps } from './primitives/buttons/record-button.js';
+
 // ds-dials: the dials and the meters. The slider, the knob and the fader take
 // one taper, a `SliderScale`, from the panel that owns the value; the meters
 // take the engine's readings and apply the theme's ballistics, on a clock a
@@ -225,3 +194,54 @@ export {
   type CorrelationMeterProps,
 } from './primitives/dials/correlation-meter.js';
 export { type FrameClock } from './primitives/dials/frame-clock.js';
+
+// ds-fields: the overlays, the menus and the fields.
+//
+// The menu, dialogue and popover primitives WU-01.B requires. `Menu` opens from
+// a control and `ContextActions` from a right click or a long press, which
+// REQ-UX-067 names as the context action of an editing canvas. `InfoPopover`
+// holds the explanation a panel attaches to one of its controls, and `Hint` is
+// the (i) that opens one. `Tooltip` and `RichTooltip` explain on hover or
+// focus. The template field is the text field given a `TemplateVocabulary`.
+export { Menu, type DropdownMenuProps } from './primitives/overlays/menu.js';
+export {
+  ContextActions,
+  type ContextActionsOpener,
+  type ContextMenuProps,
+} from './primitives/overlays/context-actions.js';
+export { type MenuGroup, type MenuItemDescriptor } from './primitives/overlays/menu-entries.js';
+export { ShortcutKeys, type ShortcutKeysProps } from './primitives/overlays/shortcut-keys.js';
+export { ModalDialog, type ModalDialogProps } from './primitives/overlays/modal-dialog.js';
+export {
+  InfoPopover,
+  type InfoPopoverProps,
+  PopoverBody,
+  PopoverTone,
+} from './primitives/overlays/info-popover.js';
+export { Hint, type HintProps } from './primitives/overlays/hint.js';
+export { HintProvider, Tooltip, type TooltipProps } from './primitives/overlays/tooltips.js';
+export {
+  RichTooltip,
+  RichTooltipBody,
+  type RichTooltipContent,
+  type RichTooltipProps,
+  RichTooltipTone,
+} from './primitives/overlays/rich-tooltip.js';
+export {
+  MenuBar,
+  type MenuBarProps,
+  MenuBarMenu,
+  type MenuBarMenuProps,
+} from './primitives/menu-bar.js';
+export { TextField, type TextFieldProps } from './primitives/fields/text-field.js';
+export {
+  OptionSelect,
+  type OptionSelectProps,
+  type SelectOption,
+} from './primitives/fields/option-select.js';
+export { type TemplateProblem, type TemplateToken } from './primitives/fields/template-syntax.js';
+export {
+  type TemplateExplanation,
+  type TemplateVocabulary,
+} from './primitives/fields/template-vocabulary.js';
+export { TemplateText, type TemplateTextProps } from './primitives/fields/template-text.js';

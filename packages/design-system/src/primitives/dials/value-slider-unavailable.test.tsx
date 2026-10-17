@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { ValueSlider } from '../value-slider.js';
-import { renderThemed } from '../../testing/dial-testing.js';
+import { renderThemed } from '../../testing/render-themed.js';
 
 /**
  * An unavailable slider keeps its focus, so its reason is reached by the

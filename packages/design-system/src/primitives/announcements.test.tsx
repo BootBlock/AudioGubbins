@@ -9,7 +9,7 @@ import {
   NoticeSurface,
   type LiveAnnouncement,
 } from './announcement.js';
-import { ModalDialog } from './overlays.js';
+import { ModalDialog } from './overlays/modal-dialog.js';
 
 /**
  * The two channels an announcement travels on (REQ-UX-005, REQ-EDIT-073).

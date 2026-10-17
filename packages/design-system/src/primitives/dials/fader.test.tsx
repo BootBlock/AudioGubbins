@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { renderThemed } from '../../testing/dial-testing.js';
+import { renderThemed } from '../../testing/render-themed.js';
 import { Fader, type FaderProps } from './fader.js';
 
 /**

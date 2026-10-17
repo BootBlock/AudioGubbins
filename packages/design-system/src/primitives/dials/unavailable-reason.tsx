@@ -8,7 +8,7 @@
 import { Tooltip } from 'radix-ui';
 import type { ReactElement, ReactNode } from 'react';
 
-import { hintSurface } from '../overlays.js';
+import { hintSurface } from '../overlays/tooltips.js';
 
 /** A dial and the reason it is unavailable, if it is. */
 export interface UnavailableReasonProps {

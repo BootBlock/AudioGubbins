@@ -20,8 +20,14 @@
 import { Menubar } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
-import { Button, ButtonTone } from './button.js';
-import { menuGroups, menuItemContent, menuItemProps, type MenuGroup } from './overlays.js';
+import {
+  glyphColumn,
+  hasGlyphs,
+  menuGroups,
+  menuItemContent,
+  menuItemProps,
+  type MenuGroup,
+} from './overlays/menu-entries.js';
 
 /** What a menu bar takes. */
 export interface MenuBarProps {
@@ -52,20 +58,28 @@ export interface MenuBarMenuProps {
 /** One menu of a {@link MenuBar}. */
 export function MenuBarMenu({ label, groups }: MenuBarMenuProps): ReactNode {
   const idPrefix = useId();
+  const glyphs = hasGlyphs(groups);
   return (
     <Menubar.Menu>
-      <Menubar.Trigger asChild>
-        <Button tone={ButtonTone.Quiet} compact>
-          {label}
-        </Button>
-      </Menubar.Trigger>
+      {/*
+        Sized for a finger rather than widened for one: the bar sits beside
+        other regions, where a widened area would lie over the region below and
+        take its taps, so on a touch screen the trigger is drawn at the touch
+        target instead.
+      */}
+      <Menubar.Trigger className="ag-menu-bar-trigger ag-touch-sized">{label}</Menubar.Trigger>
 
       <Menubar.Portal>
-        <Menubar.Content className="ag-menu" aria-label={label} sideOffset={4}>
+        <Menubar.Content
+          className="ag-menu ag-overlay"
+          aria-label={label}
+          sideOffset={4}
+          {...glyphColumn(groups)}
+        >
           {menuGroups(groups, idPrefix, {
             item: (item, describedBy) => (
               <Menubar.Item key={item.key} {...menuItemProps(item, describedBy)}>
-                {menuItemContent(item)}
+                {menuItemContent(item, glyphs)}
               </Menubar.Item>
             ),
             separator: (key) => <Menubar.Separator key={key} className="ag-menu-separator" />,
