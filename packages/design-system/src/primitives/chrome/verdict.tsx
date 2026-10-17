@@ -24,6 +24,14 @@ export const VerdictKind = {
 
   /** Not checked: quiet. */
   None: 'none',
+
+  /**
+   * Checked before what it judges last changed, so it may no longer hold,
+   * such as a loudness measured before an edit: its glyph asks for it to be
+   * checked again, in the warning colour, and its words stay quiet, since
+   * they report a reading that is out of date rather than a verdict.
+   */
+  Stale: 'stale',
 } as const;
 
 /** What a check found. */
@@ -35,6 +43,7 @@ const VERDICT_GLYPH: Readonly<Record<Exclude<VerdictKind, 'running'>, IconName>>
   warns: 'check-warns',
   fails: 'check-fails',
   none: 'not-measured',
+  stale: 'analyse-again',
 };
 
 /** What a verdict takes. */

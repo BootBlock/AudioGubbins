@@ -427,8 +427,12 @@
   line-height: var(--ag-text-line-height-heading);
 }
 
-.ag-popover[data-ag-tone='reason'] .ag-popover-title .ag-icon {
+.ag-popover:is([data-ag-tone='reason'], [data-ag-tone='warning']) .ag-popover-title .ag-icon {
   color: var(--ag-chrome-status-warning);
+}
+
+.ag-popover[data-ag-tone='error'] .ag-popover-title .ag-icon {
+  color: var(--ag-chrome-status-error);
 }
 
 .ag-popover-arrow {
@@ -461,6 +465,32 @@
 .ag-hint:is([data-state='open'], [data-ag-force-state='pressed'] *) {
   color: var(--ag-chrome-accent);
   background-color: var(--ag-chrome-accent-subtle);
+}
+
+/* A warning or an error behind a hint is seen before it is opened: the glyph
+   in its tone's colour at rest, and its tone's wash, not the accent's, open. */
+.ag-hint[data-ag-tone='warning'] {
+  --ag-hint-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-hint[data-ag-tone='error'] {
+  --ag-hint-tone: var(--ag-chrome-status-error);
+}
+
+.ag-hint:is([data-ag-tone='warning'], [data-ag-tone='error']),
+.ag-hint:is([data-ag-tone='warning'], [data-ag-tone='error']):is(
+    :hover,
+    [data-ag-force-state='hover'] *
+  ) {
+  color: var(--ag-hint-tone);
+}
+
+.ag-hint:is([data-ag-tone='warning'], [data-ag-tone='error']):is(
+    [data-state='open'],
+    [data-ag-force-state='pressed'] *
+  ) {
+  color: var(--ag-hint-tone);
+  background-color: color-mix(in oklch, var(--ag-hint-tone) 14%, transparent);
 }
 
 /* ---------- The menu bar ---------- */
@@ -570,7 +600,7 @@
      borders, and a fixed, centred box has no scroll position that brings its
      edges back. */
   box-sizing: border-box;
-  inline-size: min(calc(100vw - 2 * var(--ag-space-inset-wide)), calc(256 * var(--ag-grid-unit)));
+  inline-size: min(calc(100vw - 2 * var(--ag-space-inset-wide)), var(--ag-dialog-width));
 
   /* A column: the header, what the dialogue holds, which scrolls, and a footer,
      which does not. A refusal raised while it is open is in the footer
@@ -588,6 +618,43 @@
   padding: 0;
 }
 
+/* Each kind of dialogue is as wide as what it holds needs, at the density's
+   width for that kind. */
+.ag-dialog {
+  --ag-dialog-width: var(--ag-dialogue-width-standard);
+}
+
+.ag-dialog[data-ag-variant='narrow'] {
+  --ag-dialog-width: var(--ag-dialogue-width-narrow);
+}
+
+.ag-dialog[data-ag-variant='wide'] {
+  --ag-dialog-width: var(--ag-dialogue-width-wide);
+}
+
+.ag-dialog[data-ag-variant='spacious'] {
+  --ag-dialog-width: var(--ag-dialogue-width-spacious);
+}
+
+/* The palette hangs from a fixed place under the top bar rather than from the
+   window's centre: centred, its field would jump up and down as each letter
+   typed changed how many results the list under it holds. Its field is its
+   head, so what it holds runs to its edges. */
+.ag-dialog[data-ag-variant='palette'] {
+  --ag-dialog-width: var(--ag-dialogue-width-palette);
+
+  inset-block-start: calc(var(--ag-shell-top-bar-block-size) + 2 * var(--ag-space-huge));
+  translate: -50% 0;
+  max-block-size: calc(
+    100dvh - var(--ag-shell-top-bar-block-size) - 2 * var(--ag-space-huge) -
+      var(--ag-space-inset-wide)
+  );
+}
+
+.ag-dialog[data-ag-variant='palette'] .ag-dialog-scroll {
+  padding: 0;
+}
+
 .ag-dialog[data-state='open'] {
   animation: ag-dialogue-enter var(--ag-motion-moderate) var(--ag-motion-ease-out);
 }
@@ -600,19 +667,52 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--ag-space-medium);
+  gap: var(--ag-space-large);
   box-sizing: border-box;
   min-block-size: calc(var(--ag-control-height) + 2 * var(--ag-space-inset));
   padding: var(--ag-space-inset) var(--ag-space-inset) var(--ag-space-inset)
     var(--ag-space-inset-wide);
 }
 
-.ag-dialog-header > .ag-icon {
+/* The glyph, the title and its (i) hold together at the leading end; the
+   dialogue's own controls follow them, and the close button keeps the far
+   end whether there are controls or not. */
+.ag-dialog-heading {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--ag-space-inset);
+  min-inline-size: 0;
+}
+
+.ag-dialog-heading > .ag-icon {
+  flex: none;
   color: var(--ag-chrome-accent);
 }
 
+/* Beside the title as part of it, the (i) sits a hairline closer than the
+   glyph does, as the references draw it. */
+.ag-dialog-heading > .ag-hint {
+  margin-inline-start: calc(-1 * var(--ag-space-micro));
+}
+
+.ag-dialog-header-controls {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+  margin-inline-end: auto;
+}
+
+.ag-dialog-header > .ag-button {
+  flex: none;
+  margin-inline-start: auto;
+}
+
 .ag-dialog-title {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   margin: 0;
   color: var(--ag-chrome-text-primary);
   font-size: var(--ag-text-heading);

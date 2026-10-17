@@ -40,6 +40,15 @@ export interface ProgressBarProps {
   /** Says the value in words, such as "4.1 of 9.6 MB". A percentage otherwise. */
   readonly valueText?: (value: number) => string;
 
+  /**
+   * What is happening while how far it has come is not known, such as
+   * "Reading the file": said as the bar's value, which an indeterminate bar
+   * otherwise leaves unsaid, and shown under the bar at the Minimal motion
+   * level, where the segment stands still and only the words say that
+   * something is under way.
+   */
+  readonly indeterminateText?: string;
+
   readonly place?: ProgressPlace;
 }
 
@@ -56,24 +65,45 @@ export function ProgressBar({
   label,
   value,
   valueText,
+  indeterminateText,
   place = ProgressPlace.Panel,
 }: ProgressBarProps): ReactNode {
   const known = value === null ? null : Math.min(1, Math.max(0, value));
   const fill: FillStyle | undefined =
     known === null ? undefined : { '--ag-progress-value': String(known) };
 
-  return (
+  const pending = known === null ? indeterminateText : undefined;
+
+  const bar = (
     <Progress.Root
       className="ag-progress"
       data-ag-place={place}
       aria-label={label}
       value={known === null ? null : known * SCALE}
       max={SCALE}
+      // Radix says a value only once it is known; the words say the rest.
+      {...(pending === undefined ? {} : { 'aria-valuetext': pending })}
       {...(valueText === undefined
         ? {}
         : { getValueLabel: (current: number) => valueText(current / SCALE) })}
     >
       <Progress.Indicator className="ag-progress-fill" style={fill} />
     </Progress.Root>
+  );
+
+  // Wrapped whenever the bar has words to show, known or not, so the bar is
+  // one element throughout and its fill grows from where it was once the
+  // value becomes known.
+  if (indeterminateText === undefined) return bar;
+  return (
+    <div className="ag-progress-field">
+      {bar}
+      {/* The bar already says this; drawn, it is for the eye alone. */}
+      {pending !== undefined && (
+        <span className="ag-progress-pending" aria-hidden="true">
+          {pending}
+        </span>
+      )}
+    </div>
   );
 }

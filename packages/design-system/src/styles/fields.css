@@ -374,6 +374,14 @@
   min-inline-size: calc(64 * var(--ag-grid-unit));
 }
 
+/* A standing description takes a line of its own under the select. */
+.ag-select-description {
+  flex: 1 0 100%;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
 /* A secondary button's fill and edge, over a blur, with a chevron at its end. */
 .ag-select-trigger {
   display: inline-flex;

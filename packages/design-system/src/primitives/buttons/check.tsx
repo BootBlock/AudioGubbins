@@ -11,6 +11,11 @@
 import { Checkbox } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
+import {
+  type ControlDescription,
+  DescriptionHint,
+  DescriptionText,
+} from '../control-description.js';
 import { ControlHint, describedBy } from '../control-hint.js';
 
 /** What a check takes. */
@@ -19,8 +24,11 @@ export interface CheckProps {
   readonly checked: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
 
-  /** A sentence explaining what the choice does. */
-  readonly description?: string;
+  /**
+   * A sentence explaining what the choice does: standing under the label, or
+   * behind an (i) beside it.
+   */
+  readonly description?: ControlDescription;
 
   readonly disabled?: boolean;
 
@@ -71,15 +79,19 @@ export function Check({
       </ControlHint>
       <div className="ag-check-text">
         {/* A label element, so a press on the words makes the choice, as a
-            native check's label does. */}
-        <label className="ag-check-label" id={labelId} htmlFor={controlId}>
-          {label}
-        </label>
-        {description !== undefined && (
-          <span className="ag-check-description" id={descriptionId}>
-            {description}
-          </span>
-        )}
+            native check's label does. The (i) is beside it rather than in it:
+            a button inside a label would make the choice as it opened. */}
+        <span className="ag-labelled">
+          <label className="ag-check-label" id={labelId} htmlFor={controlId}>
+            {label}
+          </label>
+          <DescriptionHint description={description} />
+        </span>
+        <DescriptionText
+          description={description}
+          id={descriptionId}
+          className="ag-check-description"
+        />
       </div>
     </div>
   );

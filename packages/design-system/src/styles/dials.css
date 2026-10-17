@@ -60,6 +60,14 @@
   min-inline-size: calc(var(--ag-grid-unit) * 64);
 }
 
+/* A standing description takes a line of its own under the slider. */
+.ag-slider-description {
+  flex: 1 0 100%;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+}
+
 .ag-slider {
   position: relative;
   display: flex;
@@ -1015,5 +1023,57 @@ input.ag-dial-field {
   [data-ag-theme] .ag-level-meter-clip[data-ag-lit] .ag-level-meter-clip-light {
     forced-color-adjust: none;
     background: Mark;
+  }
+}
+
+/* ---------- A reading against its thresholds ---------- */
+
+/* A short bar in pass, warn and fail zones, each its state's colour at a
+   little under half strength, and the reading a bright tick across it that
+   reaches past the bar above and below, so it reads at a glance. */
+.ag-threshold-meter {
+  --ag-threshold-direction: to right;
+
+  position: relative;
+  display: inline-block;
+  inline-size: 100%;
+  min-inline-size: calc(30 * var(--ag-grid-unit));
+  block-size: calc(3 * var(--ag-grid-unit));
+  border-radius: calc(1.5 * var(--ag-grid-unit));
+  background: linear-gradient(
+    var(--ag-threshold-direction),
+    color-mix(in oklch, var(--ag-chrome-status-success) 45%, transparent) 0
+      calc(var(--ag-threshold-pass) * 100%),
+    color-mix(in oklch, var(--ag-chrome-status-warning) 45%, transparent) 0
+      calc(var(--ag-threshold-warn) * 100%),
+    color-mix(in oklch, var(--ag-chrome-status-error) 45%, transparent) 0
+  );
+}
+
+.ag-threshold-meter:dir(rtl) {
+  --ag-threshold-direction: to left;
+}
+
+.ag-threshold-meter-tick {
+  position: absolute;
+  inset-block: calc(-1.5 * var(--ag-grid-unit));
+  inset-inline-start: calc(var(--ag-threshold-value) * 100%);
+  inline-size: calc(1.5 * var(--ag-grid-unit));
+  margin-inline-start: calc(-0.75 * var(--ag-grid-unit));
+  border-radius: var(--ag-grid-unit);
+  background-color: var(--ag-chrome-text-primary);
+  box-shadow: 0 0 calc(3 * var(--ag-grid-unit)) var(--ag-chrome-text-primary);
+}
+
+/* Forced colours keep the bar's outline and the tick, which say where the
+   reading is; the zones' words are in the meter's value. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-threshold-meter {
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+
+  [data-ag-theme] .ag-threshold-meter-tick {
+    forced-color-adjust: none;
+    background-color: CanvasText;
   }
 }

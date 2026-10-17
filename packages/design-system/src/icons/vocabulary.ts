@@ -9,7 +9,8 @@
  * is built, once, when the module loads.
  *
  * The geometry comes from Lucide's per-glyph modules, one static import each,
- * which keeps the bundle to the glyphs named here. The knob, meter and
+ * which keeps the bundle to the glyphs named here; the glyphs Lucide lacks
+ * are drawn beside this module in the same node data. The knob, meter and
  * spectrogram glyphs are still to be drawn, and nothing stands in for them.
  */
 
@@ -46,7 +47,9 @@ import { __iconData as circleCheckGlyph } from 'lucide-react/dist/esm/icons/circ
 import { __iconData as circleDashedGlyph } from 'lucide-react/dist/esm/icons/circle-dashed.mjs';
 import { __iconData as circlePlayGlyph } from 'lucide-react/dist/esm/icons/circle-play.mjs';
 import { __iconData as circleXGlyph } from 'lucide-react/dist/esm/icons/circle-x.mjs';
+import { __iconData as clapperboardGlyph } from 'lucide-react/dist/esm/icons/clapperboard.mjs';
 import { __iconData as clipboardPasteGlyph } from 'lucide-react/dist/esm/icons/clipboard-paste.mjs';
+import { __iconData as clockGlyph } from 'lucide-react/dist/esm/icons/clock.mjs';
 import { __iconData as copyGlyph } from 'lucide-react/dist/esm/icons/copy.mjs';
 import { __iconData as cpuGlyph } from 'lucide-react/dist/esm/icons/cpu.mjs';
 import { __iconData as cropGlyph } from 'lucide-react/dist/esm/icons/crop.mjs';
@@ -71,6 +74,7 @@ import { __iconData as filmGlyph } from 'lucide-react/dist/esm/icons/film.mjs';
 import { __iconData as foldHorizontalGlyph } from 'lucide-react/dist/esm/icons/fold-horizontal.mjs';
 import { __iconData as foldVerticalGlyph } from 'lucide-react/dist/esm/icons/fold-vertical.mjs';
 import { __iconData as folderGlyph } from 'lucide-react/dist/esm/icons/folder.mjs';
+import { __iconData as folderDownGlyph } from 'lucide-react/dist/esm/icons/folder-down.mjs';
 import { __iconData as folderInputGlyph } from 'lucide-react/dist/esm/icons/folder-input.mjs';
 import { __iconData as folderOpenGlyph } from 'lucide-react/dist/esm/icons/folder-open.mjs';
 import { __iconData as folderPlusGlyph } from 'lucide-react/dist/esm/icons/folder-plus.mjs';
@@ -115,6 +119,8 @@ import { __iconData as monitorGlyph } from 'lucide-react/dist/esm/icons/monitor.
 import { __iconData as mousePointer2Glyph } from 'lucide-react/dist/esm/icons/mouse-pointer-2.mjs';
 import { __iconData as mousePointerClickGlyph } from 'lucide-react/dist/esm/icons/mouse-pointer-click.mjs';
 import { __iconData as moveHorizontalGlyph } from 'lucide-react/dist/esm/icons/move-horizontal.mjs';
+import { __iconData as moveLeftGlyph } from 'lucide-react/dist/esm/icons/move-left.mjs';
+import { __iconData as moveRightGlyph } from 'lucide-react/dist/esm/icons/move-right.mjs';
 import { __iconData as moveVerticalGlyph } from 'lucide-react/dist/esm/icons/move-vertical.mjs';
 import { __iconData as packageGlyph } from 'lucide-react/dist/esm/icons/package.mjs';
 import { __iconData as paletteGlyph } from 'lucide-react/dist/esm/icons/palette.mjs';
@@ -134,6 +140,7 @@ import { __iconData as repeatGlyph } from 'lucide-react/dist/esm/icons/repeat.mj
 import { __iconData as rotateCcwGlyph } from 'lucide-react/dist/esm/icons/rotate-ccw.mjs';
 import { __iconData as rotateCcwClockGlyph } from 'lucide-react/dist/esm/icons/rotate-ccw-clock.mjs';
 import { __iconData as rows2Glyph } from 'lucide-react/dist/esm/icons/rows-2.mjs';
+import { __iconData as rows3Glyph } from 'lucide-react/dist/esm/icons/rows-3.mjs';
 import { __iconData as scaleGlyph } from 'lucide-react/dist/esm/icons/scale.mjs';
 import { __iconData as scanGlyph } from 'lucide-react/dist/esm/icons/scan.mjs';
 import { __iconData as scanSearchGlyph } from 'lucide-react/dist/esm/icons/scan-search.mjs';
@@ -163,7 +170,10 @@ import { __iconData as textCursorInputGlyph } from 'lucide-react/dist/esm/icons/
 import { __iconData as timerGlyph } from 'lucide-react/dist/esm/icons/timer.mjs';
 import { __iconData as trashGlyph } from 'lucide-react/dist/esm/icons/trash.mjs';
 import { __iconData as triangleAlertGlyph } from 'lucide-react/dist/esm/icons/triangle-alert.mjs';
+import { __iconData as trianglesCenterlineDashedHorizontalGlyph } from 'lucide-react/dist/esm/icons/triangles-centerline-dashed-horizontal.mjs';
+import { __iconData as trianglesCenterlineDashedVerticalGlyph } from 'lucide-react/dist/esm/icons/triangles-centerline-dashed-vertical.mjs';
 import { __iconData as undo2Glyph } from 'lucide-react/dist/esm/icons/undo-2.mjs';
+import { __iconData as unfoldHorizontalGlyph } from 'lucide-react/dist/esm/icons/unfold-horizontal.mjs';
 import { __iconData as uploadGlyph } from 'lucide-react/dist/esm/icons/upload.mjs';
 import { __iconData as volume1Glyph } from 'lucide-react/dist/esm/icons/volume-1.mjs';
 import { __iconData as volume2Glyph } from 'lucide-react/dist/esm/icons/volume-2.mjs';
@@ -174,7 +184,25 @@ import { __iconData as zapGlyph } from 'lucide-react/dist/esm/icons/zap.mjs';
 import { __iconData as zoomInGlyph } from 'lucide-react/dist/esm/icons/zoom-in.mjs';
 import { __iconData as zoomOutGlyph } from 'lucide-react/dist/esm/icons/zoom-out.mjs';
 
-import { FADE_IN, FADE_OUT } from './custom-glyphs.js';
+import { CHANNELS, PANEL_FAILURE, SAMPLE_RATE } from './custom-glyphs.js';
+import { DOCK_BOTTOM, DOCK_CENTRE, DOCK_LEFT, DOCK_RIGHT, DOCK_TOP } from './dock-glyphs.js';
+import {
+  EQUAL_POWER_FADE,
+  FADE_IN,
+  FADE_OUT,
+  LINEAR_FADE,
+  S_CURVE_FADE,
+  SQUARE_FADE,
+} from './fade-glyphs.js';
+import {
+  BAND_PASS_BAND,
+  BELL_BAND,
+  HIGH_CUT_BAND,
+  HIGH_SHELF_BAND,
+  LOW_CUT_BAND,
+  LOW_SHELF_BAND,
+  NOTCH_BAND,
+} from './filter-band-glyphs.js';
 import { filled, stroked, type PlacedGlyph } from './placed-glyph.js';
 
 const VOCABULARY = {
@@ -204,6 +232,15 @@ const VOCABULARY = {
   'open-view': stroked(appWindowGlyph),
   menus: stroked(menuGlyph),
   'too-narrow': stroked(moveHorizontalGlyph),
+  'move-left': stroked(moveLeftGlyph),
+  'move-right': stroked(moveRightGlyph),
+
+  // The dock's drop targets, each drawn as the group it would make
+  'dock-left': stroked(DOCK_LEFT),
+  'dock-right': stroked(DOCK_RIGHT),
+  'dock-top': stroked(DOCK_TOP),
+  'dock-bottom': stroked(DOCK_BOTTOM),
+  'dock-centre': stroked(DOCK_CENTRE),
 
   // States
   warning: stroked(triangleAlertGlyph),
@@ -227,6 +264,7 @@ const VOCABULARY = {
   recovered: stroked(lifeBuoyGlyph),
   verified: stroked(shieldCheckGlyph),
   'diagnostic-mode': stroked(radioGlyph),
+  'panel-failure': stroked(PANEL_FAILURE),
 
   // Transport and listening
   play: filled(playGlyph),
@@ -266,6 +304,13 @@ const VOCABULARY = {
   split: stroked(splitGlyph),
   'fade-in': stroked(FADE_IN),
   'fade-out': stroked(FADE_OUT),
+  'linear-fade': stroked(LINEAR_FADE),
+  'equal-power-fade': stroked(EQUAL_POWER_FADE),
+  's-curve-fade': stroked(S_CURVE_FADE),
+  'square-fade': stroked(SQUARE_FADE),
+  reverse: stroked(trianglesCenterlineDashedVerticalGlyph),
+  invert: stroked(trianglesCenterlineDashedHorizontalGlyph),
+  stretch: stroked(unfoldHorizontalGlyph),
   louder: stroked(volume2Glyph),
   quieter: stroked(volume1Glyph),
   silence: stroked(volumeXGlyph),
@@ -296,6 +341,10 @@ const VOCABULARY = {
   spectrogram: stroked(chartSplineGlyph),
   'waveform-above-spectrogram': stroked(rows2Glyph),
   'waveform-over-spectrogram': stroked(layers2Glyph),
+  'time-format': stroked(clockGlyph),
+  'frame-rate': stroked(clapperboardGlyph),
+  'sample-rate': stroked(SAMPLE_RATE),
+  channels: stroked(CHANNELS),
 
   // Spectral editing
   spectral: stroked(chartAreaGlyph),
@@ -340,6 +389,7 @@ const VOCABULARY = {
   accessibility: stroked(accessibilityGlyph),
   'pen-and-touch': stroked(penToolGlyph),
   shortcuts: stroked(keyboardGlyph),
+  density: stroked(rows3Glyph),
 
   // Analysis and processing
   analyse: stroked(scanSearchGlyph),
@@ -366,6 +416,13 @@ const VOCABULARY = {
   'loudness-normalisation': stroked(chevronsUpGlyph),
   equaliser: stroked(audioLinesGlyph),
   filter: stroked(funnelGlyph),
+  bell: stroked(BELL_BAND),
+  'low-shelf': stroked(LOW_SHELF_BAND),
+  'high-shelf': stroked(HIGH_SHELF_BAND),
+  'low-cut': stroked(LOW_CUT_BAND),
+  'high-cut': stroked(HIGH_CUT_BAND),
+  notch: stroked(NOTCH_BAND),
+  'band-pass': stroked(BAND_PASS_BAND),
   compressor: stroked(gaugeGlyph),
   limiter: stroked(shieldGlyph),
   gate: stroked(doorClosedGlyph),
@@ -400,6 +457,10 @@ const VOCABULARY = {
   'new-group': stroked(folderPlusGlyph),
   'open-project': stroked(folderOpenGlyph),
   'open-file': stroked(folderOpenGlyph),
+  'open-folder': stroked(folderOpenGlyph),
+  'keep-in-project': stroked(folderDownGlyph),
+  audio: stroked(audioLinesGlyph),
+  request: stroked(handGlyph),
   'audio-file': stroked(fileHeadphoneGlyph),
   'import-audio': stroked(filePlusCornerGlyph),
   'import-folder': stroked(folderInputGlyph),

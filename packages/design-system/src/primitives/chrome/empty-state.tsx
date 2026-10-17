@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 
 import { Icon, IconSize } from '../../icons/icon.js';
 import type { IconName } from '../../icons/vocabulary.js';
+import { Heading, type HeadingLevel } from '../heading.js';
 
 /** Which state a panel is in. */
 export const PanelStateTone = {
@@ -38,6 +39,13 @@ export interface EmptyStateProps {
   /** What is so, in a few words: "No audio yet". */
   readonly title: string;
 
+  /**
+   * The title's heading level in the surface's outline, so a reader moving by
+   * heading finds the state. Left out, the title is a plain line, for a state
+   * inside something that already has a heading of its own.
+   */
+  readonly headingLevel?: HeadingLevel;
+
   /** One line more: what to do, or why it failed. */
   readonly text?: string;
 
@@ -50,6 +58,7 @@ export function EmptyState({
   tone = PanelStateTone.Empty,
   icon,
   title,
+  headingLevel,
   text,
   actions,
 }: EmptyStateProps): ReactNode {
@@ -58,7 +67,13 @@ export function EmptyState({
       <span className="ag-empty-state-mark">
         <Icon name={icon} size={IconSize.Mark} />
       </span>
-      <p className="ag-empty-state-title">{title}</p>
+      {headingLevel === undefined ? (
+        <p className="ag-empty-state-title">{title}</p>
+      ) : (
+        <Heading level={headingLevel} className="ag-empty-state-title">
+          {title}
+        </Heading>
+      )}
       {text !== undefined && <p className="ag-empty-state-text">{text}</p>}
       {actions !== undefined && <div className="ag-empty-state-actions">{actions}</div>}
     </div>

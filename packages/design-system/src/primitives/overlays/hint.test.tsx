@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import { renderThemed } from '../../testing/render-themed.js';
 import { Button } from '../button.js';
-import { Hint } from './hint.js';
+import { Hint, HintTone } from './hint.js';
 import { Tooltip } from './tooltips.js';
 
 describe('Hint', () => {
@@ -25,6 +25,27 @@ describe('Hint', () => {
 
     await userEvent.keyboard('{Escape}');
     expect(button).toHaveFocus();
+  });
+
+  it.each([
+    [HintTone.Warning, 'warning'],
+    [HintTone.Error, 'error'],
+  ] as const)('marks a %s behind it, on the (i) and on what it opens', async (tone, drawn) => {
+    // Every hint drew the same (i), so a caution about a loop that clicks
+    // looked like a note about how loops are found until it was opened.
+    renderThemed(
+      <Hint label="About the seam" title="The seam clicks" tone={tone}>
+        <p>The waveform jumps where the loop starts again.</p>
+      </Hint>,
+    );
+    const button = screen.getByRole('button', { name: 'About the seam' });
+    expect(button).toHaveAttribute('data-ag-tone', drawn);
+
+    await userEvent.click(button);
+
+    const popover = await screen.findByRole('dialog', { name: 'About the seam' });
+    expect(popover).toHaveAttribute('data-ag-tone', drawn);
+    expect(popover.querySelector('.ag-popover-title .ag-icon')).not.toBeNull();
   });
 });
 

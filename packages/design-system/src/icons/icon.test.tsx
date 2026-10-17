@@ -45,6 +45,16 @@ describe('Icon', () => {
     expect(drawn('close')).toHaveAttribute('stroke', 'currentColor');
   });
 
+  it("fills a drop target's taken part alone, leaving the group's outline a stroke", () => {
+    const svg = drawn('dock-left');
+    const [outline, part] = [...svg.querySelectorAll('g > rect')];
+
+    expect(svg).toHaveAttribute('fill', 'none');
+    expect(outline).not.toHaveAttribute('fill');
+    expect(part).toHaveAttribute('fill', 'currentColor');
+    expect(part).toHaveAttribute('stroke', 'none');
+  });
+
   it('draws with round caps and joins, and leaves the stroke width to the stylesheet', () => {
     const svg = drawn('close');
 

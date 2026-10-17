@@ -12,6 +12,7 @@ import { ProgressBar } from './progress-bar.js';
 import { Skeleton } from './skeleton.js';
 import { Spinner } from './spinner.js';
 import { StatusChip } from './status-chip.js';
+import { LedTone, StatusLed } from './status-led.js';
 
 describe('ProgressBar', () => {
   it('says how far it has come, in words where it is given them', () => {
@@ -51,6 +52,32 @@ describe('ProgressBar', () => {
     const bar = screen.getByRole('progressbar', { name: 'Making the waveform' });
     expect(bar).not.toHaveAttribute('aria-valuenow');
     expect(bar).toHaveAttribute('data-state', 'indeterminate');
+  });
+
+  it('says what is happening while it does not know how far it has come', () => {
+    // Indeterminate, the bar said nothing but its name, and at the Minimal
+    // motion level, where the segment stands still, nothing showed it was
+    // under way at all.
+    render(<ProgressBar label="Waveform" value={null} indeterminateText="Reading the file" />);
+
+    const bar = screen.getByRole('progressbar', { name: 'Waveform' });
+    expect(bar).toHaveAttribute('aria-valuetext', 'Reading the file');
+    expect(screen.getByText('Reading the file')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('says its value in place of those words once it knows one', () => {
+    const { rerender } = render(
+      <ProgressBar label="Waveform" value={null} indeterminateText="Reading the file" />,
+    );
+    const bar = screen.getByRole('progressbar', { name: 'Waveform' });
+
+    rerender(<ProgressBar label="Waveform" value={0.5} indeterminateText="Reading the file" />);
+
+    // The same element, so its fill grows from where it was.
+    expect(screen.getByRole('progressbar', { name: 'Waveform' })).toBe(bar);
+    expect(bar).toHaveAttribute('aria-valuenow', '50');
+    expect(bar).not.toHaveAttribute('aria-valuetext', 'Reading the file');
+    expect(screen.queryByText('Reading the file')).toBeNull();
   });
 });
 
@@ -96,6 +123,18 @@ describe('EmptyState', () => {
     expect(screen.getByRole('button', { name: 'Import audio…' })).toBeInTheDocument();
   });
 
+  it('heads the state at the level its caller gives, so a reader moving by heading finds it', () => {
+    render(<EmptyState icon="waveform" title="No audio yet" headingLevel={3} />);
+
+    expect(screen.getByRole('heading', { level: 3, name: 'No audio yet' })).toBeInTheDocument();
+  });
+
+  it('claims no heading where its caller gives none', () => {
+    render(<EmptyState icon="waveform" title="No audio yet" />);
+
+    expect(screen.queryByRole('heading')).toBeNull();
+  });
+
   it('draws an error in the error colour, as the empty state is drawn in the accent', () => {
     render(<EmptyState tone="error" icon="waveform" title="The waveform could not be made" />);
 
@@ -130,5 +169,28 @@ describe('StatusChip', () => {
     );
     expect(document.querySelector('.ag-status-chip-lamp')).toBeNull();
     expect(document.querySelector('.ag-status-chip svg[data-icon="warning"]')).not.toBeNull();
+  });
+});
+
+describe('StatusLed', () => {
+  it('names its state where nothing beside it does', () => {
+    render(<StatusLed tone={LedTone.Error} label="Unavailable" />);
+
+    expect(screen.getByRole('img', { name: 'Unavailable' })).toHaveAttribute(
+      'data-ag-tone',
+      'error',
+    );
+  });
+
+  it('stays out of a screen reader’s way beside words that say its state', () => {
+    // Beside "Reduced", a lamp named "Reduced" said the state twice.
+    const { container } = render(
+      <p>
+        <StatusLed tone={LedTone.Warning} /> Reduced
+      </p>,
+    );
+
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(container.querySelector('.ag-status-led')).toHaveAttribute('aria-hidden', 'true');
   });
 });

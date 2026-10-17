@@ -136,14 +136,37 @@ export function oklchToCss(colour: Oklch): string {
     : `oklch(${lightness}% ${chroma} ${hue} / ${alpha.toFixed(3)})`;
 }
 
-/** Writes a colour as `#rrggbb`, for a context that cannot take `oklch()`. */
+/** One channel, 0 to 1, as two hexadecimal digits. */
+function hexChannel(value: number): string {
+  return Math.round(value * 255)
+    .toString(16)
+    .padStart(2, '0');
+}
+
+/**
+ * Writes a colour as `#rrggbb`, for a context that cannot take `oklch()`.
+ * Opaque: its alpha is left out, for a place that takes no translucency, such
+ * as the page's theme colour.
+ */
 export function oklchToHex(colour: Oklch): string {
   const { red, green, blue } = oklchToSrgb(colour);
-  const channel = (value: number): string =>
-    Math.round(value * 255)
-      .toString(16)
-      .padStart(2, '0');
-  return `#${channel(red)}${channel(green)}${channel(blue)}`;
+  return `#${hexChannel(red)}${hexChannel(green)}${hexChannel(blue)}`;
+}
+
+/**
+ * Writes a colour as a canvas takes it, its alpha kept: `#rrggbbaa` where it
+ * is translucent, `#rrggbb` where it is opaque.
+ *
+ * A canvas draws in sRGB, so the colour is the theme's own sRGB form of it,
+ * the same channels the page is drawn with, rather than the browser's gamut
+ * mapping of an `oklch()` value; and a fill in the language is a token at a
+ * translucency (`withAlpha`), which a canvas given `oklchToHex` would lose, or
+ * have to append itself in digits of its own.
+ */
+export function oklchToCanvasColour(colour: Oklch): string {
+  const { red, green, blue, alpha } = oklchToSrgb(colour);
+  const opaque = `#${hexChannel(red)}${hexChannel(green)}${hexChannel(blue)}`;
+  return alpha >= 1 ? opaque : `${opaque}${hexChannel(alpha)}`;
 }
 
 /**

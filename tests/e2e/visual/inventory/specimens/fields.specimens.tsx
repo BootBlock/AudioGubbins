@@ -15,7 +15,9 @@ import { useState, type ReactNode } from 'react';
 import {
   Button,
   ButtonTone,
+  DialogueVariant,
   Hint,
+  HintTone,
   Icon,
   IconSize,
   type IconName,
@@ -26,6 +28,7 @@ import {
   PopoverTone,
   RichTooltipBody,
   RichTooltipTone,
+  SegmentedControl,
   ShortcutKeys,
   TemplateText,
   type TemplateVocabulary,
@@ -128,12 +131,26 @@ function Field(props: {
 }
 
 /** A select that holds its choice. */
-function Select(props: { readonly disabled?: boolean; readonly icons?: boolean }): ReactNode {
+function Select(props: {
+  readonly disabled?: boolean;
+  readonly icons?: boolean;
+  readonly labelHidden?: boolean;
+  readonly hinted?: boolean;
+}): ReactNode {
   const [value, setValue] = useState('above');
   const icon = (name: IconName) => (props.icons === true ? { icon: name } : {});
   return (
     <OptionSelect
       label="Show"
+      labelHidden={props.labelHidden ?? false}
+      {...(props.hinted === true
+        ? {
+            description: {
+              hintLabel: 'About the display',
+              text: 'What the editor draws for the asset it shows.',
+            },
+          }
+        : {})}
       value={value}
       onValueChange={setValue}
       disabled={props.disabled ?? false}
@@ -275,6 +292,98 @@ const IN_PLACE = {
   translate: 'none',
 } as const;
 
+/** Does nothing: a specimen's controls are drawn, not used. */
+const noop = (): void => undefined;
+
+/** What a dialogue drawn in place shows: the markup `ModalDialog` renders. */
+interface DialogueInPlaceProps {
+  readonly variant: DialogueVariant;
+  readonly title: string;
+  readonly icon: IconName;
+  readonly hint?: ReactNode;
+  readonly headerControls?: ReactNode;
+  readonly status?: ReactNode;
+  readonly actions?: ReactNode;
+  readonly children: ReactNode;
+}
+
+/** A dialogue of a drawn head, open in place. */
+function DialogueInPlace({
+  variant,
+  title,
+  icon,
+  hint,
+  headerControls,
+  status,
+  actions,
+  children,
+}: DialogueInPlaceProps) {
+  return (
+    <div
+      className="ag-dialog"
+      role="dialog"
+      aria-label={title}
+      data-ag-variant={variant}
+      style={IN_PLACE}
+    >
+      <header className="ag-dialog-header">
+        <div className="ag-dialog-heading">
+          <Icon name={icon} />
+          <h2 className="ag-dialog-title">{title}</h2>
+          {hint}
+        </div>
+        {headerControls !== undefined && (
+          <div className="ag-dialog-header-controls">{headerControls}</div>
+        )}
+        <Button tone={ButtonTone.Quiet} iconOnly label="Close">
+          <Icon name="close" />
+        </Button>
+      </header>
+      <div className="ag-dialog-scroll">{children}</div>
+      <div className="ag-dialog-footer">
+        {status !== undefined && <div className="ag-dialog-status">{status}</div>}
+        {actions !== undefined && <div className="ag-dialog-actions">{actions}</div>}
+      </div>
+    </div>
+  );
+}
+
+const PROJECT_SECTIONS = [
+  { value: 'open', label: 'Open' },
+  { value: 'new', label: 'New' },
+  { value: 'this', label: 'This project' },
+  { value: 'import', label: 'Import' },
+] as const;
+
+/** Projects: the wide dialogue, its sections chosen in its header beside an (i). */
+function ProjectsInPlace() {
+  const [section, setSection] = useState<string>('open');
+  return (
+    <DialogueInPlace
+      variant={DialogueVariant.Wide}
+      title="Projects"
+      icon="open-project"
+      hint={
+        <Hint label="About projects">
+          <p>Make, open and bring in projects, and look after the one open.</p>
+        </Hint>
+      }
+      headerControls={
+        <SegmentedControl
+          label="Section"
+          small
+          value={section}
+          options={PROJECT_SECTIONS}
+          onValueChange={setSection}
+        />
+      }
+      actions={<Button tone={ButtonTone.Primary}>Open</Button>}
+    >
+      <p className="ag-dialog-description">Choose a project to open.</p>
+    </DialogueInPlace>
+  );
+}
+
 const specimens: readonly Specimen[] = [
   // The text field.
   {
@@ -313,6 +422,26 @@ const specimens: readonly Specimen[] = [
     render: () => (
       <Field label="Folder" initial="audio" description="Where the files go, inside the export." />
     ),
+  },
+  {
+    component: 'TextField',
+    state: 'description behind a hint',
+    render: () => (
+      <TextField
+        label="Folder"
+        description={{
+          hintLabel: 'About the folder',
+          text: 'Where the files go, inside the export.',
+        }}
+        value="audio"
+        onValueChange={noop}
+      />
+    ),
+  },
+  {
+    component: 'TextField',
+    state: 'label hidden',
+    render: () => <TextField label="Search commands" labelHidden value="" onValueChange={noop} />,
   },
   {
     component: 'TextField',
@@ -428,6 +557,12 @@ const specimens: readonly Specimen[] = [
   { component: 'OptionSelect', state: 'pressed', render: () => <Select icons /> },
   { component: 'OptionSelect', state: 'disabled', render: () => <Select disabled /> },
   { component: 'OptionSelect', state: 'icons', render: () => <Select icons /> },
+  { component: 'OptionSelect', state: 'label hidden', render: () => <Select labelHidden /> },
+  {
+    component: 'OptionSelect',
+    state: 'description behind a hint',
+    render: () => <Select hinted />,
+  },
   {
     component: 'OptionSelect',
     state: 'open-list',
@@ -628,6 +763,31 @@ const specimens: readonly Specimen[] = [
       </div>
     ),
   },
+  ...[HintTone.Warning, HintTone.Error].flatMap((tone): Specimen[] =>
+    (['default', 'hover', 'pressed'] as const).map((state) => ({
+      component: `Hint (${tone})`,
+      state,
+      render: () => (
+        <Hint label="About the seam" title="The seam clicks" tone={tone}>
+          <p>The waveform jumps where the loop starts again.</p>
+        </Hint>
+      ),
+    })),
+  ),
+  ...[PopoverTone.Warning, PopoverTone.Error].map((tone): Specimen => ({
+    component: 'InfoPopover',
+    state: tone,
+    render: () => (
+      <div className="ag-popover" role="dialog" aria-label="The seam" data-ag-tone={tone}>
+        <PopoverBody
+          title={tone === PopoverTone.Error ? 'The loop could not be checked' : 'The seam clicks'}
+          icon={tone === PopoverTone.Error ? 'error' : 'warning'}
+        >
+          <p>The waveform jumps where the loop starts again.</p>
+        </PopoverBody>
+      </div>
+    ),
+  })),
   ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
     component: 'Hint',
     state,
@@ -638,36 +798,76 @@ const specimens: readonly Specimen[] = [
     ),
   })),
 
-  // The modal dialogue.
+  // The modal dialogue, one specimen per kind, each at its own width.
   {
     component: 'ModalDialog',
     state: 'open',
     render: () => (
-      <div className="ag-dialog" role="dialog" aria-label="File already exists" style={IN_PLACE}>
-        <header className="ag-dialog-header">
-          <Icon name="warning" />
-          <h2 className="ag-dialog-title">File already exists</h2>
-          <Button tone={ButtonTone.Quiet} iconOnly label="Close">
-            <Icon name="close" />
-          </Button>
-        </header>
+      <DialogueInPlace
+        variant={DialogueVariant.Standard}
+        title="File already exists"
+        icon="warning"
+        status={
+          <>
+            <Icon name="information" size={IconSize.Inline} />
+            Nothing has been written yet.
+          </>
+        }
+        actions={
+          <>
+            <Button>Cancel</Button>
+            <Button tone={ButtonTone.Primary}>Keep both</Button>
+            <Button tone={ButtonTone.Destructive}>Replace</Button>
+          </>
+        }
+      >
+        <p className="ag-dialog-description">
+          There’s already a file called “door_slam_03.wav” in the audio folder.
+        </p>
+        <div className="ag-dialog-body">
+          <p>You can keep both, or replace the one that’s there.</p>
+        </div>
+      </DialogueInPlace>
+    ),
+  },
+  {
+    component: 'ModalDialog',
+    state: 'sections and hint',
+    render: () => <ProjectsInPlace />,
+  },
+  {
+    component: 'ModalDialog',
+    state: 'narrow',
+    render: () => (
+      <DialogueInPlace
+        variant={DialogueVariant.Narrow}
+        title="Exporting"
+        icon="export"
+        actions={<Button>Cancel</Button>}
+      >
+        <p className="ag-dialog-description">Writing “door_slam_03.wav” to the audio folder.</p>
+      </DialogueInPlace>
+    ),
+  },
+  {
+    component: 'ModalDialog',
+    state: 'palette',
+    render: () => (
+      <div
+        className="ag-dialog"
+        role="dialog"
+        aria-label="Run a command"
+        data-ag-variant={DialogueVariant.Palette}
+        style={IN_PLACE}
+      >
         <div className="ag-dialog-scroll">
-          <p className="ag-dialog-description">
-            There’s already a file called “door_slam_03.wav” in the audio folder.
-          </p>
           <div className="ag-dialog-body">
-            <p>You can keep both, or replace the one that’s there.</p>
+            <TextField label="Search commands" labelHidden value="fade" onValueChange={noop} />
           </div>
         </div>
         <div className="ag-dialog-footer">
           <div className="ag-dialog-status">
-            <Icon name="information" size={IconSize.Inline} />
-            Nothing has been written yet.
-          </div>
-          <div className="ag-dialog-actions">
-            <Button>Cancel</Button>
-            <Button tone={ButtonTone.Primary}>Keep both</Button>
-            <Button tone={ButtonTone.Destructive}>Replace</Button>
+            <ShortcutKeys shortcut="Enter" /> run
           </div>
         </div>
       </div>

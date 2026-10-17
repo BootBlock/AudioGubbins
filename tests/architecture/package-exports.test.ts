@@ -370,6 +370,20 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
       ['InfoPopover', 'InfoPopoverProps'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
+    "The colour a canvas takes, its alpha kept, and the translucency a token is stated at, which the processors' curves, the meters and the editor's canvases take up in place of a hexadecimal value with an alpha appended by hand.":
+      ['oklchToCanvasColour', 'withAlpha'],
+    "The kinds of dialogue, each drawn at its own width, which the dialogues take up as the panels' redesign reaches them: until then each draws at the standard width.":
+      ['DialogueVariant'],
+    "The transport's buttons, the status lamp and the threshold meter the design language adds to its control set, which the inventory renders and the Transport and game-audio panels take up next.":
+      [
+        'LedTone',
+        'StatusLed',
+        'StatusLedProps',
+        'ThresholdMeter',
+        'ThresholdMeterProps',
+        'TransportButton',
+        'TransportButtonProps',
+      ],
     "The overlays and fields of the design language's control set that no panel takes yet (a hint, an ordinary and a rich tooltip, a shortcut's key caps, a template written out, and the bodies the component inventory draws open in place), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
         'PopoverBody',

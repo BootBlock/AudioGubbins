@@ -17,6 +17,7 @@ import {
   EmptyState,
   Icon,
   KeyCap,
+  LedTone,
   List,
   ListRow,
   Notice,
@@ -29,6 +30,8 @@ import {
   SourceChip,
   Spinner,
   StatusChip,
+  StatusLed,
+  TabOrientation,
   TabSet,
   Table,
   Verdict,
@@ -212,6 +215,19 @@ const specimens: readonly Specimen[] = [
   { component: 'TabSet', state: 'hover', render: () => tabs(TABS_WITH_GLYPHS) },
   { component: 'TabSet', state: 'focus-visible', render: () => tabs(TABS_WITH_GLYPHS) },
   { component: 'TabSet', state: 'pressed', render: () => tabs(TABS_WITH_GLYPHS) },
+  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
+    component: 'TabSet (vertical)',
+    state,
+    render: () => (
+      <TabSet
+        label="Settings pages"
+        tabs={TABS_WITH_GLYPHS}
+        value="appearance"
+        onValueChange={ignore}
+        orientation={TabOrientation.Vertical}
+      />
+    ),
+  })),
 
   // The panel header and the panel.
   {
@@ -241,6 +257,26 @@ const specimens: readonly Specimen[] = [
         subLabel="Take 4 of “Harbour ambience”, heard on USB microphone"
         actions={action('more', 'More')}
       />
+    ),
+  },
+  {
+    component: 'PanelHeader',
+    state: 'actions that wrap',
+    // More actions than a narrow panel has room for wrap onto a second row.
+    render: () => (
+      <div style={{ inlineSize: 'calc(120 * var(--ag-grid-unit))' }}>
+        <PanelHeader
+          title="Assets"
+          icon="assets"
+          actions={
+            <>
+              {action('import-audio', 'Import audio')}
+              {action('import-folder', 'Import a folder')}
+              {action('more', 'More')}
+            </>
+          }
+        />
+      </div>
     ),
   },
   {
@@ -354,6 +390,15 @@ const specimens: readonly Specimen[] = [
         }
       >
         <PropertyGrid rows={ASSET_ROWS.slice(0, 1)} />
+      </Section>
+    ),
+  },
+  {
+    component: 'Section',
+    state: 'heading',
+    render: () => (
+      <Section title="Level" icon="gain" headingLevel={3}>
+        <PropertyGrid rows={ASSET_ROWS.slice(0, 2)} />
       </Section>
     ),
   },
@@ -484,6 +529,36 @@ const specimens: readonly Specimen[] = [
       </List>
     ),
   },
+  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
+    component: 'ListRow (pressable)',
+    state,
+    render: () => (
+      <List label="Projects">
+        <ListRow
+          name="Harbour ambience"
+          detail="Opened today"
+          leading={<Icon name="project" />}
+          onPress={ignore}
+          actions={action('more', 'More')}
+        />
+      </List>
+    ),
+  })),
+  {
+    component: 'ListRow (pressable)',
+    state: 'chosen',
+    render: () => (
+      <List label="Projects">
+        <ListRow
+          name="Harbour ambience"
+          detail="Opened today"
+          leading={<Icon name="project" />}
+          chosen
+          onPress={ignore}
+        />
+      </List>
+    ),
+  },
   {
     component: 'List',
     state: 'default',
@@ -502,6 +577,19 @@ const specimens: readonly Specimen[] = [
     component: 'Table',
     state: 'default',
     render: () => <Table label="Members" columns={MEMBER_COLUMNS} rows={MEMBER_ROWS} />,
+  },
+  {
+    component: 'Table',
+    state: 'row headers',
+    render: () => (
+      <Table
+        label="Members"
+        columns={MEMBER_COLUMNS.map((column) =>
+          column.id === 'name' ? { ...column, rowHeader: true } : column,
+        )}
+        rows={MEMBER_ROWS}
+      />
+    ),
   },
   {
     component: 'Verdict',
@@ -527,6 +615,11 @@ const specimens: readonly Specimen[] = [
     component: 'Verdict',
     state: 'none',
     render: () => <Verdict kind="none">Not measured</Verdict>,
+  },
+  {
+    component: 'Verdict',
+    state: 'stale',
+    render: () => <Verdict kind="stale">Measured before the last edit</Verdict>,
   },
 
   // Badges, status chips and key caps.
@@ -594,6 +687,23 @@ const specimens: readonly Specimen[] = [
     state: 'recording',
     render: () => <StatusChip tone="recording">USB microphone: recording</StatusChip>,
   },
+  ...Object.values(LedTone).map((tone): Specimen => ({
+    component: 'StatusLed',
+    state: tone,
+    render: () => <StatusLed tone={tone} label={tone} />,
+  })),
+  {
+    // A capability row: the LED leads, the words say its state.
+    component: 'StatusLed',
+    state: 'beside its words',
+    render: () => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--ag-space-small)' }}>
+        <StatusLed tone={LedTone.Warning} />
+        Accelerated waveform and spectrogram drawing
+        <Badge tone="warning">Reduced</Badge>
+      </span>
+    ),
+  },
   { component: 'KeyCap', state: 'default', render: () => <KeyCap>Ctrl</KeyCap> },
   {
     component: 'KeyCap',
@@ -613,6 +723,19 @@ const specimens: readonly Specimen[] = [
       <EmptyState
         icon="waveform"
         title="Choose an asset to open"
+        actions={<Button tone={ButtonTone.Primary}>Import audio…</Button>}
+      />
+    ),
+  },
+  {
+    component: 'EmptyState',
+    state: 'heading',
+    render: () => (
+      <EmptyState
+        icon="assets"
+        title="No audio yet"
+        headingLevel={3}
+        text="Import audio files to add some."
         actions={<Button tone={ButtonTone.Primary}>Import audio…</Button>}
       />
     ),
@@ -674,6 +797,19 @@ const specimens: readonly Specimen[] = [
     component: 'ProgressBar',
     state: 'indeterminate',
     render: () => <ProgressBar label="Opening the project" value={null} />,
+  },
+  {
+    component: 'ProgressBar',
+    state: 'indeterminate, with words',
+    // The words show at the Minimal motion level, where the segment stands
+    // still; the inventory captures at that level.
+    render: () => (
+      <ProgressBar
+        label="Opening the project"
+        value={null}
+        indeterminateText="Reading the project’s history"
+      />
+    ),
   },
   {
     component: 'ProgressBar',
