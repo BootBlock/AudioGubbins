@@ -523,9 +523,11 @@
   fill: var(--ag-hardware-shade);
 }
 
-:is(.ag-power-switch, .ag-record-button, .ag-radio-option):is(
-    :hover,
-    [data-ag-force-state='hover'] *
+/* A pointer rests on one choice of a radio group at a time, so a forced hover
+   lights the first choice alone, as it does a toolbar's first button. */
+:is(
+    :is(.ag-power-switch, .ag-record-button):is(:hover, [data-ag-force-state='hover'] *),
+    .ag-radio-option:is(:hover, [data-ag-force-state='hover'] .ag-radio-option:first-of-type)
   ):not(:disabled, [aria-disabled='true'], [data-disabled])
   .ag-hardware-hover {
   opacity: 0.08;
