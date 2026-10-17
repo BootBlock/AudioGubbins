@@ -1,0 +1,172 @@
+/*
+ * The application frame: the menu bar along the top, the workspace, and the
+ * status bar along the foot, over the coloured backdrop the glass of every
+ * panel takes up (design language, sections 1, 5 and 6, and the approved
+ * Editing workspace).
+ *
+ * Every value reads a design token, so the theme, the density and the contrast
+ * settings reach the frame without a component holding a number (REQ-UX-155).
+ */
+
+/*
+ * The one column is allowed to be narrower than what is in it.
+ *
+ * An `auto` track's base size is its items' min-content contribution, so an
+ * `auto` column could be no narrower than the menu bar's unbreakable row: at a
+ * 320-pixel page it would be 409 wide, and `overflow: hidden` would cut the
+ * difference off with no scroll position that brings it back. What would be cut
+ * is the only thing drawn at that width — the right of every line of the
+ * notice, and the Commands button with it, which is the chrome's one pointer
+ * route to the palette. `minmax(0, 1fr)` lets the track shrink, and what is in
+ * it wraps or is cut with an ellipsis by a rule of its own.
+ */
+.ag-app {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
+  block-size: 100dvh;
+  overflow: hidden;
+  background: var(--ag-effect-backdrop);
+}
+
+/*
+ * The menu bar: the product's mark and name, the menus, and the palette's
+ * button at the trailing end, on the backdrop itself (the Luminous direction
+ * draws no bar behind them).
+ *
+ * The display's unsafe edges: the page asks to be drawn edge to edge
+ * (`viewport-fit=cover`), so on a phone or tablet with a notch, rounded
+ * corners or a home indicator the browser draws under them, and it is the
+ * page's job to keep its controls out. Without the insets below, the menu bar
+ * would sit under the notch in landscape. Every inset is zero on a display
+ * without them.
+ */
+.ag-menu-bar {
+  grid-row: 1;
+  display: flex;
+  /* Onto a second line rather than off the page. Five unbreakable items need
+     more than a phone's width, and every one of them is a way into the
+     application. */
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--ag-space-inset-wide);
+  row-gap: var(--ag-space-tiny);
+  min-block-size: var(--ag-shell-top-bar-block-size);
+  box-sizing: border-box;
+  padding: var(--ag-space-tiny) var(--ag-space-inset-leading);
+  padding-block-start: calc(var(--ag-space-tiny) + env(safe-area-inset-top, 0px));
+  padding-inline: calc(var(--ag-space-inset-leading) + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-inset-leading) + env(safe-area-inset-right, 0px));
+}
+
+/*
+ * The bars inside the header share the header's surface, each drawing no
+ * background or edge of its own, so the header shows one surface where the
+ * design has one.
+ */
+.ag-menu-bar .ag-toolbar {
+  padding: 0;
+  background: none;
+  border-block-end: none;
+}
+
+/* The palette's button sits at the trailing end of the bar. */
+.ag-menu-bar > .ag-toolbar {
+  margin-inline-start: auto;
+}
+
+/* The document's one `h1`, drawn as the product's mark and name in the bar
+   rather than as a heading: the browser's own `h1` is twice the body size with
+   a margin of its own, which would push the menu bar open. */
+.ag-product-name {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  letter-spacing: var(--ag-text-tracking-tight);
+  white-space: nowrap;
+  /* The last thing to give, and it gives rather than pushing a control off the
+     page: a flex item's minimum is its content unless it is told otherwise. */
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The mark: the product's glyph on the call to action's fill, lit from above. */
+.ag-product-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ag-icon-size-mark);
+  block-size: var(--ag-icon-size-mark);
+  border-radius: calc(var(--ag-radius-control) - var(--ag-space-micro));
+  background: var(--ag-effect-cta-gloss), var(--ag-effect-cta-fill);
+  box-shadow: var(--ag-effect-cta-edge), var(--ag-effect-glow-cta);
+  color: var(--ag-chrome-text-on-accent);
+}
+
+/*
+ * The palette's button, drawn as the field the palette opens to: its glyph,
+ * its name and its shortcut's keys, on a well with a quiet edge, at least as
+ * wide as the name and the keys need to read as a field.
+ */
+.ag-menu-bar .ag-toolbar .ag-button {
+  justify-content: flex-start;
+  gap: var(--ag-space-small);
+  min-inline-size: min(calc(var(--ag-grid-unit) * 130), 100%);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  background-color: var(--ag-chrome-fill-well);
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-regular);
+}
+
+.ag-menu-bar .ag-toolbar .ag-button:hover {
+  background-color: var(--ag-chrome-fill-hover);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-commands-label {
+  flex: 1;
+  text-align: start;
+}
+
+/*
+ * The workspace: the dock, half a gutter in from the frame's sides and foot,
+ * so with the half each group's view pads, every group stands one gutter from
+ * the edge as it does from the next group.
+ *
+ * It is a stacking context of its own. The docking engine layers its
+ * splitters, drop targets and floating groups with stacking orders up to the
+ * thousands. Uncontained, once the groups took the sizes their layout asks
+ * for, a splitter would lie under the View menu and take the click aimed at an
+ * entry. Isolated here, every one of those layers stays inside the workspace,
+ * and a menu, a dialogue or a notice portalled into the document is always
+ * above all of them.
+ */
+.ag-workspace {
+  isolation: isolate;
+  grid-row: 3;
+  min-block-size: 0;
+  padding: 0 calc(var(--ag-space-gutter) / 2);
+  padding-inline: calc(var(--ag-space-gutter) / 2 + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-gutter) / 2 + env(safe-area-inset-right, 0px));
+}
+
+/*
+ * A panel's body in its group (design language, section 11): clear, so the
+ * group's glass shows through it, one inset in at the sides and the foot, and
+ * at the top only the focus ring's reach, since the tab strip above it already
+ * insets it.
+ *
+ * It fills its group and grows past it; the group's own content element, which
+ * the keyboard can reach, is what scrolls. A panel that scrolled itself would
+ * be a scrolling region with no way in from the keyboard.
+ */
+.ag-panel {
+  box-sizing: border-box;
+  min-block-size: 100%;
+  padding: var(--ag-focus-ring-reach) var(--ag-space-inset) var(--ag-space-inset);
+  color: var(--ag-chrome-text-primary);
+}

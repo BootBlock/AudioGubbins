@@ -6,22 +6,18 @@
  * module reads nothing and probes nothing.
  */
 
-import { StrictMode, useCallback, useState } from 'react';
+import { StrictMode, useCallback, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { CapabilityKey } from '@audiogubbins/capabilities';
 import { commandId, describePresses, type CommandId } from '@audiogubbins/commands';
 import {
-  ControlBar,
-  ControlBarButton,
   HintProvider,
-  MenuBar,
-  MenuBarMenu,
   NoticeProvider,
   NoticeSurface,
   ThemeProvider,
 } from '@audiogubbins/design-system';
-import { DockHost, titleOf } from '@audiogubbins/workspace';
+import { DockHost, DockStage, titleOf } from '@audiogubbins/workspace';
 
 import { createApplication, type Application } from './application.js';
 import type { RunCommand } from './shell/settings/section.js';
@@ -29,9 +25,12 @@ import { useShellShortcuts } from './input/use-shell-shortcuts.js';
 import { bundleSourcesFrom } from './commands/diagnostic-commands.js';
 import type { PanelCommands } from './shell/command-button.js';
 import { CommandPalette } from './shell/command-palette.js';
+import { dockMotionOf } from './shell/dock-motion.js';
+import { panelGlyph } from './shell/panel-glyphs.js';
 import { DiagnosticExportDialog } from './shell/diagnostic-export.js';
 import { ApplicationFailure, FailureBoundary, PanelFailure } from './shell/failure-boundary.js';
 import { shellMenus } from './shell/menus.js';
+import { MenuBarRow } from './shell/menu-bar-row.js';
 import { panelContextOf } from './shell/panel-context.js';
 import { renderPanel } from './shell/panels.js';
 import { ProjectBanner } from './shell/project-banner.js';
@@ -58,6 +57,14 @@ import '@audiogubbins/design-system/styles/fields.css';
 import '@audiogubbins/design-system/styles/chrome.css';
 import '@audiogubbins/workspace/styles/workspace.css';
 import './shell/shell.css';
+import './shell/frame.css';
+import './shell/status-bar.css';
+import './shell/project-banner.css';
+import './shell/too-narrow.css';
+import './shell/failure-boundary.css';
+import './shell/transport-panel.css';
+import './shell/command-palette.css';
+import './shell/settings/settings.css';
 import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */
@@ -138,47 +145,20 @@ function AudioGubbins({ application }: { readonly application: Application }) {
 
   const pendingChordText = describePresses(interaction.pendingChord, convention, keyboardLayout);
 
+  const dockMotion = useMemo(() => dockMotionOf(resolvedTheme), [resolvedTheme]);
+
   return (
     <ThemeProvider preferences={preferences} system={appearance}>
       <HintProvider>
         <NoticeProvider notice={interaction.announcement}>
           <div className="ag-app">
-            <header className="ag-menu-bar">
-              {/*
-                The document's one `h1`, and the name the menu bar shows. Every
-                panel titles itself with an `h2` and the too-narrow notice does
-                too, so without it the heading structure would begin at the
-                second level with nothing above it, and below the declared width
-                it would be a single `h2` alone. Written as a hidden heading of
-                its own it would stand between the banner and the main region,
-                belonging to neither, so a reader moving by landmark would never
-                meet it and the name would be on the page twice.
-              */}
-              <h1 className="ag-product-name">AudioGubbins</h1>
-
-              {/*
-                The menus and the actions beside them are separate bars, because
-                they are separate things to a screen reader: a menu bar holds
-                menus and nothing else. A button that runs a command is not a
-                menu, so it sits in its own toolbar rather than pretending.
-              */}
-              <MenuBar label="Main menu">
-                {menus.map((menu) => (
-                  <MenuBarMenu key={menu.label} label={menu.label} groups={menu.groups} />
-                ))}
-              </MenuBar>
-
-              <ControlBar label="Quick actions">
-                <ControlBarButton
-                  label="Commands"
-                  hint="Run a command"
-                  {...(paletteShortcut === undefined ? {} : { shortcut: paletteShortcut })}
-                  onPress={() => {
-                    run(commandId('view.command-palette'));
-                  }}
-                />
-              </ControlBar>
-            </header>
+            <MenuBarRow
+              menus={menus}
+              paletteShortcut={paletteShortcut}
+              onCommands={() => {
+                run(commandId('view.command-palette'));
+              }}
+            />
 
             <ProjectBanner
               root={context.storageRoot}
@@ -192,44 +172,58 @@ function AudioGubbins({ application }: { readonly application: Application }) {
             {/* Focusable, so the reader can be put back at the workspace when
               the window is widened past the declared minimum again. */}
             <main className="ag-workspace" tabIndex={-1}>
-              <DockHost
+              <DockStage
                 // The dock builds its arrangement when it mounts, so a change
                 // made outside it needs it to mount again. The revision moves
                 // only for those; a drag the engine itself reported leaves it
                 // alone, which is what stops a remount from undoing the drag.
-                key={`${workspace.layout.id}:${String(workspace.revision)}`}
-                layout={workspace.layout}
-                descriptors={descriptors}
-                // The resolved theme, not the preference: given the preference,
-                // in system mode on a light system the engine would get the
-                // dark class while the shell drew light. Every variable that
-                // differs is overridden by the workspace stylesheet today, so
-                // nothing would show; one engine upgrade and it would.
-                dark={resolvedTheme.dark}
-                memory={application.dockMemory}
-                onArrangementChange={rearrange}
-                renderPanel={(panel) => (
-                  // One boundary per panel, so a panel that throws costs the
-                  // user that panel and not the application around it.
-                  <FailureBoundary
-                    part={`panel:${panel.kind}`}
-                    logger={logger}
-                    notice={({ failure, retry }) => (
-                      <PanelFailure
-                        title={titleOf(panel, descriptors)}
-                        failure={failure}
-                        retry={retry}
-                      />
+                // The stage builds it again under the new key, in a view
+                // transition where the motion level has one.
+                arrangement={{
+                  key: `${workspace.layout.id}:${String(workspace.revision)}`,
+                  layout: workspace.layout,
+                }}
+                motion={dockMotion}
+              >
+                {(shown) => (
+                  <DockHost
+                    key={shown.key}
+                    layout={shown.layout}
+                    descriptors={descriptors}
+                    // The resolved theme, not the preference: given the preference,
+                    // in system mode on a light system the engine would get the
+                    // dark class while the shell drew light. Every variable that
+                    // differs is overridden by the workspace stylesheet today, so
+                    // nothing would show; one engine upgrade and it would.
+                    dark={resolvedTheme.dark}
+                    memory={application.dockMemory}
+                    motion={dockMotion}
+                    glyph={panelGlyph}
+                    onArrangementChange={rearrange}
+                    renderPanel={(panel) => (
+                      // One boundary per panel, so a panel that throws costs the
+                      // user that panel and not the application around it.
+                      <FailureBoundary
+                        part={`panel:${panel.kind}`}
+                        logger={logger}
+                        notice={({ failure, retry }) => (
+                          <PanelFailure
+                            title={titleOf(panel, descriptors)}
+                            failure={failure}
+                            retry={retry}
+                          />
+                        )}
+                      >
+                        {renderPanel(
+                          panel,
+                          titleOf(panel, descriptors),
+                          panelContextOf(application, runNamed, unavailableReason),
+                        )}
+                      </FailureBoundary>
                     )}
-                  >
-                    {renderPanel(
-                      panel,
-                      titleOf(panel, descriptors),
-                      panelContextOf(application, runNamed, unavailableReason),
-                    )}
-                  </FailureBoundary>
+                  />
                 )}
-              />
+              </DockStage>
               <TooNarrowNotice />
             </main>
 

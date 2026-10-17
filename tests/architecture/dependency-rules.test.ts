@@ -2494,7 +2494,7 @@ describe('one fact, held the same in every place it is written', () => {
     const declared = /export const SMALLEST_WORKSPACE_WIDTH = (\d+);/.exec(
       read('apps/web/src/shell/too-narrow.tsx'),
     );
-    const fires = /@media \(width < (\d+)px\)/.exec(read('apps/web/src/shell/shell.css'));
+    const fires = /@media \(width < (\d+)px\)/.exec(read('apps/web/src/shell/too-narrow.css'));
     const suite = /const DECLARED = (\d+);/.exec(read('tests/e2e/smoke.spec.ts'));
 
     expect([fires?.[1], suite?.[1]]).toEqual([declared?.[1], declared?.[1]]);
