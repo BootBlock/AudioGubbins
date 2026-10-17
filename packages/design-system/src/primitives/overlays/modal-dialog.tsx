@@ -262,9 +262,7 @@ export function ModalDialog(props: ModalDialogProps): ReactNode {
           <div className="ag-dialog-scroll">
             <Dialog.Description
               className={
-                variant === DialogueVariant.Palette
-                  ? 'ag-visually-hidden'
-                  : 'ag-dialog-description'
+                variant === DialogueVariant.Palette ? 'ag-visually-hidden' : 'ag-dialog-description'
               }
             >
               {description}

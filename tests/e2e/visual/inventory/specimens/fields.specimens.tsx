@@ -292,7 +292,8 @@ const IN_PLACE = {
   translate: 'none',
 } as const;
 
-function noop(): void {}
+/** Does nothing: a specimen's controls are drawn, not used. */
+const noop = (): void => undefined;
 
 /** What a dialogue drawn in place shows: the markup `ModalDialog` renders. */
 interface DialogueInPlaceProps {
@@ -773,22 +774,20 @@ const specimens: readonly Specimen[] = [
       ),
     })),
   ),
-  ...[PopoverTone.Warning, PopoverTone.Error].map(
-    (tone): Specimen => ({
-      component: 'InfoPopover',
-      state: tone,
-      render: () => (
-        <div className="ag-popover" role="dialog" aria-label="The seam" data-ag-tone={tone}>
-          <PopoverBody
-            title={tone === PopoverTone.Error ? 'The loop could not be checked' : 'The seam clicks'}
-            icon={tone === PopoverTone.Error ? 'error' : 'warning'}
-          >
-            <p>The waveform jumps where the loop starts again.</p>
-          </PopoverBody>
-        </div>
-      ),
-    }),
-  ),
+  ...[PopoverTone.Warning, PopoverTone.Error].map((tone): Specimen => ({
+    component: 'InfoPopover',
+    state: tone,
+    render: () => (
+      <div className="ag-popover" role="dialog" aria-label="The seam" data-ag-tone={tone}>
+        <PopoverBody
+          title={tone === PopoverTone.Error ? 'The loop could not be checked' : 'The seam clicks'}
+          icon={tone === PopoverTone.Error ? 'error' : 'warning'}
+        >
+          <p>The waveform jumps where the loop starts again.</p>
+        </PopoverBody>
+      </div>
+    ),
+  })),
   ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
     component: 'Hint',
     state,

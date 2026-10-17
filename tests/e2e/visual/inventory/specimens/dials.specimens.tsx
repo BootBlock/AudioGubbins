@@ -443,23 +443,21 @@ const specimens: readonly Specimen[] = [
       ['warns', 0.55, '1.9 dB; passes at 1 dB or less, warns to 3 dB'],
       ['fails', 0.82, '11.4 deviations; passes at 4 or less, warns to 8'],
     ] as const
-  ).map(
-    ([state, value, words]): Specimen => ({
-      component: 'ThresholdMeter',
-      state,
-      render: () => (
-        <div style={{ inlineSize: 'calc(60 * var(--ag-grid-unit))' }}>
-          <ThresholdMeter
-            label="Loop check"
-            value={value}
-            passUntil={0.3}
-            warnUntil={0.6}
-            valueText={words}
-          />
-        </div>
-      ),
-    }),
-  ),
+  ).map(([state, value, words]): Specimen => ({
+    component: 'ThresholdMeter',
+    state,
+    render: () => (
+      <div style={{ inlineSize: 'calc(60 * var(--ag-grid-unit))' }}>
+        <ThresholdMeter
+          label="Loop check"
+          value={value}
+          passUntil={0.3}
+          warnUntil={0.6}
+          valueText={words}
+        />
+      </div>
+    ),
+  })),
   {
     component: 'ThresholdMeter',
     state: 'warns, never fails',

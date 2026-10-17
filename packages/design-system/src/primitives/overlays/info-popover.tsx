@@ -10,7 +10,10 @@ import type { ReactNode } from 'react';
 import { Icon, IconSize } from '../../icons/icon.js';
 import type { IconName } from '../../icons/vocabulary.js';
 
-/** Whether a popover explains, warns, says why something failed, or gives the reason something cannot be done. */
+/**
+ * Whether a popover explains, warns, says why something failed, or gives the
+ * reason something cannot be done.
+ */
 export const PopoverTone = {
   Plain: 'plain',
 

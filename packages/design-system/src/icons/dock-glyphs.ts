@@ -9,9 +9,9 @@
  * Each is the group's outline, stroked like every glyph, and the part of the
  * group a dropped panel would take, filled. The fill is the part's own, not the
  * glyph's, because the outline around it must stay a stroke: a glyph filled as
- * play and pause are would fill the outline too. The part takes no stroke, which
- * keeps a clear gap between it and the outline at the set's stroke width; it
- * lies inside the outline, so the outline alone sets the ink the vocabulary
+ * play and pause are would fill the outline too. The part takes no stroke,
+ * which keeps a clear gap between it and the outline at the set's stroke width;
+ * it lies inside the outline, so the outline alone sets the ink the vocabulary
  * centres. The geometry is the design language's compass diagram's, and how
  * strongly the outline and the part show is left to the target's stylesheet,
  * which dims both at rest and shows both at full strength on the lit target.

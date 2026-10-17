@@ -151,7 +151,10 @@
    column's scrolling never cuts it; written heavier than the lit row's glow,
    which would otherwise take its place. */
 [data-ag-theme] .ag-tab-list .ag-nav-tab:focus-visible,
-[data-ag-theme] [data-ag-force-state='focus-visible'] .ag-tab-list .ag-nav-tab[aria-selected='true'] {
+[data-ag-theme]
+  [data-ag-force-state='focus-visible']
+  .ag-tab-list
+  .ag-nav-tab[aria-selected='true'] {
   outline-offset: calc(-1 * var(--ag-focus-ring-width));
   box-shadow:
     inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus),
@@ -615,9 +618,7 @@
   z-index: 1;
 }
 
-.ag-list-row[data-ag-pressable]:is(:active, [data-ag-force-state='pressed'] *):not(
-    [data-ag-lit]
-  ) {
+.ag-list-row[data-ag-pressable]:is(:active, [data-ag-force-state='pressed'] *):not([data-ag-lit]) {
   background-color: var(--ag-chrome-fill-press);
 }
 

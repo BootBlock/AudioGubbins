@@ -58,9 +58,7 @@ describe('ProgressBar', () => {
     // Indeterminate, the bar said nothing but its name, and at the Minimal
     // motion level, where the segment stands still, nothing showed it was
     // under way at all.
-    render(
-      <ProgressBar label="Waveform" value={null} indeterminateText="Reading the file" />,
-    );
+    render(<ProgressBar label="Waveform" value={null} indeterminateText="Reading the file" />);
 
     const bar = screen.getByRole('progressbar', { name: 'Waveform' });
     expect(bar).toHaveAttribute('aria-valuetext', 'Reading the file');

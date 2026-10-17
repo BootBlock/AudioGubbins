@@ -9,7 +9,10 @@
 
 import type { ReactNode } from 'react';
 
-/** The levels below a surface's own title, which is the one `h1` of the page or an `h2` of a panel. */
+/**
+ * The levels below a surface's own title, which is the one `h1` of the page or
+ * an `h2` of a panel.
+ */
 export type HeadingLevel = 2 | 3 | 4 | 5 | 6;
 
 /** The element of each level. */

@@ -189,20 +189,26 @@
 .ag-button[data-ag-transport='main'][data-ag-running] {
   --ag-transport-size: calc(var(--ag-control-height) + 10 * var(--ag-grid-unit));
   --ag-transport-glow:
-    0 0 0 calc(2 * var(--ag-grid-unit)) color-mix(in oklch, var(--ag-chrome-accent) 18%, transparent),
+    0 0 0 calc(2 * var(--ag-grid-unit))
+      color-mix(in oklch, var(--ag-chrome-accent) 18%, transparent),
     0 0 calc(14 * var(--ag-grid-unit)) calc(-1 * var(--ag-grid-unit)) var(--ag-chrome-accent);
 }
 
 /* The keyboard's ring of `tokens.css` and the main button's glow together:
    the glow is a box shadow too, and written after the ring at the same weight
    it would take the ring's place. */
-[data-ag-theme] .ag-button[data-ag-transport='main']:focus-visible:not(
+[data-ag-theme]
+  .ag-button[data-ag-transport='main']:focus-visible:not(
     :disabled,
     [aria-disabled='true'],
     [data-ag-unavailable]
   ),
 [data-ag-force-state='focus-visible']
-  > .ag-button[data-ag-transport='main']:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  > .ag-button[data-ag-transport='main']:not(
+    :disabled,
+    [aria-disabled='true'],
+    [data-ag-unavailable]
+  ) {
   box-shadow:
     0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
     0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
@@ -643,9 +649,9 @@
 :is(
     :is(.ag-power-switch, .ag-record-button):is(:hover, [data-ag-force-state='hover'] *),
     .ag-radio-option:is(
-        :hover,
-        [data-ag-force-state='hover'] .ag-radio-choice:first-of-type .ag-radio-option
-      )
+      :hover,
+      [data-ag-force-state='hover'] .ag-radio-choice:first-of-type .ag-radio-option
+    )
   ):not(:disabled, [aria-disabled='true'], [data-disabled])
   .ag-hardware-hover {
   opacity: 0.08;

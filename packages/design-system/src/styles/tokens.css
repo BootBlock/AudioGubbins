@@ -276,8 +276,8 @@ html {
  * control's own box, over its neighbour two pixels away in a toolbar, and a
  * mouse aims at the pixel it is on: with the area in force for a mouse, a click
  * on one button pressed the button beside it. `pointer` rather than
- * `any-pointer`, because a laptop with a touch screen still aims its mouse at
- * a pixel; a finger there meets the control at its drawn size, which is never
+ * `any-pointer`, because a laptop with a touch screen still aims its mouse at a
+ * pixel; a finger there meets the control at its drawn size, which is never
  * under 24 pixels (WCAG 2.5.8).
  */
 .ag-touch-target {

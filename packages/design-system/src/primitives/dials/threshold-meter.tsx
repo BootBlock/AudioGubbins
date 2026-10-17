@@ -3,12 +3,12 @@
  * the reading a bright tick across it (design language, section 10, "A check
  * against thresholds"), as Loop draws each check beside its verdict.
  *
- * Its caller places the reading and the two thresholds along the bar, from 0
- * at its start to 1 at its end, on whatever scale the check is read in, so a
+ * Its caller places the reading and the two thresholds along the bar, from 0 at
+ * its start to 1 at its end, on whatever scale the check is read in, so a
  * reading in decibels and one in deviations draw alike. A lower reading is the
- * better one, as every check that has thresholds reads. The bar is a meter to
- * a screen reader, its value said in the caller's words with the thresholds
- * it is held to, since the zones are colour alone.
+ * better one, as every check that has thresholds reads. The bar is a meter to a
+ * screen reader, its value said in the caller's words with the thresholds it is
+ * held to, since the zones are colour alone.
  */
 
 import type { CSSProperties, ReactNode } from 'react';

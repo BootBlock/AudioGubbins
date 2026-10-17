@@ -208,10 +208,7 @@ export {
   CorrelationMeter,
   type CorrelationMeterProps,
 } from './primitives/dials/correlation-meter.js';
-export {
-  ThresholdMeter,
-  type ThresholdMeterProps,
-} from './primitives/dials/threshold-meter.js';
+export { ThresholdMeter, type ThresholdMeterProps } from './primitives/dials/threshold-meter.js';
 export { type FrameClock } from './primitives/dials/frame-clock.js';
 
 // ds-fields: the overlays, the menus and the fields.

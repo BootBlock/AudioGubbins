@@ -180,7 +180,9 @@ const transportSpecimens: readonly Specimen[] = [
   {
     component: 'TransportButton (ordinary)',
     state: 'unavailable',
-    render: () => <TransportButton icon="stop" label="Stop" unavailableReason="Nothing is playing." />,
+    render: () => (
+      <TransportButton icon="stop" label="Stop" unavailableReason="Nothing is playing." />
+    ),
   },
   {
     // The approved Transport's row: stop, play while playing, and the test

@@ -30,12 +30,13 @@ export const HintTone = {
 export type HintTone = (typeof HintTone)[keyof typeof HintTone];
 
 /** Each tone's glyph, and the popover it opens. */
-const TONE: Readonly<Record<HintTone, { readonly glyph: IconName; readonly popover: PopoverTone }>> =
-  {
-    information: { glyph: 'hint', popover: PopoverTone.Plain },
-    warning: { glyph: 'warning', popover: PopoverTone.Warning },
-    error: { glyph: 'error', popover: PopoverTone.Error },
-  };
+const TONE: Readonly<
+  Record<HintTone, { readonly glyph: IconName; readonly popover: PopoverTone }>
+> = {
+  information: { glyph: 'hint', popover: PopoverTone.Plain },
+  warning: { glyph: 'warning', popover: PopoverTone.Warning },
+  error: { glyph: 'error', popover: PopoverTone.Error },
+};
 
 /** What a hint takes. */
 export interface HintProps {

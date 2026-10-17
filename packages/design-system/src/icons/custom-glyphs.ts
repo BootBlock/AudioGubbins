@@ -31,8 +31,8 @@ export const PANEL_FAILURE: LucideIconData = {
  * Sample rate: a wave taken at evenly spaced instants, one stem and head per
  * sample, as a sampling diagram draws it. The heads are small rings, which the
  * set's stroke all but closes into dots, because Lucide's `h.01` point would be
- * lost behind its stem's round cap. The samples at the wave's
- * zero crossings have no stem to draw, only their head on the axis.
+ * lost behind its stem's round cap. The samples at the wave's zero crossings
+ * have no stem to draw, only their head on the axis.
  */
 export const SAMPLE_RATE: LucideIconData = {
   name: 'sample-rate',

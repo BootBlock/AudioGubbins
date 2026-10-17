@@ -215,21 +215,19 @@ const specimens: readonly Specimen[] = [
   { component: 'TabSet', state: 'hover', render: () => tabs(TABS_WITH_GLYPHS) },
   { component: 'TabSet', state: 'focus-visible', render: () => tabs(TABS_WITH_GLYPHS) },
   { component: 'TabSet', state: 'pressed', render: () => tabs(TABS_WITH_GLYPHS) },
-  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map(
-    (state): Specimen => ({
-      component: 'TabSet (vertical)',
-      state,
-      render: () => (
-        <TabSet
-          label="Settings pages"
-          tabs={TABS_WITH_GLYPHS}
-          value="appearance"
-          onValueChange={ignore}
-          orientation={TabOrientation.Vertical}
-        />
-      ),
-    }),
-  ),
+  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
+    component: 'TabSet (vertical)',
+    state,
+    render: () => (
+      <TabSet
+        label="Settings pages"
+        tabs={TABS_WITH_GLYPHS}
+        value="appearance"
+        onValueChange={ignore}
+        orientation={TabOrientation.Vertical}
+      />
+    ),
+  })),
 
   // The panel header and the panel.
   {
@@ -531,23 +529,21 @@ const specimens: readonly Specimen[] = [
       </List>
     ),
   },
-  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map(
-    (state): Specimen => ({
-      component: 'ListRow (pressable)',
-      state,
-      render: () => (
-        <List label="Projects">
-          <ListRow
-            name="Harbour ambience"
-            detail="Opened today"
-            leading={<Icon name="project" />}
-            onPress={ignore}
-            actions={action('more', 'More')}
-          />
-        </List>
-      ),
-    }),
-  ),
+  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map((state): Specimen => ({
+    component: 'ListRow (pressable)',
+    state,
+    render: () => (
+      <List label="Projects">
+        <ListRow
+          name="Harbour ambience"
+          detail="Opened today"
+          leading={<Icon name="project" />}
+          onPress={ignore}
+          actions={action('more', 'More')}
+        />
+      </List>
+    ),
+  })),
   {
     component: 'ListRow (pressable)',
     state: 'chosen',
@@ -691,13 +687,11 @@ const specimens: readonly Specimen[] = [
     state: 'recording',
     render: () => <StatusChip tone="recording">USB microphone: recording</StatusChip>,
   },
-  ...Object.values(LedTone).map(
-    (tone): Specimen => ({
-      component: 'StatusLed',
-      state: tone,
-      render: () => <StatusLed tone={tone} label={tone} />,
-    }),
-  ),
+  ...Object.values(LedTone).map((tone): Specimen => ({
+    component: 'StatusLed',
+    state: tone,
+    render: () => <StatusLed tone={tone} label={tone} />,
+  })),
   {
     // A capability row: the LED leads, the words say its state.
     component: 'StatusLed',
