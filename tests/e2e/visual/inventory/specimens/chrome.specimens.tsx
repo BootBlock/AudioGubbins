@@ -17,6 +17,7 @@ import {
   EmptyState,
   Icon,
   KeyCap,
+  LedTone,
   List,
   ListRow,
   Notice,
@@ -29,6 +30,7 @@ import {
   SourceChip,
   Spinner,
   StatusChip,
+  StatusLed,
   TabOrientation,
   TabSet,
   Table,
@@ -683,6 +685,25 @@ const specimens: readonly Specimen[] = [
     component: 'StatusChip',
     state: 'recording',
     render: () => <StatusChip tone="recording">USB microphone: recording</StatusChip>,
+  },
+  ...Object.values(LedTone).map(
+    (tone): Specimen => ({
+      component: 'StatusLed',
+      state: tone,
+      render: () => <StatusLed tone={tone} label={tone} />,
+    }),
+  ),
+  {
+    // A capability row: the LED leads, the words say its state.
+    component: 'StatusLed',
+    state: 'beside its words',
+    render: () => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--ag-space-small)' }}>
+        <StatusLed tone={LedTone.Warning} />
+        Accelerated waveform and spectrogram drawing
+        <Badge tone="warning">Reduced</Badge>
+      </span>
+    ),
   },
   { component: 'KeyCap', state: 'default', render: () => <KeyCap>Ctrl</KeyCap> },
   {

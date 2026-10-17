@@ -849,6 +849,55 @@
   }
 }
 
+/* A status LED: a lamp of its state's colour with its glow; idle, unlit and
+   without one. Seven pixels: a lamp's drawing, not a box laid out on the page
+   (section 1). */
+.ag-status-led {
+  --ag-led-tone: var(--ag-chrome-status-success);
+
+  display: inline-block;
+  flex: none;
+  inline-size: calc(3.5 * var(--ag-grid-unit));
+  block-size: calc(3.5 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-led-tone);
+  box-shadow: 0 0 calc(4 * var(--ag-grid-unit)) var(--ag-led-tone);
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-status-led[data-ag-tone='warning'] {
+  --ag-led-tone: var(--ag-chrome-status-warning);
+}
+
+.ag-status-led[data-ag-tone='error'] {
+  --ag-led-tone: var(--ag-chrome-status-error);
+}
+
+.ag-status-led[data-ag-tone='accent'] {
+  --ag-led-tone: var(--ag-chrome-accent);
+}
+
+.ag-status-led[data-ag-tone='idle'] {
+  background-color: var(--ag-chrome-text-disabled);
+  box-shadow: none;
+}
+
+/* In forced colours a lit LED is the text colour and an idle one an outline,
+   so lit and unlit still differ where colour cannot say which. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-status-led {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+
+  [data-ag-theme] .ag-status-led[data-ag-tone='idle'] {
+    background-color: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+}
+
 /* Key caps. The padding centres one character in the cap, which the language
    exempts from the grid (section 1); a shortcut's tracking is a third of the
    capitals'. */

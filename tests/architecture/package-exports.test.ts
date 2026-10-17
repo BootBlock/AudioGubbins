@@ -418,7 +418,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'TransportButton',
         'TransportButtonProps',
       ],
-    "The dials and the meters of the design language's control set that no panel takes yet (the knob, the fader, the level and correlation meters, the typed entry a dial opens, and the clock a meter's ballistics run on), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
+    "The dials and the meters of the design language's control set that no panel takes yet (the knob, the fader, the level, correlation and threshold meters, the typed entry a dial opens, and the clock a meter's ballistics run on), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
         'CorrelationMeter',
         'CorrelationMeterProps',
@@ -435,8 +435,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'MeterMark',
         'MeterOrientation',
         'MeterScale',
+        'ThresholdMeter',
+        'ThresholdMeterProps',
       ],
-    "The chrome round a panel's content that no panel takes yet (the panel and its header, sections, property grids and source chips, lists, tables and verdicts, badges, status chips and key caps, the empty, loading and error states, notices and banners), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
+    "The chrome round a panel's content that no panel takes yet (the panel and its header, sections and the level their headings take, property grids and source chips, lists, tables and verdicts, badges, status chips and LEDs and key caps, the empty, loading and error states, notices and banners), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       [
         'Badge',
         'BadgeProps',
@@ -446,8 +448,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'BannerTone',
         'EmptyState',
         'EmptyStateProps',
+        'HeadingLevel',
         'KeyCap',
         'KeyCapProps',
+        'LedTone',
         'List',
         'ListProps',
         'ListRow',
@@ -476,6 +480,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'SpinnerProps',
         'StatusChip',
         'StatusChipProps',
+        'StatusLed',
+        'StatusLedProps',
         'StatusTone',
         'Table',
         'TableColumn',

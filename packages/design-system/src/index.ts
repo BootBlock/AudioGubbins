@@ -205,6 +205,10 @@ export {
   CorrelationMeter,
   type CorrelationMeterProps,
 } from './primitives/dials/correlation-meter.js';
+export {
+  ThresholdMeter,
+  type ThresholdMeterProps,
+} from './primitives/dials/threshold-meter.js';
 export { type FrameClock } from './primitives/dials/frame-clock.js';
 
 // ds-fields: the overlays, the menus and the fields.
@@ -290,6 +294,7 @@ export {
 export { Verdict, VerdictKind, type VerdictProps } from './primitives/chrome/verdict.js';
 export { Badge, type BadgeProps, BadgeTone } from './primitives/chrome/badge.js';
 export { StatusChip, type StatusChipProps, StatusTone } from './primitives/chrome/status-chip.js';
+export { LedTone, StatusLed, type StatusLedProps } from './primitives/chrome/status-led.js';
 export { KeyCap, type KeyCapProps } from './primitives/chrome/key-cap.js';
 export {
   EmptyState,

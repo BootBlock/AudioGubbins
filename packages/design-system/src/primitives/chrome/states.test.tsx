@@ -12,6 +12,7 @@ import { ProgressBar } from './progress-bar.js';
 import { Skeleton } from './skeleton.js';
 import { Spinner } from './spinner.js';
 import { StatusChip } from './status-chip.js';
+import { LedTone, StatusLed } from './status-led.js';
 
 describe('ProgressBar', () => {
   it('says how far it has come, in words where it is given them', () => {
@@ -170,5 +171,28 @@ describe('StatusChip', () => {
     );
     expect(document.querySelector('.ag-status-chip-lamp')).toBeNull();
     expect(document.querySelector('.ag-status-chip svg[data-icon="warning"]')).not.toBeNull();
+  });
+});
+
+describe('StatusLed', () => {
+  it('names its state where nothing beside it does', () => {
+    render(<StatusLed tone={LedTone.Error} label="Unavailable" />);
+
+    expect(screen.getByRole('img', { name: 'Unavailable' })).toHaveAttribute(
+      'data-ag-tone',
+      'error',
+    );
+  });
+
+  it('stays out of a screen reader’s way beside words that say its state', () => {
+    // Beside "Reduced", a lamp named "Reduced" said the state twice.
+    const { container } = render(
+      <p>
+        <StatusLed tone={LedTone.Warning} /> Reduced
+      </p>,
+    );
+
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(container.querySelector('.ag-status-led')).toHaveAttribute('aria-hidden', 'true');
   });
 });
