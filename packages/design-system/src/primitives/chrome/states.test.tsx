@@ -52,6 +52,34 @@ describe('ProgressBar', () => {
     expect(bar).not.toHaveAttribute('aria-valuenow');
     expect(bar).toHaveAttribute('data-state', 'indeterminate');
   });
+
+  it('says what is happening while it does not know how far it has come', () => {
+    // Indeterminate, the bar said nothing but its name, and at the Minimal
+    // motion level, where the segment stands still, nothing showed it was
+    // under way at all.
+    render(
+      <ProgressBar label="Waveform" value={null} indeterminateText="Reading the file" />,
+    );
+
+    const bar = screen.getByRole('progressbar', { name: 'Waveform' });
+    expect(bar).toHaveAttribute('aria-valuetext', 'Reading the file');
+    expect(screen.getByText('Reading the file')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('says its value in place of those words once it knows one', () => {
+    const { rerender } = render(
+      <ProgressBar label="Waveform" value={null} indeterminateText="Reading the file" />,
+    );
+    const bar = screen.getByRole('progressbar', { name: 'Waveform' });
+
+    rerender(<ProgressBar label="Waveform" value={0.5} indeterminateText="Reading the file" />);
+
+    // The same element, so its fill grows from where it was.
+    expect(screen.getByRole('progressbar', { name: 'Waveform' })).toBe(bar);
+    expect(bar).toHaveAttribute('aria-valuenow', '50');
+    expect(bar).not.toHaveAttribute('aria-valuetext', 'Reading the file');
+    expect(screen.queryByText('Reading the file')).toBeNull();
+  });
 });
 
 describe('Spinner', () => {
@@ -94,6 +122,18 @@ describe('EmptyState', () => {
     expect(screen.getByText('No audio yet')).toBeInTheDocument();
     expect(screen.getByText('Import audio files to add some.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Import audio…' })).toBeInTheDocument();
+  });
+
+  it('heads the state at the level its caller gives, so a reader moving by heading finds it', () => {
+    render(<EmptyState icon="waveform" title="No audio yet" headingLevel={3} />);
+
+    expect(screen.getByRole('heading', { level: 3, name: 'No audio yet' })).toBeInTheDocument();
+  });
+
+  it('claims no heading where its caller gives none', () => {
+    render(<EmptyState icon="waveform" title="No audio yet" />);
+
+    expect(screen.queryByRole('heading')).toBeNull();
   });
 
   it('draws an error in the error colour, as the empty state is drawn in the accent', () => {

@@ -156,10 +156,16 @@
   overflow-wrap: anywhere;
 }
 
+/* More actions than the header has room for wrap onto a second row at the
+   trailing end rather than running off the panel's side, where a reader
+   could not reach them. */
 .ag-panel-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--ag-space-micro);
+  min-inline-size: 0;
   margin-inline-start: auto;
 }
 
@@ -199,6 +205,16 @@
   color: var(--ag-chrome-text-secondary);
   font-size: var(--ag-text-label);
   font-weight: var(--ag-text-weight-strong);
+}
+
+/* The heading round a section's button adds a level to the outline and
+   nothing to the drawing. Laid out as a box of its own rather than taken out
+   with `display: contents`, which some engines of the support floor drop from
+   the accessibility tree with the heading's role. */
+.ag-section-heading {
+  display: inline-flex;
+  margin: 0;
+  font: inherit;
 }
 
 .ag-section-trigger {
@@ -513,7 +529,7 @@
   padding-inline-end: var(--ag-space-inset);
 }
 
-.ag-table th {
+.ag-table thead th {
   padding-block: calc(var(--ag-grid-unit) * 3);
   background-color: var(--ag-chrome-fill-quiet);
   color: var(--ag-chrome-text-secondary);
@@ -524,12 +540,19 @@
   text-transform: uppercase;
 }
 
-.ag-table td {
+.ag-table tbody :is(th, td) {
   block-size: calc(var(--ag-control-height) + var(--ag-grid-unit) * 2);
   padding-block: calc(var(--ag-grid-unit) * 2);
 }
 
-.ag-table tbody tr + tr td {
+/* A cell that heads its row reads as the row's name: a list row's weight, in
+   the body's own size and case, never the column head's capitals. */
+.ag-table tbody th {
+  color: var(--ag-chrome-text-primary);
+  font-weight: var(--ag-text-weight-control);
+}
+
+.ag-table tbody tr + tr :is(th, td) {
   border-block-start: 1px solid var(--ag-chrome-border-subtle);
 }
 
@@ -940,6 +963,25 @@
 [data-ag-motion='reduced'] .ag-progress[data-state='indeterminate'] .ag-progress-fill {
   animation: ag-pulse var(--ag-motion-loop-indeterminate) var(--ag-motion-ease-in-out) infinite
     alternate;
+}
+
+/* The words an indeterminate bar carries, drawn only at Minimal, where its
+   segment stands still: above it, the moving segment says the same. */
+.ag-progress-field {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-progress-pending {
+  display: none;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+[data-ag-motion='minimal'] .ag-progress-pending {
+  display: block;
 }
 
 /* From just before the track's start to just past its end: the segment is

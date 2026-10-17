@@ -127,6 +127,39 @@ describe('Table', () => {
         .map((cell) => cell.textContent),
     ).toEqual(['gravel_01', '−1.2 dB', 'Within the target']);
   });
+
+  it('heads each row with the cell of a row-header column', () => {
+    // A check's name heads its verdict and its value: as a plain cell, a
+    // screen reader read "Fails" with its column's head and never said which
+    // check failed.
+    render(
+      <Table
+        label="Loop checks"
+        columns={[
+          { id: 'check', header: 'Check', rowHeader: true },
+          { id: 'verdict', header: 'Verdict', kind: 'verdict' },
+        ]}
+        rows={[
+          {
+            id: 'seam',
+            cells: {
+              check: 'Click at the seam',
+              verdict: <Verdict kind="fails">Fails</Verdict>,
+            },
+          },
+        ]}
+      />,
+    );
+
+    const table = screen.getByRole('table', { name: 'Loop checks' });
+    expect(within(table).getByRole('rowheader')).toHaveTextContent('Click at the seam');
+    expect(within(table).getByRole('rowheader')).toHaveAttribute('scope', 'row');
+    expect(
+      within(table)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Fails']);
+  });
 });
 
 describe('Verdict', () => {

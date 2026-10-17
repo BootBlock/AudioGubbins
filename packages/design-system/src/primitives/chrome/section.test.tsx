@@ -82,4 +82,25 @@ describe('Section', () => {
     const header = screen.getByRole('button', { name: 'Rack' });
     expect(header).not.toContainElement(screen.getByRole('button', { name: 'Show' }));
   });
+
+  it('puts its button inside a heading of the level its caller gives', () => {
+    render(
+      <Section title="Time and rate" headingLevel={3}>
+        <p>Stretch</p>
+      </Section>,
+    );
+
+    const heading = screen.getByRole('heading', { level: 3, name: 'Time and rate' });
+    expect(heading).toContainElement(screen.getByRole('button', { name: 'Time and rate' }));
+  });
+
+  it('claims no heading where its caller gives none', () => {
+    render(
+      <Section title="Time and rate">
+        <p>Stretch</p>
+      </Section>,
+    );
+
+    expect(screen.queryByRole('heading')).toBeNull();
+  });
 });

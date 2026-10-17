@@ -13,6 +13,7 @@ import { useId, type ReactNode } from 'react';
 
 import { Icon, IconSize } from '../../icons/icon.js';
 import type { IconName } from '../../icons/vocabulary.js';
+import { Heading, type HeadingLevel } from '../heading.js';
 
 /** Whether a section is open, held by its caller. */
 interface Held {
@@ -39,6 +40,14 @@ export type SectionProps = (Held | OwnState) & {
   readonly icon?: IconName;
 
   /**
+   * The title's heading level in the surface's outline: the button that opens
+   * the section sits inside a heading of this level, as an accordion's does,
+   * so a reader moving by heading reaches each section. Left out, the header
+   * is no heading, for a section of a list of settings with a heading above.
+   */
+  readonly headingLevel?: HeadingLevel;
+
+  /**
    * What it holds, said in a few words after the title, so a closed section
    * still tells the reader what is in it. It wraps rather than being cut.
    */
@@ -52,7 +61,7 @@ export type SectionProps = (Held | OwnState) & {
 
 /** A section of a panel, open or closed. */
 export function Section(props: SectionProps): ReactNode {
-  const { title, icon, summary, actions, children } = props;
+  const { title, icon, headingLevel, summary, actions, children } = props;
   const summaryId = useId();
   const state =
     props.open === undefined
@@ -62,17 +71,27 @@ export function Section(props: SectionProps): ReactNode {
         }
       : { open: props.open, onOpenChange: props.onOpenChange };
 
+  const trigger = (
+    <Collapsible.Trigger
+      className="ag-section-trigger"
+      aria-describedby={summary === undefined ? undefined : summaryId}
+    >
+      <Icon name="expand" size={IconSize.Inline} className="ag-section-chevron" />
+      {icon !== undefined && <Icon name={icon} size={IconSize.Inline} />}
+      <span>{title}</span>
+    </Collapsible.Trigger>
+  );
+
   return (
     <Collapsible.Root className="ag-section" {...state}>
       <div className="ag-section-header">
-        <Collapsible.Trigger
-          className="ag-section-trigger"
-          aria-describedby={summary === undefined ? undefined : summaryId}
-        >
-          <Icon name="expand" size={IconSize.Inline} className="ag-section-chevron" />
-          {icon !== undefined && <Icon name={icon} size={IconSize.Inline} />}
-          <span>{title}</span>
-        </Collapsible.Trigger>
+        {headingLevel === undefined ? (
+          trigger
+        ) : (
+          <Heading level={headingLevel} className="ag-section-heading">
+            {trigger}
+          </Heading>
+        )}
         {summary !== undefined && (
           <span className="ag-section-summary" id={summaryId}>
             {summary}

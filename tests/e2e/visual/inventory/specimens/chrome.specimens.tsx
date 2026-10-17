@@ -244,6 +244,26 @@ const specimens: readonly Specimen[] = [
     ),
   },
   {
+    component: 'PanelHeader',
+    state: 'actions that wrap',
+    // More actions than a narrow panel has room for wrap onto a second row.
+    render: () => (
+      <div style={{ inlineSize: 'calc(120 * var(--ag-grid-unit))' }}>
+        <PanelHeader
+          title="Assets"
+          icon="assets"
+          actions={
+            <>
+              {action('import-audio', 'Import audio')}
+              {action('import-folder', 'Import a folder')}
+              {action('more', 'More')}
+            </>
+          }
+        />
+      </div>
+    ),
+  },
+  {
     component: 'Panel',
     state: 'default',
     render: () => (
@@ -354,6 +374,15 @@ const specimens: readonly Specimen[] = [
         }
       >
         <PropertyGrid rows={ASSET_ROWS.slice(0, 1)} />
+      </Section>
+    ),
+  },
+  {
+    component: 'Section',
+    state: 'heading',
+    render: () => (
+      <Section title="Level" icon="gain" headingLevel={3}>
+        <PropertyGrid rows={ASSET_ROWS.slice(0, 2)} />
       </Section>
     ),
   },
@@ -504,6 +533,19 @@ const specimens: readonly Specimen[] = [
     render: () => <Table label="Members" columns={MEMBER_COLUMNS} rows={MEMBER_ROWS} />,
   },
   {
+    component: 'Table',
+    state: 'row headers',
+    render: () => (
+      <Table
+        label="Members"
+        columns={MEMBER_COLUMNS.map((column) =>
+          column.id === 'name' ? { ...column, rowHeader: true } : column,
+        )}
+        rows={MEMBER_ROWS}
+      />
+    ),
+  },
+  {
     component: 'Verdict',
     state: 'passes',
     render: () => <Verdict kind="passes">Within the target</Verdict>,
@@ -619,6 +661,19 @@ const specimens: readonly Specimen[] = [
   },
   {
     component: 'EmptyState',
+    state: 'heading',
+    render: () => (
+      <EmptyState
+        icon="assets"
+        title="No audio yet"
+        headingLevel={3}
+        text="Import audio files to add some."
+        actions={<Button tone={ButtonTone.Primary}>Import audio…</Button>}
+      />
+    ),
+  },
+  {
+    component: 'EmptyState',
     state: 'warning',
     render: () => (
       <EmptyState
@@ -674,6 +729,19 @@ const specimens: readonly Specimen[] = [
     component: 'ProgressBar',
     state: 'indeterminate',
     render: () => <ProgressBar label="Opening the project" value={null} />,
+  },
+  {
+    component: 'ProgressBar',
+    state: 'indeterminate, with words',
+    // The words show at the Minimal motion level, where the segment stands
+    // still; the inventory captures at that level.
+    render: () => (
+      <ProgressBar
+        label="Opening the project"
+        value={null}
+        indeterminateText="Reading the project’s history"
+      />
+    ),
   },
   {
     component: 'ProgressBar',

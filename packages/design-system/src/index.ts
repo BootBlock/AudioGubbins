@@ -137,6 +137,10 @@ export { WINDOW_ROW, useRowWindow } from './primitives/row-window.js';
 
 export { VisuallyHidden } from './primitives/visually-hidden.js';
 
+// The level a component's title takes in the surface's outline, given by the
+// caller that knows how deep it sits: an empty state's and a section's.
+export { type HeadingLevel } from './primitives/heading.js';
+
 // A control's description stands under its label, or, opted in, waits behind
 // an (i) beside it (text economy): the switch, the check, a radio's choices,
 // the select, the slider and the text field each take one.

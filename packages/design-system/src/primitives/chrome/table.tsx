@@ -22,6 +22,13 @@ export interface TableColumn {
    * with its glyph at the first line.
    */
   readonly kind?: 'text' | 'numeric' | 'verdict';
+
+  /**
+   * Whether each of its cells heads its row, as a check's name heads the
+   * verdict and the values beside it: a screen reader then reads every other
+   * cell of the row with it, as it reads each cell with its column's head.
+   */
+  readonly rowHeader?: boolean;
 }
 
 /** One row: a cell for each column, by the column's id. */
@@ -58,11 +65,17 @@ export function Table({ label, columns, rows }: TableProps): ReactNode {
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              {columns.map((column) => (
-                <td key={column.id} data-ag-kind={column.kind ?? 'text'}>
-                  {row.cells[column.id]}
-                </td>
-              ))}
+              {columns.map((column) =>
+                column.rowHeader === true ? (
+                  <th key={column.id} scope="row" data-ag-kind={column.kind ?? 'text'}>
+                    {row.cells[column.id]}
+                  </th>
+                ) : (
+                  <td key={column.id} data-ag-kind={column.kind ?? 'text'}>
+                    {row.cells[column.id]}
+                  </td>
+                ),
+              )}
             </tr>
           ))}
         </tbody>
