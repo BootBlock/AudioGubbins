@@ -84,8 +84,8 @@ function category(theme: Theme, name: string, logger: Logger): Oklch {
   const found = theme.palette.category[name];
   if (found !== undefined) return found;
   logger.warning('The editor drew a colour the theme does not have with its accent instead.', {
-    token: `--ag-category-${name}`,
-    fallback: '--ag-chrome-accent',
+    missing: `--ag-category-${name}`,
+    reason: 'Drawn with --ag-chrome-accent, the theme default.',
   });
   return theme.palette.chrome.accent;
 }

@@ -270,6 +270,11 @@ describe("the editor's canvas colours", () => {
         .snapshot()
         .filter((record) => record.severity === LogSeverity.Warning)
         .map((record) => record.fields),
-    ).toEqual([{ token: '--ag-category-violet', fallback: '--ag-chrome-accent' }]);
+    ).toEqual([
+      {
+        missing: '--ag-category-violet',
+        reason: 'Drawn with --ag-chrome-accent, the theme default.',
+      },
+    ]);
   });
 });
