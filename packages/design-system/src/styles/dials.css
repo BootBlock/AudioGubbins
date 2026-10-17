@@ -1,0 +1,1004 @@
+/*
+ * The dials and the meters (design language, section 10): the slider, the
+ * knob, the fader, the level meter and the correlation meter.
+ *
+ * Every colour, length and duration is a token or a ratio of one. Lengths the
+ * language gives in pixels are multiples of the grid unit; geometry on a
+ * control's own grid (the knob's 48 units, the fader's 64) is a multiple of
+ * that grid's unit, so the drawing keeps its proportions at either density.
+ *
+ * Nothing a pointer drags has a transition: the slider's thumb, the knob's
+ * turn and the fader's cap follow it in the frame it moves (REQ-UX-222). A
+ * meter moves by its ballistics, written onto it each frame; only its clip
+ * lamp's fade takes a motion token.
+ *
+ * A forced state (`data-ag-force-state` on an ancestor, set by the component
+ * inventory) is matched beside each real pseudo-class, so a forced state looks
+ * exactly as the real one does.
+ */
+
+/*
+ * The light falling on the hardware and the shadow under it, which are white
+ * and black whatever the theme, as the theme's own composite values take them
+ * (`tokens/effects.ts`): the theme's colours are what the light falls on, not
+ * the light. Named once here, so every highlight and shade below is one of
+ * these two at a stated strength.
+ *
+ * The focus band is the one ring of `tokens.css`, named so a control that casts
+ * its own shadow can draw both.
+ */
+:where(.ag-slider-field, .ag-knob, .ag-fader, .ag-level-meter, .ag-correlation-meter) {
+  --ag-dials-light: white;
+  --ag-dials-shadow: black;
+  --ag-dials-focus-band:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus), var(--ag-focus-halo);
+}
+
+/* The focus ring, forced, on the parts that take the keyboard. */
+[data-ag-force-state='focus-visible']
+  :is(.ag-knob-dial, .ag-dial-field, .ag-slider-thumb, .ag-fader-cap) {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: transparent;
+  outline-offset: var(--ag-focus-ring-offset);
+  box-shadow: var(--ag-dials-focus-band);
+}
+
+/* ---------- The slider ---------- */
+
+.ag-slider-field {
+  display: flex;
+
+  /* A long label, such as a rack's "Mix of" and a processor's name, cannot
+     shrink, so where a narrow panel leaves the control no room beside it the
+     control moves under it rather than being squeezed under the label. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+}
+
+.ag-slider-label {
+  /* Shrinks only where it is alone on its line, then wraps its words. */
+  flex: 0 1 auto;
+  min-inline-size: calc(var(--ag-grid-unit) * 64);
+}
+
+.ag-slider {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+
+  /* Wide enough to set with a pointer; narrower, the field wraps instead. */
+  min-inline-size: calc(var(--ag-grid-unit) * 70);
+  align-items: center;
+  block-size: calc(var(--ag-grid-unit) * 10);
+
+  /* The browser must not scroll the page while a thumb is being dragged with a
+     finger, or a slider on a tablet becomes impossible to set (REQ-UX-067). */
+  touch-action: none;
+  user-select: none;
+}
+
+/* The groove, recessed into the panel. */
+.ag-slider-track {
+  position: relative;
+  flex-grow: 1;
+  block-size: calc(var(--ag-grid-unit) * 2);
+  border-radius: var(--ag-radius-hairline);
+  background: color-mix(in oklch, var(--ag-chrome-surface-sunken) 75%, var(--ag-dials-shadow));
+  box-shadow: inset 0 calc(var(--ag-grid-unit) / 2) var(--ag-grid-unit)
+    color-mix(in oklch, var(--ag-dials-shadow) 50%, transparent);
+}
+
+[data-ag-theme='light'] .ag-slider-track {
+  background: color-mix(in oklch, var(--ag-chrome-surface-sunken) 88%, var(--ag-dials-shadow));
+}
+
+.ag-slider-range {
+  position: absolute;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--ag-effect-cta-fill);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 4) calc(var(--ag-grid-unit) / -2)
+    var(--ag-chrome-accent);
+}
+
+/* The thumb: a glossy bead ringed in the accent. Its place is Radix's, with no
+   transition; only its ring changes under the pointer. */
+.ag-slider-thumb {
+  display: block;
+  inline-size: calc(var(--ag-grid-unit) * 8);
+  block-size: calc(var(--ag-grid-unit) * 8);
+  border-radius: var(--ag-radius-full);
+  background: radial-gradient(
+    circle at 50% 35%,
+    var(--ag-hardware-metal-highlight),
+    color-mix(in oklch, var(--ag-hardware-chamfer-light) 75%, var(--ag-hardware-metal-mid))
+  );
+  box-shadow:
+    0 0 0 calc(var(--ag-grid-unit) * 1.5)
+      color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent),
+    0 var(--ag-grid-unit) calc(var(--ag-grid-unit) * 2.5)
+      color-mix(in oklch, var(--ag-dials-shadow) 50%, transparent);
+  cursor: grab;
+  transition: box-shadow var(--ag-motion-instant) var(--ag-motion-ease-out);
+}
+
+:is(.ag-slider-thumb:hover, [data-ag-force-state='hover'] .ag-slider-thumb) {
+  box-shadow:
+    0 0 0 calc(var(--ag-grid-unit) * 1.5)
+      color-mix(in oklch, var(--ag-chrome-accent) 55%, transparent),
+    0 var(--ag-grid-unit) calc(var(--ag-grid-unit) * 2.5)
+      color-mix(in oklch, var(--ag-dials-shadow) 50%, transparent);
+}
+
+:is(
+  .ag-slider:active .ag-slider-thumb,
+  [data-ag-force-state='active'] .ag-slider-thumb,
+  [data-ag-force-state='pressed'] .ag-slider-thumb
+) {
+  box-shadow:
+    0 0 0 calc(var(--ag-grid-unit) * 2)
+      color-mix(in oklch, var(--ag-chrome-accent) 55%, transparent),
+    0 var(--ag-grid-unit) calc(var(--ag-grid-unit) * 2.5)
+      color-mix(in oklch, var(--ag-dials-shadow) 50%, transparent);
+  cursor: grabbing;
+}
+
+/* The thumb casts its own shadow, so the focus band is drawn with it. */
+[data-ag-theme] .ag-slider-thumb:focus-visible,
+[data-ag-force-state='focus-visible'] .ag-slider-thumb {
+  box-shadow:
+    var(--ag-dials-focus-band),
+    0 var(--ag-grid-unit) calc(var(--ag-grid-unit) * 2.5)
+      color-mix(in oklch, var(--ag-dials-shadow) 50%, transparent);
+}
+
+.ag-slider-value {
+  flex: 0 0 auto;
+  min-inline-size: calc(var(--ag-grid-unit) * 26);
+  text-align: end;
+
+  /* The numeric family in tabular figures, so the value does not shift sideways
+     as it changes. */
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* ---------- Every dial, locked ---------- */
+
+/* Disabled, or unavailable for a reason: the whole control dims, as a switch
+   does, and its lit parts go out. An unavailable one keeps its focus. */
+:is(.ag-slider-field, .ag-knob, .ag-fader)[data-ag-locked] {
+  opacity: 0.45;
+}
+
+:is(.ag-slider-field, .ag-knob, .ag-fader)[data-ag-locked]
+  :is(.ag-slider-thumb, .ag-knob-dial, .ag-fader-cap) {
+  cursor: not-allowed;
+}
+
+.ag-slider-field[data-ag-locked] .ag-slider-range {
+  background: var(--ag-chrome-text-disabled);
+  box-shadow: none;
+}
+
+/* ---------- The knob ---------- */
+
+.ag-knob {
+  /* One unit of the knob's 48-unit grid, at the knob's size. */
+  --ag-knob-unit: calc(var(--ag-hardware-knob-size) / 48);
+
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--ag-space-micro);
+}
+
+.ag-knob-dial {
+  position: relative;
+  inline-size: var(--ag-hardware-knob-size);
+  block-size: var(--ag-hardware-knob-size);
+  border-radius: var(--ag-radius-full);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+:is(
+  .ag-knob-dial[data-ag-dragging],
+  [data-ag-force-state='active'] .ag-knob-dial,
+  [data-ag-force-state='pressed'] .ag-knob-dial
+) {
+  cursor: grabbing;
+}
+
+/* The printed scale and the ring: drawn on the panel, outside the knob. */
+.ag-knob-scale {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.ag-knob-tick {
+  stroke: var(--ag-chrome-text-secondary);
+}
+
+.ag-knob-tick-minor {
+  stroke: var(--ag-chrome-text-disabled);
+}
+
+.ag-knob-track {
+  stroke: color-mix(in oklch, var(--ag-chrome-surface-sunken) 80%, var(--ag-dials-shadow));
+}
+
+.ag-knob-value-ring {
+  stroke: var(--ag-chrome-accent);
+  filter: drop-shadow(0 0 calc(var(--ag-knob-unit) * 2.5) var(--ag-chrome-accent));
+  transition-property: stroke, filter;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+:is(.ag-knob-dial:hover, [data-ag-force-state='hover'] .ag-knob-dial) .ag-knob-value-ring {
+  stroke: var(--ag-chrome-accent-hover);
+}
+
+:is(
+    .ag-knob-dial[data-ag-dragging],
+    [data-ag-force-state='active'] .ag-knob-dial,
+    [data-ag-force-state='pressed'] .ag-knob-dial
+  )
+  .ag-knob-value-ring {
+  stroke: var(--ag-chrome-accent-hover);
+  filter: drop-shadow(0 0 calc(var(--ag-knob-unit) * 4) var(--ag-chrome-accent));
+}
+
+:is(.ag-knob[data-ag-bypassed], .ag-knob[data-ag-locked]) .ag-knob-value-ring {
+  stroke: var(--ag-chrome-text-disabled);
+  filter: none;
+}
+
+/* Everything printed or moulded on the knob turns; the parts it sits on do
+   not, so their light and shade stay where the light falls. */
+.ag-knob-turned {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--ag-radius-full);
+  rotate: var(--ag-knob-turn, 0deg);
+}
+
+/* The skirt: a dark disc below the grip. */
+.ag-knob-skirt {
+  position: absolute;
+  inset: calc(var(--ag-hardware-knob-size) * 0.19);
+  border-radius: var(--ag-radius-full);
+  background: radial-gradient(
+    circle at 50% 35%,
+    color-mix(in oklch, var(--ag-chrome-surface-raised) 60%, var(--ag-dials-shadow)),
+    color-mix(in oklch, var(--ag-chrome-surface-base) 40%, var(--ag-dials-shadow))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--ag-dials-light) 18%, transparent),
+    0 0 0 1px color-mix(in oklch, var(--ag-dials-light) 6%, transparent),
+    var(--ag-hardware-deep-shadow);
+}
+
+/* On a light panel the skirt is dark metal, from the hardware's own metals:
+   L 0.42 to L 0.28. */
+[data-ag-theme='light'] .ag-knob-skirt {
+  background: radial-gradient(
+    circle at 50% 35%,
+    color-mix(in oklch, var(--ag-hardware-metal-shade) 87.5%, var(--ag-hardware-metal-mid)),
+    color-mix(in oklch, var(--ag-hardware-chamfer-dark) 88%, var(--ag-hardware-cap-unlit-1))
+  );
+}
+
+.ag-knob-pointer {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline: 0;
+  margin-inline: auto;
+  inline-size: var(--ag-grid-unit);
+  block-size: 22%;
+  border-radius: calc(var(--ag-grid-unit) / 2);
+  background: var(--ag-chrome-text-primary);
+}
+
+[data-ag-theme='light'] .ag-knob-pointer {
+  background: var(--ag-hardware-metal-highlight);
+}
+
+/* The grip: fluted sides, seen from above as a ring of ribs under a still,
+   top-lit rim. */
+.ag-knob-grip {
+  position: absolute;
+  inset: calc(var(--ag-hardware-knob-size) * 0.27);
+  border-radius: var(--ag-radius-full);
+  background: color-mix(in oklch, var(--ag-chrome-surface-active) 70%, var(--ag-dials-shadow));
+}
+
+[data-ag-theme='light'] .ag-knob-grip {
+  background: color-mix(
+    in oklch,
+    var(--ag-hardware-metal-shade) 75%,
+    var(--ag-hardware-chamfer-dark)
+  );
+}
+
+.ag-knob-grip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 1px color-mix(in oklch, var(--ag-dials-light) 25%, transparent);
+}
+
+.ag-knob-ribs {
+  background: repeating-conic-gradient(
+    color-mix(in oklch, var(--ag-dials-shadow) 45%, transparent) 0deg 5deg,
+    color-mix(in oklch, var(--ag-dials-light) 12%, transparent) 5deg 10deg
+  );
+}
+
+[data-ag-theme='light'] .ag-knob-ribs {
+  background: repeating-conic-gradient(
+    color-mix(in oklch, var(--ag-dials-shadow) 40%, transparent) 0deg 5deg,
+    color-mix(in oklch, var(--ag-dials-light) 15%, transparent) 5deg 10deg
+  );
+}
+
+/* The cap: brushed aluminium, a conic sheen that stays put as the knob turns,
+   its lightnesses (0.86, 0.66, 0.92, 0.62, 0.90, 0.64) mixed from the
+   hardware's metals. */
+.ag-knob-cap {
+  position: absolute;
+  inset: calc(var(--ag-hardware-knob-size) * 0.31);
+  border-radius: var(--ag-radius-full);
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 0 60%,
+      color-mix(in oklch, var(--ag-dials-shadow) 18%, transparent) 100%
+    ),
+    conic-gradient(
+      from 0deg,
+      var(--ag-hardware-chamfer-light),
+      color-mix(in oklch, var(--ag-hardware-metal-mid) 87.5%, var(--ag-hardware-metal-shade)) 45deg,
+      color-mix(in oklch, var(--ag-hardware-metal-highlight) 88%, var(--ag-hardware-metal-mid))
+        110deg,
+      color-mix(in oklch, var(--ag-hardware-metal-mid) 75%, var(--ag-hardware-metal-shade)) 180deg,
+      color-mix(in oklch, var(--ag-hardware-metal-highlight) 80%, var(--ag-hardware-metal-mid))
+        250deg,
+      color-mix(in oklch, var(--ag-hardware-metal-mid) 81.25%, var(--ag-hardware-metal-shade))
+        310deg,
+      var(--ag-hardware-chamfer-light)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--ag-dials-light) 70%, transparent),
+    inset 0 -1px 1px color-mix(in oklch, var(--ag-dials-shadow) 35%, transparent),
+    var(--ag-hardware-drop-shadow);
+}
+
+.ag-knob-index::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 8%;
+  inset-inline: 0;
+  margin-inline: auto;
+  inline-size: var(--ag-grid-unit);
+  block-size: 38%;
+  border-radius: calc(var(--ag-grid-unit) / 2);
+  background: var(--ag-chrome-accent);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 2) var(--ag-chrome-accent);
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+:is(.ag-knob[data-ag-bypassed], .ag-knob[data-ag-locked]) .ag-knob-index::before {
+  background: var(--ag-hardware-metal-shade);
+  box-shadow: none;
+}
+
+.ag-knob-label {
+  font-size: var(--ag-text-caption);
+  line-height: var(--ag-text-line-height-tight);
+  color: var(--ag-chrome-text-secondary);
+  text-align: center;
+}
+
+.ag-knob-value,
+.ag-dial-field {
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--ag-text-line-height-tight);
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* The value as a field: a small well that opens for typing. */
+.ag-dial-field {
+  inline-size: auto;
+  min-inline-size: var(--ag-hardware-knob-size);
+  padding: var(--ag-space-hair) var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-small);
+  background: var(--ag-chrome-fill-well);
+  text-align: center;
+  cursor: text;
+  transition-property: border-color, background-color, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+input.ag-dial-field {
+  inline-size: calc(var(--ag-hardware-knob-size) * 1.25);
+}
+
+:is(.ag-dial-field:hover, [data-ag-force-state='hover'] .ag-dial-field):not(:disabled) {
+  background: var(--ag-chrome-fill-hover);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-dial-field[data-ag-editing] {
+  border-color: var(--ag-chrome-accent);
+  color: var(--ag-chrome-text-primary);
+  outline: none;
+  box-shadow: 0 0 0 calc(var(--ag-grid-unit) * 1.5)
+    color-mix(in oklch, var(--ag-chrome-accent) 22%, transparent);
+}
+
+.ag-dial-field:disabled {
+  cursor: not-allowed;
+}
+
+/* ---------- The fader ---------- */
+
+.ag-fader {
+  /* One unit of the fader's grid: a pixel, half the grid unit. */
+  --ag-fader-unit: calc(var(--ag-grid-unit) / 2);
+  --ag-fader-cap: calc(var(--ag-fader-unit) * 30);
+  --ag-fader-half-cap: calc(var(--ag-fader-unit) * 15);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ag-space-small);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.ag-fader-body {
+  position: relative;
+  flex: 1 1 auto;
+  inline-size: calc(var(--ag-fader-unit) * 64);
+  min-block-size: calc(var(--ag-fader-unit) * 80);
+}
+
+/* The slider stands over the slot, as wide as the cap: x 28 to 52, round the
+   slot at 40. */
+.ag-fader-slider {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--ag-fader-unit) * 28);
+  display: flex;
+  justify-content: center;
+  inline-size: calc(var(--ag-fader-unit) * 24);
+  touch-action: none;
+  user-select: none;
+}
+
+/* The slot: from four units above the travel to four below it. */
+.ag-fader-slot {
+  position: absolute;
+  inset-block: calc(var(--ag-fader-half-cap) - var(--ag-fader-unit) * 4);
+  inset-inline-start: calc(var(--ag-fader-unit) * 9.5);
+  inline-size: calc(var(--ag-fader-unit) * 5);
+  border-radius: calc(var(--ag-fader-unit) * 2.5);
+  background: color-mix(in oklch, var(--ag-chrome-surface-sunken) 55%, var(--ag-dials-shadow));
+  box-shadow: inset 0 0 0 calc(var(--ag-fader-unit) * 0.75)
+    color-mix(in oklch, var(--ag-dials-light) 10%, transparent);
+}
+
+/* The slot lit from the cap's centre down. */
+.ag-fader-slot-level {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: calc(var(--ag-fader-unit) * 1.5);
+  block-size: calc(
+    var(--ag-fader-unit) * 4 + (100% - var(--ag-fader-unit) * 8) * var(--ag-fader-at, 0)
+  );
+  border-radius: var(--ag-fader-unit);
+  background: var(--ag-chrome-accent);
+  box-shadow: 0 0 calc(var(--ag-fader-unit) * 3) var(--ag-chrome-accent);
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+/* The cap: a cylindrical body lit from above, six ridges and a lit index line
+   across its centre. */
+.ag-fader-cap {
+  position: relative;
+  display: block;
+  inline-size: calc(var(--ag-fader-unit) * 24);
+  block-size: var(--ag-fader-cap);
+  border-radius: calc(var(--ag-fader-unit) * 3);
+  background:
+    linear-gradient(
+        to bottom,
+        transparent 0 calc(var(--ag-fader-unit) * 4),
+        var(--ag-fader-ridge-dark) 0 calc(var(--ag-fader-unit) * 5),
+        var(--ag-fader-ridge-light) 0 calc(var(--ag-fader-unit) * 5.75),
+        transparent 0 calc(var(--ag-fader-unit) * 7),
+        var(--ag-fader-ridge-dark) 0 calc(var(--ag-fader-unit) * 8),
+        var(--ag-fader-ridge-light) 0 calc(var(--ag-fader-unit) * 8.75),
+        transparent 0 calc(var(--ag-fader-unit) * 10),
+        var(--ag-fader-ridge-dark) 0 calc(var(--ag-fader-unit) * 11),
+        var(--ag-fader-ridge-light) 0 calc(var(--ag-fader-unit) * 11.75),
+        transparent 0 calc(var(--ag-fader-unit) * 20),
+        var(--ag-fader-ridge-dark) 0 calc(var(--ag-fader-unit) * 21),
+        var(--ag-fader-ridge-light) 0 calc(var(--ag-fader-unit) * 21.75),
+        transparent 0 calc(var(--ag-fader-unit) * 23),
+        var(--ag-fader-ridge-dark) 0 calc(var(--ag-fader-unit) * 24),
+        var(--ag-fader-ridge-light) 0 calc(var(--ag-fader-unit) * 24.75),
+        transparent 0 calc(var(--ag-fader-unit) * 26),
+        var(--ag-fader-ridge-dark) 0 calc(var(--ag-fader-unit) * 27),
+        var(--ag-fader-ridge-light) 0 calc(var(--ag-fader-unit) * 27.75),
+        transparent 0
+      )
+      center / calc(var(--ag-fader-unit) * 18) 100% no-repeat,
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--ag-dials-light) 35%, transparent),
+      transparent 45%,
+      transparent 55%,
+      color-mix(in oklch, var(--ag-dials-shadow) 30%, transparent)
+    ),
+    linear-gradient(
+      to right,
+      color-mix(in oklch, var(--ag-chrome-surface-active) 70%, var(--ag-dials-shadow)),
+      color-mix(in oklch, var(--ag-chrome-surface-active) 60%, var(--ag-dials-light)) 22%,
+      color-mix(in oklch, var(--ag-chrome-surface-active) 75%, var(--ag-dials-light)) 50%,
+      color-mix(in oklch, var(--ag-chrome-surface-active) 60%, var(--ag-dials-light)) 78%,
+      color-mix(in oklch, var(--ag-chrome-surface-active) 70%, var(--ag-dials-shadow))
+    );
+  box-shadow:
+    inset 0 0 0 calc(var(--ag-fader-unit) * 0.75) var(--ag-fader-cap-edge),
+    var(--ag-hardware-deep-shadow);
+  cursor: grab;
+
+  --ag-fader-ridge-dark: color-mix(in oklch, var(--ag-dials-shadow) 35%, transparent);
+  --ag-fader-ridge-light: color-mix(in oklch, var(--ag-dials-light) 25%, transparent);
+  --ag-fader-cap-edge: color-mix(in oklch, var(--ag-dials-light) 40%, transparent);
+}
+
+:is(.ag-fader-cap:hover, [data-ag-force-state='hover'] .ag-fader-cap) {
+  --ag-fader-cap-edge: color-mix(in oklch, var(--ag-dials-light) 60%, transparent);
+}
+
+:is(
+  .ag-fader-slider:active .ag-fader-cap,
+  [data-ag-force-state='active'] .ag-fader-cap,
+  [data-ag-force-state='pressed'] .ag-fader-cap
+) {
+  --ag-fader-cap-edge: color-mix(in oklch, var(--ag-dials-light) 60%, transparent);
+
+  cursor: grabbing;
+}
+
+/* The cap casts its own shadow, so the focus band is drawn with it. */
+[data-ag-theme] .ag-fader-cap:focus-visible,
+[data-ag-force-state='focus-visible'] .ag-fader-cap {
+  box-shadow:
+    inset 0 0 0 calc(var(--ag-fader-unit) * 0.75) var(--ag-fader-cap-edge),
+    var(--ag-dials-focus-band),
+    var(--ag-hardware-deep-shadow);
+}
+
+.ag-fader-index {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(50% - var(--ag-fader-unit));
+  block-size: calc(var(--ag-fader-unit) * 2);
+  background: var(--ag-chrome-accent);
+  box-shadow: 0 0 calc(var(--ag-fader-unit) * 3) var(--ag-chrome-accent);
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+:is(.ag-fader[data-ag-bypassed], .ag-fader[data-ag-locked])
+  :is(.ag-fader-index, .ag-fader-slot-level) {
+  background: var(--ag-chrome-text-disabled);
+  box-shadow: none;
+}
+
+/* The scale, printed down both sides of the slot, each mark at its place on
+   the travel. */
+.ag-fader-scale {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ag-fader-mark {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(
+    var(--ag-fader-half-cap) + (100% - var(--ag-fader-cap)) * (1 - var(--ag-fader-at, 0))
+  );
+  block-size: 0;
+
+  --ag-fader-mark-length: calc(var(--ag-fader-unit) * 5);
+  --ag-fader-mark-weight: 1px;
+  --ag-fader-mark-colour: var(--ag-chrome-text-disabled);
+}
+
+.ag-fader-mark[data-ag-emphasised] {
+  --ag-fader-mark-length: calc(var(--ag-fader-unit) * 8);
+  --ag-fader-mark-weight: calc(var(--ag-fader-unit) * 1.5);
+  --ag-fader-mark-colour: var(--ag-chrome-text-primary);
+}
+
+.ag-fader-body[data-ag-short] .ag-fader-mark[data-ag-minor] {
+  display: none;
+}
+
+/* Each line ends seven units from the slot's centre at x 40. */
+.ag-fader-mark::before,
+.ag-fader-mark::after {
+  content: '';
+  position: absolute;
+  inline-size: var(--ag-fader-mark-length);
+  block-size: var(--ag-fader-mark-weight);
+  translate: 0 -50%;
+  background: var(--ag-fader-mark-colour);
+}
+
+.ag-fader-mark::before {
+  inset-inline-end: calc(var(--ag-fader-unit) * 31);
+}
+
+.ag-fader-mark::after {
+  inset-inline-start: calc(var(--ag-fader-unit) * 47);
+}
+
+/* The label ends 18 units before the slot's centre, at x 22. */
+.ag-fader-mark-label {
+  position: absolute;
+  inset-inline-end: calc(var(--ag-fader-unit) * 42);
+  translate: 0 -50%;
+  font-family: var(--ag-font-numeric);
+  font-size: calc(var(--ag-fader-unit) * 8);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-fader-mark[data-ag-emphasised] .ag-fader-mark-label {
+  font-weight: var(--ag-text-weight-bold);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-fader-value {
+  align-self: stretch;
+  padding: var(--ag-space-micro);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-small);
+  background: var(--ag-chrome-fill-well);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--ag-chrome-text-primary);
+}
+
+/* ---------- The level meter ---------- */
+
+/*
+ * A meter reads from left to right and from the foot up whatever the text's
+ * direction, as a hardware meter does, so its geometry is physical. Each frame
+ * writes `--ag-meter-level` and `--ag-meter-peak`, each from 0 to 1, onto a
+ * channel's bar.
+ */
+.ag-level-meter {
+  display: grid;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+
+  --ag-meter-gradient-direction: to right;
+  --ag-meter-period: calc(var(--ag-hardware-meter-segment) + var(--ag-hardware-meter-gap));
+  --ag-meter-lit-length: var(--ag-hardware-meter-segment);
+  --ag-meter-unlit-strength: 0.14;
+}
+
+/* A row: the channel's letter, the bar, and the clip lamp. */
+.ag-level-meter-channel,
+.ag-level-meter-scale {
+  display: grid;
+  grid-template-columns: calc(var(--ag-grid-unit) * 7) minmax(0, 1fr) calc(var(--ag-grid-unit) * 5);
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-level-meter-letter {
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  line-height: 1;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-level-meter-bar {
+  position: relative;
+  block-size: calc(var(--ag-grid-unit) * 5);
+  border-radius: var(--ag-radius-hairline);
+  background: var(--ag-chrome-fill-well);
+}
+
+.ag-level-meter[data-ag-prominent] .ag-level-meter-bar {
+  block-size: calc(var(--ag-grid-unit) * 7);
+}
+
+/* The segments: the meter gradient seen through a row of LEDs. The mask's
+   colour is only its opacity. */
+.ag-level-meter-segments {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    var(--ag-meter-gradient-direction),
+    var(--ag-meter-low) 0 70%,
+    var(--ag-meter-mid) 84%,
+    var(--ag-meter-high) 94%,
+    var(--ag-meter-clip)
+  );
+  mask-image: repeating-linear-gradient(
+    var(--ag-meter-gradient-direction),
+    var(--ag-meter-low) 0 var(--ag-meter-lit-length),
+    transparent var(--ag-meter-lit-length) var(--ag-meter-period)
+  );
+}
+
+.ag-level-meter-unlit {
+  opacity: var(--ag-meter-unlit-strength);
+}
+
+/* The glow sits outside the masked segments, so the mask does not cut it off. */
+.ag-level-meter-glow {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(
+    0 0 calc(var(--ag-grid-unit) * 2) color-mix(in oklch, var(--ag-meter-low) 70%, transparent)
+  );
+}
+
+.ag-level-meter-lit {
+  clip-path: inset(0 calc((1 - var(--ag-meter-level, 0)) * 100%) 0 0);
+}
+
+.ag-level-meter-hold {
+  position: absolute;
+  inset-block: 0;
+  left: calc(var(--ag-meter-peak, 0) * 100%);
+  inline-size: calc(var(--ag-grid-unit) * 1.5);
+  translate: -100% 0;
+  background: var(--ag-meter-mid);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 3) var(--ag-meter-mid);
+}
+
+/* At the floor the peak hold is not shown: there is no peak to hold. */
+.ag-level-meter-bar[data-ag-silent] .ag-level-meter-hold {
+  visibility: hidden;
+}
+
+/* The clip lamp: lit at once on an over, held, then faded over the
+   deliberate duration, which the motion level shortens or removes. */
+.ag-level-meter-clip {
+  position: relative;
+  justify-self: center;
+  inline-size: calc(var(--ag-grid-unit) * 4);
+  block-size: calc(var(--ag-grid-unit) * 4);
+  border-radius: var(--ag-radius-full);
+  /* Mixed in OKLab, which keeps the red's hue: in OKLCH the red would turn
+     through violet towards the sunken surface's blue. */
+  background: color-mix(in oklab, var(--ag-meter-clip) 25%, var(--ag-chrome-surface-sunken));
+  box-shadow: inset 0 calc(var(--ag-grid-unit) / 2) calc(var(--ag-grid-unit) / 2)
+    color-mix(in oklch, var(--ag-dials-shadow) 50%, transparent);
+}
+
+.ag-level-meter-clip-light {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 40% 35%,
+    color-mix(in oklch, var(--ag-meter-clip) 43%, var(--ag-dials-light)),
+    var(--ag-meter-clip)
+  );
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 4) calc(var(--ag-grid-unit) / 2) var(--ag-meter-clip);
+  opacity: 0;
+  transition: opacity var(--ag-motion-deliberate) var(--ag-motion-ease-in);
+}
+
+.ag-level-meter-clip[data-ag-lit] .ag-level-meter-clip-light {
+  opacity: 1;
+  transition: none;
+}
+
+/* The printed scale, under the bar's column. */
+.ag-level-meter-scale-track {
+  position: relative;
+  grid-column: 2;
+  block-size: var(--ag-text-scale);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-scale);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-level-meter-mark {
+  position: absolute;
+  inset-block-start: 0;
+  translate: -50% 0;
+  white-space: nowrap;
+}
+
+/* Columns, for a rack's input and output: 6 px columns 3 px apart, segments
+   of 3 px lit and a hairline dark, a lamp atop each. */
+.ag-level-meter[data-ag-orientation='vertical'] {
+  display: flex;
+  gap: calc(var(--ag-grid-unit) * 1.5);
+  block-size: 100%;
+
+  --ag-meter-gradient-direction: to top;
+  --ag-meter-lit-length: calc(var(--ag-hardware-meter-segment) - var(--ag-hardware-meter-gap));
+  --ag-meter-period: var(--ag-hardware-meter-segment);
+  --ag-meter-unlit-strength: 0.16;
+}
+
+.ag-level-meter[data-ag-orientation='vertical'] .ag-level-meter-channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  block-size: 100%;
+}
+
+.ag-level-meter[data-ag-orientation='vertical'] .ag-level-meter-letter {
+  display: none;
+}
+
+.ag-level-meter[data-ag-orientation='vertical'] .ag-level-meter-clip {
+  order: -1;
+  inline-size: calc(var(--ag-grid-unit) * 3);
+  block-size: calc(var(--ag-grid-unit) * 3);
+}
+
+.ag-level-meter[data-ag-orientation='vertical'] .ag-level-meter-bar {
+  flex: 1 1 auto;
+  inline-size: calc(var(--ag-grid-unit) * 3);
+  block-size: auto;
+  min-block-size: calc(var(--ag-grid-unit) * 20);
+  border-radius: calc(var(--ag-grid-unit) * 1.5);
+}
+
+.ag-level-meter[data-ag-orientation='vertical'] .ag-level-meter-lit {
+  clip-path: inset(calc((1 - var(--ag-meter-level, 0)) * 100%) 0 0 0);
+}
+
+.ag-level-meter[data-ag-orientation='vertical'] .ag-level-meter-hold {
+  inset-inline: 0;
+  inset-block: auto;
+  left: 0;
+  bottom: calc(var(--ag-meter-peak, 0) * 100%);
+  inline-size: auto;
+  block-size: calc(var(--ag-grid-unit) * 1.5);
+  translate: 0 100%;
+}
+
+/* ---------- The correlation meter ---------- */
+
+.ag-correlation-meter {
+  display: grid;
+  grid-template-columns: calc(var(--ag-grid-unit) * 15) minmax(0, 1fr) calc(
+      var(--ag-grid-unit) * 22
+    );
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-correlation-meter-caption {
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* From the clip colour at -1, through the well at 0, to the low colour at +1. */
+.ag-correlation-meter-bar {
+  position: relative;
+  block-size: calc(var(--ag-grid-unit) * 3);
+  border-radius: calc(var(--ag-grid-unit) * 1.5);
+  background: linear-gradient(
+    to right,
+    color-mix(in oklch, var(--ag-meter-clip) 35%, transparent),
+    var(--ag-chrome-fill-well) 50%,
+    color-mix(in oklch, var(--ag-meter-low) 35%, transparent)
+  );
+}
+
+.ag-correlation-meter-centre {
+  position: absolute;
+  inset-block: calc(var(--ag-grid-unit) * -1.5);
+  left: 50%;
+  inline-size: 1px;
+  background: var(--ag-chrome-text-disabled);
+}
+
+.ag-correlation-meter-pointer {
+  position: absolute;
+  inset-block: calc(var(--ag-grid-unit) * -1.5);
+  left: calc(var(--ag-correlation-at, 0.5) * 100%);
+  inline-size: calc(var(--ag-grid-unit) * 2);
+  translate: -50% 0;
+  border-radius: var(--ag-grid-unit);
+  background: var(--ag-meter-low);
+  box-shadow: 0 0 calc(var(--ag-grid-unit) * 4) var(--ag-meter-low);
+}
+
+.ag-correlation-meter-value {
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  color: var(--ag-chrome-text-secondary);
+}
+
+/*
+ * Forced colours: the browser draws no gradient, shadow or mask colour of the
+ * theme's, so each dial and meter keeps its parts as boundaries in the user's
+ * colours, and what is lit or set takes the colour the user's palette keeps
+ * for a selection.
+ */
+@media (forced-colors: active) {
+  [data-ag-theme]
+    :is(.ag-slider-track, .ag-fader-slot, .ag-level-meter-bar, .ag-correlation-meter-bar) {
+    border: 1px solid CanvasText;
+  }
+
+  [data-ag-theme] :is(.ag-slider-thumb, .ag-fader-cap, .ag-knob-skirt) {
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+
+  [data-ag-theme] :is(.ag-slider-range, .ag-fader-index, .ag-fader-slot-level, .ag-knob-pointer),
+  [data-ag-theme] .ag-knob-index::before {
+    background: Highlight;
+  }
+
+  [data-ag-theme] .ag-knob-track {
+    stroke: CanvasText;
+  }
+
+  [data-ag-theme] .ag-knob-value-ring {
+    stroke: Highlight;
+  }
+
+  [data-ag-theme] :is(.ag-level-meter-lit, .ag-level-meter-hold, .ag-correlation-meter-pointer) {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  [data-ag-theme] .ag-level-meter-clip[data-ag-lit] .ag-level-meter-clip-light {
+    forced-color-adjust: none;
+    background: Mark;
+  }
+}

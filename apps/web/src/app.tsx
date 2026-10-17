@@ -50,6 +50,7 @@ import { standingRecovery } from './state/recovery-notices.js';
 
 import '@audiogubbins/design-system/styles/tokens.css';
 import '@audiogubbins/design-system/styles/components.css';
+import '@audiogubbins/design-system/styles/dials.css';
 import '@audiogubbins/workspace/styles/workspace.css';
 import './shell/shell.css';
 import { timeOfDay } from '@audiogubbins/text';

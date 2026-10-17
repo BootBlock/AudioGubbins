@@ -388,7 +388,6 @@
 
 /* Value controls. */
 
-.ag-slider-field,
 .ag-switch-field,
 .ag-select-field {
   display: flex;
@@ -402,7 +401,6 @@
   min-block-size: var(--ag-control-height);
 }
 
-.ag-slider-label,
 .ag-switch-label,
 .ag-select-label {
   /* Shrinks only where it is alone on its line, then wraps its words. */
@@ -414,58 +412,6 @@
   display: block;
   color: var(--ag-chrome-text-secondary);
   font-size: var(--ag-text-label);
-}
-
-.ag-slider {
-  position: relative;
-  display: flex;
-  flex: 1 1 auto;
-
-  /* Wide enough to set with a pointer; narrower, the field wraps instead. */
-  min-inline-size: 8rem;
-  align-items: center;
-  block-size: var(--ag-control-height);
-
-  /* The browser must not scroll the page while a thumb is being dragged with a
-     finger, or a slider on a tablet becomes impossible to set (REQ-UX-067). */
-  touch-action: none;
-  user-select: none;
-}
-
-.ag-slider-track {
-  position: relative;
-  flex-grow: 1;
-  block-size: 4px;
-  border-radius: var(--ag-radius-full);
-  background-color: var(--ag-chrome-surface-sunken);
-}
-
-.ag-slider-range {
-  position: absolute;
-  block-size: 100%;
-  border-radius: var(--ag-radius-full);
-  background-color: var(--ag-chrome-accent);
-}
-
-.ag-slider-thumb {
-  display: block;
-  inline-size: 14px;
-  block-size: 14px;
-  border-radius: var(--ag-radius-full);
-  background-color: var(--ag-chrome-accent);
-  border: 2px solid var(--ag-chrome-surface-raised);
-}
-
-.ag-slider-value {
-  flex: 0 0 auto;
-  min-inline-size: 4rem;
-  text-align: end;
-
-  /* The numeric family in tabular figures, so the value does not shift sideways
-     as it changes. */
-  font-family: var(--ag-font-numeric);
-  font-variant-numeric: tabular-nums;
-  color: var(--ag-chrome-text-secondary);
 }
 
 .ag-switch {

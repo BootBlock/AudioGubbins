@@ -180,4 +180,25 @@ export {
   VisuallyHidden,
 } from './primitives/controls.js';
 
-export { type SliderScale, ValueSlider, type ValueSliderProps } from './primitives/value-slider.js';
+// ds-dials: the dials and the meters. The slider, the knob and the fader take
+// one taper, a `SliderScale`, from the panel that owns the value; the meters
+// take the engine's readings and apply the theme's ballistics, on a clock a
+// test or the inventory can hold.
+export { ValueSlider, type ValueSliderProps } from './primitives/value-slider.js';
+export { type SliderScale } from './primitives/dials/value-travel.js';
+export { type DialTyping } from './primitives/dials/typed-value-field.js';
+export { Knob, type KnobProps } from './primitives/dials/knob.js';
+export { Fader, type FaderMark, type FaderProps } from './primitives/dials/fader.js';
+export {
+  LevelMeter,
+  type LevelMeterProps,
+  type MeterChannel,
+  type MeterMark,
+  MeterOrientation,
+  type MeterScale,
+} from './primitives/dials/level-meter.js';
+export {
+  CorrelationMeter,
+  type CorrelationMeterProps,
+} from './primitives/dials/correlation-meter.js';
+export { type FrameClock } from './primitives/dials/frame-clock.js';
