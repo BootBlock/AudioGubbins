@@ -13,6 +13,15 @@
 import { useEffect, useId, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
+  Banner,
+  BannerTone,
+  EmptyState,
+  Hint,
+  PanelHeader,
+  type IconName,
+} from '@audiogubbins/design-system';
+
+import {
   packKey,
   packVersionCondition,
   refOf,
@@ -27,7 +36,8 @@ import type { PackManagerState, PackManagerView } from '../../ml/pack-manager.js
 import { projectNeeds, type ProjectNeed } from '../../ml/pack-needs.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
 import { PackRow, type PackVersion } from './pack-row.js';
 
 /** What the Model packs panel reads. */
@@ -105,15 +115,43 @@ function CatalogueLine({ state }: { readonly state: PackManagerState }): ReactNo
   const { catalogue } = state;
   switch (catalogue.kind) {
     case 'unasked':
-      return <p className="ag-panel-note">The catalogue has not been asked this session.</p>;
+      return <p className="ag-packs-note">The catalogue has not been asked this session.</p>;
     case 'reading':
-      return <p role="status">Asking the catalogue what it offers…</p>;
+      return (
+        <p role="status" className="ag-packs-note">
+          Asking the catalogue what it offers…
+        </p>
+      );
     case 'read':
       return null;
     case 'failed':
-      return <p role="status">{`The catalogue could not be read. ${catalogue.reason}`}</p>;
+      return (
+        <p role="status" className="ag-packs-note" data-ag-tone="error">
+          {`The catalogue could not be read. ${catalogue.reason}`}
+        </p>
+      );
   }
 }
+
+/** How a need is drawn for the condition that holds for it: met, news, or wanting. */
+const NEED_TONES: Readonly<Record<ProjectNeed['availability']['condition'], BannerTone>> = {
+  available: BannerTone.Success,
+  'update-available': BannerTone.Information,
+  'required-unavailable': BannerTone.Warning,
+  'optional-unavailable': BannerTone.Warning,
+  incompatible: BannerTone.Warning,
+  'device-unavailable': BannerTone.Warning,
+};
+
+/** The glyph each need's banner leads with. */
+const NEED_GLYPHS: Readonly<Record<ProjectNeed['availability']['condition'], IconName>> = {
+  available: 'success',
+  'update-available': 'information',
+  'required-unavailable': 'warning',
+  'optional-unavailable': 'warning',
+  incompatible: 'warning',
+  'device-unavailable': 'warning',
+};
 
 /** What the open project needs of the packs, and which condition holds for each. */
 function ProjectNeeds({
@@ -126,35 +164,41 @@ function ProjectNeeds({
   const heading = useId();
   if (needs.length === 0) return null;
   return (
-    <div role="group" aria-labelledby={heading}>
-      <h3 className="ag-section-heading" id={heading}>
+    <div className="ag-packs-group" role="group" aria-labelledby={heading}>
+      <h3 className="ag-packs-group-title" id={heading}>
         What the open project needs
       </h3>
-      <ul className="ag-pack-needs">
-        {needs.map(({ key, label, availability }) => {
-          const offered =
-            availability.condition === 'required-unavailable' ||
-            availability.condition === 'optional-unavailable' ||
-            availability.condition === 'incompatible'
-              ? availability.offered
-              : undefined;
-          return (
-            <li key={key}>
-              <span>{`${label}: ${CONDITION_NAMES[availability.condition]}.`}</span>
-              {'reason' in availability && <span>{` ${availability.reason.summary}`}</span>}
-              {offered !== undefined && (
-                <CommandButton
-                  id="packs.install"
-                  label={`Install ${packTitle(offered.name, offered.version)}`}
-                  commands={commands}
-                  args={{ id: offered.id, version: offered.version }}
-                  compact
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {needs.map(({ key, label, availability }) => {
+        const offered =
+          availability.condition === 'required-unavailable' ||
+          availability.condition === 'optional-unavailable' ||
+          availability.condition === 'incompatible'
+            ? availability.offered
+            : undefined;
+        return (
+          <Banner
+            key={key}
+            tone={NEED_TONES[availability.condition]}
+            icon={NEED_GLYPHS[availability.condition]}
+            {...(offered === undefined
+              ? {}
+              : {
+                  actions: (
+                    <HintedCommandButton
+                      id="packs.install"
+                      label={`Install ${packTitle(offered.name, offered.version)}`}
+                      commands={commands}
+                      args={{ id: offered.id, version: offered.version }}
+                      compact
+                    />
+                  ),
+                })}
+          >
+            {`${label}: ${CONDITION_NAMES[availability.condition]}.`}
+            {'reason' in availability && ` ${availability.reason.summary}`}
+          </Banner>
+        );
+      })}
     </div>
   );
 }
@@ -173,12 +217,16 @@ function PackList({
   const versions = versionsOf(state, context);
   const offered = new Set(offeredOf(state).map((manifest) => packKey(refOf(manifest))));
   return (
-    <div role="group" aria-labelledby={heading}>
-      <h3 className="ag-section-heading" id={heading}>
+    <div className="ag-packs-group" role="group" aria-labelledby={heading}>
+      <h3 className="ag-packs-group-title" id={heading}>
         Packs
       </h3>
       {versions.length === 0 ? (
-        <p>No pack is kept here, and the catalogue offers none.</p>
+        <EmptyState
+          icon="model-packs"
+          title="No packs"
+          text="No pack is kept here, and the catalogue offers none."
+        />
       ) : (
         <ul className="ag-pack-list">
           {versions.map((version) => (
@@ -195,23 +243,51 @@ function PackList({
   );
 }
 
-/** Asking the catalogue again, and importing a pack from a folder. */
+/** The panel's header: its title, what packs are, and its actions where packs can be kept. */
+function PacksHeader({
+  title,
+  keptHere,
+  commands,
+}: {
+  readonly title: string;
+  /** Whether this browser can keep packs, so the catalogue can be asked and a pack imported. */
+  readonly keptHere: boolean;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  return (
+    <PanelHeader
+      title={title}
+      icon="model-packs"
+      actions={
+        <>
+          <Hint label="About model packs">
+            Model packs hold the machine-learning models some processors run, here on this device.
+            Nothing is downloaded until you install a pack, and no audio leaves this device.
+          </Hint>
+          {keptHere && <PackActions commands={commands} />}
+        </>
+      }
+    />
+  );
+}
+
+/** Asking the catalogue again, and importing a pack from a folder: the header's actions. */
 function PackActions({ commands }: { readonly commands: PanelCommands }): ReactNode {
   return (
-    <div className="ag-settings-row">
-      <CommandButton
+    <>
+      <CommandIconButton
         id="packs.refresh-catalogue"
+        icon="reload"
         label="Check the catalogue again"
         commands={commands}
-        compact
       />
-      <CommandButton
+      <CommandIconButton
         id="packs.import"
+        icon="import-folder"
         label="Import a pack from a folder…"
         commands={commands}
-        compact
       />
-    </div>
+    </>
   );
 }
 
@@ -243,21 +319,20 @@ export function PackManagerPanel({
       ? projectNeeds(open.snapshot.model.state, context)
       : [];
   return (
-    <section className="ag-panel ag-packs">
-      <h2 className="ag-panel-title">{title}</h2>
-      <p className="ag-panel-note">
-        Model packs hold the machine-learning models some processors run, here on this device.
-        Nothing is downloaded until you install a pack, and no audio leaves this device.
-      </p>
+    <section className="ag-panel ag-stacked-panel ag-packs">
+      <PacksHeader title={title} keptHere={unavailable === undefined} commands={commands} />
       {unavailable !== undefined ? (
-        <p>{unavailable}</p>
+        <EmptyState icon="model-packs" title="Model packs unavailable" text={unavailable} />
       ) : (
         <>
-          <PackActions commands={commands} />
           <CatalogueLine state={state} />
-          {state.problem !== undefined && <p role="status">{state.problem}</p>}
+          {state.problem !== undefined && (
+            <p role="status" className="ag-packs-note" data-ag-tone="error">
+              {state.problem}
+            </p>
+          )}
           {context === undefined && (
-            <p className="ag-panel-note">Which packs can run on this device is not known yet.</p>
+            <p className="ag-packs-note">Which packs can run on this device is not known yet.</p>
           )}
           <ProjectNeeds needs={needs} commands={commands} />
           <PackList state={state} context={context} commands={commands} />

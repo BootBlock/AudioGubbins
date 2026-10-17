@@ -142,6 +142,22 @@ function row(name: string): HTMLElement {
   return screen.getByRole('group', { name });
 }
 
+/** Opens a version's Details, where its facts are, and gives the row. */
+async function detailsOf(name: string): Promise<HTMLElement> {
+  const version = row(name);
+  await userEvent.click(within(version).getByRole('button', { name: 'Details' }));
+  return version;
+}
+
+/** What the hint named `label` in `within` explains, opened as a person opens it. */
+async function hintOf(container: HTMLElement, label: string): Promise<string> {
+  await userEvent.click(within(container).getByRole('button', { name: label }));
+  const explanation = await screen.findByRole('dialog', { name: label });
+  const words = explanation.textContent;
+  await userEvent.keyboard('{Escape}');
+  return words;
+}
+
 describe('the Model packs panel', { timeout: 30_000 }, () => {
   it('reads the manager and cannot change a pack, which it does only by a command', () => {
     expectTypeOf<Omit<PackManagerParts['packs'], 'unavailable' | 'availability'>>().toEqualTypeOf<
@@ -149,28 +165,31 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
     >();
   });
 
-  it('shows each pack offered or kept with its name, purpose, version, sizes, integrity, licence, compatibility and tier', () => {
+  it('shows each pack offered or kept with its name, purpose, version, sizes, integrity, licence, compatibility and tier', async () => {
     panelOver(stateOf([DENOISER, SEPARATOR], [[DENOISER, { kind: 'installed' }]]));
 
-    const denoiser = row('Denoiser 1.0.0');
-    expect(denoiser).toHaveTextContent('Removes noise from a test signal.');
+    // Its name and purpose at its head, and its facts behind its Details, the
+    // long explanations behind their hints.
+    expect(row('Denoiser 1.0.0')).toHaveTextContent('Removes noise from a test signal.');
+    const denoiser = await detailsOf('Denoiser 1.0.0');
     expect(denoiser).toHaveTextContent('Download size8 bytes');
     expect(denoiser).toHaveTextContent('Installed size8 bytes');
-    expect(denoiser).toHaveTextContent(
-      'IntegrityEvery file matched its SHA-256 when it was installed, and is checked again as it is read.',
+    expect(await hintOf(denoiser, 'About its integrity')).toBe(
+      'Every file matched its SHA-256 when it was installed, and is checked again as it is read.',
     );
     expect(denoiser).toHaveTextContent('LicenceCode MIT; weights Apache-2.0');
     expect(denoiser).toHaveTextContent(
       'Compatibilityonnxruntime-web from 1.30.0, below 2.0.0, with WebAssembly SIMD',
     );
-    expect(denoiser).toHaveTextContent(
-      'Model tierBalanced: between speed and the most thorough result. The model’s own; it is the same at every render and preview quality.',
+    expect(denoiser).toHaveTextContent('Model tierBalanced');
+    expect(await hintOf(denoiser, 'About its model tier')).toBe(
+      'Balanced: between speed and the most thorough result. The model’s own; it is the same at every render and preview quality.',
     );
     expect(denoiser).toHaveTextContent('Installed, every file checked against its SHA-256');
     expect(row('Separator 1.0.0')).toHaveTextContent('Not installed');
   });
 
-  it('says each tier as the model’s speed and result, in no quality level’s words', () => {
+  it('says each tier as the model’s speed and result, in no quality level’s words', async () => {
     const tiers = [
       ['light', 'Light: quick to run, with a lighter result'],
       ['balanced', 'Balanced: between speed and the most thorough result'],
@@ -180,10 +199,13 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
     panelOver(stateOf(packs, []));
 
     for (const [tier, words] of tiers) {
-      const facts = row(`Pack ${tier} 1.0.0`);
-      expect(facts).toHaveTextContent(`Model tier${words}.`);
+      const facts = await detailsOf(`Pack ${tier} 1.0.0`);
+      const explained = await hintOf(facts, 'About its model tier');
+      expect(explained).toContain(`${words}.`);
       // A tier is no render mode, so none is shown as a quality a person sets.
-      expect(facts).not.toHaveTextContent(/Quality tiers|\b(Draft|Standard|High|Maximum)\b/u);
+      for (const said of [facts.textContent, explained]) {
+        expect(said).not.toMatch(/Quality tiers|\b(Draft|Standard|High|Maximum)\b/u);
+      }
     }
   });
 
@@ -214,7 +236,7 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
     const downloading = row('Denoiser 1.0.0');
     expect(
       within(downloading).getByRole('progressbar', { name: 'Download of Denoiser 1.0.0' }),
-    ).toHaveAttribute('value', '3');
+    ).toHaveAttribute('aria-valuetext', '3 bytes of 8 bytes');
     expect(downloading).toHaveTextContent('Downloading, 3 bytes of 8 bytes');
     await userEvent.click(within(downloading).getByRole('button', { name: 'Pause' }));
     await userEvent.click(within(downloading).getByRole('button', { name: 'Cancel' }));
