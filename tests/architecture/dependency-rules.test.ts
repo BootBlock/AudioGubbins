@@ -3207,10 +3207,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       300,
       "The game export plan: each member planned alone from its effective profile, naming and destination, each refusal re-stated with the owner of the value refused, and the planned items whose files would land on one another refused together. A member's policy, naming and export settings are modules of their own (`policy-resolution.ts`, `member-names.ts`, `member-export-settings.ts`); what is left is planning one member and settling the drafts against each other. The collision check is the one seam, and split out it would need this module's item and draft types and the words a refusal names a member by, which a collision and an unset value share. It entered the band when its refusals took the text package's quoting.",
     ],
-    'packages/design-system/src/icons/vocabulary.ts': [
-      390,
-      "The icon vocabulary: one static import per glyph and one line per name, with no logic of its own. Measuring and placing a glyph is `placed-glyph.ts`, its ink `ink-box.ts` and `path-box.ts`, and the glyphs AudioGubbins draws `custom-glyphs.ts`; what is left is the one map whose keys are `IconName`, which split by area would let two areas give one name to two glyphs with no type error, since a spread takes the last silently, and would leave no one place that says what the application can draw. It entered the band whole, as the vocabulary was first written from the design language's mock-ups.",
-    ],
   };
 
   /**
