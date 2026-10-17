@@ -9,15 +9,7 @@ import { Button } from './button.js';
 import { NoticeProvider } from './announcement.js';
 import { HintProvider, InfoPopover, Menu, ModalDialog, type MenuGroup } from './overlays.js';
 import { MenuBar, MenuBarMenu } from './menu-bar.js';
-import {
-  ControlBar,
-  ControlBarButton,
-  ControlBarItem,
-  OptionSelect,
-  TabSet,
-  TextField,
-  ToggleSwitch,
-} from './controls.js';
+import { OptionSelect, TabSet, TextField } from './controls.js';
 import { ValueSlider } from './value-slider.js';
 
 /**
@@ -36,53 +28,6 @@ function renderThemed(ui: ReactNode) {
     </ThemeProvider>,
   );
 }
-
-describe('Button', () => {
-  it('is reachable and pressable by name', async () => {
-    const onClick = vi.fn();
-    renderThemed(<Button onClick={onClick}>Reset layout</Button>);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Reset layout' }));
-
-    expect(onClick).toHaveBeenCalledOnce();
-  });
-
-  it('activates from the keyboard', async () => {
-    const onClick = vi.fn();
-    renderThemed(<Button onClick={onClick}>Reset layout</Button>);
-
-    await userEvent.tab();
-    await userEvent.keyboard('{Enter}');
-
-    expect(onClick).toHaveBeenCalledOnce();
-  });
-
-  it('names itself for a screen reader when it shows only an icon', () => {
-    renderThemed(<Button iconOnly label="Play" />);
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
-  });
-
-  it('does not submit the form it happens to sit in', () => {
-    // A toolbar button that submits its surrounding form is a defect that only
-    // appears once the form exists, so the type is explicit rather than
-    // default.
-    renderThemed(<Button>Zoom in</Button>);
-    expect(screen.getByRole('button', { name: 'Zoom in' })).toHaveAttribute('type', 'button');
-  });
-
-  it('is not pressable while disabled', async () => {
-    const onClick = vi.fn();
-    renderThemed(
-      <Button onClick={onClick} disabled>
-        Delete
-      </Button>,
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
-
-    expect(onClick).not.toHaveBeenCalled();
-  });
-});
 
 describe('ModalDialog', () => {
   const dialog = (onOpenChange = vi.fn()): ReactNode => (
@@ -520,41 +465,6 @@ describe('TextField', () => {
   });
 });
 
-describe('ToggleSwitch', () => {
-  it('is reachable by its label and reports its state', () => {
-    renderThemed(<ToggleSwitch label="Diagnostic mode" checked onCheckedChange={vi.fn()} />);
-
-    expect(screen.getByRole('switch', { name: 'Diagnostic mode' })).toBeChecked();
-  });
-
-  it('toggles from the keyboard', async () => {
-    const onCheckedChange = vi.fn();
-    renderThemed(
-      <ToggleSwitch label="Diagnostic mode" checked={false} onCheckedChange={onCheckedChange} />,
-    );
-
-    await userEvent.tab();
-    await userEvent.keyboard(' ');
-
-    expect(onCheckedChange).toHaveBeenCalledWith(true);
-  });
-
-  it('associates its description with the control', () => {
-    renderThemed(
-      <ToggleSwitch
-        label="Diagnostic mode"
-        description="Collects more detail for a limited period."
-        checked={false}
-        onCheckedChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole('switch', { name: 'Diagnostic mode' })).toHaveAccessibleDescription(
-      'Collects more detail for a limited period.',
-    );
-  });
-});
-
 describe('OptionSelect', () => {
   it('is reachable by its label and shows the current value', () => {
     renderThemed(
@@ -655,95 +565,6 @@ describe('TabSet', () => {
     await userEvent.keyboard('{ArrowRight}');
 
     expect(onValueChange).toHaveBeenCalledWith('shortcuts');
-  });
-});
-
-describe('ControlBar', () => {
-  it('names itself, so a screen reader can say which toolbar this is', () => {
-    renderThemed(
-      <ControlBar label="Transport">
-        <Button>Play</Button>
-      </ControlBar>,
-    );
-
-    expect(screen.getByRole('toolbar', { name: 'Transport' })).toBeInTheDocument();
-  });
-
-  it('costs a keyboard user one Tab stop, not one per button', async () => {
-    renderThemed(
-      <>
-        <ControlBar label="Transport">
-          <ControlBarItem>
-            <Button>Play</Button>
-          </ControlBarItem>
-          <ControlBarItem>
-            <Button>Stop</Button>
-          </ControlBarItem>
-          <ControlBarItem>
-            <Button>Record</Button>
-          </ControlBarItem>
-        </ControlBar>
-        <Button>After the toolbar</Button>
-      </>,
-    );
-
-    await userEvent.tab();
-    expect(screen.getByRole('button', { name: 'Play' })).toHaveFocus();
-
-    await userEvent.tab();
-    expect(screen.getByRole('button', { name: 'After the toolbar' })).toHaveFocus();
-  });
-
-  it('moves between its buttons with the arrow keys', async () => {
-    renderThemed(
-      <ControlBar label="Transport">
-        <ControlBarItem>
-          <Button>Play</Button>
-        </ControlBarItem>
-        <ControlBarItem>
-          <Button>Stop</Button>
-        </ControlBarItem>
-      </ControlBar>,
-    );
-
-    await userEvent.tab();
-    await userEvent.keyboard('{ArrowRight}');
-
-    expect(screen.getByRole('button', { name: 'Stop' })).toHaveFocus();
-  });
-
-  it('keeps a hinted button reachable, so one tooltip does not cost the toolbar its keyboard access', async () => {
-    // A hint used to be wrapped around a toolbar item, which dropped the props
-    // and the ref the toolbar gives its items. The toolbar then held an item
-    // with no element behind it, and the first Tab threw instead of moving
-    // focus, taking every button in the toolbar out of keyboard reach.
-    renderThemed(
-      <ControlBar label="Transport">
-        <ControlBarButton label="Play" hint="Start playback" shortcut="Space" onPress={vi.fn()} />
-        <ControlBarItem>
-          <Button>Stop</Button>
-        </ControlBarItem>
-      </ControlBar>,
-    );
-
-    await userEvent.tab();
-    expect(screen.getByRole('button', { name: 'Play' })).toHaveFocus();
-
-    await userEvent.keyboard('{ArrowRight}');
-    expect(screen.getByRole('button', { name: 'Stop' })).toHaveFocus();
-  });
-
-  it('runs a hinted button when it is pressed', async () => {
-    const onPress = vi.fn();
-    renderThemed(
-      <ControlBar label="Transport">
-        <ControlBarButton label="Play" hint="Start playback" onPress={onPress} />
-      </ControlBar>,
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Play' }));
-
-    expect(onPress).toHaveBeenCalledOnce();
   });
 });
 

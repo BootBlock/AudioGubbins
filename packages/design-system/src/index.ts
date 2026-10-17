@@ -160,13 +160,7 @@ export {
   type MenuBarMenuProps,
 } from './primitives/menu-bar.js';
 
-// `ControlBarItem` is the toolbar primitive's slot for a control other than a
-// button, which WU-01.B's toolbar needs as much as its buttons.
 export {
-  ControlBar,
-  ControlBarButton,
-  type ControlBarButtonProps,
-  ControlBarItem,
   OptionSelect,
   type OptionSelectProps,
   type SelectOption,
@@ -175,9 +169,38 @@ export {
   type TabSetProps,
   TextField,
   type TextFieldProps,
-  ToggleSwitch,
-  type ToggleSwitchProps,
   VisuallyHidden,
 } from './primitives/controls.js';
 
 export { type SliderScale, ValueSlider, type ValueSliderProps } from './primitives/value-slider.js';
+
+// Buttons: the controls a user presses or turns over. `ControlBarItem` is the
+// toolbar's slot for a control other than its own button, which a toolbar
+// needs as much as its buttons. The hardware controls (the switch, the radio's
+// panel lamp, the power switch and the record lamp) draw the design language's
+// hardware, and every control opens its reason on hover or focus while it
+// cannot be used (ADR-0013).
+export {
+  ControlBar,
+  ControlBarButton,
+  type ControlBarButtonProps,
+  ControlBarItem,
+  type ControlBarProps,
+  ControlBarSeparator,
+} from './primitives/buttons/control-bar.js';
+export { IconButton, type IconButtonProps } from './primitives/buttons/icon-button.js';
+export {
+  SegmentedControl,
+  type SegmentedControlProps,
+  type SegmentedOption,
+  SegmentedVariant,
+} from './primitives/buttons/segmented-control.js';
+export { ToggleSwitch, type ToggleSwitchProps } from './primitives/buttons/toggle-switch.js';
+export { Check, type CheckProps } from './primitives/buttons/check.js';
+export {
+  RadioGroup,
+  type RadioGroupProps,
+  type RadioOption,
+} from './primitives/buttons/radio-group.js';
+export { PowerSwitch, type PowerSwitchProps } from './primitives/buttons/power-switch.js';
+export { RecordButton, type RecordButtonProps } from './primitives/buttons/record-button.js';
