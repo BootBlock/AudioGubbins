@@ -620,6 +620,11 @@ const specimens: readonly Specimen[] = [
     state: 'none',
     render: () => <Verdict kind="none">Not measured</Verdict>,
   },
+  {
+    component: 'Verdict',
+    state: 'stale',
+    render: () => <Verdict kind="stale">Measured before the last edit</Verdict>,
+  },
 
   // Badges, status chips and key caps.
   { component: 'Badge', state: 'neutral', render: () => <Badge>Snapshot</Badge> },

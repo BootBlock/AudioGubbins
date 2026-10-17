@@ -208,4 +208,15 @@ describe('Verdict', () => {
     expect(document.querySelector('.ag-verdict .ag-spinner')).toBeNull();
     expect(document.querySelector('.ag-verdict svg[data-icon="check-fails"]')).not.toBeNull();
   });
+
+  it('draws a reading out of date apart from a warning, asking for it to be checked again', () => {
+    // A loudness measured before an edit was drawn as a warning, the same as
+    // one that measured too loud, so a reader could not tell "measure again"
+    // from "fix this".
+    render(<Verdict kind="stale">Measured before the last edit</Verdict>);
+
+    const verdict = screen.getByText('Measured before the last edit').closest('.ag-verdict');
+    expect(verdict).toHaveAttribute('data-ag-verdict', 'stale');
+    expect(verdict?.querySelector('svg[data-icon="analyse-again"]')).not.toBeNull();
+  });
 });

@@ -732,6 +732,10 @@
   color: var(--ag-chrome-status-error);
 }
 
+.ag-verdict[data-ag-verdict='stale'] > .ag-icon {
+  color: var(--ag-chrome-status-warning);
+}
+
 /* Badges. The padding centres one line of text in the pill, which the
    language exempts from the grid (section 1). */
 
