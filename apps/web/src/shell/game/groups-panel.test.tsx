@@ -96,10 +96,16 @@ describe('the Asset groups panel', { timeout: 30_000 }, () => {
     const items = () => within(tree).getAllByRole('treeitem');
 
     expect(items().map((item) => item.getAttribute('aria-level'))).toEqual(['1', '1', '2']);
-    expect(items().map((item) => item.textContent)).toEqual([
+    // Each item is named in words, and the one chosen says so by its selection.
+    expect(items().map((item) => item.getAttribute('aria-label'))).toEqual([
       'Music (0 members)',
       'Sfx (0 members)',
-      '▸ Footsteps (2 members)',
+      'Footsteps (2 members)',
+    ]);
+    expect(items().map((item) => item.getAttribute('aria-selected'))).toEqual([
+      'false',
+      'false',
+      'true',
     ]);
     // One stop in the tab order: the group chosen.
     expect(items().map((item) => item.tabIndex)).toEqual([-1, -1, 0]);
@@ -161,10 +167,19 @@ describe('the Asset groups panel', { timeout: 30_000 }, () => {
         .map((cell) => cell.textContent),
     ).toEqual(['“Step one”', '“Step two”']);
     expect(within(members).getAllByText('Inherits')).toHaveLength(2);
-    expect(within(members).getAllByText('— No loudness target')).toHaveLength(2);
-    const plan = screen.getByRole('heading', { name: 'Export plan' }).parentElement;
-    expect(plan).toHaveTextContent(
-      '✓ “Step one” → footsteps_01.wav (profile: Sfx/Footsteps; name: Sfx/Footsteps; folder: not set)',
+    expect(within(members).getAllByText('No loudness target')).toHaveLength(2);
+    const plan = screen.getByRole('region', { name: 'Export plan' });
+    const planned = within(plan).getAllByRole('listitem')[0];
+    if (planned === undefined) throw new Error('The plan lists the member.');
+    expect(planned).toHaveTextContent('“Step one” to footsteps_01.wav');
+    // Who owns each value of the file is behind the item's hint.
+    await userEvent.click(
+      within(planned).getByRole('button', {
+        name: 'Where the file of “Step one” takes its values from',
+      }),
+    );
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      'Profile: Sfx/Footsteps; name: Sfx/Footsteps; folder: not set.',
     );
     expect(plan).toHaveTextContent('2 members are planned and 0 are refused.');
   });
@@ -173,8 +188,8 @@ describe('the Asset groups panel', { timeout: 30_000 }, () => {
     const audio = await forest();
     panelOver(audio);
 
-    const plan = screen.getByRole('heading', { name: 'Export plan' }).parentElement;
+    const plan = screen.getByRole('region', { name: 'Export plan' });
     expect(plan).toHaveTextContent('0 members are planned and 2 are refused.');
-    expect(plan).toHaveTextContent(/✗ “Step one”: .*export profile/u);
+    expect(plan).toHaveTextContent(/“Step one”: .*export profile/u);
   });
 });

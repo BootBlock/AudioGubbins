@@ -15,12 +15,19 @@
 
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { OptionSelect } from '@audiogubbins/design-system';
+import {
+  EmptyState,
+  Hint,
+  OptionSelect,
+  PanelHeader,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { GameAssetGroup, GameAssetGroupId } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import { gamePolicyView, type GamePolicyView } from '../../state/game-policy-view.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
 import { ExportPlan } from './export-plan.js';
 import { GroupMembers } from './group-members.js';
 import { GroupTree } from './group-tree.js';
@@ -55,9 +62,9 @@ function MoveControl({
   ];
   const [parent, setParent] = useState(group.parent ?? '');
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-control-row">
       <OptionSelect label="Move into" value={parent} options={options} onValueChange={setParent} />
-      <CommandButton
+      <HintedCommandButton
         id="game.move-group"
         label="Move"
         commands={commands}
@@ -68,15 +75,67 @@ function MoveControl({
   );
 }
 
-/** What can be done with the group chosen, each a command given the group: its label here. */
-const GROUP_ACTIONS: readonly (readonly [id: string, label: string])[] = [
-  ['game.new-group', 'New group inside'],
-  ['game.assign-selection', 'Put the selection in it'],
-  ['game.choose-group', 'Show its policy'],
-  ['game.measure-loudness', 'Measure loudness'],
-  ['game.name-members', 'Name its regions'],
-  ['game.delete-group', 'Delete'],
+/** What can be done with the group chosen in words, each a command given the group. */
+const GROUP_ACTIONS: readonly (readonly [id: string, label: string, icon: IconName])[] = [
+  ['game.measure-loudness', 'Measure loudness', 'measure-loudness'],
+  ['game.assign-selection', 'Put the selection in it', 'add'],
 ];
+
+/** What can be done with the group chosen by a glyph, each a command given the group. */
+const GROUP_TOOLS: readonly (readonly [id: string, label: string, icon: IconName])[] = [
+  ['game.new-group', 'New group inside', 'new-group'],
+  ['game.choose-group', 'Show its policy', 'inspector'],
+  ['game.name-members', 'Name its regions', 'name'],
+  ['game.delete-group', 'Delete', 'delete'],
+];
+
+/** The group chosen's path and the commands that act on it. */
+function ChosenGroupHead({
+  group,
+  view,
+  heading,
+  commands,
+}: {
+  readonly group: GameAssetGroup;
+  readonly view: GamePolicyView;
+  /** The id its path is the heading of the group's section by. */
+  readonly heading: string;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const args = { group: group.id };
+  return (
+    <div className="ag-groups-chosen-head">
+      <h3 className="ag-groups-path" id={heading}>
+        {view.pathOf(group.id).join('/')}
+      </h3>
+      <div className="ag-game-actions">
+        {GROUP_ACTIONS.map(([id, label, icon]) => (
+          <HintedCommandButton
+            key={id}
+            id={id}
+            label={label}
+            icon={icon}
+            commands={commands}
+            args={args}
+            compact
+          />
+        ))}
+        <span className="ag-game-separator" aria-hidden="true" />
+        {GROUP_TOOLS.map(([id, label, icon]) => (
+          <CommandIconButton
+            key={id}
+            id={id}
+            icon={icon}
+            label={label}
+            commands={commands}
+            args={id === 'game.new-group' ? { parent: group.id } : args}
+            compact
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** The group chosen: its commands, its members and its export plan. */
 function ChosenGroup({
@@ -94,24 +153,9 @@ function ChosenGroup({
 }): ReactNode {
   const heading = useId();
   const memberships = view.membersOf(group.id);
-  const args = { group: group.id };
   return (
-    <section aria-labelledby={heading}>
-      <h3 className="ag-section-heading" id={heading}>
-        {view.pathOf(group.id).join('/')}
-      </h3>
-      <div className="ag-inspector-row">
-        {GROUP_ACTIONS.map(([id, label]) => (
-          <CommandButton
-            key={id}
-            id={id}
-            label={label}
-            commands={commands}
-            args={id === 'game.new-group' ? { parent: group.id } : args}
-            compact
-          />
-        ))}
-      </div>
+    <section className="ag-groups-chosen" aria-labelledby={heading}>
+      <ChosenGroupHead group={group} view={view} heading={heading} commands={commands} />
       <MoveControl key={group.id} group={group} view={view} commands={commands} />
       <GroupMembers
         group={group}
@@ -147,23 +191,61 @@ function OpenGroups({
   const view = gamePolicyView(state);
   const chosen = choice === undefined ? undefined : view.game.groups.get(choice.group);
   return (
-    <>
-      <div className="ag-inspector-row">
-        <CommandButton id="game.new-group" label="New group" commands={commands} compact />
-        <CommandButton
-          id="game.cancel-loudness"
-          label="Stop measuring"
-          commands={commands}
-          compact
-        />
-      </div>
+    <div className="ag-groups">
       <GroupTree view={view} chosen={chosen?.id} commands={commands} label="Asset groups" />
       {chosen === undefined ? (
-        <p>Choose a group to see its members, their loudness and its export plan.</p>
+        <EmptyState
+          icon="asset-groups"
+          title="No group chosen"
+          text="Choose a group to see its members, their loudness and its export plan."
+        />
       ) : (
         <ChosenGroup group={chosen} state={state} view={view} parts={parts} commands={commands} />
       )}
-    </>
+    </div>
+  );
+}
+
+/** The panel's header: its title, what groups are for, and the commands over every group. */
+function GroupsHeader({
+  title,
+  open,
+  commands,
+}: {
+  readonly title: string;
+  /** Whether a project is open, whose groups the commands make and measure. */
+  readonly open: boolean;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  return (
+    <PanelHeader
+      title={title}
+      icon="asset-groups"
+      actions={
+        <>
+          <Hint label="About asset groups">
+            Groups give their members a shared policy: processing, loudness, export, naming and how
+            the game plays them. A member inherits each value unless it sets its own.
+          </Hint>
+          {open && (
+            <>
+              <CommandIconButton
+                id="game.new-group"
+                icon="new-group"
+                label="New group"
+                commands={commands}
+              />
+              <CommandIconButton
+                id="game.cancel-loudness"
+                icon="stop"
+                label="Stop measuring"
+                commands={commands}
+              />
+            </>
+          )}
+        </>
+      }
+    />
   );
 }
 
@@ -183,14 +265,14 @@ export function GroupsPanel({
   );
   const state = open?.kind === 'open' ? open.snapshot.model.state : undefined;
   return (
-    <section className="ag-panel ag-game-groups">
-      <h2 className="ag-panel-title">{title}</h2>
-      <p className="ag-panel-note">
-        Groups give their members a shared policy: processing, loudness, export, naming and how the
-        game plays them. A member inherits each value unless it sets its own.
-      </p>
+    <section className="ag-panel ag-stacked-panel">
+      <GroupsHeader title={title} open={state !== undefined} commands={commands} />
       {state === undefined ? (
-        <p>Open a project to group its sounds.</p>
+        <EmptyState
+          icon="asset-groups"
+          title="No project open"
+          text="Open a project to group its sounds."
+        />
       ) : (
         <OpenGroups state={state} parts={parts} commands={commands} />
       )}

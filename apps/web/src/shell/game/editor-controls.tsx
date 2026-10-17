@@ -15,7 +15,8 @@ import type { LibraryListing } from '@audiogubbins/storage';
 
 import { policyValueArgument } from '../../commands/game-changes.js';
 import type { ProfilePreset } from '../../commands/game-profiles.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { HintedCommandButton } from '../hinted-command-button.js';
 
 /** What an editor gives: a value as the commands take it, a saved chain, or why it gives none. */
 export type EditedValue =
@@ -53,7 +54,7 @@ export function SetButton({
 }): ReactNode {
   const { setter, commands } = parts;
   return 'refused' in edited ? (
-    <CommandButton
+    <HintedCommandButton
       id={setter.id}
       label={setter.label}
       commands={commands}
@@ -61,7 +62,7 @@ export function SetButton({
       compact
     />
   ) : (
-    <CommandButton
+    <HintedCommandButton
       id={setter.id}
       label={setter.label}
       commands={commands}
@@ -116,7 +117,7 @@ export function TextEditor({
   const [typed, setTyped] = useDraft(initial);
   const edited = make(typed);
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-policy-edit">
       <TextField
         label={label}
         value={typed}
@@ -153,7 +154,7 @@ export function NumbersEditor({
   );
   const edited: EditedValue = missing ? { refused: 'Type a number in each field.' } : make(numbers);
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-policy-edit">
       {fields.map((one, index) => (
         <TextField
           key={one.label}

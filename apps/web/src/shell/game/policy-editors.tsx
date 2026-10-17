@@ -70,7 +70,7 @@ function ProcessingEditor({
       ? { entry: id }
       : { value: policyValueArgument('processing', chain ?? 'none') };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-policy-edit">
       <OptionSelect label="Processing" value={chosen} options={options} onValueChange={setChosen} />
       <SetButton edited={edited} parts={parts} />
     </div>
@@ -87,7 +87,7 @@ function ProfileEditor({ parts }: { readonly parts: EditorParts }): ReactNode {
       ? { refused: 'Choose an export preset.' }
       : { value: policyValueArgument('exportProfile', preset.profile) };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-policy-edit">
       <OptionSelect
         label="From the export preset"
         value={chosen}

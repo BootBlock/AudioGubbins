@@ -10,6 +10,7 @@
 
 import { useId, type ReactNode } from 'react';
 
+import { ButtonTone } from '@audiogubbins/design-system';
 import {
   POLICY_FIELDS,
   memberKey,
@@ -26,10 +27,11 @@ import { quoted } from '@audiogubbins/text';
 import { OVERRIDABLE_FIELDS } from '../../commands/game-field-words.js';
 import { memberName } from '../../commands/game-target.js';
 import { chainWords } from '../../commands/rack-words.js';
-import { CommandButton } from '../command-button.js';
+import { HintedCommandButton } from '../hinted-command-button.js';
 import {
-  Changing,
+  PolicyRow,
   ResolvedFacts,
+  SourceOf,
   TagFacts,
   fieldHeading,
   type PolicyParts,
@@ -61,29 +63,32 @@ function MemberProcessing({
     inherited === undefined
       ? 'Inheriting, it would have no rack.'
       : `Inheriting, its rack would run ${chainWords(inherited)}.`;
+  const subject = { kind: 'member', member: member.kind } as const;
+  const memberGroup = policy.group === undefined ? {} : { memberGroup: policy.group };
   return (
-    <div role="group" aria-label="Processing" className="ag-inspector-row">
-      <h4 className="ag-inspector-heading">Processing</h4>
-      <p>
+    <PolicyRow
+      name="Processing"
+      label="Processing"
+      source={<SourceOf resolved={processing} subject={subject} parts={parts} {...memberGroup} />}
+      actions={
+        <HintedCommandButton
+          id={inherits ? 'game.own-processing' : 'game.inherit-processing'}
+          label={inherits ? 'Keep its own rack' : 'Reset to inherited'}
+          commands={parts.commands}
+          args={args}
+          {...(inherits ? {} : { tone: ButtonTone.Quiet })}
+          compact
+        />
+      }
+      parts={parts}
+    >
+      <p className="ag-policy-value">
         {inherits
           ? `It inherits its group’s processing. ${heard}`
           : `It owns its processing. ${heard} ${reset}`}
       </p>
-      <ResolvedFacts
-        field="processing"
-        resolved={processing}
-        subject={{ kind: 'member', member: member.kind }}
-        parts={parts}
-        {...(policy.group === undefined ? {} : { memberGroup: policy.group })}
-      />
-      <CommandButton
-        id={inherits ? 'game.own-processing' : 'game.inherit-processing'}
-        label={inherits ? 'Keep its own rack' : 'Reset to inherited'}
-        commands={parts.commands}
-        args={args}
-        compact
-      />
-    </div>
+      <ResolvedFacts field="processing" resolved={processing} parts={parts} />
+    </PolicyRow>
   );
 }
 
@@ -101,52 +106,52 @@ function MemberField<F extends Exclude<PolicyField, 'tags' | 'processing'>>({
   readonly resolved: Resolved<PolicyValues[F]>;
   readonly parts: PolicyParts;
 }): ReactNode {
-  const heading = useId();
   const overridable = OVERRIDABLE_FIELDS.find((one) => one === field);
   const overridden = resolved.source.kind === 'override';
+  const subject = { kind: 'member', member: member.kind } as const;
+  const memberGroup = policy.group === undefined ? {} : { memberGroup: policy.group };
   return (
-    <div role="group" aria-labelledby={heading} className="ag-inspector-row">
-      <h4 className="ag-inspector-heading" id={heading}>
-        {fieldHeading(field)}
-      </h4>
-      <ResolvedFacts
-        field={field}
-        resolved={resolved}
-        subject={{ kind: 'member', member: member.kind }}
-        parts={parts}
-        {...(policy.group === undefined ? {} : { memberGroup: policy.group })}
-      />
-      {overridable === undefined ? (
-        <p className="ag-panel-note">Set on its group: a member does not override it.</p>
-      ) : (
-        <>
-          <Changing
-            field={field}
-            initial={resolved.value}
-            parts={parts}
-            setter={{
-              id: 'game.set-override',
-              label: 'Override on this member',
-              args: (edited) => ({
-                member: memberKey(member),
-                field: overridable,
-                ...edited,
-              }),
-            }}
-            label={overridden ? 'Change…' : 'Override…'}
+    <PolicyRow
+      name={fieldHeading(field)}
+      source={<SourceOf resolved={resolved} subject={subject} parts={parts} {...memberGroup} />}
+      {...(overridable === undefined
+        ? {}
+        : {
+            change: {
+              field,
+              initial: resolved.value,
+              setter: {
+                id: 'game.set-override',
+                label: 'Override on this member',
+                args: (edited) => ({
+                  member: memberKey(member),
+                  field: overridable,
+                  ...edited,
+                }),
+              },
+              label: overridden ? 'Change…' : 'Override…',
+            },
+          })}
+      actions={
+        overridable !== undefined &&
+        overridden && (
+          <HintedCommandButton
+            id="game.reset-override"
+            label="Reset to inherited"
+            commands={parts.commands}
+            args={{ member: memberKey(member), field: overridable }}
+            tone={ButtonTone.Quiet}
+            compact
           />
-          {overridden && (
-            <CommandButton
-              id="game.reset-override"
-              label="Reset to inherited"
-              commands={parts.commands}
-              args={{ member: memberKey(member), field: overridable }}
-              compact
-            />
-          )}
-        </>
+        )
+      }
+      parts={parts}
+    >
+      <ResolvedFacts field={field} resolved={resolved} parts={parts} />
+      {overridable === undefined && (
+        <p className="ag-policy-note">Set on its group: a member does not override it.</p>
       )}
-    </div>
+    </PolicyRow>
   );
 }
 
@@ -167,10 +172,9 @@ function MemberFieldRow({
       return null;
     case 'tags':
       return (
-        <div className="ag-inspector-row">
-          <h4 className="ag-inspector-heading">Tags</h4>
+        <PolicyRow name="Tags" parts={parts}>
           <TagFacts tags={policy.tags} parts={parts} />
-        </div>
+        </PolicyRow>
       );
     default:
       return (
@@ -196,12 +200,12 @@ function NotInGroup({
   const heading = useId();
   const name = memberName(parts.state.project, member);
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
+    <section className="ag-policy" aria-labelledby={heading}>
+      <h3 className="ag-policy-heading" id={heading}>
         Game policy
       </h3>
-      <p>{`${name} is in no asset group, so it inherits no policy.`}</p>
-      <CommandButton
+      <p className="ag-policy-value">{`${name} is in no asset group, so it inherits no policy.`}</p>
+      <HintedCommandButton
         id="game.assign-selection"
         label="Put it in the chosen group"
         commands={parts.commands}
@@ -225,30 +229,35 @@ function MemberPolicySection({
   if (policy.group === undefined) return <NotInGroup member={member} parts={parts} />;
   const overrides = Object.keys(parts.view.membershipOf(member)?.overrides ?? {}).length;
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
+    <section className="ag-policy" aria-labelledby={heading}>
+      <h3 className="ag-policy-heading" id={heading}>
         {`Game policy, in ${quoted(parts.view.pathOf(policy.group).join('/'))}`}
       </h3>
-      <MemberProcessing member={member} policy={policy} parts={parts} />
-      {POLICY_FIELDS.map((field) => (
-        <MemberFieldRow key={field} field={field} member={member} policy={policy} parts={parts} />
-      ))}
-      {overrides > 0 && (
-        <CommandButton
-          id="game.reset-all-overrides"
-          label="Reset everything to inherited"
+      <div className="ag-policy-rows">
+        <MemberProcessing member={member} policy={policy} parts={parts} />
+        {POLICY_FIELDS.map((field) => (
+          <MemberFieldRow key={field} field={field} member={member} policy={policy} parts={parts} />
+        ))}
+      </div>
+      <div className="ag-control-row">
+        {overrides > 0 && (
+          <HintedCommandButton
+            id="game.reset-all-overrides"
+            label="Reset everything to inherited"
+            commands={parts.commands}
+            args={{ member: memberKey(member) }}
+            compact
+          />
+        )}
+        <HintedCommandButton
+          id="game.remove-from-group"
+          label="Take out of the group"
           commands={parts.commands}
           args={{ member: memberKey(member) }}
+          tone={ButtonTone.QuietDestructive}
           compact
         />
-      )}
-      <CommandButton
-        id="game.remove-from-group"
-        label="Take out of the group"
-        commands={parts.commands}
-        args={{ member: memberKey(member) }}
-        compact
-      />
+      </div>
     </section>
   );
 }
