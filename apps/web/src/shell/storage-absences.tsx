@@ -9,6 +9,7 @@
 
 import type { ReactNode } from 'react';
 
+import { StatusChip, StatusTone } from '@audiogubbins/design-system';
 import type { StorageCapabilityAbsence } from '@audiogubbins/capabilities';
 
 /** The list, or nothing where the browser lacks nothing. */
@@ -25,8 +26,10 @@ export function StorageAbsences({
         {absences.map((absence) => (
           <li key={absence.key} className="ag-capability">
             <span className="ag-capability-name">{absence.reason}</span>
-            <span className="ag-capability-status" data-ag-status="reduced">
-              Reduced
+            <span className="ag-capability-status">
+              <StatusChip tone={StatusTone.Warning} icon="warning">
+                Reduced
+              </StatusChip>
             </span>
             <p className="ag-capability-explanation">{absence.fallback}</p>
             {absence.remedy !== undefined && (

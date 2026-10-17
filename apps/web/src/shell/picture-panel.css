@@ -1,0 +1,76 @@
+/*
+ * The Picture panel (design language, sections 10 and 11): the reference
+ * picture as large as the panel allows, in a dark frame with its timecode on
+ * frosted glass over its corner, then the bar of its commands and its frame
+ * rate, and what is read out of it.
+ */
+
+.ag-picture-wrap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-picture-frame {
+  display: flex;
+  justify-content: center;
+  background-color: var(--ag-chrome-surface-sunken);
+}
+
+/* As large as the panel's width allows, at the picture's own shape. */
+.ag-picture-video {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+/* The timecode on frosted glass over the picture's corner, as an overlay is. */
+.ag-picture-timecode {
+  position: absolute;
+  inset-block-end: var(--ag-space-inset);
+  inset-inline-end: var(--ag-space-inset);
+  display: flex;
+  align-items: baseline;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: var(--ag-space-hair) var(--ag-space-small);
+  border: 1px solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-elevation-overlay-fill);
+  backdrop-filter: var(--ag-elevation-panel-backdrop);
+  font-size: var(--ag-text-label);
+}
+
+.ag-picture-timecode dt {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+.ag-picture-timecode dd {
+  margin: 0;
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-picture-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ag-space-small);
+}
+
+.ag-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-micro);
+}
+
+.ag-picture-refused {
+  margin: 0;
+  color: var(--ag-chrome-status-error);
+}

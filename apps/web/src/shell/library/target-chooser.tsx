@@ -8,12 +8,13 @@
 
 import { useId, useRef, useState, type ReactNode } from 'react';
 
-import { Button, ToggleSwitch } from '@audiogubbins/design-system';
+import { Button, ButtonTone, ToggleSwitch } from '@audiogubbins/design-system';
 import type { LibraryEntry } from '@audiogubbins/domain';
 import { quoted } from '@audiogubbins/text';
 
 import type { OpenProjectState } from '../../state/open-project-store.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import { CommandAction } from '../command-action.js';
+import type { PanelCommands } from '../command-button.js';
 import { useFocusOnShow } from './row-opening.js';
 
 /** What one of the project's assets or regions is called, and how a command names it. */
@@ -62,11 +63,11 @@ export function TargetChooser({
   const named = targets.filter((target) => chosen.has(target.reference));
   return (
     <div className="ag-library-chooser" role="group" aria-labelledby={heading}>
-      <h5 className="ag-section-heading" id={heading} ref={headingRef} tabIndex={-1}>
+      <h5 className="ag-library-chooser-name" id={heading} ref={headingRef} tabIndex={-1}>
         {`Apply ${quoted(entry.name)} to`}
       </h5>
       {targets.length === 0 ? (
-        <p>The project has no assets yet.</p>
+        <p className="ag-panel-note">The project has no assets yet.</p>
       ) : (
         <ul className="ag-library-targets">
           {targets.map((target) => (
@@ -74,6 +75,7 @@ export function TargetChooser({
               <ToggleSwitch
                 label={target.name}
                 checked={chosen.has(target.reference)}
+                small
                 onCheckedChange={(on) => {
                   const next = new Set(chosen);
                   if (on) next.add(target.reference);
@@ -85,20 +87,23 @@ export function TargetChooser({
           ))}
         </ul>
       )}
-      <CommandButton
-        id="library.apply-chain"
-        label={`Apply to ${String(named.length)} chosen`}
-        commands={commands}
-        args={{
-          entry: entry.id,
-          targets: named.map((target) => target.reference).join(','),
-          share,
-        }}
-        refusal={named.length === 0 ? 'Choose the targets to apply it to.' : undefined}
-      />
-      <Button compact onClick={onClose}>
-        Done
-      </Button>
+      <div className="ag-library-confirm-actions">
+        <Button compact onClick={onClose}>
+          Done
+        </Button>
+        <CommandAction
+          id="library.apply-chain"
+          label={`Apply to ${String(named.length)} chosen`}
+          commands={commands}
+          args={{
+            entry: entry.id,
+            targets: named.map((target) => target.reference).join(','),
+            share,
+          }}
+          refusal={named.length === 0 ? 'Choose the targets to apply it to.' : undefined}
+          tone={ButtonTone.Primary}
+        />
+      </div>
     </div>
   );
 }

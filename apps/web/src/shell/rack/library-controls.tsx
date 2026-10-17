@@ -8,15 +8,14 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, OptionSelect, Section, TextField } from '@audiogubbins/design-system';
-import type { CommandInvocation } from '@audiogubbins/commands';
+import { OptionSelect, Section, TextField } from '@audiogubbins/design-system';
 import type { ProcessorId } from '@audiogubbins/domain';
 
 import { processorIn } from '../../commands/library-access.js';
 import type { Observable } from '../../state/observable.js';
 import type { SavedProcessingState } from '../../state/saved-processing-store.js';
+import { CommandAction } from '../command-action.js';
 import type { PanelCommands } from '../command-button.js';
-import { optionalReason } from '../optional-reason.js';
 import type { ShownRack } from './shown-rack.js';
 
 /** A library that lists nothing, where this browser keeps none. */
@@ -24,31 +23,6 @@ export const NO_LIBRARY: Observable<SavedProcessingState> = {
   get: () => ({ entries: [], loaded: true }),
   subscribe: () => () => undefined,
 };
-
-/** A button that runs the library command `id` with `args`, unavailable with its own reason. */
-function LibraryButton({
-  id,
-  label,
-  args,
-  commands,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly args: CommandInvocation['arguments'];
-  readonly commands: PanelCommands;
-}): ReactNode {
-  return (
-    <Button
-      compact
-      {...optionalReason(commands.unavailableReason(id, args))}
-      onClick={() => {
-        commands.run(id, args);
-      }}
-    >
-      {label}
-    </Button>
-  );
-}
 
 /** Saving the selected processor's settings as a preset, and applying one of its type. */
 function PresetControls({
@@ -79,7 +53,7 @@ function PresetControls({
     <>
       <div className="ag-rack-library-row">
         <TextField label="Save its settings as" value={name} onValueChange={setName} />
-        <LibraryButton
+        <CommandAction
           id="library.save-preset"
           label="Save as preset"
           commands={commands}
@@ -91,7 +65,7 @@ function PresetControls({
       ) : (
         <div className="ag-rack-library-row">
           <OptionSelect label="Preset" value={chosen} options={presets} onValueChange={setPreset} />
-          <LibraryButton
+          <CommandAction
             id="library.apply-preset"
             label="Apply preset"
             commands={commands}
@@ -121,7 +95,7 @@ export function LibraryControls({
       <Section title="Your library" icon="library">
         <div className="ag-rack-library-row">
           <TextField label="Save the rack as" value={name} onValueChange={setName} />
-          <LibraryButton
+          <CommandAction
             id="library.save-chain"
             label="Save chain"
             commands={commands}

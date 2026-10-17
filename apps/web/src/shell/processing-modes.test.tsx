@@ -60,8 +60,9 @@ describe('playback heard from a cached preview', () => {
       `Cached previewPlaying from a cached preview. ${CANNOT} It is being made: 40% so far.`,
     );
     const progress = screen.getByRole('progressbar', { name: 'Cached preview made' });
-    expect(progress).toHaveAttribute('value', '40000');
-    expect(progress).toHaveAttribute('max', '100000');
+    // The design system's bar counts to a hundred: 40,000 of 100,000 frames made.
+    expect(progress).toHaveAttribute('aria-valuenow', '40');
+    expect(progress).toHaveAttribute('aria-valuemax', '100');
     expect(screen.getByRole('status')).toHaveTextContent('Making the preview: 40%');
 
     act(() => {

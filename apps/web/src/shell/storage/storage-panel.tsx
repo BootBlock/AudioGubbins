@@ -11,13 +11,13 @@
  * command.
  */
 
-import { cleanedSentences } from '../../cleanup-words.js';
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { EmptyState, IconButton, PanelHeader } from '@audiogubbins/design-system';
 import type { StorageUsage } from '@audiogubbins/storage';
 import { counted } from '@audiogubbins/text';
 
+import { cleanedSentences } from '../../cleanup-words.js';
 import { showPanelCommandId } from '../../commands/panel-commands.js';
 import { ModelPanelKinds } from '../../panel-kinds.js';
 import type { Observable } from '../../state/observable.js';
@@ -40,14 +40,41 @@ export interface StoragePanelProps {
   readonly unavailable: string | undefined;
 }
 
-/** What each part of the storage takes, and what could not be counted. */
+/** The colours the parts are told apart by, in turn: the category colours. */
+const PART_COLOURS = ['teal', 'amber', 'violet', 'coral', 'rose', 'sky', 'indigo', 'lime'] as const;
+
+/** A part's colour and its share of the whole, for its stylesheet to draw it with. */
+function partStyle(
+  index: number,
+  share: number,
+): CSSProperties & { readonly '--ag-part-colour': string; readonly '--ag-part-share': string } {
+  return {
+    '--ag-part-colour': `var(--ag-category-${PART_COLOURS[index % PART_COLOURS.length] ?? 'teal'})`,
+    '--ag-part-share': `${String(share * 100)}%`,
+  };
+}
+
+/** What each part of the storage takes, drawn as one bar and listed, and what could not be counted. */
 function Usage({ usage }: { readonly usage: StorageUsage }): ReactNode {
+  const parts = partsOf(usage);
+  const total = parts.reduce((sum, part) => sum + part.bytes, 0);
   return (
     <>
+      {/* The list says what each part takes; the bar draws the same shares. */}
+      <div className="ag-usage-bar" aria-hidden="true">
+        {parts.map((part, index) =>
+          part.bytes === 0 ? null : (
+            <span key={part.name} style={partStyle(index, part.bytes / total)} />
+          ),
+        )}
+      </div>
       <dl className="ag-usage">
-        {partsOf(usage).map((part) => (
-          <div key={part.name} className="ag-usage-part">
-            <dt>{part.name}</dt>
+        {parts.map((part, index) => (
+          <div key={part.name} className="ag-usage-part" style={partStyle(index, 0)}>
+            <dt>
+              <span className="ag-usage-swatch" aria-hidden="true" />
+              {part.name}
+            </dt>
             <dd>{describeBytes(part.bytes)}</dd>
           </div>
         ))}
@@ -80,38 +107,55 @@ export function StoragePanel({
   }, [measured, unavailable, run]);
 
   return (
-    <section className="ag-panel ag-storage">
-      <h2 className="ag-panel-title">{title}</h2>
-      {unavailable !== undefined && <p>{unavailable}</p>}
-      {state.working !== undefined && (
-        <p role="status">{state.working === 'cleaning' ? 'Cleaning up…' : 'Measuring…'}</p>
-      )}
-      {state.usage !== undefined && <Usage usage={state.usage} />}
-      {state.outcomes === undefined
-        ? undefined
-        : cleanedSentences(state.outcomes).map((sentence) => <p key={sentence}>{sentence}</p>)}
-      <div className="ag-settings-row">
-        <Button compact onClick={() => run('storage.measure')}>
-          Measure again
-        </Button>
-        <Button compact onClick={() => run('storage.plan-cleanup')}>
-          Plan a cleanup
-        </Button>
-        <Button compact onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}>
-          Manage model packs
-        </Button>
+    <section className="ag-panel ag-processing-panel ag-storage">
+      <PanelHeader
+        title={title}
+        icon="storage"
+        actions={
+          <>
+            <IconButton
+              icon="reload"
+              label="Measure again"
+              onClick={() => run('storage.measure')}
+            />
+            <IconButton
+              icon="clean-up"
+              label="Plan a cleanup"
+              onClick={() => run('storage.plan-cleanup')}
+            />
+            <IconButton
+              icon="manage-packs"
+              label="Manage model packs"
+              onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}
+            />
+          </>
+        }
+      />
+      <div className="ag-panel-body">
+        {unavailable !== undefined && (
+          <EmptyState icon="storage" title="Nothing to measure" text={unavailable} />
+        )}
+        {state.working !== undefined && (
+          <p role="status" className="ag-panel-note">
+            {state.working === 'cleaning' ? 'Cleaning up…' : 'Measuring…'}
+          </p>
+        )}
+        {state.usage !== undefined && <Usage usage={state.usage} />}
+        {state.outcomes === undefined
+          ? undefined
+          : cleanedSentences(state.outcomes).map((sentence) => <p key={sentence}>{sentence}</p>)}
+        {state.plan !== undefined && (
+          // Made afresh for each plan, so what was left out of the last is not
+          // carried into a plan that no longer has it.
+          <CleanupPlanView
+            key={state.plan.steps.flatMap(choicesOf).join(',')}
+            plan={state.plan}
+            nameOf={(project) => headers.find((header) => header.id === project)?.name}
+            run={run}
+          />
+        )}
+        <DeletedProjects headers={headers} run={run} />
       </div>
-      {state.plan !== undefined && (
-        // Made afresh for each plan, so what was left out of the last is not
-        // carried into a plan that no longer has it.
-        <CleanupPlanView
-          key={state.plan.steps.flatMap(choicesOf).join(',')}
-          plan={state.plan}
-          nameOf={(project) => headers.find((header) => header.id === project)?.name}
-          run={run}
-        />
-      )}
-      <DeletedProjects headers={headers} run={run} />
     </section>
   );
 }

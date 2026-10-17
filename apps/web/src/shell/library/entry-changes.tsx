@@ -10,7 +10,8 @@ import { Button, ButtonTone, TextField } from '@audiogubbins/design-system';
 import type { LibraryEntry } from '@audiogubbins/domain';
 import { quoted } from '@audiogubbins/text';
 
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import { CommandAction } from '../command-action.js';
+import type { PanelCommands } from '../command-button.js';
 import { useFocusOnShow } from './row-opening.js';
 
 /** A new name typed for an entry, and the command that gives it. */
@@ -40,16 +41,17 @@ export function RenameField({
         onValueChange={setName}
         onSubmit={rename}
       />
-      <CommandButton
+      <Button compact onClick={onClose}>
+        Cancel
+      </Button>
+      <CommandAction
         id="library.rename"
         label="Rename"
         commands={commands}
         args={{ entry: entry.id, name }}
         refusal={name.trim() === '' ? 'Type the new name.' : undefined}
+        tone={ButtonTone.Primary}
       />
-      <Button compact onClick={onClose}>
-        Cancel
-      </Button>
     </div>
   );
 }
@@ -72,24 +74,26 @@ export function RemoveConfirmation({
   const remove = useRef<HTMLButtonElement>(null);
   useFocusOnShow(remove);
   return (
-    <span className="ag-project-row-actions" role="group" aria-label={`Remove ${name}`}>
-      <span data-ag-status="unavailable">
+    <div className="ag-library-confirm" role="group" aria-label={`Remove ${name}`}>
+      <p className="ag-library-confirm-text">
         {`Removing ${name} from your library is for good. What it was applied to keeps its copy.`}
-      </span>
-      <Button
-        ref={remove}
-        compact
-        tone={ButtonTone.Destructive}
-        onClick={() => {
-          onRemoving();
-          commands.run('library.remove', { entry: id });
-        }}
-      >
-        Remove for good
-      </Button>
-      <Button compact onClick={onKeep}>
-        Keep it
-      </Button>
-    </span>
+      </p>
+      <div className="ag-library-confirm-actions">
+        <Button compact onClick={onKeep}>
+          Keep it
+        </Button>
+        <Button
+          ref={remove}
+          compact
+          tone={ButtonTone.Destructive}
+          onClick={() => {
+            onRemoving();
+            commands.run('library.remove', { entry: id });
+          }}
+        >
+          Remove for good
+        </Button>
+      </div>
+    </div>
   );
 }

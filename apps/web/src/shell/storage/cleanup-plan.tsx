@@ -18,7 +18,7 @@
 
 import { useState, type ReactNode } from 'react';
 
-import { Button, ButtonTone, ToggleSwitch } from '@audiogubbins/design-system';
+import { Button, ButtonTone, Icon, ToggleSwitch } from '@audiogubbins/design-system';
 import type { ProjectId } from '@audiogubbins/domain';
 import type { CleanupPlan, CleanupStep } from '@audiogubbins/storage';
 
@@ -70,7 +70,8 @@ function Steps({
   readonly changes: Changes;
   readonly onInclude: (step: CleanupStep, include: boolean) => void;
 }): ReactNode {
-  if (plan.steps.length === 0) return <p>There is nothing to clean up.</p>;
+  if (plan.steps.length === 0)
+    return <p className="ag-panel-note">There is nothing to clean up.</p>;
   return (
     <ol className="ag-cleanup-steps">
       {plan.steps.map((step) => {
@@ -81,6 +82,7 @@ function Steps({
               label={`${stepName(step)}: ${describeBytes(step.bytes)}`}
               description={lossOf(step)}
               checked={included(step, changes)}
+              small
               onCheckedChange={(include) => {
                 onInclude(step, include);
               }}
@@ -113,11 +115,13 @@ function InstalledPacks({
 }): ReactNode {
   if (plan.installedPacks.length === 0) return null;
   return (
-    <div role="group" aria-label="Installed model packs">
-      <h4 className="ag-section-heading">Model packs you may remove</h4>
-      <Button compact onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}>
-        Manage model packs
-      </Button>
+    <div role="group" aria-label="Installed model packs" className="ag-cleanup-packs">
+      <div className="ag-cleanup-packs-head">
+        <h4 className="ag-cleanup-heading">Model packs you may remove</h4>
+        <Button compact onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}>
+          Manage model packs
+        </Button>
+      </div>
       <ul className="ag-cleanup-steps">
         {plan.installedPacks.map((pack) => {
           const choice = packChoice(pack);
@@ -132,6 +136,7 @@ function InstalledPacks({
                 }
                 checked={chosen.has(choice)}
                 disabled={pack.kept !== undefined}
+                small
                 onCheckedChange={(on) => {
                   onChoose(choice, on);
                 }}
@@ -169,8 +174,16 @@ function Decision({
     ];
     return (
       <>
-        {kept.length === 0 && <p>Every step is left out, so planning again cleans up nothing.</p>}
-        <Button compact onClick={() => run('storage.plan-cleanup', { choices: kept.join(',') })}>
+        {kept.length === 0 && (
+          <p className="ag-cleanup-decision">
+            Every step is left out, so planning again cleans up nothing.
+          </p>
+        )}
+        <Button
+          compact
+          tone={ButtonTone.Primary}
+          onClick={() => run('storage.plan-cleanup', { choices: kept.join(',') })}
+        >
           {chosenAnew
             ? 'Plan again with the packs you chose'
             : 'Plan again without what is left out'}
@@ -182,7 +195,7 @@ function Decision({
     const words = confirmationWords(plan);
     return (
       <>
-        <p data-ag-status="unavailable">{words.sentence}</p>
+        <p className="ag-cleanup-decision">{words.sentence}</p>
         <Button
           compact
           tone={ButtonTone.Destructive}
@@ -237,9 +250,12 @@ export function CleanupPlanView({
   };
   return (
     <div role="group" className="ag-cleanup-plan" aria-label="The planned cleanup">
-      <h3 className="ag-section-heading">Cleanup, safest first</h3>
+      <h3 className="ag-cleanup-heading">
+        <Icon name="clean-up" />
+        Cleanup, safest first
+      </h3>
       {plan.mediaRefused !== undefined && (
-        <p data-ag-status="reduced">{refusalSentence(plan.mediaRefused)}</p>
+        <p className="ag-cleanup-refused">{refusalSentence(plan.mediaRefused)}</p>
       )}
       <Steps plan={plan} nameOf={nameOf} changes={changes} onInclude={include} />
       <InstalledPacks
@@ -250,11 +266,11 @@ export function CleanupPlanView({
         }}
         run={run}
       />
-      <div className="ag-settings-row">
-        <Decision plan={plan} changes={changes} run={run} />
-        <Button compact onClick={() => run('storage.dismiss-cleanup')}>
+      <div className="ag-cleanup-actions">
+        <Button compact tone={ButtonTone.Quiet} onClick={() => run('storage.dismiss-cleanup')}>
           Put the plan away
         </Button>
+        <Decision plan={plan} changes={changes} run={run} />
       </div>
     </div>
   );
