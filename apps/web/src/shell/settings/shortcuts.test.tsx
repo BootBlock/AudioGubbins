@@ -27,11 +27,13 @@ import { Shortcuts } from './shortcuts.js';
 
 /**
  * The stylesheets that draw the settings, in the order the application loads
- * them: the design system's tokens and components, then the shell's own.
+ * them: the design system's tokens, components and buttons, then the shell's
+ * own.
  */
 const STYLESHEETS = [
   createRequire(import.meta.url).resolve('@audiogubbins/design-system/styles/tokens.css'),
   createRequire(import.meta.url).resolve('@audiogubbins/design-system/styles/components.css'),
+  createRequire(import.meta.url).resolve('@audiogubbins/design-system/styles/buttons.css'),
   join(import.meta.dirname, '..', 'shell.css'),
 ].map((path) => readFileSync(path, 'utf8'));
 

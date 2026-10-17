@@ -6,106 +6,6 @@
  * REQ-UX-155 describes.
  */
 
-.ag-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--ag-space-small);
-
-  block-size: var(--ag-control-height);
-  padding-inline: var(--ag-space-medium);
-
-  border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-control);
-  background-color: var(--ag-chrome-surface-raised);
-  color: var(--ag-chrome-text-primary);
-
-  font: inherit;
-  font-size: var(--ag-text-body);
-  cursor: pointer;
-
-  transition-property: background-color, border-color, color;
-  transition-duration: var(--ag-motion-quick);
-  transition-timing-function: var(--ag-motion-ease-out);
-}
-
-/* The small variant: the control's height less two grid units (design
-   language, section 10), stated from the height so the two never drift. */
-.ag-button[data-ag-compact] {
-  block-size: calc(var(--ag-control-height) - 2 * var(--ag-grid-unit));
-  padding-inline: var(--ag-space-small);
-}
-
-.ag-button[data-ag-icon-only] {
-  inline-size: var(--ag-control-height);
-  padding-inline: 0;
-}
-
-.ag-button:hover:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
-  background-color: var(--ag-chrome-surface-hover);
-}
-
-.ag-button:active:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
-  background-color: var(--ag-chrome-surface-active);
-}
-
-.ag-button[data-ag-tone='primary'] {
-  background-color: var(--ag-chrome-accent);
-  border-color: var(--ag-chrome-accent);
-  color: var(--ag-chrome-text-on-accent);
-}
-
-.ag-button[data-ag-tone='primary']:hover:not(
-    :disabled,
-    [aria-disabled='true'],
-    [data-ag-unavailable]
-  ) {
-  background-color: var(--ag-chrome-accent-hover);
-}
-
-.ag-button[data-ag-tone='primary']:active:not(
-    :disabled,
-    [aria-disabled='true'],
-    [data-ag-unavailable]
-  ) {
-  background-color: var(--ag-chrome-accent-active);
-}
-
-.ag-button[data-ag-tone='quiet'] {
-  background-color: transparent;
-  border-color: transparent;
-}
-
-.ag-button[data-ag-tone='destructive'] {
-  color: var(--ag-chrome-status-error);
-  border-color: var(--ag-chrome-status-error);
-}
-
-/* Unavailable and still reachable, as a button whose reason is given beside it
-   is, looks as a disabled one does, whatever its tone. After the tones and at
-   least as heavy, or a Delete that could not be used would stay red, and a
-   primary one would keep the accent, each from its tone's rule of the same
-   weight. A quiet button keeps no surface either way.
-
-   A label drawn as a button, around the control that carries the state, is
-   marked `data-ag-unavailable` while that control is unavailable, and looks
-   the same. The mark is on the label because the Firefox of the support floor
-   has no `:has()` to find the control from it with, and it is not ARIA state,
-   which a label does not take. */
-.ag-button:disabled,
-.ag-button[aria-disabled='true'],
-.ag-button[data-ag-unavailable] {
-  color: var(--ag-chrome-text-disabled);
-  cursor: default;
-}
-
-.ag-button:is(:disabled, [aria-disabled='true'], [data-ag-unavailable]):not(
-    [data-ag-tone='quiet']
-  ) {
-  background-color: var(--ag-chrome-surface-raised);
-  border-color: var(--ag-chrome-border-default);
-}
-
 /* Icons.
 
    An icon's size and stroke come from the tokens alone. The stroke is in units
@@ -389,7 +289,6 @@
 /* Value controls. */
 
 .ag-slider-field,
-.ag-switch-field,
 .ag-select-field {
   display: flex;
 
@@ -403,17 +302,10 @@
 }
 
 .ag-slider-label,
-.ag-switch-label,
 .ag-select-label {
   /* Shrinks only where it is alone on its line, then wraps its words. */
   flex: 0 1 auto;
   min-inline-size: 8rem;
-}
-
-.ag-switch-description {
-  display: block;
-  color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-label);
 }
 
 .ag-slider {
@@ -468,38 +360,6 @@
   color: var(--ag-chrome-text-secondary);
 }
 
-.ag-switch {
-  flex: 0 0 auto;
-  inline-size: 36px;
-  block-size: 20px;
-  border-radius: var(--ag-radius-full);
-  border: 1px solid var(--ag-chrome-border-default);
-  background-color: var(--ag-chrome-surface-sunken);
-  cursor: pointer;
-}
-
-.ag-switch[data-state='checked'] {
-  background-color: var(--ag-chrome-accent);
-  border-color: var(--ag-chrome-accent);
-}
-
-.ag-switch-thumb {
-  display: block;
-  inline-size: 14px;
-  block-size: 14px;
-  margin-inline-start: 2px;
-  border-radius: var(--ag-radius-full);
-  background-color: var(--ag-chrome-text-primary);
-  transition-property: transform;
-  transition-duration: var(--ag-motion-quick);
-  transition-timing-function: var(--ag-motion-ease-out);
-}
-
-.ag-switch[data-state='checked'] .ag-switch-thumb {
-  transform: translateX(16px);
-  background-color: var(--ag-chrome-text-on-accent);
-}
-
 .ag-select-trigger {
   display: inline-flex;
   align-items: center;
@@ -531,7 +391,7 @@
   white-space: nowrap;
 }
 
-/* Tabs and toolbars. */
+/* Tabs. */
 
 /* Wrapped, because a dialogue is as wide as the window lets it be. Five
    triggers padded on both sides are wider than the content box of a dialogue at
@@ -571,15 +431,6 @@
   display: flex;
   align-items: center;
   gap: var(--ag-space-tiny);
-}
-
-.ag-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--ag-space-tiny);
-  padding: var(--ag-space-tiny);
-  background-color: var(--ag-chrome-surface-raised);
-  border-block-end: 1px solid var(--ag-chrome-border-subtle);
 }
 
 /*
