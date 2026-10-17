@@ -1,0 +1,99 @@
+/*
+ * The files being imported (design language, section 10, "Lists"): each file
+ * a row with its glyph, its name, its facts on a quiet line under it, and for
+ * a stage that is measured, a thin bar with how far it has got. A file that
+ * was refused takes the error colour and keeps its place.
+ */
+
+.ag-import-summary {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-import-summary:empty {
+  display: none;
+}
+
+.ag-import-list {
+  display: grid;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-import-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--ag-space-medium);
+  row-gap: var(--ag-space-micro);
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-import-mark {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-import-name {
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+/* The facts, on one quiet line that wraps: each term at caption size before its value. */
+.ag-import-facts {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2;
+  gap: 0 var(--ag-space-medium);
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-import-facts > div {
+  display: flex;
+  gap: var(--ag-space-tiny);
+  min-inline-size: 0;
+}
+
+.ag-import-facts dt {
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-import-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-import-progress {
+  display: grid;
+  grid-column: 2;
+  gap: var(--ag-space-micro);
+}
+
+.ag-import-measure {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-import-row[data-stage='refused'] :is(.ag-import-mark, .ag-import-facts > div:last-child dd) {
+  color: var(--ag-chrome-status-error);
+}
+
+/* The Asset Browser's import controls above the list of files being imported. */
+.ag-asset-import {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin-block-end: var(--ag-space-medium);
+}
+
+.ag-asset-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+}

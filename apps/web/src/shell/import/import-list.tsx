@@ -5,6 +5,10 @@
  * bar of how far it has got through a stage that is measured, and once it ends,
  * what it came to and why it was refused where it was.
  *
+ * A measured stage's words are shown beside its bar as well as said by it, so
+ * a stage with no measure to draw, whose bar runs unmeasured, still says how
+ * far it has got.
+ *
  * Each row is keyed by its place in the batch, which never changes while the
  * batch runs, so a report redraws the rows it changed and leaves the rest, and
  * the focus, where they were. A bar names its file, so a screen reader knows
@@ -15,6 +19,7 @@
 
 import type { ReactNode } from 'react';
 
+import { Icon, IconSize, ProgressBar, ProgressPlace } from '@audiogubbins/design-system';
 import type { ImportEntry, ImportJob } from '@audiogubbins/import-export';
 
 import { IMPORT_LIST_LABEL } from '../../import-export-words.js';
@@ -27,6 +32,11 @@ function ImportRow({ entry }: { readonly entry: ImportEntry }): ReactNode {
   const measure = stageMeasure(state);
   return (
     <li className="ag-import-row" data-stage={state.kind}>
+      <Icon
+        name={state.kind === 'refused' ? 'refused' : 'audio-file'}
+        size={IconSize.Inline}
+        className="ag-import-mark"
+      />
       <span className="ag-import-name">{file.name}</span>
       <dl className="ag-import-facts">
         <div>
@@ -47,12 +57,15 @@ function ImportRow({ entry }: { readonly entry: ImportEntry }): ReactNode {
         </div>
       </dl>
       {measure === undefined ? null : (
-        <progress
-          className="ag-render-progress"
-          aria-label={`Import of ${file.name}`}
-          aria-valuetext={measure.words}
-          {...(measure.kind === 'measured' ? { max: measure.total, value: measure.done } : {})}
-        />
+        <div className="ag-import-progress">
+          <ProgressBar
+            label={`Import of ${file.name}`}
+            place={ProgressPlace.Row}
+            value={measure.kind === 'measured' ? measure.done / Math.max(1, measure.total) : null}
+            valueText={() => measure.words}
+          />
+          <span className="ag-import-measure">{measure.words}</span>
+        </div>
       )}
     </li>
   );

@@ -56,14 +56,13 @@ describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Importing 5 files.');
     expect(rows()).toEqual([
       'Step.wavSize93.8 kBFormatWAV, uncompressed PCMStorage needed93.8 kBStageImported',
-      'Rain.oggSize402.3 kBFormatOgg, VorbisStorage needed1.1 MBStageDecoding',
-      'Wind.m4aSize2 kBFormatMPEG-4Storage neededAt least 2 kB: its stream does not state its length, so its decoded audio cannot be sizedStageCopying into the project',
+      'Rain.oggSize402.3 kBFormatOgg, VorbisStorage needed1.1 MBStageDecoding24,000 frames decoded of 96,000',
+      'Wind.m4aSize2 kBFormatMPEG-4Storage neededAt least 2 kB: its stream does not state its length, so its decoded audio cannot be sizedStageCopying into the project1 kB of 2 kB copied',
       'notes.txtSize19 bytesFormatNot recognisedStorage neededNone: nothing of it was storedStageRefused: This file is not in an audio format AudioGubbins recognises.',
       'Hum.wavSize4.9 kBFormatNot known yetStorage neededNot known yetStageWaiting its turn',
     ]);
     const decoding = screen.getByRole('progressbar', { name: 'Import of Rain.ogg' });
-    expect(decoding).toHaveAttribute('max', '96000');
-    expect(decoding).toHaveAttribute('value', '24000');
+    expect(decoding).toHaveAttribute('aria-valuenow', '25');
     expect(decoding).toHaveAttribute('aria-valuetext', '24,000 frames decoded of 96,000');
     expect(screen.getByRole('progressbar', { name: 'Import of Wind.m4a' })).toHaveAttribute(
       'aria-valuetext',
@@ -107,8 +106,8 @@ describe('the list of files being imported (ADR-0090, REQ-UX-005)', () => {
     render(<ImportList job={unstated} ended={false} />);
 
     const bar = screen.getByRole('progressbar', { name: 'Import of Rain.ogg' });
-    expect(bar).not.toHaveAttribute('value');
-    expect(bar).toHaveAttribute('aria-valuetext', '4,800 frames decoded');
+    expect(bar).not.toHaveAttribute('aria-valuenow');
+    expect(rows()[0]).toContain('StageDecoding4,800 frames decoded');
   });
 
   it('says what the batch came to once it ended, in a status there before', () => {

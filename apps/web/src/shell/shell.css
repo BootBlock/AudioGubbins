@@ -1263,64 +1263,6 @@
   margin-block: var(--ag-space-tiny) 0;
 }
 
-/* The Asset Browser: the import control above the project's audio, each asset's regions under it. */
-.ag-asset-import {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-small);
-  align-items: center;
-  margin-block-end: var(--ag-space-medium);
-}
-
-.ag-asset-import p {
-  margin: 0;
-}
-
-.ag-asset-import-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-small);
-}
-
-.ag-import-list {
-  flex-basis: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: var(--ag-space-small);
-}
-
-.ag-import-row {
-  display: grid;
-  gap: var(--ag-space-tiny);
-}
-
-.ag-import-name {
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.ag-import-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--ag-space-medium);
-  margin: 0;
-}
-
-.ag-import-facts div {
-  display: flex;
-  gap: var(--ag-space-small);
-}
-
-.ag-import-facts dd {
-  margin: 0;
-}
-
-.ag-import-row[data-stage='refused'] .ag-import-facts div:last-child dd {
-  color: var(--ag-chrome-status-error);
-}
-
 .ag-asset-regions {
   margin-block-start: var(--ag-space-small);
   padding-inline-start: var(--ag-space-large);
