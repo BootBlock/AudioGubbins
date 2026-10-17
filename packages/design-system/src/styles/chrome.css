@@ -91,6 +91,94 @@
   padding-block-start: var(--ag-space-inset);
 }
 
+/* Vertical tabs: a column of rows beside what they show, as Settings lists
+   its pages. Each row is a menu row's shape, glyph and label; the chosen one
+   is lit by the lit edge (`lit-edge.css`, which it opts into), so it needs no
+   wash of its own. The column is as wide as its longest label, which wraps
+   rather than being cut where the column has to give way. */
+.ag-tabs[data-orientation='vertical'] {
+  display: grid;
+  grid-template-columns: minmax(auto, max-content) minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+.ag-tabs[data-orientation='vertical'] > .ag-tab-list {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--ag-space-hair);
+  max-inline-size: calc(110 * var(--ag-grid-unit));
+  padding: var(--ag-space-inset);
+  border-inline-end: 1px solid var(--ag-chrome-border-subtle);
+  overflow: auto;
+  scroll-padding: var(--ag-focus-ring-reach);
+}
+
+.ag-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-inset);
+  border: 0;
+  border-radius: var(--ag-radius-control);
+  background-color: transparent;
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ag-nav-tab > .ag-icon {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-nav-tab:is(:hover, [data-ag-force-state='hover'] .ag-nav-tab:last-child):not(
+    [aria-selected='true']
+  ) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-nav-tab:is(:active, [data-ag-force-state='pressed'] .ag-nav-tab:last-child):not(
+    [aria-selected='true']
+  ) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
+/* The keyboard's ring sits inside the row, as a list draws it, so the
+   column's scrolling never cuts it; written heavier than the lit row's glow,
+   which would otherwise take its place. */
+[data-ag-theme] .ag-tab-list .ag-nav-tab:focus-visible,
+[data-ag-theme] [data-ag-force-state='focus-visible'] .ag-tab-list .ag-nav-tab[aria-selected='true'] {
+  outline-offset: calc(-1 * var(--ag-focus-ring-width));
+  box-shadow:
+    inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+/* Forced colours draw no wash, edge or glow, so the chosen page takes the
+   pair the platform uses for a selection, its glyph and words with it. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-nav-tab[aria-selected='true'] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  [data-ag-theme] .ag-nav-tab[aria-selected='true'] * {
+    color: inherit;
+    filter: none;
+  }
+}
+
+.ag-tabs[data-orientation='vertical'] > .ag-tab-panel {
+  min-inline-size: 0;
+  padding: var(--ag-space-inset) var(--ag-space-inset-wide);
+  overflow: auto;
+}
+
 /* Panels: glass, one inset on every side, and nested corners. */
 
 .ag-glass-panel {

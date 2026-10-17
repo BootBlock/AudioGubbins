@@ -29,6 +29,7 @@ import {
   SourceChip,
   Spinner,
   StatusChip,
+  TabOrientation,
   TabSet,
   Table,
   Verdict,
@@ -212,6 +213,21 @@ const specimens: readonly Specimen[] = [
   { component: 'TabSet', state: 'hover', render: () => tabs(TABS_WITH_GLYPHS) },
   { component: 'TabSet', state: 'focus-visible', render: () => tabs(TABS_WITH_GLYPHS) },
   { component: 'TabSet', state: 'pressed', render: () => tabs(TABS_WITH_GLYPHS) },
+  ...(['default', 'hover', 'focus-visible', 'pressed'] as const).map(
+    (state): Specimen => ({
+      component: 'TabSet (vertical)',
+      state,
+      render: () => (
+        <TabSet
+          label="Settings pages"
+          tabs={TABS_WITH_GLYPHS}
+          value="appearance"
+          onValueChange={ignore}
+          orientation={TabOrientation.Vertical}
+        />
+      ),
+    }),
+  ),
 
   // The panel header and the panel.
   {

@@ -261,7 +261,12 @@ export { TemplateText, type TemplateTextProps } from './primitives/fields/templa
 // ds-chrome: the chrome around content. Tabs, the panel and its header,
 // sections, property grids, lists, tables, badges and chips, the empty,
 // loading and error states, notices and banners.
-export { type TabDescriptor, TabSet, type TabSetProps } from './primitives/chrome/tab-set.js';
+export {
+  type TabDescriptor,
+  TabOrientation,
+  TabSet,
+  type TabSetProps,
+} from './primitives/chrome/tab-set.js';
 export { Panel, type PanelProps } from './primitives/chrome/panel.js';
 export { PanelHeader, type PanelHeaderProps } from './primitives/chrome/panel-header.js';
 export { Section, type SectionProps } from './primitives/chrome/section.js';
