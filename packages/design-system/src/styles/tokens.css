@@ -13,6 +13,19 @@
  * literal palette.
  */
 
+/*
+ * The two faces the interface is set in (ADR-0108), shipped with the
+ * application and declared by their own packages: each package's stylesheet
+ * declares the variable face once per script, with the script's character
+ * range, so a browser fetches only the files a page draws. The build copies
+ * every one of them into the application as a `woff2` asset, the kind the
+ * service worker's precache takes, so a face is there offline (REQ-PWA-031),
+ * and none is fetched from another host. Imported here, so the design system
+ * is the one place a font package is reached from.
+ */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
 .ag-theme-root {
   /* The theme writes its custom properties and its state attributes onto this
      element, so everything inside inherits the properties and every rule below
@@ -77,14 +90,15 @@ html[data-ag-theme] body {
  * document element are inherited here.
  */
 html[data-ag-theme] body {
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  /* The theme names each face with its fallback after it, of the same metrics
+     class, so a face that fails to load changes no layout beyond the type
+     scale's tolerance. */
+  font-family: var(--ag-font-ui);
+  font-feature-settings: var(--ag-font-features);
   font-size: var(--ag-text-body);
   line-height: var(--ag-text-line-height-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 
   /* A text editor's selection colour is wrong over a waveform, and the browser
      default is wrong over the chrome. The accent is right for both. */

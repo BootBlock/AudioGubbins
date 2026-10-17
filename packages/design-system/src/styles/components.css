@@ -314,6 +314,7 @@
 .ag-tooltip-shortcut {
   color: var(--ag-chrome-text-secondary);
   font-size: var(--ag-text-label);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -424,7 +425,9 @@
   min-inline-size: 4rem;
   text-align: end;
 
-  /* Tabular figures, so the value does not shift sideways as it changes. */
+  /* The numeric family in tabular figures, so the value does not shift sideways
+     as it changes. */
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   color: var(--ag-chrome-text-secondary);
 }

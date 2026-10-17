@@ -448,6 +448,7 @@
 
 .ag-usage dd {
   margin: 0;
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
@@ -553,6 +554,7 @@
 .ag-log-time,
 .ag-log-category {
   color: var(--ag-chrome-text-secondary);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -636,6 +638,7 @@
 .ag-palette-shortcut {
   color: var(--ag-chrome-text-secondary);
   font-size: var(--ag-text-label);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -694,6 +697,7 @@
 }
 
 .ag-shortcut-keys {
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -824,9 +828,11 @@
   gap: var(--ag-space-small);
 }
 
-/* Tabular figures, so the position does not shuffle sideways as it counts. */
+/* The numeric family in tabular figures, so the position does not shuffle
+   sideways as it counts. */
 .ag-transport-position {
   margin-inline-start: var(--ag-space-small);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -862,6 +868,7 @@
 
 .ag-reading dd {
   margin: 0;
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
@@ -915,6 +922,7 @@
 
 .ag-meter-value {
   text-align: end;
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1217,6 +1225,7 @@
 
 .ag-editor-scope-text {
   color: var(--ag-chrome-text-primary);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 

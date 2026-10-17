@@ -20,9 +20,6 @@ import {
 } from '@audiogubbins/editor-view';
 import type { Colour } from '@audiogubbins/renderer';
 
-/** The shell's own font stack, so the editor's labels read as the rest of the page does. */
-const FONT_FAMILY = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-
 function colour(value: Oklch, alpha?: number): Colour {
   const { red, green, blue, alpha: own } = oklchToSrgb(value);
   return [red, green, blue, alpha ?? own];
@@ -117,9 +114,12 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
 
 /** The editor's type in `theme`. */
 export function editorTypeOf(theme: Theme): EditorType {
+  // The interface's own face, so the editor's labels read as the rest of the
+  // page does.
   const { text } = theme.metrics;
+  const face = theme.typeface.family.ui;
   return {
-    label: `${String(text.label)}px ${FONT_FAMILY}`,
-    small: `${String(text.caption)}px ${FONT_FAMILY}`,
+    label: `${String(text.label)}px ${face}`,
+    small: `${String(text.caption)}px ${face}`,
   };
 }
