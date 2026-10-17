@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -314,7 +315,59 @@ export interface NoticeSurfaceProps {
  */
 export function NoticeSurface({ durationMs }: NoticeSurfaceProps): ReactNode {
   const { notice, owner } = useNoticeChannel('NoticeSurface');
+  const onPage =
+    notice !== undefined && owner?.by === 'the page' && notice.shown !== false ? notice : undefined;
+  const { shown, leaving, leave, card } = useNoticeStay(onPage, durationMs);
 
+  if (shown === undefined) return null;
+
+  return createPortal(
+    // Placed by an element of its own, so the card slides and fades within a
+    // box that stays where the page put it. Keyed by the notice, so a new one
+    // enters afresh rather than taking over the card of the one before.
+    <div className="ag-notice-place" key={shown.sequence}>
+      <Notice
+        ref={card}
+        tone={noticeTone(shown)}
+        urgent={shown.urgent}
+        icon={noticeGlyph(shown)}
+        title={shown.text}
+        durationMs={stayOf(shown, durationMs)}
+        leaving={leaving === shown.sequence}
+        hidden
+        onDismiss={() => {
+          leave(shown.sequence);
+        }}
+      />
+    </div>,
+    document.body,
+  );
+}
+
+/** A notice over the page as it stays and leaves, and the card it is drawn in. */
+interface NoticeStay {
+  /** The notice showing, until it has had its time. */
+  readonly shown: LiveAnnouncement | undefined;
+
+  /** Which notice is on its way out. */
+  readonly leaving: number | undefined;
+
+  /** Sends a notice on its way out before its time, as its dismissal does. */
+  readonly leave: (sequence: number) => void;
+
+  /** The card, whose leaving animation is waited on before the notice goes. */
+  readonly card: RefObject<HTMLDivElement | null>;
+}
+
+/**
+ * How long a notice over the page stays: until its time has run or it is
+ * dismissed, then drawn sliding away until its leaving animation has run, and
+ * only then taken away.
+ */
+function useNoticeStay(
+  notice: LiveAnnouncement | undefined,
+  durationMs: number | undefined,
+): NoticeStay {
   // Which notice has had its time, rather than which notice is showing. What
   // is showing is derived from the channel, so the surface never has to be
   // put into a state the channel already describes.
@@ -325,13 +378,7 @@ export function NoticeSurface({ durationMs }: NoticeSurfaceProps): ReactNode {
   const [leaving, setLeaving] = useState<number | undefined>(undefined);
   const card = useRef<HTMLDivElement>(null);
 
-  const shown =
-    notice !== undefined &&
-    owner?.by === 'the page' &&
-    notice.shown !== false &&
-    notice.sequence !== dismissed
-      ? notice
-      : undefined;
+  const shown = notice?.sequence === dismissed ? undefined : notice;
 
   useEffect(() => {
     if (shown === undefined) return undefined;
@@ -358,29 +405,7 @@ export function NoticeSurface({ durationMs }: NoticeSurfaceProps): ReactNode {
     });
   }, [shown, leaving]);
 
-  if (shown === undefined) return null;
-
-  return createPortal(
-    // Placed by an element of its own, so the card slides and fades within a
-    // box that stays where the page put it. Keyed by the notice, so a new one
-    // enters afresh rather than taking over the card of the one before.
-    <div className="ag-notice-place" key={shown.sequence}>
-      <Notice
-        ref={card}
-        tone={noticeTone(shown)}
-        urgent={shown.urgent}
-        icon={noticeGlyph(shown)}
-        title={shown.text}
-        durationMs={stayOf(shown, durationMs)}
-        leaving={leaving === shown.sequence}
-        hidden
-        onDismiss={() => {
-          setLeaving(shown.sequence);
-        }}
-      />
-    </div>,
-    document.body,
-  );
+  return { shown, leaving, leave: setLeaving, card };
 }
 
 /** How long a notice stays: as long as its caller says, or as it takes to read. */

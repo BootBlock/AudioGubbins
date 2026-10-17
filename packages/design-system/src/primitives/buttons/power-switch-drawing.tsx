@@ -70,6 +70,44 @@ function glyph(className: string, width: number, filter?: string): ReactNode {
   );
 }
 
+/** The gradients and filters the switch's layers are painted with, named for this switch alone. */
+function PowerSwitchPaints({ id }: { readonly id: (part: string) => string }): ReactNode {
+  return (
+    <defs>
+      <linearGradient id={id('bezel')} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" className="ag-power-bezel-light" />
+        <stop offset="45%" className="ag-power-bezel-mid" />
+        <stop offset="100%" className="ag-power-bezel-shade" />
+      </linearGradient>
+      <linearGradient id={id('chamfer')} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" className="ag-power-chamfer-dark" />
+        <stop offset="100%" className="ag-power-chamfer-light" />
+      </linearGradient>
+      <radialGradient id={id('cap-lit')} cx="50%" cy="40%" r="65%">
+        <stop offset="0%" className="ag-power-cap-lit" />
+        <stop offset="70%" className="ag-power-cap-lit-edge" />
+      </radialGradient>
+      <radialGradient id={id('cap-unlit')} cx="50%" cy="40%" r="65%">
+        <stop offset="0%" className="ag-power-cap-unlit" />
+        <stop offset="80%" className="ag-power-cap-unlit-edge" />
+      </radialGradient>
+      <radialGradient id={id('gloss')} cx="40%" cy="20%" r="60%">
+        <stop offset="0%" className="ag-power-gloss-light" />
+        <stop offset="100%" className="ag-power-gloss-clear" />
+      </radialGradient>
+      <filter id={id('halo')} x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="1.6" />
+      </filter>
+      <filter id={id('diffuse')} x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="0.35" />
+      </filter>
+      <filter id={id('spill')} x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="0.6" />
+      </filter>
+    </defs>
+  );
+}
+
 /** The power switch's drawing, on or off. */
 export function PowerSwitchDrawing({ on }: { readonly on: boolean }): ReactNode {
   const id = useSvgIds('ag-power');
@@ -81,38 +119,7 @@ export function PowerSwitchDrawing({ on }: { readonly on: boolean }): ReactNode 
       focusable="false"
       data-ag-lit={on ? '' : undefined}
     >
-      <defs>
-        <linearGradient id={id('bezel')} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" className="ag-power-bezel-light" />
-          <stop offset="45%" className="ag-power-bezel-mid" />
-          <stop offset="100%" className="ag-power-bezel-shade" />
-        </linearGradient>
-        <linearGradient id={id('chamfer')} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" className="ag-power-chamfer-dark" />
-          <stop offset="100%" className="ag-power-chamfer-light" />
-        </linearGradient>
-        <radialGradient id={id('cap-lit')} cx="50%" cy="40%" r="65%">
-          <stop offset="0%" className="ag-power-cap-lit" />
-          <stop offset="70%" className="ag-power-cap-lit-edge" />
-        </radialGradient>
-        <radialGradient id={id('cap-unlit')} cx="50%" cy="40%" r="65%">
-          <stop offset="0%" className="ag-power-cap-unlit" />
-          <stop offset="80%" className="ag-power-cap-unlit-edge" />
-        </radialGradient>
-        <radialGradient id={id('gloss')} cx="40%" cy="20%" r="60%">
-          <stop offset="0%" className="ag-power-gloss-light" />
-          <stop offset="100%" className="ag-power-gloss-clear" />
-        </radialGradient>
-        <filter id={id('halo')} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.6" />
-        </filter>
-        <filter id={id('diffuse')} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="0.35" />
-        </filter>
-        <filter id={id('spill')} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="0.6" />
-        </filter>
-      </defs>
+      <PowerSwitchPaints id={id} />
       <circle className="ag-power-cutout" cx="16" cy="16" r="15.5" />
       <circle cx="16" cy="16" r="14.5" fill={`url(#${id('bezel')})`} />
       <circle cx="16" cy="16" r="12" fill={`url(#${id('chamfer')})`} />

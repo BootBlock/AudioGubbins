@@ -26,6 +26,7 @@ import {
   placeHandlers,
   travelOf,
   type DialProps,
+  type Travel,
 } from './value-travel.js';
 
 /** A mark printed down both sides of a fader's slot. */
@@ -94,13 +95,59 @@ function useShortTravel(): readonly [(element: HTMLDivElement | null) => void, b
   return [setElement, short];
 }
 
+/** What a fader's slider is handed by the fader round it. */
+interface FaderSliderProps {
+  readonly dial: FaderProps;
+  readonly travel: Travel;
+
+  /** The fader's label, which names the cap. */
+  readonly labelId: string;
+
+  /** The reason it is unavailable, which describes the cap. */
+  readonly reasonId: string;
+}
+
+/** The slot and its cap: the slider that moves the fader's value. */
+function FaderSlider({ dial, travel, labelId, reasonId }: FaderSliderProps): ReactNode {
+  const { value, describeValue, unavailableReason } = dial;
+  const unavailable = unavailableReason !== undefined;
+  return (
+    <Slider.Root
+      className="ag-fader-slider"
+      orientation="vertical"
+      value={[travel.at]}
+      min={travel.min}
+      max={travel.max}
+      step={travel.step}
+      // As the slider's: unavailable, it keeps its focus and refuses every
+      // change, rather than leaving the focus order as disabled does.
+      disabled={dial.disabled ?? false}
+      {...placeHandlers(dial, travel)}
+    >
+      <Slider.Track className="ag-fader-slot">
+        <span className="ag-fader-slot-level" />
+      </Slider.Track>
+      <UnavailableReason id={reasonId} reason={unavailableReason}>
+        <Slider.Thumb
+          className="ag-fader-cap ag-touch-target"
+          aria-labelledby={labelId}
+          aria-valuetext={describeValue(value)}
+          aria-disabled={unavailable ? true : undefined}
+          aria-describedby={unavailable ? reasonId : undefined}
+        >
+          <span className="ag-fader-index" />
+        </Slider.Thumb>
+      </UnavailableReason>
+    </Slider.Root>
+  );
+}
+
 /** A fader. */
 export function Fader(props: FaderProps): ReactNode {
-  const { label, value, describeValue, displayValue, unavailableReason, marks = [] } = props;
+  const { label, displayValue, marks = [] } = props;
   const labelId = useId();
   const reasonId = useId();
   const travel = travelOf(props);
-  const unavailable = unavailableReason !== undefined;
   const [measured, short] = useShortTravel();
 
   return (
@@ -131,33 +178,7 @@ export function Fader(props: FaderProps): ReactNode {
             </span>
           ))}
         </div>
-        <Slider.Root
-          className="ag-fader-slider"
-          orientation="vertical"
-          value={[travel.at]}
-          min={travel.min}
-          max={travel.max}
-          step={travel.step}
-          // As the slider's: unavailable, it keeps its focus and refuses every
-          // change, rather than leaving the focus order as disabled does.
-          disabled={props.disabled ?? false}
-          {...placeHandlers(props, travel)}
-        >
-          <Slider.Track className="ag-fader-slot">
-            <span className="ag-fader-slot-level" />
-          </Slider.Track>
-          <UnavailableReason id={reasonId} reason={unavailableReason}>
-            <Slider.Thumb
-              className="ag-fader-cap ag-touch-target"
-              aria-labelledby={labelId}
-              aria-valuetext={describeValue(value)}
-              aria-disabled={unavailable ? true : undefined}
-              aria-describedby={unavailable ? reasonId : undefined}
-            >
-              <span className="ag-fader-index" />
-            </Slider.Thumb>
-          </UnavailableReason>
-        </Slider.Root>
+        <FaderSlider dial={props} travel={travel} labelId={labelId} reasonId={reasonId} />
       </div>
       {displayValue !== undefined && <span className="ag-fader-value">{displayValue}</span>}
     </div>

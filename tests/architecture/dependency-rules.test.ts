@@ -3140,8 +3140,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, letting the context go for another rate, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes, and whether it plays.",
     ],
     'apps/web/src/app.tsx': [
-      302,
-      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
+      315,
+      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface, the props each surface is handed, and one import per stylesheet of the design system in cascade order, which a stylesheet of imports alone would only move behind a barrel.",
     ],
     'apps/web/src/application.ts': [
       395,
@@ -3576,6 +3576,18 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
 
     // Procedures: one algorithm, or one validation step by step.
+    'packages/design-system/src/primitives/buttons/panel-lamp.tsx: PanelLamp': [
+      58,
+      'One drawing of the lamp in paint order: the cutout, the bezel, the socket and the light spilled in it, the lens unlit and lit with its ring, the bloom and the hot core, the hover and the gloss. Each layer means something only over the one beneath it, the lit layers sit between the unlit ones so the stylesheet can fade between them, and the gradients they are painted with are a function of their own.',
+    ],
+    'packages/design-system/src/primitives/buttons/record-lamp-drawing.tsx: RecordLampDrawing': [
+      61,
+      'One drawing of the lamp in paint order: the cutout, the bezel, the chamfer, the rim glow, the recess, the cap unlit and lit, the ridges, the shade, the bloom, the hover and the press, and the reflection with its highlight. Each layer means something only over the one beneath it, the lit layers sit between the unlit ones so the stylesheet can fade between them, and the gradients and the ridges are functions of their own.',
+    ],
+    'packages/design-system/src/primitives/dials/typed-value-field.tsx: TypedValueField': [
+      61,
+      'One field in two states over one piece of typed text: the value at rest as a button and the typing as an input, with the two refs and the flag that pass the keyboard between them as it opens and closes. Split by state, the typed text and the return of the keyboard would be handed between components that each change part of them.',
+    ],
     'packages/design-system/src/tokens/chrome.ts: buildChrome': [
       96,
       "One derivation in which each token depends on those before it: base lightness, surfaces, the list of every surface a colour may be solved against, text, the accent's family (`accent.ts`), status, and the fills and edges at their translucencies.",

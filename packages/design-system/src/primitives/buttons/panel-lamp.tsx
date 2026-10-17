@@ -18,6 +18,43 @@ import type { ReactNode } from 'react';
 
 import { useSvgIds } from './svg-id.js';
 
+/** The gradients and filters the lamp's layers are painted with, named for this lamp alone. */
+function PanelLampPaints({ id }: { readonly id: (part: string) => string }): ReactNode {
+  return (
+    <defs>
+      <linearGradient id={id('bezel')} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" className="ag-lamp-bezel-light" />
+        <stop offset="50%" className="ag-lamp-bezel-mid" />
+        <stop offset="100%" className="ag-lamp-bezel-shade" />
+      </linearGradient>
+      <linearGradient id={id('socket')} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" className="ag-lamp-socket-deep" />
+        <stop offset="100%" className="ag-lamp-socket-lip" />
+      </linearGradient>
+      <radialGradient id={id('lens-unlit')} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" className="ag-lamp-glass" />
+        <stop offset="100%" className="ag-lamp-glass-edge" />
+      </radialGradient>
+      <radialGradient id={id('lens-lit')} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" className="ag-lamp-led-core" />
+        <stop offset="30%" className="ag-lamp-led-inner" />
+        <stop offset="68%" className="ag-lamp-led-outer" />
+        <stop offset="100%" className="ag-lamp-led-rim" />
+      </radialGradient>
+      <radialGradient id={id('gloss')} cx="38%" cy="28%" r="55%">
+        <stop offset="0%" className="ag-lamp-gloss-light" />
+        <stop offset="100%" className="ag-lamp-gloss-clear" />
+      </radialGradient>
+      <filter id={id('bloom')} x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="0.9" />
+      </filter>
+      <filter id={id('spill')} x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="0.7" />
+      </filter>
+    </defs>
+  );
+}
+
 /** A panel lamp, lit or not. */
 export function PanelLamp({ lit }: { readonly lit: boolean }): ReactNode {
   const id = useSvgIds('ag-lamp');
@@ -29,37 +66,7 @@ export function PanelLamp({ lit }: { readonly lit: boolean }): ReactNode {
       focusable="false"
       data-ag-lit={lit ? '' : undefined}
     >
-      <defs>
-        <linearGradient id={id('bezel')} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" className="ag-lamp-bezel-light" />
-          <stop offset="50%" className="ag-lamp-bezel-mid" />
-          <stop offset="100%" className="ag-lamp-bezel-shade" />
-        </linearGradient>
-        <linearGradient id={id('socket')} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" className="ag-lamp-socket-deep" />
-          <stop offset="100%" className="ag-lamp-socket-lip" />
-        </linearGradient>
-        <radialGradient id={id('lens-unlit')} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" className="ag-lamp-glass" />
-          <stop offset="100%" className="ag-lamp-glass-edge" />
-        </radialGradient>
-        <radialGradient id={id('lens-lit')} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" className="ag-lamp-led-core" />
-          <stop offset="30%" className="ag-lamp-led-inner" />
-          <stop offset="68%" className="ag-lamp-led-outer" />
-          <stop offset="100%" className="ag-lamp-led-rim" />
-        </radialGradient>
-        <radialGradient id={id('gloss')} cx="38%" cy="28%" r="55%">
-          <stop offset="0%" className="ag-lamp-gloss-light" />
-          <stop offset="100%" className="ag-lamp-gloss-clear" />
-        </radialGradient>
-        <filter id={id('bloom')} x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="0.9" />
-        </filter>
-        <filter id={id('spill')} x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="0.7" />
-        </filter>
-      </defs>
+      <PanelLampPaints id={id} />
       <circle className="ag-lamp-cutout" cx="10" cy="10" r="9.5" />
       <circle cx="10" cy="10" r="9" fill={`url(#${id('bezel')})`} />
       <circle cx="10" cy="10" r="7.4" fill={`url(#${id('socket')})`} />

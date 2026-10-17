@@ -45,6 +45,44 @@ export interface RadioGroupProps {
   readonly unavailableReason?: string;
 }
 
+/** One choice of the group: its lamp, lit while it is the one chosen, beside its label. */
+function RadioChoice({
+  option,
+  chosen,
+  labelId,
+  descriptionId,
+}: {
+  readonly option: RadioOption;
+  readonly chosen: boolean;
+  readonly labelId: string;
+  readonly descriptionId: string;
+}): ReactNode {
+  return (
+    <Radio.Item
+      value={option.value}
+      className="ag-radio-option ag-touch-sized"
+      // Named by its label alone: the description is inside the
+      // choice too, and is its description rather than its name.
+      aria-labelledby={labelId}
+      {...describedBy(option.description === undefined ? undefined : descriptionId)}
+    >
+      <span className="ag-radio-lamp">
+        <PanelLamp lit={chosen} />
+      </span>
+      <span className="ag-radio-text">
+        <span className="ag-radio-label" id={labelId}>
+          {option.label}
+        </span>
+        {option.description !== undefined && (
+          <span className="ag-radio-description" id={descriptionId}>
+            {option.description}
+          </span>
+        )}
+      </span>
+    </Radio.Item>
+  );
+}
+
 /** One choice of several, each a panel lamp. */
 export function RadioGroup({
   label,
@@ -79,35 +117,15 @@ export function RadioGroup({
             {...(unavailable ? { 'aria-disabled': true, 'data-ag-unavailable': '' } : {})}
             {...describedBy(reasonId)}
           >
-            {options.map((option, index) => {
-              const optionLabelId = `${optionIds}-label-${String(index)}`;
-              const descriptionId = `${optionIds}-description-${String(index)}`;
-              return (
-                <Radio.Item
-                  key={option.value}
-                  value={option.value}
-                  className="ag-radio-option ag-touch-sized"
-                  // Named by its label alone: the description is inside the
-                  // choice too, and is its description rather than its name.
-                  aria-labelledby={optionLabelId}
-                  {...describedBy(option.description === undefined ? undefined : descriptionId)}
-                >
-                  <span className="ag-radio-lamp">
-                    <PanelLamp lit={option.value === value} />
-                  </span>
-                  <span className="ag-radio-text">
-                    <span className="ag-radio-label" id={optionLabelId}>
-                      {option.label}
-                    </span>
-                    {option.description !== undefined && (
-                      <span className="ag-radio-description" id={descriptionId}>
-                        {option.description}
-                      </span>
-                    )}
-                  </span>
-                </Radio.Item>
-              );
-            })}
+            {options.map((option, index) => (
+              <RadioChoice
+                key={option.value}
+                option={option}
+                chosen={option.value === value}
+                labelId={`${optionIds}-label-${String(index)}`}
+                descriptionId={`${optionIds}-description-${String(index)}`}
+              />
+            ))}
           </Radio.Root>
         )}
       </ControlHint>

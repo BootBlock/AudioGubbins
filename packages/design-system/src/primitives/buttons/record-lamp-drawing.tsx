@@ -59,6 +59,80 @@ function nearnessStyle(
   return { '--ag-record-ridge-nearness': nearness };
 }
 
+/** The gradients and filters the lamp's layers are painted with, named for this lamp alone. */
+function RecordLampPaints({ id }: { readonly id: (part: string) => string }): ReactNode {
+  return (
+    <defs>
+      <radialGradient id={id('bezel')} cx="35%" cy="25%" r="85%">
+        <stop offset="0%" className="ag-record-bezel-light" />
+        <stop offset="45%" className="ag-record-bezel-mid" />
+        <stop offset="100%" className="ag-record-bezel-shade" />
+      </radialGradient>
+      <linearGradient id={id('chamfer')} x1="0.2" y1="0" x2="0.8" y2="1">
+        <stop offset="0%" className="ag-record-chamfer-dark" />
+        <stop offset="100%" className="ag-record-chamfer-light" />
+      </linearGradient>
+      <radialGradient id={id('cap-lit')} cx="50%" cy="54%" r="52%">
+        <stop offset="0%" className="ag-record-lit-0" />
+        <stop offset="22%" className="ag-record-lit-1" />
+        <stop offset="62%" className="ag-record-lit-2" />
+        <stop offset="88%" className="ag-record-lit-3" />
+        <stop offset="100%" className="ag-record-lit-4" />
+      </radialGradient>
+      <radialGradient id={id('cap-unlit')} cx="50%" cy="54%" r="52%">
+        <stop offset="0%" className="ag-record-unlit-0" />
+        <stop offset="80%" className="ag-record-unlit-1" />
+        <stop offset="100%" className="ag-record-unlit-2" />
+      </radialGradient>
+      <radialGradient id={id('shade')} cx="50%" cy="30%" r="75%">
+        <stop offset="70%" className="ag-record-shade-clear" />
+        <stop offset="100%" className="ag-record-shade-deep" />
+      </radialGradient>
+      <radialGradient id={id('reflection')} cx="42%" cy="26%" r="58%">
+        <stop offset="0%" className="ag-record-reflection-light" />
+        <stop offset="100%" className="ag-record-reflection-clear" />
+      </radialGradient>
+      <filter id={id('blur')} x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="1.3" />
+      </filter>
+      <filter id={id('through')} x="-10%" y="-10%" width="120%" height="120%">
+        <feGaussianBlur stdDeviation="0.18" />
+      </filter>
+    </defs>
+  );
+}
+
+/**
+ * The lens's ridges, moulded on the cap's inner face: each a ridge and its
+ * shaded back, softened by the plastic they are seen through.
+ */
+function FresnelRidges({ id }: { readonly id: (part: string) => string }): ReactNode {
+  return (
+    <g className="ag-record-fresnel" filter={`url(#${id('through')})`}>
+      {RIDGES.map(({ radius, back, nearness }) => (
+        <g key={radius} style={nearnessStyle(nearness)}>
+          <circle
+            className="ag-record-ridge"
+            cx="24"
+            cy="24"
+            r={radius}
+            fill="none"
+            strokeWidth="0.55"
+          />
+          <circle
+            className="ag-record-ridge-back"
+            cx="24"
+            cy="24"
+            r={back}
+            fill="none"
+            strokeWidth="0.7"
+          />
+        </g>
+      ))}
+    </g>
+  );
+}
+
 /** The record lamp's drawing, lit or not. */
 export function RecordLampDrawing({ lit }: { readonly lit: boolean }): ReactNode {
   const id = useSvgIds('ag-record');
@@ -70,43 +144,7 @@ export function RecordLampDrawing({ lit }: { readonly lit: boolean }): ReactNode
       focusable="false"
       data-ag-lit={lit ? '' : undefined}
     >
-      <defs>
-        <radialGradient id={id('bezel')} cx="35%" cy="25%" r="85%">
-          <stop offset="0%" className="ag-record-bezel-light" />
-          <stop offset="45%" className="ag-record-bezel-mid" />
-          <stop offset="100%" className="ag-record-bezel-shade" />
-        </radialGradient>
-        <linearGradient id={id('chamfer')} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" className="ag-record-chamfer-dark" />
-          <stop offset="100%" className="ag-record-chamfer-light" />
-        </linearGradient>
-        <radialGradient id={id('cap-lit')} cx="50%" cy="54%" r="52%">
-          <stop offset="0%" className="ag-record-lit-0" />
-          <stop offset="22%" className="ag-record-lit-1" />
-          <stop offset="62%" className="ag-record-lit-2" />
-          <stop offset="88%" className="ag-record-lit-3" />
-          <stop offset="100%" className="ag-record-lit-4" />
-        </radialGradient>
-        <radialGradient id={id('cap-unlit')} cx="50%" cy="54%" r="52%">
-          <stop offset="0%" className="ag-record-unlit-0" />
-          <stop offset="80%" className="ag-record-unlit-1" />
-          <stop offset="100%" className="ag-record-unlit-2" />
-        </radialGradient>
-        <radialGradient id={id('shade')} cx="50%" cy="30%" r="75%">
-          <stop offset="70%" className="ag-record-shade-clear" />
-          <stop offset="100%" className="ag-record-shade-deep" />
-        </radialGradient>
-        <radialGradient id={id('reflection')} cx="42%" cy="26%" r="58%">
-          <stop offset="0%" className="ag-record-reflection-light" />
-          <stop offset="100%" className="ag-record-reflection-clear" />
-        </radialGradient>
-        <filter id={id('blur')} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.3" />
-        </filter>
-        <filter id={id('through')} x="-10%" y="-10%" width="120%" height="120%">
-          <feGaussianBlur stdDeviation="0.18" />
-        </filter>
-      </defs>
+      <RecordLampPaints id={id} />
       <circle className="ag-record-cutout" cx="24" cy="24.5" r="23.4" />
       <circle cx="24" cy="24" r="22.6" fill={`url(#${id('bezel')})`} />
       <circle cx="24" cy="24" r="19.2" fill={`url(#${id('chamfer')})`} />
@@ -134,28 +172,7 @@ export function RecordLampDrawing({ lit }: { readonly lit: boolean }): ReactNode
         r="17.2"
         fill={`url(#${id('cap-lit')})`}
       />
-      <g className="ag-record-fresnel" filter={`url(#${id('through')})`}>
-        {RIDGES.map(({ radius, back, nearness }) => (
-          <g key={radius} style={nearnessStyle(nearness)}>
-            <circle
-              className="ag-record-ridge"
-              cx="24"
-              cy="24"
-              r={radius}
-              fill="none"
-              strokeWidth="0.55"
-            />
-            <circle
-              className="ag-record-ridge-back"
-              cx="24"
-              cy="24"
-              r={back}
-              fill="none"
-              strokeWidth="0.7"
-            />
-          </g>
-        ))}
-      </g>
+      <FresnelRidges id={id} />
       <circle cx="24" cy="24" r="17.2" fill={`url(#${id('shade')})`} />
       <circle
         className="ag-record-bloom ag-hardware-lit"
