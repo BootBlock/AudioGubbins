@@ -14,8 +14,7 @@ import { counted } from '@audiogubbins/text';
 import { judgedWords, type RegionLoop } from '../../analysis/loop-analysing.js';
 import type { Auditioning } from '../../audio/loop-audition.js';
 import type { LoopAnalysisRecord } from '../../state/loop-analysis-store.js';
-import type { PanelCommands } from '../command-button.js';
-import { HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { seamCauseWords } from '../inspector/loop-processing-words.js';
 import { ChecksTable, worstVerdict } from './checks-table.js';
 import { LoopCandidates, type CandidateTarget } from './loop-candidates.js';
@@ -165,12 +164,11 @@ export function HeardSide({
       {record?.kind === 'done' && <SeamView analysis={record.analysis} channels={shown.channels} />}
       <Hearing shown={shown} audition={audition} commands={commands} />
       <span>
-        <HintedCommandButton
-            id="loop.analyse"
-            label="Analyse the loop"
-            icon="analyse"
-            commands={commands}
-            args={{ view: shown.panel, region: shown.region }}
+        <CommandButton
+          id="loop.analyse"
+          label="Analyse the loop"
+          commands={commands}
+          args={{ view: shown.panel, region: shown.region }}
           tone={ButtonTone.Primary}
           compact
         />

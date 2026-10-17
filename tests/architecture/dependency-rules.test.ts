@@ -3140,8 +3140,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, letting the context go for another rate, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes, and whether it plays.",
     ],
     'apps/web/src/app.tsx': [
-      315,
-      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface, the props each surface is handed, and one import per stylesheet of the design system in cascade order, which a stylesheet of imports alone would only move behind a barrel.",
+      335,
+      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface, the props each surface is handed, and one import per stylesheet of the design system in cascade order, which a stylesheet of imports alone would only move behind a barrel. Reviewed again when the redesigned panels each brought a stylesheet of their own: the growth is one import per panel's sheet, after the frame's in cascade order, and the component is unchanged.",
     ],
     'apps/web/src/application.ts': [
       395,

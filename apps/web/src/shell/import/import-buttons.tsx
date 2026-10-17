@@ -14,11 +14,7 @@ import type { ReactNode } from 'react';
 import { Button, ButtonTone, IconButton, Icon, type IconName } from '@audiogubbins/design-system';
 
 import type { PanelCommands } from '../command-button.js';
-
-/** A button's reason, given only while it has one. */
-function unavailable(reason: string | undefined): { readonly unavailableReason?: string } {
-  return reason === undefined ? {} : { unavailableReason: reason };
-}
+import { optionalReason } from '../optional-reason.js';
 
 /** A button that runs the import command `id`: a glyph, or a call to action while `calling`. */
 export function ImportButton({
@@ -47,7 +43,7 @@ export function ImportButton({
       compact
       {...(calling ? { label } : { iconOnly: true, label, hint: label })}
       aria-disabled={reason !== undefined}
-      {...unavailable(reason)}
+      {...optionalReason(reason)}
       onClick={() => {
         commands.run(id);
       }}
@@ -72,7 +68,7 @@ export function ClearImportsButton({
       label={label}
       hint={label}
       compact
-      {...unavailable(commands.unavailableReason('file.clear-imports'))}
+      {...optionalReason(commands.unavailableReason('file.clear-imports'))}
       onClick={() => {
         commands.run('file.clear-imports');
       }}

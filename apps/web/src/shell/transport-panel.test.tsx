@@ -195,7 +195,7 @@ describe('the Transport panel before anything plays', () => {
       views.set(1);
     });
 
-    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAttribute('aria-disabled');
   });
 
   it('offers Play once the asset the editor in use shows has opened, its files read', () => {
@@ -214,10 +214,10 @@ describe('the Transport panel before anything plays', () => {
       assets.set(1);
     });
 
-    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAttribute('aria-disabled');
   });
 
-  it('keeps a button whose command cannot run in the tab order, saying the command’s own reason once', async () => {
+  it('keeps a button whose command cannot run in the tab order, described by the command’s own reason and never writing it beside the button', async () => {
     const { run } = draw(undefined, {
       unavailable: {
         'transport.pause': 'Nothing is playing.',
@@ -231,7 +231,13 @@ describe('the Transport panel before anything plays', () => {
     expect(screen.getByRole('button', { name: 'Stop' })).toHaveAccessibleDescription(
       'Nothing is playing.',
     );
-    expect(screen.getAllByText('Nothing is playing.')).toHaveLength(1);
+    // Each button's reason is its own description, held out of sight until it
+    // opens on hover or focus: none is standing text beside the row.
+    expect(
+      screen
+        .getAllByText('Nothing is playing.')
+        .every((said) => said.classList.contains('ag-visually-hidden')),
+    ).toBe(true);
     expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAccessibleDescription();
     pause.focus();
     expect(pause).toHaveFocus();
@@ -271,17 +277,19 @@ function contestedRender() {
 }
 
 describe('the Transport panel’s processing modes', () => {
-  it('shows playback as real-time processing, and says why it does not move to a cached preview', () => {
+  it('shows playback as real-time processing, and says why it does not move to a cached preview', async () => {
     draw();
 
-    expect(reading('Playback')).toMatch(/^Real-time processing/);
-    expect(reading('Playback')).toContain(
+    expect(reading('Playback')).toBe('Real-time processing');
+    await userEvent.click(screen.getByRole('button', { name: 'Why playback runs so' }));
+    expect(screen.getByRole('dialog', { name: 'Why playback runs so' })).toHaveTextContent(
       'a cached preview is not available: nothing measures what live processing costs yet',
     );
   });
 
-  it('shows the mode the next render takes before any render, with its reason', () => {
+  it('shows the mode the next render takes before any render, with its reason', async () => {
     draw();
+    await open('Offline render');
 
     expect(reading('Offline render')).toBe(
       'Final offline rendering' +
@@ -290,10 +298,11 @@ describe('the Transport panel’s processing modes', () => {
     expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
   });
 
-  it('shows the mode a render was planned with, and where it queued', () => {
+  it('shows the mode a render was planned with, and where it queued', async () => {
     const strategy = createRenderStrategyStore();
     strategy.decide(contestedRender().safer);
     draw(undefined, { strategy });
+    await open('Offline render');
 
     expect(reading('Offline render')).toMatch(/^Background rendering/);
     expect(reading('Offline render')).toContain(
@@ -328,8 +337,9 @@ describe('the Transport panel’s processing modes', () => {
 });
 
 describe('the Transport panel’s quality modes', () => {
-  it('shows the render and preview quality with every value each runs at, and where they differ', () => {
+  it('shows the render and preview quality with every value each runs at, and where they differ', async () => {
     draw();
+    await open('Offline render');
 
     expect(reading('Render quality')).toBe(
       'Maximum' + 'Resampling maximum, oversampling 8 times, spectral overlap 8 frames.',
@@ -346,9 +356,10 @@ describe('the Transport panel’s quality modes', () => {
     ).toBeInTheDocument();
   });
 
-  it('follows a change of either, and says so where they match', () => {
+  it('follows a change of either, and says so where they match', async () => {
     const settings = audioSettings();
     draw(undefined, { settings });
+    await open('Offline render');
 
     act(() => {
       settings.choosePreviewQuality(namedQualityMode(QualityLevel.Maximum));

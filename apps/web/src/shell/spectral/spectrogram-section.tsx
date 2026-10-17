@@ -13,8 +13,7 @@ import type { ReactNode } from 'react';
 import { Section } from '@audiogubbins/design-system';
 
 import { analysisWords, colourWords, rangeWords } from '../../commands/spectrogram-commands.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
-import { SharedReasonNotes } from '../settings/reasoned-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import type { ShownView } from './shown-spectral.js';
 
 /** The commands that change the spectrogram, in groups, and what each button says. */
@@ -59,8 +58,6 @@ const SPECTROGRAM_SETTINGS: readonly (readonly [
   ],
 ];
 
-const SETTING_IDS = SPECTROGRAM_SETTINGS.flatMap(([, buttons]) => buttons.map(([id]) => id));
-
 /** What each setting's button is called, by its command, for the summary to name the one in use. */
 const SETTING_LABELS: ReadonlyMap<string, string> = new Map(
   SPECTROGRAM_SETTINGS.flatMap(([, buttons]) => buttons),
@@ -94,7 +91,6 @@ export function SpectrogramSection({
   readonly shown: ShownView;
   readonly commands: PanelCommands;
 }): ReactNode {
-  const reasons = useCommandReasons(commands, SETTING_IDS);
   const { spectrogram } = shown.state;
   return (
     <Section title="Spectrogram" summary={summaryOf(spectrogram)} defaultOpen={false}>
@@ -103,7 +99,6 @@ export function SpectrogramSection({
         <p>{rangeWords(spectrogram.range)}</p>
         <p>{colourWords(spectrogram.colours)}</p>
       </div>
-      <SharedReasonNotes reasons={reasons} />
       {SPECTROGRAM_SETTINGS.map(([group, buttons]) => (
         <div className="ag-spectral-setting" key={group} role="group" aria-label={group}>
           <span className="ag-spectral-setting-name" aria-hidden="true">
@@ -118,7 +113,6 @@ export function SpectrogramSection({
                 commands={commands}
                 args={{ view: shown.panel }}
                 compact
-                shared={reasons}
               />
             ))}
           </div>

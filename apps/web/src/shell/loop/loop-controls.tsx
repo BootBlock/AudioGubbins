@@ -14,8 +14,7 @@ import { quoted } from '@audiogubbins/text';
 
 import type { Auditioning } from '../../audio/loop-audition.js';
 import type { LoopAnalysisRecord } from '../../state/loop-analysis-store.js';
-import type { PanelCommands } from '../command-button.js';
-import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 
 /** What the controls act on: the view their commands run in, and the region whose loop they act on. */
 export interface LoopTarget {
@@ -59,7 +58,7 @@ export function SearchSettings({
           Moves both points together, so the loop lasts as long as it does now.
         </Hint>
       </div>
-      <HintedCommandButton
+      <CommandButton
         id="loop.find-candidates"
         label="Find better loop points"
         commands={commands}
@@ -90,29 +89,27 @@ export function Hearing({
   return (
     <div className="ag-loop-hearing" role="group" aria-label="Hear the loop">
       <div className="ag-control-row">
-      <HintedCommandButton
-        id="loop.audition-cycles"
-        label="Hear the loop cycling"
-        icon="loop"
-        commands={commands}
-        args={args}
-        compact
-      />
-      <HintedCommandButton
-        id="loop.audition-seam"
-        label="Stress-test the seam"
-        icon="stress-test"
-        commands={commands}
-        args={args}
-        compact
-      />
-      <CommandIconButton
-        id="loop.stop-audition"
-        icon="stop"
-        label="Stop hearing the loop"
-        commands={commands}
-        compact
-      />
+        <CommandButton
+          id="loop.audition-cycles"
+          label="Hear the loop cycling"
+          commands={commands}
+          args={args}
+          compact
+        />
+        <CommandButton
+          id="loop.audition-seam"
+          label="Stress-test the seam"
+          commands={commands}
+          args={args}
+          compact
+        />
+        <CommandButton
+          id="loop.stop-audition"
+          label="Stop hearing the loop"
+          commands={commands}
+          compact
+          iconOnly
+        />
       </div>
       <HeardLine audition={audition} />
     </div>
@@ -156,7 +153,7 @@ export function Running({
         <p role="status" className="ag-loop-heard">
           {`Analysing the loop${record.request.search === undefined ? '' : ' and searching near it'}: ${String(tenths)}%`}
         </p>
-        <HintedCommandButton
+        <CommandButton
           id="loop.cancel-analysis"
           label="Stop analysing the loop"
           commands={commands}

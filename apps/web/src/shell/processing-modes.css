@@ -1,8 +1,22 @@
 /*
- * How the engine processes, in the Transport panel: what a render's
- * resources warned of, each naming the resource that limits it, and the two
- * ways a render waiting on a warning can go.
+ * How the engine processes, in the Transport panel: a mode as its chip with
+ * its hint, the cached preview's chip and bar, what a render's resources
+ * warned of, each naming the resource that limits it, and the two ways a
+ * render waiting on a warning can go.
  */
+
+/* A chip, anything drawn beside it, and its hint, on one line while they fit. */
+.ag-mode-value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+}
+
+.ag-mode-value > .ag-progress {
+  flex: 1 1 calc(var(--ag-grid-unit) * 24);
+}
 
 .ag-render-warnings {
   display: flex;

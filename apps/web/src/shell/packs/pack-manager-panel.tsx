@@ -36,8 +36,7 @@ import type { PackManagerState, PackManagerView } from '../../ml/pack-manager.js
 import { projectNeeds, type ProjectNeed } from '../../ml/pack-needs.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
-import type { PanelCommands } from '../command-button.js';
-import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { PackRow, type PackVersion } from './pack-row.js';
 
 /** What the Model packs panel reads. */
@@ -184,7 +183,7 @@ function ProjectNeeds({
               ? {}
               : {
                   actions: (
-                    <HintedCommandButton
+                    <CommandButton
                       id="packs.install"
                       label={`Install ${packTitle(offered.name, offered.version)}`}
                       commands={commands}
@@ -275,17 +274,17 @@ function PacksHeader({
 function PackActions({ commands }: { readonly commands: PanelCommands }): ReactNode {
   return (
     <>
-      <CommandIconButton
+      <CommandButton
         id="packs.refresh-catalogue"
-        icon="reload"
         label="Check the catalogue again"
         commands={commands}
+        iconOnly
       />
-      <CommandIconButton
+      <CommandButton
         id="packs.import"
-        icon="import-folder"
         label="Import a pack from a folder…"
         commands={commands}
+        iconOnly
       />
     </>
   );

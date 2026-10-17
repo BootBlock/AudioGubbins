@@ -14,6 +14,12 @@
   padding: 0;
 }
 
+/* Under the dock's tab strip, which insets the panel from above, the header
+   keeps only the focus ring's reach at its top, as a panel's body does. */
+.ag-processing-panel > .ag-panel-header {
+  padding-block-start: var(--ag-focus-ring-reach);
+}
+
 .ag-rack-sub,
 .ag-rack-hearing {
   display: inline-flex;
@@ -31,6 +37,13 @@
 
 .ag-rack-hearing-word {
   color: var(--ag-chrome-text-primary);
+}
+
+/* Hearing the original, wherever it is shown: the switch and its hint on one line. */
+.ag-hearing-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
 }
 
 /* The row under the header of what is done with the rack as a whole. */

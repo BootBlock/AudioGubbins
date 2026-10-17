@@ -59,6 +59,16 @@ const CONTEXT_STATES: Readonly<Record<LifecycleState, string>> = {
   [LifecycleState.Closed]: 'Closed',
 };
 
+/** The context's state in a word or two, as the closed Engine section sums it up. */
+const CONTEXT_SUMMARIES: Readonly<Record<LifecycleState, string>> = {
+  [LifecycleState.Idle]: 'Not started',
+  [LifecycleState.Suspended]: 'Suspended',
+  [LifecycleState.AwaitingGesture]: 'Waiting to start',
+  [LifecycleState.Running]: 'Running',
+  [LifecycleState.Interrupted]: 'Held by the system',
+  [LifecycleState.Closed]: 'Closed',
+};
+
 const TRANSPORT_MODES: Readonly<Record<TransportMode, string>> = {
   [TransportMode.Stopped]: 'Stopped',
   [TransportMode.Playing]: 'Playing',
@@ -135,6 +145,19 @@ function gpuText(gpu: GpuUse): string {
     case GpuUseKind.Used:
       return `Used by ${gpu.nodes.join(', ')}.`;
   }
+}
+
+/**
+ * The engine at a glance, for its closed section's summary as the approved
+ * Transport writes it: the context's state, and the underruns of the feed
+ * where it is measured.
+ */
+export function engineSummary(status: PlaybackStatus | undefined): string {
+  const state = CONTEXT_SUMMARIES[status?.contextState ?? LifecycleState.Idle];
+  const underruns = status?.stability?.underrunsInWindow;
+  return underruns === undefined
+    ? state
+    : `${state} · ${String(underruns)} ${underruns === 1 ? 'underrun' : 'underruns'}`;
 }
 
 /**

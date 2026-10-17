@@ -9,8 +9,9 @@
 
 import type { ReactNode } from 'react';
 
-import { Button, Spinner } from '@audiogubbins/design-system';
+import { Spinner } from '@audiogubbins/design-system';
 
+import { CommandButton } from '../command-button.js';
 import type { RunCommand } from '../settings/section.js';
 
 /** The two ways in, each a command and its button's words. */
@@ -44,18 +45,9 @@ export function ImportProjects({
         </p>
       )}
       <div className="ag-dialogue-row">
-        {IMPORTS.map(([id, label]) => {
-          const reason = unavailableReason(id);
-          return (
-            <Button
-              key={id}
-              {...(reason === undefined ? {} : { unavailableReason: reason })}
-              onClick={() => run(id)}
-            >
-              {label}
-            </Button>
-          );
-        })}
+        {IMPORTS.map(([id, label]) => (
+          <CommandButton key={id} id={id} label={label} commands={{ run, unavailableReason }} />
+        ))}
       </div>
     </div>
   );

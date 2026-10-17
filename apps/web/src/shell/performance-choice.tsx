@@ -7,20 +7,16 @@
 
 import type { ReactNode } from 'react';
 
-import { OptionSelect, type IconName } from '@audiogubbins/design-system';
-import { PerformanceProfile } from '@audiogubbins/audio-engine';
+import { OptionSelect } from '@audiogubbins/design-system';
+import type { PerformanceProfile } from '@audiogubbins/audio-engine';
 
 import { PROFILES, PROFILE_NAMES, profileCommandId } from '../commands/audio-commands.js';
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 
-/** Each profile's glyph, by the icon vocabulary's own name for it. */
-const PROFILE_GLYPHS: Readonly<Record<PerformanceProfile, IconName>> = {
-  [PerformanceProfile.LowLatency]: 'low-latency',
-  [PerformanceProfile.Balanced]: 'balanced',
-  [PerformanceProfile.MaximumStability]: 'maximum-stability',
-  [PerformanceProfile.Custom]: 'custom-profile',
-};
-
-/** The profile in force, chosen from the four, each with its glyph. */
+/**
+ * The profile in force, chosen from the four, each with the glyph of the
+ * command that chooses it, as its menu entry and its palette row draw it.
+ */
 export function PerformanceChoice({
   profile,
   run,
@@ -32,11 +28,10 @@ export function PerformanceChoice({
     <OptionSelect
       label="Performance profile"
       value={profile}
-      options={PROFILES.map((one) => ({
-        value: one,
-        label: PROFILE_NAMES[one],
-        icon: PROFILE_GLYPHS[one],
-      }))}
+      options={PROFILES.map((one) => {
+        const icon = COMMAND_GLYPHS.get(profileCommandId(one));
+        return { value: one, label: PROFILE_NAMES[one], ...(icon === undefined ? {} : { icon }) };
+      })}
       onValueChange={(value) => {
         const chosen = PROFILES.find((one) => one === value);
         if (chosen !== undefined && chosen !== profile) run(profileCommandId(chosen));

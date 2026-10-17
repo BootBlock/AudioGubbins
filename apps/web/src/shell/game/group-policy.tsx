@@ -17,7 +17,7 @@ import {
   type Resolved,
 } from '@audiogubbins/game-audio';
 
-import { HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton } from '../command-button.js';
 import {
   PolicyRow,
   ResolvedFacts,
@@ -57,7 +57,7 @@ function GroupField<F extends Exclude<PolicyField, 'tags'>>({
       }}
       actions={
         ownsIt && (
-          <HintedCommandButton
+          <CommandButton
             id="game.unset-policy"
             label="Reset to inherited"
             commands={parts.commands}

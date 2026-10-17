@@ -12,13 +12,10 @@
 import { useId, useState, type ReactNode } from 'react';
 
 import {
-  Button,
   ButtonTone,
-  Hint,
   Icon,
   IconButton,
   IconSize,
-  ToggleSwitch,
   VisuallyHidden,
   type IconName,
 } from '@audiogubbins/design-system';
@@ -29,21 +26,12 @@ import { quoted } from '@audiogubbins/text';
 
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { when } from '../../wording.js';
-import { CommandAction } from '../command-action.js';
 import type { PanelCommands } from '../command-button.js';
+import { Applying, type Shown } from './entry-applying.js';
 import { RemoveConfirmation, RenameField } from './entry-changes.js';
 import { processorWords, slotsWords } from './library-words.js';
 import { useOpening, type Opening, type Part } from './row-opening.js';
 import { TargetChooser } from './target-chooser.js';
-
-/** The editor in use, and the name of what it shows, which a chain or preset is applied in. */
-export interface Shown {
-  readonly panel: string;
-  readonly name: string;
-}
-
-/** Why applying cannot run while no editor shows the project's audio. */
-const NOTHING_SHOWN = 'Open audio of the project in an editor to apply it there.';
 
 /** The glyph each built-in chain is drawn with, in the order the library lists them. */
 const BUILT_IN_GLYPHS: readonly IconName[] = [
@@ -111,71 +99,6 @@ function ChainChips({ slots }: { readonly slots: readonly ChainSlot[] }): ReactN
         </li>
       ))}
     </ol>
-  );
-}
-
-/** Applying an entry where the editor in use shows: a chain shared or not, or a preset. */
-function Applying({
-  entry,
-  shown,
-  share,
-  onShare,
-  opening,
-  commands,
-}: {
-  readonly entry: LibraryEntry;
-  readonly shown: Shown | undefined;
-  readonly share: boolean;
-  readonly onShare: (share: boolean) => void;
-  readonly opening: Opening;
-  readonly commands: PanelCommands;
-}): ReactNode {
-  const where = shown === undefined ? {} : { view: shown.panel };
-  const refusal = shown === undefined ? NOTHING_SHOWN : undefined;
-  if (entry.content.kind === 'preset') {
-    return (
-      <div className="ag-library-apply">
-        <CommandAction
-          id="library.apply-preset"
-          label="Apply to the selected processor"
-          commands={commands}
-          args={{ entry: entry.id, ...where }}
-          refusal={refusal}
-          tone={ButtonTone.Primary}
-        />
-      </div>
-    );
-  }
-  return (
-    <div className="ag-library-apply">
-      <span className="ag-library-share">
-        <ToggleSwitch label="Share one chain" checked={share} onCheckedChange={onShare} small />
-        <Hint label="About sharing one chain">
-          <p>
-            Every target names one copy, so a later change to it reaches them all. Off, each gets a
-            copy of its own.
-          </p>
-        </Hint>
-      </span>
-      <Button
-        compact
-        tone={ButtonTone.Quiet}
-        ref={opening.opener('targets')}
-        onClick={() => {
-          opening.show('targets');
-        }}
-      >
-        Apply to several…
-      </Button>
-      <CommandAction
-        id="library.apply-chain"
-        label={shown === undefined ? 'Apply' : `Apply to ${quoted(shown.name)}`}
-        commands={commands}
-        args={{ entry: entry.id, ...where, share }}
-        refusal={refusal}
-        tone={ButtonTone.Primary}
-      />
-    </div>
   );
 }
 
@@ -253,6 +176,31 @@ function EntryHead({
   );
 }
 
+/** What a usable entry holds, and when it was saved or that it is built in. */
+function EntryDetail({
+  entry,
+  builtIn,
+}: {
+  readonly entry: LibraryEntry;
+  readonly builtIn: boolean;
+}): ReactNode {
+  const { content } = entry;
+  const holds =
+    content.kind === 'chain'
+      ? `Holds ${slotsWords(content.chain.slots)}.`
+      : `The settings of a ${processorWords(content.processor)}.`;
+  // Built in, it says so in a word and draws what it holds as chips; the
+  // whole of it stays in the sentence a screen reader reads.
+  return builtIn ? (
+    <p className="ag-library-entry-detail">
+      Built in
+      <VisuallyHidden>{`: it comes with AudioGubbins, so it is not renamed or removed. ${holds}`}</VisuallyHidden>
+    </p>
+  ) : (
+    <p className="ag-library-entry-detail">{`Saved ${when(entry.savedAt)}. ${holds}`}</p>
+  );
+}
+
 /** A saved chain or preset this version can use, and what can be done with it. */
 function UsableEntry({
   entry,
@@ -274,27 +222,13 @@ function UsableEntry({
   const [share, setShare] = useState(false);
   const opening = useOpening();
   const { content } = entry;
-  const holds =
-    content.kind === 'chain'
-      ? `Holds ${slotsWords(content.chain.slots)}.`
-      : `The settings of a ${processorWords(content.processor)}.`;
-  // Built in, it says so in a word and draws what it holds as chips; the
-  // whole of it stays in the sentence a screen reader reads.
-  const detail = builtIn ? (
-    <p className="ag-library-entry-detail">
-      Built in
-      <VisuallyHidden>{`: it comes with AudioGubbins, so it is not renamed or removed. ${holds}`}</VisuallyHidden>
-    </p>
-  ) : (
-    <p className="ag-library-entry-detail">{`Saved ${when(entry.savedAt)}. ${holds}`}</p>
-  );
   return (
     <li className="ag-library-entry" role="group" aria-labelledby={heading}>
       <EntryHead
         heading={heading}
         glyph={glyphOf(entry)}
         name={entry.name}
-        detail={detail}
+        detail={<EntryDetail entry={entry} builtIn={builtIn} />}
         {...(builtIn
           ? {}
           : {

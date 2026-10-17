@@ -244,7 +244,7 @@ function OpenHistory({
 
   return (
     <section className="ag-panel ag-history">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       <Summary order={order} run={run} />
       <FindBar text={text} onText={setText} scope={scope} onScope={setScope} />
       <AffectingFilter affecting={affecting} names={names} onAffecting={setAffecting} />
@@ -278,7 +278,7 @@ export function HistoryPanel({ project, review, ...rest }: HistoryPanelProps): R
   if (open.kind !== 'open') {
     return (
       <section className="ag-panel">
-        <h2 className="ag-panel-title">{rest.title}</h2>
+        <h2 className="ag-visually-hidden">{rest.title}</h2>
         <EmptyState
           icon="history"
           title="No project is open"

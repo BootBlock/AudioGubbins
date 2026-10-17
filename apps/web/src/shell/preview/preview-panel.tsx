@@ -35,9 +35,8 @@ import {
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import type { ProjectStores } from '../../state/project-stores.js';
-import type { PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { ChoiceField, type Choice } from '../export/setting-fields.js';
-import { HintedCommandButton } from '../hinted-command-button.js';
 import { EventLog } from './event-log.js';
 import { PreviewPad } from './preview-pad.js';
 import { EmitterList, ScenarioProblems, ScenarioSettings } from './scenario-editor.js';
@@ -88,7 +87,7 @@ function ActionButton({
   readonly commands: PanelCommands;
 }): ReactNode {
   return (
-    <HintedCommandButton
+    <CommandButton
       id={action.id}
       label={action.label}
       {...(action.icon === undefined ? {} : { icon: action.icon })}

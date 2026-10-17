@@ -23,9 +23,8 @@ import {
 } from '@audiogubbins/game-audio';
 
 import { PreviewCommand } from '../../commands/preview-run-commands.js';
-import type { PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { ChoiceField, type Choice } from '../export/setting-fields.js';
-import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
 import { emitterColour } from './emitter-colours.js';
 import { MotionFields, TriggerFields } from './motion-fields.js';
 import { MOTION_WORDS, rulesWords, sourceWords, subjectKey, subjectName } from './preview-words.js';
@@ -145,7 +144,7 @@ function EmitterActions({
   const args = { emitter: emitter.id };
   return (
     <span className="ag-preview-emitter-actions">
-      <HintedCommandButton
+      <CommandButton
         id={PreviewCommand.Trigger}
         label="Trigger"
         name={`Trigger ${emitter.name}`}
@@ -153,13 +152,13 @@ function EmitterActions({
         args={args}
         compact
       />
-      <CommandIconButton
+      <CommandButton
         id={PreviewCommand.StopVoices}
-        icon="stop"
         label={`Stop the voices of ${emitter.name}`}
         commands={commands}
         args={args}
         compact
+        iconOnly
       />
       {onRemove === undefined ? null : (
         <IconButton

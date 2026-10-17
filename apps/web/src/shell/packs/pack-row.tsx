@@ -22,7 +22,6 @@ import {
   ProgressBar,
   ProgressPlace,
   VisuallyHidden,
-  type IconName,
 } from '@audiogubbins/design-system';
 import type {
   InstallState,
@@ -32,8 +31,7 @@ import type {
 } from '@audiogubbins/model-packs';
 
 import { CONDITION_NAMES, packTitle, progressWords, stateWords } from '../../ml/pack-words.js';
-import type { PanelCommands } from '../command-button.js';
-import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { PackFacts } from './pack-facts.js';
 
 /** One version as the panel lists it: what the installer and the catalogue know of it. */
@@ -95,17 +93,17 @@ function stepsOf(state: InstallState, offered: boolean): readonly string[] {
 }
 
 /**
- * How each step's button is drawn: its words, and the glyph that stands for
- * them where the step is a row's small action. Install and Retry keep their
- * words, being what the row is for in its state.
+ * How each step's button is drawn: its words, and whether its command's glyph
+ * stands for them, where the step is a row's small action. Install and Retry
+ * keep their words, being what the row is for in its state.
  */
-const STEPS: Readonly<Record<string, { readonly label: string; readonly icon?: IconName }>> = {
+const STEPS: Readonly<Record<string, { readonly label: string; readonly iconOnly?: true }>> = {
   'packs.install': { label: 'Install' },
-  'packs.pause': { label: 'Pause', icon: 'pause' },
-  'packs.resume': { label: 'Resume', icon: 'play' },
-  'packs.cancel': { label: 'Cancel', icon: 'cancel' },
+  'packs.pause': { label: 'Pause', iconOnly: true },
+  'packs.resume': { label: 'Resume', iconOnly: true },
+  'packs.cancel': { label: 'Cancel', iconOnly: true },
   'packs.retry': { label: 'Retry' },
-  'packs.remove': { label: 'Remove', icon: 'delete' },
+  'packs.remove': { label: 'Remove', iconOnly: true },
 };
 
 /** The state of a version's installation: a badge where it is settled, a line otherwise. */
@@ -164,25 +162,16 @@ function Steps({
   return (
     <span className="ag-pack-steps">
       {steps.map((step) => {
-        const { label = step, icon } = STEPS[step] ?? {};
-        return icon === undefined ? (
-          <HintedCommandButton
+        const { label = step, iconOnly = false } = STEPS[step] ?? {};
+        return (
+          <CommandButton
             key={step}
             id={step}
             label={label}
             commands={commands}
             args={args}
             compact
-          />
-        ) : (
-          <CommandIconButton
-            key={step}
-            id={step}
-            icon={icon}
-            label={label}
-            commands={commands}
-            args={args}
-            compact
+            iconOnly={iconOnly}
           />
         );
       })}
@@ -272,7 +261,7 @@ export function PackRow({
             {version.needed}
           </p>
           <span>
-            <HintedCommandButton
+            <CommandButton
               id="packs.remove"
               label="Remove it anyway"
               commands={commands}

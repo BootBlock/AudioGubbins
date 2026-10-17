@@ -14,8 +14,7 @@ import type { ProcessorId } from '@audiogubbins/domain';
 import { processorIn } from '../../commands/library-access.js';
 import type { Observable } from '../../state/observable.js';
 import type { SavedProcessingState } from '../../state/saved-processing-store.js';
-import { CommandAction } from '../command-action.js';
-import type { PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import type { ShownRack } from './shown-rack.js';
 
 /** A library that lists nothing, where this browser keeps none. */
@@ -53,11 +52,12 @@ function PresetControls({
     <>
       <div className="ag-rack-library-row">
         <TextField label="Save its settings as" value={name} onValueChange={setName} />
-        <CommandAction
+        <CommandButton
           id="library.save-preset"
           label="Save as preset"
           commands={commands}
           args={{ ...args, name }}
+          compact
         />
       </div>
       {chosen === undefined ? (
@@ -65,11 +65,12 @@ function PresetControls({
       ) : (
         <div className="ag-rack-library-row">
           <OptionSelect label="Preset" value={chosen} options={presets} onValueChange={setPreset} />
-          <CommandAction
+          <CommandButton
             id="library.apply-preset"
             label="Apply preset"
             commands={commands}
             args={{ ...args, entry: chosen }}
+            compact
           />
         </div>
       )}
@@ -95,11 +96,12 @@ export function LibraryControls({
       <Section title="Your library" icon="library">
         <div className="ag-rack-library-row">
           <TextField label="Save the rack as" value={name} onValueChange={setName} />
-          <CommandAction
+          <CommandButton
             id="library.save-chain"
             label="Save chain"
             commands={commands}
             args={{ view: shown.panel, name }}
+            compact
           />
         </div>
         {one === undefined ? (

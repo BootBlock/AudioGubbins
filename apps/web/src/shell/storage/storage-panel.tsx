@@ -88,6 +88,25 @@ function Usage({ usage }: { readonly usage: StorageUsage }): ReactNode {
   );
 }
 
+/** The header's actions: measuring again, planning a cleanup and the model packs. */
+function StorageActions({ run }: Pick<StoragePanelProps, 'run'>): ReactNode {
+  return (
+    <>
+      <IconButton icon="reload" label="Measure again" onClick={() => run('storage.measure')} />
+      <IconButton
+        icon="clean-up"
+        label="Plan a cleanup"
+        onClick={() => run('storage.plan-cleanup')}
+      />
+      <IconButton
+        icon="manage-packs"
+        label="Manage model packs"
+        onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}
+      />
+    </>
+  );
+}
+
 /** The panel (see the module comment). */
 export function StoragePanel({
   title,
@@ -108,29 +127,7 @@ export function StoragePanel({
 
   return (
     <section className="ag-panel ag-processing-panel ag-storage">
-      <PanelHeader
-        title={title}
-        icon="storage"
-        actions={
-          <>
-            <IconButton
-              icon="reload"
-              label="Measure again"
-              onClick={() => run('storage.measure')}
-            />
-            <IconButton
-              icon="clean-up"
-              label="Plan a cleanup"
-              onClick={() => run('storage.plan-cleanup')}
-            />
-            <IconButton
-              icon="manage-packs"
-              label="Manage model packs"
-              onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}
-            />
-          </>
-        }
-      />
+      <PanelHeader title={title} icon="storage" actions={<StorageActions run={run} />} />
       <div className="ag-panel-body">
         {unavailable !== undefined && (
           <EmptyState icon="storage" title="Nothing to measure" text={unavailable} />

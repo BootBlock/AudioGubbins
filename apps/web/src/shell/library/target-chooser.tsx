@@ -13,8 +13,7 @@ import type { LibraryEntry } from '@audiogubbins/domain';
 import { quoted } from '@audiogubbins/text';
 
 import type { OpenProjectState } from '../../state/open-project-store.js';
-import { CommandAction } from '../command-action.js';
-import type { PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { useFocusOnShow } from './row-opening.js';
 
 /** What one of the project's assets or regions is called, and how a command names it. */
@@ -39,6 +38,38 @@ function targetsOf(project: OpenProjectState): readonly Target[] {
     }
   }
   return targets;
+}
+
+/** Each target as a switch, on while it is ticked, or why there is none to tick. */
+function TargetList({
+  targets,
+  chosen,
+  onChoose,
+}: {
+  readonly targets: readonly Target[];
+  readonly chosen: ReadonlySet<string>;
+  readonly onChoose: (chosen: ReadonlySet<string>) => void;
+}): ReactNode {
+  if (targets.length === 0) return <p className="ag-panel-note">The project has no assets yet.</p>;
+  return (
+    <ul className="ag-library-targets">
+      {targets.map((target) => (
+        <li key={target.reference}>
+          <ToggleSwitch
+            label={target.name}
+            checked={chosen.has(target.reference)}
+            small
+            onCheckedChange={(on) => {
+              const next = new Set(chosen);
+              if (on) next.add(target.reference);
+              else next.delete(target.reference);
+              onChoose(next);
+            }}
+          />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /** The targets to tick, and applying the chain to those ticked (see the module comment). */
@@ -66,32 +97,12 @@ export function TargetChooser({
       <h5 className="ag-library-chooser-name" id={heading} ref={headingRef} tabIndex={-1}>
         {`Apply ${quoted(entry.name)} to`}
       </h5>
-      {targets.length === 0 ? (
-        <p className="ag-panel-note">The project has no assets yet.</p>
-      ) : (
-        <ul className="ag-library-targets">
-          {targets.map((target) => (
-            <li key={target.reference}>
-              <ToggleSwitch
-                label={target.name}
-                checked={chosen.has(target.reference)}
-                small
-                onCheckedChange={(on) => {
-                  const next = new Set(chosen);
-                  if (on) next.add(target.reference);
-                  else next.delete(target.reference);
-                  setChosen(next);
-                }}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <TargetList targets={targets} chosen={chosen} onChoose={setChosen} />
       <div className="ag-library-confirm-actions">
         <Button compact onClick={onClose}>
           Done
         </Button>
-        <CommandAction
+        <CommandButton
           id="library.apply-chain"
           label={`Apply to ${String(named.length)} chosen`}
           commands={commands}
@@ -102,6 +113,7 @@ export function TargetChooser({
           }}
           refusal={named.length === 0 ? 'Choose the targets to apply it to.' : undefined}
           tone={ButtonTone.Primary}
+          compact
         />
       </div>
     </div>

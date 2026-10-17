@@ -149,6 +149,43 @@ function InstalledPacks({
   );
 }
 
+/** Planning again with the person's changes: the steps kept and the packs chosen. */
+function PlanAgain({
+  plan,
+  changes,
+  chosenAnew,
+  run,
+}: {
+  readonly plan: CleanupPlan;
+  readonly changes: Changes;
+  /** Whether a pack the plan did not hold was chosen, which the button names. */
+  readonly chosenAnew: boolean;
+  readonly run: RunCommand;
+}): ReactNode {
+  const kept = [
+    ...plan.steps
+      .filter((step) => step.kind !== 'model-packs' && included(step, changes))
+      .map(choiceOf),
+    ...changes.packs,
+  ];
+  return (
+    <>
+      {kept.length === 0 && (
+        <p className="ag-cleanup-decision">
+          Every step is left out, so planning again cleans up nothing.
+        </p>
+      )}
+      <Button
+        compact
+        tone={ButtonTone.Primary}
+        onClick={() => run('storage.plan-cleanup', { choices: kept.join(',') })}
+      >
+        {chosenAnew ? 'Plan again with the packs you chose' : 'Plan again without what is left out'}
+      </Button>
+    </>
+  );
+}
+
 /**
  * What carries the plan out: planning again with the person's changes, or the
  * confirmation that names what it removes, or clearing what is made again.
@@ -166,30 +203,7 @@ function Decision({
   const chosenAnew = [...changes.packs].some((choice) => !planned.has(choice));
   const packsChanged = chosenAnew || [...planned].some((choice) => !changes.packs.has(choice));
   if (changes.leftOut.size > 0 || packsChanged) {
-    const kept = [
-      ...plan.steps
-        .filter((step) => step.kind !== 'model-packs' && included(step, changes))
-        .map(choiceOf),
-      ...changes.packs,
-    ];
-    return (
-      <>
-        {kept.length === 0 && (
-          <p className="ag-cleanup-decision">
-            Every step is left out, so planning again cleans up nothing.
-          </p>
-        )}
-        <Button
-          compact
-          tone={ButtonTone.Primary}
-          onClick={() => run('storage.plan-cleanup', { choices: kept.join(',') })}
-        >
-          {chosenAnew
-            ? 'Plan again with the packs you chose'
-            : 'Plan again without what is left out'}
-        </Button>
-      </>
-    );
+    return <PlanAgain plan={plan} changes={changes} chosenAnew={chosenAnew} run={run} />;
   }
   if (plan.confirmationBytes > 0) {
     const words = confirmationWords(plan);
@@ -214,18 +228,15 @@ function Decision({
   );
 }
 
-/** The plan (see the module comment). */
-export function CleanupPlanView({
-  plan,
-  nameOf,
-  run,
-}: {
-  readonly plan: CleanupPlan;
-
-  /** The name of a project a step names, where the library holds it. */
-  readonly nameOf: (project: ProjectId) => string | undefined;
-  readonly run: RunCommand;
-}): ReactNode {
+/**
+ * The person's changes to `plan`: the steps left out and the packs chosen, and
+ * the two ways of changing them, a step at a time or packs at once.
+ */
+function useCleanupChanges(plan: CleanupPlan): {
+  readonly changes: Changes;
+  readonly choosePacks: (choices: readonly string[], chosen: boolean) => void;
+  readonly include: (step: CleanupStep, chosen: boolean) => void;
+} {
   const [changes, setChanges] = useState<Changes>(() => ({
     leftOut: new Set(),
     packs: packsPlanned(plan),
@@ -248,6 +259,22 @@ export function CleanupPlanView({
     else leftOut.add(choiceOf(step));
     setChanges({ ...changes, leftOut });
   };
+  return { changes, choosePacks, include };
+}
+
+/** The plan (see the module comment). */
+export function CleanupPlanView({
+  plan,
+  nameOf,
+  run,
+}: {
+  readonly plan: CleanupPlan;
+
+  /** The name of a project a step names, where the library holds it. */
+  readonly nameOf: (project: ProjectId) => string | undefined;
+  readonly run: RunCommand;
+}): ReactNode {
+  const { changes, choosePacks, include } = useCleanupChanges(plan);
   return (
     <div role="group" className="ag-cleanup-plan" aria-label="The planned cleanup">
       <h3 className="ag-cleanup-heading">

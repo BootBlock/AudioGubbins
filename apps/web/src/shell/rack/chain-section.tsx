@@ -39,8 +39,7 @@ import { otherUsers } from '../../commands/rack-target.js';
 import { chainWords, listeningText } from '../../commands/rack-words.js';
 import { previewDifferenceText } from '../../quality-words.js';
 import { previewQualityOf } from '../../state/audio-settings-store.js';
-import type { PanelCommands } from '../command-button.js';
-import { optionalReason } from '../optional-reason.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { AddLook, AddProcessorMenu } from './add-processor-menu.js';
 import type { ChainParts } from './chain-parts.js';
 import { SelectedProcessors, SlotList } from './chain-view.js';
@@ -129,15 +128,13 @@ function SharedNotice({
     <div className="ag-rack-shared">
       <Icon name="saved-chain" />
       <p>{`This chain is shared: ${others.join(', ')} ${verb} it too, so a change here is heard there.`}</p>
-      <Button
+      <CommandButton
+        id="rack.make-independent"
+        label="Make independent"
+        commands={context}
+        args={args}
         compact
-        {...optionalReason(context.unavailableReason('rack.make-independent', args))}
-        onClick={() => {
-          context.run('rack.make-independent', args);
-        }}
-      >
-        Make independent
-      </Button>
+      />
     </div>
   );
 }
@@ -277,16 +274,14 @@ function RangeRow({
           <Icon name={opened ? 'collapse' : 'expand'} />
           {`From ${at(range.range.start)} to ${at(range.range.end)}: ${runs}`}
         </Button>
-        <Button
-          compact
+        <CommandButton
+          id="rack.remove-range"
+          label="Remove this processing"
+          commands={context}
+          args={remove}
           tone={ButtonTone.QuietDestructive}
-          {...optionalReason(context.unavailableReason('rack.remove-range', remove))}
-          onClick={() => {
-            context.run('rack.remove-range', remove);
-          }}
-        >
-          Remove this processing
-        </Button>
+          compact
+        />
       </div>
       <div id={contentId} hidden={!opened} className="ag-rack-range-chain">
         {opened && chain !== undefined && (

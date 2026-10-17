@@ -25,6 +25,7 @@ import { LONGEST_NAME, givenName } from '@audiogubbins/project-format';
 import type { AnotherProject } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
 
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import type { RunCommand } from '../settings/section.js';
 
 /** What the section needs. */
@@ -38,31 +39,24 @@ export interface CurrentProjectProps {
   readonly unavailableReason: (id: string) => string | undefined;
 }
 
-/** The props that give a button the reason it cannot be pressed, where it cannot. */
-function reasoned(reason: string | undefined): { readonly unavailableReason?: string } {
-  return reason === undefined ? {} : { unavailableReason: reason };
-}
-
 /** A name typed and the command it is given to, emptied once the command runs. */
 function NamedAction({
   label,
   action,
   command,
   initial,
-  run,
-  unavailable,
+  commands,
 }: {
   readonly label: string;
   readonly action: string;
   readonly command: string;
   readonly initial: string;
-  readonly run: RunCommand;
-  readonly unavailable: string | undefined;
+  readonly commands: PanelCommands;
 }): ReactNode {
   const [name, setName] = useState(initial);
   const named = givenName('project', name);
   const go = (): void => {
-    run(command, { name });
+    commands.run(command, { name });
   };
   return (
     <div className="ag-dialogue-with-action">
@@ -73,12 +67,13 @@ function NamedAction({
         onSubmit={go}
         maxLength={LONGEST_NAME}
       />
-      <Button
-        {...reasoned(unavailable ?? (named.ok ? undefined : named.failures[0].summary))}
-        onClick={go}
-      >
-        {action}
-      </Button>
+      <CommandButton
+        id={command}
+        label={action}
+        commands={commands}
+        args={{ name }}
+        refusal={named.ok ? undefined : named.failures[0].summary}
+      />
     </div>
   );
 }
@@ -165,10 +160,7 @@ function HeadedChoice({
 }
 
 /** How much of the project a bundle or folder holds. */
-function ExportChoices({
-  run,
-  unavailableReason,
-}: Pick<CurrentProjectProps, 'run' | 'unavailableReason'>): ReactNode {
+function ExportChoices({ commands }: { readonly commands: PanelCommands }): ReactNode {
   const [scope, setScope] = useState('whole-history');
   const [provenance, setProvenance] = useState('full');
   const [caches, setCaches] = useState(false);
@@ -209,9 +201,7 @@ function ExportChoices({
       />
       <div className="ag-dialogue-row">
         {EXPORTS.map(([id, label]) => (
-          <Button key={id} {...reasoned(unavailableReason(id))} onClick={() => run(id, args)}>
-            {label}
-          </Button>
+          <CommandButton key={id} id={id} label={label} commands={commands} args={args} />
         ))}
       </div>
     </div>
@@ -243,31 +233,6 @@ function FolderReplacement({
   );
 }
 
-/** A button running a command of the open project, with the command's reason where it cannot run. */
-function ProjectAction({
-  id,
-  tone,
-  run,
-  unavailableReason,
-  children,
-}: {
-  readonly id: string;
-  readonly tone?: ButtonTone;
-  readonly run: RunCommand;
-  readonly unavailableReason: (id: string) => string | undefined;
-  readonly children: ReactNode;
-}): ReactNode {
-  return (
-    <Button
-      {...(tone === undefined ? {} : { tone })}
-      {...reasoned(unavailableReason(id))}
-      onClick={() => run(id)}
-    >
-      {children}
-    </Button>
-  );
-}
-
 /** The This project section. */
 export function CurrentProject({
   name,
@@ -276,6 +241,7 @@ export function CurrentProject({
   unavailableReason,
 }: CurrentProjectProps): ReactNode {
   if (name === undefined) return <p className="ag-dialogue-note">No project is open.</p>;
+  const commands = { run, unavailableReason };
   return (
     <div className="ag-dialogue-stack ag-projects-section">
       <div className="ag-dialogue-form" data-ag-labels="medium">
@@ -284,36 +250,32 @@ export function CurrentProject({
           action="Rename"
           command="file.rename-project"
           initial={name}
-          run={run}
-          unavailable={unavailableReason('file.rename-project')}
+          commands={commands}
         />
         <NamedAction
           label="Name of the fork"
           action="Fork from here"
           command="file.fork-project"
           initial={`${name} (fork)`}
-          run={run}
-          unavailable={unavailableReason('file.fork-project')}
+          commands={commands}
         />
       </div>
-      <ExportChoices run={run} unavailableReason={unavailableReason} />
+      <ExportChoices commands={commands} />
       {replacing === undefined ? undefined : <FolderReplacement replacing={replacing} run={run} />}
       <hr className="ag-dialogue-rule" />
       <div className="ag-dialogue-row">
-        <ProjectAction id="file.consolidate" run={run} unavailableReason={unavailableReason}>
-          Copy linked files into the project
-        </ProjectAction>
-        <ProjectAction id="file.back-up-now" run={run} unavailableReason={unavailableReason}>
-          Back up now
-        </ProjectAction>
-        <ProjectAction
+        <CommandButton
+          id="file.consolidate"
+          label="Copy linked files into the project"
+          commands={commands}
+        />
+        <CommandButton id="file.back-up-now" label="Back up now" commands={commands} />
+        <CommandButton
           id="file.delete-project"
+          label="Delete this project"
+          commands={commands}
           tone={ButtonTone.Destructive}
-          run={run}
-          unavailableReason={unavailableReason}
-        >
-          Delete this project
-        </ProjectAction>
+        />
       </div>
     </div>
   );

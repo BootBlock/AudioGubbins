@@ -138,7 +138,7 @@ export function InspectorPanel({
   const own = useOwnSubject(parts);
   return (
     <section className="ag-panel ag-inspector">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       <div className="ag-inspector-body">
         {own === undefined ? (
           <>

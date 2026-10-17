@@ -20,7 +20,6 @@
 import type { ReactNode } from 'react';
 
 import {
-  Button,
   EmptyState,
   IconButton,
   Menu,
@@ -31,7 +30,7 @@ import type { EffectChain, EffectChainId } from '@audiogubbins/domain';
 import { targetChains } from '@audiogubbins/project-commands';
 
 import { targetName } from '../../commands/rack-target.js';
-import { optionalReason } from '../optional-reason.js';
+import { CommandButton } from '../command-button.js';
 import { AddLook, AddProcessorMenu } from './add-processor-menu.js';
 import {
   ChainActions,
@@ -61,25 +60,24 @@ function RackTools({
     <div className="ag-rack-tools">
       <HearingSwitch hearing={context.hearing} commands={context} />
       <span className="ag-rack-tools-group">
-        <IconButton
-          icon="copy"
-          compact
+        <CommandButton
+          id="rack.copy"
           label="Copy"
-          {...optionalReason(context.unavailableReason('rack.copy', args))}
-          onClick={() => {
-            context.run('rack.copy', args);
-          }}
-        />
-        <IconButton
-          icon="compare"
+          commands={context}
+          args={args}
           compact
+          iconOnly
+        />
+        {/* A comparison already open is shown in the History panel, not here,
+            so the command says so when it finds nothing to do. */}
+        <CommandButton
+          id="rack.compare-before-change"
           label="Compare with before"
-          {...optionalReason(context.unavailableReason('rack.compare-before-change', args))}
-          onClick={() => {
-            // A comparison already open is shown in the History panel, not
-            // here, so the command says so when it finds nothing to do.
-            context.run('rack.compare-before-change', args, { sayWhenUnchanged: true });
-          }}
+          commands={context}
+          args={args}
+          compact
+          iconOnly
+          sayWhenUnchanged
         />
       </span>
       <AddProcessorMenu
@@ -175,15 +173,13 @@ function ProjectRack({
                   commands={context}
                   look={AddLook.CallToAction}
                 />
-                <Button
+                <CommandButton
+                  id="rack.paste"
+                  label="Paste"
+                  commands={context}
+                  args={args}
                   compact
-                  {...optionalReason(context.unavailableReason('rack.paste', args))}
-                  onClick={() => {
-                    context.run('rack.paste', args);
-                  }}
-                >
-                  Paste
-                </Button>
+                />
               </>
             }
           />
@@ -216,7 +212,7 @@ export function RackPanel({
         <ProjectRack title={title} shown={shown} context={context} />
       ) : (
         <>
-          <PanelHeader title={title} icon="effects-rack" />
+          <h2 className="ag-visually-hidden">{title}</h2>
           <div className="ag-panel-body">
             {shown.kind === 'nothing' ? (
               <EmptyState

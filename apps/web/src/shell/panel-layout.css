@@ -12,6 +12,12 @@
   gap: var(--ag-space-inset);
 }
 
+/* The panel's padding is the one inset round its header: the header, which
+   insets itself where it stands alone, adds none inside it. */
+.ag-stacked-panel > .ag-panel-header {
+  padding: 0;
+}
+
 /* A row of controls that wraps rather than overflowing a narrow panel. */
 .ag-control-row {
   display: flex;

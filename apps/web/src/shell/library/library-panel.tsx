@@ -27,9 +27,9 @@ import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import type { SavedProcessingState } from '../../state/saved-processing-store.js';
-import { CommandAction } from '../command-action.js';
-import type { PanelCommands } from '../command-button.js';
-import { LibraryEntryRow, type Shown } from './library-entry.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { Shown } from './entry-applying.js';
+import { LibraryEntryRow } from './library-entry.js';
 
 /** The person's library and the project open here, which the panel reads. */
 export interface LibraryStores {
@@ -79,12 +79,13 @@ function SaveRack({
   return (
     <div className="ag-library-save">
       <TextField label={`Save the rack of ${what} as`} value={name} onValueChange={setName} />
-      <CommandAction
+      <CommandButton
         id="library.save-chain"
         label="Save the rack"
         commands={commands}
         args={shown === undefined ? { name } : { view: shown.panel, name }}
         refusal={refusal}
+        compact
       />
     </div>
   );

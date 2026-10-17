@@ -395,9 +395,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'TableColumn',
         'TableProps',
         'TableRow',
-        'Verdict',
-        'VerdictKind',
-        'VerdictProps',
       ],
   },
   '@audiogubbins/capabilities': {

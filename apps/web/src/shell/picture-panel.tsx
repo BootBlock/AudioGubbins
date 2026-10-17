@@ -18,30 +18,16 @@
 
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 
-import {
-  Button,
-  EmptyState,
-  Hint,
-  Icon,
-  IconButton,
-  OptionSelect,
-  PanelHeader,
-  PropertyGrid,
-  type IconName,
-} from '@audiogubbins/design-system';
-import type { SampleCount } from '@audiogubbins/domain';
-import { formatPosition, frameRatesEqual, TimeFormatKind } from '@audiogubbins/timeline';
-import { pictureFrameAt, pictureTimeAt, pictureTimecodeAt } from '@audiogubbins/video-reference';
+import { Button, EmptyState, Hint, OptionSelect, PanelHeader } from '@audiogubbins/design-system';
+import { frameRatesEqual } from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { FRAME_RATES } from '../commands/picture-commands.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import type { PictureState } from '../picture/reference-picture.js';
-import { optionalReason } from './optional-reason.js';
+import { CommandButton } from './command-button.js';
+import { Readouts, Timecode } from './picture-readouts.js';
 import { NotedFileButton } from './settings/reasoned-button.js';
-import { useDisplayFrame } from './use-display-frame.js';
-
-const FRAMES = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
 /** The picture's element, placed in the panel while it is open. */
 function PictureView({ parts }: { readonly parts: EditorPanelParts }): ReactNode {
@@ -94,90 +80,20 @@ function useFollowing(
   }, [parts, asset, playing]);
 }
 
-/** The playhead of `asset`, read each display frame while it plays. */
-function usePlayhead(parts: EditorPanelParts, asset: EditorAsset): SampleCount {
-  return useDisplayFrame(() => parts.stores.playhead(asset), parts.stores.playing(asset.id));
-}
-
-/** The timecode at the playhead, over the picture's corner. */
-function Timecode({
-  parts,
-  asset,
-  state,
-}: {
-  readonly parts: EditorPanelParts;
-  readonly asset: EditorAsset;
-  readonly state: PictureState;
-}): ReactNode {
-  const playhead = usePlayhead(parts, asset);
-  const { binding } = state;
-  if (binding === undefined) return null;
-  return (
-    <dl className="ag-picture-timecode">
-      <dt>Timecode</dt>
-      <dd role="timer">{pictureTimecodeAt(binding, playhead)}</dd>
-    </dl>
-  );
-}
-
-/** The frame at the playhead and where the picture starts, and whether the playhead is outside it. */
-function Readouts({
-  parts,
-  asset,
-  state,
-}: {
-  readonly parts: EditorPanelParts;
-  readonly asset: EditorAsset;
-  readonly state: PictureState;
-}): ReactNode {
-  const playhead = usePlayhead(parts, asset);
-  const { binding, media } = state;
-  if (binding === undefined) return null;
-  const time = pictureTimeAt(binding, playhead);
-  const outside =
-    time < 0
-      ? 'The playhead is before the picture starts.'
-      : media.kind === 'ready' && time >= media.duration
-        ? 'The playhead is past the end of the picture.'
-        : undefined;
-  return (
-    <>
-      {outside !== undefined && <p className="ag-panel-note">{outside}</p>}
-      <PropertyGrid
-        rows={[
-          { id: 'frame', label: 'Frame', value: FRAMES.format(pictureFrameAt(binding, playhead)) },
-          {
-            id: 'start',
-            label: 'Picture starts at',
-            value: formatPosition(binding.offset, asset.sampleRate, {
-              kind: TimeFormatKind.Clock,
-            }),
-          },
-        ]}
-      />
-    </>
-  );
-}
-
-/** One of the picture's commands in its bar: its label, its glyph. */
+/** One of the picture's commands in its bar, drawn as its command's glyph. */
 interface PictureCommand {
   readonly id: string;
   readonly label: string;
-  readonly icon: IconName;
 }
 
-/** The picture's commands in its bar, by the label and glyph each has in the panel. */
+/** The picture's commands in its bar, by the label each has in the panel. */
 const ACTIONS: readonly PictureCommand[] = [
-  { id: 'picture.nudge-earlier', label: 'A frame earlier', icon: 'frame-earlier' },
-  { id: 'picture.nudge-later', label: 'A frame later', icon: 'frame-later' },
-  {
-    id: 'picture.align-with-playhead',
-    label: 'Line up with the playhead',
-    icon: 'line-up-with-playhead',
-  },
-  { id: 'picture.mark-frame', label: 'Marker at this frame', icon: 'add-marker' },
-  { id: 'picture.bind-to-editor', label: 'Follow the editor in use', icon: 'follow-editor' },
-  { id: 'picture.full-screen', label: 'Full screen', icon: 'full-screen' },
+  { id: 'picture.nudge-earlier', label: 'A frame earlier' },
+  { id: 'picture.nudge-later', label: 'A frame later' },
+  { id: 'picture.align-with-playhead', label: 'Line up with the playhead' },
+  { id: 'picture.mark-frame', label: 'Marker at this frame' },
+  { id: 'picture.bind-to-editor', label: 'Follow the editor in use' },
+  { id: 'picture.full-screen', label: 'Full screen' },
 ];
 
 /**
@@ -192,17 +108,7 @@ function PictureAction({
   readonly command: PictureCommand;
   readonly parts: EditorPanelParts;
 }): ReactNode {
-  return (
-    <IconButton
-      icon={command.icon}
-      label={command.label}
-      compact
-      {...optionalReason(parts.unavailableReason(command.id))}
-      onClick={() => {
-        parts.run(command.id);
-      }}
-    />
-  );
+  return <CommandButton id={command.id} label={command.label} commands={parts} compact iconOnly />;
 }
 
 /** The picture's bar: its commands, then how its frames are read. */
@@ -240,16 +146,12 @@ function PictureBar({
 /** The control that extracts the picture's sound, unavailable with its reason. */
 function ExtractSound({ parts }: { readonly parts: EditorPanelParts }): ReactNode {
   return (
-    <Button
+    <CommandButton
+      id="picture.extract-sound"
+      label="Open its sound as an asset"
+      commands={parts}
       compact
-      {...optionalReason(parts.unavailableReason('picture.extract-sound'))}
-      onClick={() => {
-        parts.run('picture.extract-sound');
-      }}
-    >
-      <Icon name="waveform" />
-      Open its sound as an asset
-    </Button>
+    />
   );
 }
 
@@ -401,14 +303,7 @@ export function PicturePanel({
               </p>
             </Hint>
             {media.kind !== 'none' && chooser}
-            <IconButton
-              icon="close"
-              label="Close"
-              {...optionalReason(parts.unavailableReason('picture.close'))}
-              onClick={() => {
-                parts.run('picture.close');
-              }}
-            />
+            <CommandButton id="picture.close" label="Close" commands={parts} iconOnly />
           </>
         }
       />

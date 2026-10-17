@@ -21,9 +21,9 @@ import type { BackupState } from '../../state/backup-store.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { describeBytes, when } from '../../wording.js';
+import { CommandButton } from '../command-button.js';
 import { BackupFolder } from './backup-folder.js';
 import { PolicyFormView } from './backup-policy-form.js';
-import { ReasonedButton } from './reasoned-button.js';
 import type { RunCommand } from './section.js';
 
 /** Why each backup was made. */
@@ -243,12 +243,11 @@ export function Backups({
         run={run}
       />
       {chooser}
-      <ReasonedButton
-        reason={unavailableReason('file.back-up-now')}
-        onPress={() => run('file.back-up-now')}
-      >
-        Back up now
-      </ReasonedButton>
+      <CommandButton
+        id="file.back-up-now"
+        label="Back up now"
+        commands={{ run, unavailableReason }}
+      />
       <GenerationList backups={backups} run={run} />
     </div>
   );

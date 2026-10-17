@@ -170,3 +170,26 @@
   padding: var(--ag-focus-ring-reach) var(--ag-space-inset) var(--ag-space-inset);
   color: var(--ag-chrome-text-primary);
 }
+
+/*
+ * The dock's tab is a docked panel's title, as the approved references draw
+ * it, so the panel's header does not draw the title again under it: it keeps
+ * its sub-line and its actions. The heading stays in the page out of sight, as
+ * `.ag-visually-hidden` hides one, so a screen reader still finds the panel by
+ * it; the header comes from the design system, which gives it no such class.
+ */
+.ag-panel > .ag-panel-header > .ag-panel-heading {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ag-panel > .ag-panel-header > .ag-panel-sub-label {
+  margin-inline-start: 0;
+}

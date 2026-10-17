@@ -15,19 +15,12 @@
 
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import {
-  EmptyState,
-  Hint,
-  OptionSelect,
-  PanelHeader,
-  type IconName,
-} from '@audiogubbins/design-system';
+import { EmptyState, Hint, OptionSelect, PanelHeader } from '@audiogubbins/design-system';
 import type { GameAssetGroup, GameAssetGroupId } from '@audiogubbins/game-audio';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import { gamePolicyView, type GamePolicyView } from '../../state/game-policy-view.js';
-import type { PanelCommands } from '../command-button.js';
-import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { ExportPlan } from './export-plan.js';
 import { GroupMembers } from './group-members.js';
 import { GroupTree } from './group-tree.js';
@@ -64,7 +57,7 @@ function MoveControl({
   return (
     <div className="ag-control-row">
       <OptionSelect label="Move into" value={parent} options={options} onValueChange={setParent} />
-      <HintedCommandButton
+      <CommandButton
         id="game.move-group"
         label="Move"
         commands={commands}
@@ -76,17 +69,17 @@ function MoveControl({
 }
 
 /** What can be done with the group chosen in words, each a command given the group. */
-const GROUP_ACTIONS: readonly (readonly [id: string, label: string, icon: IconName])[] = [
-  ['game.measure-loudness', 'Measure loudness', 'measure-loudness'],
-  ['game.assign-selection', 'Put the selection in it', 'add'],
+const GROUP_ACTIONS: readonly (readonly [id: string, label: string])[] = [
+  ['game.measure-loudness', 'Measure loudness'],
+  ['game.assign-selection', 'Put the selection in it'],
 ];
 
 /** What can be done with the group chosen by a glyph, each a command given the group. */
-const GROUP_TOOLS: readonly (readonly [id: string, label: string, icon: IconName])[] = [
-  ['game.new-group', 'New group inside', 'new-group'],
-  ['game.choose-group', 'Show its policy', 'inspector'],
-  ['game.name-members', 'Name its regions', 'name'],
-  ['game.delete-group', 'Delete', 'delete'],
+const GROUP_TOOLS: readonly (readonly [id: string, label: string])[] = [
+  ['game.new-group', 'New group inside'],
+  ['game.choose-group', 'Show its policy'],
+  ['game.name-members', 'Name its regions'],
+  ['game.delete-group', 'Delete'],
 ];
 
 /** The group chosen's path and the commands that act on it. */
@@ -109,27 +102,19 @@ function ChosenGroupHead({
         {view.pathOf(group.id).join('/')}
       </h3>
       <div className="ag-game-actions">
-        {GROUP_ACTIONS.map(([id, label, icon]) => (
-          <HintedCommandButton
-            key={id}
-            id={id}
-            label={label}
-            icon={icon}
-            commands={commands}
-            args={args}
-            compact
-          />
+        {GROUP_ACTIONS.map(([id, label]) => (
+          <CommandButton key={id} id={id} label={label} commands={commands} args={args} compact />
         ))}
         <span className="ag-game-separator" aria-hidden="true" />
-        {GROUP_TOOLS.map(([id, label, icon]) => (
-          <CommandIconButton
+        {GROUP_TOOLS.map(([id, label]) => (
+          <CommandButton
             key={id}
             id={id}
-            icon={icon}
             label={label}
             commands={commands}
             args={id === 'game.new-group' ? { parent: group.id } : args}
             compact
+            iconOnly
           />
         ))}
       </div>
@@ -229,17 +214,12 @@ function GroupsHeader({
           </Hint>
           {open && (
             <>
-              <CommandIconButton
-                id="game.new-group"
-                icon="new-group"
-                label="New group"
-                commands={commands}
-              />
-              <CommandIconButton
+              <CommandButton id="game.new-group" label="New group" commands={commands} iconOnly />
+              <CommandButton
                 id="game.cancel-loudness"
-                icon="stop"
                 label="Stop measuring"
                 commands={commands}
+                iconOnly
               />
             </>
           )}

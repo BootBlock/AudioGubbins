@@ -47,7 +47,7 @@ export function SpectralPanel({
   const shown = useShownView(context);
   return (
     <section className="ag-panel ag-spectral">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       {shown === undefined ? (
         <EmptyState
           icon="spectral"

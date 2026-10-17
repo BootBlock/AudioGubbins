@@ -24,8 +24,7 @@ import { memberName } from '../../commands/game-target.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { GamePolicyView } from '../../state/game-policy-view.js';
 import type { LoudnessReadings } from '../../state/loudness-store.js';
-import type { PanelCommands } from '../command-button.js';
-import { CommandIconButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { loudnessWords } from './game-words.js';
 import type { GroupsParts } from './groups-parts.js';
 import { CONFORMANCE_VERDICTS, conformance, conformanceWords } from './loudness-conformance.js';
@@ -80,13 +79,13 @@ function MemberRow({
         <Verdict kind={CONFORMANCE_VERDICTS[verdict.kind]}>{conformanceWords(verdict)}</Verdict>
       </td>
       <td data-ag-kind="action">
-        <CommandIconButton
+        <CommandButton
           id="game.remove-from-group"
-          icon="remove"
           label="Take out"
           commands={commands}
           args={{ member: memberKey(member) }}
           compact
+          iconOnly
         />
       </td>
     </tr>

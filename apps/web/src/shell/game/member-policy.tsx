@@ -27,7 +27,7 @@ import { quoted } from '@audiogubbins/text';
 import { OVERRIDABLE_FIELDS } from '../../commands/game-field-words.js';
 import { memberName } from '../../commands/game-target.js';
 import { chainWords } from '../../commands/rack-words.js';
-import { HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton } from '../command-button.js';
 import {
   PolicyRow,
   ResolvedFacts,
@@ -71,7 +71,7 @@ function MemberProcessing({
       label="Processing"
       source={<SourceOf resolved={processing} subject={subject} parts={parts} {...memberGroup} />}
       actions={
-        <HintedCommandButton
+        <CommandButton
           id={inherits ? 'game.own-processing' : 'game.inherit-processing'}
           label={inherits ? 'Keep its own rack' : 'Reset to inherited'}
           commands={parts.commands}
@@ -135,7 +135,7 @@ function MemberField<F extends Exclude<PolicyField, 'tags' | 'processing'>>({
       actions={
         overridable !== undefined &&
         overridden && (
-          <HintedCommandButton
+          <CommandButton
             id="game.reset-override"
             label="Reset to inherited"
             commands={parts.commands}
@@ -205,7 +205,7 @@ function NotInGroup({
         Game policy
       </h3>
       <p className="ag-policy-value">{`${name} is in no asset group, so it inherits no policy.`}</p>
-      <HintedCommandButton
+      <CommandButton
         id="game.assign-selection"
         label="Put it in the chosen group"
         commands={parts.commands}
@@ -241,7 +241,7 @@ function MemberPolicySection({
       </div>
       <div className="ag-control-row">
         {overrides > 0 && (
-          <HintedCommandButton
+          <CommandButton
             id="game.reset-all-overrides"
             label="Reset everything to inherited"
             commands={parts.commands}
@@ -249,7 +249,7 @@ function MemberPolicySection({
             compact
           />
         )}
-        <HintedCommandButton
+        <CommandButton
           id="game.remove-from-group"
           label="Take out of the group"
           commands={parts.commands}

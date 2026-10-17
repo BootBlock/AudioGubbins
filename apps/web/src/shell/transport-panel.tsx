@@ -15,17 +15,10 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import {
-  ButtonTone,
-  Hint,
-  IconButton,
-  ProgressBar,
-  Section,
-  type IconName,
-} from '@audiogubbins/design-system';
+import { ButtonTone, Hint, ProgressBar, Section } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { TransportMode } from '@audiogubbins/audio-engine';
+import { TransportMode, type PerformanceProfile } from '@audiogubbins/audio-engine';
 import { sampleRate } from '@audiogubbins/domain';
 import { TimeFormatKind, formatPosition } from '@audiogubbins/timeline';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
@@ -42,12 +35,13 @@ import {
   EngineState,
   LevelMeters,
   PlaybackProblems,
+  engineSummary,
 } from './engine-readouts.js';
-import { CommandButton, useCommandReasons, type PanelCommands } from './command-button.js';
+import { CommandButton, type PanelCommands } from './command-button.js';
 import { PerformanceChoice } from './performance-choice.js';
 import { HearingSwitch } from './rack/hearing-switch.js';
-import { ProcessingModes } from './processing-modes.js';
-import { SharedReasonNotes, type SharedReasons } from './settings/reasoned-button.js';
+import { PlaybackModes } from './playback-modes.js';
+import { RenderModes, RenderWarnings } from './processing-modes.js';
 import type { Hearing } from '../state/hearing-store.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
@@ -92,57 +86,20 @@ function positionOf(frame: number | undefined, rate: number | undefined): string
     : formatPosition(frame, read.value, { kind: TimeFormatKind.Clock });
 }
 
-/** The transport's buttons, in the order they stand: each command, its name and its glyph. */
+/**
+ * The transport's buttons, in the order they stand: each command and its
+ * name, drawn as its command's glyph.
+ */
 const TRANSPORT_BUTTONS: readonly {
   readonly id: string;
   readonly label: string;
-  readonly icon: IconName;
   readonly tone?: ButtonTone;
 }[] = [
-  { id: 'transport.stop', label: 'Stop', icon: 'stop' },
-  { id: 'transport.play', label: 'Play', icon: 'play', tone: ButtonTone.Primary },
-  { id: 'transport.pause', label: 'Pause', icon: 'pause' },
-  { id: 'transport.play-test-signal', label: 'Play the test signal', icon: 'test-signal' },
+  { id: 'transport.stop', label: 'Stop' },
+  { id: 'transport.play', label: 'Play', tone: ButtonTone.Primary },
+  { id: 'transport.pause', label: 'Pause' },
+  { id: 'transport.play-test-signal', label: 'Play the test signal' },
 ];
-
-/** The commands of the transport's buttons, whose reasons are said once above them. */
-const TRANSPORT_COMMANDS: readonly string[] = TRANSPORT_BUTTONS.map((button) => button.id);
-
-/**
- * A transport button: the command's glyph, named for a screen reader. It
- * stays in the tab order while its command cannot run, described by the
- * reason said once above the row, and runs nothing then.
- */
-function TransportButton({
-  id,
-  label,
-  icon,
-  tone = ButtonTone.Neutral,
-  commands,
-  shared,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly icon: IconName;
-  readonly tone?: ButtonTone;
-  readonly commands: PanelCommands;
-  readonly shared: SharedReasons<string>;
-}): ReactNode {
-  const reasonId = shared.idOf(id);
-  return (
-    <IconButton
-      icon={icon}
-      label={label}
-      hint={label}
-      tone={tone}
-      aria-disabled={reasonId !== undefined}
-      {...(reasonId === undefined ? {} : { 'aria-describedby': reasonId })}
-      onClick={() => {
-        if (reasonId === undefined) commands.run(id);
-      }}
-    />
-  );
-}
 
 /** What the readout says under the position: whether the context is starting, and its rate. */
 function playbackState(view: AudioView): string {
@@ -171,32 +128,35 @@ function TransportControls({
   const mode = view.playback?.transport.mode;
   const frame = useDisplayFrame(playhead, mode === TransportMode.Playing);
   const rate = view.playback?.device?.sampleRate;
-  const reasons = useCommandReasons(commands, TRANSPORT_COMMANDS);
   return (
-    <>
-      <SharedReasonNotes reasons={reasons} />
-      <div className="ag-transport-main">
-        <div className="ag-transport-controls" role="group" aria-label="Transport">
-          {TRANSPORT_BUTTONS.map((button) => (
-            <TransportButton key={button.id} {...button} commands={commands} shared={reasons} />
-          ))}
-          <div className="ag-transport-readout">
-            {/* A timer, whose changes a screen reader does not read out as they
-              come, as a status would be every frame; it is read when reached. */}
-            <span className="ag-transport-time" role="timer" aria-label="Position">
-              {positionOf(frame, rate)}
-            </span>
-            <span className="ag-transport-state">{playbackState(view)}</span>
-          </div>
+    <div className="ag-transport-main">
+      <div className="ag-transport-controls" role="group" aria-label="Transport">
+        {TRANSPORT_BUTTONS.map(({ id, label, tone }) => (
+          <CommandButton
+            key={id}
+            id={id}
+            label={label}
+            commands={commands}
+            tone={tone ?? ButtonTone.Neutral}
+            iconOnly
+          />
+        ))}
+        <div className="ag-transport-readout">
+          {/* A timer, whose changes a screen reader does not read out as they
+            come, as a status would be every frame; it is read when reached. */}
+          <span className="ag-transport-time" role="timer" aria-label="Position">
+            {positionOf(frame, rate)}
+          </span>
+          <span className="ag-transport-state">{playbackState(view)}</span>
         </div>
-        <HearingSwitch hearing={hearing} commands={commands} />
-        <span className="ag-transport-about">
-          <Hint label="About the transport">
-            {`Play plays the asset in the editor in use, at its own rate. The test signal is a ${String(TEST_SIGNAL.frequency)} Hz tone through the audio engine.`}
-          </Hint>
-        </span>
       </div>
-    </>
+      <HearingSwitch hearing={hearing} commands={commands} />
+      <span className="ag-transport-about">
+        <Hint label="About the transport">
+          {`Play plays the asset in the editor in use, at its own rate. The test signal is a ${String(TEST_SIGNAL.frequency)} Hz tone through the audio engine.`}
+        </Hint>
+      </span>
+    </div>
   );
 }
 
@@ -242,10 +202,13 @@ function OfflineRender({
   view,
   framesRendered,
   commands,
+  modes,
 }: {
   readonly view: AudioView;
   readonly framesRendered: () => number;
   readonly commands: PanelCommands;
+  /** How the render runs: its mode, the render mode set and the quality. */
+  readonly modes: ReactNode;
 }): ReactNode {
   const { render } = view;
   const running = render.stage === RenderStage.Running;
@@ -258,6 +221,7 @@ function OfflineRender({
     <>
       <Section title="Offline render" defaultOpen={false}>
         <div className="ag-transport-render">
+          {modes}
           <CommandButton
             id="transport.render-test-signal"
             label="Render the test signal offline"
@@ -287,6 +251,47 @@ function Levels({
   return <LevelMeters meters={levels} />;
 }
 
+/**
+ * The panel's settings column: the profile, how playback runs, and the closed
+ * Engine and Offline render sections, with what a render was warned of after
+ * them.
+ */
+function TransportSide({
+  view,
+  profile,
+  ...props
+}: TransportPanelProps & {
+  readonly view: AudioView;
+  readonly profile: PerformanceProfile;
+}): ReactNode {
+  return (
+    <div className="ag-transport-side">
+      <PerformanceChoice profile={profile} run={props.run} />
+      <PlaybackModes audio={props.audio} settings={props.audioSettings} />
+      <Section title="Engine" summary={engineSummary(view.playback)} defaultOpen={false}>
+        <EngineState status={view.playback} />
+      </Section>
+      <OfflineRender
+        view={view}
+        framesRendered={props.framesRendered}
+        commands={props}
+        modes={
+          <RenderModes
+            settings={props.audioSettings}
+            strategy={props.renderStrategy}
+            run={props.run}
+          />
+        }
+      />
+      <RenderWarnings
+        strategy={props.renderStrategy}
+        run={props.run}
+        unavailableReason={props.unavailableReason}
+      />
+    </div>
+  );
+}
+
 /** The Transport panel. */
 export function TransportPanel(props: TransportPanelProps): ReactNode {
   const { title, audio, capabilities, playhead, meters } = props;
@@ -310,20 +315,7 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
         <div className="ag-transport-levels">
           <Levels view={view} meters={meters} />
         </div>
-        <div className="ag-transport-side">
-          <PerformanceChoice profile={chosen.profile} run={props.run} />
-          <ProcessingModes
-            audio={props.audio}
-            settings={props.audioSettings}
-            strategy={props.renderStrategy}
-            run={props.run}
-            unavailableReason={props.unavailableReason}
-          />
-          <Section title="Engine" defaultOpen={false}>
-            <EngineState status={view.playback} />
-          </Section>
-          <OfflineRender view={view} framesRendered={props.framesRendered} commands={props} />
-        </div>
+        <TransportSide view={view} profile={chosen.profile} {...props} />
         <AudioDegradations capabilities={capabilities} />
       </div>
     </section>

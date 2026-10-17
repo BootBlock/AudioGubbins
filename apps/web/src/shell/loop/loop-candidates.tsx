@@ -13,8 +13,7 @@ import { ButtonTone, Section } from '@audiogubbins/design-system';
 import type { LoopCandidate } from '@audiogubbins/loop-analysis';
 
 import { judgedWords } from '../../analysis/loop-analysing.js';
-import type { PanelCommands } from '../command-button.js';
-import { CommandIconButton, HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { ChecksTable } from './checks-table.js';
 import { candidateMoveWords, suggestionWords } from './loop-words.js';
 
@@ -40,17 +39,17 @@ function CandidateHearing({
   const args = { view: target.view, region: target.region, rank: candidate.rank };
   return (
     <span className="ag-loop-candidate-hearing">
-      <CommandIconButton
+      <CommandButton
         id="loop.audition-candidate"
-        icon="audition"
         label={`Hear candidate ${rank}`}
         commands={commands}
         args={args}
         refusal={target.refusal}
         compact
+        iconOnly
       />
       {candidate.crossfade !== undefined && (
-        <CommandIconButton
+        <CommandButton
           id="loop.audition-candidate"
           icon="audition-crossfade"
           label={`Hear candidate ${rank} with its crossfade`}
@@ -58,6 +57,7 @@ function CandidateHearing({
           args={{ ...args, crossfade: true }}
           refusal={target.refusal}
           compact
+          iconOnly
         />
       )}
     </span>
@@ -83,7 +83,7 @@ function CandidateApplying({
   const args = { view: target.view, region: target.region, rank: candidate.rank };
   return (
     <div className="ag-control-row" role="group" aria-label={`Candidate ${rank}`}>
-      <HintedCommandButton
+      <CommandButton
         id="loop.apply-candidate"
         label="Apply"
         name={`Apply candidate ${rank}`}
@@ -94,7 +94,7 @@ function CandidateApplying({
         compact
       />
       {candidate.crossfade !== undefined && (
-        <HintedCommandButton
+        <CommandButton
           id="loop.apply-crossfade"
           label="Apply with its crossfade"
           name={`Apply candidate ${rank} with its crossfade`}

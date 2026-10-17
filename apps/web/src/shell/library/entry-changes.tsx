@@ -10,8 +10,7 @@ import { Button, ButtonTone, TextField } from '@audiogubbins/design-system';
 import type { LibraryEntry } from '@audiogubbins/domain';
 import { quoted } from '@audiogubbins/text';
 
-import { CommandAction } from '../command-action.js';
-import type { PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { useFocusOnShow } from './row-opening.js';
 
 /** A new name typed for an entry, and the command that gives it. */
@@ -44,13 +43,14 @@ export function RenameField({
       <Button compact onClick={onClose}>
         Cancel
       </Button>
-      <CommandAction
+      <CommandButton
         id="library.rename"
         label="Rename"
         commands={commands}
         args={{ entry: entry.id, name }}
         refusal={name.trim() === '' ? 'Type the new name.' : undefined}
         tone={ButtonTone.Primary}
+        compact
       />
     </div>
   );

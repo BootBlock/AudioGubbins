@@ -49,7 +49,7 @@ export function RecordingPanel({
   const diagnostics = useRecordingDiagnostics(recording, audioSettings);
   return (
     <section className="ag-panel ag-recording">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       <div className="ag-recording-body">
         <InputSection recording={recording} view={view} settings={settings} commands={commands} />
         <RecordSection

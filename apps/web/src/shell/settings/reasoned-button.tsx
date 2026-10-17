@@ -17,9 +17,9 @@ import { Button, type ButtonTone } from '@audiogubbins/design-system';
  * Disabled, a button would leave the tab order and say nothing, and enabled
  * whatever the command answers, Reset could be pressed on a workspace with
  * nothing to reset. The menus show such a command unavailable with its reason,
- * and these buttons answer as the menus do. The reason is said beside the
- * button ({@link ReasonedButton}), or once above the many it is the reason of
- * ({@link useSharedReasons}).
+ * and these buttons answer as the menus do. The reason is said once above the
+ * many it is the reason of ({@link useSharedReasons}); a single button opens
+ * its own on hover or focus, as the design system's button does.
  */
 export function NotedButton({
   reasonId,
@@ -53,43 +53,6 @@ export function NotedButton({
     >
       {children}
     </Button>
-  );
-}
-
-/** A {@link NotedButton} with its reason beside it. */
-export function ReasonedButton({
-  reason,
-  onPress,
-  tone,
-  compact,
-  children,
-}: {
-  readonly reason: string | undefined;
-  readonly onPress: () => void;
-  readonly tone?: ButtonTone;
-  readonly compact?: boolean;
-  readonly children: ReactNode;
-}): ReactNode {
-  const reasonId = useId();
-  return (
-    <span className="ag-settings-reasoned">
-      <NotedButton
-        {...(tone === undefined ? {} : { tone })}
-        {...(compact === undefined ? {} : { compact })}
-        reasonId={reason === undefined ? undefined : reasonId}
-        onPress={onPress}
-      >
-        {children}
-      </NotedButton>
-      {reason !== undefined && (
-        // The state it is, which is what colours it: the attribute says a
-        // thing cannot be done, and the reason beside a button that cannot be
-        // pressed is exactly that.
-        <span id={reasonId} className="ag-settings-note" data-ag-status="unavailable">
-          {reason}
-        </span>
-      )}
-    </span>
   );
 }
 

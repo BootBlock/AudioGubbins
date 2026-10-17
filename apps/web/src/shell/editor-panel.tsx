@@ -54,7 +54,7 @@ function EditorView({
   const selection = parts.stores.selections.of(asset.id);
   return (
     <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       <p className="ag-editor-asset-name">{asset.name}</p>
       {asset.owner.kind === 'session' && (
         <Banner tone={BannerTone.Information} icon="read-only">
@@ -126,7 +126,7 @@ export function EditorPanel({
   }
   return (
     <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       {unopened !== undefined && (
         <div role="status">
           <Banner tone={BannerTone.Warning} icon="unavailable">

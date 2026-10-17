@@ -1,15 +1,16 @@
 /**
  * Hearing the original beside the processed sound (REQ-AUDIO-019): one
  * switch, on while the original is heard, which runs the command that hears
- * the other, unavailable with that command's own reason, and says while it is
- * on that every chain and spectral edit is bypassed. Shown by the Effects
- * rack, the Transport and the Spectral panel alike, so they never disagree
- * about what plays.
+ * the other, unavailable with that command's own reason, named as that
+ * command is, and saying behind its hint that every chain and spectral edit is
+ * bypassed while it is on, as the approved Transport draws it. Shown by the
+ * Effects rack, the Transport and the Spectral panel alike, so they never
+ * disagree about what plays.
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { ToggleSwitch } from '@audiogubbins/design-system';
+import { Hint, ToggleSwitch } from '@audiogubbins/design-system';
 
 import { Hearing } from '../../state/hearing-store.js';
 import type { Observable } from '../../state/observable.js';
@@ -28,17 +29,19 @@ export function HearingSwitch({
   const original = hearing === Hearing.Original;
   const id = original ? 'transport.listen-processed' : 'transport.listen-original';
   return (
-    <ToggleSwitch
-      label="Hear the original"
-      checked={original}
-      small
-      {...(original
-        ? { description: 'The original is heard, every chain and spectral edit bypassed.' }
-        : {})}
-      {...optionalReason(commands.unavailableReason(id))}
-      onCheckedChange={() => {
-        commands.run(id);
-      }}
-    />
+    <span className="ag-hearing-switch">
+      <ToggleSwitch
+        label="Hear the original"
+        checked={original}
+        small
+        {...optionalReason(commands.unavailableReason(id))}
+        onCheckedChange={() => {
+          commands.run(id);
+        }}
+      />
+      <Hint label="About hearing the original">
+        While it is on, the original is heard, every chain and spectral edit bypassed.
+      </Hint>
+    </span>
   );
 }

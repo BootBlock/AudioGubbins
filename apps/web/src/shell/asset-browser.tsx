@@ -168,7 +168,7 @@ export function AssetBrowserPanel({
 }): ReactNode {
   return (
     <section className="ag-panel ag-asset-browser">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       <div className="ag-asset-body">
         {projects === undefined ? (
           <EmptyState

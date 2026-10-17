@@ -33,7 +33,7 @@ import {
 import type { ComparedStates } from '@audiogubbins/storage';
 
 import { when } from '../../wording.js';
-import type { PanelCommands } from '../command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { differenceLines } from './difference-words.js';
 import { describeNode } from './history-words.js';
 
@@ -94,8 +94,6 @@ function Hearing({
   readonly commands: PanelCommands;
   readonly labelFor: (id: string) => string;
 }): ReactNode {
-  const { run, unavailableReason } = commands;
-  const reason = unavailableReason('history.audition');
   return (
     <div className="ag-history-hearing">
       <SegmentedControl
@@ -103,18 +101,16 @@ function Hearing({
         value={listening}
         options={HEARING}
         onValueChange={(side) => {
-          if (isSide(side)) run('history.switch-side', { side });
+          if (isSide(side)) commands.run('history.switch-side', { side });
         }}
       />
       <span className="ag-history-play">
-        <IconButton
-          icon="play"
-          tone={ButtonTone.Primary}
+        <CommandButton
+          id="history.audition"
           label={labelFor('history.audition')}
-          {...(reason === undefined ? {} : { unavailableReason: reason })}
-          onClick={() => {
-            run('history.audition');
-          }}
+          commands={commands}
+          tone={ButtonTone.Primary}
+          iconOnly
         />
       </span>
     </div>

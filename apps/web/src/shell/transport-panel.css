@@ -109,19 +109,13 @@
   gap: var(--ag-space-small);
 }
 
-/* The processing: its readings, the render mode, the quality and what the
-   render was warned of. */
+/* The render's processing, in its section: its reading, the render mode and
+   the quality. */
 .ag-transport-section {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--ag-space-small);
-}
-
-.ag-transport-heading {
-  margin: 0;
-  font-size: var(--ag-text-body);
-  font-weight: var(--ag-text-weight-strong);
 }
 
 .ag-reading-note {

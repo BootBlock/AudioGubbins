@@ -27,12 +27,12 @@ import type { KeyEventReading, KeyboardLayout } from '@audiogubbins/input';
 
 import type { Announce } from '../../commands/voiced-execution.js';
 import type { ReservedBinding, WaitingDefault } from '../../state/shortcut-layout.js';
+import { CommandButton } from '../command-button.js';
 import type { RunCommand } from './section.js';
 import { ImportProfile } from './import-profile.js';
 import { ConflictList, ReservedList, WaitingList } from './shortcut-notes.js';
 import {
   NotedButton,
-  ReasonedButton,
   SharedReasonNotes,
   useSharedReasons,
   type SharedReasons,
@@ -273,10 +273,11 @@ function profileNote(profile: ShortcutProfile, changeable: boolean): string {
 
 /**
  * What is done to the profile as a whole: reset, export, import and delete.
- * Reset and Delete read their commands' availability, with the reason beside
- * each: disabled by whether the profile was built in, each would decide for
- * itself what the commands decide, and say nothing. Import's reason is said
- * above, once for it and for every row that shares it.
+ * Reset and Delete read their commands' availability, each opening its
+ * reason on hover or focus: disabled by whether the profile was built in,
+ * each would decide for itself what the commands decide, and say nothing.
+ * Import's reason is said above, once for it and for every row that shares
+ * it.
  */
 function ProfileActions(props: {
   readonly run: RunCommand;
@@ -288,14 +289,11 @@ function ProfileActions(props: {
 
   return (
     <div className="ag-settings-row">
-      <ReasonedButton
-        reason={unavailableReason('shortcuts.reset')}
-        onPress={() => {
-          run('shortcuts.reset');
-        }}
-      >
-        Reset to the defaults
-      </ReasonedButton>
+      <CommandButton
+        id="shortcuts.reset"
+        label="Reset to the defaults"
+        commands={{ run, unavailableReason }}
+      />
       <Button
         onClick={() => {
           run('shortcuts.export');
@@ -304,15 +302,12 @@ function ProfileActions(props: {
         Export
       </Button>
       <ImportProfile run={run} announce={announce} reasonId={importReasonId} />
-      <ReasonedButton
+      <CommandButton
+        id="shortcuts.delete"
+        label="Delete profile"
+        commands={{ run, unavailableReason }}
         tone={ButtonTone.Destructive}
-        reason={unavailableReason('shortcuts.delete')}
-        onPress={() => {
-          run('shortcuts.delete');
-        }}
-      >
-        Delete profile
-      </ReasonedButton>
+      />
     </div>
   );
 }

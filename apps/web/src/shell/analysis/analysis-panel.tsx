@@ -231,7 +231,7 @@ export function AnalysisPanel({
   const { shown, detection, current } = useShown(parts);
   return (
     <section className="ag-panel ag-analysis">
-      <h2 className="ag-panel-title">{title}</h2>
+      <h2 className="ag-visually-hidden">{title}</h2>
       {shown === undefined ? (
         <EmptyState
           icon="analysis"

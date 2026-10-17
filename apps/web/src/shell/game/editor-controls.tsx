@@ -15,8 +15,7 @@ import type { LibraryListing } from '@audiogubbins/storage';
 
 import { policyValueArgument } from '../../commands/game-changes.js';
 import type { ProfilePreset } from '../../commands/game-profiles.js';
-import type { PanelCommands } from '../command-button.js';
-import { HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 
 /** What an editor gives: a value as the commands take it, a saved chain, or why it gives none. */
 export type EditedValue =
@@ -54,7 +53,7 @@ export function SetButton({
 }): ReactNode {
   const { setter, commands } = parts;
   return 'refused' in edited ? (
-    <HintedCommandButton
+    <CommandButton
       id={setter.id}
       label={setter.label}
       commands={commands}
@@ -62,7 +61,7 @@ export function SetButton({
       compact
     />
   ) : (
-    <HintedCommandButton
+    <CommandButton
       id={setter.id}
       label={setter.label}
       commands={commands}

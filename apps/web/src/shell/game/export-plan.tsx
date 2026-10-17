@@ -33,8 +33,7 @@ import { gameExportPlan } from '../../commands/game-export-commands.js';
 import { memberName } from '../../commands/game-target.js';
 import { exportClockAt } from '../../export/page-export.js';
 import type { GamePolicyView } from '../../state/game-policy-view.js';
-import type { PanelCommands } from '../command-button.js';
-import { HintedCommandButton } from '../hinted-command-button.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import type { GroupsParts } from './groups-parts.js';
 
 /** Where a value of a planned file comes from, in a phrase. */
@@ -135,7 +134,7 @@ export function ExportPlan({
           The folder each goes into is inside the folder you export to; a download has none.
         </Hint>
         <span className="ag-plan-export">
-          <HintedCommandButton
+          <CommandButton
             id="game.export-group"
             label="Export the planned members…"
             commands={commands}

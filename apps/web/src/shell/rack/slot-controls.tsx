@@ -8,10 +8,16 @@
 
 import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 
-import { ButtonTone, IconButton, PowerSwitch, ValueSlider } from '@audiogubbins/design-system';
+import {
+  ButtonTone,
+  IconButton,
+  PowerSwitch,
+  ValueSlider,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { ChainSlot } from '@audiogubbins/domain';
 
-import { optionalReason } from '../optional-reason.js';
+import { CommandButton } from '../command-button.js';
 import { SLOT_DRAG, type ChainParts } from './chain-parts.js';
 
 /** The handle that moves a slot: dragged by a pointer, or stepped by the arrow keys. */
@@ -135,36 +141,31 @@ export function SlotActions({
   readonly parts: ChainParts;
 }): ReactNode {
   const { commands, panel } = parts;
-  const button = (
-    id: string,
-    label: string,
-    icon: 'step-up' | 'step-down' | 'delete',
-    args: Readonly<Record<string, string>>,
-  ): ReactNode => (
-    <IconButton
-      icon={icon}
-      compact
+  // One command moves a slot either way, so each direction names its glyph.
+  const move = (label: string, icon: IconName, direction: 'up' | 'down'): ReactNode => (
+    <CommandButton
+      id="rack.move-processor"
       label={label}
-      {...(icon === 'delete' ? { tone: ButtonTone.QuietDestructive } : {})}
-      {...optionalReason(commands.unavailableReason(id, args))}
-      onClick={() => {
-        commands.run(id, args);
-      }}
+      icon={icon}
+      commands={commands}
+      args={{ view: panel, slot: slot.id, direction }}
+      compact
+      iconOnly
     />
   );
   return (
     <div className="ag-rack-slot-actions">
-      {button('rack.move-processor', 'Move up', 'step-up', {
-        view: panel,
-        slot: slot.id,
-        direction: 'up',
-      })}
-      {button('rack.move-processor', 'Move down', 'step-down', {
-        view: panel,
-        slot: slot.id,
-        direction: 'down',
-      })}
-      {button('rack.remove-processor', 'Remove', 'delete', { view: panel, slot: slot.id })}
+      {move('Move up', 'step-up', 'up')}
+      {move('Move down', 'step-down', 'down')}
+      <CommandButton
+        id="rack.remove-processor"
+        label="Remove"
+        commands={commands}
+        args={{ view: panel, slot: slot.id }}
+        tone={ButtonTone.QuietDestructive}
+        compact
+        iconOnly
+      />
     </div>
   );
 }
