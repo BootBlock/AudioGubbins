@@ -1,0 +1,208 @@
+/*
+ * The command palette (design language, section 10, "Menus, selects and the
+ * command palette"): a search field with its glyph in the accent, a count line,
+ * the results with the letters the search matched in the accent, a category
+ * chip and the shortcut on each, the reason of one that cannot run under its
+ * name, and the keys it answers to along the dialogue's footer.
+ *
+ * The highlighted result is lit by the design system's lit edge
+ * (`lit-edge.css`), which it opts into as every chosen row does; forced colours
+ * mark it in `tokens.css`.
+ */
+
+.ag-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+  min-block-size: calc(160 * var(--ag-grid-unit));
+}
+
+/* The field: a band with its glyph, split from the results by a hairline. */
+.ag-palette-search {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  padding: var(--ag-space-tiny) var(--ag-space-inset) var(--ag-space-small);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-palette-search-glyph {
+  flex: none;
+  color: var(--ag-chrome-accent);
+}
+
+.ag-palette-field {
+  /* The padding and the border counted in, so the field never runs past the
+     part of the dialogue that scrolls and has its edge and its ring cut. */
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+
+  /* The least it may be, raised to the touch target on a coarse pointer by
+     `.ag-touch-sized`, which the field carries. */
+  min-block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-tiny);
+
+  border: none;
+  border-radius: var(--ag-radius-control);
+  background-color: transparent;
+  color: var(--ag-chrome-text-primary);
+  caret-color: var(--ag-chrome-accent);
+  font: inherit;
+  font-size: var(--ag-text-heading);
+}
+
+.ag-palette-field::placeholder {
+  color: var(--ag-chrome-text-disabled);
+}
+
+/* Never under the touch text size where a finger is among the inputs, for the
+   reason the design system's text field gives: a smaller field is zoomed into
+   as it takes focus. */
+@media (any-pointer: coarse) {
+  .ag-palette-field {
+    font-size: max(var(--ag-control-minimum-touch-text), var(--ag-text-heading));
+  }
+}
+
+.ag-palette-count {
+  margin: 0;
+  padding: var(--ag-space-small) var(--ag-space-inset) var(--ag-space-micro);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+/* A scroll that reaches the end of the list stays in it rather than moving
+   what is behind the dialogue. The viewport's own gestures, pull-to-refresh
+   and the rubber band, are stopped on the document in `tokens.css`. */
+.ag-palette-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-hair);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-block-size: calc(192 * var(--ag-grid-unit));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* One result: the glyph, the name with the reason under it, the category and
+   the shortcut, the last two kept to the name's line however the reason wraps.
+   The tracks are packed rather than stretched, so a result with no reason has
+   its name centred in the row. */
+.ag-palette-result {
+  display: grid;
+  flex: none;
+  grid-template-columns: var(--ag-control-icon-size) minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'glyph label category keys'
+    '. reason . .';
+  align-content: center;
+  align-items: center;
+  column-gap: var(--ag-space-medium);
+
+  box-sizing: border-box;
+  min-block-size: calc(var(--ag-control-height) + 3 * var(--ag-grid-unit));
+  padding-inline: var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  line-height: var(--ag-text-line-height-tight);
+  cursor: pointer;
+}
+
+.ag-palette-result:hover:not([aria-selected='true'], [aria-disabled='true']) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-palette-glyph {
+  grid-area: glyph;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-palette-label {
+  grid-area: label;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-palette-match {
+  color: var(--ag-chrome-accent-text);
+  font-weight: var(--ag-text-weight-heading);
+}
+
+.ag-palette-category {
+  grid-area: category;
+  display: inline-flex;
+}
+
+.ag-palette-shortcut {
+  grid-area: keys;
+  color: var(--ag-chrome-text-secondary);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: calc(var(--ag-text-tracking-caps) / 3);
+  white-space: nowrap;
+}
+
+.ag-palette-result[aria-selected='true']:not([aria-disabled='true']) .ag-palette-shortcut {
+  color: var(--ag-chrome-text-primary);
+}
+
+/* Why a result cannot run: under its name in the warning colour. */
+.ag-palette-reason {
+  grid-area: reason;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-caption);
+  line-height: var(--ag-text-line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+/* A result that cannot run, which is the only kind that gives a reason. */
+.ag-palette-result[aria-disabled='true'] {
+  padding-block: var(--ag-space-tiny);
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-palette-result[aria-disabled='true'] :is(.ag-palette-glyph, .ag-palette-shortcut) {
+  color: var(--ag-chrome-text-disabled);
+}
+
+.ag-palette-result[aria-disabled='true'] .ag-palette-match {
+  color: inherit;
+}
+
+.ag-palette-empty {
+  margin: 0;
+  padding: var(--ag-space-inset);
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* The keys along the footer, closing at its trailing end. */
+.ag-palette-keys {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: calc(7 * var(--ag-grid-unit));
+  row-gap: var(--ag-space-tiny);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+}
+
+.ag-palette-key-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-palette-key-hint[data-ag-trailing] {
+  margin-inline-start: auto;
+}

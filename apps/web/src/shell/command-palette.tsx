@@ -15,15 +15,29 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
+  CommandCategory,
+  describeShortcut,
   type KeyboardConvention,
+  primaryModifierFor,
+  primaryPress,
   searchCommands,
+  type PaletteResult,
+  shortcut,
   type Command,
   type CommandId,
   type ShortcutProfile,
 } from '@audiogubbins/commands';
-import { ModalDialog, VisuallyHidden } from '@audiogubbins/design-system';
-import type { KeyboardLayout } from '@audiogubbins/input';
+import {
+  Badge,
+  Icon,
+  IconSize,
+  KeyCap,
+  ModalDialog,
+  VisuallyHidden,
+} from '@audiogubbins/design-system';
+import { keyPress, type KeyPress, type KeyboardLayout } from '@audiogubbins/input';
 
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 import { highlightAfter } from './palette-navigation.js';
 import { useSettled } from './use-settled.js';
 
@@ -60,6 +74,93 @@ function useSettledCount(count: number): string {
   if (!settled.settled) return '';
   if (settled.value === 0) return 'No commands match.';
   return settled.value === 1 ? 'One command matches.' : `${String(settled.value)} commands match.`;
+}
+
+/** The name of each category, on the chip each result carries. */
+const CATEGORY_NAMES: Readonly<Record<CommandCategory, string>> = {
+  [CommandCategory.File]: 'File',
+  [CommandCategory.Edit]: 'Edit',
+  [CommandCategory.Selection]: 'Selection',
+  [CommandCategory.View]: 'View',
+  [CommandCategory.Workspace]: 'Workspace',
+  [CommandCategory.Transport]: 'Transport',
+  [CommandCategory.Tools]: 'Tools',
+  [CommandCategory.Settings]: 'Settings',
+  [CommandCategory.Help]: 'Help',
+};
+
+/** The count line above the results, as the reader sees it while typing. */
+function countLine(count: number): string {
+  return count === 1 ? '1 command' : `${String(count)} commands`;
+}
+
+/**
+ * A result's label with the letters the search matched marked.
+ *
+ * Split into runs rather than a span per letter, and the text itself left as
+ * it was, so the label, which is the start of the option's accessible name,
+ * reads as before.
+ */
+function matchedLabel(label: string, indices: readonly number[]): ReactNode {
+  if (indices.length === 0) return label;
+  const matched = new Set(indices);
+  const runs: ReactNode[] = [];
+  let start = 0;
+  for (let index = 1; index <= label.length; index += 1) {
+    if (index < label.length && matched.has(index) === matched.has(start)) continue;
+    const text = label.slice(start, index);
+    runs.push(
+      matched.has(start) ? (
+        <span key={start} className="ag-palette-match">
+          {text}
+        </span>
+      ) : (
+        text
+      ),
+    );
+    start = index;
+  }
+  return runs;
+}
+
+/**
+ * The keys the palette answers to, along its footer.
+ *
+ * Written as the shortcuts are, for the platform and the keyboard's layout, so
+ * the first result is shown reached with the modifier this platform presses.
+ * Hidden from assistive technology, which hears the same from the dialogue's
+ * description.
+ */
+function PaletteKeys({
+  convention,
+  layout,
+}: {
+  readonly convention: KeyboardConvention;
+  readonly layout: KeyboardLayout;
+}): ReactNode {
+  const written = (press: KeyPress): string =>
+    describeShortcut(shortcut(press), convention, layout);
+  return (
+    <span className="ag-palette-keys" aria-hidden="true">
+      <span className="ag-palette-key-hint">
+        <KeyCap>{written(keyPress('ArrowUp'))}</KeyCap>
+        <KeyCap>{written(keyPress('ArrowDown'))}</KeyCap>
+        choose
+      </span>
+      <span className="ag-palette-key-hint">
+        <KeyCap>{written(keyPress('Enter'))}</KeyCap>
+        run
+      </span>
+      <span className="ag-palette-key-hint">
+        <KeyCap>{written(primaryPress('Home', primaryModifierFor(convention)))}</KeyCap>
+        first
+      </span>
+      <span className="ag-palette-key-hint" data-ag-trailing="">
+        <KeyCap>{written(keyPress('Escape'))}</KeyCap>
+        close
+      </span>
+    </span>
+  );
 }
 
 /** Finds and runs a command by name. */
@@ -136,36 +237,40 @@ export function CommandPalette<TContext>({
       }}
       title="Run a command"
       description="Type part of a command name. Use the arrow keys to choose, Control or Command with Home or End for the first or the last, and Enter to run it."
+      status={<PaletteKeys convention={convention} layout={layout} />}
     >
       <div className="ag-palette">
         <label className="ag-visually-hidden" htmlFor="ag-palette-query">
           Search commands
         </label>
-        <input
-          ref={field}
-          id="ag-palette-query"
-          className="ag-palette-field ag-touch-sized"
-          type="text"
-          value={query}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Search commands"
-          role="combobox"
-          // Expanded only while there is a list. It points at the results
-          // either way: at the list, or at the sentence an empty search draws
-          // in its place, which carries the same identifier, so the combobox
-          // never names an element that does not exist.
-          aria-expanded={results.length > 0}
-          aria-controls="ag-palette-results"
-          aria-activedescendant={
-            chosen === undefined ? undefined : `ag-palette-${chosen.command.id}`
-          }
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setRequested(0);
-          }}
-          onKeyDown={onKeyDown}
-        />
+        <div className="ag-palette-search">
+          <Icon name="search" size={IconSize.Feature} className="ag-palette-search-glyph" />
+          <input
+            ref={field}
+            id="ag-palette-query"
+            className="ag-palette-field ag-touch-sized"
+            type="text"
+            value={query}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Search commands"
+            role="combobox"
+            // Expanded only while there is a list. It points at the results
+            // either way: at the list, or at the sentence an empty search draws
+            // in its place, which carries the same identifier, so the combobox
+            // never names an element that does not exist.
+            aria-expanded={results.length > 0}
+            aria-controls="ag-palette-results"
+            aria-activedescendant={
+              chosen === undefined ? undefined : `ag-palette-${chosen.command.id}`
+            }
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setRequested(0);
+            }}
+            onKeyDown={onKeyDown}
+          />
+        </div>
 
         <VisuallyHidden>
           {/*
@@ -183,64 +288,113 @@ export function CommandPalette<TContext>({
             No command matches that.
           </p>
         ) : (
-          <ul ref={list} className="ag-palette-results" id="ag-palette-results" role="listbox">
-            {results.map((result, index) => (
-              // An option of a combobox's listbox is not focusable and takes
-              // no key of its own: the field holds the keyboard, and Enter on
-              // it runs the highlighted row. A key listener here would be a
-              // second, unreachable route.
-              // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- the listbox pattern keeps the keyboard on the field
-              <li
-                key={result.command.id}
-                id={`ag-palette-${result.command.id}`}
-                className="ag-palette-result ag-touch-sized"
-                role="option"
-                aria-selected={index === highlighted}
-                aria-disabled={result.unavailableReason !== undefined}
-                data-ag-highlighted={index === highlighted ? '' : undefined}
-                // Pointer down is refused so that focus stays in the search
-                // field: let through, it would move focus out and the palette
-                // would close under the pointer before the click lands. Only
-                // for a mouse, which is the pointer whose click follows a
-                // refused press. On any other, refusing the press would also
-                // suppress the mouse events the engine synthesises from the
-                // tap, and WebKit's synthesised click would go with them: the
-                // row would then run nothing at all. Were the exception named
-                // as touch alone, a pencil, reported as `pen` through the same
-                // pipeline, would take the route this refusal is narrowed to
-                // cure. A tap moves focus out instead, and the click handler
-                // puts it back where the row cannot run.
-                onPointerDown={(event) => {
-                  if (event.pointerType !== 'mouse') return;
-                  event.preventDefault();
-                }}
-                // The command runs on the click, not on the press. Were it run
-                // on the press, it could not be called off: a user with a
-                // tremor, a head pointer or an imprecise touch could not slide
-                // off the wrong row, and this phase has no undo (WCAG 2.5.2).
-                onClick={() => {
-                  if (result.unavailableReason !== undefined) {
-                    field.current?.focus();
-                    return;
-                  }
-                  close();
-                  onRun(result.command.id);
-                }}
-              >
-                <span className="ag-palette-label">{result.command.label}</span>
-
-                {result.shortcutText !== undefined && (
-                  <span className="ag-palette-shortcut">{result.shortcutText}</span>
-                )}
-
-                {result.unavailableReason !== undefined && (
-                  <span className="ag-palette-reason">{result.unavailableReason}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <>
+            {/*
+              Seen as the reader types; heard from the sentence above once they
+              stop, so it is not said twice.
+            */}
+            <p className="ag-palette-count" aria-hidden="true">
+              {countLine(results.length)}
+            </p>
+            <ul ref={list} className="ag-palette-results" id="ag-palette-results" role="listbox">
+              {results.map((result, index) => (
+                <PaletteOption
+                  key={result.command.id}
+                  result={result}
+                  highlighted={index === highlighted}
+                  onChoose={() => {
+                    if (result.unavailableReason !== undefined) {
+                      field.current?.focus();
+                      return;
+                    }
+                    close();
+                    onRun(result.command.id);
+                  }}
+                />
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </ModalDialog>
+  );
+}
+
+/** What one row of the palette's results takes. */
+interface PaletteOptionProps<TContext> {
+  readonly result: PaletteResult<TContext>;
+  readonly highlighted: boolean;
+
+  /** Runs the row's command, or puts the keyboard back in the field where it cannot run. */
+  readonly onChoose: () => void;
+}
+
+/**
+ * One row of the palette's results: the command's glyph, its name with the
+ * letters the search matched, its category, its shortcut and, where it cannot
+ * run, why.
+ *
+ * An option of a combobox's listbox is not focusable and takes no key of its
+ * own: the field holds the keyboard, and Enter on it runs the highlighted row.
+ * A key listener here would be a second, unreachable route.
+ *
+ * Pointer down is refused so that focus stays in the search field: let
+ * through, it would move focus out and the palette would close under the
+ * pointer before the click lands. Only for a mouse, which is the pointer whose
+ * click follows a refused press. On any other, refusing the press would also
+ * suppress the mouse events the engine synthesises from the tap, and WebKit's
+ * synthesised click would go with them: the row would then run nothing at all.
+ * Were the exception named as touch alone, a pencil, reported as `pen` through
+ * the same pipeline, would take the route this refusal is narrowed to cure. A
+ * tap moves focus out instead, and the click handler puts it back where the
+ * row cannot run.
+ *
+ * The command runs on the click, not on the press. Were it run on the press,
+ * it could not be called off: a user with a tremor, a head pointer or an
+ * imprecise touch could not slide off the wrong row, and this phase has no undo
+ * (WCAG 2.5.2).
+ *
+ * The category is seen beside the name and not heard with it, so the option's
+ * accessible name stays its label, its shortcut and its reason.
+ */
+function PaletteOption<TContext>({
+  result,
+  highlighted,
+  onChoose,
+}: PaletteOptionProps<TContext>): ReactNode {
+  const glyph = COMMAND_GLYPHS.get(result.command.id);
+  return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- the listbox pattern keeps the keyboard on the field
+    <li
+      id={`ag-palette-${result.command.id}`}
+      className="ag-palette-result ag-lit-row ag-touch-sized"
+      role="option"
+      aria-selected={highlighted}
+      aria-disabled={result.unavailableReason !== undefined}
+      data-ag-highlighted={highlighted ? '' : undefined}
+      onPointerDown={(event) => {
+        if (event.pointerType !== 'mouse') return;
+        event.preventDefault();
+      }}
+      onClick={onChoose}
+    >
+      {glyph === undefined ? (
+        <span className="ag-palette-glyph" aria-hidden="true" />
+      ) : (
+        <Icon name={glyph} className="ag-palette-glyph" />
+      )}
+      <span className="ag-palette-label">
+        {matchedLabel(result.command.label, result.matchedLabelIndices)}
+      </span>
+      <span className="ag-palette-category" aria-hidden="true">
+        <Badge>{CATEGORY_NAMES[result.command.category]}</Badge>
+      </span>
+      {result.shortcutText !== undefined && (
+        <span className="ag-palette-shortcut">{result.shortcutText}</span>
+      )}
+      {result.unavailableReason !== undefined && (
+        <span className="ag-palette-reason">{result.unavailableReason}</span>
+      )}
+    </li>
   );
 }

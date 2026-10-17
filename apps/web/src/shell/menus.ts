@@ -38,6 +38,7 @@ import { PREVIEW_MENU_IDS } from '../commands/preview-run-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { WORKFLOW_KEYS, WORKFLOW_OPENING } from '../commands/workflow-command-ids.js';
 import type { WorkspaceState } from '../state/workspace-store.js';
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 import { projectMenus } from './project-menus.js';
 
 /** One menu of the menu bar. */
@@ -317,6 +318,12 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
     return command;
   };
 
+  /** The command's glyph, as the palette and its buttons draw it, where it has one. */
+  const glyphOf = (id: CommandId): Pick<MenuItemDescriptor, 'icon'> => {
+    const icon = COMMAND_GLYPHS.get(id);
+    return icon === undefined ? {} : { icon };
+  };
+
   /** An entry that runs a command with no target. */
   const entry = (id: string): MenuItemDescriptor => {
     const command = commandFor(id);
@@ -327,6 +334,7 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
     return {
       key: command.id,
       label: command.label,
+      ...glyphOf(command.id),
       ...(shortcut === undefined ? {} : { shortcut }),
       ...(availability.available ? {} : { unavailableReason: availability.reason }),
       onSelect: () => {
@@ -340,7 +348,8 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
    *
    * The label and the reason come from the target rather than from the command,
    * because six entries running one command all carry its label otherwise, and
-   * a menu of six identical rows is no menu at all.
+   * a menu of six identical rows is no menu at all. The glyph is the command's,
+   * so a panel's entry shows the glyph its Show command has in the palette.
    */
   const targetEntry = (
     id: string,
@@ -354,6 +363,7 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
     return {
       key,
       label,
+      ...glyphOf(command.id),
       ...(unavailableReason === undefined ? {} : { unavailableReason }),
       onSelect: () => {
         run(command.id, args);

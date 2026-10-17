@@ -3160,8 +3160,12 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "Every command that acts on the panels on screen, each a small builder over one list: opening a panel per kind, closing the one in use, the arrangement the dock reports, and the four families that stand in for the engine's pointer gestures \u2014 moving a panel to a region, sizing its group, nudging a floating group and moving a panel along its group's tabs. The four share one builder, so what is left of each family is a table: an identifier, a label, keywords, the store method it calls and the sentence it says. Split by family, the four files would each hold one table and the shared builder and helpers would move to a fifth.",
     ],
     'apps/web/src/shell/settings/shortcuts.tsx': [
-      313,
-      'One settings section: the profile in force and what is done to it as a whole, then one table of every command a user can bind, with the row being edited holding the recorder. Each part is already a component of its own \u2014 the header, which says once why a control that names something cannot be used, the profile actions, the conflict, reserved and waiting notes, and the row \u2014 and what is left in the section is the props they share, the reasons the header and every row read, and the one piece of state that says which row is being edited. The notes are `shortcut-notes.tsx`, the recorder is `shortcut-recorder.tsx` and the control that reads a profile from a file is `import-profile.tsx`; splitting the table from the header would separate the row from the state that decides which row is open.',
+      329,
+      'One settings section: the profile in force and what is done to it as a whole, then one table of every command a user can bind, with the row being edited holding the recorder. Each part is already a component of its own \u2014 the header, which says once why a control that names something cannot be used, the profile actions, the conflict, reserved and waiting notes, and the row \u2014 and what is left in the section is the props they share, the reasons the header and every row read, and the one piece of state that says which row is being edited. The notes are `shortcut-notes.tsx`, the recorder is `shortcut-recorder.tsx` and the control that reads a profile from a file is `import-profile.tsx`; splitting the table from the header would separate the row from the state that decides which row is open. Reviewed again when each binding came to be drawn as key caps, a component of a few lines beside the row that draws them.',
+    ],
+    'apps/web/src/shell/command-glyphs.ts': [
+      377,
+      "A table and nothing else: one line for each command that has a glyph, naming the glyph in the icon vocabulary's words, grouped by what the commands act on, and the one map every menu, the palette and every command button read it through, with a command that shows a panel taking the panel's own glyph from `panel-glyphs.tsx`. There is no logic to separate. Split by area, a command's glyph would be found in whichever part its area was filed under, and a command that moved between areas would be drawn with two glyphs until both were found; one table is what makes one command one glyph wherever it is offered.",
     ],
     'apps/web/src/state/workspace-store.ts': [
       361,
@@ -3475,8 +3479,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic. Reviewed again when the region and the marker were anchored to the footstep (ADR-0051): the growth is their basis and loop fields, still data.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
-      146,
-      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table. Reviewed again when the asset groups’, the workflows’ and the Game preview’s groups met: the growth is registration lines for the Phase 10 commands, still a declarative table.',
+      152,
+      'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table. Reviewed again when the asset groups’, the workflows’ and the Game preview’s groups met: the growth is registration lines for the Phase 10 commands, still a declarative table. Reviewed again when every entry came to carry the glyph of its command, read from the one table the palette and the buttons read (`command-glyphs.ts`): one local function and one line in each entry builder, still a declarative table.',
     ],
 
     // Factories: private state closed over, with each returned method a unit.

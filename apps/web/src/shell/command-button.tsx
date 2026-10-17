@@ -11,10 +11,11 @@
 
 import type { ReactNode } from 'react';
 
-import type { ButtonTone } from '@audiogubbins/design-system';
+import { Icon, type ButtonTone } from '@audiogubbins/design-system';
 import type { CommandInvocation } from '@audiogubbins/commands';
 
 import type { VoicedOptions } from '../state/interaction-store.js';
+import { COMMAND_GLYPHS } from './command-glyphs.js';
 
 import {
   NotedButton,
@@ -95,10 +96,19 @@ export function CommandButton({
     else commands.run(id, args);
   };
   const toned = tone === undefined ? {} : { tone };
+
+  // The command's glyph, as its menu entry and its palette row draw it.
+  const glyph = COMMAND_GLYPHS.get(id);
+  const content = (
+    <>
+      {glyph !== undefined && <Icon name={glyph} />}
+      {label}
+    </>
+  );
   if (shared !== undefined) {
     return (
       <NotedButton {...toned} compact={compact} reasonId={shared.idOf(id)} onPress={run}>
-        {label}
+        {content}
       </NotedButton>
     );
   }
@@ -109,7 +119,7 @@ export function CommandButton({
       reason={commands.unavailableReason(id, args) ?? refusal}
       onPress={run}
     >
-      {label}
+      {content}
     </ReasonedButton>
   );
 }
