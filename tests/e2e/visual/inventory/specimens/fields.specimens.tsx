@@ -763,9 +763,9 @@ const specimens: readonly Specimen[] = [
     ),
   },
   ...[HintTone.Warning, HintTone.Error].flatMap((tone): Specimen[] =>
-    (['default', 'pressed'] as const).map((state) => ({
-      component: 'Hint',
-      state: `${tone}${state === 'default' ? '' : `, ${state}`}`,
+    (['default', 'hover', 'pressed'] as const).map((state) => ({
+      component: `Hint (${tone})`,
+      state,
       render: () => (
         <Hint label="About the seam" title="The seam clicks" tone={tone}>
           <p>The waveform jumps where the loop starts again.</p>
