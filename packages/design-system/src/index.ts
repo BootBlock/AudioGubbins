@@ -179,6 +179,10 @@ export {
 } from './primitives/buttons/radio-group.js';
 export { PowerSwitch, type PowerSwitchProps } from './primitives/buttons/power-switch.js';
 export { RecordButton, type RecordButtonProps } from './primitives/buttons/record-button.js';
+export {
+  TransportButton,
+  type TransportButtonProps,
+} from './primitives/buttons/transport-button.js';
 
 // ds-dials: the dials and the meters. The slider, the knob and the fader take
 // one taper, a `SliderScale`, from the panel that owns the value; the meters

@@ -24,6 +24,7 @@ import {
   SegmentedControl,
   SegmentedVariant,
   ToggleSwitch,
+  TransportButton,
   type SegmentedOption,
 } from '@audiogubbins/design-system';
 import type { ReactNode } from 'react';
@@ -148,6 +149,56 @@ const iconButtonSpecimens: readonly Specimen[] = [
         <IconButton icon="more" label="More" />
         <IconButton icon="dock" label="Dock" />
         <IconButton icon="close" label="Close" />
+      </div>
+    ),
+  },
+];
+
+const transportSpecimens: readonly Specimen[] = [
+  ...INTERACTIVE.map((state) => ({
+    component: 'TransportButton (main)',
+    state,
+    render: () => <TransportButton icon="play" label="Play" main />,
+  })),
+  {
+    component: 'TransportButton (main)',
+    state: 'running',
+    render: () => <TransportButton icon="pause" label="Pause" main running />,
+  },
+  {
+    component: 'TransportButton (main)',
+    state: 'unavailable',
+    render: () => (
+      <TransportButton icon="play" label="Play" main unavailableReason="Open a sound to play it." />
+    ),
+  },
+  ...INTERACTIVE.map((state) => ({
+    component: 'TransportButton (ordinary)',
+    state,
+    render: () => <TransportButton icon="stop" label="Stop" />,
+  })),
+  {
+    component: 'TransportButton (ordinary)',
+    state: 'unavailable',
+    render: () => <TransportButton icon="stop" label="Stop" unavailableReason="Nothing is playing." />,
+  },
+  {
+    // The approved Transport's row: stop, play while playing, and the test
+    // signal, with room round the play button's glow.
+    component: 'TransportButton',
+    state: 'transport',
+    render: () => (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--ag-space-small)',
+          padding: 'var(--ag-space-inset-wide)',
+        }}
+      >
+        <TransportButton icon="stop" label="Stop" />
+        <TransportButton icon="pause" label="Pause" main running />
+        <TransportButton icon="test-signal" label="Play the test signal" />
       </div>
     ),
   },
@@ -521,6 +572,7 @@ const specimens: readonly Specimen[] = [
   ...buttonSpecimens,
   ...toggledButtonSpecimens,
   ...iconButtonSpecimens,
+  ...transportSpecimens,
   ...controlBarSpecimens,
   ...segmentedSpecimens,
   ...switchSpecimens,

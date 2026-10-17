@@ -154,6 +154,70 @@
   color: var(--ag-chrome-text-primary);
 }
 
+/* A transport button: a circle a little larger than a control, on the quiet
+   fill with a quiet edge. The main one, play and pause, is larger again and
+   lit as a call to action, its filled glyph at the feature size; while what it
+   runs is running it grows once more, ringed by the accent at a fifth, with a
+   wide glow. A glow is never clipped (section 12): the transport leaves room
+   round it. The size moves at the full level only, as a state change does. */
+.ag-button[data-ag-transport] {
+  --ag-transport-size: calc(var(--ag-control-height) + 4 * var(--ag-grid-unit));
+
+  inline-size: var(--ag-transport-size);
+  block-size: var(--ag-transport-size);
+  border-radius: var(--ag-radius-full);
+  transition-property:
+    background-color, border-color, color, box-shadow, filter, inline-size, block-size;
+  transition-duration:
+    var(--ag-motion-instant), var(--ag-motion-instant), var(--ag-motion-instant),
+    var(--ag-motion-quick), var(--ag-motion-instant), var(--ag-buttons-travel-time),
+    var(--ag-buttons-travel-time);
+}
+
+.ag-button[data-ag-transport='main'] {
+  --ag-transport-size: calc(var(--ag-control-height) + 6 * var(--ag-grid-unit));
+  --ag-transport-glow: var(--ag-effect-glow);
+}
+
+/* Heavier than the call to action's own glow, which comes later, and never
+   on a main button that cannot be used, which keeps no light. */
+.ag-button[data-ag-transport='main']:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  color: var(--ag-chrome-text-on-accent);
+  box-shadow: var(--ag-transport-glow);
+}
+
+.ag-button[data-ag-transport='main'][data-ag-running] {
+  --ag-transport-size: calc(var(--ag-control-height) + 10 * var(--ag-grid-unit));
+  --ag-transport-glow:
+    0 0 0 calc(2 * var(--ag-grid-unit)) color-mix(in oklch, var(--ag-chrome-accent) 18%, transparent),
+    0 0 calc(14 * var(--ag-grid-unit)) calc(-1 * var(--ag-grid-unit)) var(--ag-chrome-accent);
+}
+
+/* The keyboard's ring of `tokens.css` and the main button's glow together:
+   the glow is a box shadow too, and written after the ring at the same weight
+   it would take the ring's place. */
+[data-ag-theme] .ag-button[data-ag-transport='main']:focus-visible:not(
+    :disabled,
+    [aria-disabled='true'],
+    [data-ag-unavailable]
+  ),
+[data-ag-force-state='focus-visible']
+  > .ag-button[data-ag-transport='main']:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo),
+    var(--ag-transport-glow);
+}
+
+.ag-button[data-ag-transport='main']:is(
+    :hover,
+    [data-ag-force-state='hover'] > *,
+    [data-ag-force-state='hover'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  color: var(--ag-chrome-text-on-accent);
+}
+
 /* The quiet button: no surface until the pointer is over it. */
 .ag-button[data-ag-tone='quiet'] {
   border-color: transparent;
