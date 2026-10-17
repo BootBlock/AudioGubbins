@@ -164,7 +164,7 @@
 
   .ag-too-narrow-heading {
     margin: 0;
-    font-size: var(--ag-text-large);
+    font-size: var(--ag-text-display);
     font-weight: 600;
   }
 
@@ -181,7 +181,7 @@
   align-items: center;
   gap: var(--ag-space-small) var(--ag-space-medium);
 
-  min-block-size: var(--ag-control-compact-height);
+  min-block-size: var(--ag-status-bar-block-size);
   /* At most a third of the screen, and scrolled past that: unbounded, wrapped
      notices would grow the bar until the workspace above it had no height at
      all, at a narrow width or a large zoom. Its padding and border are counted
@@ -200,15 +200,17 @@
   border-block-start: 1px solid var(--ag-chrome-border-subtle);
   background-color: var(--ag-chrome-surface-raised);
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* Its ring is drawn inside it. Reached by Tab while it scrolls, the bar sits at
    the foot of a page that clips whatever reaches past it, so a ring drawn
    outside would lose its bottom edge. The rule names the theme, so it outranks
-   the theme's ring, in forced colours as well. */
+   the theme's ring, in forced colours as well, where the outline over the band
+   is what is drawn. */
 [data-ag-theme] .ag-status-bar:focus-visible {
   outline-offset: calc(-1 * var(--ag-focus-ring-width));
+  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
 }
 
 /* A word too long for the bar breaks where it must, rather than reaching past
@@ -248,7 +250,7 @@
   background-color: var(--ag-chrome-surface-base);
   border-block-end: 1px solid var(--ag-chrome-border-subtle);
   color: var(--ag-chrome-text-primary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-project-banner:empty {
@@ -309,7 +311,7 @@
 
 .ag-project-row-note {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-project-row-actions {
@@ -333,13 +335,6 @@
   border-radius: var(--ag-radius-small);
   max-block-size: min(60vh, 40rem);
   overflow-y: auto;
-}
-
-.ag-history-list:focus-visible {
-  outline-style: solid;
-  outline-width: var(--ag-focus-ring-width);
-  outline-color: var(--ag-chrome-border-focus);
-  outline-offset: var(--ag-focus-ring-offset);
 }
 
 .ag-history-row {
@@ -385,7 +380,7 @@
 
 .ag-history-row-detail {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-history-affected {
@@ -425,7 +420,7 @@
 .ag-history-row-time,
 .ag-history-row-mark {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-history-actions,
@@ -453,6 +448,7 @@
 
 .ag-usage dd {
   margin: 0;
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
@@ -471,7 +467,7 @@
   margin: var(--ag-space-tiny) 0 0;
   padding-inline-start: var(--ag-space-large);
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* Panels. */
@@ -484,20 +480,20 @@
 .ag-panel {
   box-sizing: border-box;
   min-block-size: 100%;
-  padding: var(--ag-space-medium);
+  padding: var(--ag-space-inset);
   background-color: var(--ag-chrome-surface-raised);
   color: var(--ag-chrome-text-primary);
 }
 
 .ag-panel-title {
   margin: 0 0 var(--ag-space-small);
-  font-size: var(--ag-text-large);
+  font-size: var(--ag-text-heading);
   font-weight: 600;
 }
 
 .ag-panel-note {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* The capability surface. */
@@ -514,7 +510,7 @@
 .ag-capability {
   padding: var(--ag-space-small);
   border: 1px solid var(--ag-chrome-border-subtle);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
   background-color: var(--ag-chrome-surface-sunken);
 }
 
@@ -526,7 +522,7 @@
   margin-inline-start: var(--ag-space-small);
   padding-inline: var(--ag-space-tiny);
   border-radius: var(--ag-radius-small);
-  font-size: var(--ag-text-tiny);
+  font-size: var(--ag-text-caption);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -535,7 +531,7 @@
 .ag-capability-remedy {
   margin-block: var(--ag-space-tiny) 0;
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* The diagnostic log. */
@@ -544,7 +540,7 @@
   margin: var(--ag-space-small) 0 0;
   padding: 0;
   list-style: none;
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-log-record {
@@ -558,12 +554,13 @@
 .ag-log-time,
 .ag-log-category {
   color: var(--ag-chrome-text-secondary);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
 .ag-log-severity {
   text-transform: uppercase;
-  font-size: var(--ag-text-tiny);
+  font-size: var(--ag-text-caption);
   letter-spacing: 0.04em;
 }
 
@@ -598,18 +595,18 @@
   padding-inline: var(--ag-space-small);
 
   border: 1px solid var(--ag-chrome-border-default);
-  border-radius: var(--ag-radius-medium);
+  border-radius: var(--ag-radius-control);
   background-color: var(--ag-chrome-surface-sunken);
   color: var(--ag-chrome-text-primary);
   font: inherit;
-  font-size: var(--ag-text-large);
+  font-size: var(--ag-text-heading);
 }
 
 /* Never under 16 pixels where a finger is among the inputs, for the reason the
    design system's text field gives. */
 @media (any-pointer: coarse) {
   .ag-palette-field {
-    font-size: max(16px, var(--ag-text-large));
+    font-size: max(16px, var(--ag-text-heading));
   }
 }
 
@@ -640,14 +637,15 @@
 
 .ag-palette-shortcut {
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
 .ag-palette-reason {
   grid-column: 1 / -1;
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-palette-empty {
@@ -666,7 +664,7 @@
 .ag-settings-note {
   margin: 0;
   color: var(--ag-chrome-text-secondary);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* A set of settings applied together, such as the Custom profile's. */
@@ -675,7 +673,7 @@
   flex-direction: column;
   gap: var(--ag-space-small);
   margin: 0;
-  padding: var(--ag-space-small) var(--ag-space-medium);
+  padding: var(--ag-space-inset);
   border: 1px solid var(--ag-chrome-border-subtle);
   border-radius: var(--ag-radius-small);
 }
@@ -688,7 +686,7 @@
 .ag-shortcut-table {
   inline-size: 100%;
   border-collapse: collapse;
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-shortcut-table th,
@@ -699,6 +697,7 @@
 }
 
 .ag-shortcut-keys {
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -740,13 +739,18 @@
 }
 
 /* The same ring as every other control, drawn on the label because the input
-   that holds focus is visually hidden. Longhands, for the reason the shared
-   focus rule gives. */
+   that holds focus is visually hidden: the band, and the transparent outline
+   forced colours draw, in longhands, for the reasons the shared focus rule
+   gives. */
 .ag-file-button:focus-within {
   outline-style: solid;
   outline-width: var(--ag-focus-ring-width);
-  outline-color: var(--ag-chrome-border-focus);
+  outline-color: transparent;
   outline-offset: var(--ag-focus-ring-offset);
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
 }
 
 /*
@@ -824,9 +828,11 @@
   gap: var(--ag-space-small);
 }
 
-/* Tabular figures, so the position does not shuffle sideways as it counts. */
+/* The numeric family in tabular figures, so the position does not shuffle
+   sideways as it counts. */
 .ag-transport-position {
   margin-inline-start: var(--ag-space-small);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -848,7 +854,7 @@
   grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--ag-space-tiny) var(--ag-space-medium);
   margin: 0;
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* Each term and its reading take a row of the grid between them. */
@@ -862,6 +868,7 @@
 
 .ag-reading dd {
   margin: 0;
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
@@ -882,7 +889,7 @@
   grid-template-columns: max-content minmax(0, 1fr) 5em;
   align-items: center;
   gap: var(--ag-space-tiny) var(--ag-space-small);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-meter {
@@ -915,6 +922,7 @@
 
 .ag-meter-value {
   text-align: end;
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -930,7 +938,7 @@
   gap: var(--ag-space-tiny);
   margin: 0;
   padding-inline-start: var(--ag-space-large);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* The two ways a render waiting on a warning can go. */
@@ -948,7 +956,7 @@
 .ag-audio-problems {
   margin: 0;
   padding-inline-start: var(--ag-space-large);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 /* The Loop panel: the loop's verdict, its checks as a table, the seam drawn
@@ -968,7 +976,7 @@
 .ag-loop-checks {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-loop-checks caption {
@@ -1002,7 +1010,7 @@
 
 .ag-loop-seam > figcaption,
 .ag-loop-seam-words {
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
   color: var(--ag-chrome-text-secondary);
 }
 
@@ -1071,7 +1079,7 @@
 
 .ag-workflow-source {
   margin: 0;
-  font-size: var(--ag-text-tiny);
+  font-size: var(--ag-text-caption);
   color: var(--ag-chrome-text-secondary);
 }
 
@@ -1131,7 +1139,7 @@
 }
 
 .ag-workflow-standing {
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
   color: var(--ag-chrome-text-secondary);
 }
 
@@ -1143,7 +1151,7 @@
   grid-column: 1 / -1;
   margin: 0;
   padding-inline-start: var(--ag-space-medium);
-  font-size: var(--ag-text-small);
+  font-size: var(--ag-text-label);
 }
 
 .ag-workflow-loop-choice {
@@ -1217,6 +1225,7 @@
 
 .ag-editor-scope-text {
   color: var(--ag-chrome-text-primary);
+  font-family: var(--ag-font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1572,11 +1581,20 @@
   box-shadow: inset 3px 0 0 var(--ag-chrome-accent);
 }
 
+/* Drawn inside the node, so the tree that scrolls it never clips the ring, and
+   beside the chosen node's own mark rather than in place of it. */
 .ag-group-tree [role='treeitem']:focus-visible {
   outline-style: solid;
   outline-width: var(--ag-focus-ring-width);
-  outline-color: var(--ag-chrome-border-focus);
+  outline-color: transparent;
   outline-offset: calc(-1 * var(--ag-focus-ring-width));
+  box-shadow: inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
+}
+
+.ag-group-tree [role='treeitem'][aria-selected='true']:focus-visible {
+  box-shadow:
+    inset 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus),
+    inset 3px 0 0 var(--ag-chrome-accent);
 }
 
 /* A table wider than the panel scrolls rather than crushing its columns. */

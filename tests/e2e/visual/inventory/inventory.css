@@ -1,0 +1,64 @@
+/*
+ * The inventory page's own layout: the frame round each component and each
+ * state, and the labels. Every value is a token, as a component's are, so the
+ * frame follows the theme and the density with the specimens inside it and
+ * nothing here draws a state: each specimen's own rules do.
+ */
+
+body {
+  margin: 0;
+}
+
+.inventory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-huge);
+  padding: var(--ag-space-inset-feature);
+}
+
+.inventory-component {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-medium);
+  padding: var(--ag-space-inset-wide);
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-container);
+  background-color: var(--ag-chrome-surface-raised);
+}
+
+.inventory-component-name {
+  margin: 0;
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  line-height: var(--ag-text-line-height-heading);
+}
+
+.inventory-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-large);
+  align-items: flex-start;
+}
+
+.inventory-specimen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  margin: 0;
+}
+
+.inventory-state-name {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+/* Room for the focus ring, which reaches past the control it surrounds. */
+.inventory-stage {
+  padding: var(--ag-focus-ring-reach);
+}
+
+.inventory-refusal {
+  padding: var(--ag-space-inset-feature);
+  color: var(--ag-chrome-status-error);
+}

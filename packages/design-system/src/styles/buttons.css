@@ -1,0 +1,1347 @@
+/*
+ * The controls a user presses or turns over: the buttons, the icon buttons,
+ * the toolbar, the segmented control, and the hardware (the switch, the check,
+ * the radio's panel lamp, the power switch and the record lamp). Design
+ * language, section 10, with its motion from MotionSpec.
+ *
+ * Every value reads a token. A length the language states and no token
+ * carries is written as a multiple of the 2 px grid unit, which is how the
+ * language states it (section 1). A forced state of the inventory
+ * (`data-ag-force-state` on a specimen's wrapper) is selected beside the real
+ * pseudo-class it stands for, so the two look the same.
+ *
+ * A value that differs by theme or by motion level is a custom property set on
+ * the element that carries the theme's attribute, and read through
+ * inheritance, so a surface themed apart from the page (the inventory draws
+ * every theme on one page) takes its own theme's value rather than the page's.
+ */
+
+/* ---------- What differs by theme and by motion level ---------- */
+
+/* A recess cut into a dark panel shows a deeper shade than one cut into a
+   light panel, whose lit lip catches more of the light. */
+[data-ag-theme='dark'] {
+  --ag-buttons-recess-top: 30%;
+  --ag-buttons-recess-bottom: 8%;
+  --ag-buttons-recess-depth: 55%;
+  --ag-buttons-recess-ring: 25%;
+  --ag-buttons-recess-lip: 10%;
+}
+
+[data-ag-theme='light'] {
+  --ag-buttons-recess-top: 16%;
+  --ag-buttons-recess-bottom: 4%;
+  --ag-buttons-recess-depth: 28%;
+  --ag-buttons-recess-ring: 12%;
+  --ag-buttons-recess-lip: 70%;
+}
+
+/* Something that travels (a switch's bead, a segmented control's wash)
+   travels at the full level only; below it, it is placed at once and only its
+   colour and light change (MotionSpec, state change). A loop runs at the full
+   level only, and is held at its resting value below it. */
+[data-ag-motion] {
+  --ag-buttons-travel-time: 0ms;
+  --ag-buttons-loop-state: paused;
+}
+
+[data-ag-motion='full'] {
+  --ag-buttons-travel-time: var(--ag-motion-quick);
+  --ag-buttons-loop-state: running;
+}
+
+/* ---------- The keyboard focus ring, forced ----------
+
+   The real ring is the one `tokens.css` draws on every `:focus-visible`. A
+   specimen forced into focus has no real focus, so the same band is drawn
+   here for it, on the control that would hold focus: a group's chosen choice,
+   a toolbar's first button. A forced hover or press of a toolbar is drawn on
+   its first button for the same reason. */
+[data-ag-force-state='focus-visible'] > .ag-button,
+[data-ag-force-state='focus-visible'] > .ag-toolbar > .ag-button:first-child,
+[data-ag-force-state='focus-visible']
+  :is(
+    .ag-switch,
+    .ag-check,
+    .ag-segment[aria-checked='true'],
+    .ag-radio-option[aria-checked='true'],
+    .ag-power-switch,
+    .ag-record-button
+  ) {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: transparent;
+  outline-offset: var(--ag-focus-ring-offset);
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}
+
+/* ---------- Buttons ---------- */
+
+/* The secondary button: a faint tint of the text colour over a blur, so it
+   takes up the colour behind it, with a quiet glass edge. */
+.ag-button {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ag-space-small);
+
+  block-size: var(--ag-control-height);
+  padding-inline: calc(5 * var(--ag-grid-unit));
+
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-quiet);
+  backdrop-filter: blur(calc(6 * var(--ag-grid-unit)));
+  color: var(--ag-chrome-text-primary);
+
+  font: inherit;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-control);
+  cursor: pointer;
+
+  transition-property: background-color, border-color, color, box-shadow, filter;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-button:is(
+    :hover,
+    [data-ag-force-state='hover'] > *,
+    [data-ag-force-state='hover'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-button:is(
+    :active,
+    [data-ag-force-state='active'] > *,
+    [data-ag-force-state='active'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
+/* The small variant: the control's height less two grid units, with a
+   shorter leading padding than its trailing one. */
+.ag-button[data-ag-compact] {
+  block-size: calc(var(--ag-control-height) - 2 * var(--ag-grid-unit));
+  padding-inline: calc(4 * var(--ag-grid-unit)) calc(5 * var(--ag-grid-unit));
+}
+
+/* The icon button: a square with no padding of its own, so the glyph `Icon`
+   centres by its ink is centred in the button by the grid alone. */
+.ag-button[data-ag-icon-only] {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--ag-control-height);
+  padding: 0;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-button[data-ag-icon-only][data-ag-compact] {
+  inline-size: calc(var(--ag-control-height) - 2 * var(--ag-grid-unit));
+}
+
+.ag-button[data-ag-icon-only]:is(
+    :hover,
+    [data-ag-force-state='hover'] > *,
+    [data-ag-force-state='hover'] > .ag-toolbar > :first-child
+  ) {
+  color: var(--ag-chrome-text-primary);
+}
+
+/* The quiet button: no surface until the pointer is over it. */
+.ag-button[data-ag-tone='quiet'] {
+  border-color: transparent;
+  background-color: transparent;
+  backdrop-filter: none;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-button[data-ag-tone='quiet']:is(
+    :hover,
+    [data-ag-force-state='hover'] > *,
+    [data-ag-force-state='hover'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  color: var(--ag-chrome-text-primary);
+}
+
+/* On: a mode a secondary or quiet button toggles is on, a wash of the accent
+   with its glyph or its words in the accent. */
+.ag-button[aria-pressed='true']:is([data-ag-tone='neutral'], [data-ag-tone='quiet']) {
+  border-color: var(--ag-chrome-edge-accent);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent-text);
+}
+
+.ag-button[aria-pressed='true'][data-ag-icon-only]:is(
+    [data-ag-tone='neutral'],
+    [data-ag-tone='quiet']
+  ) {
+  color: var(--ag-chrome-accent);
+}
+
+/* The call to action and the destructive action: a low translucency, never
+   solid, lit from above in both themes. The light is drawn under the label
+   (below), so pressing can dim it without touching the fill. */
+.ag-button[data-ag-tone='primary'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 60%, transparent);
+  background-color: transparent;
+  background-image: var(--ag-effect-cta-fill);
+  color: var(--ag-chrome-text-on-accent);
+  box-shadow: var(--ag-effect-glow-cta);
+}
+
+.ag-button[data-ag-tone='destructive'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-error) 60%, transparent);
+  background-color: transparent;
+  background-image: var(--ag-effect-danger-fill);
+  color: var(--ag-chrome-text-on-accent);
+  box-shadow: 0 0 calc(9 * var(--ag-grid-unit)) calc(-3 * var(--ag-grid-unit))
+    var(--ag-chrome-status-error);
+}
+
+.ag-button:is([data-ag-tone='primary'], [data-ag-tone='destructive'])::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--ag-effect-cta-gloss);
+  box-shadow: var(--ag-effect-cta-edge);
+  pointer-events: none;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+/* Under the pointer the light brightens; held, its gloss and top edge dim by
+   half, as a lit key pressed into its panel. */
+.ag-button:is([data-ag-tone='primary'], [data-ag-tone='destructive']):is(
+    :hover,
+    [data-ag-force-state='hover'] > *,
+    [data-ag-force-state='hover'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  filter: brightness(1.08);
+}
+
+.ag-button:is([data-ag-tone='primary'], [data-ag-tone='destructive']):is(
+    :active,
+    [data-ag-force-state='active'] > *,
+    [data-ag-force-state='active'] > .ag-toolbar > :first-child
+  ):not(:disabled, [aria-disabled='true'], [data-ag-unavailable])::before {
+  opacity: 0.5;
+}
+
+/* A destructive action that is not what its surface is for: the secondary
+   button, its words in the error colour. */
+.ag-button[data-ag-tone='quiet-destructive'] {
+  color: var(--ag-chrome-status-error);
+}
+
+/* Unavailable, whatever its tone: no accent, no light and no glow, its words
+   in the unavailable colour. After the tones and at least as heavy, or a
+   Delete that could not be used would stay red and a call to action would
+   keep its accent. A quiet button keeps no surface either way.
+
+   A label drawn as a button, around the control that carries the state, is
+   marked `data-ag-unavailable` while that control is unavailable, and looks
+   the same. The mark is on the label because the Firefox of the support floor
+   has no `:has()` to find the control from it with, and it is not ARIA state,
+   which a label does not take. */
+.ag-button:is(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  color: var(--ag-chrome-text-disabled);
+  box-shadow: none;
+  filter: none;
+  cursor: default;
+}
+
+.ag-button:is(:disabled, [aria-disabled='true'], [data-ag-unavailable]):not(
+    [data-ag-tone='quiet']
+  ) {
+  border-color: color-mix(in oklch, var(--ag-chrome-text-primary) 8%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-text-primary) 4%, transparent);
+  background-image: none;
+}
+
+.ag-button:disabled::before {
+  content: none;
+}
+
+/* An unavailable button, which keeps its focus and opens its reason, carries a
+   warning dot at its top trailing corner, ringed in the base surface so it
+   reads apart from the button under it (ADR-0013). */
+.ag-button:is([aria-disabled='true'], [data-ag-unavailable])::before {
+  content: '';
+  position: absolute;
+  inset: auto;
+  inset-block-start: calc(-1.5 * var(--ag-grid-unit));
+  inset-inline-end: calc(-1.5 * var(--ag-grid-unit));
+  z-index: 1;
+  inline-size: calc(4.5 * var(--ag-grid-unit));
+  block-size: calc(4.5 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-image: none;
+  background-color: var(--ag-chrome-status-warning);
+  box-shadow:
+    0 0 0 1px var(--ag-chrome-surface-base),
+    0 0 calc(4 * var(--ag-grid-unit)) var(--ag-chrome-status-warning);
+  opacity: 1;
+  pointer-events: none;
+}
+
+/* The reason an unavailable control opens: its glyph in the warning colour. */
+.ag-control-reason-glyph {
+  flex: 0 0 auto;
+  color: var(--ag-chrome-status-warning);
+}
+
+/* ---------- The toolbar ---------- */
+
+/* A group of related buttons, two pixels apart, in the panel's inset; no
+   surface of its own. */
+.ag-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+/* The line between two groups, which sit one inset apart across it. */
+.ag-toolbar-separator {
+  flex: 0 0 auto;
+  inline-size: 1px;
+  block-size: calc(9 * var(--ag-grid-unit));
+  margin-inline: calc((var(--ag-space-inset) - 2 * var(--ag-space-micro)) / 2);
+  background-color: var(--ag-chrome-border-subtle);
+}
+
+/* ---------- The segmented control ---------- */
+
+/* A well, its choices two pixels in from its edge and two apart. */
+.ag-segmented {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  padding: var(--ag-space-micro);
+
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-well);
+}
+
+.ag-segment {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ag-space-small);
+
+  block-size: calc(var(--ag-control-height) - 3 * var(--ag-grid-unit));
+  padding-block: 0;
+  padding-inline: calc(5 * var(--ag-grid-unit));
+
+  border: 0;
+  /* The well's radius less its padding and its edge, so the choice's corners
+     nest in the well's (section 3). */
+  border-radius: calc(var(--ag-radius-control) - var(--ag-space-micro) - 1px);
+  background-color: transparent;
+  color: var(--ag-chrome-text-secondary);
+
+  font: inherit;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-medium);
+  cursor: pointer;
+
+  transition-property: background-color, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+/* A forced hover is drawn on the last choice, which a specimen leaves
+   unchosen, so the specimen shows one choice under the pointer as a real
+   pointer would. */
+.ag-segment:is(
+    :hover,
+    [data-ag-force-state='hover'] .ag-segment:last-child
+  )[aria-checked='false']:not([data-disabled]) {
+  background-color: var(--ag-chrome-fill-hover);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-segment[aria-checked='true'] {
+  color: var(--ag-chrome-text-primary);
+}
+
+/* The chosen choice's wash: one element of the well's, placed over the chosen
+   choice from that choice's own box, which travels to the next choice at the
+   full motion level and is placed at once below it. Until it is placed, it is
+   not drawn, so it never travels in from the well's corner. */
+.ag-segmented-wash {
+  /* Placed by the physical edges, because the chosen choice's box is measured
+     from them, whichever way the page's text runs. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  inline-size: var(--ag-segment-width, 0);
+  block-size: var(--ag-segment-height, 0);
+  translate: var(--ag-segment-left, 0) var(--ag-segment-top, 0);
+  border-radius: calc(var(--ag-radius-control) - var(--ag-space-micro) - 1px);
+  background-image: var(--ag-effect-segment-wash);
+  box-shadow: var(--ag-effect-segment-edge);
+  opacity: 0;
+  pointer-events: none;
+
+  transition-property: translate, inline-size, block-size, opacity;
+  transition-duration:
+    var(--ag-buttons-travel-time), var(--ag-buttons-travel-time), var(--ag-buttons-travel-time),
+    var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-segmented-wash[data-ag-placed] {
+  opacity: 1;
+}
+
+/* A tool group: square glyph choices, the chosen one lit as a call to action. */
+.ag-segmented[data-ag-variant='tools'] .ag-segment {
+  inline-size: calc(var(--ag-control-height) - var(--ag-grid-unit));
+  block-size: calc(var(--ag-control-height) - var(--ag-grid-unit));
+  padding: 0;
+}
+
+.ag-segmented[data-ag-variant='tools'] .ag-segmented-wash {
+  background-image: var(--ag-effect-cta-fill);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-segmented[data-ag-variant='tools'] .ag-segment[aria-checked='true'] {
+  color: var(--ag-chrome-text-on-accent);
+}
+
+/* Glyph choices, a little wider than the control is tall. */
+.ag-segmented[data-ag-variant='icons'] .ag-segment {
+  inline-size: calc(var(--ag-control-height) + var(--ag-grid-unit));
+  padding: 0;
+}
+
+/* The full width, each choice its label over a caption line. */
+.ag-segmented[data-ag-variant='wide'] {
+  display: flex;
+  inline-size: 100%;
+}
+
+.ag-segmented[data-ag-variant='wide'] .ag-segment {
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0;
+  block-size: auto;
+  min-block-size: calc(var(--ag-control-height) + 3 * var(--ag-grid-unit));
+  padding-block: var(--ag-space-tiny);
+}
+
+.ag-segment-caption {
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-regular);
+  line-height: var(--ag-text-line-height-tight);
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* Small choices for a dense row: shorter, narrower padding, label-sized words
+   and the small glyphs. */
+.ag-segmented[data-ag-small] .ag-segment {
+  block-size: calc(var(--ag-control-height) - 4 * var(--ag-grid-unit));
+  padding-inline: calc(4 * var(--ag-grid-unit));
+  font-size: var(--ag-text-label);
+}
+
+.ag-segmented[data-ag-small] .ag-segment .ag-icon {
+  inline-size: var(--ag-icon-size-small);
+  block-size: var(--ag-icon-size-small);
+}
+
+/* Unavailable: no accent on a control that cannot be used, its words in the
+   unavailable colour and its wash a plain press. */
+.ag-segmented:is([data-disabled], [data-ag-unavailable]) .ag-segment {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-segmented:is([data-disabled], [data-ag-unavailable]) .ag-segmented-wash {
+  background-image: none;
+  background-color: var(--ag-chrome-fill-press);
+  box-shadow: none;
+}
+
+/* ---------- The hardware: what every drawn control shares ---------- */
+
+/* The lit and the unlit layers of a drawing are both drawn; the drawing's
+   state fades from one to the other at the pace of the motion level. */
+.ag-hardware-lit,
+.ag-hardware-unlit {
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-hardware-lit {
+  opacity: 0;
+}
+
+[data-ag-lit] .ag-hardware-lit {
+  opacity: 1;
+}
+
+[data-ag-lit] .ag-hardware-unlit {
+  opacity: 0;
+}
+
+/* Under the pointer the cap or lens takes a little more light; held, a little
+   shade, as a pressed cap sits deeper in its bezel. Neither moves the light
+   the drawing shows, which is the page's. */
+.ag-hardware-hover,
+.ag-hardware-press {
+  opacity: 0;
+  pointer-events: none;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-hardware-hover {
+  fill: var(--ag-hardware-light);
+}
+
+.ag-hardware-press {
+  fill: var(--ag-hardware-shade);
+}
+
+/* A pointer rests on one choice of a radio group at a time, so a forced hover
+   lights the first choice alone, as it does a toolbar's first button. */
+:is(
+    :is(.ag-power-switch, .ag-record-button):is(:hover, [data-ag-force-state='hover'] *),
+    .ag-radio-option:is(:hover, [data-ag-force-state='hover'] .ag-radio-option:first-of-type)
+  ):not(:disabled, [aria-disabled='true'], [data-disabled])
+  .ag-hardware-hover {
+  opacity: 0.08;
+}
+
+:is(.ag-power-switch, .ag-record-button):is(:active, [data-ag-force-state='active'] *):not(
+    :disabled,
+    [aria-disabled='true']
+  )
+  .ag-hardware-press {
+  opacity: 0.22;
+}
+
+/* A drawn control that cannot be used is drawn at under half strength, its
+   state still shown. */
+:is(.ag-switch, .ag-check, .ag-power-switch, .ag-record-button):is(
+  :disabled,
+  [aria-disabled='true']
+),
+.ag-radio-group:is([data-disabled], [aria-disabled='true']) .ag-radio-option {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---------- The switch ---------- */
+
+.ag-switch-field {
+  display: flex;
+
+  /* A long label cannot shrink, so where a narrow panel leaves the switch no
+     room beside it, the switch moves under it rather than being squeezed. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+}
+
+/* The words take the row and the switch its trailing edge, so a column of
+   switches shares one edge (section 1). */
+.ag-switch-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: calc(64 * var(--ag-grid-unit));
+}
+
+.ag-switch-description {
+  display: block;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* The control is the track's size; the touch target widens its hit area. */
+.ag-switch {
+  --ag-switch-width: var(--ag-hardware-switch-width);
+  --ag-switch-height: var(--ag-hardware-switch-height);
+
+  flex: 0 0 auto;
+  display: inline-block;
+  inline-size: var(--ag-switch-width);
+  block-size: var(--ag-switch-height);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ag-radius-full);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ag-switch[data-ag-small] {
+  --ag-switch-width: calc(14 * var(--ag-grid-unit));
+  --ag-switch-height: calc(8 * var(--ag-grid-unit));
+}
+
+/* The track, off: cut into the panel, a shade falling from its top lip over
+   the well, a ring of shade round its inside and a highlight under it. */
+.ag-switch-track {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  background-color: var(--ag-chrome-fill-well);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-top), transparent),
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-bottom), transparent)
+  );
+  box-shadow:
+    inset 0 1px calc(1.5 * var(--ag-grid-unit))
+      color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-depth), transparent),
+    inset 0 0 0 1px
+      color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-ring), transparent),
+    0 1px 0 color-mix(in oklch, var(--ag-hardware-light) var(--ag-buttons-recess-lip), transparent);
+}
+
+/* The track, on: filled with the call to action's light under a shade from
+   its top lip, ringed in the accent, glowing. A layer of its own, so turning
+   on fades it in. */
+.ag-switch-lit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--ag-hardware-shade) 18%, transparent),
+      transparent 60%
+    ),
+    var(--ag-effect-cta-fill);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--ag-chrome-accent-hover) 50%, transparent),
+    0 0 calc(7 * var(--ag-grid-unit)) calc(-1.5 * var(--ag-grid-unit)) var(--ag-chrome-accent);
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-switch[aria-checked='true'] .ag-switch-lit {
+  opacity: 1;
+}
+
+/* The bead: a glossy sphere lit from the upper leading quarter, two pixels in
+   from the track's edge, its LED at its centre. It slides at the full motion
+   level and is placed at once below; its light never turns with it. */
+.ag-switch-bead {
+  position: absolute;
+  inset-block-start: var(--ag-grid-unit);
+  inset-inline-start: var(--ag-grid-unit);
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--ag-switch-height) - 2 * var(--ag-grid-unit));
+  block-size: calc(var(--ag-switch-height) - 2 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-image: radial-gradient(
+    circle at 38% 30%,
+    var(--ag-hardware-light),
+    color-mix(in oklch, var(--ag-hardware-light) 29%, var(--ag-hardware-chamfer-light)) 45%,
+    color-mix(in oklch, var(--ag-hardware-chamfer-light) 37.5%, var(--ag-hardware-metal-mid))
+  );
+  box-shadow:
+    inset 0 calc(-0.5 * var(--ag-grid-unit)) 1px
+      color-mix(in oklch, var(--ag-hardware-shade) 18%, transparent),
+    0 0 0 calc(0.25 * var(--ag-grid-unit))
+      color-mix(in oklch, var(--ag-hardware-shade) 25%, transparent),
+    0 var(--ag-grid-unit) calc(2 * var(--ag-grid-unit))
+      color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
+
+  transition-property: translate, filter;
+  transition-duration: var(--ag-buttons-travel-time), var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-switch[aria-checked='true'] .ag-switch-bead {
+  translate: calc(var(--ag-switch-width) - var(--ag-switch-height)) 0;
+}
+
+.ag-switch[aria-checked='true'] .ag-switch-bead:dir(rtl) {
+  translate: calc(var(--ag-switch-height) - var(--ag-switch-width)) 0;
+}
+
+.ag-switch:is(:hover, [data-ag-force-state='hover'] *):not(:disabled, [aria-disabled='true'])
+  .ag-switch-bead {
+  filter: brightness(1.06);
+}
+
+.ag-switch:is(:active, [data-ag-force-state='active'] *):not(:disabled, [aria-disabled='true'])
+  .ag-switch-bead {
+  filter: brightness(0.94);
+}
+
+/* The LED, unlit: a dull pip in the bead. Lit: the accent, with its halo. */
+.ag-switch-led {
+  inline-size: calc(2 * var(--ag-grid-unit));
+  block-size: calc(2 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-color: color-mix(
+    in oklch,
+    var(--ag-hardware-metal-mid) 53%,
+    var(--ag-hardware-metal-shade)
+  );
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-switch[aria-checked='true'] .ag-switch-led {
+  background-color: var(--ag-chrome-accent);
+  box-shadow: 0 0 calc(1.5 * var(--ag-grid-unit)) calc(0.25 * var(--ag-grid-unit))
+    color-mix(in oklch, var(--ag-chrome-accent) 40%, transparent);
+}
+
+/* ---------- The check ---------- */
+
+.ag-check-field {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+}
+
+.ag-check-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.ag-check-label {
+  cursor: pointer;
+}
+
+.ag-check-description {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* Recessed as the switch's track is. */
+.ag-check {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  inline-size: calc(8 * var(--ag-grid-unit));
+  block-size: calc(8 * var(--ag-grid-unit));
+  padding: 0;
+  border: 0;
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-fill-well);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-top), transparent),
+    color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-bottom), transparent)
+  );
+  box-shadow:
+    inset 0 1px var(--ag-grid-unit)
+      color-mix(in oklch, var(--ag-hardware-shade) var(--ag-buttons-recess-depth), transparent),
+    inset 0 0 0 1px var(--ag-chrome-edge-quiet);
+  color: var(--ag-chrome-text-on-accent);
+  cursor: pointer;
+}
+
+/* Checked: the call to action's light, lit from above, glowing; a layer of its
+   own so it fades in. */
+.ag-check::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--ag-hardware-light) 28%, transparent),
+      transparent 55%
+    ),
+    var(--ag-effect-cta-fill);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--ag-hardware-light) 50%, transparent),
+    0 0 calc(5 * var(--ag-grid-unit)) calc(-1 * var(--ag-grid-unit)) var(--ag-chrome-accent);
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-check[aria-checked='true']::before {
+  opacity: 1;
+}
+
+/* The tick, drawn in strokes of the text colour on the accent. */
+.ag-check-tick {
+  display: block;
+  inline-size: calc(4 * var(--ag-grid-unit));
+  block-size: calc(2 * var(--ag-grid-unit));
+  translate: 0 calc(-0.5 * var(--ag-grid-unit));
+  rotate: -45deg;
+  border-inline-start: var(--ag-grid-unit) solid currentcolor;
+  border-block-end: var(--ag-grid-unit) solid currentcolor;
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-check[aria-checked='true'] .ag-check-tick {
+  opacity: 1;
+}
+
+.ag-check:is(:hover, [data-ag-force-state='hover'] *):not(:disabled, [aria-disabled='true']) {
+  filter: brightness(1.08);
+}
+
+/* ---------- The radio: a panel lamp ---------- */
+
+.ag-radio-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+}
+
+.ag-radio-heading {
+  font-size: var(--ag-text-label);
+  font-weight: var(--ag-text-weight-strong);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-radio-group[data-ag-horizontal] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--ag-space-medium);
+}
+
+.ag-radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-block-size: var(--ag-control-height);
+  padding-block: 0;
+  padding-inline: 0 var(--ag-space-tiny);
+  border: 0;
+  border-radius: var(--ag-radius-small);
+  background: none;
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ag-radio-lamp {
+  flex: 0 0 auto;
+  display: grid;
+  inline-size: calc(9 * var(--ag-grid-unit));
+  block-size: calc(9 * var(--ag-grid-unit));
+}
+
+.ag-radio-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.ag-radio-description {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-lamp {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.ag-lamp-cutout {
+  fill: color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
+}
+
+.ag-lamp-bezel-light {
+  stop-color: var(--ag-hardware-metal-highlight);
+}
+
+.ag-lamp-bezel-mid {
+  stop-color: var(--ag-hardware-metal-mid);
+}
+
+.ag-lamp-bezel-shade {
+  stop-color: var(--ag-hardware-metal-shade);
+}
+
+/* The socket, recessed: deep at the top leading corner, its lip lit at the
+   foot. */
+.ag-lamp-socket-deep {
+  stop-color: color-mix(
+    in oklch,
+    var(--ag-hardware-chamfer-dark) 29%,
+    var(--ag-hardware-cap-unlit-1)
+  );
+}
+
+.ag-lamp-socket-lip {
+  stop-color: color-mix(
+    in oklch,
+    var(--ag-hardware-metal-mid) 62.5%,
+    var(--ag-hardware-metal-shade)
+  );
+}
+
+/* The LED's light spilling onto the socket, inside the bezel. */
+.ag-lamp-spill {
+  fill: var(--ag-chrome-accent-hover);
+  fill-opacity: 0.8;
+}
+
+/* The lens unlit: glass tinted by the accent, darkening to its edge. */
+.ag-lamp-glass {
+  stop-color: color-mix(
+    in oklch,
+    var(--ag-chrome-accent) 22%,
+    color-mix(in oklch, var(--ag-hardware-chamfer-dark) 88%, var(--ag-hardware-cap-unlit-1))
+  );
+}
+
+.ag-lamp-glass-edge {
+  stop-color: color-mix(
+    in oklch,
+    var(--ag-hardware-chamfer-dark) 6%,
+    var(--ag-hardware-cap-unlit-1)
+  );
+}
+
+/* The lens lit: the LED through the diffuser, white at the core to the accent
+   at the rim. */
+.ag-lamp-led-core {
+  stop-color: var(--ag-hardware-light);
+}
+
+.ag-lamp-led-inner {
+  stop-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 45%, var(--ag-hardware-light));
+}
+
+.ag-lamp-led-outer {
+  stop-color: color-mix(in oklch, var(--ag-chrome-accent-hover) 85%, var(--ag-hardware-light));
+}
+
+.ag-lamp-led-rim {
+  stop-color: var(--ag-chrome-accent);
+}
+
+.ag-lamp-lens-ring {
+  stroke: color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
+  transition-property: stroke;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+[data-ag-lit] .ag-lamp-lens-ring {
+  stroke: color-mix(in oklch, var(--ag-hardware-shade) 20%, transparent);
+}
+
+.ag-lamp-bloom {
+  fill: var(--ag-hardware-light);
+  fill-opacity: 0.55;
+}
+
+.ag-lamp-core-ring {
+  stroke: color-mix(in oklch, var(--ag-chrome-accent-hover) 60%, var(--ag-hardware-light));
+  stroke-opacity: 0.7;
+}
+
+/* The gloss: the page's light on the lens, a little brighter over a lit one. */
+.ag-lamp-gloss-light {
+  stop-color: var(--ag-hardware-light);
+}
+
+.ag-lamp-gloss-clear {
+  stop-color: var(--ag-hardware-light);
+  stop-opacity: 0;
+}
+
+.ag-lamp-gloss {
+  opacity: 0.45;
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+[data-ag-lit] .ag-lamp-gloss {
+  opacity: 0.7;
+}
+
+/* ---------- The power switch ---------- */
+
+.ag-power-switch {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  inline-size: calc(13 * var(--ag-grid-unit));
+  block-size: calc(13 * var(--ag-grid-unit));
+  padding: 0;
+  border: 0;
+  border-radius: var(--ag-radius-full);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ag-power-drawing {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  filter: drop-shadow(var(--ag-hardware-drop-shadow));
+}
+
+.ag-power-cutout {
+  fill: var(--ag-hardware-cutout);
+}
+
+.ag-power-bezel-light {
+  stop-color: var(--ag-hardware-metal-highlight);
+}
+
+.ag-power-bezel-mid {
+  stop-color: var(--ag-hardware-metal-mid);
+}
+
+.ag-power-bezel-shade {
+  stop-color: var(--ag-hardware-metal-shade);
+}
+
+.ag-power-chamfer-dark {
+  stop-color: var(--ag-hardware-chamfer-dark);
+}
+
+.ag-power-chamfer-light {
+  stop-color: var(--ag-hardware-chamfer-light);
+}
+
+/* The LED's light spilling round the cap's edge, which grows as it lights at
+   the full motion level. */
+.ag-power-spill {
+  stroke: var(--ag-chrome-accent);
+  stroke-opacity: 0.55;
+  transform-box: fill-box;
+  transform-origin: center;
+  scale: 0.9;
+  transition-property: opacity, scale;
+  transition-duration: var(--ag-motion-quick), var(--ag-buttons-travel-time);
+}
+
+[data-ag-lit] .ag-power-spill {
+  scale: 1;
+}
+
+/* The cap, a recessed dome: the accent through dark plastic when on, an unlit
+   moulding when off. */
+.ag-power-cap-lit {
+  stop-color: var(--ag-hardware-power-lit-cap);
+}
+
+.ag-power-cap-lit-edge {
+  stop-color: color-mix(
+    in oklch,
+    var(--ag-hardware-chamfer-dark) 18%,
+    var(--ag-hardware-cap-unlit-1)
+  );
+}
+
+.ag-power-cap-unlit {
+  stop-color: var(--ag-hardware-cap-unlit-0);
+}
+
+.ag-power-cap-unlit-edge {
+  stop-color: var(--ag-hardware-cap-unlit-1);
+}
+
+.ag-power-cap-shade {
+  stroke: color-mix(in oklch, var(--ag-hardware-shade) 60%, transparent);
+}
+
+/* The glyph as an LED through frosted plastic: a wide halo, a tinted body and
+   a hot core, lit; an unlit moulding with a catch light below it, off. */
+.ag-power-led-halo {
+  stroke: var(--ag-chrome-accent);
+  stroke-opacity: 0.9;
+}
+
+.ag-power-led-body {
+  stroke: color-mix(in oklch, var(--ag-chrome-accent) 55%, var(--ag-hardware-light));
+}
+
+.ag-power-led-core {
+  stroke: var(--ag-hardware-light);
+}
+
+.ag-power-led-off {
+  stroke: var(--ag-hardware-led-off);
+}
+
+.ag-power-led-catch {
+  stroke: color-mix(in oklch, var(--ag-hardware-light) 12%, transparent);
+}
+
+.ag-power-gloss-light {
+  stop-color: var(--ag-hardware-gloss);
+}
+
+.ag-power-gloss-clear {
+  stop-color: var(--ag-hardware-gloss);
+  stop-opacity: 0;
+}
+
+/* ---------- The record button ---------- */
+
+.ag-record-button {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  inline-size: calc(23 * var(--ag-grid-unit));
+  block-size: calc(23 * var(--ag-grid-unit));
+  padding: 0;
+  border: 0;
+  border-radius: var(--ag-radius-full);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ag-record-drawing {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  filter: drop-shadow(var(--ag-hardware-record-shadow));
+}
+
+.ag-record-cutout {
+  fill: color-mix(in oklch, var(--ag-hardware-shade) 42%, transparent);
+}
+
+.ag-record-bezel-light {
+  stop-color: var(--ag-hardware-metal-highlight);
+}
+
+.ag-record-bezel-mid {
+  stop-color: var(--ag-hardware-metal-mid);
+}
+
+.ag-record-bezel-shade {
+  stop-color: var(--ag-hardware-metal-shade);
+}
+
+.ag-record-chamfer-dark {
+  stop-color: var(--ag-hardware-chamfer-dark);
+}
+
+.ag-record-chamfer-light {
+  stop-color: var(--ag-hardware-chamfer-light);
+}
+
+/* The rim glow while recording, which breathes between its resting strength
+   and half as much again at the full motion level, and holds still below it;
+   the lens stays fully lit throughout, so a recording never looks off. */
+.ag-record-rim-glow {
+  stroke: var(--ag-hardware-record-lit-1);
+  stroke-opacity: 0.6;
+}
+
+@keyframes ag-record-breathe {
+  50% {
+    stroke-opacity: 0.9;
+  }
+}
+
+.ag-record-button[aria-pressed='true'] .ag-record-rim-glow {
+  animation: ag-record-breathe var(--ag-motion-loop-recording) var(--ag-motion-ease-in-out) infinite;
+  animation-play-state: var(--ag-buttons-loop-state);
+}
+
+.ag-record-recess {
+  fill: color-mix(in oklch, var(--ag-hardware-shade) 45%, transparent);
+}
+
+/* The cap of red plastic, lit from behind: light scattered under its surface
+   brightens the rim. Unlit, a dark red moulding. */
+.ag-record-lit-0 {
+  stop-color: var(--ag-hardware-record-lit-0);
+}
+
+.ag-record-lit-1 {
+  stop-color: var(--ag-hardware-record-lit-1);
+}
+
+.ag-record-lit-2 {
+  stop-color: var(--ag-hardware-record-lit-2);
+}
+
+.ag-record-lit-3 {
+  stop-color: var(--ag-hardware-record-lit-3);
+}
+
+.ag-record-lit-4 {
+  stop-color: var(--ag-hardware-record-lit-4);
+}
+
+.ag-record-unlit-0 {
+  stop-color: var(--ag-hardware-record-unlit-0);
+}
+
+.ag-record-unlit-1 {
+  stop-color: var(--ag-hardware-record-unlit-1);
+}
+
+.ag-record-unlit-2 {
+  stop-color: var(--ag-hardware-record-unlit-2);
+}
+
+/* The Fresnel lens: each ridge's facet lit by the LED behind it, evenly round
+   the ring and more towards the centre, its back shaded. */
+.ag-record-ridge,
+.ag-record-ridge-back {
+  transition-property: stroke, stroke-opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-record-ridge {
+  stroke: color-mix(in oklch, var(--ag-hardware-record-lit-1) 80%, var(--ag-hardware-light));
+  stroke-opacity: 0.04;
+}
+
+[data-ag-lit] .ag-record-ridge {
+  stroke: color-mix(in oklch, var(--ag-hardware-record-lit-0) 60%, var(--ag-hardware-light));
+  stroke-opacity: calc(0.1 + 0.45 * var(--ag-record-ridge-nearness));
+}
+
+.ag-record-ridge-back {
+  stroke: color-mix(in oklch, var(--ag-hardware-record-unlit-1) 40%, var(--ag-hardware-shade));
+  stroke-opacity: 0.5;
+}
+
+[data-ag-lit] .ag-record-ridge-back {
+  stroke-opacity: 0.32;
+}
+
+.ag-record-shade-clear {
+  stop-color: var(--ag-hardware-shade);
+  stop-opacity: 0;
+}
+
+.ag-record-shade-deep {
+  stop-color: var(--ag-hardware-shade);
+  stop-opacity: 0.35;
+}
+
+.ag-record-bloom {
+  fill: color-mix(in oklch, var(--ag-hardware-record-lit-0) 50%, var(--ag-hardware-light));
+  fill-opacity: 0.35;
+}
+
+/* The room's light, reflected once off the smooth front: a soft broad
+   reflection and one small sharp highlight. */
+.ag-record-reflection-light {
+  stop-color: var(--ag-hardware-light);
+  stop-opacity: 0.28;
+}
+
+.ag-record-reflection-clear {
+  stop-color: var(--ag-hardware-light);
+  stop-opacity: 0;
+}
+
+.ag-record-highlight {
+  fill: var(--ag-hardware-light);
+  fill-opacity: 0.53;
+}
+
+/* ---------- Forced colours ----------
+
+   The browser replaces every colour with the user's own and draws no shadow
+   or gradient, so a drawn control would be one block of the text colour. Each
+   is drawn instead from the system's own colours: its outline in the text
+   colour, and what is on or chosen in the colour the system keeps for a
+   selection. */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-button[aria-pressed='true'],
+  [data-ag-theme] .ag-segment[aria-checked='true'] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  [data-ag-theme] .ag-segmented-wash {
+    display: none;
+  }
+
+  [data-ag-theme] .ag-switch-track,
+  [data-ag-theme] .ag-check {
+    border: 1px solid ButtonText;
+  }
+
+  [data-ag-theme] .ag-switch-bead {
+    forced-color-adjust: none;
+    background: ButtonText;
+  }
+
+  [data-ag-theme] .ag-switch[aria-checked='true'] .ag-switch-track,
+  [data-ag-theme] .ag-check[aria-checked='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  [data-ag-theme] .ag-check-tick {
+    forced-color-adjust: none;
+    color: HighlightText;
+  }
+
+  [data-ag-theme] :is(.ag-lamp, .ag-power-drawing, .ag-record-drawing) {
+    display: none;
+  }
+
+  [data-ag-theme] :is(.ag-radio-lamp, .ag-power-switch, .ag-record-button) {
+    border: 1px solid ButtonText;
+    border-radius: var(--ag-radius-full);
+  }
+
+  [data-ag-theme] .ag-radio-option[aria-checked='true'] .ag-radio-lamp,
+  [data-ag-theme] .ag-power-switch[aria-checked='true'],
+  [data-ag-theme] .ag-record-button[aria-pressed='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}

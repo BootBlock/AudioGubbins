@@ -20,9 +20,6 @@ import {
 } from '@audiogubbins/editor-view';
 import type { Colour } from '@audiogubbins/renderer';
 
-/** The shell's own font stack, so the editor's labels read as the rest of the page does. */
-const FONT_FAMILY = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-
 function colour(value: Oklch, alpha?: number): Colour {
   const { red, green, blue, alpha: own } = oklchToSrgb(value);
   return [red, green, blue, alpha ?? own];
@@ -77,7 +74,7 @@ function spectrogramRamps(stops: SpectrogramRamp): EditorPalette['spectrogramRam
 
 /** The editor's colours in `theme`. */
 export function editorPaletteOf(theme: Theme): EditorPalette {
-  const { waveform, selection, chrome, analysisGrid, spectrogram } = theme.palette;
+  const { waveform, selection, chrome, spectrogram } = theme.palette;
   const fill = oklchToSrgb(selection.fill);
   return {
     background: colour(waveform.background),
@@ -87,7 +84,7 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
     rms: colour(waveform.rms),
     clipped: colour(waveform.clipped),
     pending: colour(waveform.pending),
-    grid: colour(analysisGrid, 0.5),
+    grid: colour(waveform.grid),
     rulerBackground: colour(chrome.surfaceRaised),
     rulerTick: colour(chrome.borderStrong),
     rulerText: colour(chrome.textPrimary),
@@ -117,9 +114,12 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
 
 /** The editor's type in `theme`. */
 export function editorTypeOf(theme: Theme): EditorType {
+  // The interface's own face, so the editor's labels read as the rest of the
+  // page does.
   const { text } = theme.metrics;
+  const face = theme.typeface.family.ui;
   return {
-    label: `${String(text.small)}px ${FONT_FAMILY}`,
-    small: `${String(text.tiny)}px ${FONT_FAMILY}`,
+    label: `${String(text.label)}px ${face}`,
+    small: `${String(text.caption)}px ${face}`,
   };
 }

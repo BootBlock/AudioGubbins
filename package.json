@@ -60,6 +60,8 @@
     "test:e2e:latency": "playwright test --project=chromium-latency --workers=1",
     "test:e2e:import-export": "playwright test --project=chromium-import-export",
     "test:e2e:game-workflows": "playwright test --project=chromium-game-workflows",
+    "test:e2e:inventory": "playwright test --project=chromium-visual-inventory",
+    "test:e2e:visual": "playwright test --project=chromium-visual-inventory",
     "test:renderer-loss": "playwright test --project=chromium-renderer --project=chromium-renderer-webgpu --project=chromium-renderer-reduced",
     "test:touch-pen": "playwright test --project=chromium-touch-pen",
     "test:video-reference": "playwright test --project=chromium-video-reference",
@@ -80,6 +82,7 @@
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/codec-runtime": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
+    "@audiogubbins/design-system": "workspace:*",
     "@audiogubbins/input": "workspace:*",
     "@audiogubbins/ml-runtime": "workspace:*",
     "@audiogubbins/model-packs": "workspace:*",
@@ -89,6 +92,8 @@
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@types/node": "26.6.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@vitest/coverage-v8": "5.0.1",
     "dependency-cruiser": "18.3.1",
     "eslint": "10.10.0",
@@ -98,8 +103,11 @@
     "jsdom": "30.1.0",
     "lightningcss": "1.33.0",
     "prettier": "3.9.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
+    "vite": "8.3.0",
     "vitest": "5.0.1"
   }
 }

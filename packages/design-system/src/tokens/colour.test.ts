@@ -6,6 +6,7 @@ import {
   solveContrast,
   contrastRatio,
   meetsContrast,
+  mix,
   oklch,
   oklchToCss,
   oklchToHex,
@@ -14,6 +15,7 @@ import {
   scaleChroma,
   shiftLightness,
   srgbToOklch,
+  withAlpha,
   type Srgb,
 } from './colour.js';
 
@@ -214,6 +216,36 @@ describe('oklch', () => {
   it('clamps lightness into range', () => {
     expect(oklch(2, 0.1, 0).lightness).toBe(1);
     expect(oklch(-1, 0.1, 0).lightness).toBe(0);
+  });
+});
+
+describe('withAlpha', () => {
+  it('keeps the colour and states only its opacity', () => {
+    const colour = oklch(0.6, 0.12, 195);
+    expect(withAlpha(colour, 0.2)).toEqual({ ...colour, alpha: 0.2 });
+    expect(withAlpha(colour, 2).alpha).toBe(1);
+  });
+});
+
+describe('mix', () => {
+  it('weighs lightness by the share of the first colour', () => {
+    expect(mix(oklch(1, 0, 0), oklch(0, 0, 0), 0.75).lightness).toBeCloseTo(0.75, 10);
+  });
+
+  it('mixes two hues far apart along a straight line, not round the hue circle', () => {
+    // Teal and rose sit 155 degrees apart. Interpolated as angles, an even mix
+    // would keep their chroma and swing through a violet neither holds; along
+    // the straight line in Oklab the two nearly cancel to a grey.
+    const teal = oklch(0.7, 0.14, 195);
+    const rose = oklch(0.7, 0.14, 350);
+    expect(mix(teal, rose, 0.5).chroma).toBeLessThan(0.04);
+  });
+
+  it('returns the first colour at a share of one and the second at zero', () => {
+    const teal = oklch(0.7, 0.14, 195);
+    const rose = oklch(0.55, 0.14, 350);
+    expect(mix(teal, rose, 1).hue).toBeCloseTo(195, 6);
+    expect(mix(teal, rose, 0).lightness).toBeCloseTo(0.55, 10);
   });
 });
 

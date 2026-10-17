@@ -187,6 +187,7 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-renderer-reduced': ['renderer-reduced'],
   'chromium-touch-pen': ['touch-pen'],
   'chromium-video-reference': ['video-reference'],
+  'chromium-visual-inventory': ['component-inventory'],
   'chromium-ml-golden': ['ml-golden'],
   'firefox-ml-golden': ['ml-golden'],
   'webkit-ml-golden': ['ml-golden'],
@@ -359,6 +360,7 @@ describe('the browser matrix', () => {
       'tests/e2e/touch.spec.ts',
       'tests/e2e/transport.spec.ts',
       'tests/e2e/video-reference.spec.ts',
+      'tests/e2e/visual/inventory/component-inventory.spec.ts',
       'tests/e2e/worker-policy.spec.ts',
     ]);
     expect(SPECS.flatMap((path) => tagsOf(path))).toContain('@scale');

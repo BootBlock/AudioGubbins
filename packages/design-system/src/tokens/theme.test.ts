@@ -215,6 +215,15 @@ describe('contrast across every theme, accent and brightness', () => {
    * here is read only: every field of it is `readonly`, so a test that wrote
    * to one would not compile.
    */
+  const SURFACES = [
+    'surfaceBase',
+    'surfaceRaised',
+    'surfaceOverlay',
+    'surfaceSunken',
+    'surfaceHover',
+    'surfaceActive',
+  ] as const;
+
   const built = new Map<string, Palette>();
   const paletteFor = (
     combination: (typeof combinations)[number],
@@ -361,13 +370,21 @@ describe('contrast across every theme, accent and brightness', () => {
     },
   );
 
-  it('keeps text on the accent readable', () => {
+  it('keeps text on the accent readable, on both stops of the call to action', () => {
+    // The call to action is a gradient from the accent's hover to its partner,
+    // the accent mixed with rose; text solved against the accent alone was
+    // never checked against the partner it is also written on.
     const failures: string[] = [];
 
     for (const combination of combinations) {
       const { chrome } = paletteFor(combination, ContrastLevel.Standard);
 
-      for (const accentName of ['accent', 'accentHover', 'accentActive'] as const) {
+      for (const accentName of [
+        'accent',
+        'accentHover',
+        'accentActive',
+        'accentPartner',
+      ] as const) {
         const ratio = contrastRatio(chrome.textOnAccent, chrome[accentName]);
         if (ratio < ContrastRequirement.LargeText) {
           failures.push(
@@ -379,6 +396,83 @@ describe('contrast across every theme, accent and brightness', () => {
     }
 
     expect(failures).toEqual([]);
+  });
+
+  it.each([ContrastLevel.Standard, ContrastLevel.High])(
+    'keeps the accent written as small text readable on every surface at %s contrast',
+    (contrast) => {
+      // The accent is solved to 3 to 1, for something drawn; a tag, a template
+      // token and a palette match are small text, held to 4.5 to 1.
+      const failures: string[] = [];
+      for (const combination of combinations) {
+        const { chrome } = paletteFor(combination, contrast);
+        for (const surfaceName of SURFACES) {
+          const ratio = contrastRatio(chrome.accentText, chrome[surfaceName]);
+          if (ratio < ContrastRequirement.BodyText) {
+            failures.push(
+              `${combination.dark ? 'dark' : 'light'}/${combination.accent}/` +
+                `${combination.brightness.toFixed(1)}: accentText on ${surfaceName} is ${ratio.toFixed(2)}`,
+            );
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    },
+  );
+
+  it.each([ContrastLevel.Standard, ContrastLevel.High])(
+    'keeps the recording lamp as visible as the accent on every surface at %s contrast',
+    (contrast) => {
+      // The record lamp and the recording status item are drawn, not written,
+      // so they are held to what the accent is held to at each level, and keep
+      // the recording red whatever the accent is.
+      const needed =
+        contrast === ContrastLevel.High
+          ? ContrastRequirement.BodyText
+          : ContrastRequirement.LargeText;
+      const failures: string[] = [];
+      for (const combination of combinations) {
+        const { chrome } = paletteFor(combination, contrast);
+        expect(chrome.statusRecording.hue).toBeCloseTo(25, 5);
+        for (const surfaceName of SURFACES) {
+          const ratio = contrastRatio(chrome.statusRecording, chrome[surfaceName]);
+          if (ratio < needed) {
+            failures.push(
+              `${combination.dark ? 'dark' : 'light'}/${combination.accent}/` +
+                `${combination.brightness.toFixed(1)}: statusRecording on ${surfaceName} is ${ratio.toFixed(2)}`,
+            );
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    },
+  );
+
+  it('draws every fill and edge as a token colour at a translucency, never solid', () => {
+    // Owner's finding, 2026-10-17: a fill takes up the backdrop behind it.
+    for (const combination of combinations) {
+      for (const contrast of [ContrastLevel.Standard, ContrastLevel.High]) {
+        const { chrome, elevation } = paletteFor(combination, contrast);
+        const translucent = {
+          fillQuiet: chrome.fillQuiet,
+          fillHover: chrome.fillHover,
+          fillPress: chrome.fillPress,
+          fillWell: chrome.fillWell,
+          fillAccent: chrome.fillAccent,
+          edgeQuiet: chrome.edgeQuiet,
+          edgeAccent: chrome.edgeAccent,
+          scrim: chrome.scrim,
+          ...elevation,
+        };
+        for (const [token, colour] of Object.entries(translucent)) {
+          expect(colour.alpha, token).toBeGreaterThan(0);
+          expect(colour.alpha, token).toBeLessThan(1);
+        }
+        expect(chrome.fillQuiet.lightness).toBe(chrome.textPrimary.lightness);
+        expect(chrome.fillAccent.lightness).toBe(chrome.accent.lightness);
+        expect(chrome.scrim.lightness).toBe(chrome.surfaceSunken.lightness);
+      }
+    }
   });
 
   it('reaches enhanced contrast for body text in high-contrast mode', () => {
@@ -494,7 +588,7 @@ describe('the editing palettes', () => {
   it('moves the selection wash with brightness and high contrast, as every token does', () => {
     // The wash was the one token built without brightness and contrast, so it
     // stayed the same whatever the user chose.
-    const base = { dark: true, accent: 'blue' as const, contrast: ContrastLevel.Standard };
+    const base = { dark: true, accent: 'teal' as const, contrast: ContrastLevel.Standard };
     const designed = buildPalette({ ...base, brightness: 0 }).selection.fill;
     const brighter = buildPalette({ ...base, brightness: 1 }).selection.fill;
     const high = buildPalette({ ...base, brightness: 0, contrast: ContrastLevel.High }).selection
@@ -522,44 +616,66 @@ describe('the editing palettes', () => {
     }
   });
 
-  it('keeps the waveform legible against its own background', () => {
-    for (const accent of ACCENTS) {
-      for (const brightness of BRIGHTNESS_STEPS) {
-        const { waveform } = buildPalette({
-          dark: true,
-          accent,
-          brightness,
-          contrast: ContrastLevel.Standard,
-        });
-        expect(contrastRatio(waveform.peak, waveform.background)).toBeGreaterThanOrEqual(
-          ContrastRequirement.LargeText,
-        );
+  it('keeps the waveform and the selection handles legible against the display, on both displays', () => {
+    // Asked of the dark display alone, this could not see the paper-white one,
+    // where the designed peak is under 3 to 1 at the shipped brightness.
+    const failures: string[] = [];
+    for (const dark of [true, false]) {
+      for (const contrast of [ContrastLevel.Standard, ContrastLevel.High]) {
+        for (const accent of ACCENTS) {
+          for (const brightness of BRIGHTNESS_STEPS) {
+            const { waveform, selection } = buildPalette({ dark, accent, brightness, contrast });
+            for (const [token, colour] of [
+              ['peak', waveform.peak],
+              ['handle', selection.handle],
+            ] as const) {
+              const ratio = contrastRatio(colour, waveform.background);
+              if (ratio < ContrastRequirement.LargeText) {
+                failures.push(
+                  `${dark ? 'dark' : 'light'}/${contrast}/${accent}/${brightness.toFixed(1)}: ` +
+                    `${token} is ${ratio.toFixed(2)}`,
+                );
+              }
+            }
+          }
+        }
       }
     }
+    expect(failures).toEqual([]);
   });
 
-  it('rises monotonically through the spectrogram ramp', () => {
-    // A ramp that dips makes two different magnitudes look identical.
-    for (const dark of [true, false]) {
+  it.each([
+    { dark: true, direction: 1 },
+    { dark: false, direction: -1 },
+  ])(
+    'moves monotonically away from silence through the spectrogram ramp (dark: $dark)',
+    ({ dark, direction }) => {
+      // A ramp that doubles back makes two different magnitudes look identical.
+      // It rises in lightness on the dark display and falls on the paper-white
+      // one, so in both the loudest energy is the strongest contrast against
+      // silence.
       const { spectrogram } = buildPalette({
         dark,
-        accent: 'blue',
+        accent: 'teal',
         brightness: 0,
         contrast: ContrastLevel.Standard,
       });
+      const [silence] = spectrogram;
 
       for (let index = 1; index < spectrogram.length; index += 1) {
-        expect(spectrogram[index]?.lightness).toBeGreaterThan(
-          spectrogram[index - 1]?.lightness ?? 1,
-        );
+        const step = spectrogram[index];
+        const before = spectrogram[index - 1];
+        if (step === undefined || before === undefined) throw new Error('A stop is missing.');
+        expect(Math.sign(step.lightness - before.lightness)).toBe(direction);
+        expect(contrastRatio(step, silence)).toBeGreaterThan(contrastRatio(before, silence));
       }
-    }
-  });
+    },
+  );
 
   it('keeps the selection translucent, so the material under it stays readable', () => {
     const { selection } = buildPalette({
       dark: true,
-      accent: 'blue',
+      accent: 'teal',
       brightness: 0,
       contrast: ContrastLevel.Standard,
     });
@@ -570,7 +686,7 @@ describe('the editing palettes', () => {
   it('gives every category colour a distinct hue', () => {
     const { category } = buildPalette({
       dark: true,
-      accent: 'blue',
+      accent: 'teal',
       brightness: 0,
       contrast: ContrastLevel.Standard,
     });
@@ -578,25 +694,55 @@ describe('the editing palettes', () => {
     expect(new Set(hues).size).toBe(hues.length);
   });
 
-  it('does not derive the waveform background from the chrome surface', () => {
-    // REQ-UX-070 keeps the editing palettes independent. Switching to the light
-    // theme must not give the waveform a white background.
+  it('gives each theme a display of its own, not the chrome surface behind it', () => {
+    // REQ-UX-070 keeps the editing palettes independent of the chrome, and the
+    // owner's decision of 2026-10-16 gives the light theme a light display of
+    // its own: paper white, not the chrome's grey and not the dark display.
     const dark = buildPalette({
       dark: true,
-      accent: 'blue',
+      accent: 'teal',
       brightness: 0,
       contrast: ContrastLevel.Standard,
     });
     const light = buildPalette({
       dark: false,
-      accent: 'blue',
+      accent: 'teal',
       brightness: 0,
       contrast: ContrastLevel.Standard,
     });
 
-    expect(light.waveform.background.lightness).toBeLessThan(0.4);
-    expect(light.chrome.surfaceBase.lightness).toBeGreaterThan(0.8);
-    expect(dark.waveform.background.lightness).toBeLessThan(0.4);
+    expect(dark.waveform.background.lightness).toBeCloseTo(0.13, 5);
+    expect(light.waveform.background.lightness).toBeCloseTo(0.98, 5);
+    for (const surface of Object.values(light.chrome)) {
+      expect(light.waveform.background).not.toEqual(surface);
+    }
+    // The body inside the envelope is the stronger mark on both displays:
+    // lighter than the peak on the dark one, darker on the light one.
+    expect(dark.waveform.rms.lightness).toBeGreaterThan(dark.waveform.peak.lightness);
+    expect(light.waveform.rms.lightness).toBeLessThan(light.waveform.peak.lightness);
+    expect(light.meter.background.lightness).toBeGreaterThan(0.8);
+  });
+
+  it('keeps the display surfaces apart at every brightness, on both displays', () => {
+    // The wash where peaks are not yet known and the zero line are steps from
+    // the background, so a brightness that carries the paper-white background
+    // to white cannot carry them onto it. Stated as lightnesses of their own,
+    // they reached white with it at the top of the control.
+    const collapsed: string[] = [];
+    for (const dark of [true, false]) {
+      for (const contrast of [ContrastLevel.Standard, ContrastLevel.High]) {
+        for (const brightness of BRIGHTNESS_STEPS) {
+          const { waveform } = buildPalette({ dark, accent: 'teal', brightness, contrast });
+          const lightnesses = [waveform.background, waveform.pending, waveform.centreLine].map(
+            (colour) => colour.lightness.toFixed(3),
+          );
+          if (new Set(lightnesses).size !== lightnesses.length) {
+            collapsed.push(`${dark ? 'dark' : 'light'} ${contrast} ${brightness.toFixed(1)}`);
+          }
+        }
+      }
+    }
+    expect(collapsed).toEqual([]);
   });
 });
 
@@ -645,8 +791,11 @@ describe('custom properties', () => {
     expect(properties['--ag-motion-quick']).toMatch(/ms$/);
   });
 
-  it('emits line height without a unit, because it is a multiple', () => {
-    expect(properties['--ag-text-line-height']).not.toMatch(/px|ms/);
+  it('emits line heights and weights without a unit, because each is a multiple or a number', () => {
+    for (const role of ['body', 'tight', 'heading', 'readout']) {
+      expect(properties[`--ag-text-line-height-${role}`]).toMatch(/^\d+(\.\d+)?$/);
+    }
+    expect(properties['--ag-text-weight-control']).toBe('550');
   });
 
   it('changes value, not name, when the theme changes', () => {

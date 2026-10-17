@@ -1,0 +1,32 @@
+/*
+ * The glyph sheet of the foundation's specimens: each glyph above its name, eight
+ * to a row, which fills the inventory at the capture's viewport.
+ */
+
+.inventory-glyphs {
+  display: grid;
+  grid-template-columns: repeat(8, calc(var(--ag-grid-unit) * 64));
+  gap: var(--ag-space-medium);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inventory-glyph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+.inventory-glyph-name {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  line-height: var(--ag-text-line-height-tight);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.inventory-hidden-text {
+  margin: 0;
+}

@@ -1,0 +1,55 @@
+/* One literal of each kind, each on its own line, which the rule must refuse. */
+.literal-hex {
+  color: #1c1d22;
+}
+.literal-rgb {
+  background-color: rgb(255 0 0 / 0.5);
+}
+.literal-hsl {
+  border-color: hsl(210 20% 30%);
+}
+.literal-oklch {
+  outline-color: oklch(70% 0.1 195);
+}
+.literal-named {
+  color: rebeccapurple;
+}
+.literal-px {
+  padding: 6px;
+}
+.literal-rem {
+  min-inline-size: 12rem;
+}
+.literal-em {
+  letter-spacing: 0.06em;
+}
+.literal-in-calc {
+  inline-size: calc(100% - 2px);
+}
+.literal-fallback {
+  block-size: var(--ag-control-height, 28px);
+}
+.literal-ms {
+  transition: opacity 120ms ease-out;
+}
+.literal-s {
+  animation-duration: 0.3s;
+}
+.literal-shadow {
+  box-shadow: 0 0 0 var(--ag-focus-ring-width) var(--ag-chrome-border-focus);
+  box-shadow: 0 4px 12px var(--ag-chrome-shadow);
+}
+.literal-drop-shadow {
+  filter: drop-shadow(0 0 4px var(--ag-chrome-accent));
+}
+.literal-custom-property {
+  --ag-knob-size: 40px;
+}
+@media (any-pointer: coarse) {
+  .literal-nested {
+    margin: 3px;
+  }
+}
+.literal-viewport-share {
+  max-block-size: 85dvh;
+}

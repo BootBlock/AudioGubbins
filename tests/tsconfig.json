@@ -7,10 +7,12 @@
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "emitDeclarationOnly": true,
     "allowJs": true,
+    "jsx": "react-jsx",
     "types": ["node", "vitest/globals"]
   },
   "include": [
     "**/*.ts",
+    "**/*.tsx",
     "../tools/build-encoder-modules.mjs",
     "../tools/build-wasm.mjs",
     "../tools/check-build-output.mjs",
@@ -36,6 +38,9 @@
     },
     {
       "path": "../packages/commands"
+    },
+    {
+      "path": "../packages/design-system"
     },
     {
       "path": "../packages/input"

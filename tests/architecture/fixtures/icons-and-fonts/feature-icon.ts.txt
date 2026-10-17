@@ -1,0 +1,4 @@
+/** A feature drawing a Lucide glyph itself, past the design system's vocabulary. */
+import { Play } from 'lucide-react';
+
+export const glyph = Play;

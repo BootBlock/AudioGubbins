@@ -21,14 +21,9 @@
  * survives.
  */
 
-import {
-  ContrastRequirement,
-  contrastSolver,
-  hardestFor,
-  oklch,
-  scaleChroma,
-  type Oklch,
-} from './colour.js';
+import { buildAccent, type EnsureContrast } from './accent.js';
+import { contrastSolver, hardestFor, oklch, scaleChroma, withAlpha, type Oklch } from './colour.js';
+import { REQUIREMENTS } from './contrast-requirements.js';
 import { ACCENT_HUES, ContrastLevel, type AccentName } from './preferences.js';
 
 /** Colours the application chrome uses. */
@@ -87,17 +82,56 @@ export type ChromePalette = {
   /** A tinted surface carrying the accent without shouting. */
   readonly accentSubtle: Oklch;
 
+  /**
+   * The accent written as small text: a tag, an accent badge, a template
+   * token, a palette match. The accent itself is solved to the 3 to 1 of
+   * something large or drawn, and small text is held to 4.5 to 1.
+   */
+  readonly accentText: Oklch;
+
+  /** The call to action's second hue: the accent mixed with the backdrop's rose. */
+  readonly accentPartner: Oklch;
+
+  /** A resting secondary button, select, badge or key cap: text at a high translucency. */
+  readonly fillQuiet: Oklch;
+
+  /** A fill under the pointer. */
+  readonly fillHover: Oklch;
+
+  /** A pressed fill, a chosen plain segment. */
+  readonly fillPress: Oklch;
+
+  /** A well: a field, a segmented control, a readout, a tree. */
+  readonly fillWell: Oklch;
+
+  /** A toggled icon button, a selected item's base. */
+  readonly fillAccent: Oklch;
+
+  /** A glass edge. */
+  readonly edgeQuiet: Oklch;
+
+  /** The edge of an accent fill. */
+  readonly edgeAccent: Oklch;
+
   readonly statusError: Oklch;
   readonly statusWarning: Oklch;
   readonly statusSuccess: Oklch;
   readonly statusInfo: Oklch;
 
   /**
+   * The record lamp, the recording status item, a shortcut being recorded.
+   * Its own token rather than the meter's clip colour it starts from, so the
+   * two can differ.
+   */
+  readonly statusRecording: Oklch;
+
+  /**
    * The veil behind a modal dialogue, dimming what it blocks.
    *
-   * A token rather than a literal in the stylesheet, so a theme decides it:
-   * high contrast darkens it, because a dialogue that is harder to tell from
-   * the page behind it is harder to read.
+   * The sunken surface at a translucency, so it is frosted in the theme's own
+   * colour rather than blacked out. A theme decides it: high contrast makes it
+   * more opaque, because a dialogue that is harder to tell from the page behind
+   * it is harder to read.
    */
   readonly scrim: Oklch;
 
@@ -157,51 +191,12 @@ const SURFACES = {
   },
 } as const;
 
-/** Surface hue and chroma. A faint tint; neutral grey reads as dead. */
-const SURFACE_HUE = { dark: 255, light: 250 } as const;
+/**
+ * Surface hue and chroma. A faint tint; neutral grey reads as dead. The hue is
+ * the hardware materials' too, so metal sits in the same light as the panels.
+ */
+export const SURFACE_HUE = { dark: 255, light: 250 } as const;
 const SURFACE_CHROMA = { dark: 0.012, light: 0.006 } as const;
-
-/**
- * The contrast each token class must reach, by contrast level.
- *
- * `statusText` is its own class because a status colour is written as small
- * text: it names a state in the status bar and it also draws whole paragraphs
- * of `--ag-text-small` in the settings. Solved as an accent, it would be
- * guaranteed only the 3 to 1 of something large or drawn, where WCAG 1.4.3 asks
- * 4.5 to 1 of text this size. It stays at 4.5 in high contrast rather than
- * rising to 7: measured over every accent and brightness step, the solver
- * reaches about 6.9 at best for these hues, and a status colour that has lost
- * its hue no longer says which state it is.
- */
-const REQUIREMENTS = {
-  [ContrastLevel.Standard]: {
-    primaryText: ContrastRequirement.BodyText,
-    secondaryText: ContrastRequirement.BodyText,
-    statusText: ContrastRequirement.BodyText,
-    accent: ContrastRequirement.LargeText,
-    strongBorder: ContrastRequirement.LargeText,
-  },
-  [ContrastLevel.High]: {
-    primaryText: ContrastRequirement.Enhanced,
-    secondaryText: ContrastRequirement.Enhanced,
-    statusText: ContrastRequirement.BodyText,
-    accent: ContrastRequirement.BodyText,
-    strongBorder: ContrastRequirement.BodyText,
-  },
-} as const;
-
-/**
- * The contrast body text and supporting text must reach at `level`, which text
- * holds wherever it is written: on the chrome, and on the editing palettes' own
- * surfaces.
- */
-export function textRequirements(level: ContrastLevel): {
-  readonly primary: number;
-  readonly secondary: number;
-} {
-  const requirement = REQUIREMENTS[level];
-  return { primary: requirement.primaryText, secondary: requirement.secondaryText };
-}
 
 /** How much high-contrast mode reduces colour, which impedes reading. */
 const HIGH_CONTRAST_CHROMA_FACTOR = 0.6;
@@ -212,7 +207,60 @@ function positionInBand(brightness: number): number {
 }
 
 /** How opaque the dialogue scrim is, by contrast level. */
-const SCRIM_ALPHA = { [ContrastLevel.Standard]: 0.5, [ContrastLevel.High]: 0.7 } as const;
+const SCRIM_ALPHA = { [ContrastLevel.Standard]: 0.55, [ContrastLevel.High]: 0.7 } as const;
+
+/**
+ * The translucencies of the fills and edges, by theme (design language,
+ * section 5). A fill takes up the backdrop behind it, so it is a token colour
+ * at a high translucency rather than a solid colour.
+ */
+const TRANSLUCENCY = {
+  dark: {
+    quiet: 0.07,
+    hover: 0.11,
+    press: 0.15,
+    well: 0.55,
+    accent: 0.2,
+    edge: 0.13,
+    accentEdge: 0.42,
+  },
+  light: {
+    quiet: 0.06,
+    hover: 0.09,
+    press: 0.15,
+    well: 0.45,
+    accent: 0.16,
+    edge: 0.13,
+    accentEdge: 0.42,
+  },
+} as const;
+
+/** The hue of the recording state: the meter's clip red. */
+export const RECORDING_HUE = 25;
+
+/** The fills and edges, each a token colour at the theme's translucency for it. */
+function translucentFills(
+  textPrimary: Oklch,
+  accent: Oklch,
+  surfaceSunken: Oklch,
+  dark: boolean,
+): Pick<
+  ChromePalette,
+  'fillQuiet' | 'fillHover' | 'fillPress' | 'fillWell' | 'fillAccent' | 'edgeQuiet' | 'edgeAccent'
+> {
+  const translucency = dark ? TRANSLUCENCY.dark : TRANSLUCENCY.light;
+  return {
+    fillQuiet: withAlpha(textPrimary, translucency.quiet),
+    fillHover: withAlpha(textPrimary, translucency.hover),
+    fillPress: withAlpha(textPrimary, translucency.press),
+    // A well is recessed: the sunken surface in the dark theme, and white in
+    // the light theme, where a well is lighter than the panel it is cut into.
+    fillWell: withAlpha(dark ? surfaceSunken : oklch(1, 0, 0), translucency.well),
+    fillAccent: withAlpha(accent, translucency.accent),
+    edgeQuiet: withAlpha(textPrimary, translucency.edge),
+    edgeAccent: withAlpha(accent, translucency.accentEdge),
+  };
+}
 
 /**
  * Builds the chrome palette.
@@ -225,7 +273,7 @@ export function buildChrome(
   options: ChromeOptions,
   solver: ReturnType<typeof contrastSolver> = contrastSolver(),
 ): ChromePalette {
-  const ensureContrast = (token: string, colour: Oklch, background: Oklch, requirement: number) =>
+  const ensureContrast: EnsureContrast = (token, colour, background, requirement) =>
     solver.solve(token, colour, background, requirement);
   const scheme = options.dark ? SURFACES.dark : SURFACES.light;
   const hue = options.dark ? SURFACE_HUE.dark : SURFACE_HUE.light;
@@ -285,42 +333,9 @@ export function buildChrome(
   // whatever the brightness leaves.
   const textDisabled = oklch(base + (options.dark ? 0.3 : -0.28), 0.006, hue);
 
+  const { accent, accentHover, accentActive, accentText, accentPartner, textOnAccent } =
+    buildAccent(options, { everySurface, surfaceRaised }, ensureContrast);
   const accentHue = ACCENT_HUES[options.accent];
-  const accentChroma = high ? 0.12 : 0.17;
-
-  // The accent must stay visible as a focus ring against every surface a
-  // focused or highlighted thing sits on, so it is solved against whichever of
-  // them it is nearest rather than against the raised one alone: a menu, a
-  // select list and the palette draw on the overlay surface; the entry the
-  // keyboard is on draws on the hover surface; and a control being pressed
-  // draws on the active surface, which in both themes is the furthest from the
-  // raised one and the hardest for the ring. Computing its lightness here is
-  // what keeps the ring visible at the light end of the brightness range,
-  // where a designed accent would be swallowed by the surface.
-  const accentSeed = oklch(options.dark ? 0.7 : 0.52, accentChroma, accentHue);
-  const accent = ensureContrast(
-    'accent',
-    accentSeed,
-    hardestFor(accentSeed, everySurface),
-    requirement.accent,
-  );
-
-  // Hover and active move away from and towards the surface respectively, so
-  // the three states stay distinguishable whichever direction the accent had to
-  // move to meet its contrast.
-  const accentStep = options.dark ? 0.06 : -0.06;
-  const accentHover = ensureContrast(
-    'accentHover',
-    oklch(accent.lightness + accentStep, accentChroma, accentHue),
-    surfaceRaised,
-    requirement.accent,
-  );
-  const accentActive = ensureContrast(
-    'accentActive',
-    oklch(accent.lightness - accentStep, accentChroma, accentHue),
-    surfaceRaised,
-    requirement.accent,
-  );
 
   const borderStrong = ensureContrast(
     'borderStrong',
@@ -336,7 +351,7 @@ export function buildChrome(
    * colour names a state in a word in the status bar, and it also draws whole
    * paragraphs of small text: the reserved-shortcut notes, the notes about
    * what is waiting, the recorder's refusal and the reason under a button that
-   * cannot run are all `--ag-text-small` in a status colour. WCAG 1.4.3 asks
+   * cannot run are all `--ag-text-label` in a status colour. WCAG 1.4.3 asks
    * 4.5 to 1 of small text, and the 3 to 1 an accent is solved against is the
    * ratio for something large or for a thing drawn rather than written.
    */
@@ -344,6 +359,17 @@ export function buildChrome(
     const seed = oklch(options.dark ? 0.72 : 0.5, high ? 0.14 : 0.19, statusHue);
     return ensureContrast(token, seed, hardestFor(seed, everySurface), requirement.statusText);
   };
+
+  // A lamp and an LED rather than words: the recording item's text is the
+  // primary text over a wash of this, so it is held to what a drawn thing is,
+  // as the accent is, from the meter's clip lightness.
+  const recordingSeed = oklch(0.65, high ? 0.14 : 0.23, RECORDING_HUE);
+  const statusRecording = ensureContrast(
+    'statusRecording',
+    recordingSeed,
+    hardestFor(recordingSeed, everySurface),
+    requirement.accent,
+  );
 
   return {
     surfaceBase,
@@ -362,14 +388,7 @@ export function buildChrome(
     textSecondary,
     textDisabled,
 
-    // Text on the accent is chosen against the accent's own lightness, because
-    // a light accent in a dark theme still needs dark text on it.
-    textOnAccent: ensureContrast(
-      'textOnAccent',
-      accent.lightness > 0.6 ? oklch(0.12, 0.01, accentHue) : oklch(0.99, 0, 0),
-      accent,
-      ContrastRequirement.LargeText,
-    ),
+    textOnAccent,
 
     accent,
     accentHover,
@@ -378,13 +397,18 @@ export function buildChrome(
       oklch(base + (options.dark ? 0.12 : -0.03), 0.06, accentHue),
       high ? HIGH_CONTRAST_CHROMA_FACTOR : 1,
     ),
+    accentText,
+    accentPartner,
+
+    ...translucentFills(textPrimary, accent, surfaceSunken, options.dark),
 
     statusError: status('statusError', 25),
     statusWarning: status('statusWarning', 75),
     statusSuccess: status('statusSuccess', 150),
     statusInfo: status('statusInfo', 230),
+    statusRecording,
 
-    scrim: oklch(0, 0, 0, SCRIM_ALPHA[options.contrast]),
+    scrim: withAlpha(surfaceSunken, SCRIM_ALPHA[options.contrast]),
     shadow: oklch(0, 0, 0, options.dark ? 0.35 : 0.2),
   };
 }

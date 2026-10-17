@@ -1,0 +1,3 @@
+/** A feature declaring a font face itself, past the design system's stylesheet. */
+import '@fontsource-variable/inter';
+import '@fontsource/jetbrains-mono/400.css';

@@ -160,7 +160,7 @@ describe('the preferences record', () => {
     store.keepExportPreset('Master', EDITED);
     store.reset();
 
-    expect(store.get().accent).toBe('blue');
+    expect(store.get().accent).toBe('teal');
     expect(store.get().exportPresets).toHaveLength(1);
   });
 

@@ -159,11 +159,14 @@ export interface ThemePreferences {
   readonly motion?: MotionLevel;
 }
 
-/** How AudioGubbins looks before a user changes anything. */
+/**
+ * How AudioGubbins looks before a user changes anything. Teal is the shipped
+ * accent (design language, section 5).
+ */
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   schemaVersion: SCHEMA_VERSIONS.userPreferences,
   mode: ThemeMode.Dark,
-  accent: 'blue',
+  accent: 'teal',
   brightness: 0,
   density: Density.Comfortable,
 };

@@ -184,7 +184,7 @@ export function StatusBar({
   // the bar and over the Dismiss buttons in it, which would fail WCAG 2.4.11
   // for anything focused there. The bar wraps its notices and grows to a third
   // of the screen, so a fixed offset would be wrong at every size but one.
-  usePublishedBlockSize(bar, '--ag-status-bar-block-size');
+  usePublishedBlockSize(bar, '--ag-status-bar-drawn-block-size');
 
   return (
     <footer className="ag-status-bar" ref={bar} tabIndex={focus.tabIndex} aria-label="Status">

@@ -1,0 +1,743 @@
+/*
+ * The surfaces that float above the workspace: menus, the menu bar, tooltips,
+ * popovers, hints and the modal dialogue (design language, sections 6, 10 and
+ * 11; MotionSpec, menu and context transitions and the shell animations).
+ *
+ * Every one of them is frosted glass: the backdrop shows blurred through it.
+ * Every value reads a token; a length that is not a token is a multiple of the
+ * grid unit, written as one.
+ */
+
+/* ---------- Glass ---------- */
+
+.ag-menu,
+.ag-select-content,
+.ag-popover,
+.ag-rich-tooltip,
+.ag-dialog {
+  background-color: var(--ag-elevation-overlay-fill);
+  -webkit-backdrop-filter: var(--ag-elevation-overlay-backdrop);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+  border: var(--ag-space-hair) solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-container);
+  box-shadow: var(--ag-elevation-overlay-shadow);
+  color: var(--ag-chrome-text-primary);
+}
+
+/* ---------- Motion ----------
+
+   Radix keeps a closing surface mounted until its CSS animation ends and
+   ignores transitions, so entry and exit are keyframes on its state, under two
+   different names: with one name for both, the animation would not change as
+   the surface closed, and Radix would unmount it at once.
+
+   An overlay grows from its origin, the point Radix measured on its trigger,
+   travelling away from the trigger as it fades in. The travel and the scale are
+   tokens that are 0 and 1 below the full motion level, so the same rule only
+   fades at Reduced; at Minimal every duration is 0. */
+
+@keyframes ag-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translate(var(--ag-overlay-travel-x, 0), var(--ag-overlay-travel-y, 0))
+      scale(var(--ag-overlay-scale, 1));
+  }
+}
+
+@keyframes ag-overlay-exit {
+  to {
+    opacity: 0;
+    transform: scale(var(--ag-overlay-scale, 1));
+  }
+}
+
+.ag-overlay {
+  --ag-overlay-scale: var(--ag-motion-scale-overlay);
+
+  transform-origin: var(--radix-popper-transform-origin);
+}
+
+.ag-overlay[data-side='bottom'] {
+  --ag-overlay-travel-y: calc(-1 * var(--ag-motion-distance-small));
+}
+
+.ag-overlay[data-side='top'] {
+  --ag-overlay-travel-y: var(--ag-motion-distance-small);
+}
+
+.ag-overlay[data-side='right'] {
+  --ag-overlay-travel-x: calc(-1 * var(--ag-motion-distance-small));
+}
+
+.ag-overlay[data-side='left'] {
+  --ag-overlay-travel-x: var(--ag-motion-distance-small);
+}
+
+.ag-overlay:is([data-state='open'], [data-state='delayed-open'], [data-state='instant-open']) {
+  animation: ag-overlay-enter var(--ag-motion-quick) var(--ag-motion-ease-out);
+}
+
+.ag-overlay[data-state='closed'] {
+  animation: ag-overlay-exit var(--ag-motion-instant) var(--ag-motion-ease-in) forwards;
+}
+
+/* A tooltip fades in rising, without growing, over the shortest duration. */
+.ag-overlay.ag-tooltip,
+.ag-overlay.ag-rich-tooltip {
+  --ag-overlay-scale: 1;
+}
+
+.ag-overlay.ag-tooltip:is([data-state='delayed-open'], [data-state='instant-open']),
+.ag-overlay.ag-rich-tooltip:is([data-state='delayed-open'], [data-state='instant-open']) {
+  animation-duration: var(--ag-motion-instant);
+}
+
+/* ---------- Menus ---------- */
+
+.ag-menu,
+.ag-select-content {
+  box-sizing: border-box;
+  min-inline-size: calc(130 * var(--ag-grid-unit));
+  padding: var(--ag-space-inset);
+
+  /* A menu taller than the window scrolls rather than running off it. The
+     variable is the room the primitive measured between the trigger and the
+     edge of the window, so the last entry of a long menu is reachable on a
+     short window and on a touch screen, where every row is drawn at the touch
+     target and a menu is half as long again. */
+  max-block-size: var(--radix-popper-available-height, 100dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ag-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-hair);
+}
+
+/* One row: an optional glyph, the name with the reason an unavailable entry
+   gives under it, and the shortcut at the trailing end, the shortcut kept to
+   the first line however the reason wraps. The reason stays where it is in the
+   entry's text, after the shortcut, so the accessible name reads as before. */
+.ag-menu-item,
+.ag-select-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label keys'
+    'reason keys';
+  align-items: center;
+  column-gap: var(--ag-space-medium);
+
+  box-sizing: border-box;
+  min-block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  line-height: var(--ag-text-line-height-tight);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ag-menu[data-ag-glyphs] .ag-menu-item,
+.ag-select-content[data-ag-glyphs] .ag-select-item {
+  grid-template-columns: var(--ag-control-icon-size) minmax(0, 1fr) auto;
+  grid-template-areas:
+    'glyph label keys'
+    'glyph reason keys';
+}
+
+.ag-menu-item-glyph {
+  grid-area: glyph;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-menu-item-label {
+  grid-area: label;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-menu-item-shortcut {
+  grid-area: keys;
+  align-self: center;
+  margin-inline-start: calc(12 * var(--ag-grid-unit) - var(--ag-space-medium));
+  color: var(--ag-chrome-text-secondary);
+}
+
+/*
+ * Why an entry cannot be chosen: under its name in the warning colour, while
+ * the keyboard is on it. Text rather than an attribute, because an attribute
+ * that could carry this is not implemented outside Chromium and sits on an
+ * element a keyboard user cannot reach; out of sight rather than absent while
+ * the entry is not highlighted, so it stays part of the entry's accessible
+ * name.
+ */
+.ag-menu-item-reason {
+  grid-area: reason;
+  font-size: var(--ag-text-caption);
+  line-height: var(--ag-text-line-height-tight);
+  color: var(--ag-chrome-status-warning);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ag-menu-item:not([data-highlighted]) .ag-menu-item-reason {
+  position: absolute;
+  inline-size: var(--ag-space-hair);
+  block-size: var(--ag-space-hair);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ag-menu-item[data-ag-unavailable][data-highlighted] {
+  padding-block: var(--ag-space-tiny);
+}
+
+.ag-menu-item[data-ag-unavailable],
+.ag-menu-item[data-ag-unavailable] :is(.ag-menu-item-glyph, .ag-menu-item-shortcut) {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-menu-item:is([data-highlighted]):not([data-ag-unavailable]) .ag-menu-item-shortcut {
+  color: var(--ag-chrome-text-primary);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+/* Where the keyboard is. The row takes DOM focus as it is highlighted, and the
+   lit edge (`lit-edge.css`) is its mark, drawn inside the row so the list that
+   scrolls it never clips it; the band every other focused control draws
+   outside itself is not drawn here. The transparent outline inside the row is
+   what forced colours paint (`tokens.css`), in longhands because an `outline`
+   shorthand holding a custom property loses its width in the build's CSS
+   pass. */
+.ag-menu-item[data-highlighted],
+.ag-select-item[data-highlighted] {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: transparent;
+  outline-offset: calc(var(--ag-focus-ring-width) * -1);
+}
+
+[data-ag-theme] .ag-menu-item:focus-visible,
+[data-ag-theme] .ag-select-item:focus-visible {
+  box-shadow: var(--ag-effect-lit-glow);
+}
+
+[data-ag-theme] .ag-menu-item[data-ag-unavailable]:focus-visible {
+  box-shadow: inset 0 0 0 var(--ag-space-hair) var(--ag-chrome-border-subtle);
+}
+
+/* A group's name, at its head. Not an entry: it takes no focus and no press. */
+.ag-menu-label {
+  padding: calc(3 * var(--ag-grid-unit)) var(--ag-space-inset) calc(2 * var(--ag-grid-unit));
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  line-height: var(--ag-text-line-height-tight);
+  text-transform: uppercase;
+}
+
+/* A hairline across the menu's whole inner width. */
+.ag-menu-separator {
+  flex: none;
+  block-size: var(--ag-space-hair);
+  margin: calc(2 * var(--ag-grid-unit)) calc(-1 * var(--ag-space-inset));
+  background-color: var(--ag-chrome-border-subtle);
+}
+
+/* ---------- Key caps ---------- */
+
+.ag-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  white-space: nowrap;
+}
+
+.ag-key {
+  padding: var(--ag-space-hair) calc(2.5 * var(--ag-grid-unit));
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-fill-quiet);
+  color: var(--ag-chrome-text-secondary);
+  font-family: var(--ag-font-numeric);
+  font-size: var(--ag-text-caption);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: calc(var(--ag-text-tracking-caps) / 3);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+/* In a menu row the shortcut is set as text, the presses apart, without a
+   cap's fill and edge: the approved menus draw it so, quieter than the name. */
+.ag-menu-item-shortcut .ag-key {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+/* ---------- Tooltips ---------- */
+
+.ag-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-inset);
+  box-sizing: border-box;
+  max-inline-size: calc(150 * var(--ag-grid-unit));
+
+  /* A text chip's optical padding (design language, section 1). */
+  padding: calc(2.5 * var(--ag-grid-unit)) calc(4.5 * var(--ag-grid-unit));
+  border: var(--ag-space-hair) solid var(--ag-elevation-overlay-edge);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-elevation-tooltip-fill);
+  -webkit-backdrop-filter: var(--ag-elevation-overlay-backdrop);
+  backdrop-filter: var(--ag-elevation-overlay-backdrop);
+  box-shadow: var(--ag-elevation-tooltip-shadow);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-tight);
+}
+
+/* The rich variant: a name over what it does. */
+.ag-tooltip[data-ag-rich] {
+  gap: var(--ag-space-large);
+  padding: calc(4 * var(--ag-grid-unit)) calc(5 * var(--ag-grid-unit));
+}
+
+.ag-tooltip-text {
+  display: grid;
+  gap: var(--ag-space-hair);
+}
+
+.ag-tooltip[data-ag-rich] .ag-tooltip-name {
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-tooltip-detail {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-tooltip-arrow {
+  fill: var(--ag-elevation-tooltip-fill);
+}
+
+/* A rich tooltip: a title with its glyph, short paragraphs, code in the token's
+   own style, a short list, and an example below a quiet hairline. */
+.ag-rich-tooltip {
+  display: grid;
+  gap: var(--ag-space-small);
+  box-sizing: border-box;
+  max-inline-size: calc(150 * var(--ag-grid-unit));
+  padding: calc(5 * var(--ag-grid-unit)) calc(6 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-control);
+  box-shadow: var(--ag-elevation-tooltip-shadow);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.ag-rich-tooltip-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-heading);
+  line-height: var(--ag-text-line-height-heading);
+}
+
+.ag-rich-tooltip :is(p, ul) {
+  margin: 0;
+}
+
+.ag-rich-tooltip ul {
+  display: grid;
+  gap: var(--ag-space-micro);
+  padding-inline-start: calc(8 * var(--ag-grid-unit));
+}
+
+.ag-rich-tooltip-example {
+  padding-block-start: var(--ag-space-small);
+  border-block-start: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+}
+
+/* Code in a rich tooltip is drawn as a template token is, so a token named in
+   the explanation looks as it does in the field. */
+.ag-rich-tooltip code {
+  font-family: var(--ag-font-numeric);
+  font-size: calc(100% * var(--ag-text-numeric-ratio));
+  color: var(--ag-chrome-accent-text);
+  border-radius: var(--ag-radius-hairline);
+  box-shadow: var(--ag-effect-token-wash);
+}
+
+/* A template written out in such code is washed once, as a whole. */
+.ag-rich-tooltip code .ag-template-token:not([data-ag-problem]) {
+  box-shadow: none;
+}
+
+/* Why a token is red: error light over the glass, an error edge and title. */
+.ag-rich-tooltip[data-ag-tone='danger'] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-error) 45%, transparent);
+  background-color: color-mix(
+    in oklch,
+    var(--ag-chrome-status-error) 12%,
+    var(--ag-elevation-overlay-fill)
+  );
+}
+
+.ag-rich-tooltip[data-ag-tone='danger'] .ag-rich-tooltip-title {
+  color: var(--ag-chrome-status-error);
+}
+
+/* ---------- Popovers and hints ---------- */
+
+.ag-popover {
+  display: grid;
+  gap: var(--ag-space-small);
+  box-sizing: border-box;
+  max-inline-size: min(
+    calc(160 * var(--ag-grid-unit)),
+    calc(100vw - 2 * var(--ag-space-inset-wide))
+  );
+  padding: var(--ag-space-inset) var(--ag-space-inset-leading);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.ag-popover-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-inset);
+  margin: 0;
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+  line-height: var(--ag-text-line-height-heading);
+}
+
+.ag-popover[data-ag-tone='reason'] .ag-popover-title .ag-icon {
+  color: var(--ag-chrome-status-warning);
+}
+
+.ag-popover-arrow {
+  fill: var(--ag-elevation-overlay-fill);
+}
+
+/* The (i) a standing explanation hides behind. */
+.ag-hint {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: calc(9 * var(--ag-grid-unit));
+  block-size: calc(9 * var(--ag-grid-unit));
+  padding: 0;
+  border: none;
+  border-radius: var(--ag-radius-full);
+  background: transparent;
+  color: var(--ag-chrome-text-secondary);
+  vertical-align: middle;
+  cursor: pointer;
+  transition-property: background-color, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-hint:is(:hover, [data-ag-force-state='hover'] *) {
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-hint:is([data-state='open'], [data-ag-force-state='pressed'] *) {
+  color: var(--ag-chrome-accent);
+  background-color: var(--ag-chrome-accent-subtle);
+}
+
+/* ---------- The menu bar ---------- */
+
+.ag-menu-bar-root {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+}
+
+.ag-menu-bar-trigger {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  block-size: var(--ag-control-height);
+  padding: calc(2 * var(--ag-grid-unit)) calc(5 * var(--ag-grid-unit));
+  border: none;
+  border-radius: var(--ag-radius-control);
+  background: transparent;
+  color: var(--ag-chrome-text-secondary);
+  font: inherit;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition-property: background-color, box-shadow, color;
+  transition-duration: var(--ag-motion-instant);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-menu-bar-trigger:is(:hover, [data-highlighted], [data-ag-force-state='hover'] *) {
+  background-color: var(--ag-chrome-fill-hover);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-menu-bar-trigger:is(:active, [data-ag-force-state='active'] *) {
+  background-color: var(--ag-chrome-fill-press);
+}
+
+.ag-menu-bar-trigger:is([data-state='open'], [data-ag-force-state='pressed'] *) {
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 24%, transparent);
+  box-shadow: inset 0 0 0 var(--ag-space-hair)
+    color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-menu-bar-trigger:disabled {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+/* ---------- The modal dialogue ---------- */
+
+@keyframes ag-scrim-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ag-scrim-exit {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ag-dialogue-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ag-motion-distance-medium)) scale(var(--ag-motion-scale-dialogue));
+  }
+}
+
+@keyframes ag-dialogue-exit {
+  to {
+    opacity: 0;
+    transform: translateY(var(--ag-motion-distance-small));
+  }
+}
+
+.ag-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--ag-chrome-scrim);
+  -webkit-backdrop-filter: var(--ag-elevation-scrim-backdrop);
+  backdrop-filter: var(--ag-elevation-scrim-backdrop);
+}
+
+.ag-dialog-overlay[data-state='open'] {
+  animation: ag-scrim-enter var(--ag-motion-moderate) var(--ag-motion-ease-out);
+}
+
+.ag-dialog-overlay[data-state='closed'] {
+  animation: ag-scrim-exit var(--ag-motion-quick) var(--ag-motion-ease-in) forwards;
+}
+
+.ag-dialog {
+  position: fixed;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+
+  /* Centred by the individual property, so the entry and exit can animate
+     `transform` without moving it off centre. */
+  translate: -50% -50%;
+
+  /* Clear of the window's edges by a wide inset on each side, and the border
+     counted in. Left as a content box, the declared width would grow by two
+     borders, and a fixed, centred box has no scroll position that brings its
+     edges back. */
+  box-sizing: border-box;
+  inline-size: min(calc(100vw - 2 * var(--ag-space-inset-wide)), calc(256 * var(--ag-grid-unit)));
+
+  /* A column: the header, what the dialogue holds, which scrolls, and a footer,
+     which does not. A refusal raised while it is open is in the footer
+     (`.ag-dialog-notice`), above the actions, and scrolled as a whole it would
+     be out of sight whenever the reader pressed a control near the top.
+
+     The dialogue itself scrolls only when the header, the least room the part
+     that scrolls keeps and the footer are together taller than the cap, on a
+     short page or at a large zoom. Hidden, that overflow would cut the actions
+     off with nothing to scroll them back with. */
+  display: flex;
+  flex-direction: column;
+  max-block-size: calc(100dvh - 2 * var(--ag-space-inset-wide));
+  overflow: auto;
+  padding: 0;
+}
+
+.ag-dialog[data-state='open'] {
+  animation: ag-dialogue-enter var(--ag-motion-moderate) var(--ag-motion-ease-out);
+}
+
+.ag-dialog[data-state='closed'] {
+  animation: ag-dialogue-exit var(--ag-motion-quick) var(--ag-motion-ease-in) forwards;
+}
+
+.ag-dialog-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  box-sizing: border-box;
+  min-block-size: calc(var(--ag-control-height) + 2 * var(--ag-space-inset));
+  padding: var(--ag-space-inset) var(--ag-space-inset) var(--ag-space-inset)
+    var(--ag-space-inset-wide);
+}
+
+.ag-dialog-header > .ag-icon {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-dialog-title {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-heading);
+  font-weight: var(--ag-text-weight-heading);
+  letter-spacing: var(--ag-text-tracking-tight);
+  line-height: var(--ag-text-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.ag-dialog-description {
+  margin: 0 0 var(--ag-space-medium);
+  color: var(--ag-chrome-text-secondary);
+  line-height: var(--ag-text-line-height-body);
+}
+
+/* The part that scrolls. Its own scroll container, so a control in it is
+   scrolled into view inside it and can never be scrolled under the footer. Its
+   padding is wider than a focus ring's reach, so the ring of a control at an
+   edge keeps its edges, and it is scrolled to with that room. */
+.ag-dialog-scroll {
+  flex: 1 1 auto;
+
+  /* Room for the tallest control of one line and its focus ring, however
+     tall the footer is: a control of the density's height here, and one
+     drawn at the touch target where a finger is among the inputs (below).
+
+     With no floor, a refusal in the footer of a dialogue on a short page would
+     leave this part a few pixels, and the control the reader is on would be cut
+     to a sliver. */
+  min-block-size: calc(var(--ag-control-height) + 2 * var(--ag-focus-ring-reach));
+  overflow: auto;
+  padding: var(--ag-space-inset) var(--ag-space-inset-wide) var(--ag-space-inset-wide);
+  scroll-padding: var(--ag-focus-ring-reach);
+}
+
+/* A finger among the inputs draws a field, a list and a compact button at the
+   touch target (`.ag-touch-sized`), which is taller than the density's
+   control in either density. */
+@media (any-pointer: coarse) {
+  .ag-dialog-scroll {
+    min-block-size: calc(
+      max(var(--ag-control-height), var(--ag-control-minimum-touch-target)) + 2 *
+        var(--ag-focus-ring-reach)
+    );
+  }
+}
+
+/* The refusal, the status and the actions, below the part that scrolls, split
+   from it by a hairline on sunken glass. The footer never scrolls and has no
+   cap, so it never cuts a refusal, and a control in it can never scroll the
+   refusal away. What does not fit is the dialogue's to scroll.
+
+   A refusal takes the footer's whole width, above the rest; the status or
+   reason leads and the actions trail, and where the dialogue is too narrow for
+   both on one line, the status sits above the actions. */
+.ag-dialog-footer {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-inset);
+  padding: var(--ag-space-inset) var(--ag-space-inset) var(--ag-space-inset)
+    var(--ag-space-inset-wide);
+  border-block-start: var(--ag-space-hair) solid var(--ag-chrome-border-subtle);
+  background-color: color-mix(in oklch, var(--ag-chrome-surface-sunken) 35%, transparent);
+}
+
+.ag-dialog-footer:empty {
+  display: none;
+}
+
+/* The footer's gap is the room between a refusal and what follows it. */
+.ag-dialog-footer > .ag-dialog-notice {
+  flex: 1 0 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.ag-dialog-status {
+  display: flex;
+  flex: 1 1 calc(80 * var(--ag-grid-unit));
+  align-items: center;
+  gap: var(--ag-space-small);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* The safe action first, a destructive action last at the trailing end: the
+   order is the caller's, in the document, so the keyboard meets the buttons in
+   the order the eye does. */
+.ag-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+  margin-inline-start: auto;
+}
+
+/* A short page, such as a phone on its side or a large zoom: the space around
+   the dialogue's parts is what gives way first, before what they say. */
+@media (height < 30rem) {
+  .ag-dialog-header {
+    min-block-size: 0;
+    padding-block: var(--ag-space-tiny);
+  }
+
+  .ag-dialog-scroll {
+    padding-block: var(--ag-space-tiny);
+  }
+
+  .ag-dialog-footer {
+    padding-block: var(--ag-space-tiny);
+  }
+}
+
+/* ---------- Forced states for the inventory ---------- */
+
+/* The component inventory shows the keyboard's ring without a keyboard, on the
+   specimen's wrapper attribute: the same band `tokens.css` draws on
+   `:focus-visible`. */
+[data-ag-theme] [data-ag-force-state='focus-visible'] :is(.ag-hint, .ag-menu-bar-trigger) {
+  box-shadow:
+    0 0 0 var(--ag-focus-ring-offset) var(--ag-focus-ring-surface),
+    0 0 0 var(--ag-focus-ring-reach) var(--ag-chrome-border-focus),
+    var(--ag-focus-halo);
+}

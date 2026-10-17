@@ -21,8 +21,14 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
+
+import { Icon } from '../icons/icon.js';
+import type { IconName } from '../icons/vocabulary.js';
+import { afterAnimations } from './chrome/after-animations.js';
+import { Notice, NoticeTone } from './chrome/notice.js';
 
 /** Something to say to a screen reader. */
 export interface LiveAnnouncement {
@@ -309,46 +315,123 @@ export interface NoticeSurfaceProps {
  */
 export function NoticeSurface({ durationMs }: NoticeSurfaceProps): ReactNode {
   const { notice, owner } = useNoticeChannel('NoticeSurface');
+  const onPage =
+    notice !== undefined && owner?.by === 'the page' && notice.shown !== false ? notice : undefined;
+  const { shown, leaving, leave, card } = useNoticeStay(onPage, durationMs);
 
+  if (shown === undefined) return null;
+
+  return createPortal(
+    // Placed by an element of its own, so the card slides and fades within a
+    // box that stays where the page put it. Keyed by the notice, so a new one
+    // enters afresh rather than taking over the card of the one before.
+    <div className="ag-notice-place" key={shown.sequence}>
+      <Notice
+        ref={card}
+        tone={noticeTone(shown)}
+        urgent={shown.urgent}
+        icon={noticeGlyph(shown)}
+        title={shown.text}
+        durationMs={stayOf(shown, durationMs)}
+        leaving={leaving === shown.sequence}
+        hidden
+        onDismiss={() => {
+          leave(shown.sequence);
+        }}
+      />
+    </div>,
+    document.body,
+  );
+}
+
+/** A notice over the page as it stays and leaves, and the card it is drawn in. */
+interface NoticeStay {
+  /** The notice showing, until it has had its time. */
+  readonly shown: LiveAnnouncement | undefined;
+
+  /** Which notice is on its way out. */
+  readonly leaving: number | undefined;
+
+  /** Sends a notice on its way out before its time, as its dismissal does. */
+  readonly leave: (sequence: number) => void;
+
+  /** The card, whose leaving animation is waited on before the notice goes. */
+  readonly card: RefObject<HTMLDivElement | null>;
+}
+
+/**
+ * How long a notice over the page stays: until its time has run or it is
+ * dismissed, then drawn sliding away until its leaving animation has run, and
+ * only then taken away.
+ */
+function useNoticeStay(
+  notice: LiveAnnouncement | undefined,
+  durationMs: number | undefined,
+): NoticeStay {
   // Which notice has had its time, rather than which notice is showing. What
   // is showing is derived from the channel, so the surface never has to be
   // put into a state the channel already describes.
   const [dismissed, setDismissed] = useState<number | undefined>(undefined);
 
-  const shown =
-    notice !== undefined &&
-    owner?.by === 'the page' &&
-    notice.shown !== false &&
-    notice.sequence !== dismissed
-      ? notice
-      : undefined;
+  // Which notice is on its way out: drawn sliding away until its leaving
+  // animation has run, and only then taken away.
+  const [leaving, setLeaving] = useState<number | undefined>(undefined);
+  const card = useRef<HTMLDivElement>(null);
+
+  const shown = notice?.sequence === dismissed ? undefined : notice;
 
   useEffect(() => {
     if (shown === undefined) return undefined;
 
-    const lasting = shown.urgent || shown.refusal === true;
-    const stay = durationMs ?? noticeDuration(shown.text, lasting);
-    const timer = setTimeout(() => {
-      setDismissed(shown.sequence);
-    }, stay);
+    const timer = setTimeout(
+      () => {
+        setLeaving(shown.sequence);
+      },
+      stayOf(shown, durationMs),
+    );
 
     return () => {
       clearTimeout(timer);
     };
   }, [shown, durationMs]);
 
-  if (shown === undefined) return null;
+  // A layout effect, so the closing state is on the element, and its leaving
+  // animation started, before the animations are read.
+  useLayoutEffect(() => {
+    if (shown === undefined || leaving !== shown.sequence) return undefined;
+    const sequence = shown.sequence;
+    return afterAnimations(card.current, () => {
+      setDismissed(sequence);
+    });
+  }, [shown, leaving]);
 
-  return createPortal(
-    <div
-      className="ag-notice"
-      data-ag-notice={shown.urgent ? 'urgent' : 'ordinary'}
-      aria-hidden="true"
-    >
-      {shown.text}
-    </div>,
-    document.body,
+  return { shown, leaving, leave: setLeaving, card };
+}
+
+/** How long a notice stays: as long as its caller says, or as it takes to read. */
+function stayOf(announcement: LiveAnnouncement, durationMs: number | undefined): number {
+  return (
+    durationMs ??
+    noticeDuration(announcement.text, announcement.urgent || announcement.refusal === true)
   );
+}
+
+/**
+ * How an announcement is drawn: an urgent one as an error, a refusal spoken
+ * politely as the warning an unavailable command's reason is drawn in, and
+ * anything else as information.
+ */
+function noticeTone(announcement: LiveAnnouncement): NoticeTone {
+  if (announcement.urgent) return NoticeTone.Error;
+  if (announcement.refusal === true) return NoticeTone.Warning;
+  return NoticeTone.Information;
+}
+
+/** The glyph an announcement is drawn with: a refusal's is the refused mark. */
+function noticeGlyph(announcement: LiveAnnouncement): IconName {
+  if (announcement.refusal === true) return 'refused';
+  if (announcement.urgent) return 'error';
+  return 'information';
 }
 
 /**
@@ -427,8 +510,10 @@ export function DialogueNotice({ dialogue }: { readonly dialogue: string }): Rea
       ref={line}
       className="ag-dialog-notice"
       data-ag-notice={shown.urgent ? 'urgent' : 'ordinary'}
+      data-ag-tone={noticeTone(shown)}
     >
-      {shown.text}
+      <Icon name={noticeGlyph(shown)} className="ag-dialog-notice-glyph" />
+      <span className="ag-dialog-notice-text">{shown.text}</span>
     </p>
   );
 }

@@ -5,16 +5,22 @@
  * built from one, so the accessibility and the touch-target handling are solved
  * once. REQ-UX-005 makes keyboard and touch first-class, and a toolbar of bare
  * `<button>` elements would solve neither consistently.
+ *
+ * Its tones are the design language's buttons (section 10): the call to
+ * action, the secondary button, the quiet one and the two destructive ones.
+ * Pressed (`aria-pressed`), a secondary or quiet button is on: a toggled mode.
  */
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 
+import { ControlHint, describedBy } from './control-hint.js';
+
 /** How prominent the button is. */
 export const ButtonTone = {
-  /** The action a dialogue or a form is primarily for. */
+  /** The action a dialogue or a form is primarily for: the call to action. */
   Primary: 'primary',
 
-  /** An ordinary action. */
+  /** An ordinary action: the secondary button. */
   Neutral: 'neutral',
 
   /** An action with no surface of its own, for a toolbar or a menu bar. */
@@ -22,6 +28,13 @@ export const ButtonTone = {
 
   /** An action that removes or overwrites something. */
   Destructive: 'destructive',
+
+  /**
+   * A destructive action that is not what its surface is for, such as the
+   * remove beside each row of a list: drawn as a secondary button with its
+   * label in the error colour.
+   */
+  QuietDestructive: 'quiet-destructive',
 } as const;
 
 /** How prominent the button is. */
@@ -31,7 +44,7 @@ export type ButtonTone = (typeof ButtonTone)[keyof typeof ButtonTone];
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {
   readonly tone?: ButtonTone;
 
-  /** Uses the compact control height, for a toolbar. */
+  /** Uses the small control height, for a toolbar. */
   readonly compact?: boolean;
 
   /**
@@ -40,6 +53,7 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
    * An icon-only button must carry a name for a screen reader, so `label` stops
    * being optional when this is set. That is enforced by the type below rather
    * than by a lint rule, because the rule cannot know the button is icon-only.
+   * `IconButton` draws one with its glyph placed by the grid.
    */
   readonly iconOnly?: boolean;
 
@@ -52,6 +66,22 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
    */
   readonly label?: string;
 
+  /** The hint shown on hover or focus. Without one, the button has no tooltip. */
+  readonly hint?: string;
+
+  /** The shortcut, shown after the hint (REQ-UX-066). */
+  readonly shortcut?: string;
+
+  /**
+   * Why the button cannot be used now, or `undefined` while it can.
+   *
+   * An unavailable button keeps its place in the tab order, says it is
+   * unavailable, is described by its reason, opens the reason on hover or
+   * focus, and runs nothing when pressed (ADR-0013). A disabled button would
+   * leave the tab order and say nothing.
+   */
+  readonly unavailableReason?: string;
+
   readonly children?: ReactNode;
 }
 
@@ -62,38 +92,59 @@ type IconOnlyRequiresLabel =
 /** The button. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps & IconOnlyRequiresLabel>(
   function Button(
-    { tone = ButtonTone.Neutral, compact = false, iconOnly = false, label, children, ...rest },
+    {
+      tone = ButtonTone.Neutral,
+      compact = false,
+      iconOnly = false,
+      label,
+      hint,
+      shortcut,
+      unavailableReason,
+      children,
+      onClick,
+      ...rest
+    },
     ref,
   ) {
+    const unavailable = unavailableReason !== undefined;
     return (
-      <button
-        {...rest}
-        ref={ref}
-        // An explicit type, because a button inside a form defaults to submit,
-        // and a toolbar button that submits its surrounding form is a defect
-        // that only appears once the form exists.
-        type={rest.type ?? 'button'}
-        // An icon-only button draws smaller than a finger, so its hit area is
-        // widened to the touch target. A compact button sits in a bar beside
-        // other regions, where a widened area would lie over the region below
-        // and take its taps, so on a touch screen it is drawn at the touch
-        // target instead. The menus along the top are compact buttons, and with
-        // neither they would draw at the compact control height on a touch
-        // screen.
-        className={[
-          'ag-button',
-          iconOnly ? 'ag-touch-target' : '',
-          compact && !iconOnly ? 'ag-touch-sized' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        data-ag-tone={tone}
-        data-ag-compact={compact ? '' : undefined}
-        data-ag-icon-only={iconOnly ? '' : undefined}
-        aria-label={label}
-      >
-        {children}
-      </button>
+      <ControlHint hint={hint} shortcut={shortcut} unavailableReason={unavailableReason}>
+        {({ reasonId }) => (
+          <button
+            {...rest}
+            ref={ref}
+            // An explicit type, because a button inside a form defaults to
+            // submit, and a toolbar button that submits its surrounding form is
+            // a defect that only appears once the form exists.
+            type={rest.type ?? 'button'}
+            // An icon-only button draws smaller than a finger, so its hit area
+            // is widened to the touch target. A compact button sits in a bar
+            // beside other regions, where a widened area would lie over the
+            // region below and take its taps, so on a touch screen it is drawn
+            // at the touch target instead. The menus along the top are compact
+            // buttons, and with neither they would draw at the compact control
+            // height on a touch screen.
+            className={[
+              'ag-button',
+              iconOnly ? 'ag-touch-target' : '',
+              compact && !iconOnly ? 'ag-touch-sized' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            data-ag-tone={tone}
+            data-ag-compact={compact ? '' : undefined}
+            data-ag-icon-only={iconOnly ? '' : undefined}
+            {...(unavailable ? { 'aria-disabled': true, 'data-ag-unavailable': '' } : {})}
+            {...describedBy(rest['aria-describedby'], reasonId)}
+            aria-label={label}
+            onClick={(event) => {
+              if (!unavailable) onClick?.(event);
+            }}
+          >
+            {children}
+          </button>
+        )}
+      </ControlHint>
     );
   },
 );

@@ -80,6 +80,7 @@ radius plus its inset (see [Radius](#radius)).
 | Status bar (the strip)                   | `--ag-status-bar-block-size`        | 34 px / 30 px |
 | A two-line list row                      | `--ag-control-row-height`           | 44 px / 36 px |
 | Smallest pointer target                  | `--ag-control-minimum-touch-target` | 44 px / 44 px |
+| Smallest text in a field under a finger  | `--ag-control-minimum-touch-text`   | 16 px / 16 px |
 
 `--ag-status-bar-block-size` exists in `apps/web`; it moves into the design system's metrics.
 
@@ -103,6 +104,7 @@ the menu bar trigger's inline padding (9 px to 10 px), and the compact switch's 
 | `--ag-shell-top-bar-block-size`   | 44 px / 36 px | The top bar                                        |
 | `--ag-shell-transport-block-size` | 56 px / 46 px | The transport bar                                  |
 | `--ag-control-row-height`         | 44 px / 36 px | A two-line list row                                |
+| `--ag-control-minimum-touch-text` | 16 px / 16 px | A field's least text size under a finger           |
 
 ### Changed tokens
 
@@ -316,8 +318,8 @@ contrast is computed.
 | An overlay's glass                                                              | `--ag-chrome-surface-overlay` at 66 % / 70 % (`--ag-elevation-overlay-fill`) |                      |                      |
 | A well (field, segmented control, readout, tree)                                | `--ag-chrome-fill-well`                                                      | Sunken at 55 %       | White at 45 %        |
 | Body text                                                                       | `--ag-chrome-text-primary`                                                   |                      |                      |
-| Supporting text, a resting glyph                                                | `--ag-chrome-text-secondary`                                                 |                      |                      |
-| Unavailable text, a placeholder, a minor scale mark                             | `--ag-chrome-text-disabled`                                                  |                      |                      |
+| Supporting text, a resting glyph, a placeholder                                 | `--ag-chrome-text-secondary`                                                 |                      |                      |
+| Unavailable text, a minor scale mark                                            | `--ag-chrome-text-disabled`                                                  |                      |                      |
 | Text on the accent or a call to action                                          | `--ag-chrome-text-on-accent`                                                 |                      |                      |
 | Accent used as text (a tag, an accent badge, a template token, a palette match) | `--ag-chrome-accent-text`                                                    | Solved to 4.5 : 1    | Solved to 4.5 : 1    |
 | A hairline between parts                                                        | `--ag-chrome-border-subtle`                                                  |                      |                      |
@@ -764,7 +766,7 @@ fills it.
   gradient of text primary at 6 %, 12 %, 6 %, radius `--ag-radius-small`) in the shape of the
   content.
 - **An operation under way**: a progress bar. Track 6 px (3 px in a row, 8 px in a dialogue),
-  radius half its height, recessed (sunken mixed 75 % / 90 % with black, an inset shadow); fill
+  radius half its height, recessed (`--ag-effect-progress-track`, an inset shadow); fill
   `--ag-effect-cta-fill` with a sheen (white at 45 % between 60 % and 95 % of the fill) and a
   10 px accent glow. An indeterminate bar is a 35 % segment.
 - **A short wait inside a control**: a spinner at the icon size, a 2 px ring of the accent at 22 %
@@ -790,6 +792,7 @@ fills it.
 | ---------------------------- | -------------------------------------------------------------------------------------------- |
 | `--ag-state-mark-size`       | 52 px (60 px on a failure screen, 64 px on the too-narrow message, stated as `calc()` of it) |
 | `--ag-effect-skeleton`       | The skeleton gradient                                                                        |
+| `--ag-effect-progress-track` | The progress track: sunken mixed 75 % / 90 % with black                                      |
 | `--ag-effect-progress-sheen` | The progress fill's sheen                                                                    |
 
 ## 10. The control set
@@ -1058,10 +1061,11 @@ at line height 1.35 with its glyph or spinner at the first line.
 ### Text fields and the template field
 
 - **Text field**: h tall, one inset inline padding, `--ag-radius-control`, fill well, quiet edge.
-  Placeholder text disabled; a unit trailing at label size in text secondary. Editing: an accent
-  edge and a 3 px accent halo at 22 % (keyboard focus adds the ring). Invalid: an error edge, a
-  3 px error halo at 18 %, and the error under it at label size with a glyph at
-  `--ag-icon-size-inline`.
+  Placeholder text secondary, because a placeholder is text WCAG 1.4.3 holds to 4.5 : 1 and text
+  disabled is exempt from it only on a control that cannot be used; a unit trailing at label size in
+  text secondary. Editing: an accent edge and a 3 px accent halo at 22 % (keyboard focus adds the
+  ring). Invalid: an error edge, a 3 px error halo at 18 %, and the error under it at label size
+  with a glyph at `--ag-icon-size-inline`.
 - **Numeric field**: the value in the numeric family with tabular figures, at least 76 px (52 px in a
   panel form); steppers in a 20 px column split by a hairline, chevrons at `--ag-icon-size-small`.
 - **Tags field**: wraps; each tag at label size on accent subtle in `--ag-chrome-accent-text`,
@@ -1145,6 +1149,8 @@ scale) are solved against the material they sit on.
 
 | Token                           | Value                                              |
 | ------------------------------- | -------------------------------------------------- |
+| `--ag-hardware-light`           | White: the light every highlight is a share of     |
+| `--ag-hardware-shade`           | Black: the shade every moulding is a share of      |
 | `--ag-hardware-metal-highlight` | L 0.95                                             |
 | `--ag-hardware-metal-mid`       | L 0.70                                             |
 | `--ag-hardware-metal-shade`     | L 0.38                                             |
@@ -1156,6 +1162,7 @@ scale) are solved against the material they sit on.
 | `--ag-hardware-gloss`           | White at 0.55                                      |
 | `--ag-hardware-drop-shadow`     | `0 1.5px 1.5px` at 0.45 / `0 1.5px 2px` at 0.35    |
 | `--ag-hardware-deep-shadow`     | The knob's and fader's two-layer shadow, per theme |
+| `--ag-hardware-record-shadow`   | `0 2px 2px` at 0.45 / `0 2px 3px` at 0.30          |
 | `--ag-hardware-power-lit-cap`   | The accent mixed 50 % with L 0.22                  |
 | `--ag-hardware-record-lit`      | The lamp's five lit stops, from the recording hue  |
 | `--ag-hardware-record-unlit`    | The lamp's three unlit stops                       |
@@ -1500,7 +1507,7 @@ Chromium.
 
 | Section                                           | New tokens |
 | ------------------------------------------------- | ---------- |
-| 1. Layout grid                                    | 9          |
+| 1. Layout grid                                    | 10         |
 | 2. Type scale                                     | 25         |
 | 3. Spacing and radius                             | 6          |
 | 4. Icons                                          | 5          |
@@ -1508,12 +1515,12 @@ Chromium.
 | 6. Elevation and panel chrome                     | 17         |
 | 7. Focus and selection                            | 6          |
 | 8. The presentation of audio                      | 9          |
-| 9. Empty, loading and error states                | 3          |
-| 10. The control set (hardware and the token wash) | 20         |
+| 9. Empty, loading and error states                | 4          |
+| 10. The control set (hardware and the token wash) | 23         |
 | 12. Visual richness                               | 1          |
 | MotionSpec: motion                                | 15         |
 | MotionSpec: ballistics                            | 5          |
-| **Total**                                         | **137**    |
+| **Total**                                         | **142**    |
 
 Existing tokens whose value changes or which retire are listed in each section's **Changed
 tokens** table: 23 entries, besides the light branches of the waveform, selection, meter and

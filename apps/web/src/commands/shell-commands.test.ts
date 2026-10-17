@@ -164,12 +164,12 @@ describe('running the shell commands', () => {
   });
 
   it('changes the accent colour', () => {
-    bus.execute(context, { commandId: commandId('view.accent-teal') });
-    expect(context.preferences.get().accent).toBe('teal');
+    bus.execute(context, { commandId: commandId('view.accent-blue') });
+    expect(context.preferences.get().accent).toBe('blue');
   });
 
   it('refuses the accent that is already in use, and says so', () => {
-    const result = bus.execute(context, { commandId: commandId('view.accent-blue') });
+    const result = bus.execute(context, { commandId: commandId('view.accent-teal') });
 
     expect(result.kind).toBe('refused');
     if (result.kind === 'refused') {
@@ -1144,7 +1144,7 @@ describe('finding the shell commands in the palette', () => {
     'tools.set-fixed-strength': { arguments: () => ({ strength: 0.4 }) },
     'view.contrast-system': { before: (run) => run('view.high-contrast') },
     'view.motion-system': { before: (run) => run('view.motion-reduced') },
-    'view.accent-blue': { before: (run) => run('view.accent-teal') },
+    'view.accent-teal': { before: (run) => run('view.accent-blue') },
     'workspace.rename': {
       before: (run) => run('workspace.save-as', { displayName: 'Mine' }),
       arguments: () => ({ displayName: 'Mine, renamed' }),
@@ -1610,7 +1610,7 @@ describe('finding the shell commands in the palette', () => {
 
   it('offers an unavailable command with its reason rather than hiding it', () => {
     const { context } = buildShellContext();
-    const results = searchCommands(commands, 'Accent colour: Blue', options(context));
+    const results = searchCommands(commands, 'Accent colour: Teal', options(context));
     expect(results[0]?.unavailableReason).toContain('already in use');
   });
 });

@@ -1092,6 +1092,21 @@ describe('third-party libraries stay behind their adapters', () => {
     expect(importsRadix.length).toBeGreaterThan(0);
   });
 
+  it('imports the icon set and the fonts only from the design system', () => {
+    // ADR-0108: the design system names icons by its own vocabulary and
+    // declares the font faces, so a feature that imported either would draw an
+    // icon or set a face the design language never measured. Stylesheets are
+    // read with the code, because a font is reached by a CSS `@import`.
+    const importsIconsOrFonts = [...ALL_SOURCES, ...ALL_STYLESHEETS].filter((path) =>
+      importsPackage(path, /^(lucide-react|@fontsource-variable\/.+|@fontsource\/.+)$/),
+    );
+
+    for (const path of importsIconsOrFonts) {
+      expect(path.startsWith('packages/design-system/src/'), path).toBe(true);
+    }
+    expect(importsIconsOrFonts.length).toBeGreaterThan(0);
+  });
+
   /**
    * A name that is a browser global, or stands in for one.
    *
@@ -2682,6 +2697,10 @@ describe('the architecture rules are written the way they claim', () => {
     ['a directory name read as a member', 'const where = bundle.__dirname;'],
     ['a process of its own', "const process = { cwd: () => '/srv' };\nprocess.cwd();"],
     ['another variable of the environment', 'const home = process.env.HOME;'],
+    [
+      "the bundler's glob, which it expands against the module",
+      "const modules = import.meta.glob('./specimens/*.tsx', { eager: true });",
+    ],
   ])('does not mistake %s for a way to the repository root', (_form, code) => {
     expect(pathUses(code).readsTheRoot).toBe(false);
   });
@@ -3121,8 +3140,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, letting the context go for another rate, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes, and whether it plays.",
     ],
     'apps/web/src/app.tsx': [
-      302,
-      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface and the props each surface is handed.",
+      315,
+      "The shell's one component and its mounting: what it puts together are components of their own, the status bar given the save, backup and input states, each its own; what grows it is one line per surface, the props each surface is handed, and one import per stylesheet of the design system in cascade order, which a stylesheet of imports alone would only move behind a barrel.",
     ],
     'apps/web/src/application.ts': [
       395,
@@ -3183,6 +3202,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/game-audio/src/export/game-export-plan.ts': [
       300,
       "The game export plan: each member planned alone from its effective profile, naming and destination, each refusal re-stated with the owner of the value refused, and the planned items whose files would land on one another refused together. A member's policy, naming and export settings are modules of their own (`policy-resolution.ts`, `member-names.ts`, `member-export-settings.ts`); what is left is planning one member and settling the drafts against each other. The collision check is the one seam, and split out it would need this module's item and draft types and the words a refusal names a member by, which a collision and an unset value share. It entered the band when its refusals took the text package's quoting.",
+    ],
+    'packages/design-system/src/icons/vocabulary.ts': [
+      390,
+      "The icon vocabulary: one static import per glyph and one line per name, with no logic of its own. Measuring and placing a glyph is `placed-glyph.ts`, its ink `ink-box.ts` and `path-box.ts`, and the glyphs AudioGubbins draws `custom-glyphs.ts`; what is left is the one map whose keys are `IconName`, which split by area would let two areas give one name to two glyphs with no type error, since a spread takes the last silently, and would leave no one place that says what the application can draw. It entered the band whole, as the vocabulary was first written from the design language's mock-ups.",
     ],
   };
 
@@ -3553,9 +3576,21 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     ],
 
     // Procedures: one algorithm, or one validation step by step.
+    'packages/design-system/src/primitives/buttons/panel-lamp.tsx: PanelLamp': [
+      58,
+      'One drawing of the lamp in paint order: the cutout, the bezel, the socket and the light spilled in it, the lens unlit and lit with its ring, the bloom and the hot core, the hover and the gloss. Each layer means something only over the one beneath it, the lit layers sit between the unlit ones so the stylesheet can fade between them, and the gradients they are painted with are a function of their own.',
+    ],
+    'packages/design-system/src/primitives/buttons/record-lamp-drawing.tsx: RecordLampDrawing': [
+      61,
+      'One drawing of the lamp in paint order: the cutout, the bezel, the chamfer, the rim glow, the recess, the cap unlit and lit, the ridges, the shade, the bloom, the hover and the press, and the reflection with its highlight. Each layer means something only over the one beneath it, the lit layers sit between the unlit ones so the stylesheet can fade between them, and the gradients and the ridges are functions of their own.',
+    ],
+    'packages/design-system/src/primitives/dials/typed-value-field.tsx: TypedValueField': [
+      61,
+      'One field in two states over one piece of typed text: the value at rest as a button and the typing as an input, with the two refs and the flag that pass the keyboard between them as it opens and closes. Split by state, the typed text and the return of the keyboard would be handed between components that each change part of them.',
+    ],
     'packages/design-system/src/tokens/chrome.ts: buildChrome': [
-      111,
-      'One derivation in which each token depends on those before it: base lightness, surfaces, the list of every surface a colour may be solved against, text, accent, status.',
+      96,
+      "One derivation in which each token depends on those before it: base lightness, surfaces, the list of every surface a colour may be solved against, text, the accent's family (`accent.ts`), status, and the fills and edges at their translucencies.",
     ],
     'packages/domain/src/processing/parameter.ts: validateParameterValue': [
       82,
