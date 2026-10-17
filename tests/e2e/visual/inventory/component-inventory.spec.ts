@@ -109,6 +109,12 @@ async function compareEveryComponent(
     );
   expect(components.length, 'the inventory draws at least one component').toBeGreaterThan(0);
 
+  // Each component is loaded and captured on a page of its own, so the run's
+  // length grows with the inventory: the limit is set from what it captures,
+  // not fixed, or every new component would bring the whole capture nearer a
+  // timeout that says nothing about the components.
+  testInfo.setTimeout(CAPTURE_SETUP_MS + components.length * CAPTURE_PER_COMPONENT_MS);
+
   const appearance = `${settings.theme}-${settings.density}`;
   const unsigned: string[] = [];
   for (const component of components) {
@@ -141,6 +147,15 @@ async function compareEveryComponent(
       `components at ${appearance} on ${process.platform}`,
   ).toEqual([]);
 }
+
+/** What loading the harness and its fonts may take before the first capture. */
+const CAPTURE_SETUP_MS = 30_000;
+
+/**
+ * What one component's page load and capture may take: 52 components took
+ * about 30 seconds an appearance on a busy machine, so about 0.6 s each.
+ */
+const CAPTURE_PER_COMPONENT_MS = 2_000;
 
 test.describe('the component inventory', () => {
   test('matches the signed-off rendering of every component, dark theme, comfortable density', async ({
