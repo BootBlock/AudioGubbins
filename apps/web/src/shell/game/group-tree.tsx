@@ -224,10 +224,11 @@ function TreeItem({
       onKeyDown={(event) => {
         onItemKey(event, row, index, tree);
       }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          tree.commands.run('game.choose-group', { group: group.id });
-        }
+      onClick={() => {
+        // A press anywhere on the item chooses its group, on its name or
+        // glyph as well as round them; while it is renamed, presses are the
+        // name field's own.
+        if (!renaming) tree.commands.run('game.choose-group', { group: group.id });
       }}
     >
       {renaming ? (

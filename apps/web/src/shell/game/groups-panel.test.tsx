@@ -128,6 +128,19 @@ describe('the Asset groups panel', { timeout: 30_000 }, () => {
     expect(ran).toEqual([['game.choose-group', { group: music?.id }]]);
   });
 
+  it('chooses a group pressed anywhere on its item, its name as well as round it', async () => {
+    const audio = await forest();
+    const ran = panelOver(audio);
+    const user = userEvent.setup();
+
+    await user.click(within(screen.getByRole('tree')).getByText('Music'));
+
+    const music = [
+      ...(audio.session.getSnapshot().model.state.gameAudio?.groups.values() ?? []),
+    ].find((one) => one.name === 'Music');
+    expect(ran).toEqual([['game.choose-group', { group: music?.id }]]);
+  });
+
   it('renames a group in place with F2, and runs the delete command with Delete', async () => {
     const audio = await forest();
     const ran = panelOver(audio);
