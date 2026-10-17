@@ -2,9 +2,10 @@ import { act, render, screen } from '@testing-library/react';
 import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE } from '../tokens/preferences.js';
-import { ThemeProvider, fixedSystemAppearance } from '../theme/theme-provider.js';
-import { ContextActions, HintProvider, type ContextActionsOpener } from './overlays.js';
+import { DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE } from '../../tokens/preferences.js';
+import { ThemeProvider, fixedSystemAppearance } from '../../theme/theme-provider.js';
+import { ContextActions, type ContextActionsOpener } from './context-actions.js';
+import { HintProvider } from './tooltips.js';
 
 /**
  * The context menu opened by an owner that recognises a long press itself.

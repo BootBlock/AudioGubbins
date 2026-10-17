@@ -2,9 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE } from '../tokens/preferences.js';
-import { ThemeProvider, fixedSystemAppearance } from '../theme/theme-provider.js';
-import { ContextActions, HintProvider } from './overlays.js';
+import { DEFAULT_THEME_PREFERENCES, UNKNOWN_SYSTEM_APPEARANCE } from '../../tokens/preferences.js';
+import { ThemeProvider, fixedSystemAppearance } from '../../theme/theme-provider.js';
+import { ContextActions } from './context-actions.js';
+import { HintProvider } from './tooltips.js';
 
 /**
  * The context menu REQ-UX-067 names as the long-press action in an editing
@@ -13,7 +14,7 @@ import { ContextActions, HintProvider } from './overlays.js';
  * The canvas that uses it arrives with the waveform editor; the primitive is
  * this phase's, and is tested here. It has a file of its own because a menu
  * opened by a pointer event opens only once per file under jsdom, for the
- * reason `primitives.test.tsx` records, so everything the menu promises is
+ * reason `overlays.test.tsx` records, so everything the menu promises is
  * checked within one opening.
  */
 describe('ContextActions', () => {

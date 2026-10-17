@@ -1,0 +1,110 @@
+/*
+ * The lit edge: how a highlighted or chosen row is marked (design language,
+ * section 7). A menu row, a select option, a palette result, a navigation page,
+ * a list row, a tree node and the history's chosen point all take it, so it is
+ * one rule here rather than a copy in each component's stylesheet.
+ *
+ * A row opts in with the class `ag-lit-row`, and is lit while it carries
+ * `data-highlighted` (where a menu library marks the entry the keyboard is on),
+ * `data-ag-lit` (a row its own component marks) or `aria-selected='true'`. An
+ * unavailable row (`data-ag-unavailable` or `aria-disabled='true'`) is never
+ * lit: it takes the quieter mark below, so a reader cannot mistake a command
+ * that will not run for one that will.
+ *
+ * The row's own outline is lit, bright at its leading side and fading round
+ * it, over a wash that fades the same way: the edge is a one-pixel border drawn
+ * by a masked pseudo-element, so it follows the row's radius and takes no room.
+ */
+
+.ag-lit-row {
+  position: relative;
+  transition-property: background-color, box-shadow, color;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-lit-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: var(--ag-space-hair);
+  border-radius: inherit;
+  background: var(--ag-effect-lit-edge);
+  pointer-events: none;
+  opacity: 0;
+
+  /* The border is what is left of the gradient once its content box is cut
+     out. Both forms: the engines of the support floor before Chromium 120 read
+     only the prefixed composite. The mask's colour is never seen, only its
+     coverage, so it is any opaque token. */
+  -webkit-mask:
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary)) content-box,
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary));
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary)) content-box
+      exclude,
+    linear-gradient(var(--ag-chrome-text-primary), var(--ag-chrome-text-primary));
+
+  transition-property: opacity;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-lit-row:is([data-highlighted], [data-ag-lit], [aria-selected='true']):not(
+    [data-ag-unavailable],
+    [aria-disabled='true']
+  ) {
+  background-color: transparent;
+  background-image: var(--ag-effect-lit-wash);
+  box-shadow: var(--ag-effect-lit-glow);
+}
+
+.ag-lit-row:is([data-highlighted], [data-ag-lit], [aria-selected='true']):not(
+    [data-ag-unavailable],
+    [aria-disabled='true']
+  )::after {
+  opacity: 1;
+}
+
+/* The glyph of a lit row turns accent and glows. */
+.ag-lit-row:is([data-highlighted], [data-ag-lit], [aria-selected='true']):not(
+    [data-ag-unavailable],
+    [aria-disabled='true']
+  )
+  .ag-icon {
+  color: var(--ag-chrome-accent);
+  filter: drop-shadow(
+    0 0 calc(2 * var(--ag-grid-unit)) color-mix(in oklch, var(--ag-chrome-accent) 70%, transparent)
+  );
+}
+
+/* At the full motion level the edge sweeps in from the leading side as the row
+   is lit (MotionSpec, selection feedback); below it the edge only fades. */
+[data-ag-motion='full'] .ag-lit-row::after {
+  clip-path: inset(0 100% 0 0);
+  transition-property: opacity, clip-path;
+}
+
+[data-ag-motion='full'] [dir='rtl'] .ag-lit-row::after,
+[data-ag-motion='full'][dir='rtl'] .ag-lit-row::after {
+  clip-path: inset(0 0 0 100%);
+}
+
+[data-ag-motion='full']
+  .ag-lit-row:is([data-highlighted], [data-ag-lit], [aria-selected='true']):not(
+    [data-ag-unavailable],
+    [aria-disabled='true']
+  )::after {
+  clip-path: inset(0 0 0 0);
+}
+
+/* The row the keyboard is on that cannot be chosen: a faint fill and a subtle
+   edge, never the lit edge. */
+.ag-lit-row:is([data-highlighted], [data-ag-lit], [aria-selected='true']):is(
+    [data-ag-unavailable],
+    [aria-disabled='true']
+  ) {
+  background-color: color-mix(in oklch, var(--ag-chrome-text-primary) 6%, transparent);
+  box-shadow: inset 0 0 0 var(--ag-space-hair) var(--ag-chrome-border-subtle);
+}
