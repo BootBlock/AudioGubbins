@@ -175,6 +175,44 @@ function DialogueHeader({
 }
 
 /**
+ * The dialogue's head: the palette's title, said and not drawn, or the header
+ * of every other kind.
+ */
+function DialogueHead({ props }: { readonly props: ModalDialogProps }): ReactNode {
+  if (props.variant === DialogueVariant.Palette) {
+    return <Dialog.Title className="ag-visually-hidden">{props.title}</Dialog.Title>;
+  }
+  return (
+    <DialogueHeader
+      title={props.title}
+      {...(props.icon === undefined ? {} : { icon: props.icon })}
+      {...(props.hint === undefined ? {} : { hint: props.hint })}
+      {...(props.headerControls === undefined ? {} : { headerControls: props.headerControls })}
+      {...(props.closeLabel === undefined ? {} : { closeLabel: props.closeLabel })}
+    />
+  );
+}
+
+/** The refusal raised while the dialogue is open, its status and its actions. */
+function DialogueFooter({
+  dialogue,
+  status,
+  actions,
+}: {
+  readonly dialogue: string;
+  readonly status: ReactNode;
+  readonly actions: ReactNode;
+}): ReactNode {
+  return (
+    <div className="ag-dialog-footer">
+      <DialogueNotice dialogue={dialogue} />
+      {status !== undefined && <div className="ag-dialog-status">{status}</div>}
+      {actions !== undefined && <div className="ag-dialog-actions">{actions}</div>}
+    </div>
+  );
+}
+
+/**
  * A modal dialogue: a header holding its title, then what it holds, which
  * scrolls, then a footer that does not.
  *
@@ -189,7 +227,7 @@ function DialogueHeader({
  * control they are on leaves out of sight.
  */
 export function ModalDialog(props: ModalDialogProps): ReactNode {
-  const { open, onOpenChange, title, description, children, status, actions } = props;
+  const { open, onOpenChange, description, children, status, actions } = props;
   const variant = props.variant ?? DialogueVariant.Standard;
 
   const content = useRef<HTMLDivElement | null>(null);
@@ -220,19 +258,7 @@ export function ModalDialog(props: ModalDialogProps): ReactNode {
             if (restoreFocus()) event.preventDefault();
           }}
         >
-          {props.variant === DialogueVariant.Palette ? (
-            <Dialog.Title className="ag-visually-hidden">{title}</Dialog.Title>
-          ) : (
-            <DialogueHeader
-              title={title}
-              {...(props.icon === undefined ? {} : { icon: props.icon })}
-              {...(props.hint === undefined ? {} : { hint: props.hint })}
-              {...(props.headerControls === undefined
-                ? {}
-                : { headerControls: props.headerControls })}
-              {...(props.closeLabel === undefined ? {} : { closeLabel: props.closeLabel })}
-            />
-          )}
+          <DialogueHead props={props} />
           <div className="ag-dialog-scroll">
             <Dialog.Description
               className={
@@ -245,11 +271,7 @@ export function ModalDialog(props: ModalDialogProps): ReactNode {
             </Dialog.Description>
             <div className="ag-dialog-body">{children}</div>
           </div>
-          <div className="ag-dialog-footer">
-            <DialogueNotice dialogue={dialogue} />
-            {status !== undefined && <div className="ag-dialog-status">{status}</div>}
-            {actions !== undefined && <div className="ag-dialog-actions">{actions}</div>}
-          </div>
+          <DialogueFooter dialogue={dialogue} status={status} actions={actions} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
