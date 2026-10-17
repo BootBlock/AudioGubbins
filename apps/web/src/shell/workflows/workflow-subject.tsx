@@ -82,7 +82,7 @@ export function WorkflowSubject({
       choice.value !== undefined && current !== undefined && keyOf(choice.value) === keyOf(current),
   );
   return (
-    <section className="ag-workflow-section" aria-label="What it runs on">
+    <section className="ag-workflow-subject" aria-label="What it runs on">
       <ChoiceField
         label="Run it on"
         value={chosen?.value}

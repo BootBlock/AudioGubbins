@@ -34,11 +34,13 @@ describe('the question about a taken name (ADR-0092)', () => {
 
   it('names the file, offers keeping both first, and replaces nothing by default', () => {
     promptOver(asking(1));
-    const dialog = screen.getByRole('dialog', { name: 'A file named “Loop.wav” is there already' });
+    const dialog = screen.getByRole('dialog', { name: 'File already exists' });
 
+    expect(dialog).toHaveAccessibleDescription('A file named “Loop.wav” is there already.');
     expect(
       within(dialog)
         .getAllByRole('button')
+        .filter((button) => button.getAttribute('aria-label') !== 'Close')
         .map((button) => button.textContent),
     ).toEqual(['Keep both', 'Replace', 'Skip']);
     expect(within(dialog).queryByRole('checkbox')).toBeNull();

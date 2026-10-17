@@ -66,7 +66,12 @@ export {
 export { type PlannedFile, planExport } from './export-plan.js';
 export { type ExportSpan } from './export-range.js';
 export { type ExportRenderPlan } from './export-render-plan.js';
-export { type ExportClock, dateOf } from './file-name-template.js';
+export {
+  type ExportClock,
+  FILE_NAME_VOCABULARY,
+  type FileNameToken,
+  dateOf,
+} from './file-name-template.js';
 export {
   type ExportFileName,
   type FolderSegmentProblem,

@@ -17,6 +17,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 
 import {
+  type BundleContentDescription,
   BundleContentKey,
   DEFAULT_BUNDLE_CONTENTS,
   LONGEST_NOTE,
@@ -27,6 +28,8 @@ import {
 import {
   Button,
   ButtonTone,
+  Icon,
+  IconSize,
   ModalDialog,
   TextField,
   ToggleSwitch,
@@ -55,6 +58,74 @@ const CHOOSABLE: readonly BundleContentKey[] = Object.values(BundleContentKey).f
   // that does not exist would offer the user a choice about nothing.
   (key) => key !== BundleContentKey.ReproductionNotes,
 );
+
+/**
+ * What redaction did to the reader's note: a sentence saying so, and the note
+ * as the report will carry it.
+ *
+ * Tied to the field rather than left beside it. A description saying "what
+ * the report will carry is shown below" would leave a reader who cannot see
+ * the page no way below: no identifier, nothing describing the field, and
+ * nothing announcing the preview appearing, changing or going as they type.
+ * Polite and settled, so it is said once the typing stops rather than after
+ * every character.
+ *
+ * A sentence, not the note. Holding the note itself, the region would read the
+ * reader's own four thousand characters back to them atomically at every
+ * pause in typing, and the field's description would read them again at every
+ * return of focus.
+ */
+function RedactionPreview({
+  said,
+  redactedNotes,
+}: {
+  /** The sentence, once the typing has settled; empty where there is nothing to say. */
+  readonly said: string;
+
+  /** The note as the report will carry it, where redaction changed it. */
+  readonly redactedNotes: string | undefined;
+}): ReactNode {
+  return (
+    <div className="ag-diagnostic-redaction">
+      {redactedNotes !== undefined && <Icon name="removed-from-report" size={IconSize.Inline} />}
+      <div className="ag-diagnostic-redaction-text">
+        <p className="ag-dialogue-note" id={NOTE_PREVIEW_ID} aria-live="polite" aria-atomic="true">
+          {said}
+        </p>
+        {/* The note itself, shown rather than said, where the sentence above says it is. */}
+        {redactedNotes !== undefined && (
+          <p className="ag-dialogue-note">{`Your note will be carried as: ${redactedNotes}`}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** What the report will contain, each part with how many items it holds where it counts them. */
+function ReportContents({
+  contents,
+}: {
+  readonly contents: readonly BundleContentDescription[];
+}): ReactNode {
+  return (
+    <section aria-label="What the report will contain" className="ag-dialogue-group">
+      <h3 className="ag-dialogue-heading">What the report will contain</h3>
+      {contents.length === 0 ? (
+        <p className="ag-dialogue-note">Nothing. Switch something on to make a report.</p>
+      ) : (
+        <ul className="ag-diagnostic-list">
+          {contents.map((entry) => (
+            <li key={entry.key}>
+              {entry.itemCount === undefined
+                ? entry.label
+                : `${entry.label} (${String(entry.itemCount)})`}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 /** The dialogue. */
 export function DiagnosticExportDialog({
@@ -131,7 +202,9 @@ export function DiagnosticExportDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Export a diagnostic report"
+      icon="diagnostic-report"
       description="Choose what the report contains. It is saved as a file on this machine and is not sent anywhere."
+      closeLabel="Close"
       actions={
         <>
           <Button
@@ -143,7 +216,9 @@ export function DiagnosticExportDialog({
           </Button>
           <Button
             tone={ButtonTone.Primary}
-            disabled={contents.length === 0}
+            {...(contents.length === 0
+              ? { unavailableReason: 'Switch something on to make a report.' }
+              : {})}
             onClick={() => {
               run('help.export-diagnostics', {
                 include: [...selection].join(','),
@@ -152,27 +227,30 @@ export function DiagnosticExportDialog({
               });
             }}
           >
+            <Icon name="save-file" />
             Save the report
           </Button>
         </>
       }
     >
-      <div className="ag-settings-section">
-        {CHOOSABLE.map((key) => (
-          <ToggleSwitch
-            key={key}
-            label={labelOf(key)}
-            checked={include.has(key)}
-            onCheckedChange={(on) => {
-              setInclude((current) => {
-                const next = new Set(current);
-                if (on) next.add(key);
-                else next.delete(key);
-                return next;
-              });
-            }}
-          />
-        ))}
+      <div className="ag-dialogue-stack">
+        <div className="ag-diagnostic-contents" role="group" aria-label="What to include">
+          {CHOOSABLE.map((key) => (
+            <ToggleSwitch
+              key={key}
+              label={labelOf(key)}
+              checked={include.has(key)}
+              onCheckedChange={(on) => {
+                setInclude((current) => {
+                  const next = new Set(current);
+                  if (on) next.add(key);
+                  else next.delete(key);
+                  return next;
+                });
+              }}
+            />
+          ))}
+        </div>
 
         <TextField
           label="What were you doing when it happened?"
@@ -186,36 +264,7 @@ export function DiagnosticExportDialog({
           onValueChange={setNotes}
         />
 
-        {/*
-          Tied to the field rather than left beside it. A description saying
-          "what the report will carry is shown below" would leave a reader who
-          cannot see the page no way below: no identifier, nothing describing
-          the field, and nothing announcing the preview appearing, changing or
-          going as they type. Polite and settled, so it is said once the typing
-          stops rather than after every character.
-
-          A sentence, not the note. Holding the note itself, this region would
-          read the reader's own four thousand characters back to them atomically
-          at every pause in typing, and the field's description would read them
-          again at every return of focus.
-        */}
-        <p
-          className="ag-settings-note"
-          data-ag-status="reduced"
-          id={NOTE_PREVIEW_ID}
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {settledSaid.value ?? ''}
-        </p>
-
-        {/* The note itself, shown rather than said, where the sentence above
-            says it is. */}
-        {redactedNotes !== undefined && (
-          <p className="ag-settings-note" data-ag-status="reduced">
-            {`Your note will be carried as: ${redactedNotes}`}
-          </p>
-        )}
+        <RedactionPreview said={settledSaid.value ?? ''} redactedNotes={redactedNotes} />
 
         <ToggleSwitch
           label="Keep file names"
@@ -224,22 +273,7 @@ export function DiagnosticExportDialog({
           onCheckedChange={setKeepFileNames}
         />
 
-        <section aria-label="What the report will contain" className="ag-export-preview">
-          <h3 className="ag-panel-title">What the report will contain</h3>
-          {contents.length === 0 ? (
-            <p>Nothing. Switch something on to make a report.</p>
-          ) : (
-            <ul>
-              {contents.map((entry) => (
-                <li key={entry.key}>
-                  {entry.itemCount === undefined
-                    ? entry.label
-                    : `${entry.label} (${String(entry.itemCount)})`}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <ReportContents contents={contents} />
       </div>
     </ModalDialog>
   );

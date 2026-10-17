@@ -5,6 +5,10 @@
  * the storage it needs, stated before any of it is stored, and once it ends,
  * what it came to and why it was refused where it was.
  *
+ * A measured stage's words are written in its row as well as said by its bar,
+ * so a stage with no measure to draw, whose bar runs unmeasured, still says how
+ * far it has got.
+ *
  * Each row is keyed by its place in the batch, which never changes while the
  * batch runs, so a report redraws the rows it changed and leaves the rest, and
  * the focus, where they were. A bar names its file, so a screen reader knows
@@ -15,7 +19,14 @@
 
 import type { ReactNode } from 'react';
 
-import { Icon, IconSize, type IconName, ProgressBar, Spinner } from '@audiogubbins/design-system';
+import {
+  Icon,
+  IconSize,
+  type IconName,
+  ProgressBar,
+  ProgressPlace,
+  Spinner,
+} from '@audiogubbins/design-system';
 import type { ImportEntry, ImportFileState, ImportJob } from '@audiogubbins/import-export';
 
 import { IMPORT_LIST_LABEL } from '../../import-export-words.js';
@@ -72,9 +83,10 @@ function ImportRow({ entry }: { readonly entry: ImportEntry }): ReactNode {
         <span className="ag-imports-bar">
           <ProgressBar
             label={`Import of ${file.name}`}
-            value={measure.kind === 'measured' ? measure.done / measure.total : null}
+            // An empty file's total is zero, and a bar given zero over zero has no value.
+            value={measure.kind === 'measured' ? measure.done / Math.max(1, measure.total) : null}
             valueText={() => measure.words}
-            place="row"
+            place={ProgressPlace.Row}
           />
         </span>
       )}

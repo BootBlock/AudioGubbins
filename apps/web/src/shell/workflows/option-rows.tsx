@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import type { Placement } from '@audiogubbins/guided-workflows';
 
 import type { DraftField, WorkflowDraft } from '../../state/workflow-drafts.js';
-import { SourcedChoice, SourcedNumber } from './workflow-fields.js';
+import { SourcedChoice, SourcedNumber, type WorkflowUnit } from './workflow-fields.js';
 import { PLACEMENTS } from './workflow-words.js';
 
 /** Changes the draft as `change` says. */
@@ -18,27 +18,38 @@ export type DraftChange = (change: (draft: WorkflowDraft) => WorkflowDraft) => v
 /** Sets one option of `O`, as the person chose it. */
 export type Setter<O> = <F extends keyof O>(field: F, value: O[F]) => void;
 
-export const NAMING_HELP =
-  'A template of tokens such as {group:snake}, {asset}, {region} and {number:2}, as the export naming reads it.';
-
 /** One number option: its label, its unit, its value and how to set it. */
 export interface NumberRow {
   readonly label: string;
-  readonly unit: string;
+  readonly unit: WorkflowUnit;
   readonly field: DraftField<number>;
   readonly set: (value: number) => void;
 }
 
-export function NumberRows({ rows }: { readonly rows: readonly NumberRow[] }): ReactNode {
-  return rows.map((row) => (
-    <SourcedNumber
-      key={row.label}
-      label={row.label}
-      unit={row.unit}
-      field={row.field}
-      onNumber={row.set}
-    />
-  ));
+/** The number options, side by side where the dialogue is wide enough. */
+export function NumberRows({
+  rows,
+  children,
+}: {
+  readonly rows: readonly NumberRow[];
+
+  /** Number options of another kind that stand in the same row, before these. */
+  readonly children?: ReactNode;
+}): ReactNode {
+  return (
+    <div className="ag-workflow-numbers">
+      {children}
+      {rows.map((row) => (
+        <SourcedNumber
+          key={row.label}
+          label={row.label}
+          unit={row.unit}
+          field={row.field}
+          onNumber={row.set}
+        />
+      ))}
+    </div>
+  );
 }
 
 const PLACEMENT_CHOICES = PLACEMENTS.map((one) => ({ value: one.value, label: one.label }));

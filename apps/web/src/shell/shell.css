@@ -60,15 +60,6 @@
   margin-inline-start: auto;
 }
 
-.ag-source-changes {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-small);
-}
-
 /* Panels. */
 
 .ag-panel-title {
@@ -182,126 +173,6 @@
   accent-color: var(--ag-chrome-accent);
 }
 
-/* A guided workflow's dialog: what it runs on, its options each with where
-   its value came from, the analyses' progress, and every item of its plan
-   with how it stands in words beside a mark that is never colour alone. */
-.ag-workflow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-large);
-}
-
-.ag-workflow-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-small);
-}
-
-.ag-workflow-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: var(--ag-space-medium);
-}
-
-.ag-workflow-option {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-tiny);
-}
-
-.ag-workflow-source {
-  margin: 0;
-  font-size: var(--ag-text-caption);
-  color: var(--ag-chrome-text-secondary);
-}
-
-.ag-workflow-progress,
-.ag-workflow-summary {
-  margin: 0;
-}
-
-.ag-workflow-progress + progress {
-  width: 100%;
-  accent-color: var(--ag-chrome-accent);
-}
-
-.ag-workflow-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ag-space-small);
-}
-
-.ag-workflow-blockers {
-  margin: 0;
-  padding-inline-start: var(--ag-space-medium);
-}
-
-.ag-workflow-items {
-  display: grid;
-  gap: var(--ag-space-small);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ag-workflow-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--ag-space-tiny) var(--ag-space-small);
-  padding: var(--ag-space-small);
-  border: 1px solid var(--ag-chrome-border-subtle);
-  border-inline-start-width: 4px;
-  border-radius: var(--ag-radius-small);
-}
-
-.ag-workflow-item[data-ag-standing='planned'] {
-  border-inline-start-color: var(--ag-chrome-accent);
-}
-
-.ag-workflow-item[data-ag-standing='skipped'] {
-  border-inline-start-style: dashed;
-}
-
-.ag-workflow-item[data-ag-standing='refused'] {
-  border-inline-start-color: var(--ag-chrome-status-error);
-}
-
-.ag-workflow-item-name {
-  font-weight: 600;
-}
-
-.ag-workflow-standing {
-  font-size: var(--ag-text-label);
-  color: var(--ag-chrome-text-secondary);
-}
-
-.ag-workflow-item[data-ag-standing='refused'] > .ag-workflow-standing {
-  color: var(--ag-chrome-status-error);
-}
-
-.ag-workflow-changes {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding-inline-start: var(--ag-space-medium);
-  font-size: var(--ag-text-label);
-}
-
-.ag-workflow-loop-choice {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-tiny);
-  margin: 0;
-  padding: var(--ag-space-small);
-  border: 1px solid var(--ag-chrome-border-subtle);
-  border-radius: var(--ag-radius-small);
-}
-
-.ag-workflow-loop-choice > label {
-  display: flex;
-  gap: var(--ag-space-small);
-  align-items: baseline;
-}
-
 /*
  * A state, wherever it is written.
  *
@@ -375,17 +246,6 @@
   grid-column: 2;
 }
 
-.ag-export-every-setting {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-small);
-}
-
-.ag-export-every-setting > summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
 .ag-export-edits {
   display: flex;
   flex-direction: column;
@@ -393,26 +253,4 @@
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.ag-export-save-preset {
-  display: flex;
-  align-items: end;
-  gap: var(--ag-space-small);
-}
-
-.ag-export-outcome {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-tiny);
-}
-
-.ag-export-sentence {
-  margin: 0;
-}
-
-.ag-export-blockers {
-  margin: 0;
-  padding-inline-start: var(--ag-space-medium);
-  color: var(--ag-chrome-text-secondary);
 }

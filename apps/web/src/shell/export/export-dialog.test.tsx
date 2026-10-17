@@ -71,7 +71,7 @@ describe('the Export dialog', () => {
     shown();
 
     const dialog = screen.getByRole('dialog', { name: 'Export' });
-    const presets = within(dialog).getByRole('group', { name: 'Preset' });
+    const presets = within(dialog).getByRole('radiogroup', { name: 'Preset' });
     for (const preset of BUILT_IN_PRESETS) {
       const radio = within(presets).getByRole('radio', { name: preset.name });
       expect(radio).toHaveAccessibleDescription(/^Sets /u);
@@ -260,6 +260,7 @@ describe('the Export dialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Export' }));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByText('Every setting'));
     await userEvent.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Mine{Enter}');
 
     expect(ran).toEqual([

@@ -25,7 +25,7 @@ describe('the compatibility screen', () => {
   it('blocks the page with what was found, while the stored data waits for a decision', () => {
     screenOver(BLOCKED);
 
-    const dialogue = screen.getByRole('dialog', { name: 'Your stored projects need a decision' });
+    const dialogue = screen.getByRole('dialog', { name: 'Stored projects' });
     expect(
       within(dialogue).getByText(
         'The projects stored in this browser were saved in storage format 0, and this version of AudioGubbins reads storage format 1.',

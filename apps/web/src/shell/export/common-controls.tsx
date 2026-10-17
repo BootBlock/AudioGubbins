@@ -16,7 +16,8 @@ import { sampleRateWords } from '../../wording.js';
 import { ChannelControls } from './channel-controls.js';
 import { DitherControls } from './dither-controls.js';
 import { MetadataControls } from './metadata-controls.js';
-import { ChoiceField, type Choice, type SettingsProps } from './setting-fields.js';
+import { FILE_NAME_FIELD } from '../template-vocabularies.js';
+import { ChoiceField, SettingGroup, type Choice, type SettingsProps } from './setting-fields.js';
 
 /** The rates offered where a codec writes any rate within its bounds: those audio is commonly made at. */
 const COMMON_RATES: readonly number[] = [
@@ -52,8 +53,7 @@ export function CommonControls(props: SettingsProps): ReactNode {
   const { settings, onSettings } = props;
   return (
     <>
-      <fieldset className="ag-settings-group">
-        <legend>Rate</legend>
+      <SettingGroup title="Rate">
         <ChoiceField
           label="Sample rate"
           value={settings.sampleRate}
@@ -62,21 +62,21 @@ export function CommonControls(props: SettingsProps): ReactNode {
             onSettings({ ...settings, sampleRate: rate });
           }}
         />
-      </fieldset>
+      </SettingGroup>
       <ChannelControls {...props} />
       <DitherControls {...props} />
       <MetadataControls {...props} />
-      <fieldset className="ag-settings-group">
-        <legend>Naming</legend>
+      <SettingGroup title="Naming">
         <TextField
           label="File name"
-          description="Without its extension. {project}, {region}, {index}, {date} and {format} are filled in; write {{ or }} for a brace."
+          description="Without its extension."
           value={settings.fileName}
+          template={FILE_NAME_FIELD}
           onValueChange={(fileName) => {
             onSettings({ ...settings, fileName });
           }}
         />
-      </fieldset>
+      </SettingGroup>
     </>
   );
 }

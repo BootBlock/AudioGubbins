@@ -7,7 +7,9 @@
  * is, never changed to something that can.
  */
 
-import { useId, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+
+import { RadioGroup } from '@audiogubbins/design-system';
 
 import {
   BUILT_IN_PRESETS,
@@ -98,8 +100,8 @@ export function Presets({
   readonly own: readonly OwnExportPreset[];
   readonly dialog: ExportDialogStore;
 }): ReactNode {
-  const name = useId();
   const chosen = chosenKey(open);
+  const listed = listedPresets(open, own, dialog);
   const from =
     open.source.kind === 'kept'
       ? 'The settings start as this project was last exported with.'
@@ -107,31 +109,22 @@ export function Presets({
         ? 'The settings start at the highest quality for this asset.'
         : undefined;
   return (
-    <fieldset className="ag-settings-group">
-      <legend>Preset</legend>
-      {from !== undefined && <p className="ag-panel-note">{from}</p>}
-      {listedPresets(open, own, dialog).map((preset) => {
-        const said = `${name}-${preset.key}`;
-        const named = `${said}-name`;
-        return (
-          <label key={preset.key} className="ag-export-preset">
-            <input
-              type="radio"
-              name={name}
-              checked={preset.key === chosen}
-              aria-labelledby={named}
-              aria-describedby={said}
-              onChange={preset.choose}
-            />
-            <span className="ag-export-preset-name" id={named}>
-              {preset.name}
-            </span>
-            <span className="ag-panel-note" id={said}>
-              {preset.sentence}
-            </span>
-          </label>
-        );
-      })}
-    </fieldset>
+    <div className="ag-export-presets">
+      <RadioGroup
+        label="Preset"
+        // None is chosen while the settings start from the project's last
+        // export or the highest quality, which no preset is.
+        value={chosen ?? ''}
+        options={listed.map((preset) => ({
+          value: preset.key,
+          label: preset.name,
+          description: preset.sentence,
+        }))}
+        onValueChange={(key) => {
+          listed.find((preset) => preset.key === key)?.choose();
+        }}
+      />
+      {from !== undefined && <p className="ag-dialogue-note">{from}</p>}
+    </div>
   );
 }

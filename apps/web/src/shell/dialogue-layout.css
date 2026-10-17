@@ -1,0 +1,194 @@
+/*
+ * The layout the dialogues share (design language, section 11, "A dialogue
+ * follows the same pattern"): the body's parts one inset apart, a form whose
+ * labels stand in a column of their own, a quiet group heading, a row of
+ * buttons, a note at label size, and the reason or status at the footer's
+ * leading side. The controls themselves are the design system's; this places
+ * them.
+ */
+
+/* The parts of a dialogue's body, one inset apart. */
+.ag-dialogue-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+  min-inline-size: 0;
+}
+
+/* A part set further from the one before it, as a new group of the body is. */
+.ag-dialogue-stack > .ag-dialogue-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-inset);
+}
+
+/*
+ * A form: each field's label in a column of its own, its control filling the
+ * rest, rows one inset apart (section 10, "Property grids": a dialogue's form
+ * takes a 100 px to 150 px label column, stated per dialogue). A field that
+ * says more than its label keeps what it says under its control.
+ */
+.ag-dialogue-form {
+  --ag-dialogue-label-column: calc(50 * var(--ag-grid-unit));
+
+  display: grid;
+  gap: var(--ag-space-inset);
+  min-inline-size: 0;
+}
+
+.ag-dialogue-form[data-ag-labels='wide'] {
+  --ag-dialogue-label-column: calc(75 * var(--ag-grid-unit));
+}
+
+.ag-dialogue-form[data-ag-labels='medium'] {
+  --ag-dialogue-label-column: calc(65 * var(--ag-grid-unit));
+}
+
+/* A row of the form: the label's column, then the control's. */
+.ag-dialogue-form > :is(.ag-select-field, .ag-text-field, .ag-dialogue-field) {
+  display: grid;
+  grid-template-columns: var(--ag-dialogue-label-column) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--ag-space-medium);
+  row-gap: var(--ag-space-tiny);
+}
+
+/* Everything of a field but its label sits in the control's column. */
+.ag-dialogue-form > :is(.ag-select-field, .ag-text-field, .ag-dialogue-field) > :not(:first-child) {
+  grid-column: 2;
+}
+
+.ag-dialogue-form > .ag-select-field > .ag-select-label {
+  min-inline-size: 0;
+}
+
+.ag-dialogue-form > :is(.ag-select-field, .ag-dialogue-field) > :first-child,
+.ag-dialogue-form > .ag-text-field > .ag-text-field-label {
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-regular);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * A text field with its action beside it, such as a name and Rename: the
+ * field's own label in the label column, the field, then the action, with what
+ * the field says under it.
+ */
+.ag-dialogue-form > .ag-dialogue-with-action {
+  display: grid;
+  grid-template-columns: var(--ag-dialogue-label-column) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--ag-space-medium);
+  row-gap: var(--ag-space-tiny);
+}
+
+.ag-dialogue-with-action > .ag-text-field {
+  display: contents;
+}
+
+.ag-dialogue-with-action .ag-text-field-label {
+  grid-row: 1;
+  grid-column: 1;
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-regular);
+  overflow-wrap: anywhere;
+}
+
+.ag-dialogue-with-action .ag-text-field-box {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.ag-dialogue-with-action > :not(.ag-text-field) {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+.ag-dialogue-with-action :is(.ag-text-field-description, .ag-text-field-error) {
+  grid-column: 2 / -1;
+}
+
+/* A quiet heading over a group of the body: caption size, upper case. */
+.ag-dialogue-heading {
+  margin: var(--ag-space-small) 0 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+/* A heading at the strength of a label, for a choice and its control under it. */
+.ag-dialogue-label {
+  margin: 0;
+  font-size: inherit;
+  font-weight: var(--ag-text-weight-strong);
+}
+
+/* Buttons side by side, wrapping where the dialogue is narrow. */
+.ag-dialogue-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* A row whose controls are a choice and its hint. */
+.ag-dialogue-row[data-ag-tight] {
+  gap: var(--ag-space-tiny);
+}
+
+/* What a dialogue says beside its controls: label size, in the supporting text. */
+.ag-dialogue-note {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* Body text a dialogue states plainly, such as the file a question is about. */
+.ag-dialogue-text {
+  margin: 0;
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* A hairline between groups of the body. */
+.ag-dialogue-rule {
+  block-size: 0;
+  margin: var(--ag-space-tiny) 0;
+  border: none;
+  border-block-start: var(--ag-space-hair) solid var(--ag-chrome-border-subtle);
+}
+
+/* Reasons something cannot be done, each a line, in the warning colour. */
+.ag-dialogue-reasons {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+  line-height: var(--ag-text-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+/* The footer's leading side: a reason in the supporting text. */
+.ag-dialogue-status {
+  margin: 0;
+}
+
+/* A segmented choice is as wide as its choices, wherever a dialogue places it. */
+:is(.ag-dialogue-group, .ag-dialogue-field, .ag-dialogue-stack) > .ag-segmented {
+  align-self: flex-start;
+  justify-self: start;
+}
+
+/* Something under way, said beside its spinner. */
+.ag-dialogue-working {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}

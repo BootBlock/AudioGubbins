@@ -85,6 +85,13 @@ import './shell/preview/preview.css';
 import './shell/packs/packs.css';
 import './shell/diagnostics-panel.css';
 import './shell/capabilities.css';
+import './shell/dialogue-layout.css';
+import './shell/projects/projects.css';
+import './shell/export/export.css';
+import './shell/workflows/workflows.css';
+import './shell/compatibility-screen.css';
+import './shell/source-change-prompt.css';
+import './shell/diagnostic-export.css';
 import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */

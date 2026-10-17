@@ -8,7 +8,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import { Banner, BannerTone, Button, Icon, List, ListRow } from '@audiogubbins/design-system';
 import type { ProjectId } from '@audiogubbins/domain';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
@@ -31,28 +31,30 @@ function ProjectRow({
 }): ReactNode {
   const name = quoted(header.name);
   return (
-    <li className="ag-project-row" aria-current={isOpen ? 'true' : undefined}>
-      <span className="ag-project-row-name">{header.name}</span>
-      <span className="ag-project-row-note">
-        {isOpen ? 'Open now' : `Made ${day(header.created)}`}
-      </span>
-      <span className="ag-project-row-actions">
-        <Button
-          compact
-          label={`Open ${name}`}
-          onClick={() => run('file.open', { project: header.id })}
-        >
-          Open
-        </Button>
-        <Button
-          compact
-          label={`Open ${name} to read`}
-          onClick={() => run('file.open', { project: header.id, access: 'read' })}
-        >
-          Open to read
-        </Button>
-      </span>
-    </li>
+    <ListRow
+      name={header.name}
+      detail={isOpen ? 'Open now' : `Made ${day(header.created)}`}
+      leading={<Icon name={isOpen ? 'open-project' : 'project'} />}
+      chosen={isOpen}
+      actions={
+        <>
+          <Button
+            compact
+            label={`Open ${name}`}
+            onClick={() => run('file.open', { project: header.id })}
+          >
+            Open
+          </Button>
+          <Button
+            compact
+            label={`Open ${name} to read`}
+            onClick={() => run('file.open', { project: header.id, access: 'read' })}
+          >
+            Open to read
+          </Button>
+        </>
+      }
+    />
   );
 }
 
@@ -76,23 +78,31 @@ export function ProjectList({
   const unreadable = state.entries.length - headers.length;
 
   return (
-    <div className="ag-settings-section">
-      {state.problem !== undefined && <p data-ag-status="unavailable">{state.problem}</p>}
-      {state.working !== undefined && <p role="status">{`${state.working}…`}</p>}
-      {state.loaded && kept.length === 0 && <p>No project is kept in this browser yet.</p>}
+    <div className="ag-dialogue-stack ag-projects-section">
+      {state.problem !== undefined && (
+        <Banner tone={BannerTone.Error} icon="error">
+          {state.problem}
+        </Banner>
+      )}
+      {state.working !== undefined && (
+        <p className="ag-dialogue-note" role="status">{`${state.working}…`}</p>
+      )}
+      {state.loaded && kept.length === 0 && (
+        <p className="ag-dialogue-note">No project is kept in this browser yet.</p>
+      )}
       {kept.length > 0 && (
-        <ul className="ag-project-list" aria-label="Projects">
+        <List label="Projects">
           {kept.map((header) => (
             <ProjectRow key={header.id} header={header} isOpen={header.id === open} run={run} />
           ))}
-        </ul>
+        </List>
       )}
       {unreadable > 0 && (
-        <p className="ag-settings-note" data-ag-status="reduced">
+        <Banner tone={BannerTone.Warning} icon="unreadable-project">
           {unreadable === 1
             ? 'One stored project cannot be read, so it cannot be opened. Nothing of it was changed.'
             : `${String(unreadable)} stored projects cannot be read, so they cannot be opened. Nothing of them was changed.`}
-        </p>
+        </Banner>
       )}
       <DeletedProjects headers={headers} run={run} />
     </div>

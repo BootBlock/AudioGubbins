@@ -11,9 +11,16 @@
  * reach the same action.
  */
 
-import { useId, useSyncExternalStore, type ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, ModalDialog } from '@audiogubbins/design-system';
+import {
+  Button,
+  ButtonTone,
+  Icon,
+  ModalDialog,
+  Spinner,
+  type IconName,
+} from '@audiogubbins/design-system';
 import {
   CLEAN_DIALOGUE,
   CREATE_SEAMLESS_LOOP,
@@ -37,7 +44,6 @@ import { WORKFLOW_DIALOG } from '../../input/use-shortcuts.js';
 import type { ProjectStores } from '../../state/project-stores.js';
 import type { OpenWorkflowDialog, WorkflowDraftStore } from '../../state/workflow-draft-store.js';
 import type { PanelCommands } from '../command-button.js';
-import { NotedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 import { LoopChoices } from './loop-choices.js';
 import { WorkflowAnalysisStatus } from './workflow-analysis-status.js';
@@ -46,6 +52,16 @@ import { WorkflowItems } from './workflow-items.js';
 import { WorkflowOptions } from './workflow-options.js';
 import { WorkflowSubject } from './workflow-subject.js';
 import { WORKFLOW_PURPOSES } from './workflow-words.js';
+
+/** The glyph before each workflow's title, the one its menu entry carries. */
+const ICONS: Readonly<Record<WorkflowKey, IconName>> = {
+  'cut-into-sounds': 'cut-into-sounds',
+  'prepare-one-shot': 'prepare-one-shot',
+  'create-seamless-loop': 'seamless-loop',
+  'normalise-game-sfx': 'normalise',
+  'clean-dialogue': 'clean-dialogue',
+  'export-for-godot': 'export-for-godot',
+};
 
 const TITLES: Readonly<Record<WorkflowKey, string>> = {
   'cut-into-sounds': CUT_INTO_SOUNDS.label,
@@ -100,7 +116,7 @@ function Setting({
           store.chooseTargets(targets, state);
         }}
       />
-      <section className="ag-workflow-section ag-workflow-options" aria-label="Options">
+      <section className="ag-workflow-options" aria-label="Options">
         <WorkflowOptions draft={draft} state={state} onDraft={store.edit} />
       </section>
       <WorkflowAnalysisStatus
@@ -121,24 +137,19 @@ function Setting({
 function Actions({
   open,
   run,
-  unavailableReason,
+  applyReason,
   refused,
 }: {
   readonly open: OpenWorkflowDialog | undefined;
   readonly run: RunCommand;
-  readonly unavailableReason: (id: string) => string | undefined;
+
+  /** Why the plan cannot be applied now, or `undefined` where it can. */
+  readonly applyReason: string | undefined;
   readonly refused: boolean;
 }): ReactNode {
-  const reasonId = useId();
-  const applyReason = unavailableReason(WorkflowCommand.Apply);
   const setting = open?.step.kind === 'setting';
   return (
     <>
-      {setting && applyReason !== undefined && (
-        <p id={reasonId} className="ag-panel-note" data-ag-status="unavailable">
-          {applyReason}
-        </p>
-      )}
       <Button
         onClick={() => {
           run(WorkflowCommand.Close);
@@ -156,15 +167,16 @@ function Actions({
         </Button>
       )}
       {setting && (
-        <NotedButton
+        <Button
           tone={ButtonTone.Primary}
-          reasonId={applyReason === undefined ? undefined : reasonId}
-          onPress={() => {
+          {...(applyReason === undefined ? {} : { unavailableReason: applyReason })}
+          onClick={() => {
             run(WorkflowCommand.Apply);
           }}
         >
+          <Icon name="apply" />
           Apply
-        </NotedButton>
+        </Button>
       )}
     </>
   );
@@ -190,7 +202,12 @@ function Body({
     return <WorkflowFollowUps step={open.step} commands={commands} />;
   }
   if (open.step.kind === 'applying' || reading === undefined) {
-    return <p role="status">Applying…</p>;
+    return (
+      <p role="status" className="ag-dialogue-working">
+        <Spinner />
+        Applying…
+      </p>
+    );
   }
   return (
     <Setting
@@ -230,17 +247,23 @@ export function WorkflowDialog({
       ? readWorkflow(context, open, state, store.planned)
       : undefined;
   const refused = reading?.plan.ok === true && refusedTargets(reading.plan.value).length > 0;
+  const applyReason =
+    open?.step.kind === 'setting' ? unavailableReason(WorkflowCommand.Apply) : undefined;
+  const title = open === undefined ? 'Workflow' : TITLES[open.draft.key];
   return (
     <ModalDialog
       open={open !== undefined}
       onOpenChange={(isOpen) => {
         if (!isOpen) run(WorkflowCommand.Close);
       }}
-      title={open === undefined ? 'Workflow' : TITLES[open.draft.key]}
+      title={title}
+      {...(open === undefined ? {} : { icon: ICONS[open.draft.key] })}
       description={open === undefined ? '' : WORKFLOW_PURPOSES[open.draft.key]}
-      actions={
-        <Actions open={open} run={run} unavailableReason={unavailableReason} refused={refused} />
-      }
+      // Named for the workflow, since the footer's own Close is there once
+      // the step has applied.
+      closeLabel={`Close ${title}`}
+      status={applyReason}
+      actions={<Actions open={open} run={run} applyReason={applyReason} refused={refused} />}
     >
       {open !== undefined && state !== undefined && (
         <div className="ag-workflow" {...{ [WORKFLOW_DIALOG]: '' }}>

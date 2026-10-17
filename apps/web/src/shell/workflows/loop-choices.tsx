@@ -6,7 +6,9 @@
  * chosen here.
  */
 
-import { useId, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+
+import { RadioGroup } from '@audiogubbins/design-system';
 
 import { memberKey } from '@audiogubbins/game-audio';
 import type { LoopChoice } from '@audiogubbins/guided-workflows';
@@ -21,6 +23,9 @@ import { memberName } from './workflow-words.js';
 
 type Answered = Extract<NeedStatus, { readonly kind: 'current' }>;
 
+/** The choice of leaving the loop as it is, which no candidate's rank can be. */
+const NONE = 'none';
+
 /** One region's candidates, as radio buttons, the first choosing none. */
 function RegionChoice({
   status,
@@ -33,7 +38,6 @@ function RegionChoice({
   readonly state: ProjectState;
   readonly onChoose: (choice: LoopChoice | undefined) => void;
 }): ReactNode {
-  const name = useId();
   const { answer, need } = status;
   if (answer.kind !== 'loop' || need.target.kind !== 'region') return null;
   const region = state.project.regions.get(need.target.region);
@@ -41,36 +45,26 @@ function RegionChoice({
     region === undefined ? undefined : state.project.assets.get(region.assetId)?.sampleRate;
   const { candidates } = answer.answer.analysis;
   return (
-    <fieldset className="ag-workflow-loop-choice">
-      <legend>{`The loop of ${memberName(need.target, state)}`}</legend>
-      <label>
-        <input
-          type="radio"
-          name={name}
-          checked={chosen === undefined}
-          onChange={() => {
-            onChoose(undefined);
-          }}
-        />
-        Leave its loop as it is
-      </label>
+    <div className="ag-workflow-loop-choice">
+      <RadioGroup
+        label={`The loop of ${memberName(need.target, state)}`}
+        value={chosen === undefined ? NONE : String(chosen.rank)}
+        options={[
+          { value: NONE, label: 'Leave its loop as it is' },
+          ...candidates.map((candidate) => ({
+            value: String(candidate.rank),
+            label: `Candidate ${String(candidate.rank)}: ${candidateMoveWords(candidate)}; it ${judgedWords(candidate.metrics)}. Crossfade: ${rate === undefined ? 'as suggested' : suggestionWords(candidate, rate)}`,
+          })),
+        ]}
+        onValueChange={(value) => {
+          const candidate = candidates.find((one) => String(one.rank) === value);
+          onChoose(candidate === undefined ? undefined : { rank: candidate.rank });
+        }}
+      />
       {candidates.length === 0 && (
-        <p className="ag-panel-note">The search found no candidate loop points.</p>
+        <p className="ag-dialogue-note">The search found no candidate loop points.</p>
       )}
-      {candidates.map((candidate) => (
-        <label key={candidate.rank}>
-          <input
-            type="radio"
-            name={name}
-            checked={chosen?.rank === candidate.rank}
-            onChange={() => {
-              onChoose({ rank: candidate.rank });
-            }}
-          />
-          {`Candidate ${String(candidate.rank)}: ${candidateMoveWords(candidate)}; it ${judgedWords(candidate.metrics)}. Crossfade: ${rate === undefined ? 'as suggested' : suggestionWords(candidate, rate)}`}
-        </label>
-      ))}
-    </fieldset>
+    </div>
   );
 }
 

@@ -379,18 +379,9 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'RichTooltipContent',
         'RichTooltipProps',
         'RichTooltipTone',
-        'TemplateText',
-        'TemplateTextProps',
       ],
     "The buttons and the hardware of the design language's control set that no panel takes yet (the icon button, the toolbar's separator, the segmented control, the check, the radio's panel lamps, the power switch and the record lamp), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
-      [
-        'Check',
-        'CheckProps',
-        'IconButtonProps',
-        'RadioGroup',
-        'RadioGroupProps',
-        'RadioOption',
-      ],
+      ['IconButtonProps'],
     "The dials and the meters of the design language's control set that no panel takes yet (the knob, the fader, the level and correlation meters, the typed entry a dial opens, and the clock a meter's ballistics run on), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
       ['DialTyping'],
     "The chrome round a panel's content that no panel takes yet (the panel and its header, sections, property grids and source chips, lists, tables and verdicts, badges, status chips and key caps, the empty, loading and error states, notices and banners), which the inventory renders and the panels take up as WU-16.C to E redesign them.":
@@ -400,8 +391,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'NoticeTone',
         'Panel',
         'PanelProps',
-        'SourceChip',
-        'SourceChipProps',
         'Table',
         'TableColumn',
         'TableProps',

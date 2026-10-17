@@ -25,8 +25,12 @@ export const EXPORT_DIALOG_WORDS = {
   start: 'Export',
 } as const;
 
-/** The collision prompt's button for each answer, and its checkbox for the rest of the batch. */
+/**
+ * The collision prompt's title, its button for each answer, and its checkbox
+ * for the rest of the batch.
+ */
 export const COLLISION_PROMPT_WORDS = {
+  title: 'File already exists',
   answers: {
     overwrite: 'Replace',
     rename: 'Keep both',
@@ -35,9 +39,9 @@ export const COLLISION_PROMPT_WORDS = {
   forTheRest: 'Do the same for the rest',
 } as const;
 
-/** The collision prompt's title, naming the file whose name is taken as the folder lists it. */
-export function collisionPromptTitle(name: string): string {
-  return `A file named ${quoted(name)} is there already`;
+/** The collision prompt's first sentence, naming the file whose name is taken as the folder lists it. */
+export function collisionPromptSentence(name: string): string {
+  return `A file named ${quoted(name)} is there already.`;
 }
 
 /** The accessible name of the list of files an import is bringing in. */

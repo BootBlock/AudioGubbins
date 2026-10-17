@@ -11,7 +11,7 @@ import type { MetadataTextKey } from '@audiogubbins/codecs';
 import type { MetadataEdit, MetadataPolicy } from '@audiogubbins/import-export';
 
 import { METADATA_FIELD_NAMES, METADATA_POLICY_WORDS } from './export-words.js';
-import { ChoiceField, type Choice, type SettingsProps } from './setting-fields.js';
+import { ChoiceField, SettingGroup, type Choice, type SettingsProps } from './setting-fields.js';
 
 const POLICIES: readonly Choice<MetadataPolicy>[] = [
   { value: 'full', label: 'Full' },
@@ -101,8 +101,7 @@ export function MetadataControls({ settings, onSettings }: SettingsProps): React
   };
   const free = freeField(metadata.edits);
   return (
-    <fieldset className="ag-settings-group">
-      <legend>Metadata</legend>
+    <SettingGroup title="Metadata">
       <ChoiceField
         label="Carry"
         value={metadata.policy}
@@ -111,8 +110,8 @@ export function MetadataControls({ settings, onSettings }: SettingsProps): React
           onSettings({ ...settings, metadata: { ...metadata, policy } });
         }}
       />
-      <p className="ag-settings-note">{`${METADATA_POLICY_WORDS[metadata.policy]}.`}</p>
-      <ul className="ag-export-edits" aria-label="Metadata fields set or removed">
+      <p className="ag-dialogue-note">{`${METADATA_POLICY_WORDS[metadata.policy]}.`}</p>
+      <ul className="ag-export-metadata-edits" aria-label="Metadata fields set or removed">
         {metadata.edits.map((edit, index) => (
           <EditRow
             key={edit.key}
@@ -136,6 +135,6 @@ export function MetadataControls({ settings, onSettings }: SettingsProps): React
           Set or remove a field…
         </Button>
       )}
-    </fieldset>
+    </SettingGroup>
   );
 }

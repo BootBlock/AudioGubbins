@@ -1,0 +1,24 @@
+/*
+ * The stored projects decision (design language, sections 10 and 11): the
+ * format found beside the one this version reads, and the decisions at the
+ * trailing end, the safe one first and removing last.
+ */
+
+/* The two formats, in the numeric family, on a pill of quiet glass. */
+.ag-stored-formats {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  margin: 0;
+  padding: var(--ag-space-tiny) var(--ag-space-inset-leading);
+  border: var(--ag-space-hair) solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-fill-quiet);
+  font-family: var(--ag-font-numeric);
+  font-size: calc(var(--ag-text-body) * var(--ag-text-numeric-ratio));
+}
+
+.ag-stored-decisions {
+  justify-content: flex-end;
+}
