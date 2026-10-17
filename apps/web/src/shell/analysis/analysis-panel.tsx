@@ -16,6 +16,19 @@
 
 import { useId, useSyncExternalStore, type ReactNode } from 'react';
 
+import {
+  Badge,
+  BadgeTone,
+  Banner,
+  BannerTone,
+  Button,
+  ButtonTone,
+  EmptyState,
+  Hint,
+  Icon,
+  ProgressBar,
+  type IconName,
+} from '@audiogubbins/design-system';
 import type { AssistantReport } from '@audiogubbins/detection-runtime';
 
 import {
@@ -28,7 +41,8 @@ import type { EditorPanelParts } from '../../editor/panel-parts.js';
 import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
 import type { Observable } from '../../state/observable.js';
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import type { PanelCommands } from '../command-button.js';
+import { commandPress } from '../command-press.js';
 import { Findings, positionOf, type Shown } from './analysis-findings.js';
 import { DetectorSettings } from './detector-settings.js';
 import { Removals } from './silence-removals.js';
@@ -75,6 +89,34 @@ function refusalOf(report: AssistantReport, current: boolean): string | undefine
   return report.learned.find((learned) => learned.kind === 'refused')?.reason;
 }
 
+/** Each assistant's glyph, by its key; one this build does not know takes the panel's. */
+const ASSISTANT_ICONS: ReadonlyMap<string, IconName> = new Map<string, IconName>([
+  ['repair', 'repair'],
+  ['restoration', 'enhance'],
+  ['silence', 'silence'],
+  ['classification', 'classification'],
+]);
+
+/**
+ * How many things a report found, as a badge: in the warning colour where it
+ * recommends a treatment for them, so what wants attention stands out, and
+ * marked in the success colour where it found nothing.
+ */
+function FoundBadge({ report }: { readonly report: AssistantReport }): ReactNode {
+  const total = report.found.reduce((sum, { count }) => sum + count, 0);
+  if (total === 0) {
+    return (
+      <Badge tone={BadgeTone.Success} icon="success">
+        Nothing found
+      </Badge>
+    );
+  }
+  const treats = report.recommendation.steps.length > 0;
+  return (
+    <Badge tone={treats ? BadgeTone.Warning : BadgeTone.Neutral}>{`${String(total)} found`}</Badge>
+  );
+}
+
 /** One assistant's report: what it found, what it recommends, and Apply or Remove. */
 function Report({
   report,
@@ -97,9 +139,15 @@ function Report({
   const removes = removals.length > 0;
   return (
     <section className="ag-analysis-report" aria-labelledby={heading}>
-      <h3 className="ag-analysis-heading" id={heading}>
-        {report.label}
-      </h3>
+      <header className="ag-analysis-report-header">
+        <span className="ag-analysis-report-glyph">
+          <Icon name={ASSISTANT_ICONS.get(report.recommendation.assistant) ?? 'analysis'} />
+        </span>
+        <h3 className="ag-analysis-report-title" id={heading}>
+          {report.label}
+        </h3>
+        <FoundBadge report={report} />
+      </header>
       <Findings findings={findings} found={found} shown={shown} commands={commands} />
       <DetectorSettings
         report={report}
@@ -116,7 +164,7 @@ function Report({
           commands={commands}
         />
       ) : steps.length === 0 ? (
-        <p className="ag-panel-note">It recommends nothing.</p>
+        <p className="ag-analysis-note">It recommends nothing.</p>
       ) : (
         <Steps report={report} shown={shown} current={current} commands={commands} />
       )}
@@ -137,25 +185,34 @@ function Steps({
   readonly commands: PanelCommands;
 }): ReactNode {
   const { steps } = report.recommendation;
+  const { onPress: apply, ...reason } = commandPress(
+    commands,
+    'analysis.apply',
+    { view: shown.panel, assistant: report.recommendation.assistant },
+    undefined,
+    refusalOf(report, current),
+  );
   return (
-    <>
-      <h4 className="ag-analysis-heading">It recommends, in this order</h4>
+    <div className="ag-analysis-recommendation">
+      <h4 className="ag-analysis-subheading">It recommends, in this order</h4>
       <ol className="ag-analysis-steps">
         {steps.map((step, index) => (
-          <li key={step.typeKey}>
+          <li key={step.typeKey} className="ag-analysis-step">
             <span className="ag-analysis-step-name">{stepName(step)}</span>
             {` ${stepWords(step, report.treated[index] ?? [], positionOf(shown))}`}
           </li>
         ))}
       </ol>
-      <CommandButton
-        id="analysis.apply"
+      <Button
+        compact
+        tone={ButtonTone.Primary}
         label={`Apply the ${report.label} recommendation`}
-        commands={commands}
-        args={{ view: shown.panel, assistant: report.recommendation.assistant }}
-        refusal={refusalOf(report, current)}
-      />
-    </>
+        {...reason}
+        onClick={apply}
+      >
+        Apply
+      </Button>
+    </div>
   );
 }
 
@@ -177,25 +234,37 @@ function RunningDetection({
     detection.framesTotal === 0
       ? 0
       : Math.floor((detection.framesRead / detection.framesTotal) * 10) * 10;
+  const { onPress: stop, ...reason } = commandPress(commands, 'analysis.cancel', {
+    view: shown.panel,
+  });
   return (
-    <>
-      <progress
-        className="ag-render-progress"
-        aria-label="Analysis progress"
-        max={detection.framesTotal}
-        value={detection.framesRead}
-      />
-      <p role="status" className="ag-panel-note">
+    <div className="ag-analysis-running">
+      <p role="status" className="ag-analysis-running-text">
         {`Analysing ${what}: ${String(tenths)}%`}
       </p>
-      <CommandButton
-        id="analysis.cancel"
-        label="Stop analysing"
-        commands={commands}
-        args={{ view: shown.panel }}
+      <Button compact {...reason} onClick={stop}>
+        Stop analysing
+      </Button>
+      <ProgressBar
+        label="Analysis progress"
+        value={detection.framesTotal === 0 ? 0 : detection.framesRead / detection.framesTotal}
       />
-    </>
+    </div>
   );
+}
+
+/** What was analysed of the view, in words: all of it, or the range. */
+function scopeWords(detection: Detection, shown: Shown): string {
+  const at = positionOf(shown);
+  return detection.scope.whole
+    ? 'all of it'
+    : `from ${at(detection.scope.range.start)} to ${at(detection.scope.range.end)}`;
+}
+
+/** The line under the audio's name: whether it has been analysed, and what of it. */
+function analysedLine(detection: Detection | undefined, shown: Shown): string | undefined {
+  if (detection === undefined) return 'It has not been analysed this session.';
+  return detection.kind === 'done' ? `Analysed ${scopeWords(detection, shown)}.` : undefined;
 }
 
 /** What a detection of the view is doing, or what it came to. */
@@ -210,30 +279,24 @@ function DetectionState({
   readonly current: boolean;
   readonly commands: PanelCommands;
 }): ReactNode {
-  if (detection === undefined) {
-    return <p className="ag-panel-note">It has not been analysed this session.</p>;
-  }
-  const at = positionOf(shown);
-  const what = detection.scope.whole
-    ? 'all of it'
-    : `from ${at(detection.scope.range.start)} to ${at(detection.scope.range.end)}`;
+  if (detection === undefined) return null;
+  const what = scopeWords(detection, shown);
   switch (detection.kind) {
     case 'running':
       return (
         <RunningDetection detection={detection} what={what} shown={shown} commands={commands} />
       );
     case 'failed':
-      return <p role="status">{`It could not be analysed. ${detection.reason}`}</p>;
+      return (
+        <div role="status" className="ag-analysis-notice">
+          <Banner tone={BannerTone.Error} icon="error">
+            {`It could not be analysed. ${detection.reason}`}
+          </Banner>
+        </div>
+      );
     case 'done':
       return (
         <>
-          <p className="ag-panel-note">{`Analysed ${what}.`}</p>
-          {!current && (
-            <p role="status">
-              The audio has changed since it was analysed, so what is shown here is of the audio as
-              it was. Analyse it again to see what it holds now.
-            </p>
-          )}
           {detection.result.reports.map((report) => (
             <Report
               key={report.recommendation.assistant}
@@ -244,9 +307,55 @@ function DetectionState({
               commands={commands}
             />
           ))}
+          {!current && (
+            <div role="status" className="ag-analysis-notice">
+              <Banner tone={BannerTone.Warning} icon="analyse-again">
+                The audio has changed since it was analysed, so what is shown here is of the audio
+                as it was. Analyse it again to see what it holds now.
+              </Banner>
+            </div>
+          )}
         </>
       );
   }
+}
+
+/** The audio shown, whether and what of it was analysed, what analysing does, and Analyse. */
+function Subject({
+  shown,
+  detection,
+  commands,
+}: {
+  readonly shown: Shown;
+  readonly detection: Detection | undefined;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const line = analysedLine(detection, shown);
+  const { onPress: analyse, ...reason } = commandPress(commands, 'analysis.detect', {
+    view: shown.panel,
+  });
+  return (
+    <div className="ag-analysis-subject">
+      <div className="ag-analysis-subject-text">
+        <p className="ag-editor-asset-name ag-analysis-asset-name">{shown.asset.name}</p>
+        {line !== undefined && <p className="ag-analysis-analysed">{line}</p>}
+      </div>
+      <Hint label="About analysis">
+        The assistants analyse the selection, or all of it with nothing selected, and recommend what
+        would treat what they find. Nothing changes until you apply a recommendation.
+      </Hint>
+      <Button
+        compact
+        tone={ButtonTone.Primary}
+        label="Analyse the audio"
+        {...reason}
+        onClick={analyse}
+      >
+        <Icon name="analyse" />
+        Analyse
+      </Button>
+    </div>
+  );
 }
 
 /** The Analysis panel. */
@@ -264,20 +373,14 @@ export function AnalysisPanel({
     <section className="ag-panel ag-analysis">
       <h2 className="ag-panel-title">{title}</h2>
       {shown === undefined ? (
-        <p>Open audio in an editor to analyse it here.</p>
+        <EmptyState
+          icon="analysis"
+          title="No audio open"
+          text="Open audio in an editor to analyse it here."
+        />
       ) : (
         <>
-          <p className="ag-editor-asset-name">{shown.asset.name}</p>
-          <p className="ag-panel-note">
-            The assistants analyse the selection, or all of it with nothing selected, and recommend
-            what would treat what they find. Nothing changes until you apply a recommendation.
-          </p>
-          <CommandButton
-            id="analysis.detect"
-            label="Analyse the audio"
-            commands={commands}
-            args={{ view: shown.panel }}
-          />
+          <Subject shown={shown} detection={detection} commands={commands} />
           <DetectionState
             detection={detection}
             shown={shown}

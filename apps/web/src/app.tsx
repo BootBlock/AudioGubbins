@@ -62,8 +62,10 @@ import './shell/asset-browser.css';
 import './shell/editor-panel.css';
 import './shell/engine-readouts.css';
 import './shell/inspector/inspector.css';
+import './shell/history/history.css';
 import './shell/spectral/spectral.css';
 import './shell/recording/recording.css';
+import './shell/analysis/analysis.css';
 import { timeOfDay } from '@audiogubbins/text';
 
 /** The application. */

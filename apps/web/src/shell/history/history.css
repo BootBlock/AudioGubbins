@@ -1,0 +1,592 @@
+/* The History panel: the timeline of changes, the chosen point and the comparison of two states. */
+
+/* Each part of the panel's body sits one inset below the one before it. The
+   panel's own frame is the shell's, so the spacing is the parts' own. */
+.ag-history-summary,
+.ag-history-find,
+.ag-history-filtering,
+.ag-history-none,
+.ag-history-list,
+.ag-history-chosen,
+.ag-history-comparison,
+.ag-history-compaction,
+.ag-history .ag-section {
+  margin: 0 0 var(--ag-space-inset);
+}
+
+/* ---------- How much history there is ---------- */
+
+.ag-history-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-history-counts {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Finding points ---------- */
+
+/* The field takes the room; the scope's segments sit at its foot, level with
+   the field rather than with its label. */
+.ag-history-find {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-history-find > .ag-text-field {
+  flex: 1 1 calc(60 * var(--ag-grid-unit));
+  min-inline-size: 0;
+}
+
+.ag-history-filtering {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-tiny) var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-accent);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  font-size: var(--ag-text-label);
+}
+
+.ag-history-filtering > .ag-icon {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-history-filtering-text {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ag-history-none {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* ---------- The timeline ----------
+   The design language's History list (section 10): a line of the accent down
+   the leading edge, a ring at each point, filled and glowing at the current
+   one, a snapshot an amber diamond, and a branch a step in on a violet elbow.
+   The list scrolls on its own, since it draws only the rows in sight, and every
+   row is one height, two lines, so the rows it does not draw are measured by
+   the one it does. */
+
+.ag-history-list {
+  --ag-history-rail: calc(7.5 * var(--ag-grid-unit));
+  --ag-history-node: calc(5 * var(--ag-grid-unit));
+  --ag-history-step: calc(8 * var(--ag-grid-unit));
+  --ag-history-text: calc(15 * var(--ag-grid-unit));
+
+  max-block-size: min(calc(100vh * 0.6), calc(320 * var(--ag-grid-unit)));
+  overflow-y: auto;
+  padding: var(--ag-focus-ring-reach);
+  list-style: none;
+  border-radius: var(--ag-radius-control);
+}
+
+.ag-history-row {
+  --ag-history-depth: 0;
+  --ag-history-indent: calc(var(--ag-history-depth) * var(--ag-history-step));
+
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  box-sizing: border-box;
+  block-size: calc(2 * 1lh + 2 * var(--ag-space-tiny));
+  padding-block: var(--ag-space-tiny);
+  padding-inline: calc(var(--ag-history-text) + var(--ag-history-indent)) var(--ag-space-inset);
+  border-radius: var(--ag-radius-control);
+  cursor: pointer;
+}
+
+.ag-history-row:hover:not([aria-selected='true']) {
+  background-color: var(--ag-chrome-fill-hover);
+}
+
+.ag-history-row[data-ag-depth='1'] {
+  --ag-history-depth: 1;
+}
+.ag-history-row[data-ag-depth='2'] {
+  --ag-history-depth: 2;
+}
+.ag-history-row[data-ag-depth='3'] {
+  --ag-history-depth: 3;
+}
+.ag-history-row[data-ag-depth='4'] {
+  --ag-history-depth: 4;
+}
+.ag-history-row[data-ag-depth='5'] {
+  --ag-history-depth: 5;
+}
+.ag-history-row[data-ag-depth='6'] {
+  --ag-history-depth: 6;
+}
+
+/* The project's line runs through every row, so a branch drawn between two
+   points of it leaves it unbroken; it starts at the first point and ends at
+   the last. (The row's ::after is the lit edge's.) */
+.ag-history-row::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--ag-history-rail) - var(--ag-grid-unit) / 2);
+  inline-size: var(--ag-grid-unit);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 45%, transparent);
+  pointer-events: none;
+}
+
+.ag-history-row[data-ag-first]::before {
+  inset-block-start: 50%;
+}
+
+.ag-history-row[data-ag-last]::before {
+  inset-block-end: 50%;
+}
+
+.ag-history-row[data-ag-first][data-ag-last]::before {
+  content: none;
+}
+
+.ag-history-row-node {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(
+    var(--ag-history-rail) + var(--ag-history-indent) - var(--ag-history-node) / 2
+  );
+  box-sizing: border-box;
+  inline-size: var(--ag-history-node);
+  block-size: var(--ag-history-node);
+  translate: 0 -50%;
+  border: var(--ag-grid-unit) solid var(--ag-chrome-accent);
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-surface-base);
+}
+
+.ag-history-row[data-ag-depth]:not([data-ag-depth='0']) .ag-history-row-node {
+  border-color: var(--ag-category-violet);
+}
+
+.ag-history-row[data-ag-snapshot] .ag-history-row-node {
+  border-color: var(--ag-category-amber);
+  border-radius: var(--ag-radius-hairline);
+  rotate: 45deg;
+}
+
+.ag-history-row[data-ag-current] .ag-history-row-node {
+  border-color: var(--ag-chrome-accent);
+  background-color: var(--ag-chrome-accent);
+  box-shadow: 0 0 var(--ag-space-medium) var(--ag-chrome-accent);
+}
+
+/* A branch's first point hangs from the line before it on an elbow; its later
+   points carry the branch's own line down at their depth. */
+.ag-history-row-elbow {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(
+    var(--ag-history-rail) + var(--ag-history-indent) - var(--ag-grid-unit) / 2
+  );
+  inline-size: var(--ag-grid-unit);
+  background-color: color-mix(in oklch, var(--ag-category-violet) 70%, transparent);
+  pointer-events: none;
+}
+
+.ag-history-row[data-ag-branch-start] .ag-history-row-elbow {
+  inset-block-end: 50%;
+  inset-inline-start: calc(
+    var(--ag-history-rail) + var(--ag-history-indent) - var(--ag-history-step) -
+      var(--ag-grid-unit) / 2
+  );
+  inline-size: calc(var(--ag-history-step) - var(--ag-history-node) / 2);
+  box-sizing: border-box;
+  border-inline-start: var(--ag-grid-unit) solid
+    color-mix(in oklch, var(--ag-category-violet) 70%, transparent);
+  border-block-end: var(--ag-grid-unit) solid
+    color-mix(in oklch, var(--ag-category-violet) 70%, transparent);
+  border-end-start-radius: calc(4 * var(--ag-grid-unit));
+  background-color: transparent;
+}
+
+/* The description over the time and what the change affected, the marks at
+   the trailing end. The description gives way to them: it is cut short (its
+   whole text is the option's name and the chosen card's title), and the time
+   and the marks are drawn whole however narrow the panel. */
+.ag-history-row-line {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, max-content);
+  grid-template-areas:
+    'description description marks'
+    'time detail marks';
+  align-items: center;
+}
+
+.ag-history-row-description {
+  grid-area: description;
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: var(--ag-text-weight-control);
+}
+
+.ag-history-row-time,
+.ag-history-row-detail {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ag-history-row-time {
+  grid-area: time;
+}
+
+.ag-history-row-detail {
+  grid-area: detail;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ag-history-row-detail::before {
+  content: ' · ';
+  white-space: pre;
+}
+
+.ag-history-row-marks {
+  grid-area: marks;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ag-space-micro);
+  min-inline-size: 0;
+  margin-inline-start: var(--ag-space-small);
+  overflow: hidden;
+}
+
+.ag-history-row-mark {
+  display: flex;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+}
+
+/* A long mark, an export's, gives way within its badge rather than pushing the
+   description out of the row; the option's name holds its whole text. */
+.ag-history-row-mark > .ag-badge {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+}
+
+.ag-history-row-mark-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- The chosen point ----------
+   A card tinted with the accent, as the reference draws it: the point's
+   description, what it affected, going and comparing, then the rest. */
+
+.ag-history-chosen {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-inset);
+  border: 1px solid color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 8%, transparent);
+}
+
+.ag-history-chosen-title {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.ag-history-details {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-history-details:empty {
+  display: none;
+}
+
+.ag-history-affected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-history-affected-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ag-space-micro);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+.ag-history-affected-name {
+  overflow-wrap: anywhere;
+}
+
+.ag-history-notes {
+  margin: 0;
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+.ag-history-notes-of {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-history-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-history-chosen-more {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding-block-start: var(--ag-space-small);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+/* A naming field's label takes the card's whole width above the field, which
+   shares its line with the button that names: the field's own parts are laid
+   out in this grid, as the label is long and a column beside the button would
+   fold it into a narrow stack. */
+.ag-history-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+}
+
+.ag-history-field-row > .ag-text-field {
+  display: contents;
+}
+
+.ag-history-field-row .ag-text-field-label,
+.ag-history-field-row .ag-text-field-description,
+.ag-history-field-row .ag-text-field-error {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Keeping a snapshot ---------- */
+
+.ag-history-snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-history-snapshot > .ag-text-field {
+  flex: 1 1 calc(50 * var(--ag-grid-unit));
+  min-inline-size: 0;
+}
+
+/* ---------- Two states compared ---------- */
+
+.ag-history-comparison {
+  display: grid;
+  gap: var(--ag-space-inset);
+}
+
+.ag-history-comparison-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-history-comparison-glyph {
+  color: var(--ag-chrome-accent);
+}
+
+.ag-history-comparison-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+/* The sides are cards, and the heard one glows as a chosen card does; the
+   room round them lets the glow show whole. */
+.ag-history-sides {
+  display: grid;
+  gap: var(--ag-space-small);
+}
+
+.ag-history-side {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  padding: var(--ag-space-small) var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-history-side[data-ag-heard] {
+  border-color: var(--ag-chrome-accent);
+  box-shadow: var(--ag-effect-glow);
+}
+
+.ag-history-side-letter {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(13 * var(--ag-grid-unit));
+  block-size: calc(13 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-fill-well);
+  color: var(--ag-chrome-text-secondary);
+  font-weight: var(--ag-text-weight-bold);
+}
+
+.ag-history-side[data-ag-heard] .ag-history-side-letter {
+  background-image: var(--ag-effect-cta-fill);
+  color: var(--ag-chrome-text-on-accent);
+}
+
+.ag-history-side-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ag-history-side-name {
+  font-weight: var(--ag-text-weight-control);
+  overflow-wrap: anywhere;
+}
+
+.ag-history-side-time {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-history-heard {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+.ag-history-hearing {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* Playing the side heard is drawn as the transport's play is, a round lit
+   button. */
+.ag-history-play > .ag-button {
+  border-radius: var(--ag-radius-full);
+}
+
+.ag-history-group-title {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+.ag-history-differences {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ag-text-label);
+}
+
+.ag-history-difference {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ag-space-small);
+  overflow-wrap: anywhere;
+}
+
+/* Each line's dot: the lines do not say whether a thing was added, changed or
+   removed, so every dot is the one colour. */
+.ag-history-difference::before {
+  content: '';
+  flex: none;
+  inline-size: calc(3 * var(--ag-grid-unit));
+  block-size: calc(3 * var(--ag-grid-unit));
+  translate: 0 calc(-0.5 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-category-amber);
+}
+
+.ag-history-working {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+}
+
+/* ---------- What removing history would cost ----------
+   Shared with the settings, which plan a retention policy with it. */
+
+.ag-history-compaction {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-inset);
+  border: 1px solid color-mix(in oklch, var(--ag-chrome-accent) 35%, transparent);
+  border-radius: var(--ag-radius-control);
+  background-color: color-mix(in oklch, var(--ag-chrome-accent) 8%, transparent);
+}
+
+.ag-history-compaction[data-ag-removes] {
+  border-color: color-mix(in oklch, var(--ag-chrome-status-error) 38%, transparent);
+  background-color: color-mix(in oklch, var(--ag-chrome-status-error) 10%, transparent);
+}
+
+.ag-history-compaction-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+}
+
+.ag-history-compaction[data-ag-removes] .ag-history-compaction-title > .ag-icon {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-history-compaction-cost {
+  display: grid;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}

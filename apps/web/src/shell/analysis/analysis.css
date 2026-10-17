@@ -1,0 +1,209 @@
+/* The Analysis panel: one card for each assistant, its findings and its recommendations. */
+
+/* Each part of the panel's body sits one inset below the one before it. The
+   panel's own frame is the shell's, so the spacing is the parts' own. */
+.ag-analysis-subject,
+.ag-analysis-running,
+.ag-analysis-report,
+.ag-analysis-notice {
+  margin: 0 0 var(--ag-space-inset);
+}
+
+/* ---------- The audio shown, and Analyse ---------- */
+
+.ag-analysis-subject {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-analysis-subject-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ag-analysis-asset-name {
+  margin: 0;
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.ag-analysis-analysed {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- A detection under way ---------- */
+
+.ag-analysis-running {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+}
+
+.ag-analysis-running-text {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-analysis-running > .ag-progress {
+  flex: 1 1 100%;
+}
+
+/* ---------- One card for each assistant ---------- */
+
+.ag-analysis-report {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-inset);
+  border: 1px solid var(--ag-chrome-edge-quiet);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-elevation-card-fill);
+}
+
+.ag-analysis-report-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* The assistant's glyph on a tile of the accent, as a subject's glyph is. */
+.ag-analysis-report-glyph {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ag-control-height);
+  block-size: var(--ag-control-height);
+  border-radius: var(--ag-radius-control);
+  background-color: var(--ag-chrome-fill-accent);
+  color: var(--ag-chrome-accent);
+}
+
+.ag-analysis-report-title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+/* A kind's section sits inside the card, so it needs no rule above it of its
+   own beyond the hairline the section draws. */
+.ag-analysis-report > .ag-section {
+  padding-block-start: var(--ag-space-small);
+}
+
+.ag-analysis-kind {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+/* A finding is named by where it starts, a position, so it is set in the
+   numeric family as every position is. */
+.ag-analysis-kind .ag-list-row-name {
+  font-family: var(--ag-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-analysis-note {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+.ag-analysis-subheading {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-strong);
+  letter-spacing: var(--ag-text-tracking-caps);
+  text-transform: uppercase;
+}
+
+/* ---------- What it judged by ---------- */
+
+.ag-analysis-settings {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding-block-start: var(--ag-space-small);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-analysis-setting {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-analysis-refused {
+  margin: 0;
+  color: var(--ag-chrome-status-warning);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- What it recommends ----------
+   The steps in order, each numbered in a small lit disc, as the reference
+   chains them, then Apply. The numbers are the list's own counter, so a
+   step's words are only its name and what it adds. */
+
+.ag-analysis-recommendation {
+  display: grid;
+  gap: var(--ag-space-small);
+  padding-block-start: var(--ag-space-small);
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-analysis-recommendation > .ag-button {
+  justify-self: end;
+}
+
+.ag-analysis-steps {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ag-analysis-step;
+}
+
+.ag-analysis-step {
+  position: relative;
+  padding-inline-start: calc(var(--ag-control-height) - var(--ag-space-tiny));
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-label);
+  overflow-wrap: anywhere;
+  counter-increment: ag-analysis-step;
+}
+
+.ag-analysis-step::before {
+  content: counter(ag-analysis-step);
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  display: grid;
+  place-items: center;
+  inline-size: calc(9 * var(--ag-grid-unit));
+  block-size: calc(9 * var(--ag-grid-unit));
+  border-radius: var(--ag-radius-full);
+  background-image: var(--ag-effect-cta-fill);
+  box-shadow: var(--ag-effect-glow-cta);
+  color: var(--ag-chrome-text-on-accent);
+  font-size: var(--ag-text-caption);
+  font-weight: var(--ag-text-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-analysis-step-name {
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-body);
+  font-weight: var(--ag-text-weight-control);
+}

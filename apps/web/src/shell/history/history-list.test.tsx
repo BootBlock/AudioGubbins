@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { HintProvider } from '@audiogubbins/design-system';
 import { historyRowModel, historyRowOrder, type HistoryRowModel } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 
@@ -19,14 +20,18 @@ function nodeAt(index: number): HistoryNodeId {
 
 /** Draws the list of every row of `rows`, `chosen` chosen. */
 function listOf(chosen: HistoryNodeId, rows: HistoryRowModel = ROWS) {
+  // Each row carries a tooltip, which takes its timing from the provider the
+  // application's root holds.
   return (
-    <HistoryList
-      rows={rows}
-      names={() => undefined}
-      chosen={chosen}
-      onChoose={() => undefined}
-      onGo={() => undefined}
-    />
+    <HintProvider>
+      <HistoryList
+        rows={rows}
+        names={() => undefined}
+        chosen={chosen}
+        onChoose={() => undefined}
+        onGo={() => undefined}
+      />
+    </HintProvider>
   );
 }
 

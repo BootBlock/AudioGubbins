@@ -353,10 +353,8 @@ describe('the Analysis panel', () => {
       );
     });
 
-    expect(screen.getByRole('progressbar', { name: 'Analysis progress' })).toHaveAttribute(
-      'value',
-      '450',
-    );
+    const progress = screen.getByRole('progressbar', { name: 'Analysis progress' });
+    expect(Number(progress.getAttribute('aria-valuenow'))).toBeCloseTo(45);
     expect(screen.getByRole('status')).toHaveTextContent('Analysing all of it: 40%');
     await userEvent.click(screen.getByRole('button', { name: 'Stop analysing' }));
     expect(ran).toEqual([['analysis.cancel', { view: 'editor' }]]);
