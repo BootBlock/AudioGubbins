@@ -57,12 +57,13 @@ const SHAPES: Readonly<Record<string, BiquadShape>> = {
   'band-pass': BiquadShape.BandPass,
 };
 
-function shapeOf(typeKey: string): BiquadShape {
+/** The section a band of the type `typeKey` is designed as. */
+export function bandShape(typeKey: string): BiquadShape {
   return SHAPES[typeKey] ?? BiquadShape.Peaking;
 }
 
 /** The parameters of one band. */
-interface Band {
+export interface EqualiserBand {
   readonly on: ToggleParameterDescriptor;
   readonly type: ChoiceParameterDescriptor;
   readonly frequency: NumericParameterDescriptor;
@@ -113,7 +114,7 @@ function numeric(
   return { kind: 'numeric', id: unsafeBrandId<'ParameterId'>(id ?? ''), key, label, ...range };
 }
 
-function band(index: number): Band {
+function band(index: number): EqualiserBand {
   const [onId, typeId, frequencyId, gainId, qId] = BAND_IDS[index] ?? [];
   const [typeKey, frequency] = BAND_DEFAULTS[index] ?? ['bell', 1_000];
   const name = `band-${String(index + 1)}`;
@@ -160,7 +161,8 @@ function band(index: number): Band {
   };
 }
 
-const BANDS: readonly Band[] = BAND_IDS.map((_, index) => band(index));
+/** Each band's parameters, in band order, as the descriptor lists them. */
+export const EQUALISER_BANDS: readonly EqualiserBand[] = BAND_IDS.map((_, index) => band(index));
 
 /** A band that is on: its section's shape and its parameters as the kernel ramps them. */
 interface ActiveBand {
@@ -186,7 +188,7 @@ class EqualiserDesigner implements CascadeDesigner {
       );
     // Every band's parameters ramp, so a band that is off takes a move too,
     // and is where it was moved to when it is switched on.
-    const ramped = BANDS.map((one) => ({
+    const ramped = EQUALISER_BANDS.map((one) => ({
       one,
       frequency: ramp(one.frequency),
       gain: ramp(one.gain),
@@ -196,7 +198,7 @@ class EqualiserDesigner implements CascadeDesigner {
     this.#active = ramped
       .filter(({ one }) => run.parameters.toggle(one.on.key))
       .map(({ one, frequency, gain, q }) => ({
-        shape: shapeOf(run.parameters.choice(one.type.key)),
+        shape: bandShape(run.parameters.choice(one.type.key)),
         frequency,
         gain,
         q,
@@ -240,10 +242,10 @@ function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
  */
 function leadIn({ values, sampleRate }: ProcessorSettings): number {
   let frames = 0;
-  for (const one of BANDS) {
+  for (const one of EQUALISER_BANDS) {
     if (!toggleOf(values, one.on)) continue;
     frames += sectionDecayFrames(
-      shapeOf(choiceOf(values, one.type)),
+      bandShape(choiceOf(values, one.type)),
       numberOf(values, one.frequency),
       sampleRate,
       numberOf(values, one.gain),
@@ -260,7 +262,13 @@ export const PARAMETRIC_EQUALISER = processorType({
     label: 'Parametric equaliser',
     category: ProcessorCategory.Equalisation,
     version: { implementation: 1, parameters: 1 },
-    parameters: BANDS.flatMap((one) => [one.on, one.type, one.frequency, one.gain, one.q]),
+    parameters: EQUALISER_BANDS.flatMap((one) => [
+      one.on,
+      one.type,
+      one.frequency,
+      one.gain,
+      one.q,
+    ]),
     qualitySettings: [],
     determinism: DeterminismClass.Canonical,
     wholePass: false,
