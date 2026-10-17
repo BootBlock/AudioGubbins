@@ -6,9 +6,9 @@
  * again whenever the project's value changes, by undo or by another view.
  */
 
-import { useId, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { OptionSelect, TextField } from '@audiogubbins/design-system';
+import { ButtonTone, OptionSelect, TextField } from '@audiogubbins/design-system';
 import {
   DEFAULT_LOOP_CROSSFADE_SHAPE,
   type AnchoredLoop,
@@ -23,6 +23,7 @@ import { loopAbsence } from '../../commands/region-property-commands.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { FADE_SHAPE_NAMES, regionOperationWords, type EditWording } from './edit-words.js';
 import type { InspectedRegion } from './inspected.js';
+import { InspectorPart, InspectorSubpart } from './inspector-part.js';
 import {
   PROCESSING_ACROSS_LOOP_LABEL,
   PROCESSING_ACROSS_LOOP_NAMES,
@@ -62,7 +63,7 @@ function KeptField({
   }
   const args = { view: controls.panel, region: controls.region.id, [argument]: typed };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <TextField
         label={label}
         value={typed}
@@ -95,7 +96,7 @@ function LoopField({ controls }: { readonly controls: RegionControls }): ReactNo
     shape,
   };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <TextField
         label="Crossfade in frames"
         value={crossfade}
@@ -160,7 +161,7 @@ function LoopProcessingField({
           });
         }}
       />
-      {note !== undefined && <p className="ag-panel-note">{note}</p>}
+      {note !== undefined && <p className="ag-inspector-detail">{note}</p>}
     </>
   );
 }
@@ -197,16 +198,18 @@ function LoopControls({
   const kept = controls.region.loop;
   const args = { view: controls.panel, region: controls.region.id };
   return (
-    <div className="ag-inspector-controls">
-      <p>{loop === undefined ? 'It does not loop.' : loopWords(loop, words)}</p>
+    <div className="ag-inspector-stack">
+      <p className="ag-inspector-text">
+        {loop === undefined ? 'It does not loop.' : loopWords(loop, words)}
+      </p>
       {kept !== undefined && (
         <LoopProcessingField loop={kept} rendering={inspected.rendering} controls={controls} />
       )}
       {inspected.shownAlone ? (
         <LoopField controls={controls} />
       ) : (
-        <div className="ag-inspector-row">
-          <p className="ag-panel-note">
+        <div className="ag-inspector-fields">
+          <p className="ag-inspector-detail">
             Open the region in a view of its own to loop a part of it.
           </p>
           <CommandButton
@@ -226,6 +229,7 @@ function LoopControls({
         commands={controls.commands}
         args={args}
         refusal={loopAbsence(controls.region)}
+        tone={ButtonTone.QuietDestructive}
         compact
       />
     </div>
@@ -249,13 +253,9 @@ export function RegionProperties({
   const { region, placed } = inspected;
   const controls: RegionControls = { panel, region, commands, labelFor };
   const tags = region.tags.join(', ');
-  const heading = useId();
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
-        {`Region: ${region.displayName}`}
-      </h3>
-      <p>
+    <InspectorPart heading={`Region: ${region.displayName}`} title="Region">
+      <p className="ag-inspector-text">
         {placed === undefined
           ? 'Nothing of it is left: the edits made since it was placed removed all of its audio.'
           : `From ${words.position(placed.start)}, ${counted(placed.length, 'frame', 'frames')} long.`}
@@ -280,16 +280,21 @@ export function RegionProperties({
         controls={controls}
       />
       <LoopControls key={region.id} inspected={inspected} controls={controls} words={words} />
-      <h4 className="ag-inspector-heading">Its own processing</h4>
-      {region.operations.length === 0 ? (
-        <p>None.</p>
-      ) : (
-        <ol className="ag-inspector-edits">
-          {region.operations.map((operation) => (
-            <li key={operation.id}>{regionOperationWords(operation, words)}</li>
-          ))}
-        </ol>
-      )}
-    </section>
+      <InspectorSubpart
+        heading="Its own processing"
+        title="Own processing"
+        summary={String(region.operations.length)}
+      >
+        {region.operations.length === 0 ? (
+          <p className="ag-inspector-detail">None.</p>
+        ) : (
+          <ol className="ag-inspector-steps">
+            {region.operations.map((operation) => (
+              <li key={operation.id}>{regionOperationWords(operation, words)}</li>
+            ))}
+          </ol>
+        )}
+      </InspectorSubpart>
+    </InspectorPart>
   );
 }

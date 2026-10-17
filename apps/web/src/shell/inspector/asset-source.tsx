@@ -1,7 +1,8 @@
 /**
  * An asset's source in the Inspector (REQ-EDIT-072, REQ-STOR-166): the facts
  * of how its file was kept and what it was, and under them the metadata the
- * file carried, where its provenance kept any, each a term and its detail.
+ * file carried, where its provenance kept any, each a term and its detail, in
+ * a section that starts closed.
  */
 
 import type { ReactNode } from 'react';
@@ -10,6 +11,7 @@ import type { Asset } from '@audiogubbins/domain';
 import type { AssetSource } from '@audiogubbins/project-format';
 
 import { Facts } from './facts.js';
+import { InspectorSubpart } from './inspector-part.js';
 import { metadataFacts } from './metadata-words.js';
 import { sourceFacts } from './source-words.js';
 
@@ -27,14 +29,19 @@ export function AssetSourceFacts({
     <>
       <Facts facts={sourceFacts(source, asset)} />
       {metadataShown === undefined ? null : (
-        <>
-          <h4 className="ag-inspector-heading">Its file’s metadata</h4>
+        // What a file carried beyond its audio is seldom wanted, so it waits closed.
+        <InspectorSubpart
+          heading="Its file’s metadata"
+          title="File metadata"
+          summary={String(metadataShown.length)}
+          defaultOpen={false}
+        >
           {metadataShown.length === 0 ? (
-            <p>The file carried none.</p>
+            <p className="ag-inspector-detail">The file carried none.</p>
           ) : (
             <Facts facts={metadataShown} />
           )}
-        </>
+        </InspectorSubpart>
       )}
     </>
   );

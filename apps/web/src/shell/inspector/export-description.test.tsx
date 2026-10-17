@@ -8,6 +8,7 @@ import {
   installFakeHandles,
 } from '@audiogubbins/browser-storage/testing';
 import { codecDescriptor } from '@audiogubbins/codecs';
+import { HintProvider } from '@audiogubbins/design-system';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { ExportSettings } from '@audiogubbins/import-export';
 import type { ExportRecord } from '@audiogubbins/project-format';
@@ -195,16 +196,20 @@ describe('the Inspector describing an export (REQ-EDIT-072)', () => {
       policy: 'prompt',
     });
     const record = onlyRecord(audio);
+    // Under the hint provider, as the application's root draws it: the
+    // History's rows carry tooltips.
     render(
-      <HistoryPanel
-        title="History"
-        project={projects.project}
-        review={projects.review}
-        rowOrders={projects.rowOrders}
-        run={(id, args) => audio.window.run(id, args).kind !== 'refused'}
-        unavailableReason={() => undefined}
-        labelFor={(id) => id}
-      />,
+      <HintProvider>
+        <HistoryPanel
+          title="History"
+          project={projects.project}
+          review={projects.review}
+          rowOrders={projects.rowOrders}
+          run={(id, args) => audio.window.run(id, args).kind !== 'refused'}
+          unavailableReason={() => undefined}
+          labelFor={(id) => id}
+        />
+      </HintProvider>,
     );
     inspectorOver(audio);
 

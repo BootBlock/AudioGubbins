@@ -20,8 +20,9 @@
  * G2), and it follows every change to them, an undo included.
  */
 
-import { useId, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
+import { ButtonTone, EmptyState, Hint } from '@audiogubbins/design-system';
 import type { ProcessorId } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { targetChains } from '@audiogubbins/project-commands';
@@ -46,6 +47,7 @@ import { LevelControls } from './level-controls.js';
 import { OwnSubjectView, useOwnSubject, type OwnSubjectParts } from './own-subjects.js';
 import { RegionProperties } from './region-properties.js';
 import { AssetSourceFacts } from './asset-source.js';
+import { InspectorPart, InspectorSubject, InspectorSubpart } from './inspector-part.js';
 import { TimeControls } from './time-controls.js';
 import { MemberPolicy } from '../game/member-policy.js';
 
@@ -116,15 +118,28 @@ function SelectedProcessors({
     const processor = processorIn(state, id);
     const descriptor =
       processor === undefined ? undefined : PROCESSOR_CATALOGUE.get(processor.typeKey);
-    const bypassed = processor?.enabled === false ? ', bypassed' : '';
+    if (processor === undefined) {
+      return (
+        <InspectorPart
+          key={id}
+          heading="A processor no longer in the project"
+          title="Processor"
+          summary="No longer in the project"
+        >
+          {null}
+        </InspectorPart>
+      );
+    }
+    const label = processorLabel(processor.typeKey);
+    const bypassed = !processor.enabled;
     return (
-      <section key={id} className="ag-inspector-section" aria-label="Processor">
-        <h3 className="ag-inspector-heading">
-          {processor === undefined
-            ? 'A processor no longer in the project'
-            : `Processor: ${processorLabel(processor.typeKey)}${bypassed}`}
-        </h3>
-        {processor !== undefined && descriptor !== undefined && (
+      <InspectorPart
+        key={id}
+        heading={`Processor: ${label}${bypassed ? ', bypassed' : ''}`}
+        title={label}
+        summary={bypassed ? 'Bypassed' : undefined}
+      >
+        {descriptor !== undefined && (
           <ProcessorControls
             processor={processor}
             descriptor={descriptor}
@@ -132,7 +147,7 @@ function SelectedProcessors({
             commands={commands}
           />
         )}
-      </section>
+      </InspectorPart>
     );
   });
 }
@@ -155,7 +170,6 @@ function RackSummary({
   readonly state: ProjectState;
   readonly commands: PanelCommands;
 }): ReactNode {
-  const heading = useId();
   const asset = state.project.assets.get(subject.asset.id) ?? subject.asset;
   const target =
     subject.region === undefined
@@ -168,18 +182,21 @@ function RackSummary({
       ? 'It has no rack.'
       : `It runs ${chainWords(chain)}${chain.slots.some((slot) => !slot.enabled) ? ', some of it bypassed' : ''}.`;
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
-        {`Rack of ${targetName(target)}`}
-      </h3>
-      <p>{`${runs}${rangesWords(ranges.length)}`}</p>
-      <CommandButton
-        id={showPanelCommandId(EditingPanelKinds.Rack)}
-        label="Show the rack"
-        commands={commands}
-        compact
-      />
-    </section>
+    <InspectorPart
+      heading={`Rack of ${targetName(target)}`}
+      title="Rack"
+      actions={
+        <CommandButton
+          id={showPanelCommandId(EditingPanelKinds.Rack)}
+          label="Show the rack"
+          commands={commands}
+          tone={ButtonTone.Quiet}
+          compact
+        />
+      }
+    >
+      <p className="ag-inspector-text">{`${runs}${rangesWords(ranges.length)}`}</p>
+    </InspectorPart>
   );
 }
 
@@ -191,25 +208,26 @@ function AssetProperties({
   readonly subject: Extract<Inspected, { readonly kind: 'project' }>;
   readonly words: EditWording;
 }): ReactNode {
-  const heading = useId();
   const { asset } = subject;
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
-        {`Asset: ${asset.displayName}`}
-      </h3>
+    <InspectorPart
+      heading={`Asset: ${asset.displayName}`}
+      title="Asset"
+      summary={asset.displayName}
+    >
       <AssetSourceFacts source={subject.source} asset={asset} />
-      <h4 className="ag-inspector-heading">Its edits</h4>
-      {asset.edits.length === 0 ? (
-        <p>None. It plays as its source does.</p>
-      ) : (
-        <ol className="ag-inspector-edits">
-          {asset.edits.map((operation, basis) => (
-            <li key={operation.id}>{operationWords(operation, basis, words)}</li>
-          ))}
-        </ol>
-      )}
-    </section>
+      <InspectorSubpart heading="Its edits" title="Edits" summary={String(asset.edits.length)}>
+        {asset.edits.length === 0 ? (
+          <p className="ag-inspector-detail">None. It plays as its source does.</p>
+        ) : (
+          <ol className="ag-inspector-steps">
+            {asset.edits.map((operation, basis) => (
+              <li key={operation.id}>{operationWords(operation, basis, words)}</li>
+            ))}
+          </ol>
+        )}
+      </InspectorSubpart>
+    </InspectorPart>
   );
 }
 
@@ -241,9 +259,15 @@ function ProjectSubject({
   const selection = parts.selections.of(view.id);
   const scope = scopeOf(selection, view, viewState);
   const processors = selection.objects?.kind === 'processors' ? selection.objects.ids : [];
+  const region = subject.region?.region;
   return (
     <>
-      <p>{`Acts on ${scope.text}`}</p>
+      <InspectorSubject
+        icon={region === undefined ? 'asset' : 'region'}
+        title={region === undefined ? subject.asset.displayName : region.displayName}
+        detail={region === undefined ? view.description : `Region of ${subject.asset.displayName}`}
+        scope={`Acts on ${scope.text}`}
+      />
       {state !== undefined &&
         (processors.length > 0 ? (
           <SelectedProcessors ids={processors} state={state} panel={panel} commands={commands} />
@@ -285,16 +309,25 @@ function EditorSubject({
 }): ReactNode {
   switch (subject.kind) {
     case 'nothing':
-      return <p>Open audio in an editor to see its properties here.</p>;
+      return (
+        <EmptyState
+          icon="inspector"
+          title="No audio open"
+          text="Open audio in an editor to see its properties here."
+        />
+      );
     case 'session':
       return (
-        <>
-          <p className="ag-editor-asset-name">{subject.view.name}</p>
-          <p>{subject.view.description}</p>
-          <p className="ag-panel-note">
-            It is not part of the project, so it keeps no edits. Import a file to edit it.
-          </p>
-        </>
+        <InspectorSubject
+          icon="audio-file"
+          title={subject.view.name}
+          detail={subject.view.description}
+          hint={
+            <Hint label="Why it keeps no edits">
+              It is not part of the project, so it keeps no edits. Import a file to edit it.
+            </Hint>
+          }
+        />
       );
     case 'project':
       return <ProjectSubject subject={subject} state={state} parts={parts} commands={commands} />;
@@ -318,24 +351,26 @@ export function InspectorPanel({
   return (
     <section className="ag-panel ag-inspector">
       <h2 className="ag-panel-title">{title}</h2>
-      {own === undefined ? (
-        <>
-          <EditorSubject subject={subject} state={state} parts={parts} commands={commands} />
-          {subject.kind === 'project' && state !== undefined && (
-            <MemberPolicy
-              member={
-                subject.region === undefined
-                  ? { kind: 'asset', asset: subject.asset.id }
-                  : { kind: 'region', region: subject.region.region.id }
-              }
-              state={state}
-              sources={{ projects, preferences: parts.preferences, commands }}
-            />
-          )}
-        </>
-      ) : (
-        <OwnSubjectView own={own} parts={parts} projects={projects} commands={commands} />
-      )}
+      <div className="ag-inspector-body">
+        {own === undefined ? (
+          <>
+            <EditorSubject subject={subject} state={state} parts={parts} commands={commands} />
+            {subject.kind === 'project' && state !== undefined && (
+              <MemberPolicy
+                member={
+                  subject.region === undefined
+                    ? { kind: 'asset', asset: subject.asset.id }
+                    : { kind: 'region', region: subject.region.region.id }
+                }
+                state={state}
+                sources={{ projects, preferences: parts.preferences, commands }}
+              />
+            )}
+          </>
+        ) : (
+          <OwnSubjectView own={own} parts={parts} projects={projects} commands={commands} />
+        )}
+      </div>
     </section>
   );
 }

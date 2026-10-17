@@ -15,6 +15,7 @@ import { DEFAULT_SILENCE_SECONDS, OFFERED_RATES } from '../../commands/time-edit
 import { sampleRateWords } from '../../wording.js';
 import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
 import { SharedReasonNotes, type SharedReasons } from '../settings/reasoned-button.js';
+import { InspectorPart } from './inspector-part.js';
 
 /** The commands of these controls, whose reasons are said once above them. */
 const TIME_COMMANDS: readonly string[] = [
@@ -59,7 +60,7 @@ function SilenceRow({ panel, commands, labelFor, reasons }: RowParts): ReactNode
   const [silence, setSilence] = useState(String(DEFAULT_SILENCE_SECONDS));
   const args = { view: panel, seconds: typedNumber(silence) };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <TextField
         label="Silence in seconds"
         value={silence}
@@ -86,7 +87,7 @@ function StretchRow({ panel, commands, labelFor, reasons }: RowParts): ReactNode
   const [stretch, setStretch] = useState('2');
   const args = { view: panel, [stretchBy]: typedNumber(stretch) };
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <OptionSelect
         label="Stretch by"
         value={stretchBy}
@@ -128,7 +129,7 @@ function RateRow({
     String(OFFERED_RATES.find((offered) => offered !== sampleRate && offered >= 44_100) ?? 48_000),
   );
   return (
-    <div className="ag-inspector-row">
+    <div className="ag-inspector-fields">
       <OptionSelect
         label="Sample rate"
         value={rate}
@@ -157,12 +158,17 @@ export function TimeControls(
   const reasons = useCommandReasons(parts.commands, TIME_COMMANDS);
   const rows = { ...parts, reasons };
   return (
-    <div className="ag-inspector-controls">
-      <h4 className="ag-inspector-heading">Time and rate</h4>
+    // Reached for less often than the level, so it waits closed, saying what it holds.
+    <InspectorPart
+      heading="Time and rate"
+      title="Time and rate"
+      summary="Silence · Stretch · Rate"
+      defaultOpen={false}
+    >
       <SharedReasonNotes reasons={reasons} />
       <SilenceRow {...rows} />
       <StretchRow {...rows} />
       <RateRow {...rows} />
-    </div>
+    </InspectorPart>
   );
 }

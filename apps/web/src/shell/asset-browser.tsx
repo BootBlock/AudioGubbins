@@ -14,7 +14,18 @@
 
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button } from '@audiogubbins/design-system';
+import {
+  Badge,
+  BadgeTone,
+  Button,
+  ButtonTone,
+  EmptyState,
+  Icon,
+  IconSize,
+  PanelStateTone,
+  Skeleton,
+  Spinner,
+} from '@audiogubbins/design-system';
 import type { AssetId, Region } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
 
@@ -88,57 +99,96 @@ function browserEntries(state: ProjectState, shown: AssetCatalogueState): readon
   return entries;
 }
 
+/** The glyph a row leads with: what it is, or that it is still being read. */
+function EntryGlyph({ entry }: { readonly entry: BrowserEntry }): ReactNode {
+  const { shown } = entry;
+  if ('reason' in shown) {
+    return shown.kind === 'finding' ? (
+      <Spinner size={IconSize.Inline} />
+    ) : (
+      <Icon name="missing-file" />
+    );
+  }
+  // No region carries a colour of its own yet, so a region is told by its glyph.
+  return <Icon name={isRegion(shown) ? 'region' : 'audio-file'} />;
+}
+
+/** Whether `shown` is a region of the project rather than an asset. */
+function isRegion(shown: EditorAsset): boolean {
+  return shown.owner.kind === 'project' && shown.owner.region !== undefined;
+}
+
 /** One asset or region: a press opens it, or a sentence says why it cannot open yet. */
 function EntryItem({
   entry,
   inUse,
   commands,
+  nested = false,
 }: {
   readonly entry: BrowserEntry;
   /** The identity the editor in use shows, where it shows one. */
   readonly inUse: string | undefined;
   readonly commands: PanelCommands;
+  readonly nested?: boolean;
 }): ReactNode {
   const { shown } = entry;
+  const current = inUse === entry.id;
   return (
-    <li className="ag-editor-asset">
-      {'reason' in shown ? (
-        <>
-          <p className="ag-editor-asset-name">{shown.name}</p>
-          <p
-            className="ag-panel-note"
-            {...(shown.kind === 'unavailable' ? { 'data-ag-status': 'unavailable' } : {})}
-          >
-            {shown.reason}
-          </p>
-        </>
-      ) : (
-        <>
-          <Button
-            aria-current={inUse === entry.id ? 'true' : undefined}
-            onClick={() => {
-              commands.run('editor.open-asset', { asset: entry.id });
-            }}
-          >
-            {shown.name}
-          </Button>
-          <p className="ag-panel-note">{shown.description}</p>
-          {entry.takes !== undefined && <p className="ag-panel-note">{entry.takes}</p>}
-          {shown.owner.kind === 'project' && shown.owner.region !== undefined && (
-            <CommandButton
-              id={ExportCommand.Region}
-              label={EXPORT_BUTTON}
-              args={{ region: shown.owner.region.id }}
-              commands={commands}
-              compact
-            />
-          )}
-        </>
-      )}
+    <li className="ag-asset-entry">
+      <div
+        className="ag-asset-row ag-lit-row"
+        data-ag-lit={current ? '' : undefined}
+        data-ag-nested={nested ? '' : undefined}
+      >
+        <span className="ag-asset-glyph">
+          <EntryGlyph entry={entry} />
+        </span>
+        {'reason' in shown ? (
+          <>
+            <p className="ag-asset-name">{shown.name}</p>
+            <p
+              className="ag-asset-detail"
+              {...(shown.kind === 'unavailable' ? { 'data-ag-status': 'unavailable' } : {})}
+            >
+              {shown.reason}
+            </p>
+          </>
+        ) : (
+          <>
+            {/* The row's whole face opens the entry: the button reaches over
+                the row (asset-browser.css), and keeps the entry's name alone
+                as its name. */}
+            <Button
+              tone={ButtonTone.Quiet}
+              aria-current={current ? 'true' : undefined}
+              onClick={() => {
+                commands.run('editor.open-asset', { asset: entry.id });
+              }}
+            >
+              {shown.name}
+            </Button>
+            <p className="ag-asset-detail">{shown.description}</p>
+            {entry.takes !== undefined && <p className="ag-asset-detail">{entry.takes}</p>}
+            <span className="ag-asset-actions">
+              {entry.takes !== undefined && <Badge tone={BadgeTone.Accent}>Take</Badge>}
+              {shown.owner.kind === 'project' && shown.owner.region !== undefined && (
+                <CommandButton
+                  id={ExportCommand.Region}
+                  label={EXPORT_BUTTON}
+                  args={{ region: shown.owner.region.id }}
+                  commands={commands}
+                  tone={ButtonTone.Quiet}
+                  compact
+                />
+              )}
+            </span>
+          </>
+        )}
+      </div>
       {entry.regions.length > 0 && (
-        <ul className="ag-editor-assets ag-asset-regions" aria-label={`Regions of ${shown.name}`}>
+        <ul className="ag-asset-list ag-asset-sublist" aria-label={`Regions of ${shown.name}`}>
           {entry.regions.map((region) => (
-            <EntryItem key={region.id} entry={region} inUse={inUse} commands={commands} />
+            <EntryItem key={region.id} entry={region} inUse={inUse} commands={commands} nested />
           ))}
         </ul>
       )}
@@ -146,17 +196,46 @@ function EntryItem({
   );
 }
 
-/** What the browser says, or lists, of the project open or not. */
+/** The project's audio as a list, its sounds counted over it. */
+function AudioList({
+  entries,
+  inUse,
+  commands,
+}: {
+  readonly entries: readonly BrowserEntry[];
+  readonly inUse: string | undefined;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  return (
+    <>
+      <p className="ag-asset-list-head" aria-hidden="true">
+        Sounds <span className="ag-asset-count">{entries.length}</span>
+      </p>
+      <ul className="ag-asset-list" aria-label="The project’s audio">
+        {entries.map((entry) => (
+          <EntryItem key={entry.id} entry={entry} inUse={inUse} commands={commands} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/**
+ * What the browser says, or lists, of the project open or not, under the import
+ * controls, which stay one set of elements whatever it shows.
+ */
 function ProjectAudio({
   projects,
   catalogue,
   editorViews,
   commands,
+  labelFor,
 }: {
   readonly projects: ProjectStores;
   readonly catalogue: AssetCatalogue;
   readonly editorViews: EditorViewStore;
   readonly commands: PanelCommands;
+  readonly labelFor: (id: string) => string;
 }): ReactNode {
   const open = useSyncExternalStore(projects.project.subscribe, projects.project.get);
   const shown = useSyncExternalStore(catalogue.subscribe, catalogue.get);
@@ -168,17 +247,30 @@ function ProjectAudio({
     () => (open.kind === 'open' ? browserEntries(open.snapshot.model.state, shown) : []),
     [open, shown],
   );
-  if (open.kind === 'none') return <p>Open or create a project to keep audio in it.</p>;
-  if (open.kind === 'opening') return <p>The project is opening.</p>;
-  if (entries.length === 0) {
-    return <p>This project has no audio yet. Import audio files to add some.</p>;
-  }
+  const empty = open.kind === 'open' && entries.length === 0;
+  const state =
+    open.kind === 'none' ? (
+      <EmptyState
+        icon="project"
+        title="No project is open"
+        text="Open or create a project to keep audio in it."
+      />
+    ) : open.kind === 'opening' ? (
+      <Skeleton label="The project is opening." lines={[1, 0.7, 0.85, 0.5]} />
+    ) : empty ? (
+      <EmptyState icon="waveform" title="No audio yet" text="Import audio files to add some." />
+    ) : undefined;
   return (
-    <ul className="ag-editor-assets" aria-label="The project’s audio">
-      {entries.map((entry) => (
-        <EntryItem key={entry.id} entry={entry} inUse={inUse} commands={commands} />
-      ))}
-    </ul>
+    <>
+      <ImportControl
+        projects={projects}
+        commands={commands}
+        labelFor={labelFor}
+        state={state}
+        calling={empty}
+      />
+      {entries.length > 0 && <AudioList entries={entries} inUse={inUse} commands={commands} />}
+    </>
   );
 }
 
@@ -203,19 +295,23 @@ export function AssetBrowserPanel({
   return (
     <section className="ag-panel ag-asset-browser">
       <h2 className="ag-panel-title">{title}</h2>
-      {projects === undefined ? (
-        <p>{projectsUnavailable ?? 'This browser cannot keep projects.'}</p>
-      ) : (
-        <>
-          <ImportControl projects={projects} commands={commands} labelFor={labelFor} />
+      <div className="ag-asset-body">
+        {projects === undefined ? (
+          <EmptyState
+            tone={PanelStateTone.Warning}
+            icon="stored-projects"
+            title={projectsUnavailable ?? 'This browser cannot keep projects.'}
+          />
+        ) : (
           <ProjectAudio
             projects={projects}
             catalogue={catalogue}
             editorViews={editorViews}
             commands={commands}
+            labelFor={labelFor}
           />
-        </>
-      )}
+        )}
+      </div>
     </section>
   );
 }

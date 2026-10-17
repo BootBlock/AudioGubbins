@@ -9,6 +9,8 @@
 
 import { useId, useSyncExternalStore, type ReactNode } from 'react';
 
+import { EmptyState, Icon } from '@audiogubbins/design-system';
+
 import { unsafeBrandId, type RegionId } from '@audiogubbins/domain';
 import type { ProjectModel } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
@@ -61,6 +63,29 @@ function wordingOf(
   };
 }
 
+/**
+ * An export's heading, drawn as the Inspector's subject: its glyph tile and its
+ * title, the heading that names its region.
+ */
+function ExportHeading({
+  id,
+  children,
+}: {
+  readonly id: string;
+  readonly children: string;
+}): ReactNode {
+  return (
+    <div className="ag-inspector-subject-head">
+      <span className="ag-inspector-tile">
+        <Icon name="export" />
+      </span>
+      <h3 className="ag-inspector-title" id={id}>
+        {children}
+      </h3>
+    </div>
+  );
+}
+
 /** What the page's export is called, by where it is. */
 function batchHeading(state: ShownExport): string {
   switch (state.kind) {
@@ -83,15 +108,16 @@ function BatchDescription({
 }): ReactNode {
   const heading = useId();
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
-        {batchHeading(state)}
-      </h3>
+    <section className="ag-inspector-export" aria-labelledby={heading}>
+      <ExportHeading id={heading}>{batchHeading(state)}</ExportHeading>
       <Facts facts={batchFacts(state, wording)} />
-      <ul className="ag-inspector-files" aria-label="Files of the export">
+      <ul className="ag-inspector-export-files" aria-label="Files of the export">
         {describedJobs(state, wording).map((job) => (
-          <li key={job.id}>
-            <h4 className="ag-inspector-heading">{job.name}</h4>
+          <li key={job.id} className="ag-inspector-file">
+            <h4 className="ag-inspector-file-name">
+              <Icon name="audio-file" />
+              {job.name}
+            </h4>
             <Facts facts={job.facts} />
           </li>
         ))}
@@ -114,12 +140,14 @@ function RecordDescription({
   const record = model?.exports.find((one) => one.id === id);
   const name = record?.file?.fileName;
   return (
-    <section className="ag-inspector-section" aria-labelledby={heading}>
-      <h3 className="ag-inspector-heading" id={heading}>
+    <section className="ag-inspector-export" aria-labelledby={heading}>
+      <ExportHeading id={heading}>
         {name === undefined ? 'An export' : `Export: ${quoted(name)}`}
-      </h3>
+      </ExportHeading>
       {record === undefined ? (
-        <p>That export is not in the history of the project open now.</p>
+        <p className="ag-inspector-detail">
+          That export is not in the history of the project open now.
+        </p>
       ) : (
         <Facts facts={recordFacts(record, wording)} />
       )}
@@ -147,7 +175,7 @@ export function ExportDescription({
     return <RecordDescription record={subject.record} model={model} wording={wording} />;
   }
   return state.kind === 'idle' ? (
-    <p>No export has run since the page opened.</p>
+    <EmptyState icon="export" title="No export has run since the page opened." />
   ) : (
     <BatchDescription state={state} wording={wording} />
   );
