@@ -484,9 +484,26 @@ function expandsAGlobAt(node: ts.Node, reader: Reader): boolean {
   );
 }
 
+/**
+ * Whether a module's meta property is the callee of Vite's `import.meta.glob`,
+ * which the bundler expands against the module's own folder while it builds: a
+ * page has no file system, and nothing is resolved against the root.
+ */
+function isBundlerGlob(node: ts.MetaProperty): boolean {
+  const access = node.parent;
+  return (
+    ts.isPropertyAccessExpression(access) &&
+    access.name.text === 'glob' &&
+    ts.isCallExpression(access.parent) &&
+    access.parent.expression === access
+  );
+}
+
 /** Whether `node` reaches the repository's root. */
 function readsTheRootAt(node: ts.Node, reader: Reader): boolean {
-  if (ts.isMetaProperty(node)) return node.keywordToken === ts.SyntaxKind.ImportKeyword;
+  if (ts.isMetaProperty(node)) {
+    return node.keywordToken === ts.SyntaxKind.ImportKeyword && !isBundlerGlob(node);
+  }
 
   if (ts.isIdentifier(node)) {
     if (!isReadAsAValue(node)) return false;
