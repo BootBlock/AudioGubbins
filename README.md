@@ -57,4 +57,4 @@ explained in the [security policy](SECURITY.md).
 The source code for AudioGubbins is not public. This repository is for news, releases, bug reports
 and ideas, so it doesn't accept pull requests.
 
-Copyright © 2026 BootBlock
+Copyright © 2026 Joe Cox
