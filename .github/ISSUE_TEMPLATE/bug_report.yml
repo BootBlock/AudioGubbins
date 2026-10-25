@@ -1,0 +1,96 @@
+name: Bug report
+description: Something in AudioGubbins is broken or doesn't work the way it should.
+labels:
+  - "type: bug"
+  - "status: triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **Everything you post here is public.** Before you paste a log or attach a screenshot,
+        please remove anything personal: your name in a folder path (write
+        `C:\Users\<user>\...` instead of `C:\Users\yourname\...`), your computer's name, and
+        any email address. Please don't attach audio or a project you wouldn't want made public.
+
+        If you've found a security problem, please don't use this form. Report it privately
+        through the [security policy](https://github.com/BootBlock/AudioGubbins/security/policy).
+
+  - type: input
+    id: version
+    attributes:
+      label: AudioGubbins version
+      description: It's shown in About AudioGubbins.
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: host
+    attributes:
+      label: Where were you running it?
+      options:
+        - The Windows app
+        - In a web browser
+        - In a web browser, installed as an app
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and its version
+      description: Only needed if you were using AudioGubbins in a browser.
+      placeholder: e.g. Chrome 141, Edge 141, Firefox 144
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Windows 11 24H2
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen
+      description: What did you do, one step at a time? If a file is involved, say what format it is, its sample rate and how many channels it has.
+      placeholder: |
+        1. Open a 48 kHz stereo WAV file
+        2. Select the first two seconds
+        3. Click Fade In
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include any error message, word for word.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data-loss
+    attributes:
+      label: Did you lose any work?
+      description: Lost or damaged work is looked at first.
+      options:
+        - "No"
+        - Yes, some work was lost or damaged
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots, logs or files
+      description: Drag files in here. Please check them for personal details first, as above.

@@ -1,0 +1,43 @@
+name: Feature idea
+description: Suggest something new, or a way to make something better.
+labels:
+  - "type: feature"
+  - "status: triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. If you'd like to talk it through first, or you're not sure it fits,
+        [Discussions](https://github.com/BootBlock/AudioGubbins/discussions/categories/ideas)
+        is a good place to start.
+
+        Everything you post here is public, so please leave out anything personal.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Tell us about the job you're doing and what gets in the way. This helps more than a description of the solution.
+      placeholder: When I'm cutting up dialogue, I have to…
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: How do you picture it working?
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you manage at the moment?
+      description: Any workaround, or another app that does this well.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Sketches, screenshots or examples.
